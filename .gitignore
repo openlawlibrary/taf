@@ -1,0 +1,110 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+db.sqlite3
+
+*.css.map
+*.js.map
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+!core/oll/tools/build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# Rope
+.ropeproject
+
+# Django stuff:
+*.log
+*.pot
+
+# Sphinx documentation
+docs/_build/
+
+# DOT files
+*.dot
+site
+.directory
+*.png
+examples/Entity/srcgen/
+tags
+textX.mm
+textx.build/
+*.pstats
+venv
+*.pdf
+*.svg
+!docs/**/*svg
+
+# VS Code
+.vscode/
+!cls/.vscode
+*.code-workspace
+
+.pytest_cache/
+wheels/
+
+node_modules
+
+# secrets.json should *not* be checked into source control
+**\secrets.json
+
+# Other front-end stuff
+server/v3/static/v3/dist/
+result.xml
+
+# need our oll-draft-server lib/ and the sub-folder lib/v*/**/dist/ folders, but lib/v*/dist
+!draft-server/**/lib
+!draft-server/**/lib/**/dist
+draft-server/**/lib/v*/dist
+
+# provisioning
+.vagrant/
+playbook.retry
+.terraform/
+
+# ignore some more OLL-specific stuff
+**/dc-law-test-xml/**
+cached_urls.json
+# don't ignore Codify extension assets
+!cls/client/assets/*
+
+# new api dist files
+draft-server/oll/draft/server/v*/lib/css/draft/
+draft-server/oll/draft/server/v*/lib/js/draft/
+draft-server/oll/draft/server/**/office-ui-fabric-react.stats.json
