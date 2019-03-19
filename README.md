@@ -4,9 +4,9 @@ TAF (The Archive Framework) is an implementation of archival authentication. In 
 
 A git repository can be compromised in a number of ways:
 
-1. an attacker could hack a user's account on a code hosting platform, like GitHub or GitLab,
-1. an attacker could hack the hosting platform,
-1. an attacker could gain access to a developer's personal computer.
+- an attacker could hack a user's account on a code hosting platform, like GitHub or GitLab,
+- an attacker could hack the hosting platform,
+- an attacker could gain access to a developer's personal computer.
 
 This attacker could then:
 - upload a new GPG key to GitHub,
