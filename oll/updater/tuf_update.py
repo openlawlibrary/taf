@@ -86,8 +86,8 @@ def update():
   try:
     while not update_done:
       repository_updater.refresh()
-        repository_updater._refresh_targets_metadata()
-        update_done = repository_updater.update_handler.update_done()
+      repository_updater._refresh_targets_metadata()
+      update_done = repository_updater.update_handler.update_done()
   except Exception as e:
     print(e)
   repository_updater.update_handler.cleanup()
