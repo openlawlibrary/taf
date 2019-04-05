@@ -3,6 +3,7 @@ import json
 import shutil
 from pathlib import Path
 from contextlib import contextmanager
+import securesystemslib
 
 role_keys_cache = {}
 
@@ -41,7 +42,7 @@ class TUFRepository:
     # in targets metadata
     for root, dirs, files in os.walk(self.targets_path):
       for filename in files:
-        filepath = os.pah.join(root, filename)
+        filepath = os.path.join(root, filename)
         # remove the extension
         filepath, _ = os.path.splitext(filepath)
         if not filepath in paths_and_commits:
@@ -89,7 +90,8 @@ class TUFRepository:
       Path(path).touch()
       self._role_obj(targets_role).add_target('capstone')
     else:
-      os.remove(path)
+      if os.path.isfile(path):
+        os.remove(path)
 
   def write_roles_metadata(self, role, keystore):
     """
