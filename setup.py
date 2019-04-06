@@ -15,7 +15,6 @@ with open('README.md', encoding='utf-8') as file_object:
   long_description = file_object.read()
 
 packages = find_packages()
-print(packages)
 
 setup(
   name=PACKAGE_NAME,
