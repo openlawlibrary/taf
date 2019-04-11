@@ -1,4 +1,5 @@
 from .exceptions import InvalidBranch
+import taf.targetsdb as targetsdb
 
 
 def validate_branch(auth_repo, branch_name):
@@ -15,7 +16,7 @@ def validate_branch(auth_repo, branch_name):
   # have the same target repositories defined in targets.json
   # TODO what if a user wants to start protecting a new repository?
 
-  target_repos = auth_repo.targets()
+  target_repos = targetsdb.get_targets(auth_repo)
   targets_and_commits = {target_repo: target_repo.
                          commits_on_branch_and_not_other(branch_name, 'master')
                          for target_repo in target_repos}
