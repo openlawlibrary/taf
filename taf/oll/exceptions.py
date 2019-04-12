@@ -4,5 +4,8 @@ class InvalidCommit(Exception):
 class InvalidBranch(Exception):
     pass
 
+class TargetsNotFound(Exception):
+    pass
+
 class NoSpeculativeBranch(Exception):
     pass
