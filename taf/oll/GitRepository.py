@@ -3,7 +3,6 @@ import json
 from .utils import run
 
 
-
 class GitRepository(object):
 
   def __init__(self, repo_path):

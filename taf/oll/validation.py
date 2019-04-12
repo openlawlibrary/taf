@@ -1,6 +1,5 @@
-from .exceptions import InvalidBranch
-import taf.targetsdb as targetsdb
-
+import taf.oll.targetsdb as targetsdb
+from taf.oll.exceptions import InvalidBranch
 
 def validate_branch(auth_repo, branch_name):
   """
