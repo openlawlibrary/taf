@@ -45,8 +45,6 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
         # _check_commits
 
 
-
-
 def _check_lengths_of_branches(targets_and_commits, branch_name):
   """
   Checks if branches bracnhes of the given name have the same number
