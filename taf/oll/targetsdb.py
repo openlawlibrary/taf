@@ -42,7 +42,7 @@ def create_targets(auth_repo, targets_classes=None, root_dir=None, commit=None):
 
   global _targetsdb_dict
 
-  all_targets_class = target_classes if not isinstance(targets_classes, dict) else None
+  all_targets_class = targets_classes if not isinstance(targets_classes, dict) else None
   if auth_repo.name not in _targetsdb_dict:
     _targetsdb_dict[auth_repo.name] = {}
   elif commit in _targetsdb_dict[auth_repo.name]:
