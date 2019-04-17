@@ -16,6 +16,7 @@ class GitRepository(object):
     root_dir.
     """
     self.target_path = target_path
+
     if target_path is not None:
       self.repo_path = os.path.join(root_dir, target_path.replace('/', os.sep))
     else:

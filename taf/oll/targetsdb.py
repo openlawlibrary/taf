@@ -6,8 +6,8 @@ from pathlib import Path
 # {
 #     'authentication_repo_name': {
 #         'commit' : {
-#             'target_path1': target_git_repository1,
-#             'target_path2': target_git_repository2
+#             'target_path1': (target_git_repository1, custom_data1)
+#             'target_path2': (target_git_repository2, custom_data2)
 #             ...
 #         }
 #     }
@@ -15,7 +15,7 @@ from pathlib import Path
 
 _targetsdb_dict = {}
 
-def create_targets(auth_repo, targets_classes=None, root_dir=None, commit=None):
+def load_targets(auth_repo, targets_classes=None, factory=None, root_dir=None, commit=None):
   """
   Creates target repositories by reading the targets.json file at the specified revision,
   given an atuhentication repo. If the commit is not specified, it is set to the HEAD
@@ -42,7 +42,6 @@ def create_targets(auth_repo, targets_classes=None, root_dir=None, commit=None):
 
   global _targetsdb_dict
 
-  all_targets_class = targets_classes if not isinstance(targets_classes, dict) else None
   if auth_repo.name not in _targetsdb_dict:
     _targetsdb_dict[auth_repo.name] = {}
   elif commit in _targetsdb_dict[auth_repo.name]:
@@ -61,27 +60,52 @@ def create_targets(auth_repo, targets_classes=None, root_dir=None, commit=None):
 
   # target repositories are defined in both mirrors.json and targets.json
   repos = [repository['custom']['path'] for repository in mirrors['signed']['mirrors']]
-  for target_path in targets['signed']['targets']:
+  for target_path, target_data in targets['signed']['targets'].items():
     if target_path not in repos:
       continue
+    custom = target_data.get('custom', None)
 
-    if all_targets_class:
-      target_class = all_targets_class
+    if factory is not None:
+      target = factory(root_dir, target_path, custom)
     else:
-      target_class = targets_classes.get(target_path, None)
-      if not target_class:
-        target_class = targets_classes.get('default', None)
+      target_class = _determine_target_class(targets_classes, target_path)
+      target = target_class(root_dir, target_path)
 
-      if not target_class:
-        target_class = GitRepository
+    if not isinstance(target, GitRepository):
+        raise Exception(f'{type(target)} is not a subclass of GitRepository')
 
-    if not issubclass(target_class, GitRepository):
-        raise Exception(f'{target_class} is not a subclass of GitRepository')
+    targets_dict[target_path] = (target, custom)
 
-    targets_dict[target_path] = target_class(root_dir, target_path)
+
+def _determine_target_class(targets_classes, path):
+  # if no class is specified, return the default one
+  if targets_classes is None:
+    return GitRepository
+
+  # if only one value is specified, that means that all target repositories
+  # should be of the same class
+  if not isinstance(targets_classes, dict):
+    return targets_classes
+
+  if path in targets_classes:
+    return targets_classes[path]
+
+  if 'default' in targets_classes:
+    return targets_classes['default']
+
+  return GitRepository
 
 def get_targets(auth_repo, commit=None):
 
+  targets_and_custom = get_targets_and_custom(auth_repo, commit)
+  return [target for target, _ in targets_and_custom.values()]
+
+
+def get_target(auth_repo, target_path, commit=None):
+  return get_target_and_custom(auth_repo, target_path, commit)[0]
+
+
+def get_targets_and_custom(auth_repo, commit):
   global _targetsdb_dict
 
   all_targets = _targetsdb_dict.get(auth_repo.name, None)
@@ -92,13 +116,14 @@ def get_targets(auth_repo, commit=None):
   if commit is None:
     commit = auth_repo.head_commit_sha()
 
-  targets = all_targets.get(commit, None)
-  if targets is None:
+  targets_and_custom = all_targets.get(commit, None)
+  if targets_and_custom is None:
     raise TargetsNotFound(f'Targets of authentication repository {auth_repo.name} '
                           'at revision {commit} have not been loaded')
-  return targets
+  return targets_and_custom
 
-def get_target(auth_repo, target_path, commit=None):
+def get_target_and_custom(auth_repo, target_path, commit=None):
+
   targets = get_targets(auth_repo, commit)
   target = targets.get(target_path, None)
   if target is None:
@@ -107,5 +132,15 @@ def get_target(auth_repo, target_path, commit=None):
     else:
       msg = f'Target {target_path} not defined in {auth_repo.name} at HEAD revision'
     raise TargetsNotFound(msg)
-
   return target
+
+def get_targets_by_custom_data(auth_repo, commit=None, **custom_data):
+  targets = []
+  targets_and_custom = get_targets_and_custom(auth_repo, commit)
+  for target, custom in targets_and_custom.values():
+    for custom_property, custom_value in custom_data.items():
+      if custom_property in custom and custom[custom_property] == custom_value:
+        targets.append(target)
+  if len(targets):
+    return targets
+  raise TargetsNotFound(f'Target associated with custom data {custom_data} not found')

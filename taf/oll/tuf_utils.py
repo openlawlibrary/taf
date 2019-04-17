@@ -26,37 +26,45 @@ class TUFRepository:
   def metadata_staged_path(self):
     return os.path.join(self.repository_path, 'metadata.staged')
 
-  def add_targets(self, paths_and_commits, targets_role='targets'):
+  def add_targets(self, data, targets_role='targets'):
     """
     Creates a target .json file containing a repository's commit for each
     repository. Adds those files to the tuf repostiory. Aslo removes
     all targets from the filesystem if the their path is not among the
     provided ones. TUF does not delete targets automatically.
     Args:
-      paths_and_commits: a dictionary whose keys are full paths repositories
-      (as specified in targets.json, but without the targets directory) and
-      whose values are commits which will be stored in target files
+      data: a dictionary whose keys are target paths of repositories
+      (as specified in targets.json, relative to the targets dictionary),
+      The values are of form:
+      {
+        commit: commit sha,
+        custom_field_1: custom data 1,
+        custom_field_2: custom data 2
+        ...
+      }
+      where commits is requeired and the following custom fields are optional.
       targets_role: a targets role (the root targets role, or one of the delegated ones)
     """
-    # delete files if they they no longer correspond to a target defined
+    # delete files if they no longer correspond to a target defined
     # in targets metadata
     for root, dirs, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
         # remove the extension
         filepath, _ = os.path.splitext(filepath)
-        if not filepath in paths_and_commits:
+        if not filepath in data:
           os.remove(filepath)
 
     targets = self._role_obj(targets_role)
-    for path, commit in paths_and_commits.items():
+    for path, target_data in data.items():
+      commit = target_data.pop('commit')
       target_path = os.path.join(self.targets_path, path)
       if not os.path.exists(os.path.dirname(target_path)):
         os.makedirs(os.path.dirname(target_path))
       with open(target_path, 'w') as f:
         json.dump({'commit': commit}, f, indent=4)
-
-      targets.add_target(target_path)
+      custom = target_data if len(target_data) else None
+      targets.add_target(target_path, custom)
 
   def _role_obj(self, role):
     """
