@@ -37,12 +37,22 @@ class TUFRepository:
       (as specified in targets.json, relative to the targets dictionary),
       The values are of form:
       {
-        commit: commit sha,
-        custom_field_1: custom data 1,
-        custom_field_2: custom data 2
-        ...
+        target: content of the target file
+        custom: {
+          custom_field1: custom_value1,
+          custom_field2: custom_value2
+        }
       }
-      where commits is requeired and the following custom fields are optional.
+
+      Content of the target file can be a dictionary, in which case a jason file will be created.
+      If that is not the case, an oridinary textual file will be created.
+      If target is not specified and the file already exists, it will not be modified. If it does not exist,
+      an empty file will be created. To replace an existing  file with an empty file, specify empty
+      content (target: '')
+
+      Custom is an optional property which, if present, will be used to specify a TUF target's
+      custom data. This is supported by TUF and is directly written to the metadata file.
+
       targets_role: a targets role (the root targets role, or one of the delegated ones)
     """
     # delete files if they no longer correspond to a target defined
@@ -50,20 +60,32 @@ class TUFRepository:
     for root, dirs, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
-        # remove the extension
+        # remove the extension if the file has one
         filepath, _ = os.path.splitext(filepath)
         if not filepath in data:
           os.remove(filepath)
 
     targets = self._role_obj(targets_role)
     for path, target_data in data.items():
-      commit = target_data.pop('commit')
+      # if the target's parent directory should not be "targets", create
+      # its parent directories if they do not exist
       target_path = os.path.join(self.targets_path, path)
       if not os.path.exists(os.path.dirname(target_path)):
         os.makedirs(os.path.dirname(target_path))
-      with open(target_path, 'w') as f:
-        json.dump({'commit': commit}, f, indent=4)
-      custom = target_data if len(target_data) else None
+
+      # create the target file
+      content = target_data.get('target', None)
+      if content is None:
+        if not os.path.isfile(target_path):
+          Path(target_path).touch()
+      else:
+        with open(target_path, 'w') as f:
+          if isinstance(content, dict):
+            json.dump(content, f, indent=4)
+          else:
+            f.write(content)
+
+      custom = target_data.get('custom', None)
       targets.add_target(target_path, custom)
 
   def _role_obj(self, role):
@@ -83,23 +105,6 @@ class TUFRepository:
       return self.repository.root
     return self.repository.targets(role)
 
-  def set_capstone(self, capstone, targets_role='targets'):
-    """
-    Creates or removes a capstone file, depending on the value of the
-    capstone parameter
-    Args:
-      repository: tuf repository
-      capstone: indicator if capstone should be added or removed
-      targets_role: a targets role (the root targets role, or one of the delegated ones)
-    """
-    path = os.path.join(self.targets_path, 'capstone')
-
-    if capstone:
-      Path(path).touch()
-      self._role_obj(targets_role).add_target('capstone')
-    else:
-      if os.path.isfile(path):
-        os.remove(path)
 
   def write_roles_metadata(self, role, keystore):
     """
