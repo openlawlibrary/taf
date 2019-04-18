@@ -17,9 +17,7 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
   to the next commit of a speculative branch in the authentication repository
   3. The last commit of the authentication repository's branch has capstone set (meaning
   that a capstone file is one of the targets specified in targets.json)
-
-  # TODO Add speculative branch ID as a new target
-  # TODO Check if all commits of an authentication repository's speculative branch have the same branch ID
+  4. If all commits of an authentication repository's speculative branch have the same branch ID
   """
 
   check_capstone(auth_repo, branch_name, targets_metadata_file)
@@ -27,20 +25,24 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
   targets_and_commits = {target_repo: target_repo.
                          commits_on_branch_and_not_other(branch_name, 'master')
                          for target_repo in target_repos}
-
   auth_commits = auth_repo.commits_on_branch_and_not_other(branch_name, 'master')
-  _check_lengths_of_branches(targets_and_commits, branch_name)
-  targets_version = None
 
-  # fill the shorter lists with None values, so that their sizes matches the sizes
+  _check_lengths_of_branches(targets_and_commits, branch_name)
+
+  targets_version = None
+  branch_id = None
+  targets_path =  f'metadata/{targets_metadata_file}.json'
+
+  # fill the shorter lists with None values, so that their sizes match the size
   # of authentication repository's commits list
   for commits in targets_and_commits.values():
     commits.extend([None] * (len(auth_commits) - len(commits)))
 
   for commit_index, auth_commit in enumerate(auth_commits):
     # load content of targets.json
-    targets = auth_repo.get_json(auth_commit, f'metadata/{targets_metadata_file}.json')
+    targets = auth_repo.get_json(auth_commit, targets_path)
     targets_version = _check_targets_version(targets, auth_commit, targets_version)
+    branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
 
     for target, target_commits in targets_and_commits.items():
       target_commit = target_commits[commit_index]
@@ -48,7 +50,6 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
       # targets' commits match the target commits specified in the authentication repository
       if target_commit is not None:
         _compare_commit_with_targets_metadata(auth_repo, auth_commit, target, target_commit)
-        # _check_commits
 
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
@@ -65,8 +66,13 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
     raise InvalidBranch(msg)
 
 
-def _check_commits():
-  pass
+def _check_branch_id(auth_repo, auth_commit, branch_id):
+
+  new_branch_id = auth_repo.get_file(auth_commit, 'targets/branch')
+  if branch_id is not None and new_branch_id != branch_id:
+    raise InvalidBranch(f'Branch ID at revision {auth_commit} is not the same as the '
+                        'version at the following revision')
+  return new_branch_id
 
 
 def _check_targets_version(targets, tuf_commit, current_version):
@@ -78,7 +84,7 @@ def _check_targets_version(targets, tuf_commit, current_version):
   """
   new_version = targets['signed']['version']
   # substracting one because the commits are in the reverse order
-  if current_version and new_version != current_version - 1:
+  if current_version is not None and new_version != current_version - 1:
     raise InvalidBranch(f'Version of metadata file targets.json at revision '
                         f'{tuf_commit} is not equal to previous version incremented '
                         'by one!')
@@ -86,7 +92,6 @@ def _check_targets_version(targets, tuf_commit, current_version):
 
 
 def check_capstone(auth_repo, branch, metadata_file):
-    auth_repo.checkout_branch(branch)
     capstone_path = os.path.join(auth_repo.repo_path, 'targets', 'capstone')
     if not os.path.isfile(capstone_path):
         raise InvalidBranch(f'No capstone at the end of branch {branch}!!!')

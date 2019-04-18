@@ -95,6 +95,7 @@ def _determine_target_class(targets_classes, path):
 
   return GitRepository
 
+
 def get_targets(auth_repo, commit=None):
 
   targets_and_custom = get_targets_and_custom(auth_repo, commit)
@@ -122,6 +123,7 @@ def get_targets_and_custom(auth_repo, commit):
                           'at revision {commit} have not been loaded')
   return targets_and_custom
 
+
 def get_target_and_custom(auth_repo, target_path, commit=None):
 
   targets = get_targets(auth_repo, commit)
@@ -133,6 +135,7 @@ def get_target_and_custom(auth_repo, target_path, commit=None):
       msg = f'Target {target_path} not defined in {auth_repo.name} at HEAD revision'
     raise TargetsNotFound(msg)
   return target
+
 
 def get_targets_by_custom_data(auth_repo, commit=None, **custom_data):
   targets = []
