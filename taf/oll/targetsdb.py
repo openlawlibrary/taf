@@ -1,7 +1,7 @@
-import os
-from taf.oll.GitRepository import GitRepository
-from taf.oll.exceptions import TargetsNotFound
 from pathlib import Path
+
+from taf.oll.exceptions import TargetsNotFound
+from taf.oll.GitRepository import GitRepository
 
 # {
 #     'authentication_repo_name': {
@@ -14,6 +14,7 @@ from pathlib import Path
 # }
 
 _targetsdb_dict = {}
+
 
 def load_targets(auth_repo, targets_classes=None, factory=None, root_dir=None, commit=None):
   """
@@ -59,7 +60,8 @@ def load_targets(auth_repo, targets_classes=None, factory=None, root_dir=None, c
   mirrors = auth_repo.get_json(commit, 'mirrors.json')
 
   # target repositories are defined in both mirrors.json and targets.json
-  repos = [repository['custom']['path'] for repository in mirrors['signed']['mirrors']]
+  repos = [repository['custom']['path']
+           for repository in mirrors['signed']['mirrors']]
   for target_path, target_data in targets['signed']['targets'].items():
     if target_path not in repos:
       continue
@@ -72,7 +74,7 @@ def load_targets(auth_repo, targets_classes=None, factory=None, root_dir=None, c
       target = target_class(root_dir, target_path)
 
     if not isinstance(target, GitRepository):
-        raise Exception(f'{type(target)} is not a subclass of GitRepository')
+      raise Exception(f'{type(target)} is not a subclass of GitRepository')
 
     targets_dict[target_path] = (target, custom)
 
@@ -94,6 +96,22 @@ def _determine_target_class(targets_classes, path):
     return targets_classes['default']
 
   return GitRepository
+
+
+def get_target_paths_by_custom_data(auth_repo, commit=None, **custom):
+  if not commit:
+    commit = auth_repo.head_commit_sha()
+  targets_json = auth_repo.get_json(commit, 'metadata/targets.json')
+  targets = targets_json['signed']['targets']
+
+  def _compare(path):
+    # Check if `custom` dict is subset of targets[path]['custom'] dict
+    try:
+      return custom.items() <= targets[path]['custom'].items()
+    except (AttributeError, KeyError):
+      return False
+
+  return list(filter(_compare, targets)) if custom else list(targets)
 
 
 def get_targets(auth_repo, commit=None):
@@ -146,4 +164,5 @@ def get_targets_by_custom_data(auth_repo, commit=None, **custom_data):
         targets.append(target)
   if len(targets):
     return targets
-  raise TargetsNotFound(f'Target associated with custom data {custom_data} not found')
+  raise TargetsNotFound(
+      f'Target associated with custom data {custom_data} not found')
