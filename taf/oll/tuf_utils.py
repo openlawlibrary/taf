@@ -26,6 +26,15 @@ class TUFRepository:
   def metadata_staged_path(self):
     return os.path.join(self.repository_path, 'metadata.staged')
 
+  def add_existing_target(self, file_path, targets_role='targets'):
+    """
+    Registers new target files with TUF. The files are expected to be
+    inside the targets directory.
+    """
+    targets = self._role_obj(targets_role)
+    targets.add_target(os.path.join(self.targets_path, file_path))
+
+
   def add_targets(self, data, targets_role='targets'):
     """
     Creates a target .json file containing a repository's commit for each
@@ -106,7 +115,7 @@ class TUFRepository:
     return self.repository.targets(role)
 
 
-  def write_roles_metadata(self, role, keystore):
+  def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
     """
     Generates metadata of just one metadata file, corresponding
     to the provided role
@@ -114,11 +123,20 @@ class TUFRepository:
       repository: a tu repository
       role: a tuf role
       keystore: location of the keystore file
+      update_snapshot_and_timestamp: should timestamp and snapshot.json also be udpated
     """
     private_role_key = load_role_key(role, keystore)
     self._role_obj(role).load_signing_key(private_role_key)
     # only write this role's metadata
-    self.repository.write(role)
+
+    if not update_snapshot_and_timestamp:
+      self.repository.write(role)
+    else:
+      snapshot_key = load_role_key('snapshot', keystore)
+      self.repository.snapshot.load_signing_key(snapshot_key)
+      timestamp_key = load_role_key('timestamp', keystore)
+      self.repository.timestamp.load_signing_key(timestamp_key)
+      self.repository.writeall()
 
 
 def load_role_key(role, keystore):

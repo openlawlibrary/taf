@@ -38,6 +38,11 @@ setup(
   install_requires = [
     'oll-tuf'
   ],
+  entry_points={
+        'console_scripts': [
+            'taf = taf.oll.cli:main'
+        ]
+  },
   classifiers=[
     'Development Status :: 2 - Pre-Alpha',
     'Intended Audience :: Developers',
