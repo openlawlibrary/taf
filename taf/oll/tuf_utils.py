@@ -1,8 +1,9 @@
-import os
+import getpass
 import json
+import os
 import shutil
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 import securesystemslib
 
 role_keys_cache = {}
@@ -103,7 +104,6 @@ class TUFRepository:
       target_path = os.path.join(self.targets_path, path)
       previous_custom = previous_targets[path].get('custom')
       targets.add_target(target_path, previous_custom)
-
 
 
   def _role_obj(self, role):

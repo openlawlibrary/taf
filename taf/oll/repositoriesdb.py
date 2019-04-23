@@ -168,7 +168,6 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
       return custom_data.items() <= repo.additional_info.items()
     except (AttributeError, KeyError):
       return False
-
   found_repos = list(filter(_compare, repositories)) if custom_data else list(repositories)
   if len(found_repos):
     return found_repos
