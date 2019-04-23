@@ -7,7 +7,6 @@ import securesystemslib
 
 role_keys_cache = {}
 
-
 class TUFRepository:
 
   def __init__(self, repository, repository_path):
@@ -35,7 +34,7 @@ class TUFRepository:
     targets.add_target(os.path.join(self.targets_path, file_path))
 
 
-  def add_targets(self, data, targets_role='targets'):
+  def add_targets(self, data, targets_role='targets', files_to_keep=['repositories.json']):
     """
     Creates a target .json file containing a repository's commit for each
     repository. Adds those files to the tuf repostiory. Aslo removes
@@ -63,15 +62,15 @@ class TUFRepository:
       custom data. This is supported by TUF and is directly written to the metadata file.
 
       targets_role: a targets role (the root targets role, or one of the delegated ones)
+      files_to_keep: a list of files defined in the previous version of targets.json that should remain
+        targets.
     """
     # delete files if they no longer correspond to a target defined
     # in targets metadata
     for root, dirs, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
-        # remove the extension if the file has one
-        filepath, _ = os.path.splitext(filepath)
-        if not filepath in data:
+        if filepath not in data and filename not in files_to_keep:
           os.remove(filepath)
 
     targets = self._role_obj(targets_role)
@@ -96,6 +95,16 @@ class TUFRepository:
 
       custom = target_data.get('custom', None)
       targets.add_target(target_path, custom)
+
+    with open(os.path.join(self.metadata_path, f'{targets_role}.json')) as f:
+      previous_targets = json.load(f)['signed']['targets']
+
+    for path in files_to_keep:
+      target_path = os.path.join(self.targets_path, path)
+      previous_custom = previous_targets[path].get('custom')
+      targets.add_target(target_path, previous_custom)
+
+
 
   def _role_obj(self, role):
     """

@@ -5,22 +5,25 @@ from .utils import run
 
 class GitRepository(object):
 
-  def __init__(self, root_dir, target_path=None):
+  def __init__(self, root_dir, target_path=None, repo_urls=None, additional_info=None):
     """
     Args:
       root_dir: the root directory, target_path is relative to it
       target_path: repository's relative path, as specified in targets.json
-      and mirrors.json
+      and mirrors.json (optional)
+      repo_urls: repository's urls (optional)
+      additional_info: a dictionary containing other data (optional)
     repo_path is the absolute path to this repository. If target path is not None,
     it is set by joining root_dir and target_path. Otherwise, it is set to just
     root_dir.
     """
     self.target_path = target_path
-
     if target_path is not None:
       self.repo_path = os.path.join(root_dir, target_path.replace('/', os.sep))
     else:
       self.repo_path = root_dir
+    self.repo_urls = repo_urls
+    self.additional_info = additional_info
 
   @property
   def name(self):
