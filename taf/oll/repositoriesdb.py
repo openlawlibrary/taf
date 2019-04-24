@@ -138,7 +138,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
 
 def get_repository(auth_repo, path, commit=None):
-  return get_repositories(auth_repo, path, commit)[0]
+  return get_repositories(auth_repo, commit)['path']
 
 
 def get_repositories(auth_repo, commit):
@@ -156,11 +156,11 @@ def get_repositories(auth_repo, commit):
   if repositories is None:
     raise RepositoriesNotFound('Repositories defined in authentication repository '
                                f'{auth_repo.name} at revision {commit} have not been loaded')
-  return list(repositories.values())
+  return repositories
 
 
 def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
-  repositories = get_repositories(auth_repo, commit)
+  repositories = get_repositories(auth_repo, commit).values()
 
   def _compare(repo):
     # Check if `custom` dict is subset of targets[path]['custom'] dict
@@ -169,6 +169,7 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     except (AttributeError, KeyError):
       return False
   found_repos = list(filter(_compare, repositories)) if custom_data else list(repositories)
+
   if len(found_repos):
     return found_repos
   raise RepositoriesNotFound(
