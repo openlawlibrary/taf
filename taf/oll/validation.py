@@ -2,8 +2,7 @@ import os
 import taf.oll.repositoriesdb as repositoriesdb
 from taf.oll.exceptions import InvalidBranch
 
-def validate_branch(auth_repo, target_repos, branch_name, default_branch='master',
-                    targets_metadata_file='targets'):
+def validate_branch(auth_repo, target_repos, branch_name, default_branch='master'):
   """
   Validates corresponding branches of the authentication repository
   and the target repositories. Assumes that:
@@ -13,14 +12,14 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
   Checks if:
   1. For each target repository, a commit sha of each commit of the specified branch matches
   the commit sha stored in the target file corresponding to that repository.
-  2. If versions of tuf metadata increases by one from one commit
-  to the next commit of a speculative branch in the authentication repository
+  2. Versions of tuf metadata increase by one from one commit
+  to the next commit of a branch in the authentication repository
   3. The last commit of the authentication repository's branch has capstone set (meaning
   that a capstone file is one of the targets specified in targets.json)
-  4. If all commits of an authentication repository's speculative branch have the same branch ID
+  4. If all commits of an authentication repository's branch have the same branch ID
   """
 
-  check_capstone(auth_repo, branch_name, targets_metadata_file)
+  check_capstone(auth_repo, branch_name)
 
   targets_and_commits = {target_repo: target_repo.
                          commits_on_branch_and_not_other(branch_name, 'master')
@@ -31,7 +30,7 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
 
   targets_version = None
   branch_id = None
-  targets_path =  f'metadata/{targets_metadata_file}.json'
+  targets_path =  'metadata/targets.json'
 
   # fill the shorter lists with None values, so that their sizes match the size
   # of authentication repository's commits list
@@ -54,7 +53,7 @@ def validate_branch(auth_repo, target_repos, branch_name, default_branch='master
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
   """
-  Checks if branches bracnhes of the given name have the same number
+  Checks if branches of the given name have the same number
   of commits in each of the provided repositories.
   """
 
@@ -91,10 +90,14 @@ def _check_targets_version(targets, tuf_commit, current_version):
   return new_version
 
 
-def check_capstone(auth_repo, branch, metadata_file):
-    capstone_path = os.path.join(auth_repo.repo_path, 'targets', 'capstone')
-    if not os.path.isfile(capstone_path):
-        raise InvalidBranch(f'No capstone at the end of branch {branch}!!!')
+def check_capstone(auth_repo, branch):
+  """
+  Check if there is a capstone file (a target file called capstone) at the end of the specified branch.
+  Assumes that the branch is checked out.
+  """
+  capstone_path = os.path.join(auth_repo.repo_path, 'targets', 'capstone')
+  if not os.path.isfile(capstone_path):
+    raise InvalidBranch(f'No capstone at the end of branch {branch}!!!')
 
 
 def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, target_repo_commit):
