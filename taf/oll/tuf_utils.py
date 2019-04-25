@@ -166,7 +166,7 @@ def load_role_key(role, keystore):
       key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
     except securesystemslib.exceptions.CryptoError:
       while key is None:
-        passphrase = getpass(f'Enter {role} passphrase:')
+        passphrase = getpass.getpass(f'Enter {role} passphrase:')
         try:
           key = import_rsa_privatekey_from_file(os.path.join(keystore, role), passphrase)
         except:

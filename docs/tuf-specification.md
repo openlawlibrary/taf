@@ -165,10 +165,10 @@ files and folders:
 The `targets.json` file (or the metadata file of a delegated role) requires all targets of the
 corresponding role to be listed and uniquely identified by their paths. Each path is relative to
 the targets directory. The main idea behind this directory structure is the following:
-- Commits are sotred as content target files.
+- Commits are stored as content target files.
 - For each repository, there is one entry in `targets.json`, which contains data about the file where
 the commit is stored. The unique paths are of format `jurisdiction/repository_name`.
-- URLs and other information about the repositories (appart from the most recent commit) are stored in
+- URLs and other information about the repositories (apart from the most recent commit) are stored in
 - `repositories.json`. This file is also listed as a target in `targets.json`.
 
 By adding files as targets, we makes sure we can detect unauthorized modification of these files. If someone
@@ -176,7 +176,7 @@ changed any of the files, they would also need to update `targets.json` and sign
 
 We might also at one point need to reference commits from authentication repository of another
 Publishing Entity. These commits would also be stored as content of target files, located inside the `targets/authentication`
-directory. So, a path referrencing an external repository could be: `authentication/dcmayorsoffice`.
+directory. So, a path referencing an external repository could be: `authentication/dcmayorsoffice`.
 
 In addition to the listed targets, there can be other target files, storing additional information needed
 for validation of the repositories.
@@ -220,24 +220,24 @@ malicious update is not possible if targets key is not compromised.
 
 ### Target files
 
-We require exsitance of certain target files, though there could be additional one. These include, as
+We require existance of certain target files, though there could be additional one. These include, as
 noted above, one target file per repository and a target files containing information about the repositories.
 
-If a target's path specified in `targets.json` is `somejurisdiction/law-xml`, there should ba a target file
+If a target's path specified in `targets.json` is `somejurisdiction/law-xml`, there should be a target file
 named `law-xml`, located inside `somejurisdiction` directory inside `targets`. These files are expected
-to be json files, containing at least the commit sha. Here is an example of a target file containing a
-commit sha:
+to be json files, containing at least the commit SHA. Here is an example of a target file containing a
+commit SHA:
 
 ```json
 {
     "commit": "4a55ac5822bc4504673dcba43ac1959213531474"
 }
 ```
-They can containg other infromation, as needed.
+They can containing other information, as needed.
 
 `repositories.json` contains repositories' definitions. Each repository is identified by a path which
 should match the corresponding path in `targets.json`. The `urls` property is used to specify the repository's
-locations. We want to supported definition of multiple urls, which is why this property is a list. On top
+locations. We want to supported definition of multiple URLs, which is why this property is a list. On top
 of that, it is possible to define any additional information, via the `custom` property. This is an example
 of the repositories definition file:
 
@@ -387,7 +387,7 @@ can be used to perform the checks and update.
       but `targets.json` was),
       - for targets metadata, it can be checked if the target commits exist.
 
-   7. If a problem is detected in any of the substeps, step 4 is prematurely ended.
+   7. If a problem is detected in any of the sub steps, step 4 is prematurely ended.
 
    8. If there are no problems, the next commit becomes the current commit. If there are no more commits, step 4 is finished.
 
@@ -418,7 +418,8 @@ need to be pulled by the client. The case when there is no previous version of t
 treated the same as if it did exist and there were changes.
    2. For each of the updated repositories, we check if a local copy exists. If a repository does not
    exist, it needs to be cloned. So, we need to know the URL of the repository. This can easily be done
-   by reading the URL based on the path from `repositories.json`. Path values in targets.json and mirrors.json
+   by reading the URL based on the path from `repositories.json`. Path values in `targets.json` and
+   `repositories.json`.
    should be the same. After cloning a repository, the HEAD needs to be set to the commit specified by
    the `targets.json` metadata file.
    3. If the repository already exists, we only need to pull the changes. The branch already has a
@@ -428,8 +429,7 @@ treated the same as if it did exist and there were changes.
    we're using Git. Git should check if hashes of files are correct etc. Also, git will automatically
    remove obsolete files, so no need to do this manually.
    5. If a target references another Entity's repository (which should be their TUF authentication
-   repository), download the `targets.json`, as well as `repositories.json` from there, and use that information
-   to clone or pull changes of the referenced repositories.
+   repository), download the `targets.json`, as well as `repositories.json` from there, and use that information to clone or pull changes of the referenced repositories.
    6. If `repositories.json` changed, it is necessary to change Git origin.
 
 ## Compromises
