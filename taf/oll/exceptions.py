@@ -1,11 +1,14 @@
 class InvalidCommit(Exception):
-    pass
+  pass
+
 
 class InvalidBranch(Exception):
-    pass
+  pass
+
 
 class RepositoriesNotFound(Exception):
-    pass
+  pass
+
 
 class NoSpeculativeBranch(Exception):
-    pass
+  pass

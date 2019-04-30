@@ -1,8 +1,8 @@
 import os
-import taf.oll.repositoriesdb as repositoriesdb
 from taf.oll.exceptions import InvalidBranch
 
-def validate_branch(auth_repo, target_repos, branch_name, default_branch='master'):
+
+def validate_branch(auth_repo, target_repos, branch_name):
   """
   Validates corresponding branches of the authentication repository
   and the target repositories. Assumes that:

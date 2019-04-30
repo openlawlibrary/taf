@@ -1,5 +1,6 @@
-import os
 import json
+import os
+import subprocess
 from .utils import run
 
 
@@ -32,6 +33,32 @@ class GitRepository(object):
   def _git(self, cmd):
     return run(f'git -C {self.repo_path} {cmd}')
 
+  def checkout_branch(self, branch_name, create=False):
+    """Check out the specified branch. If it does not exists and
+    the create parameter is set to True, create a new branch.
+    If the branch does not exist and create is set to False,
+    raise an exception."""
+    try:
+      self._git(f'checkout {branch_name}')
+    except subprocess.CalledProcessError as e:
+      if create:
+        self.create_and_checkout_branch(branch_name)
+      else:
+        raise(e)
+
+  def create_and_checkout_branch(self, branch_name):
+    self._git(f'checkout -b {branch_name}')
+
+  def commit(self, message):
+    """Create a commit with the provided message
+    on the currently checked out branch"""
+    self._git('add -A')
+    try:
+      self._git('diff --cached --exit-code --shortstat')
+    except subprocess.CalledProcessError:
+      run('git', '-C', self.repo_path, 'commit', '--quiet', '-m', message)
+    return self._git('rev-parse HEAD')
+
   def commits_on_branch_and_not_other(self, branch1, branch2, include_branching_commit=False):
     """
     Meant to find commits belonging to a branch which branches off of
@@ -57,3 +84,21 @@ class GitRepository(object):
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
     return self._git('rev-parse HEAD')
+
+  def is_git_repository(self):
+    try:
+      self._git('rev-parse --git-dir')
+    except subprocess.CalledProcessError:
+      return False
+    return True
+
+  def pull(self):
+    """Pull current branch"""
+    self._git('pull')
+
+  def push(self, branch=''):
+    """Push all changes"""
+    try:
+      self._git(f'push origin {branch}'.strip())
+    except subprocess.CalledProcessError:
+      self._git(f'--set-upstream origin {branch}'.strip())

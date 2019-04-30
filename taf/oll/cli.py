@@ -4,7 +4,7 @@ from taf.oll.tuf_utils import load_repository
 
 @click.group()
 def cli():
-    pass
+  pass
 
 
 @cli.command()
@@ -16,5 +16,6 @@ def add_target_file(repo_path, file_path, keystore_path, targets_role):
   with load_repository(repo_path) as tuf_repo:
     tuf_repo.add_existing_target(file_path)
     tuf_repo.write_roles_metadata(targets_role, keystore_path, True)
+
 
 cli()

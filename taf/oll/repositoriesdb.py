@@ -22,7 +22,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
                       root_dir=None, commit=None, only_load_targets=False):
   """
   Creates target repositories by reading repositories.json and targets.json files
-  at the specified revision, given an atuhentication repo.
+  at the specified revision, given an authentication repo.
   If the commit is not specified, it is set to the HEAD of the authentication.
   It is possible to specify git repository class that will be created per target.
   Args:
@@ -121,7 +121,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
   targets = auth_repo.get_json(commit, targets_path)
   repositories = auth_repo.get_json(commit, repositories_path)
   repositories = repositories['repositories']
-  tatgets = targets['signed']['targets']
+  targets = targets['signed']['targets']
 
   def _compare(path):
     # Check if `custom` dict is subset of targets[path]['custom'] dict
@@ -138,7 +138,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
 
 def get_repository(auth_repo, path, commit=None):
-  return get_repositories(auth_repo, commit)['path']
+  return get_repositories(auth_repo, commit)[path]
 
 
 def get_repositories(auth_repo, commit):
