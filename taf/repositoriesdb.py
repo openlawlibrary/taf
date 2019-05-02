@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from taf.oll.exceptions import RepositoriesNotFound
-from taf.oll.GitRepository import GitRepository
+from taf.exceptions import RepositoriesNotFound
+from taf.GitRepository import GitRepository
 
 # {
 #     'authentication_repo_name': {

@@ -1,5 +1,5 @@
 import os
-from taf.oll.exceptions import InvalidBranch
+from taf.exceptions import InvalidBranch
 
 
 def validate_branch(auth_repo, target_repos, branch_name):

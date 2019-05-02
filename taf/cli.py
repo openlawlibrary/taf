@@ -1,5 +1,5 @@
 import click
-from taf.oll.tuf_utils import load_repository
+from taf.repository_tool import load_repository
 
 
 @click.group()
