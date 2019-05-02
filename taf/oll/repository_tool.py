@@ -8,10 +8,10 @@ import securesystemslib
 
 role_keys_cache = {}
 
-class TUFRepository:
+class Repository:
 
   def __init__(self, repository, repository_path):
-    self.repository = repository
+    self._repository = repository
     self.repository_path = repository_path
 
   @property
@@ -114,14 +114,14 @@ class TUFRepository:
       role: a role (either one of tuf's root roles, or a delegated target name
    """
     if role == 'targets':
-      return self.repository.targets
+      return self._repository.targets
     elif role == 'snapshot':
-      return self.repository.snapshot
+      return self._repository.snapshot
     elif role == 'timestamp':
-      return self.repository.timestamp
+      return self._repository.timestamp
     elif role == 'root':
-      return self.repository.root
-    return self.repository.targets(role)
+      return self._repository.root
+    return self._repository.targets(role)
 
 
   def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
@@ -139,13 +139,13 @@ class TUFRepository:
     # only write this role's metadata
 
     if not update_snapshot_and_timestamp:
-      self.repository.write(role)
+      self._repository.write(role)
     else:
       snapshot_key = load_role_key('snapshot', keystore)
-      self.repository.snapshot.load_signing_key(snapshot_key)
+      self._repository.snapshot.load_signing_key(snapshot_key)
       timestamp_key = load_role_key('timestamp', keystore)
-      self.repository.timestamp.load_signing_key(timestamp_key)
-      self.repository.writeall()
+      self._repository.timestamp.load_signing_key(timestamp_key)
+      self._repository.writeall()
 
 
 def load_role_key(role, keystore):
@@ -197,9 +197,9 @@ def load_repository(repo_path):
   for filename in os.listdir(metadata_dir):
     shutil.copy(os.path.join(metadata_dir, filename), staged_dir)
 
-  repository = load_repository(repo_path)
-  tuf_repository = TUFRepository(repository, repo_path)
-  yield tuf_repository
+  tuf_repository = load_repository(repo_path)
+  repository = Repository(tuf_repository, repo_path)
+  yield repository
 
   # copy everything from the staged directory to the metadata directory
   # and removed metadata.staged
