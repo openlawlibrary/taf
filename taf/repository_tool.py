@@ -14,6 +14,8 @@ class Repository:
     self._repository = repository
     self.repository_path = repository_path
 
+  _required_files = ['repositories.json']
+
   @property
   def targets_path(self):
     return os.path.join(self.repository_path, 'targets')
@@ -35,11 +37,11 @@ class Repository:
     targets.add_target(os.path.join(self.targets_path, file_path))
 
 
-  def add_targets(self, data, targets_role='targets', files_to_keep=['repositories.json']):
+  def add_targets(self, data, targets_role='targets', files_to_keep=[]):
     """
     Creates a target .json file containing a repository's commit for each
     repository. Adds those files to the tuf repository. Also removes
-    all targets from the filesystem if the their path is not among the
+    all targets from the filesystem if their path is not among the
     provided ones. TUF does not delete targets automatically.
     Args:
       data: a dictionary whose keys are target paths of repositories
@@ -64,10 +66,16 @@ class Repository:
 
       targets_role: a targets role (the root targets role, or one of the delegated ones)
       files_to_keep: a list of files defined in the previous version of targets.json that should remain
-        targets.
+        targets. Files required by the framework will also remain targets.
     """
+    if files_to_keep is None:
+      files_to_keep = []
+    # leave all files required by the framework and additional files specified
+    # by the user
+    files_to_keep.extend(self._required_files)
+
     # delete files if they no longer correspond to a target defined
-    # in targets metadata
+    # in targets metadata and are not specified in files_to_keep
     for root, dirs, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
@@ -101,6 +109,11 @@ class Repository:
       previous_targets = json.load(f)['signed']['targets']
 
     for path in files_to_keep:
+      # if path if both in data and files_to_keep, skip it
+      # e.g. repositories.json will always be in files_to_keep,
+      # but it might also be specified in data, if it needs to be updated
+      if path in data:
+        continue
       target_path = os.path.join(self.targets_path, path)
       previous_custom = previous_targets[path].get('custom')
       targets.add_target(target_path, previous_custom)

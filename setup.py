@@ -1,6 +1,3 @@
-
-import os
-
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = 'taf'
@@ -40,7 +37,7 @@ setup(
   ],
   entry_points={
         'console_scripts': [
-            'taf = taf.oll.cli:main'
+            'taf = taf.cli:main'
         ]
   },
   classifiers=[
