@@ -4,9 +4,11 @@ import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
+
 import securesystemslib
 
 role_keys_cache = {}
+
 
 class Repository:
 
@@ -36,7 +38,6 @@ class Repository:
     targets = self._role_obj(targets_role)
     targets.add_target(os.path.join(self.targets_path, file_path))
 
-
   def add_targets(self, data, targets_role='targets', files_to_keep=[]):
     """
     Creates a target .json file containing a repository's commit for each
@@ -56,17 +57,17 @@ class Repository:
       }
 
       Content of the target file can be a dictionary, in which case a jason file will be created.
-      If that is not the case, an oridinary textual file will be created.
-      If target is not specified and the file already exists, it will not be modified. If it does not exist,
-      an empty file will be created. To replace an existing  file with an empty file, specify empty
-      content (target: '')
+      If that is not the case, an ordinary textual file will be created.
+      If target is not specified and the file already exists, it will not be modified.
+      If it does not exist, an empty file will be created. To replace an existing file with an
+      empty file, specify empty content (target: '')
 
       Custom is an optional property which, if present, will be used to specify a TUF target's
       custom data. This is supported by TUF and is directly written to the metadata file.
 
       targets_role: a targets role (the root targets role, or one of the delegated ones)
-      files_to_keep: a list of files defined in the previous version of targets.json that should remain
-        targets. Files required by the framework will also remain targets.
+      files_to_keep: a list of files defined in the previous version of targets.json that should
+      remain targets. Files required by the framework will also remain targets.
     """
     if files_to_keep is None:
       files_to_keep = []
@@ -118,13 +119,12 @@ class Repository:
       previous_custom = previous_targets[path].get('custom')
       targets.add_target(target_path, previous_custom)
 
-
   def _role_obj(self, role):
     """
-    A helper function which returns tuf's role object, given the role's name
+    A helper function which returns TUF's role object, given the role's name
     args:
-      repository: a tuf repository
-      role: a role (either one of tuf's root roles, or a delegated target name
+      repository: a TUF repository
+      role: a role (either one of TUF's root roles, or a delegated target name
    """
     if role == 'targets':
       return self._repository.targets
@@ -135,7 +135,6 @@ class Repository:
     elif role == 'root':
       return self._repository.root
     return self._repository.targets(role)
-
 
   def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
     """
@@ -163,11 +162,11 @@ class Repository:
 
 def load_role_key(role, keystore):
   """
-  Loads the speicified role's key from a keystore file.
+  Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password
   protected. If it is, a user is prompted to enter the passphrase.
   Args:
-    role: TUF role (root, targets, timestamp, shapshot)
+    role: TUF role (root, targets, timestamp, snapshot)
     keystore: location of the keystore file
   """
   key = role_keys_cache.get(role, None)
@@ -200,7 +199,7 @@ def load_repository(repo_path):
   Args:
     repo_path: path of an authentication repository.
   """
-  from tuf.repository_tool import load_repository
+  from tuf.repository_tool import load_repository as load_tuf_repository
 
   # create a metadata.staged directory and copy all
   # files from the metadata directory
@@ -210,7 +209,7 @@ def load_repository(repo_path):
   for filename in os.listdir(metadata_dir):
     shutil.copy(os.path.join(metadata_dir, filename), staged_dir)
 
-  tuf_repository = load_repository(repo_path)
+  tuf_repository = load_tuf_repository(repo_path)
   repository = Repository(tuf_repository, repo_path)
   yield repository
 

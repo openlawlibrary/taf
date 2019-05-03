@@ -1,4 +1,5 @@
 import os
+
 from taf.exceptions import InvalidBranch
 
 
@@ -30,7 +31,7 @@ def validate_branch(auth_repo, target_repos, branch_name):
 
   targets_version = None
   branch_id = None
-  targets_path =  'metadata/targets.json'
+  targets_path = 'metadata/targets.json'
 
   # fill the shorter lists with None values, so that their sizes match the size
   # of authentication repository's commits list
