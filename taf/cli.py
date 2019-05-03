@@ -9,9 +9,9 @@ def cli():
 
 
 @cli.command()
-@click.argument('repo-path')
-@click.argument('file-path')
-@click.argument('keystore-path')
+@click.option('--repo-path', help='Authentication repository\'s path')
+@click.option('--file-path', help='Target file\'s path, relative to the targets directory')
+@click.option('--keystore-path', help='Path of the keystore file')
 @click.option('--targets-role', default='targets', help='Targets metadata file to be updated')
 def add_target_file(repo_path, file_path, keystore_path, targets_role):
   with load_repository(repo_path) as tuf_repo:
