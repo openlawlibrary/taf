@@ -38,7 +38,7 @@ class Repository:
     targets = self._role_obj(targets_role)
     targets.add_target(os.path.join(self.targets_path, file_path))
 
-  def add_targets(self, data, targets_role='targets', files_to_keep=[]):
+  def add_targets(self, data, targets_role='targets', files_to_keep=None):
     """
     Creates a target .json file containing a repository's commit for each
     repository. Adds those files to the tuf repository. Also removes
