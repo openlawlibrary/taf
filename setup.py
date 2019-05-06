@@ -1,6 +1,3 @@
-
-import os
-
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = 'taf'
@@ -38,6 +35,11 @@ setup(
   install_requires = [
     'oll-tuf'
   ],
+  entry_points={
+        'console_scripts': [
+            'taf = taf.cli:main'
+        ]
+  },
   classifiers=[
     'Development Status :: 2 - Pre-Alpha',
     'Intended Audience :: Developers',
