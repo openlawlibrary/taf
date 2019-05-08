@@ -24,6 +24,7 @@ class GitRepository(object):
       self.repo_path = os.path.join(root_dir, target_path.replace('/', os.sep))
     else:
       self.repo_path = root_dir
+    self.repo_path = os.path.normpath(self.repo_path)
     self.repo_urls = repo_urls
     self.additional_info = additional_info
 
