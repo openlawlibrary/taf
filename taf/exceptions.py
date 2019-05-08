@@ -16,6 +16,3 @@ class NoSpeculativeBranch(Exception):
 
 class RepositoriesNotFound(Exception):
   pass
-
-
-
