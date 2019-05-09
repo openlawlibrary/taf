@@ -1,7 +1,7 @@
 import json
 import os
 import subprocess
-
+import shutil
 from .utils import run
 
 
@@ -47,6 +47,23 @@ class GitRepository(object):
       else:
         raise(e)
 
+
+  def clone(self, bare=False):
+    shutil.rmtree(self.repo_path, True)
+    os.makedirs(self.repo_path, exist_ok=True)
+    if self.repo_urls is None:
+      raise Exception('Cannot clone repository. No urls were specified')
+    for url in self.repo_urls:
+      try:
+        if bare:
+          self._git(f'clone --bare {url} .')
+        else:
+          self._git(f'clone {url} .')
+      except subprocess.CalledProcessError:
+        print(f'Cannot clone repository {self.name} from url {url}')
+      else:
+        break
+
   def create_and_checkout_branch(self, branch_name):
     self._git(f'checkout -b {branch_name}')
 
@@ -85,6 +102,12 @@ class GitRepository(object):
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
     return self._git('rev-parse HEAD')
+
+  def fetch(self, fetch_all=False):
+    if fetch_all:
+      self._git('fetch --all')
+    else:
+      self._git('fetch')
 
   def is_git_repository(self):
     try:

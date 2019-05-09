@@ -1,6 +1,7 @@
 import click
 
 from taf.repository_tool import load_repository
+from taf.updater.updater import update as taf_updater
 
 
 @click.group()
@@ -18,5 +19,10 @@ def add_target_file(repo_path, file_path, keystore_path, targets_role):
     tuf_repo.add_existing_target(file_path)
     tuf_repo.write_roles_metadata(targets_role, keystore_path, True)
 
-
+@cli.command()
+@click.option('--url', default='https://github.com/openlawlibrary/smc-law-test', help='Authentication repository\'s url')
+@click.option('--clients-directory', default='E:\\OLL\\tuf_updater_test', help='Directory containing the client\'s authentication repository')
+@click.option('--repo-name', default='smc-law-test')
+def update(url, clients_directory, repo_name):
+  taf_updater(url, clients_directory, repo_name)
 cli()

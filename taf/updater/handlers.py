@@ -9,7 +9,9 @@ import tempfile
 import shutil
 import glob
 import tuf.client.handlers as handlers
-from git import GitRepo, BareGitRepo
+from taf.updater.exceptions import UpdateFailed
+from taf.updater.git import AuthenticationRepo
+from taf.GitRepository import GitRepository
 
 
 class GitMetadataUpdater(handlers.MetadataUpdater):
@@ -70,11 +72,14 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     """
     super(GitMetadataUpdater, self).__init__(mirrors, repository_directory)
 
+    self.users_auth_repo = AuthenticationRepo(repository_directory)
+
     # validation_auth_repo is a freshly cloned bare repository.
     # It is cloned to a temporary directory that should be removed
     # once the update is completed
     auth_url = mirrors['mirror1']['url_prefix']
     self._clone_validation_repo(auth_url)
+    self.metadata_path = mirrors['mirror1']['metadata_path']
 
     # users_auth_repo is the authentication repository
     # located on the users machine which needs to be updated
@@ -85,50 +90,65 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     metadata_path = os.path.join(self.repository_directory, 'metadata')
     self.current_path = os.path.join(metadata_path, 'current')
     self.previous_path = os.path.join(metadata_path, 'previous')
-    os.mkdir(self.current_path)
-    os.mkdir(self.previous_path)
+    if not os.path.isdir(self.current_path):
+      os.mkdir(self.current_path)
+      os.mkdir(self.previous_path)
+      for filename in glob.glob(os.path.join(metadata_path, '*.json')):
+        shutil.copy(filename, self.current_path)
+        shutil.copy(filename, self.previous_path)
 
-    for filename in glob.glob(os.path.join(metadata_path, '*.json')):
-      shutil.copy(filename, self.current_path)
-      shutil.copy(filename, self.previous_path)
-
-    self.users_auth_repo = GitRepo(repository_directory)
-    self.users_auth_repo.is_git_repository()
     self.users_auth_repo.checkout_branch('master')
     self._init_commits()
 
+
+  def earliest_valid_expiration_time(self, metadata_rolename):
+    # metadata at a certain revision should not expire before the
+    # time it was committed. It can be expected that the metadata files
+    # at older commits will be expired and that should not be considered
+    # to be an error
+    commit_index = self.commits_indexes.get(metadata_rolename, -1)
+    commit = self.commits[commit_index + 1]
+    time = int(self.validation_auth_repo.get_commits_date(commit))
+    return time
+
+
   def _clone_validation_repo(self, url):
     temp_dir = tempfile.gettempdir()
-    self.validation_auth_repo = BareGitRepo(temp_dir)
-    self.validation_auth_repo.clone(url)
+    repo_name = self.users_auth_repo.name
+    self.validation_auth_repo = AuthenticationRepo(temp_dir, repo_name, [url], True)
+    self.validation_auth_repo.clone()
     self.validation_auth_repo.fetch(fetch_all=True)
 
   def _init_commits(self):
     # TODO handle the case when the local repository does not
     # exist and needs to be cloned
     # for now, it is assumed that there is a local repository
+
+    # if not self.users_auth_repo.is_git_repository():
+    # first head is None
+
     users_head_sha = self.users_auth_repo.head_commit_sha()
     # find all commits after the top commit of the
     # client's local authentication repository
     # TODO detect force-push removal of commits
-    self.commits = self.validation_auth_repo. \
-      all_commits_since_commit(users_head_sha)
-      # insert the current one at the beginning of the list
+
+    self.commits = self.validation_auth_repo.all_commits_since_commit(users_head_sha)
+    # insert the current one at the beginning of the list
     self.commits.insert(0, users_head_sha)
     self.commits_indexes = {}
-    for file_name in self.users_auth_repo. \
-        list_files_at_revision(users_head_sha):
-      self.commits_indexes[file_name] = 0
+    # list all metadata files
+    for metadata_file in self.users_auth_repo.list_files_at_revision(users_head_sha,
+                                                                     self.metadata_path):
+      self.commits_indexes[metadata_file] = 0
 
   def get_mirrors(self, remote_filename):
     # return a list containing just the current commit
-    commit = self.commits_indexes.get(remote_filename, -1)
-    return [self.commits[commit+1]]
+    commit_index = self.commits_indexes.get(remote_filename, -1)
+    return [self.commits[commit_index + 1]]
 
   def get_metadata_file(self, file_mirror, _filename, _upperbound_filelength):
     commit = file_mirror
-    metadata = self.validation_auth_repo.show_file_at_revision(
-        commit, f'metadata/{_filename}')
+    metadata = self.validation_auth_repo.get_file(commit, f'metadata/{_filename}')
     temp_file_object = securesystemslib.util.TempFile()
     temp_file_object.write(metadata.encode())
     return temp_file_object
@@ -144,6 +164,7 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     # either successfully or unsuccessfully
     shutil.rmtree(self.current_path)
     shutil.rmtree(self.previous_path)
+    os.system(f'rmdir /S /Q "{self.validation_auth_repo.repo_path}"')
 
   def on_unsuccessful_update(self, filename):
     # TODO an error message

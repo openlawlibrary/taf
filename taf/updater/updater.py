@@ -10,6 +10,7 @@ import subprocess
 import sys
 import errno
 import unittest
+import traceback
 
 import tuf
 import tuf.exceptions
@@ -20,16 +21,15 @@ import tuf.roledb
 import tuf.repository_tool as repo_tool
 import tuf.repository_lib as repo_lib
 import tuf.unittest_toolbox as unittest_toolbox
-import tuf.client.updater as updater
-
+import tuf.client.updater as tuf_updater
 import securesystemslib
 import six
 import json
 from pathlib import Path
-from handlers import GitMetadataUpdater
+from taf.updater.handlers import GitMetadataUpdater
 
 
-def update():
+def update(url, clients_directory, repo_name):
   """
   The general idea is the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
@@ -57,39 +57,33 @@ def update():
   The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
   loads data from a most recent commit.
   """
-
-  # temporary, during initial development
-  clients_directory = 'E:\\OLL\\tuf_updater_test'
-  repository_name = 'dc-law'
-
-  clients_reposiotry = os.path.join(clients_directory, repository_name)
+  clients_repository = os.path.join(clients_directory, repo_name)
   clients_keystore = os.path.join(clients_directory, 'keystore')
-  clients_metadata = os.path.join(clients_reposiotry, 'metadata')
+  clients_metadata = os.path.join(clients_repository, 'metadata')
 
   # Setting 'tuf.settings.repository_directory' with the temporary client
   # directory copied from the original repository files.
   tuf.settings.repositories_directory = clients_directory
 
-  url_prefix = 'https://github.com/openlawlibrary/dc-law'
-  repository_mirrors = {'mirror1': {'url_prefix': url_prefix,
+  repository_mirrors = {'mirror1': {'url_prefix': url,
                                     'metadata_path': 'metadata',
-                                    'targets_path': '',
+                                    'targets_path': 'targets',
                                     'confined_target_dirs': ['']}}
 
   # Creating a repository instance.  The test cases will use this client
   # updater to refresh metadata, fetch target files, etc.
-  repository_updater = updater.Updater(repository_name,
-                                       repository_mirrors,
-                                       GitMetadataUpdater)
+  repository_updater = tuf_updater.Updater(repo_name,
+                                   repository_mirrors,
+                                   GitMetadataUpdater)
 
-  update_done = False
+  update_done = repository_updater.update_handler.update_done()
+  print(update_done)
   try:
+    loop = 1
     while not update_done:
       repository_updater.refresh()
       repository_updater._refresh_targets_metadata()
       update_done = repository_updater.update_handler.update_done()
   except Exception as e:
-    print(e)
+    traceback.print_exc()
   repository_updater.update_handler.cleanup()
-
-update()
