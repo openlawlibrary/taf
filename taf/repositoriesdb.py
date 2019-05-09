@@ -23,9 +23,10 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
                       root_dir=None, only_load_targets=False, *commits):
   """
   Creates target repositories by reading repositories.json and targets.json files
-  at the specified revision, given an authentication repo.
-  If the commit is not specified, it is set to the HEAD of the authentication.
-  It is possible to specify git repository class that will be created per target.
+  at the specified revisions, given an authentication repo.
+  If the the commits are not specified, targets will be created based on the HEAD pointer
+  of the authentication repository. It is possible to specify git repository class that
+  will be created per target.
   Args:
     auth_repo: the authentication repository
     target_classes: a single git repository class, or a dictionary whose keys are
@@ -42,7 +43,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       If target_classes is a single class, all targets will be of that type.
       If target_classes is None, all targets will be of TAF's GitRepository type.
     root_dir: root directory relative to which the target paths are specified
-    commit: Authentication repository's commit at which to read targets.json
+    commits: Authentication repository's commits at which to read targets.json
     only_load_targets: specifies if only repositories specified in targets.json should be loaded.
       If set to false, all repositories defined in repositories.json are loaded, regardless of if
       they are targets or not.
@@ -52,8 +53,6 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
 
   if auth_repo.name not in _repositories_dict:
     _repositories_dict[auth_repo.name] = {}
-  elif commit in _repositories_dict[auth_repo.name]:
-    return
 
   if not len(commits):
     commits = [auth_repo.head_commit_sha()]
