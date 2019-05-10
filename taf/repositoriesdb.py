@@ -1,6 +1,7 @@
+import json
 from pathlib import Path
-
-from taf.exceptions import RepositoriesNotFound
+from subprocess import CalledProcessError
+from taf.exceptions import RepositoriesNotFound, InvalidOrMissingMetadata
 from taf.GitRepository import GitRepository
 
 # {
@@ -19,12 +20,13 @@ targets_path = 'metadata/targets.json'
 
 
 def load_repositories(auth_repo, repo_classes=None, factory=None,
-                      root_dir=None, commit=None, only_load_targets=False):
+                      root_dir=None, only_load_targets=False, *commits):
   """
   Creates target repositories by reading repositories.json and targets.json files
-  at the specified revision, given an authentication repo.
-  If the commit is not specified, it is set to the HEAD of the authentication.
-  It is possible to specify git repository class that will be created per target.
+  at the specified revisions, given an authentication repo.
+  If the the commits are not specified, targets will be created based on the HEAD pointer
+  of the authentication repository. It is possible to specify git repository class that
+  will be created per target.
   Args:
     auth_repo: the authentication repository
     target_classes: a single git repository class, or a dictionary whose keys are
@@ -41,7 +43,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       If target_classes is a single class, all targets will be of that type.
       If target_classes is None, all targets will be of TAF's GitRepository type.
     root_dir: root directory relative to which the target paths are specified
-    commit: Authentication repository's commit at which to read targets.json
+    commits: Authentication repository's commits at which to read targets.json
     only_load_targets: specifies if only repositories specified in targets.json should be loaded.
       If set to false, all repositories defined in repositories.json are loaded, regardless of if
       they are targets or not.
@@ -51,40 +53,44 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
 
   if auth_repo.name not in _repositories_dict:
     _repositories_dict[auth_repo.name] = {}
-  elif commit in _repositories_dict[auth_repo.name]:
-    return
 
-  if commit is None:
-    commit = auth_repo.head_commit_sha()
+  if not len(commits):
+    commits = [auth_repo.head_commit_sha()]
   if root_dir is None:
     root_dir = Path(auth_repo.repo_path).parent
 
-  repositories_dict = {}
-  _repositories_dict[auth_repo.name][commit] = repositories_dict
-
-  targets = auth_repo.get_json(commit, targets_path)
-  repositories = auth_repo.get_json(commit, repositories_path)
-
-  # target repositories are defined in both mirrors.json and targets.json
-  repositories = repositories['repositories']
-  targets = targets['signed']['targets']
-  for path, repo_data in repositories.items():
-    urls = repo_data['urls']
-    target = targets.get(path)
-    if target is None and only_load_targets:
+  for commit in commits:
+    repositories_dict = {}
+    # check if already loaded
+    if commit in _repositories_dict[auth_repo.name]:
       continue
-    additional_info = _get_custom_data(repo_data, targets[path])
 
-    if factory is not None:
-      git_repo = factory(root_dir, path, urls, additional_info)
-    else:
-      git_repo_class = _determine_repo_class(repo_classes, path)
-      git_repo = git_repo_class(root_dir, path, urls, additional_info)
+    _repositories_dict[auth_repo.name][commit] = repositories_dict
 
-    if not isinstance(git_repo, GitRepository):
-      raise Exception(f'{type(git_repo)} is not a subclass of GitRepository')
+    repositories = _get_json_file(auth_repo, repositories_path, commit)
+    targets = _get_json_file(auth_repo, targets_path, commit)
 
-    repositories_dict[path] = git_repo
+    # target repositories are defined in both mirrors.json and targets.json
+    repositories = repositories['repositories']
+    targets = targets['signed']['targets']
+    for path, repo_data in repositories.items():
+      urls = repo_data['urls']
+      target = targets.get(path)
+      if target is None and only_load_targets:
+        continue
+      additional_info = _get_custom_data(repo_data, targets[path])
+
+      if factory is not None:
+        git_repo = factory(root_dir, path, urls, additional_info)
+      else:
+        git_repo_class = _determine_repo_class(repo_classes, path)
+        git_repo = git_repo_class(root_dir, path, urls, additional_info)
+
+      if not isinstance(git_repo, GitRepository):
+        raise Exception(f'{type(git_repo)} is not a subclass of GitRepository')
+
+      repositories_dict[path] = git_repo
+  get_deduplicated_repositories(auth_repo, commits[0])
 
 
 def _determine_repo_class(repo_classes, path):
@@ -114,6 +120,15 @@ def _get_custom_data(repo, target):
   return custom
 
 
+def _get_json_file(auth_repo, path, commit):
+  try:
+    return auth_repo.get_json(commit, path)
+  except CalledProcessError:
+    raise InvalidOrMissingMetadata(f'{path} not available at revision {commit}')
+  except json.decoder.JSONDecodeError:
+    raise InvalidOrMissingMetadata(f'{path} not a valid json at revision {commit}')
+
+
 def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
   if not commit:
     commit = auth_repo.head_commit_sha()
@@ -135,6 +150,22 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
   if len(paths):
     return paths
   raise RepositoriesNotFound(f'Repositories associated with custom data {custom} not found')
+
+
+def get_deduplicated_repositories(auth_repo, *commits):
+  global _repositories_dict
+  all_repositories = _repositories_dict.get(auth_repo.name)
+  if all_repositories is None:
+    raise RepositoriesNotFound('Repositories defined in authentication repository'
+                               f' {auth_repo.name} have not been loaded')
+  repositories = {}
+  # persuming that the newest commit is the last one
+  for commit in commits:
+    for path, repo in all_repositories[commit].items():
+      # will overwrite older repo with newer
+      repositories[path] = repo
+
+  return repositories.values()
 
 
 def get_repository(auth_repo, path, commit=None):
