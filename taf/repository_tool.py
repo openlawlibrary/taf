@@ -1,4 +1,5 @@
 import getpass
+import datetime
 import json
 import os
 import shutil
@@ -8,6 +9,14 @@ from pathlib import Path
 import securesystemslib
 
 role_keys_cache = {}
+
+
+expiration_intervals = {
+  'root': 365,
+  'targets': 90,
+  'snapshot': 7,
+  'timestamp': 1
+}
 
 
 class Repository:
@@ -135,6 +144,27 @@ class Repository:
     elif role == 'root':
       return self._repository.root
     return self._repository.targets(role)
+
+  def set_metadata_expiration_date(self, role, start_date=datetime.datetime.now(), interval=None):
+    """
+    Set expiration date of the provided role.
+    Args:
+      role: a tuf role
+      start_date: a date to which the specified interval is added when calculating expiration date.
+      If a value is not provided, it is set to the current time
+      interval: a number of days added to the start date. If not provided, the default value is
+      set based on the role:
+      root - 365 days
+      targets - 90 days
+      snapshot - 7 days
+      timestamp - 1 day
+      all other roels - 1 day
+    """
+    role_obj = self._role_obj(role)
+    if interval is None:
+      interval = expiration_intervals.get(role, 1)
+    expiration_date = start_date + datetime.timedelta(interval)
+    role_obj.expiration = expiration_date
 
   def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
     """
