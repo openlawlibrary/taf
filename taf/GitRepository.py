@@ -1,8 +1,8 @@
 import json
 import os
 import subprocess
-
-from .utils import run
+from pathlib import Path
+from taf.utils import run
 
 
 class GitRepository(object):
@@ -20,10 +20,7 @@ class GitRepository(object):
     root_dir.
     """
     self.target_path = target_path
-    if target_path is not None:
-      self.repo_path = os.path.join(root_dir, target_path.replace('/', os.sep))
-    else:
-      self.repo_path = root_dir
+    self.repo_path = str((Path(root_dir) / (target_path or '')).resolve(True))
     self.repo_urls = repo_urls
     self.additional_info = additional_info
 
