@@ -71,8 +71,11 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     repository_directory: the client's local repositoy's location
     """
     super(GitMetadataUpdater, self).__init__(mirrors, repository_directory)
-
     self.users_auth_repo = AuthenticationRepo(repository_directory)
+    if os.path.exists(repository_directory):
+      if not self.users_auth_repo.is_git_repository():
+        if os.listdir(repository_directory):
+          raise UpdateFailed(f'{repository_directory} is not a git repository and is not empty')
 
     # validation_auth_repo is a freshly cloned bare repository.
     # It is cloned to a temporary directory that should be removed
@@ -81,34 +84,23 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     self._clone_validation_repo(auth_url)
     self.metadata_path = mirrors['mirror1']['metadata_path']
 
+    self._init_commits()
     # users_auth_repo is the authentication repository
     # located on the users machine which needs to be updated
     self.repository_directory = repository_directory
 
-    # create current and previous directories and copy the metadata files
-    # needed by the updater
-    metadata_path = os.path.join(self.repository_directory, 'metadata')
-    self.current_path = os.path.join(metadata_path, 'current')
-    self.previous_path = os.path.join(metadata_path, 'previous')
-    if not os.path.isdir(self.current_path):
-      os.mkdir(self.current_path)
-      os.mkdir(self.previous_path)
-      for filename in glob.glob(os.path.join(metadata_path, '*.json')):
-        shutil.copy(filename, self.current_path)
-        shutil.copy(filename, self.previous_path)
+    self._init_metadata()
 
-    self.users_auth_repo.checkout_branch('master')
-    self._init_commits()
-
+  @property
+  def current_commit(self):
+    return self.commits[self.current_commit_index]
 
   def earliest_valid_expiration_time(self, metadata_rolename):
     # metadata at a certain revision should not expire before the
     # time it was committed. It can be expected that the metadata files
     # at older commits will be expired and that should not be considered
     # to be an error
-    commit_index = self.commits_indexes.get(metadata_rolename, -1)
-    commit = self.commits[commit_index + 1]
-    time = int(self.validation_auth_repo.get_commits_date(commit))
+    time = int(self.validation_auth_repo.get_commits_date(self.current_commit))
     return time
 
 
@@ -127,24 +119,47 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     # if not self.users_auth_repo.is_git_repository():
     # first head is None
 
-    users_head_sha = self.users_auth_repo.head_commit_sha()
-    # find all commits after the top commit of the
-    # client's local authentication repository
-    # TODO detect force-push removal of commits
+    if not self.users_auth_repo.is_git_repository():
+      users_head_sha = None
+    else:
+      self.users_auth_repo.checkout_branch('master')
+      users_head_sha = self.users_auth_repo.head_commit_sha()
+      # find all commits after the top commit of the
+      # client's local authentication repository
+      # TODO detect force-push removal of commits
 
     self.commits = self.validation_auth_repo.all_commits_since_commit(users_head_sha)
     # insert the current one at the beginning of the list
-    self.commits.insert(0, users_head_sha)
-    self.commits_indexes = {}
-    # list all metadata files
-    for metadata_file in self.users_auth_repo.list_files_at_revision(users_head_sha,
-                                                                     self.metadata_path):
-      self.commits_indexes[metadata_file] = 0
+    if users_head_sha is not None:
+      self.commits.insert(0, users_head_sha)
+
+    self.current_commit_index = 0
+
+  def _init_metadata(self):
+
+    # create current and previous directories and copy the metadata files
+    # needed by the updater
+    # TUF's updater expects these directories to be in the client's repository
+    # read metadata of the cloned validation repo at the initial commit
+
+    metadata_path = os.path.join(self.repository_directory, 'metadata')
+    if not os.path.isdir(metadata_path):
+      os.makedirs(metadata_path)
+    self.current_path = os.path.join(metadata_path, 'current')
+    self.previous_path = os.path.join(metadata_path, 'previous')
+    os.mkdir(self.current_path)
+    os.mkdir(self.previous_path)
+    metadata_files = self.validation_auth_repo.list_files_at_revision(self.current_commit, 'metadata')
+    for filename in metadata_files:
+      metadata = self.validation_auth_repo.get_file(self.current_commit, f'metadata/{filename}')
+      with open(os.path.join(self.current_path, filename), 'w') as f:
+        f.write(metadata)
+      with open(os.path.join(self.previous_path, filename), 'w') as f:
+        f.write(metadata)
 
   def get_mirrors(self, remote_filename):
     # return a list containing just the current commit
-    commit_index = self.commits_indexes.get(remote_filename, -1)
-    return [self.commits[commit_index + 1]]
+    return [self.current_commit]
 
   def get_metadata_file(self, file_mirror, _filename, _upperbound_filelength):
     commit = file_mirror
@@ -156,8 +171,7 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
   def on_successful_update(self, filename, location):
     # after the is successfully completed, set the
     # next commit as current for the given file
-    #last_index = len(self.commits) - 1
-    self.commits_indexes[filename] = self.commits.index(location)
+    print(f'{filename} updated from {location}')
 
   def cleanup(self):
     # this needs to be called after the update is finished
@@ -175,6 +189,5 @@ class GitMetadataUpdater(handlers.MetadataUpdater):
     # regardless of if it changed or not is timestamp
     # so we can check if timestamp was updated a certain
     # number of times
-    last_index = len(self.commits) - 1
-    timestamp_commit = self.commits_indexes['timestamp.json']
-    return last_index == timestamp_commit
+    self.current_commit_index += 1
+    return self.current_commit_index == len(self.commits)

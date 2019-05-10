@@ -1,3 +1,4 @@
+import os
 from taf.GitRepository import GitRepository
 
 class AuthenticationRepo(GitRepository):
@@ -7,7 +8,10 @@ class AuthenticationRepo(GitRepository):
     self.bare = bare
 
   def all_commits_since_commit(self, since_commit):
-    commits = self._git(f'rev-list {since_commit}..HEAD').strip()
+    if since_commit is not None:
+      commits = self._git(f'rev-list {since_commit}..HEAD').strip()
+    else:
+      commits = self._git(f'log --format=format:%H').strip()
     if not commits:
       return []
     commits = commits.split('\n')
@@ -21,15 +25,15 @@ class AuthenticationRepo(GitRepository):
   def list_files_at_revision(self, commit, path=''):
     if path is None:
       path = ''
-    cmd = f'ls-files {commit}'
-    file_names = self._git(f'ls-files {commit} {path}')
+    file_names = self._git(f'ls-tree -r --name-only {commit}')
     list_of_files = []
     if not file_names:
       return list_of_files
     for file_in_repo in file_names.split('\n'):
-      if '/' in file_in_repo:
-        file_in_repo = file_in_repo.rsplit('/')[-1]
-        list_of_files.append(file_in_repo)
+      if not file_in_repo.startswith(path):
+        continue
+      file_in_repo = os.path.relpath(file_in_repo, path)
+      list_of_files.append(file_in_repo)
     return list_of_files
 
   def clone(self):
