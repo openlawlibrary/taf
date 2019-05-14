@@ -5,6 +5,7 @@ import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
+from taf.utils import normalize_file_line_endings
 
 import securesystemslib
 
@@ -39,13 +40,13 @@ class Repository:
   def metadata_staged_path(self):
     return os.path.join(self.repository_path, 'metadata.staged')
 
-  def add_existing_target(self, file_path, targets_role='targets'):
+  def add_existing_target(self, file_path, targets_role='targets', custom=None):
     """
     Registers new target files with TUF. The files are expected to be
     inside the targets directory.
     """
-    targets = self._role_obj(targets_role)
-    targets.add_target(os.path.join(self.targets_path, file_path))
+    targets_obj = self._role_obj(targets_role)
+    self._add_target(targets_obj, file_path, custom)
 
   def add_targets(self, data, targets_role='targets', files_to_keep=None):
     """
@@ -92,7 +93,8 @@ class Repository:
         if filepath not in data and filename not in files_to_keep:
           os.remove(filepath)
 
-    targets = self._role_obj(targets_role)
+    targets_obj = self._role_obj(targets_role)
+
     for path, target_data in data.items():
       # if the target's parent directory should not be "targets", create
       # its parent directories if they do not exist
@@ -113,7 +115,7 @@ class Repository:
             f.write(content)
 
       custom = target_data.get('custom', None)
-      targets.add_target(target_path, custom)
+      self._add_target(targets_obj, target_path, custom)
 
     with open(os.path.join(self.metadata_path, f'{targets_role}.json')) as f:
       previous_targets = json.load(f)['signed']['targets']
@@ -126,7 +128,11 @@ class Repository:
         continue
       target_path = os.path.join(self.targets_path, path)
       previous_custom = previous_targets[path].get('custom')
-      targets.add_target(target_path, previous_custom)
+      self._add_target(targets_obj, target_path, previous_custom)
+
+  def _add_target(self, targets_obj, file_path, custom=None):
+    normalize_file_line_endings(os.path.join(self.repository_path, 'targets', file_path))
+    targets_obj.add_target(file_path, custom)
 
   def _role_obj(self, role):
     """

@@ -26,7 +26,7 @@ import securesystemslib
 import six
 import json
 from pathlib import Path
-from taf.updater.handlers import GitMetadataUpdater
+from taf.updater.handlers import GitUpdater
 
 
 def update(url, clients_directory, repo_name):
@@ -74,16 +74,23 @@ def update(url, clients_directory, repo_name):
   # updater to refresh metadata, fetch target files, etc.
   repository_updater = tuf_updater.Updater(repo_name,
                                    repository_mirrors,
-                                   GitMetadataUpdater)
+                                   GitUpdater)
 
-  update_done = repository_updater.update_handler.update_done()
-  print(update_done)
   try:
-    loop = 1
-    while not update_done:
+    while not repository_updater.update_handler.update_done():
       repository_updater.refresh()
-      repository_updater._refresh_targets_metadata()
-      update_done = repository_updater.update_handler.update_done()
+      # repository_updater._refresh_targets_metadata()
+      # using refresh, we have updated all main roles
+      # we still need to update the delegated roles (if there are any)
+      current_targets = repository_updater.update_handler.get_current_targets()
+      for target_path in current_targets:
+        target = repository_updater.get_one_valid_targetinfo(target_path)
+        target_filepath = target['filepath']
+        trusted_length = target['fileinfo']['length']
+        trusted_hashes = target['fileinfo']['hashes']
+        target_file_object = repository_updater._get_target_file(target_filepath, trusted_length,
+        trusted_hashes)
+
   except Exception as e:
     traceback.print_exc()
   repository_updater.update_handler.cleanup()
