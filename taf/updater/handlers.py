@@ -85,7 +85,11 @@ class GitUpdater(handlers.MetadataUpdater):
     repository_directory: the client's local repositoy's location
     """
     super(GitUpdater, self).__init__(mirrors, repository_directory)
-    self.users_auth_repo = AuthenticationRepo(repository_directory)
+
+    auth_url = mirrors['mirror1']['url_prefix']
+    self.users_auth_repo = AuthenticationRepo(repository_directory, repo_urls=[auth_url])
+    self._clone_validation_repo(auth_url)
+
     if os.path.exists(repository_directory):
       if not self.users_auth_repo.is_git_repository():
         if os.listdir(repository_directory):
@@ -94,8 +98,6 @@ class GitUpdater(handlers.MetadataUpdater):
     # validation_auth_repo is a freshly cloned bare repository.
     # It is cloned to a temporary directory that should be removed
     # once the update is completed
-    auth_url = mirrors['mirror1']['url_prefix']
-    self._clone_validation_repo(auth_url)
     self.metadata_path = mirrors['mirror1']['metadata_path']
     self.targets_path = mirrors['mirror1']['targets_path']
 
@@ -194,7 +196,6 @@ class GitUpdater(handlers.MetadataUpdater):
     shutil.rmtree(self.previous_path)
     os.system(f'rmdir /S /Q "{self.validation_auth_repo.repo_path}"')
 
-
   def earliest_valid_expiration_time(self, metadata_rolename):
     # metadata at a certain revision should not expire before the
     # time it was committed. It can be expected that the metadata files
@@ -202,7 +203,6 @@ class GitUpdater(handlers.MetadataUpdater):
     # to be an error
     time = int(self.validation_auth_repo.get_commits_date(self.current_commit))
     return time
-
 
   def ensure_not_changed(self, metadata_filename):
     """

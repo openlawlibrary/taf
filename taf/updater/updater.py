@@ -27,6 +27,7 @@ import six
 import json
 from pathlib import Path
 from taf.updater.handlers import GitUpdater
+from taf.updater.exceptions import UpdateFailed
 
 
 def update(url, clients_directory, repo_name):
@@ -57,6 +58,9 @@ def update(url, clients_directory, repo_name):
   The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
   loads data from a most recent commit.
   """
+
+  #TODO old HEAD as an input parameter
+
   clients_repository = os.path.join(clients_directory, repo_name)
   clients_keystore = os.path.join(clients_directory, 'keystore')
   clients_metadata = os.path.join(clients_repository, 'metadata')
@@ -92,5 +96,19 @@ def update(url, clients_directory, repo_name):
         trusted_hashes)
 
   except Exception as e:
+    # for now, useful for debugging
     traceback.print_exc()
-  repository_updater.update_handler.cleanup()
+    raise UpdateFailed(f'Failed to update authentication repository {clients_directory} due to error: {e}')
+  finally:
+    repository_updater.update_handler.cleanup()
+
+  # successfully validated the authentication repository, it is safe to pull the changes
+  # up until the latest validated commit
+  # clone without checking out the head
+  # see how many new commits there are (if any)
+  # reset hard
+  # when pulling
+  # fetch and merge up until a commit
+  users_auth_repo = repository_updater.update_handler.users_auth_repo
+  last_commit = repository_updater.update_handler.commits[-1]
+  users_auth_repo.clone_or_pull_up_to_commit(last_commit)

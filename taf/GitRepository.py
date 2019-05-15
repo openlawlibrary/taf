@@ -46,17 +46,15 @@ class GitRepository(object):
         raise(e)
 
 
-  def clone(self, bare=False):
+  def clone(self, *args):
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
     if self.repo_urls is None:
       raise Exception('Cannot clone repository. No urls were specified')
+    params = ' '.join(args) if args else ''
     for url in self.repo_urls:
       try:
-        if bare:
-          self._git(f'clone --bare {url} .')
-        else:
-          self._git(f'clone {url} .')
+        self._git(f'clone {url} . {params}')
       except subprocess.CalledProcessError:
         print(f'Cannot clone repository {self.name} from url {url}')
       else:

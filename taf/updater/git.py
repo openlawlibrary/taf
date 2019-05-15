@@ -18,6 +18,18 @@ class AuthenticationRepo(GitRepository):
     commits.reverse()
     return commits
 
+  def clone_or_pull_up_to_commit(self, commit):
+    if not self.is_git_repository():
+      self.clone('--no-checkout')
+      self.hard_reset(commit)
+    else:
+      self.fetch()
+      self.merget_commit(commit)
+
+  def clone(self, *args):
+    bare = '--bare' if self.bare else ''
+    super().clone(bare, *args)
+
   def get_commits_date(self, commit):
     date = self._git(f'show -s --format=%at {commit}')
     return date.split(' ', 1)[0]
@@ -36,5 +48,8 @@ class AuthenticationRepo(GitRepository):
       list_of_files.append(file_in_repo)
     return list_of_files
 
-  def clone(self):
-    super().clone(self.bare)
+  def hard_reset(self, commit):
+    self._git(f'reset --hard {commit}')
+
+  def merget_commit(self, commit):
+    self._git(f'merge {commit}')
