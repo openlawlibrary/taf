@@ -203,6 +203,17 @@ class GitUpdater(handlers.MetadataUpdater):
     time = int(self.validation_auth_repo.get_commits_date(self.current_commit))
     return time
 
+
+  def ensure_not_changed(self, metadata_filename):
+    """
+    Make sure that the metadata file remained the same, as the reference metadata suggests.
+    """
+    current_file = self.get_metadata_file(self.current_commit, metadata_filename)
+    previous_file = self.get_metadata_file(self.previous_commit, metadata_filename)
+    if current_file.read() != previous_file.read():
+      raise UpdateFailed(f'Metadata file {metadata_filename} should be the same at revisions '
+                         f'{self.previous_commit} and {self.current_commit}, but is not')
+
   def get_current_targets(self):
     return self.validation_auth_repo.list_files_at_revision(self.current_commit, 'targets')
 
@@ -210,7 +221,7 @@ class GitUpdater(handlers.MetadataUpdater):
     # return a list containing just the current commit
     return [self.current_commit]
 
-  def get_metadata_file(self, file_mirror, _filename, _upperbound_filelength):
+  def get_metadata_file(self, file_mirror, _filename, _upperbound_filelength=0):
     filepath = f'metadata/{_filename}'
     return self._get_file(file_mirror, filepath)
 
