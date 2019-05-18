@@ -33,6 +33,7 @@ setup(
   ],
   zip_safe=False,
   install_requires = [
+    'click==6.7',
     'oll-tuf'
   ],
   entry_points={

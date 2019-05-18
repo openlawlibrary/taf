@@ -10,7 +10,7 @@ import glob
 import tempfile
 import tuf.client.handlers as handlers
 from taf.updater.exceptions import UpdateFailed
-from taf.updater.git import AuthenticationRepo
+from taf.updater.AuthenticationRepo import AuthenticationRepo
 from taf.GitRepository import GitRepository
 
 
@@ -87,7 +87,11 @@ class GitUpdater(handlers.MetadataUpdater):
     super(GitUpdater, self).__init__(mirrors, repository_directory)
 
     auth_url = mirrors['mirror1']['url_prefix']
-    self.users_auth_repo = AuthenticationRepo(repository_directory, repo_urls=[auth_url])
+    self.metadata_path = mirrors['mirror1']['metadata_path']
+    self.targets_path = mirrors['mirror1']['targets_path']
+
+    self.users_auth_repo = AuthenticationRepo(repository_directory, self.metadata_path,
+                                              self.targets_path, repo_urls=[auth_url])
     self._clone_validation_repo(auth_url)
 
     if os.path.exists(repository_directory):
@@ -98,8 +102,6 @@ class GitUpdater(handlers.MetadataUpdater):
     # validation_auth_repo is a freshly cloned bare repository.
     # It is cloned to a temporary directory that should be removed
     # once the update is completed
-    self.metadata_path = mirrors['mirror1']['metadata_path']
-    self.targets_path = mirrors['mirror1']['targets_path']
 
     self._init_commits()
     # users_auth_repo is the authentication repository
@@ -182,7 +184,8 @@ class GitUpdater(handlers.MetadataUpdater):
     """
     temp_dir = tempfile.gettempdir()
     repo_name = self.users_auth_repo.name
-    self.validation_auth_repo = AuthenticationRepo(temp_dir, repo_name, [url], True)
+    self.validation_auth_repo = AuthenticationRepo(temp_dir, self.metadata_path, self.targets_path,
+                                                   repo_name, [url], True)
     self.validation_auth_repo.clone()
     self.validation_auth_repo.fetch(fetch_all=True)
 

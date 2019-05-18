@@ -20,7 +20,7 @@ targets_path = 'metadata/targets.json'
 
 
 def load_repositories(auth_repo, repo_classes=None, factory=None,
-                      root_dir=None, only_load_targets=False, *commits):
+                      root_dir=None, only_load_targets=False, commits=None):
   """
   Creates target repositories by reading repositories.json and targets.json files
   at the specified revisions, given an authentication repo.
@@ -50,11 +50,10 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
   """
 
   global _repositories_dict
-
   if auth_repo.name not in _repositories_dict:
     _repositories_dict[auth_repo.name] = {}
 
-  if not len(commits):
+  if commits is None:
     commits = [auth_repo.head_commit_sha()]
   if root_dir is None:
     root_dir = Path(auth_repo.repo_path).parent
@@ -67,8 +66,12 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
 
     _repositories_dict[auth_repo.name][commit] = repositories_dict
 
-    repositories = _get_json_file(auth_repo, repositories_path, commit)
-    targets = _get_json_file(auth_repo, targets_path, commit)
+    try:
+      repositories = _get_json_file(auth_repo, repositories_path, commit)
+      targets = _get_json_file(auth_repo, targets_path, commit)
+    except InvalidOrMissingMetadata as e:
+      print(f'Skipping commit {commit}. {e}')
+      continue
 
     # target repositories are defined in both mirrors.json and targets.json
     repositories = repositories['repositories']
@@ -90,8 +93,6 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
         raise Exception(f'{type(git_repo)} is not a subclass of GitRepository')
 
       repositories_dict[path] = git_repo
-  get_deduplicated_repositories(auth_repo, commits[0])
-
 
 def _determine_repo_class(repo_classes, path):
   # if no class is specified, return the default one
@@ -152,7 +153,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
   raise RepositoriesNotFound(f'Repositories associated with custom data {custom} not found')
 
 
-def get_deduplicated_repositories(auth_repo, *commits):
+def get_deduplicated_repositories(auth_repo, commits):
   global _repositories_dict
   all_repositories = _repositories_dict.get(auth_repo.name)
   if all_repositories is None:
@@ -161,11 +162,14 @@ def get_deduplicated_repositories(auth_repo, *commits):
   repositories = {}
   # persuming that the newest commit is the last one
   for commit in commits:
+    if not commit in all_repositories:
+      raise RepositoriesNotFound('Repositories defined in authentication repository '
+                                f'{auth_repo.name} at revision {commit} have not been loaded')
     for path, repo in all_repositories[commit].items():
       # will overwrite older repo with newer
       repositories[path] = repo
 
-  return repositories.values()
+  return repositories
 
 
 def get_repository(auth_repo, path, commit=None):

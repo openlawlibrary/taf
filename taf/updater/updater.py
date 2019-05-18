@@ -59,11 +59,9 @@ def update(url, clients_directory, repo_name):
   loads data from a most recent commit.
   """
 
-  #TODO old HEAD as an input parameter
+  # TODO old HEAD as an input parameter
 
   clients_repository = os.path.join(clients_directory, repo_name)
-  clients_keystore = os.path.join(clients_directory, 'keystore')
-  clients_metadata = os.path.join(clients_repository, 'metadata')
 
   # Setting 'tuf.settings.repository_directory' with the temporary client
   # directory copied from the original repository files.
@@ -74,8 +72,6 @@ def update(url, clients_directory, repo_name):
                                     'targets_path': 'targets',
                                     'confined_target_dirs': ['']}}
 
-  # Creating a repository instance.  The test cases will use this client
-  # updater to refresh metadata, fetch target files, etc.
   repository_updater = tuf_updater.Updater(repo_name,
                                    repository_mirrors,
                                    GitUpdater)
@@ -83,17 +79,18 @@ def update(url, clients_directory, repo_name):
   try:
     while not repository_updater.update_handler.update_done():
       repository_updater.refresh()
-      # repository_updater._refresh_targets_metadata()
       # using refresh, we have updated all main roles
       # we still need to update the delegated roles (if there are any)
+      # that is handled by get_current_targets
       current_targets = repository_updater.update_handler.get_current_targets()
       for target_path in current_targets:
         target = repository_updater.get_one_valid_targetinfo(target_path)
         target_filepath = target['filepath']
         trusted_length = target['fileinfo']['length']
         trusted_hashes = target['fileinfo']['hashes']
-        target_file_object = repository_updater._get_target_file(target_filepath, trusted_length,
-        trusted_hashes)
+        repository_updater._get_target_file(target_filepath, trusted_length,
+          trusted_hashes)
+        print(f'Successfully validated file {target_filepath} at {repository_updater.update_handler.current_commit}')
 
   except Exception as e:
     # for now, useful for debugging
@@ -104,10 +101,6 @@ def update(url, clients_directory, repo_name):
 
   # successfully validated the authentication repository, it is safe to pull the changes
   # up until the latest validated commit
-  # clone without checking out the head
-  # see how many new commits there are (if any)
-  # reset hard
-  # when pulling
   # fetch and merge up until a commit
   users_auth_repo = repository_updater.update_handler.users_auth_repo
   last_commit = repository_updater.update_handler.commits[-1]
