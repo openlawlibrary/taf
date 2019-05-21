@@ -71,7 +71,9 @@ class GitRepository(object):
     self.fetch()
     self.merge_commit(commit)
 
-  def clone(self, no_checkout=False):
+  def clone(self, no_checkout=False, from_filesystem=True):
+    # TODO remove rmtree when not useful for testing any more
+    # TODO this creates something like smc-law/smc-law instead of just smc-law
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
     if self.repo_urls is None:
@@ -83,6 +85,12 @@ class GitRepository(object):
       params = '--no-checkout'
     for url in self.repo_urls:
       try:
+        if from_filesystem:
+          if '..' in url:
+            url = '../' + url
+          url = url.replace('/', os.sep)
+        import pdb; pdb.set_trace()
+
         self._git('clone {} . {}', url, params)
       except subprocess.CalledProcessError:
         print('Cannot clone repository {} from url {}'.format(self.name, url))

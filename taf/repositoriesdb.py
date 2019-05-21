@@ -82,7 +82,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       target = targets.get(path)
       if target is None and only_load_targets:
         continue
-      additional_info = _get_custom_data(repo_data, targets[path])
+      additional_info = _get_custom_data(repo_data, targets.get(path))
 
       if factory is not None:
         git_repo = factory(root_dir, path, urls, additional_info)

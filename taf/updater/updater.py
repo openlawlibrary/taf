@@ -3,12 +3,13 @@ import traceback
 
 import tuf
 import tuf.client.updater as tuf_updater
-
+import taf.repositoriesdb as repositoriesdb
 from taf.updater.exceptions import UpdateFailed
 from taf.updater.handlers import GitUpdater
 
 
-def update(url, clients_directory, repo_name):
+
+def update(url, clients_directory, repo_name, targets_dir):
   """
   The general idea is the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
@@ -84,3 +85,46 @@ def update(url, clients_directory, repo_name):
   users_auth_repo = repository_updater.update_handler.users_auth_repo
   last_commit = repository_updater.update_handler.commits[-1]
   users_auth_repo.clone_or_pull_up_to_commit(last_commit)
+
+ # it is possible that a repository is not specified in all commits of the authentication
+  # repository
+  # it might have been added a bit later, only appearing in newer commits
+  # also, a repository could've been removed
+  # TODO what do we want to do with these repositories? TUF removes targets from disk if they
+  # are no longer specified in targets.json
+
+  commits = repository_updater.update_handler.commits
+  repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
+  repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
+  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+
+  for path, repository in repositories.items():
+    import pdb; pdb.set_trace()
+    if not repository.is_git_repository():
+      old_head_commit = None
+    else:
+      old_head_commit = repository.head_commit_sha()
+
+    if old_head_commit is None:
+      repository.clone(no_checkout=True)
+    else:
+      repository.fetch(True)
+
+    import pdb; pdb.set_trace()
+    new_commits = repository.all_commits_since_commit(old_head_commit)
+    # new_commits.insert(0, old_head_commit)
+    # The repository might not have been protected by TUF from the first
+    # commit. If the repository already existed, then the latest commit in that repository
+    # should match the first commit in repositories_commits for that repository
+    # Also, a new commit might have been pushed after the update process
+    # started and before fetch was called
+    repository_commits = repositories_commits[path]
+    import pdb; pdb.set_trace()
+    if len(new_commits) < len(repositories_commits):
+      raise UpdateFailed('Mismatch between target commits specified in authentication repository'
+                         f' and target repository {repository.target_path}')
+
+    for target_commit, repo_commit in zip(repository_commits, new_commits):
+      if target_commit != repo_commit:
+        raise UpdateFailed('Mismatch between target commits specified in authentication repository'
+                           f' and target repository {repository.target_path}')

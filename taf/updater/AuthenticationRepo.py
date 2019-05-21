@@ -20,12 +20,13 @@ class AuthenticationRepo(GitRepository):
     """
     repositories_commits = defaultdict(list)
     targets = self.target_commits_at_revisions(commits)
+    previous_commits = {}
     for commit in commits:
-      previous_commit = None
       for target_path, target_commit in targets[commit].items():
+        previous_commit = previous_commits.get(target_path)
         if previous_commit is None or target_commit != previous_commit:
           repositories_commits[target_path].append(target_commit)
-        previous_commit = target_commit
+        previous_commits[target_path] = target_commit
     return repositories_commits
 
   def target_commits_at_revisions(self, commits):
@@ -34,21 +35,18 @@ class AuthenticationRepo(GitRepository):
       try:
         targets_at_revision = \
             self.get_json(commit, self.metadata_path + '/targets.json')['signed']['targets']
+        repositories_at_revision = \
+            self.get_json(commit, self.targets_path + '/repositories.json')['repositories']
         for target_path in targets_at_revision:
           try:
+            if target_path not in repositories_at_revision:
+              # we only care about repositories
+              continue
             target_commit = \
                 self.get_json(commit, self.targets_path + '/' + target_path).get('commit')
-            if target_commit is None:
-              # not a repository
-              continue
             targets[commit][target_path] = target_commit
-          except CalledProcessError:
-            # if there is a commit without targets.json (e.g. the initial commit)
-            # this error will occur
-            print('Target file {} not available at revision {}'.format(target_path, commit))
-            continue
           except json.decoder.JSONDecodeError:
-            print('Target file {} is not a valid json at revision {}'.format(target_path, commit))
+            print('Target file {} is not a valid json at revision.  {}'.format(target_path, commit))
             continue
       except CalledProcessError:
         # if there is a commit without targets.json (e.g. the initial commit)
