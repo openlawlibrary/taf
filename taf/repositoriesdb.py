@@ -71,7 +71,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       repositories = _get_json_file(auth_repo, repositories_path, commit)
       targets = _get_json_file(auth_repo, targets_path, commit)
     except InvalidOrMissingMetadata as e:
-      print(f'Skipping commit {commit}. {e}')
+      print('Skipping commit {}. {}'.format(commit, e))
       continue
 
     # target repositories are defined in both mirrors.json and targets.json
@@ -95,6 +95,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
                         .format(type(git_repo)))
 
       repositories_dict[path] = git_repo
+
 
 def _determine_repo_class(repo_classes, path):
   # if no class is specified, return the default one
@@ -169,7 +170,8 @@ def get_deduplicated_repositories(auth_repo, commits):
   for commit in commits:
     if not commit in all_repositories:
       raise RepositoriesNotFound('Repositories defined in authentication repository '
-                                f'{auth_repo.name} at revision {commit} have not been loaded')
+                                 '{} at revision {} have not been loaded'
+                                 .format(auth_repo.name, commit))
     for path, repo in all_repositories[commit].items():
       # will overwrite older repo with newer
       repositories[path] = repo

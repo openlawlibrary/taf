@@ -1,5 +1,7 @@
-import click
 import os
+
+import click
+
 from taf.repository_tool import load_repository
 from taf.updater.updater import update as taf_updater
 
@@ -19,6 +21,7 @@ def add_target_file(repo_path, file_path, keystore_path, targets_role):
     tuf_repo.add_existing_target(file_path)
     tuf_repo.write_roles_metadata(targets_role, keystore_path, True)
 
+
 @cli.command()
 @click.option('--repo-path', help='Authentication repository\'s path')
 @click.option('--keystore-path', help='Path of the keystore file')
@@ -26,7 +29,7 @@ def add_target_file(repo_path, file_path, keystore_path, targets_role):
 def add_targets(repo_path, keystore_path, targets_role):
   targets_path = os.path.join(repo_path, 'targets')
   with load_repository(repo_path) as tuf_repo:
-    for root, directories, filenames in os.walk(targets_path):
+    for root, _, filenames in os.walk(targets_path):
       for filename in filenames:
         relpath = os.path.relpath(os.path.join(root, filename), targets_path)
         relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
@@ -55,4 +58,6 @@ def update_metadata_expiration_date(repo_path, keystore_path, metadata_role, exp
 @click.option('--repo-name', help='Repository\'s name')
 def update(url, clients_directory, repo_name):
   taf_updater(url, clients_directory, repo_name)
+
+
 cli()
