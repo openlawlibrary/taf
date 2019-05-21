@@ -13,6 +13,23 @@ with open('README.md', encoding='utf-8') as file_object:
 
 packages = find_packages()
 
+ci_require = [
+    "pylint==2.3.1",
+    "bandit==1.6.0",
+    "coverage==4.5.3",
+    "coveralls==1.7.0"
+]
+
+dev_require = [
+    "autopep8==1.4.4",
+    "pylint==2.3.1",
+    "bandit==1.6.0"
+]
+
+tests_require = [
+    "pytest==4.5.0"
+]
+
 setup(
     name=PACKAGE_NAME,
     version=VERSION,
@@ -34,8 +51,14 @@ setup(
     zip_safe=False,
     install_requires=[
         'click==6.7',
-        'oll-tuf'
+        'cryptography==2.3.1',
+        'oll-tuf==0.11.2.dev5',
     ],
+    extras_require={
+        'ci': ci_require,
+        'test': tests_require,
+    },
+    tests_require=tests_require,
     entry_points={
         'console_scripts': [
             'taf = taf.cli:main'

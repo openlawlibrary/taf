@@ -2,18 +2,16 @@ language: python
 dist: trusty
 sudo: false
 cache: pip
-python: 3.6
+python: 3.5
 
-env:
-  - TOXENV=py35
-
-before_script:
-  - pip install pylint bandit tox
+install:
+  - pip install .[ci] # Install TAF with CI deps
 
 script:
   - pylint taf
-  - bandit --ini tox.ini -r taf
-  - tox
+  - bandit -c .bandit -r taf
+  - coverage run --source taf tests/aggregate_tests.py
+  # - coverage report -m --fail-under 99
 
 after_success:
   - cd tests
