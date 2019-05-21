@@ -29,8 +29,7 @@ def run(*command, **kwargs):
       logger.debug(err.stdout)
     if err.stderr:
       logger.debug(err.stderr)
-    logger.debug('Command "{}" returned non-zero exit status {}'
-                 .format(' '.join(command), err.returncode))
+    logger.debug('Command %s returned non-zero exit status %s', ' '.join(command), err.returncode)
     raise err
   if completed.stdout:
     logger.debug(completed.stdout)

@@ -1,8 +1,9 @@
 import json
 import os
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
+
 from taf.utils import run
 
 
@@ -30,14 +31,21 @@ class GitRepository(object):
   def name(self):
     return os.path.basename(self.repo_path)
 
-  def _git(self, cmd):
-    return run(f'git -C {self.repo_path} {cmd}')
+  def _git(self, cmd, *args):
+    """Call git commands in subprocess
+
+    E.G.:
+      self._git('checkout {}', branch_name)
+    """
+    if len(args):
+      cmd = cmd.format(*args)
+    return run('git -C {} {}'.format(self.repo_path, cmd))
 
   def all_commits_since_commit(self, since_commit):
     if since_commit is not None:
-      commits = self._git(f'rev-list {since_commit}..HEAD').strip()
+      commits = self._git('rev-list {}..HEAD', since_commit).strip()
     else:
-      commits = self._git(f'log --format=format:%H').strip()
+      commits = self._git('log --format=format:%H').strip()
     if not commits:
       return []
     commits = commits.split('\n')
@@ -50,7 +58,7 @@ class GitRepository(object):
     If the branch does not exist and create is set to False,
     raise an exception."""
     try:
-      self._git(f'checkout {branch_name}')
+      self._git('checkout {}', branch_name)
     except subprocess.CalledProcessError as e:
       if create:
         self.create_and_checkout_branch(branch_name)
@@ -75,14 +83,14 @@ class GitRepository(object):
       params = '--no-checkout'
     for url in self.repo_urls:
       try:
-        self._git(f'clone {url} . {params}')
+        self._git('clone {} . {}', url, params)
       except subprocess.CalledProcessError:
-        print(f'Cannot clone repository {self.name} from url {url}')
+        print('Cannot clone repository {} from url {}'.format(self.name, url))
       else:
         break
 
   def create_and_checkout_branch(self, branch_name):
-    self._git(f'checkout -b {branch_name}')
+    self._git('checkout -b {}', branch_name)
 
   def commit(self, message):
     """Create a commit with the provided message
@@ -101,16 +109,16 @@ class GitRepository(object):
     on a speculative branch and not on the master branch.
     """
 
-    commits = self._git(f'log {branch1} --not {branch2} --no-merges --format=format:%H')
+    commits = self._git('log {} --not {} --no-merges --format=format:%H', branch1, branch2)
     commits = commits.split('\n') if commits else []
     if include_branching_commit:
-      branching_commit = self._git(f'rev-list -n 1 {commits[-1]}~1')
+      branching_commit = self._git('rev-list -n 1 {}~1', commits[-1])
       commits.append(branching_commit)
 
     return commits
 
   def get_commits_date(self, commit):
-    date = self._git(f'show -s --format=%at {commit}')
+    date = self._git('show -s --format=%at {}', commit)
     return date.split(' ', 1)[0]
 
   def get_json(self, commit, path):
@@ -118,7 +126,7 @@ class GitRepository(object):
     return json.loads(s)
 
   def get_file(self, commit, path):
-    return self._git(f'show {commit}:{path}')
+    return self._git('show {}:{}', commit, path)
 
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
@@ -137,7 +145,7 @@ class GitRepository(object):
     if not os.path.isdir(self.repo_path):
       os.makedirs(self.repo_path, exist_ok=True)
     self._git('init')
-    self._git(f'remote add origin {self.repo_urls[0]}')
+    self._git('remote add origin {}', self.repo_urls[0])
 
   def is_git_repository(self):
     try:
@@ -149,7 +157,7 @@ class GitRepository(object):
   def list_files_at_revision(self, commit, path=''):
     if path is None:
       path = ''
-    file_names = self._git(f'ls-tree -r --name-only {commit}')
+    file_names = self._git('ls-tree -r --name-only {}', commit)
     list_of_files = []
     if not file_names:
       return list_of_files
@@ -161,7 +169,7 @@ class GitRepository(object):
     return list_of_files
 
   def merge_commit(self, commit):
-    self._git(f'merge {commit}')
+    self._git('merge {}', commit)
 
   def pull(self):
     """Pull current branch"""
@@ -170,6 +178,6 @@ class GitRepository(object):
   def push(self, branch=''):
     """Push all changes"""
     try:
-      self._git(f'push origin {branch}'.strip())
+      self._git('push origin {}', branch).strip()
     except subprocess.CalledProcessError:
-      self._git(f'--set-upstream origin {branch}'.strip())
+      self._git('--set-upstream origin {}', branch).strip()

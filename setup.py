@@ -13,46 +13,68 @@ with open('README.md', encoding='utf-8') as file_object:
 
 packages = find_packages()
 
+ci_require = [
+    "pylint==2.3.1",
+    "bandit==1.6.0",
+    "coverage==4.5.3",
+    "coveralls==1.7.0"
+]
+
+dev_require = [
+    "autopep8==1.4.4",
+    "pylint==2.3.1",
+    "bandit==1.6.0"
+]
+
+tests_require = [
+    "pytest==4.5.0"
+]
+
 setup(
-  name=PACKAGE_NAME,
-  version=VERSION,
-  description=DESCRIPTION,
-  long_description=long_description,
-  long_description_content_type='text/markdown',
-  url=URL,
-  author=AUTHOR,
-  author_email=AUTHOR_EMAIL,
-  keywords=KEYWORDS,
-  packages=packages,
-  include_package_data=True,
-  data_files=[
-    ('lib/site-packages/taf', [
-      './LICENSE.txt',
-      './README.md'
-    ])
-  ],
-  zip_safe=False,
-  install_requires = [
-    'click==6.7',
-    'oll-tuf'
-  ],
-  entry_points={
+    name=PACKAGE_NAME,
+    version=VERSION,
+    description=DESCRIPTION,
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url=URL,
+    author=AUTHOR,
+    author_email=AUTHOR_EMAIL,
+    keywords=KEYWORDS,
+    packages=packages,
+    include_package_data=True,
+    data_files=[
+        ('lib/site-packages/taf', [
+            './LICENSE.txt',
+            './README.md'
+        ])
+    ],
+    zip_safe=False,
+    install_requires=[
+        'click==6.7',
+        'cryptography==2.3.1',
+        'oll-tuf==0.11.2.dev5',
+    ],
+    extras_require={
+        'ci': ci_require,
+        'test': tests_require,
+    },
+    tests_require=tests_require,
+    entry_points={
         'console_scripts': [
             'taf = taf.cli:main'
         ]
-  },
-  classifiers=[
-    'Development Status :: 2 - Pre-Alpha',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Information Technology',
-    'Topic :: Security',
-    'Topic :: Software Development',
-    'License :: OSI Approved :: Apache Software License',
-    'Operating System :: OS Independent',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.4',
-    'Programming Language :: Python :: 3.5',
-    'Programming Language :: Python :: 3.6',
-    'Programming Language :: Python :: Implementation :: CPython',
-  ]
+    },
+    classifiers=[
+        'Development Status :: 2 - Pre-Alpha',
+        'Intended Audience :: Developers',
+        'Intended Audience :: Information Technology',
+        'Topic :: Security',
+        'Topic :: Software Development',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: Implementation :: CPython',
+    ]
 )

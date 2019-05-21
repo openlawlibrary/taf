@@ -1,17 +1,12 @@
 import os
-import tuf
-import securesystemslib
-import logging
-import tuf.exceptions
-import six
-import errno
 import shutil
-import glob
 import tempfile
+
+import securesystemslib
 import tuf.client.handlers as handlers
-from taf.updater.exceptions import UpdateFailed
+
 from taf.updater.AuthenticationRepo import AuthenticationRepo
-from taf.GitRepository import GitRepository
+from taf.updater.exceptions import UpdateFailed
 
 
 class GitUpdater(handlers.MetadataUpdater):
@@ -97,7 +92,8 @@ class GitUpdater(handlers.MetadataUpdater):
     if os.path.exists(repository_directory):
       if not self.users_auth_repo.is_git_repository():
         if os.listdir(repository_directory):
-          raise UpdateFailed(f'{repository_directory} is not a git repository and is not empty')
+          raise UpdateFailed('{} is not a git repository and is not empty'
+                             .format(repository_directory))
 
     # validation_auth_repo is a freshly cloned bare repository.
     # It is cloned to a temporary directory that should be removed
@@ -109,7 +105,6 @@ class GitUpdater(handlers.MetadataUpdater):
     self.repository_directory = repository_directory
 
     self._init_metadata()
-
 
   def _init_commits(self):
     """
@@ -166,15 +161,15 @@ class GitUpdater(handlers.MetadataUpdater):
     os.mkdir(self.current_path)
     os.mkdir(self.previous_path)
 
-    metadata_files = self.validation_auth_repo.list_files_at_revision(self.current_commit, 'metadata')
+    metadata_files = self.validation_auth_repo.list_files_at_revision(self.current_commit,
+                                                                      'metadata')
     for filename in metadata_files:
-      metadata = self.validation_auth_repo.get_file(self.current_commit, f'metadata/{filename}')
+      metadata = self.validation_auth_repo.get_file(self.current_commit, 'metadata/' + filename)
       current_filename = os.path.join(self.current_path, filename)
       previous_filename = os.path.join(self.previous_path, filename)
       with open(current_filename, 'w') as f:
         f.write(metadata)
       shutil.copyfile(current_filename, previous_filename)
-
 
   def _clone_validation_repo(self, url):
     """
@@ -182,7 +177,7 @@ class GitUpdater(handlers.MetadataUpdater):
     mirrors parameter. The repository is cloned as a bare repository
     to a the temp directory and will be deleted one the update is done.
     """
-    temp_dir = tempfile.gettempdir()
+    temp_dir = tempfile.mkdtemp()
     repo_name = self.users_auth_repo.name
     self.validation_auth_repo = AuthenticationRepo(temp_dir, self.metadata_path, self.targets_path,
                                                    repo_name, [url], True)
@@ -197,40 +192,40 @@ class GitUpdater(handlers.MetadataUpdater):
     """
     shutil.rmtree(self.current_path)
     shutil.rmtree(self.previous_path)
-    os.system(f'rmdir /S /Q "{self.validation_auth_repo.repo_path}"')
+    shutil.rmtree(self.validation_auth_repo.repo_path)
 
-  def earliest_valid_expiration_time(self, metadata_rolename):
+  def earliest_valid_expiration_time(self):
     # metadata at a certain revision should not expire before the
     # time it was committed. It can be expected that the metadata files
     # at older commits will be expired and that should not be considered
     # to be an error
-    time = int(self.validation_auth_repo.get_commits_date(self.current_commit))
-    return time
+    return int(self.validation_auth_repo.get_commits_date(self.current_commit))
 
   def ensure_not_changed(self, metadata_filename):
     """
     Make sure that the metadata file remained the same, as the reference metadata suggests.
     """
-    current_file = self.get_metadata_file(self.current_commit, metadata_filename)
-    previous_file = self.get_metadata_file(self.previous_commit, metadata_filename)
+    current_file = self.get_metadata_file(self.current_commit, file_name=metadata_filename)
+    previous_file = self.get_metadata_file(self.previous_commit, file_name=metadata_filename)
     if current_file.read() != previous_file.read():
-      raise UpdateFailed(f'Metadata file {metadata_filename} should be the same at revisions '
-                         f'{self.previous_commit} and {self.current_commit}, but is not')
+      raise UpdateFailed('Metadata file {} should be the same at revisions {} and {}, but is not.'
+                         .format(metadata_filename, self.previous_commit, self.current_commit))
 
   def get_current_targets(self):
     return self.validation_auth_repo.list_files_at_revision(self.current_commit, 'targets')
 
-  def get_mirrors(self, file_type, filepath):
+  def get_mirrors(self, **kwargs):
+    # pylint: disable=unused-argument
     # return a list containing just the current commit
     return [self.current_commit]
 
-  def get_metadata_file(self, file_mirror, _filename, _upperbound_filelength=0):
-    filepath = f'metadata/{_filename}'
-    return self._get_file(file_mirror, filepath)
+  def get_metadata_file(self, file_mirror, **kwargs):
+    file_name = kwargs['file_name']
+    return self._get_file(file_mirror, 'metadata/' + file_name)
 
-  def get_target_file(self, file_mirror, _filename, file_length, download_safely):
-    filepath = f'targets/{_filename}'
-    return self._get_file(file_mirror, filepath)
+  def get_target_file(self, file_mirror, **kwargs):
+    file_path = kwargs['file_path']
+    return self._get_file(file_mirror, 'targets/' + file_path)
 
   def _get_file(self, commit, filepath):
     f = self.validation_auth_repo.get_file(commit, filepath)
@@ -247,7 +242,7 @@ class GitUpdater(handlers.MetadataUpdater):
   def on_successful_update(self, filename, mirror):
     # after the is successfully completed, set the
     # next commit as current for the given file
-    print(f'{filename} updated from {mirror}')
+    print('{} updated from {}'.format(filename, mirror))
 
   def on_unsuccessful_update(self, filename):
     # TODO an error message

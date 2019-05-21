@@ -1,0 +1,14 @@
+{
+  "python.pythonPath": "./env/bin/python", // virtualenv env -p=python35
+  "editor.tabSize": 2,
+  "python.formatting.autopep8Args": [
+    "--indent-size=2",
+    "--max-line-length=100"
+  ],
+  "python.linting.pep8Enabled": false,
+  "python.linting.flake8Enabled": false,
+  "python.sortImports.args": [
+    "-l",
+    "80"
+  ]
+}

@@ -1,5 +1,0 @@
-oll-tuf==0.11.2.dev5
-cryptography==2.3.1
-pytest==3.6.3
-
---editable .

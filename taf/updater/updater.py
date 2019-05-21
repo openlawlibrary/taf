@@ -1,33 +1,11 @@
-from tuf.repository_tool import *
 import os
-import time
-import shutil
-import copy
-import tempfile
-import logging
-import random
-import subprocess
-import sys
-import errno
-import unittest
 import traceback
 
 import tuf
-import tuf.exceptions
-import tuf.log
-import tuf.formats
-import tuf.keydb
-import tuf.roledb
-import tuf.repository_tool as repo_tool
-import tuf.repository_lib as repo_lib
-import tuf.unittest_toolbox as unittest_toolbox
 import tuf.client.updater as tuf_updater
-import securesystemslib
-import six
-import json
-from pathlib import Path
-from taf.updater.handlers import GitUpdater
+
 from taf.updater.exceptions import UpdateFailed
+from taf.updater.handlers import GitUpdater
 
 
 def update(url, clients_directory, repo_name):
@@ -73,8 +51,8 @@ def update(url, clients_directory, repo_name):
                                     'confined_target_dirs': ['']}}
 
   repository_updater = tuf_updater.Updater(repo_name,
-                                   repository_mirrors,
-                                   GitUpdater)
+                                           repository_mirrors,
+                                           GitUpdater)
 
   try:
     while not repository_updater.update_handler.update_done():
@@ -88,14 +66,15 @@ def update(url, clients_directory, repo_name):
         target_filepath = target['filepath']
         trusted_length = target['fileinfo']['length']
         trusted_hashes = target['fileinfo']['hashes']
-        repository_updater._get_target_file(target_filepath, trusted_length,
-          trusted_hashes)
-        print(f'Successfully validated file {target_filepath} at {repository_updater.update_handler.current_commit}')
+        repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
+        print('Successfully validated file {} at {}'
+              .format(target_filepath, repository_updater.update_handler.current_commit))
 
   except Exception as e:
     # for now, useful for debugging
     traceback.print_exc()
-    raise UpdateFailed(f'Failed to update authentication repository {clients_directory} due to error: {e}')
+    raise UpdateFailed('Failed to update authentication repository {} due to error: {}'
+                       .format(clients_directory, e))
   finally:
     repository_updater.update_handler.cleanup()
 
