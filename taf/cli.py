@@ -1,5 +1,6 @@
 import click
 import os
+import datetime
 from taf.repository_tool import load_repository
 from taf.updater.updater import update as taf_updater
 
@@ -43,6 +44,7 @@ def add_targets(repo_path, keystore_path, targets_role):
 def update_metadata_expiration_date(repo_path, keystore_path, metadata_role, expiration_date):
   with load_repository(repo_path) as repository:
     if expiration_date is not None:
+      expiration_date = datetime.datetime.strptime(expiration_date, '%Y-%m-%d')
       repository.set_metadata_expiration_date(metadata_role, expiration_date, 0)
     else:
       repository.set_metadata_expiration_date(metadata_role)
@@ -50,9 +52,9 @@ def update_metadata_expiration_date(repo_path, keystore_path, metadata_role, exp
 
 
 @cli.command()
-@click.option('--url', help='Authentication repository\'s url')
-@click.option('--clients-directory', help='Directory containing the client\'s authentication repository')
-@click.option('--repo-name', help='Repository\'s name')
+@click.option('--url', default='E:\\OLL2\\updater\\smc-law', help='Authentication repository\'s url')
+@click.option('--clients-directory', default='E:\\OLL2\\updater\\client', help='Directory containing the client\'s authentication repository')
+@click.option('--repo-name', default='smc-law')
 def update(url, clients_directory, repo_name):
   taf_updater(url, clients_directory, repo_name)
 cli()

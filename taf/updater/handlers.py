@@ -244,10 +244,10 @@ class GitUpdater(handlers.MetadataUpdater):
     return securesystemslib.hash.digest_fileobject(file_obj,
                                                    algorithm=algorithm)
 
-  def on_successful_update(self, filename, location):
+  def on_successful_update(self, filename, mirror):
     # after the is successfully completed, set the
     # next commit as current for the given file
-    print(f'{filename} updated from {location}')
+    print(f'{filename} updated from {mirror}')
 
   def on_unsuccessful_update(self, filename):
     # TODO an error message

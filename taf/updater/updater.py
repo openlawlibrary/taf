@@ -65,7 +65,7 @@ def update(url, clients_directory, repo_name):
 
   # Setting 'tuf.settings.repository_directory' with the temporary client
   # directory copied from the original repository files.
-  tuf.settings.repositories_directory = clients_directory
+  tuf.settings.repositories_directory = clients_repository
 
   repository_mirrors = {'mirror1': {'url_prefix': url,
                                     'metadata_path': 'metadata',

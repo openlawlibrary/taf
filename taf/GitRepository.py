@@ -72,7 +72,7 @@ class GitRepository(object):
     if self.bare:
       params = '--bare'
     elif no_checkout:
-      params == '--no-checkout'
+      params = '--no-checkout'
     for url in self.repo_urls:
       try:
         self._git(f'clone {url} . {params}')
@@ -124,7 +124,7 @@ class GitRepository(object):
     """Finds sha of the commit to which the current HEAD points"""
     try:
       return self._git('rev-parse HEAD')
-    except:
+    except subprocess.CalledProcessError:
       return None
 
   def fetch(self, fetch_all=False):
