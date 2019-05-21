@@ -177,7 +177,7 @@ class GitUpdater(handlers.MetadataUpdater):
     mirrors parameter. The repository is cloned as a bare repository
     to a the temp directory and will be deleted one the update is done.
     """
-    temp_dir = tempfile.gettempdir()
+    temp_dir = tempfile.mkdtemp()
     repo_name = self.users_auth_repo.name
     self.validation_auth_repo = AuthenticationRepo(temp_dir, self.metadata_path, self.targets_path,
                                                    repo_name, [url], True)
@@ -192,7 +192,7 @@ class GitUpdater(handlers.MetadataUpdater):
     """
     shutil.rmtree(self.current_path)
     shutil.rmtree(self.previous_path)
-    os.system('rmdir /S /Q "{}"'.format(self.validation_auth_repo.repo_path))
+    shutil.rmtree(self.validation_auth_repo.repo_path)
 
   def earliest_valid_expiration_time(self):
     # metadata at a certain revision should not expire before the
