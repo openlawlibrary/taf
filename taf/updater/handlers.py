@@ -205,8 +205,8 @@ class GitUpdater(handlers.MetadataUpdater):
     """
     Make sure that the metadata file remained the same, as the reference metadata suggests.
     """
-    current_file = self.get_metadata_file(self.current_commit, metadata_filename)
-    previous_file = self.get_metadata_file(self.previous_commit, metadata_filename)
+    current_file = self.get_metadata_file(self.current_commit, file_name=metadata_filename)
+    previous_file = self.get_metadata_file(self.previous_commit, file_name=metadata_filename)
     if current_file.read() != previous_file.read():
       raise UpdateFailed('Metadata file {} should be the same at revisions {} and {}, but is not.'
                          .format(metadata_filename, self.previous_commit, self.current_commit))
@@ -214,15 +214,18 @@ class GitUpdater(handlers.MetadataUpdater):
   def get_current_targets(self):
     return self.validation_auth_repo.list_files_at_revision(self.current_commit, 'targets')
 
-  def get_mirrors(self):
+  def get_mirrors(self, **kwargs):
+    # pylint: disable=unused-argument
     # return a list containing just the current commit
     return [self.current_commit]
 
-  def get_metadata_file(self, file_mirror, filename, _upperbound_filelength=0):
-    return self._get_file(file_mirror, 'metadata/' + filename)
+  def get_metadata_file(self, file_mirror, **kwargs):
+    file_name = kwargs['file_name']
+    return self._get_file(file_mirror, 'metadata/' + file_name)
 
-  def get_target_file(self, file_mirror, filename):
-    return self._get_file(file_mirror, 'targets/' + filename)
+  def get_target_file(self, file_mirror, **kwargs):
+    file_path = kwargs['file_path']
+    return self._get_file(file_mirror, 'targets/' + file_path)
 
   def _get_file(self, commit, filepath):
     f = self.validation_auth_repo.get_file(commit, filepath)

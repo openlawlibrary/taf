@@ -53,9 +53,9 @@ def update_metadata_expiration_date(repo_path, keystore_path, metadata_role, exp
 
 
 @cli.command()
-@click.option('--url', help='Authentication repository\'s url')
-@click.option('--clients-directory', help='Directory containing the client\'s authentication repository')
-@click.option('--repo-name', help='Repository\'s name')
+@click.option('--url', default='E:\\OLL2\\updater\\smc-law', help='Authentication repository\'s url')
+@click.option('--clients-directory', default='E:\\OLL2\\updater\\client', help='Directory containing the client\'s authentication repository')
+@click.option('--repo-name', default='smc-law')
 def update(url, clients_directory, repo_name):
   taf_updater(url, clients_directory, repo_name)
 
