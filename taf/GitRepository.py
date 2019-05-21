@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import shutil
 from pathlib import Path
 
 from taf.utils import run
@@ -8,7 +9,7 @@ from taf.utils import run
 
 class GitRepository(object):
 
-  def __init__(self, root_dir, target_path=None, repo_urls=None, additional_info=None):
+  def __init__(self, root_dir, target_path=None, repo_urls=None, additional_info=None, bare=False):
     """
     Args:
       root_dir: the root directory, target_path is relative to it
@@ -21,9 +22,10 @@ class GitRepository(object):
     root_dir.
     """
     self.target_path = target_path
-    self.repo_path = str((Path(root_dir) / (target_path or '')).resolve(True))
+    self.repo_path = str((Path(root_dir) / (target_path or '')).resolve())
     self.repo_urls = repo_urls
     self.additional_info = additional_info
+    self.bare = bare
 
   @property
   def name(self):
@@ -39,6 +41,17 @@ class GitRepository(object):
       cmd = cmd.format(*args)
     return run('git -C {} {}'.format(self.repo_path, cmd))
 
+  def all_commits_since_commit(self, since_commit):
+    if since_commit is not None:
+      commits = self._git(f'rev-list {since_commit}..HEAD').strip()
+    else:
+      commits = self._git(f'log --format=format:%H').strip()
+    if not commits:
+      return []
+    commits = commits.split('\n')
+    commits.reverse()
+    return commits
+
   def checkout_branch(self, branch_name, create=False):
     """Check out the specified branch. If it does not exists and
     the create parameter is set to True, create a new branch.
@@ -51,6 +64,30 @@ class GitRepository(object):
         self.create_and_checkout_branch(branch_name)
       else:
         raise(e)
+
+  def clone_or_pull_up_to_commit(self, commit):
+    if not self.is_git_repository():
+      self.init_repo()
+    self.fetch()
+    self.merge_commit(commit)
+
+  def clone(self, no_checkout=False):
+    shutil.rmtree(self.repo_path, True)
+    os.makedirs(self.repo_path, exist_ok=True)
+    if self.repo_urls is None:
+      raise Exception('Cannot clone repository. No urls were specified')
+    params = ''
+    if self.bare:
+      params = '--bare'
+    elif no_checkout:
+      params == '--no-checkout'
+    for url in self.repo_urls:
+      try:
+        self._git(f'clone {url} . {params}')
+      except subprocess.CalledProcessError:
+        print(f'Cannot clone repository {self.name} from url {url}')
+      else:
+        break
 
   def create_and_checkout_branch(self, branch_name):
     self._git('checkout -b {}', branch_name)
@@ -80,6 +117,10 @@ class GitRepository(object):
 
     return commits
 
+  def get_commits_date(self, commit):
+    date = self._git(f'show -s --format=%at {commit}')
+    return date.split(' ', 1)[0]
+
   def get_json(self, commit, path):
     s = self.get_file(commit, path)
     return json.loads(s)
@@ -89,7 +130,22 @@ class GitRepository(object):
 
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
-    return self._git('rev-parse HEAD')
+    try:
+      return self._git('rev-parse HEAD')
+    except:
+      return None
+
+  def fetch(self, fetch_all=False):
+    if fetch_all:
+      self._git('fetch --all')
+    else:
+      self._git('fetch')
+
+  def init_repo(self):
+    if not os.path.isdir(self.repo_path):
+      os.makedirs(self.repo_path, exist_ok=True)
+    self._git('init')
+    self._git(f'remote add origin {self.repo_urls[0]}')
 
   def is_git_repository(self):
     try:
@@ -97,6 +153,23 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       return False
     return True
+
+  def list_files_at_revision(self, commit, path=''):
+    if path is None:
+      path = ''
+    file_names = self._git(f'ls-tree -r --name-only {commit}')
+    list_of_files = []
+    if not file_names:
+      return list_of_files
+    for file_in_repo in file_names.split('\n'):
+      if not file_in_repo.startswith(path):
+        continue
+      file_in_repo = os.path.relpath(file_in_repo, path)
+      list_of_files.append(file_in_repo)
+    return list_of_files
+
+  def merge_commit(self, commit):
+    self._git(f'merge {commit}')
 
   def pull(self):
     """Pull current branch"""

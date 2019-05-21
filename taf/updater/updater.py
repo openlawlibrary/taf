@@ -10,6 +10,7 @@ import subprocess
 import sys
 import errno
 import unittest
+import traceback
 
 import tuf
 import tuf.exceptions
@@ -20,16 +21,16 @@ import tuf.roledb
 import tuf.repository_tool as repo_tool
 import tuf.repository_lib as repo_lib
 import tuf.unittest_toolbox as unittest_toolbox
-import tuf.client.updater as updater
-
+import tuf.client.updater as tuf_updater
 import securesystemslib
 import six
 import json
 from pathlib import Path
-from handlers import GitMetadataUpdater
+from taf.updater.handlers import GitUpdater
+from taf.updater.exceptions import UpdateFailed
 
 
-def update():
+def update(url, clients_directory, repo_name):
   """
   The general idea is the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
@@ -58,38 +59,49 @@ def update():
   loads data from a most recent commit.
   """
 
-  # temporary, during initial development
-  clients_directory = 'E:\\OLL\\tuf_updater_test'
-  repository_name = 'dc-law'
+  # TODO old HEAD as an input parameter
 
-  clients_reposiotry = os.path.join(clients_directory, repository_name)
-  clients_keystore = os.path.join(clients_directory, 'keystore')
-  clients_metadata = os.path.join(clients_reposiotry, 'metadata')
+  clients_repository = os.path.join(clients_directory, repo_name)
 
   # Setting 'tuf.settings.repository_directory' with the temporary client
   # directory copied from the original repository files.
   tuf.settings.repositories_directory = clients_directory
 
-  url_prefix = 'https://github.com/openlawlibrary/dc-law'
-  repository_mirrors = {'mirror1': {'url_prefix': url_prefix,
+  repository_mirrors = {'mirror1': {'url_prefix': url,
                                     'metadata_path': 'metadata',
-                                    'targets_path': '',
+                                    'targets_path': 'targets',
                                     'confined_target_dirs': ['']}}
 
-  # Creating a repository instance.  The test cases will use this client
-  # updater to refresh metadata, fetch target files, etc.
-  repository_updater = updater.Updater(repository_name,
-                                       repository_mirrors,
-                                       GitMetadataUpdater)
+  repository_updater = tuf_updater.Updater(repo_name,
+                                   repository_mirrors,
+                                   GitUpdater)
 
-  update_done = False
   try:
-    while not update_done:
+    while not repository_updater.update_handler.update_done():
       repository_updater.refresh()
-      repository_updater._refresh_targets_metadata()
-      update_done = repository_updater.update_handler.update_done()
-  except Exception as e:
-    print(e)
-  repository_updater.update_handler.cleanup()
+      # using refresh, we have updated all main roles
+      # we still need to update the delegated roles (if there are any)
+      # that is handled by get_current_targets
+      current_targets = repository_updater.update_handler.get_current_targets()
+      for target_path in current_targets:
+        target = repository_updater.get_one_valid_targetinfo(target_path)
+        target_filepath = target['filepath']
+        trusted_length = target['fileinfo']['length']
+        trusted_hashes = target['fileinfo']['hashes']
+        repository_updater._get_target_file(target_filepath, trusted_length,
+          trusted_hashes)
+        print(f'Successfully validated file {target_filepath} at {repository_updater.update_handler.current_commit}')
 
-update()
+  except Exception as e:
+    # for now, useful for debugging
+    traceback.print_exc()
+    raise UpdateFailed(f'Failed to update authentication repository {clients_directory} due to error: {e}')
+  finally:
+    repository_updater.update_handler.cleanup()
+
+  # successfully validated the authentication repository, it is safe to pull the changes
+  # up until the latest validated commit
+  # fetch and merge up until a commit
+  users_auth_repo = repository_updater.update_handler.users_auth_repo
+  last_commit = repository_updater.update_handler.commits[-1]
+  users_auth_repo.clone_or_pull_up_to_commit(last_commit)
