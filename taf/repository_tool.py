@@ -1,5 +1,5 @@
-import getpass
 import datetime
+import getpass
 import json
 import os
 import shutil
@@ -12,10 +12,10 @@ role_keys_cache = {}
 
 
 expiration_intervals = {
-  'root': 365,
-  'targets': 90,
-  'snapshot': 7,
-  'timestamp': 1
+    'root': 365,
+    'targets': 90,
+    'snapshot': 7,
+    'timestamp': 1
 }
 
 
@@ -86,7 +86,7 @@ class Repository:
 
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
-    for root, dirs, files in os.walk(self.targets_path):
+    for root, _, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
         if filepath not in data and filename not in files_to_keep:
@@ -115,7 +115,7 @@ class Repository:
       custom = target_data.get('custom', None)
       targets.add_target(target_path, custom)
 
-    with open(os.path.join(self.metadata_path, f'{targets_role}.json')) as f:
+    with open(os.path.join(self.metadata_path, '{}.json'.format(targets_role))) as f:
       previous_targets = json.load(f)['signed']['targets']
 
     for path in files_to_keep:
@@ -208,10 +208,11 @@ def load_role_key(role, keystore):
       key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
     except securesystemslib.exceptions.CryptoError:
       while key is None:
-        passphrase = getpass.getpass(f'Enter {role} passphrase:')
+        passphrase = getpass.getpass('Enter {} passphrase:'.format(role))
         try:
-          key = import_rsa_privatekey_from_file(os.path.join(keystore, role), passphrase)
-        except:
+          key = import_rsa_privatekey_from_file(
+              os.path.join(keystore, role), passphrase)
+        except securesystemslib.exceptions.Error:
           pass
     role_keys_cache[role] = key
   return key

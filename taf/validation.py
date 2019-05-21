@@ -60,9 +60,10 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
 
   lengths = set(len(commits) for commits in targets_and_commits.values())
   if len(lengths) > 1:
-    msg = f'Branches {branch_name} of target repositories do not have the same number of commits'
+    msg = 'Branches {} of target repositories do not have the same number of commits' \
+          .format(branch_name)
     for target, commits in targets_and_commits.items():
-      msg += f'\n{target.target_path} has {len(commits)} commits.'
+      msg += '\n{} has {} commits.'.format(target.target_path, len(commits))
     raise InvalidBranch(msg)
 
 
@@ -70,8 +71,8 @@ def _check_branch_id(auth_repo, auth_commit, branch_id):
 
   new_branch_id = auth_repo.get_file(auth_commit, 'targets/branch')
   if branch_id is not None and new_branch_id != branch_id:
-    raise InvalidBranch(f'Branch ID at revision {auth_commit} is not the same as the '
-                        'version at the following revision')
+    raise InvalidBranch('Branch ID at revision {} is not the same as the '
+                        'version at the following revision'.format(auth_commit))
   return new_branch_id
 
 
@@ -85,9 +86,9 @@ def _check_targets_version(targets, tuf_commit, current_version):
   new_version = targets['signed']['version']
   # substracting one because the commits are in the reverse order
   if current_version is not None and new_version != current_version - 1:
-    raise InvalidBranch(f'Version of metadata file targets.json at revision '
-                        f'{tuf_commit} is not equal to previous version incremented '
-                        'by one!')
+    raise InvalidBranch('Version of metadata file targets.json at revision '
+                        '{} is not equal to previous version incremented '
+                        'by one!'.format(tuf_commit))
   return new_version
 
 
@@ -98,7 +99,7 @@ def check_capstone(auth_repo, branch):
   """
   capstone_path = os.path.join(auth_repo.repo_path, 'targets', 'capstone')
   if not os.path.isfile(capstone_path):
-    raise InvalidBranch(f'No capstone at the end of branch {branch}!!!')
+    raise InvalidBranch('No capstone at the end of branch {}!!!'.format(branch))
 
 
 def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, target_repo_commit):
@@ -106,7 +107,9 @@ def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, tar
   Check if commit sha of a repository's speculative branch commit matches the
   specified target value in targets.json.
   """
-  targets_head_sha = tuf_repo.get_json(tuf_commit, f'targets/{target_repo.target_path}')['commit']
+  target_path = 'targets/{}'.format(target_repo.target_path)
+  targets_head_sha = tuf_repo.get_json(tuf_commit, target_path)['commit']
   if target_repo_commit != targets_head_sha:
-    raise InvalidBranch(f'Commit {target_repo_commit} of repository {target_repo.name} does '
-                        'not match the commit sha specified in targets.json!')
+    raise InvalidBranch('Commit {} of repository {} does '
+                        'not match the commit sha specified in targets.json!'
+                        .format(target_repo_commit, target_repo.name))

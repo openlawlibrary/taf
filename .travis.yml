@@ -5,12 +5,15 @@ cache: pip
 python: 3.6
 
 env:
-  - TOXENV=py36
+  - TOXENV=py35
 
 before_script:
-  - pip install -U pip wheel tox
+  - pip install pylint bandit tox
 
-script: tox
+script:
+  - pylint taf
+  - bandit --ini tox.ini -r taf
+  - tox
 
 after_success:
   - cd tests
