@@ -1,4 +1,3 @@
-import os
 import traceback
 import shutil
 
@@ -40,8 +39,6 @@ def update(url, clients_directory, repo_name, targets_dir):
   """
 
   # TODO old HEAD as an input parameter
-
-  clients_repository = os.path.join(clients_directory, repo_name)
 
   # Setting 'tuf.settings.repository_directory' with the temporary client
   # directory copied from the original repository files.
@@ -132,19 +129,19 @@ def _update_target_repositories(repositories, repositories_commits):
 
 def _update_target_repository(repository, old_head, target_commits):
 
-    new_commits = repository.all_commits_since_commit(old_head)
-    # The repository might not have been protected by TUF from the first
-    # commit. If the repository already existed, then the latest commit in that repository
-    # should match the first commit in repositories_commits for that repository
-    # Also, a new commit might have been pushed after the update process
-    # started and before fetch was called
-    update_successful = len(new_commits) >= len(target_commits)
-    if update_successful:
-      for target_commit, repo_commit in zip(target_commits, new_commits):
-        if target_commit != repo_commit:
-          update_successful = False
-          break
+  new_commits = repository.all_commits_since_commit(old_head)
+  # The repository might not have been protected by TUF from the first
+  # commit. If the repository already existed, then the latest commit in that repository
+  # should match the first commit in repositories_commits for that repository
+  # Also, a new commit might have been pushed after the update process
+  # started and before fetch was called
+  update_successful = len(new_commits) >= len(target_commits)
+  if update_successful:
+    for target_commit, repo_commit in zip(target_commits, new_commits):
+      if target_commit != repo_commit:
+        update_successful = False
+        break
 
-    if not update_successful:
-      raise UpdateFailed('Mismatch between target commits specified in authentication repository'
-                         'and target repository {}'.format(repository.target_path))
+  if not update_successful:
+    raise UpdateFailed('Mismatch between target commits specified in authentication repository'
+                       'and target repository {}'.format(repository.target_path))

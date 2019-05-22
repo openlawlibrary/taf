@@ -93,9 +93,6 @@ class GitRepository(object):
       else:
         break
 
-  def checkout_branch(self, branch_name):
-    self._git('checkout {}', branch_name)
-
   def create_and_checkout_branch(self, branch_name):
     self._git('checkout -b {}', branch_name)
 
