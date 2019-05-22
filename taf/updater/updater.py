@@ -1,5 +1,6 @@
 import os
 import traceback
+import shutil
 
 import tuf
 import tuf.client.updater as tuf_updater
@@ -44,7 +45,7 @@ def update(url, clients_directory, repo_name, targets_dir):
 
   # Setting 'tuf.settings.repository_directory' with the temporary client
   # directory copied from the original repository files.
-  tuf.settings.repositories_directory = clients_repository
+  tuf.settings.repositories_directory = clients_directory
 
   repository_mirrors = {'mirror1': {'url_prefix': url,
                                     'metadata_path': 'metadata',
@@ -97,34 +98,53 @@ def update(url, clients_directory, repo_name, targets_dir):
   repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
   repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
   repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+  _update_target_repositories(repositories, repositories_commits)
 
+def _update_target_repositories(repositories, repositories_commits):
+  cloned_repositories = []
   for path, repository in repositories.items():
-    import pdb; pdb.set_trace()
     if not repository.is_git_repository():
-      old_head_commit = None
+      old_head = None
     else:
-      old_head_commit = repository.head_commit_sha()
+      old_head = repository.head_commit_sha()
 
-    if old_head_commit is None:
+    if old_head is None:
       repository.clone(no_checkout=True)
+      cloned_repositories.append(repository)
     else:
       repository.fetch(True)
 
-    import pdb; pdb.set_trace()
-    new_commits = repository.all_commits_since_commit(old_head_commit)
-    # new_commits.insert(0, old_head_commit)
+    try:
+      _update_target_repository(repository, old_head, repositories_commits[path])
+    except UpdateFailed as e:
+      # delete all repositories that were cloned
+      for repo in cloned_repositories:
+        shutil.rmtree(repo.repo_path)
+      # TODO is it important to undo a fetch if the repository was not cloned?
+      raise e
+
+  print('Succsfully updated target repositories')
+  # if update is successful, merge the commits
+  for path, repository in repositories.items():
+    repository.checkout_branch('master')
+    repository.merge_commit(repositories_commits[path][-1])
+
+
+def _update_target_repository(repository, old_head, target_commits):
+
+    new_commits = repository.all_commits_since_commit(old_head)
     # The repository might not have been protected by TUF from the first
     # commit. If the repository already existed, then the latest commit in that repository
     # should match the first commit in repositories_commits for that repository
     # Also, a new commit might have been pushed after the update process
     # started and before fetch was called
-    repository_commits = repositories_commits[path]
-    import pdb; pdb.set_trace()
-    if len(new_commits) < len(repositories_commits):
+    update_successful = len(new_commits) >= len(target_commits)
+    if update_successful:
+      for target_commit, repo_commit in zip(target_commits, new_commits):
+        if target_commit != repo_commit:
+          update_successful = False
+          break
+
+    if not update_successful:
       raise UpdateFailed('Mismatch between target commits specified in authentication repository'
                          'and target repository {}'.format(repository.target_path))
-
-    for target_commit, repo_commit in zip(repository_commits, new_commits):
-      if target_commit != repo_commit:
-        raise UpdateFailed('Mismatch between target commits specified in authentication repository'
-                           'and target repository {}'.format(repository.target_path))

@@ -51,9 +51,7 @@ class AuthenticationRepo(GitRepository):
       except CalledProcessError:
         # if there is a commit without targets.json (e.g. the initial commit)
         # this error will occur
-        print('targets.json not available at revision {}'.format(commit))
         continue
       except json.decoder.JSONDecodeError:
-        print('targets.json is not a valid json at revision {}'.format(commit))
         continue
     return targets
