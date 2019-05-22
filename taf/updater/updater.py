@@ -122,9 +122,9 @@ def update(url, clients_directory, repo_name, targets_dir):
     import pdb; pdb.set_trace()
     if len(new_commits) < len(repositories_commits):
       raise UpdateFailed('Mismatch between target commits specified in authentication repository'
-                         f' and target repository {repository.target_path}')
+                         'and target repository {}'.format(repository.target_path))
 
     for target_commit, repo_commit in zip(repository_commits, new_commits):
       if target_commit != repo_commit:
         raise UpdateFailed('Mismatch between target commits specified in authentication repository'
-                           f' and target repository {repository.target_path}')
+                           'and target repository {}'.format(repository.target_path))
