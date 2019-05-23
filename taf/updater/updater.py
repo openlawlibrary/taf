@@ -39,22 +39,39 @@ def update(url, clients_directory, repo_name, targets_dir):
   """
 
   # TODO old HEAD as an input parameter
+  # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
-  # Setting 'tuf.settings.repository_directory' with the temporary client
-  # directory copied from the original repository files.
+  # instantiate TUF's updater
   tuf.settings.repositories_directory = clients_directory
-
   repository_mirrors = {'mirror1': {'url_prefix': url,
                                     'metadata_path': 'metadata',
                                     'targets_path': 'targets',
                                     'confined_target_dirs': ['']}}
-
   repository_updater = tuf_updater.Updater(repo_name,
                                            repository_mirrors,
                                            GitUpdater)
 
-  try:
+  # validate the authentication repository and fetch new commits
+  _update_authentication_repository(repository_updater)
 
+  # get target repositories and their commits, as specified in targets.json
+  users_auth_repo = repository_updater.update_handler.users_auth_repo
+  commits = repository_updater.update_handler.commits
+  repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
+  repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
+  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+
+  # update target repositories
+  _update_target_repositories(repositories, repositories_commits)
+
+  # if there were no errors, merge the last validated authentication repository commit
+  users_auth_repo.merge_commit(commits[-1])
+  users_auth_repo.checkout_branch('master')
+
+def _update_authentication_repository(repository_updater):
+
+  users_auth_repo = repository_updater.update_handler.users_auth_repo
+  try:
     while not repository_updater.update_handler.update_done():
       repository_updater.refresh()
       # using refresh, we have updated all main roles
@@ -69,41 +86,26 @@ def update(url, clients_directory, repo_name, targets_dir):
         repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
         print('Successfully validated file {} at {}'
               .format(target_filepath, repository_updater.update_handler.current_commit))
-
   except Exception as e:
     # for now, useful for debugging
     traceback.print_exc()
     raise UpdateFailed('Failed to update authentication repository {} due to error: {}'
-                       .format(clients_directory, e))
+                       .format(users_auth_repo.repo_path, e))
   finally:
     repository_updater.update_handler.cleanup()
 
-  # successfully validated the authentication repository, it is safe to pull the changes
-  # up until the latest validated commit
-  # fetch and merge up until a commit
-  users_auth_repo = repository_updater.update_handler.users_auth_repo
-  last_commit = repository_updater.update_handler.commits[-1]
-  # TODO do this only if updating targets is successful
-  users_auth_repo.clone_or_pull_up_to_commit(last_commit)
-
- # it is possible that a repository is not specified in all commits of the authentication
-  # repository
-  # it might have been added a bit later, only appearing in newer commits
-  # also, a repository could've been removed
-  # TODO what do we want to do with these repositories? TUF removes targets from disk if they
-  # are no longer specified in targets.json
-
-  commits = repository_updater.update_handler.commits
-  repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
-  repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
-  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
-  _update_target_repositories(repositories, repositories_commits)
+  # fetch the latest commit or clone the repository without checkout
+  # do not merge before targets are validated as well
+  if users_auth_repo.is_git_repository:
+    users_auth_repo.fetch(True)
+  else:
+    users_auth_repo.clone(no_checkout=True)
 
 
 def _update_target_repositories(repositories, repositories_commits):
   cloned_repositories = []
   for path, repository in repositories.items():
-    if not repository.is_git_repository():
+    if not repository.is_git_repository:
       old_head = None
     else:
       old_head = repository.head_commit_sha()

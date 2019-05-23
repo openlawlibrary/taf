@@ -90,7 +90,7 @@ class GitUpdater(handlers.MetadataUpdater):
     self._clone_validation_repo(auth_url)
 
     if os.path.exists(repository_directory):
-      if not self.users_auth_repo.is_git_repository():
+      if not self.users_auth_repo.is_git_repository:
         if os.listdir(repository_directory):
           raise UpdateFailed('{} is not a git repository and is not empty'
                              .format(repository_directory))
@@ -120,7 +120,7 @@ class GitUpdater(handlers.MetadataUpdater):
     # for now, it is assumed that there is a local repository
 
     # TODO check if users authentication repository is clean
-    if not self.users_auth_repo.is_git_repository():
+    if not self.users_auth_repo.is_git_repository:
       users_head_sha = None
     else:
       self.users_auth_repo.checkout_branch('master')
@@ -191,7 +191,8 @@ class GitUpdater(handlers.MetadataUpdater):
     """
     shutil.rmtree(self.current_path)
     shutil.rmtree(self.previous_path)
-    shutil.rmtree(self.validation_auth_repo.repo_path)
+    temp_dir = os.path.abspath(os.path.join(self.validation_auth_repo.repo_path, os.pardir))
+    shutil.rmtree(temp_dir)
 
   def earliest_valid_expiration_time(self):
     # metadata at a certain revision should not expire before the

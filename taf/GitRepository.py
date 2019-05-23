@@ -28,6 +28,10 @@ class GitRepository(object):
     self.bare = bare
 
   @property
+  def is_git_repository(self):
+    return self._is_git_repository()
+
+  @property
   def name(self):
     return os.path.basename(self.repo_path)
 
@@ -159,7 +163,7 @@ class GitRepository(object):
     self._git('init')
     self._git('remote add origin {}', self.repo_urls[0])
 
-  def is_git_repository(self):
+  def _is_git_repository(self):
     try:
       self._git('rev-parse --git-dir')
     except subprocess.CalledProcessError:
