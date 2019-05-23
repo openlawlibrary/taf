@@ -120,7 +120,6 @@ class GitUpdater(handlers.MetadataUpdater):
     # for now, it is assumed that there is a local repository
 
     # TODO check if users authentication repository is clean
-
     if not self.users_auth_repo.is_git_repository():
       users_head_sha = None
     else:

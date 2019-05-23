@@ -52,6 +52,14 @@ class GitRepository(object):
     commits.reverse()
     return commits
 
+  def all_fetched_commits(self, branch='master'):
+    commits = self._git('rev-list ..origin/{}'.format(branch)).strip()
+    if not commits:
+      return []
+    commits = commits.split('\n')
+    commits.reverse()
+    return commits
+
   def checkout_branch(self, branch_name, create=False):
     """Check out the specified branch. If it does not exists and
     the create parameter is set to True, create a new branch.

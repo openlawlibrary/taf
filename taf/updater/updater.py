@@ -54,6 +54,7 @@ def update(url, clients_directory, repo_name, targets_dir):
                                            GitUpdater)
 
   try:
+
     while not repository_updater.update_handler.update_done():
       repository_updater.refresh()
       # using refresh, we have updated all main roles
@@ -82,6 +83,7 @@ def update(url, clients_directory, repo_name, targets_dir):
   # fetch and merge up until a commit
   users_auth_repo = repository_updater.update_handler.users_auth_repo
   last_commit = repository_updater.update_handler.commits[-1]
+  # TODO do this only if updating targets is successful
   users_auth_repo.clone_or_pull_up_to_commit(last_commit)
 
  # it is possible that a repository is not specified in all commits of the authentication
@@ -96,6 +98,7 @@ def update(url, clients_directory, repo_name, targets_dir):
   repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
   repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
   _update_target_repositories(repositories, repositories_commits)
+
 
 def _update_target_repositories(repositories, repositories_commits):
   cloned_repositories = []
@@ -120,7 +123,7 @@ def _update_target_repositories(repositories, repositories_commits):
       # TODO is it important to undo a fetch if the repository was not cloned?
       raise e
 
-  print('Succsfully updated target repositories')
+
   # if update is successful, merge the commits
   for path, repository in repositories.items():
     repository.checkout_branch('master')
@@ -129,11 +132,13 @@ def _update_target_repositories(repositories, repositories_commits):
 
 def _update_target_repository(repository, old_head, target_commits):
 
-  new_commits = repository.all_commits_since_commit(old_head)
-  # The repository might not have been protected by TUF from the first
-  # commit. If the repository already existed, then the latest commit in that repository
-  # should match the first commit in repositories_commits for that repository
-  # Also, a new commit might have been pushed after the update process
+  if old_head is not None:
+    new_commits = repository.all_fetched_commits()
+    new_commits.insert(0, old_head)
+  else:
+    new_commits = repository.all_commits_since_commit(old_head)
+
+  # A new commit might have been pushed after the update process
   # started and before fetch was called
   update_successful = len(new_commits) >= len(target_commits)
   if update_successful:
@@ -145,3 +150,4 @@ def _update_target_repository(repository, old_head, target_commits):
   if not update_successful:
     raise UpdateFailed('Mismatch between target commits specified in authentication repository'
                        'and target repository {}'.format(repository.target_path))
+  print('Successfully updated {}'.format(repository.target_path))
