@@ -77,12 +77,6 @@ class GitRepository(object):
       else:
         raise(e)
 
-  def clone_or_pull_up_to_commit(self, commit):
-    if not self.is_git_repository():
-      self.init_repo()
-    self.fetch()
-    self.merge_commit(commit)
-
   def clone(self, no_checkout=False, from_filesystem=True):
     # TODO this creates something like smc-law/smc-law instead of just smc-law
     shutil.rmtree(self.repo_path, True)
