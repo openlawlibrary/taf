@@ -220,10 +220,10 @@ class GitUpdater(handlers.MetadataUpdater):
     # return a list containing just the current commit
     return [self.current_commit]
 
-  def get_metadata_file(self, file_mirror, file_name, _upperbound_filelength):
+  def get_metadata_file(self, file_mirror, file_name, _upperbound_filelength=None):
     return self._get_file(file_mirror, 'metadata/' + file_name)
 
-  def get_target_file(self, file_mirror, file_path, _file_length, _download_safely):
+  def get_target_file(self, file_mirror, _file_length, _download_safely, file_path):
     return self._get_file(file_mirror, 'targets/' + file_path)
 
   def _get_file(self, commit, filepath):
