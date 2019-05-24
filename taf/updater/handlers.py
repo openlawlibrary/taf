@@ -209,8 +209,8 @@ class GitUpdater(handlers.MetadataUpdater):
     current_file = self.get_metadata_file(self.current_commit, file_name=metadata_filename)
     previous_file = self.get_metadata_file(self.previous_commit, file_name=metadata_filename)
     if current_file.read() != previous_file.read():
-      raise UpdateFailed('Metadata file {} should be the same at revisions {} and {}, but is not.'
-                         .format(metadata_filename, self.previous_commit, self.current_commit))
+      raise UpdateFailedError('Metadata file {} should be the same at revisions {} and {}, but is not.'
+                              .format(metadata_filename, self.previous_commit, self.current_commit))
 
   def get_current_targets(self):
     return self.validation_auth_repo.list_files_at_revision(self.current_commit, 'targets')

@@ -205,10 +205,10 @@ def _get_repo_path(root_dir, repo_name):
   _validate_repo_name(repo_name)
   repo_dir = str((Path(root_dir) / (repo_name or '')).resolve())
   if not repo_dir.startswith(repo_dir):
-      raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
+    raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
 
-_repo_name_re = re.compile('^\w[\w_-]*/\w[\w_-]*$')
+_repo_name_re = re.compile(r'^\w[\w_-]*/\w[\w_-]*$')
 def _validate_repo_name(repo_name):
   """ Ensure the repo name is not malicious """
   match = _repo_name_re.match(repo_name)
