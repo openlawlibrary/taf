@@ -1,6 +1,6 @@
 # Updater
 
-The purpose of the updater is to securely pull the authentication repository and the specified target repositories. This means that we want to validate all of the repositories before pulling the changes. The main idea is to rely on TUF's updater as much as possible, redefining only parts of the code which download files and check expiration time of metadata. This means that all security checks provided by the TUF updater will be executed. This document is meant to go into some technical details, see [TUF specification ](tuf-specification.md) for an overview of the update process.
+The purpose of the updater is to securely pull the authentication repository and the specified target repositories. This means that we want to validate all of the repositories before pulling the changes. The main idea is to rely on TUF's updater as much as possible, redefining only parts of the code which download files and check expiration time of metadata. This means that all security checks provided by the TUF updater will be executed. This document is meant to go into some technical details, see [TUF specification](tuf-specification.md) for an overview of the update process.
 
 There are a few differences between what TAF's updater needs achieve and what the TUF's updater was designed to do:
 
@@ -25,8 +25,3 @@ For the above listed reasons, we cannot simply use TUF's updater like described 
 - New metadata files (not counting delegated roles) are acquired by calling TUF's `refresh`. Metadata files belonging to the delegated roles are updated by `get_current_targets`. Information about a target file is obtained using `get_one_valid_targetinfo`
 
 - Since TUF does not provide a way to gradually update metadata and target files (except for `root.json`), that has to be handled by TUF. So, TAF's updater calls TUF's updater multiple times. Our handler, `GitUpdateHandler` finds all commits that were pushed after the last time the client pulled the changes. The basic idea is to traverse trough these commits and update metadata files and targets for each of them, thus validating all revisions.
-
-  
-
-
-

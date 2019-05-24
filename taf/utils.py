@@ -35,6 +35,7 @@ def run(*command, **kwargs):
     logger.debug(completed.stdout)
   return completed.stdout.rstrip() if completed.returncode == 0 else None
 
+
 def normalize_file_line_endings(file_path):
   # replacement strings
   WINDOWS_LINE_ENDING = b'\r\n'
