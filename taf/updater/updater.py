@@ -1,12 +1,12 @@
-import traceback
 import shutil
+import traceback
 
 import tuf
 import tuf.client.updater as tuf_updater
+
 import taf.repositoriesdb as repositoriesdb
 from taf.updater.exceptions import UpdateFailed
 from taf.updater.handlers import GitUpdater
-
 
 
 def update(url, clients_directory, repo_name, targets_dir):
@@ -68,6 +68,7 @@ def update(url, clients_directory, repo_name, targets_dir):
   users_auth_repo.merge_commit(commits[-1])
   users_auth_repo.checkout_branch('master')
 
+
 def _update_authentication_repository(repository_updater):
 
   users_auth_repo = repository_updater.update_handler.users_auth_repo
@@ -124,7 +125,6 @@ def _update_target_repositories(repositories, repositories_commits):
         shutil.rmtree(repo.repo_path)
       # TODO is it important to undo a fetch if the repository was not cloned?
       raise e
-
 
   # if update is successful, merge the commits
   for path, repository in repositories.items():

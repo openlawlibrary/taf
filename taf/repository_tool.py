@@ -5,9 +5,10 @@ import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
-from taf.utils import normalize_file_line_endings
 
 import securesystemslib
+
+from taf.utils import normalize_file_line_endings
 
 role_keys_cache = {}
 
@@ -164,7 +165,7 @@ class Repository:
       targets - 90 days
       snapshot - 7 days
       timestamp - 1 day
-      all other roels - 1 day
+      all other roles - 1 day
     """
     role_obj = self._role_obj(role)
     if interval is None:
@@ -180,7 +181,7 @@ class Repository:
       repository: a tu repository
       role: a tuf role
       keystore: location of the keystore file
-      update_snapshot_and_timestamp: should timestamp and snapshot.json also be udpated
+      update_snapshot_and_timestamp: should timestamp and snapshot.json also be updated
     """
     private_role_key = load_role_key(role, keystore)
     self._role_obj(role).load_signing_key(private_role_key)
@@ -209,7 +210,7 @@ def load_role_key(role, keystore):
   if key is None:
     from tuf.repository_tool import import_rsa_privatekey_from_file
     try:
-      # try loading the key without passing in a passphare
+      # try loading the key without passing in a passphrase
       # if that fails, prompt the user to enter it
       key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
     except securesystemslib.exceptions.CryptoError:

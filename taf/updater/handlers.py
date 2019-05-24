@@ -30,7 +30,7 @@ class GitUpdater(handlers.MetadataUpdater):
   - A commit is considered to be a TUF mirror. We keep track of the current commit.
   - This class is designed in such a way that for each subsequent call of the
   updater's refresh method the next commit is used as a mirror. This is better than
-  intatntiating this class multiple times as that seems to require less modifications
+  instantiating this class multiple times as that seems to require less modifications
   of TUF's code.
   - The updater's method '_get_metadata_file' call 'get_mirrors'. It then iterates
   through these mirrors and tries to update a metadata file by downloading them
@@ -43,7 +43,7 @@ class GitUpdater(handlers.MetadataUpdater):
 
 
   Attributes:
-      - repository_directory: the client's local repositoy's location
+      - repository_directory: the client's local repository's location
       - current_path: path of the 'current' directory needed by the updater
       - previous_path: path of the 'previous' directory needed by the updater
       - validation_auth_repo: a fresh clone of the metadata repository. It is
@@ -53,7 +53,7 @@ class GitUpdater(handlers.MetadataUpdater):
       - commits: a list of commits, starting with the most recent commit in the
       user's repository. The following commits are those committed after the
       the top one if the client's repo.
-      - commits_indexes: a dictionary which stores intex of the current commit
+      - commits_indexes: a dictionary which stores index of the current commit
       per metadata file. The reason for separating the metadata files is that
       not all files are updated at the same time.
   """
@@ -77,7 +77,7 @@ class GitUpdater(handlers.MetadataUpdater):
     This dictionary is provided by the user of the updater and used to
     create an instance of the tuf updater.
     We use url_prefix to specify url of the git repository which we want to clone.
-    repository_directory: the client's local repositoy's location
+    repository_directory: the client's local repository's location
     """
     super(GitUpdater, self).__init__(mirrors, repository_directory)
 
@@ -112,7 +112,7 @@ class GitUpdater(handlers.MetadataUpdater):
     of commits of the authentication repository newer than the most recent
     commit of the client's repository. These commits need to be validated.
     If the client's repository does not exist, all commits should be validated.
-    We have to persume that the initial metadata is correct though (or at least
+    We have to presume that the initial metadata is correct though (or at least
     the initial root.json).
     """
     # TODO handle the case when the local repository does not
@@ -139,10 +139,10 @@ class GitUpdater(handlers.MetadataUpdater):
 
   def _init_metadata(self):
     """
-    TUF updater expects the existance of two directories in the client's
+    TUF updater expects the existence of two directories in the client's
     metadata directory - current and previous. These directories store
     the current and previous metadata files (before and after the update).
-    They must exsist and contain at least root.json. Otherwise, update will
+    They must exists and contain at least root.json. Otherwise, update will
     fail. We actually want to validate the remote authentication repository,
     but will create the directories where TUF expects them to be in order
     to avoid modifying the updater.
@@ -185,7 +185,7 @@ class GitUpdater(handlers.MetadataUpdater):
 
   def cleanup(self):
     """
-    Removes the bare authentication repositoy and current and previous
+    Removes the bare authentication repository and current and previous
     directories. This should be called after the update is finished,
     either successfully or unsuccessfully.
     """
