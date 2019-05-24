@@ -57,6 +57,7 @@ setup(
     extras_require={
         'ci': ci_require,
         'test': tests_require,
+        'dev': dev_require
     },
     tests_require=tests_require,
     entry_points={

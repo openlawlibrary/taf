@@ -10,7 +10,7 @@ def run(*command, **kwargs):
   stdout."""
   if len(command) == 1 and isinstance(command[0], str):
     command = command[0].split()
-  logger.debug(*command)
+  logger.debug('About to run command %s', ' '.join(command))
 
   def _format_word(word, **env):
     """To support word such as @{u} needed for git commands."""

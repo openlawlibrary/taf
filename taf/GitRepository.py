@@ -2,6 +2,9 @@ import json
 import os
 import shutil
 import subprocess
+import re
+import taf.settings as settings
+from taf.exceptions import InvalidRepositoryError
 from pathlib import Path
 
 from taf.utils import run
@@ -9,27 +12,35 @@ from taf.utils import run
 
 class GitRepository(object):
 
-  def __init__(self, root_dir, target_path=None, repo_urls=None, additional_info=None, bare=False):
+  def __init__(self, root_dir, repo_name=None, repo_urls=None, additional_info=None, bare=False):
     """
     Args:
-      root_dir: the root directory, target_path is relative to it
-      target_path: repository's relative path, as specified in targets.json
-      and mirrors.json (optional)
+      root_dir: the root directory, repo_name is relative to it
+      repo_name: repository's relative path, as specified in targets.json
+      in case of target repositories (oprional)
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
     repo_path is the absolute path to this repository. If target path is not None,
-    it is set by joining root_dir and target_path. Otherwise, it is set to just
+    it is set by joining root_dir and repo_name. Otherwise, it is set to just
     root_dir.
     """
-    self.target_path = target_path
-    self.repo_path = str((Path(root_dir) / (target_path or '')).resolve())
+    self.repo_name = repo_name
+    self.root_dir = root_dir
+    self.repo_path = _get_repo_path(root_dir, repo_name)
+    if not settings.update_from_filesystem:
+      for url in repo_urls:
+        _validate_url(url)
     self.repo_urls = repo_urls
     self.additional_info = additional_info
     self.bare = bare
 
   @property
   def is_git_repository(self):
-    return self._is_git_repository()
+    try:
+      self._git('rev-parse --git-dir')
+    except subprocess.CalledProcessError:
+      return False
+    return True
 
   @property
   def name(self):
@@ -57,7 +68,7 @@ class GitRepository(object):
     return commits
 
   def all_fetched_commits(self, branch='master'):
-    commits = self._git('rev-list ..origin/{}'.format(branch)).strip()
+    commits = self._git('rev-list ..origin/{}', branch).strip()
     if not commits:
       return []
     commits = commits.split('\n')
@@ -78,7 +89,7 @@ class GitRepository(object):
         raise(e)
 
   def clone(self, no_checkout=False, from_filesystem=True):
-    # TODO this creates something like smc-law/smc-law instead of just smc-law
+
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
     if self.repo_urls is None:
@@ -157,13 +168,6 @@ class GitRepository(object):
     self._git('init')
     self._git('remote add origin {}', self.repo_urls[0])
 
-  def _is_git_repository(self):
-    try:
-      self._git('rev-parse --git-dir')
-    except subprocess.CalledProcessError:
-      return False
-    return True
-
   def list_files_at_revision(self, commit, path=''):
     if path is None:
       path = ''
@@ -191,3 +195,40 @@ class GitRepository(object):
       self._git('push origin {}', branch).strip()
     except subprocess.CalledProcessError:
       self._git('--set-upstream origin {}', branch).strip()
+
+
+def _get_repo_path(root_dir, repo_name):
+  """
+  get the path to a repo and ensure it is valid.
+  (since this is coming from potentially untrusted data)
+  """
+  _validate_repo_name(repo_name)
+  repo_dir = str((Path(root_dir) / (repo_name or '')).resolve())
+  if not repo_dir.startswith(repo_dir):
+      raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
+  return repo_dir
+
+_repo_name_re = re.compile('^\w[\w_-]*/\w[\w_-]*$')
+def _validate_repo_name(repo_name):
+  """ Ensure the repo name is not malicious """
+  match = _repo_name_re.match(repo_name)
+  if not match:
+    raise InvalidRepositoryError('Repository name must be in format namespace/repository '
+                                 'and can only contain letters, numbers, underscores and '
+                                 'dashes, but got "{}"'.format(repo_name))
+
+
+_url_re = re.compile(
+  r'^(?:http|ftp)s?://' # http:// or https://
+  r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+  r'localhost|' #localhost...
+  r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+  r'(?::\d+)?' # optional port
+  r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
+
+def _validate_url(url):
+  """ ensure valid URL """
+  match = _url_re.match(url)
+  if not match:
+    raise InvalidRepositoryError('Repository url must be a valid URL, but got "{}".'.format(url))

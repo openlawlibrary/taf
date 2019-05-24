@@ -54,12 +54,14 @@ def update_metadata_expiration_date(repo_path, keystore_path, metadata_role, exp
 
 
 @cli.command()
-@click.option('--url', default='E:\\OLL2\\updater\\smc-law', help="Authentication repository's url")
-@click.option('--clients-dir', default='E:\\OLL2\\updater\\client', help="Directory containing the client's authentication repository")
-@click.option('--repo-name', default='smc-law')
-@click.option('--targets_dir', default='E:\\OLL2\\updater', help="Directory containing the target repositories")
-def update(url, clients_dir, repo_name, targets_dir):
-  taf_updater(url, clients_dir, repo_name, targets_dir)
+@click.option('--url', help="Authentication repository's url")
+@click.option('--clients-dir', help="Directory containing the client's authentication repository")
+@click.option('--repo-name', help="Authentication repository's name")
+@click.option('--targets_dir', help="Directory containing the target repositories")
+@click.option('--from-filesystem', default=False, help='Indicates if the we want to clone a '
+              'repository from the filesystem')
+def update(url, clients_dir, repo_name, targets_dir, from_filesystem):
+  taf_updater(url, clients_dir, repo_name, targets_dir, from_filesystem)
 
 
 cli()

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from subprocess import CalledProcessError
 
-from taf.exceptions import InvalidOrMissingMetadata, RepositoriesNotFound
+from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
 from taf.GitRepository import GitRepository
 
 # {
@@ -70,7 +70,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
     try:
       repositories = _get_json_file(auth_repo, repositories_path, commit)
       targets = _get_json_file(auth_repo, targets_path, commit)
-    except InvalidOrMissingMetadata as e:
+    except InvalidOrMissingMetadataError as e:
       print('Skipping commit {}. {}'.format(commit, e))
       continue
 
@@ -128,11 +128,11 @@ def _get_json_file(auth_repo, path, commit):
   try:
     return auth_repo.get_json(commit, path)
   except CalledProcessError:
-    raise InvalidOrMissingMetadata('{} not available at revision {}'
-                                   .format(path, commit))
+    raise InvalidOrMissingMetadataError('{} not available at revision {}'
+                                        .format(path, commit))
   except json.decoder.JSONDecodeError:
-    raise InvalidOrMissingMetadata('{} not a valid json at revision {}'
-                                   .format(path, commit))
+    raise InvalidOrMissingMetadataError('{} not a valid json at revision {}'
+                                        .format(path, commit))
 
 
 def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
@@ -155,23 +155,23 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
   paths = list(filter(_compare, repositories)) if custom else list(repositories)
   if len(paths):
     return paths
-  raise RepositoriesNotFound('Repositories associated with custom data {} not found'
-                             .format(custom))
+  raise RepositoriesNotFoundError('Repositories associated with custom data {} not found'
+                                  .format(custom))
 
 
 def get_deduplicated_repositories(auth_repo, commits):
   global _repositories_dict
   all_repositories = _repositories_dict.get(auth_repo.name)
   if all_repositories is None:
-    raise RepositoriesNotFound('Repositories defined in authentication repository'
-                               ' {} have not been loaded'.format(auth_repo.name))
+    raise RepositoriesNotFoundError('Repositories defined in authentication repository'
+                                    ' {} have not been loaded'.format(auth_repo.name))
   repositories = {}
   # persuming that the newest commit is the last one
   for commit in commits:
     if not commit in all_repositories:
-      raise RepositoriesNotFound('Repositories defined in authentication repository '
-                                 '{} at revision {} have not been loaded'
-                                 .format(auth_repo.name, commit))
+      raise RepositoriesNotFoundError('Repositories defined in authentication repository '
+                                      '{} at revision {} have not been loaded'
+                                      .format(auth_repo.name, commit))
     for path, repo in all_repositories[commit].items():
       # will overwrite older repo with newer
       repositories[path] = repo
@@ -188,17 +188,17 @@ def get_repositories(auth_repo, commit):
 
   all_repositories = _repositories_dict.get(auth_repo.name)
   if all_repositories is None:
-    raise RepositoriesNotFound('Repositories defined in authentication repository'
-                               ' {} have not been loaded'.format(auth_repo.name))
+    raise RepositoriesNotFoundError('Repositories defined in authentication repository'
+                                    ' {} have not been loaded'.format(auth_repo.name))
 
   if commit is None:
     commit = auth_repo.head_commit_sha()
 
   repositories = all_repositories.get(commit)
   if repositories is None:
-    raise RepositoriesNotFound('Repositories defined in authentication repository '
-                               '{} at revision {} have not been loaded'
-                               .format(auth_repo.name, commit))
+    raise RepositoriesNotFoundError('Repositories defined in authentication repository '
+                                    '{} at revision {} have not been loaded'
+                                    .format(auth_repo.name, commit))
   return repositories
 
 
@@ -216,5 +216,5 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
 
   if len(found_repos):
     return found_repos
-  raise RepositoriesNotFound('Repositories associated with custom data {} not found'
-                             .format(custom_data))
+  raise RepositoriesNotFoundError('Repositories associated with custom data {} not found'
+                                  .format(custom_data))

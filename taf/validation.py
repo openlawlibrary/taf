@@ -1,6 +1,6 @@
 import os
 
-from taf.exceptions import InvalidBranch
+from taf.exceptions import InvalidBranchError
 
 
 def validate_branch(auth_repo, target_repos, branch_name):
@@ -64,15 +64,15 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
           .format(branch_name)
     for target, commits in targets_and_commits.items():
       msg += '\n{} has {} commits.'.format(target.target_path, len(commits))
-    raise InvalidBranch(msg)
+    raise InvalidBranchError(msg)
 
 
 def _check_branch_id(auth_repo, auth_commit, branch_id):
 
   new_branch_id = auth_repo.get_file(auth_commit, 'targets/branch')
   if branch_id is not None and new_branch_id != branch_id:
-    raise InvalidBranch('Branch ID at revision {} is not the same as the '
-                        'version at the following revision'.format(auth_commit))
+    raise InvalidBranchError('Branch ID at revision {} is not the same as the '
+                             'version at the following revision'.format(auth_commit))
   return new_branch_id
 
 
@@ -86,9 +86,9 @@ def _check_targets_version(targets, tuf_commit, current_version):
   new_version = targets['signed']['version']
   # substracting one because the commits are in the reverse order
   if current_version is not None and new_version != current_version - 1:
-    raise InvalidBranch('Version of metadata file targets.json at revision '
-                        '{} is not equal to previous version incremented '
-                        'by one!'.format(tuf_commit))
+    raise InvalidBranchError('Version of metadata file targets.json at revision '
+                             '{} is not equal to previous version incremented '
+                             'by one!'.format(tuf_commit))
   return new_version
 
 
@@ -99,7 +99,7 @@ def check_capstone(auth_repo, branch):
   """
   capstone_path = os.path.join(auth_repo.repo_path, 'targets', 'capstone')
   if not os.path.isfile(capstone_path):
-    raise InvalidBranch('No capstone at the end of branch {}!!!'.format(branch))
+    raise InvalidBranchError('No capstone at the end of branch {}!!!'.format(branch))
 
 
 def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, target_repo_commit):
@@ -110,6 +110,6 @@ def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, tar
   target_path = 'targets/{}'.format(target_repo.target_path)
   targets_head_sha = tuf_repo.get_json(tuf_commit, target_path)['commit']
   if target_repo_commit != targets_head_sha:
-    raise InvalidBranch('Commit {} of repository {} does '
-                        'not match the commit sha specified in targets.json!'
-                        .format(target_repo_commit, target_repo.name))
+    raise InvalidBranchError('Commit {} of repository {} does '
+                             'not match the commit sha specified in targets.json!'
+                             .format(target_repo_commit, target_repo.name))

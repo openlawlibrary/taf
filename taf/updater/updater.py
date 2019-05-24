@@ -4,12 +4,13 @@ import shutil
 import tuf
 import tuf.client.updater as tuf_updater
 import taf.repositoriesdb as repositoriesdb
-from taf.updater.exceptions import UpdateFailed
+import taf.settings as settings
+from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
 
 
-def update(url, clients_directory, repo_name, targets_dir):
+def update(url, clients_directory, repo_name, targets_dir, update_from_filesystem):
   """
   The general idea is the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
@@ -41,12 +42,15 @@ def update(url, clients_directory, repo_name, targets_dir):
   # TODO old HEAD as an input parameter
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
+
+  settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
-  tuf.settings.repositories_directory = clients_directory
   repository_mirrors = {'mirror1': {'url_prefix': url,
                                     'metadata_path': 'metadata',
                                     'targets_path': 'targets',
                                     'confined_target_dirs': ['']}}
+
+  tuf.settings.repositories_directory = clients_directory
   repository_updater = tuf_updater.Updater(repo_name,
                                            repository_mirrors,
                                            GitUpdater)
@@ -89,8 +93,8 @@ def _update_authentication_repository(repository_updater):
   except Exception as e:
     # for now, useful for debugging
     traceback.print_exc()
-    raise UpdateFailed('Failed to update authentication repository {} due to error: {}'
-                       .format(users_auth_repo.repo_path, e))
+    raise UpdateFailedError('Failed to update authentication repository {} due to error: {}'
+                            .format(users_auth_repo.repo_path, e))
   finally:
     repository_updater.update_handler.cleanup()
 
@@ -118,7 +122,7 @@ def _update_target_repositories(repositories, repositories_commits):
 
     try:
       _update_target_repository(repository, old_head, repositories_commits[path])
-    except UpdateFailed as e:
+    except UpdateFailedError as e:
       # delete all repositories that were cloned
       for repo in cloned_repositories:
         shutil.rmtree(repo.repo_path)
@@ -150,6 +154,6 @@ def _update_target_repository(repository, old_head, target_commits):
         break
 
   if not update_successful:
-    raise UpdateFailed('Mismatch between target commits specified in authentication repository'
-                       'and target repository {}'.format(repository.target_path))
-  print('Successfully updated {}'.format(repository.target_path))
+    raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
+                            'and target repository {}'.format(repository.repo_name))
+  print('Successfully updated {}'.format(repository.repo_name))

@@ -7,9 +7,9 @@ from taf.GitRepository import GitRepository
 
 class AuthenticationRepo(GitRepository):
 
-  def __init__(self, root_dir, metadata_path, targets_path, target_path=None,
+  def __init__(self, root_dir, metadata_path, targets_path, repo_name=None,
                repo_urls=None, additional_info=None, bare=False):
-    super().__init__(root_dir, target_path, repo_urls, additional_info, bare)
+    super().__init__(root_dir, repo_name, repo_urls, additional_info, bare)
     self.targets_path = targets_path
     self.metadata_path = metadata_path
 
@@ -48,10 +48,8 @@ class AuthenticationRepo(GitRepository):
           except json.decoder.JSONDecodeError:
             print('Target file {} is not a valid json at revision.  {}'.format(target_path, commit))
             continue
-      except CalledProcessError:
-        # if there is a commit without targets.json (e.g. the initial commit)
-        # this error will occur
-        continue
-      except json.decoder.JSONDecodeError:
+      except (CalledProcessError, json.decoder.JSONDecodeError):
+        # if there is a commit without targets.json or repositories.json (e.g. the initial commit)
+        # an error will occur
         continue
     return targets

@@ -6,7 +6,7 @@ import securesystemslib
 import tuf.client.handlers as handlers
 
 from taf.updater.AuthenticationRepo import AuthenticationRepo
-from taf.updater.exceptions import UpdateFailed
+from taf.exceptions import UpdateFailedError
 
 
 class GitUpdater(handlers.MetadataUpdater):
@@ -66,7 +66,7 @@ class GitUpdater(handlers.MetadataUpdater):
   def previous_commit(self):
     return self.commits[self.current_commit_index - 1]
 
-  def __init__(self, mirrors, repository_directory):
+  def __init__(self, mirrors, repository_directory, repository_name):
     """
     Args:
     mirrors: is a dictionary which contains information about each mirror:
@@ -79,21 +79,22 @@ class GitUpdater(handlers.MetadataUpdater):
     We use url_prefix to specify url of the git repository which we want to clone.
     repository_directory: the client's local repositoy's location
     """
-    super(GitUpdater, self).__init__(mirrors, repository_directory)
+    super(GitUpdater, self).__init__(mirrors, repository_directory, repository_name)
 
     auth_url = mirrors['mirror1']['url_prefix']
     self.metadata_path = mirrors['mirror1']['metadata_path']
     self.targets_path = mirrors['mirror1']['targets_path']
 
     self.users_auth_repo = AuthenticationRepo(repository_directory, self.metadata_path,
-                                              self.targets_path, repo_urls=[auth_url])
+                                              self.targets_path, repository_name,
+                                              repo_urls=[auth_url])
     self._clone_validation_repo(auth_url)
-
+    repository_directory = self.users_auth_repo.repo_path
     if os.path.exists(repository_directory):
       if not self.users_auth_repo.is_git_repository:
         if os.listdir(repository_directory):
-          raise UpdateFailed('{} is not a git repository and is not empty'
-                             .format(repository_directory))
+          raise UpdateFailedError('{} is not a git repository and is not empty'
+                                  .format(repository_directory))
 
     # validation_auth_repo is a freshly cloned bare repository.
     # It is cloned to a temporary directory that should be removed
@@ -177,7 +178,7 @@ class GitUpdater(handlers.MetadataUpdater):
     to a the temp directory and will be deleted one the update is done.
     """
     temp_dir = tempfile.mkdtemp()
-    repo_name = self.users_auth_repo.name
+    repo_name = self.users_auth_repo.repo_name
     self.validation_auth_repo = AuthenticationRepo(temp_dir, self.metadata_path, self.targets_path,
                                                    repo_name, [url], True)
     self.validation_auth_repo.clone()
