@@ -203,7 +203,7 @@ def _get_repo_path(root_dir, repo_name):
   (since this is coming from potentially untrusted data)
   """
   _validate_repo_name(repo_name)
-  repo_dir = str((Path(root_dir) / (repo_name or '')).resolve())
+  repo_dir = str((Path(root_dir) / (repo_name or '')))
   if not repo_dir.startswith(repo_dir):
     raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
