@@ -1,5 +1,5 @@
-import getpass
 import datetime
+import getpass
 import json
 import os
 import shutil
@@ -8,14 +8,16 @@ from pathlib import Path
 
 import securesystemslib
 
+from taf.utils import normalize_file_line_endings
+
 role_keys_cache = {}
 
 
 expiration_intervals = {
-  'root': 365,
-  'targets': 90,
-  'snapshot': 7,
-  'timestamp': 1
+    'root': 365,
+    'targets': 90,
+    'snapshot': 7,
+    'timestamp': 1
 }
 
 
@@ -39,13 +41,13 @@ class Repository:
   def metadata_staged_path(self):
     return os.path.join(self.repository_path, 'metadata.staged')
 
-  def add_existing_target(self, file_path, targets_role='targets'):
+  def add_existing_target(self, file_path, targets_role='targets', custom=None):
     """
     Registers new target files with TUF. The files are expected to be
     inside the targets directory.
     """
-    targets = self._role_obj(targets_role)
-    targets.add_target(os.path.join(self.targets_path, file_path))
+    targets_obj = self._role_obj(targets_role)
+    self._add_target(targets_obj, file_path, custom)
 
   def add_targets(self, data, targets_role='targets', files_to_keep=None):
     """
@@ -86,13 +88,14 @@ class Repository:
 
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
-    for root, dirs, files in os.walk(self.targets_path):
+    for root, _, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
         if filepath not in data and filename not in files_to_keep:
           os.remove(filepath)
 
-    targets = self._role_obj(targets_role)
+    targets_obj = self._role_obj(targets_role)
+
     for path, target_data in data.items():
       # if the target's parent directory should not be "targets", create
       # its parent directories if they do not exist
@@ -113,9 +116,9 @@ class Repository:
             f.write(content)
 
       custom = target_data.get('custom', None)
-      targets.add_target(target_path, custom)
+      self._add_target(targets_obj, target_path, custom)
 
-    with open(os.path.join(self.metadata_path, f'{targets_role}.json')) as f:
+    with open(os.path.join(self.metadata_path, '{}.json'.format(targets_role))) as f:
       previous_targets = json.load(f)['signed']['targets']
 
     for path in files_to_keep:
@@ -126,7 +129,11 @@ class Repository:
         continue
       target_path = os.path.join(self.targets_path, path)
       previous_custom = previous_targets[path].get('custom')
-      targets.add_target(target_path, previous_custom)
+      self._add_target(targets_obj, target_path, previous_custom)
+
+  def _add_target(self, targets_obj, file_path, custom=None):
+    normalize_file_line_endings(os.path.join(self.repository_path, 'targets', file_path))
+    targets_obj.add_target(file_path, custom)
 
   def _role_obj(self, role):
     """
@@ -158,7 +165,7 @@ class Repository:
       targets - 90 days
       snapshot - 7 days
       timestamp - 1 day
-      all other roels - 1 day
+      all other roles - 1 day
     """
     role_obj = self._role_obj(role)
     if interval is None:
@@ -174,7 +181,7 @@ class Repository:
       repository: a tu repository
       role: a tuf role
       keystore: location of the keystore file
-      update_snapshot_and_timestamp: should timestamp and snapshot.json also be udpated
+      update_snapshot_and_timestamp: should timestamp and snapshot.json also be updated
     """
     private_role_key = load_role_key(role, keystore)
     self._role_obj(role).load_signing_key(private_role_key)
@@ -203,15 +210,16 @@ def load_role_key(role, keystore):
   if key is None:
     from tuf.repository_tool import import_rsa_privatekey_from_file
     try:
-      # try loading the key without passing in a passphare
+      # try loading the key without passing in a passphrase
       # if that fails, prompt the user to enter it
       key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
     except securesystemslib.exceptions.CryptoError:
       while key is None:
-        passphrase = getpass.getpass(f'Enter {role} passphrase:')
+        passphrase = getpass.getpass('Enter {} passphrase:'.format(role))
         try:
-          key = import_rsa_privatekey_from_file(os.path.join(keystore, role), passphrase)
-        except:
+          key = import_rsa_privatekey_from_file(
+              os.path.join(keystore, role), passphrase)
+        except securesystemslib.exceptions.Error:
           pass
     role_keys_cache[role] = key
   return key

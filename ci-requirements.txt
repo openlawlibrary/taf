@@ -1,5 +1,0 @@
-cryptography==2.3.1
-oll-tuf==0.11.2.dev5
-pylint
-coverage
-coveralls

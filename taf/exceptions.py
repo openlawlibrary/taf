@@ -1,18 +1,25 @@
-class InvalidCommit(Exception):
+class InvalidCommitError(Exception):
   pass
 
 
-class InvalidBranch(Exception):
+class InvalidBranchError(Exception):
   pass
 
 
-class InvalidOrMissingMetadata(Exception):
+class InvalidOrMissingMetadataError(Exception):
   pass
 
 
-class NoSpeculativeBranch(Exception):
+class NoSpeculativeBranchError(Exception):
   pass
 
 
-class RepositoriesNotFound(Exception):
+class RepositoriesNotFoundError(Exception):
   pass
+
+class InvalidRepositoryError(Exception):
+  pass
+
+class UpdateFailedError(Exception):
+  pass
+
