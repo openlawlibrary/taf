@@ -1,0 +1,13 @@
+{
+  "repositories": {
+    "dummy/target_dummy_repo": {
+      "custom": {
+        "type": "dummy"
+      },
+      "urls": [
+        "./data/repos/origin/test-happy-path/target_dummy_repo",
+        ".\\data\\repos\\origin\\test-happy-path\\target_dummy_repo"
+      ]
+    }
+  }
+}
