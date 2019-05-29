@@ -152,6 +152,10 @@ class Repository:
       return self._repository.root
     return self._repository.targets(role)
 
+  def get_role_keys(self, role):
+    role_obj = self._role_obj(role)
+    return role_obj.keys
+
   def set_metadata_expiration_date(self, role, start_date=datetime.datetime.now(), interval=None):
     """
     Set expiration date of the provided role.
@@ -172,6 +176,10 @@ class Repository:
       interval = expiration_intervals.get(role, 1)
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
+
+  # def update_targets_metadata(self, targets_data, date, targets_key_pin):
+    # self._repository.targets.add_external_signature_provider()
+    # self._repository.targets.
 
   def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
     """
