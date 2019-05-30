@@ -5,8 +5,8 @@
         "type": "dummy"
       },
       "urls": [
-        "./data/repos/origin/test-happy-path/target_dummy_repo",
-        ".\\data\\repos\\origin\\test-happy-path\\target_dummy_repo"
+        "../../target_dummy_repo",
+        "..\\..\\target_dummy_repo"
       ]
     }
   }
