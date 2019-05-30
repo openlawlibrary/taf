@@ -1,16 +1,23 @@
 import shutil
-import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-from pytest import yield_fixture
+from pytest import fixture, yield_fixture
 
+import oll_sc
 from taf.repository_tool import load_repository
+
+from .yubikey import (Root1YubiKey, Root2YubiKey, Root3YubiKey, TargetYubiKey,
+                      init_pkcs11_mock)
 
 TEST_DATA_PATH = Path(__file__).parent / 'data'
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / 'repos'
 TEST_DATA_ORIGIN_PATH = TEST_DATA_REPOS_PATH / 'origin'
-KEYSTORE_PATH = str(TEST_DATA_PATH / 'keystore')
+KEYSTORE_PATH = TEST_DATA_PATH / 'keystore'
+
+
+def pytest_configure(config):
+  oll_sc.init_pkcs11 = init_pkcs11_mock
 
 
 @contextmanager
@@ -46,3 +53,27 @@ def taf_happy_path():
     taf_repo_origin_path = origins[taf_repo_path.name]
     with load_repository(taf_repo_origin_path) as taf_repo:
       yield taf_repo
+
+
+@fixture
+def targets_yk():
+  """Targets YubiKey."""
+  return TargetYubiKey(KEYSTORE_PATH)
+
+
+@fixture
+def root1_yk():
+  """Root1 YubiKey."""
+  return Root1YubiKey(KEYSTORE_PATH)
+
+
+@fixture
+def root2_yk():
+  """Root2 YubiKey."""
+  return Root2YubiKey(KEYSTORE_PATH)
+
+
+@fixture
+def root3_yk():
+  """Root3 YubiKey."""
+  return Root3YubiKey(KEYSTORE_PATH)
