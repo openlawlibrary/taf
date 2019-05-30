@@ -1,2 +1,3 @@
-0000000000000000000000000000000000000000 52a02b9e2efe5a5c0f627cdd5f84007a5ec20054 Daniel Elero <danixeee@gmail.com> 1559148200 +0200	commit (initial): Initial commit
-52a02b9e2efe5a5c0f627cdd5f84007a5ec20054 0f6c5aa06396210e8c1e55030bcc80216840afd2 Daniel Elero <danixeee@gmail.com> 1559148415 +0200	commit: Targets updated - Add test2
+0000000000000000000000000000000000000000 da3277fd939d5b3cde129c367e679eedcd2e9bb2 Daniel Elero <danixeee@gmail.com> 1559220776 +0200	commit (initial): Initial commit
+da3277fd939d5b3cde129c367e679eedcd2e9bb2 0d6a99f38d6936502553fd1c32cbdcd95944c592 Daniel Elero <danixeee@gmail.com> 1559221547 +0200	commit: Add target_dummy_repo first commit
+0d6a99f38d6936502553fd1c32cbdcd95944c592 7c59c55ebca4adfab069e541e3796d2b594716e4 Daniel Elero <danixeee@gmail.com> 1559221754 +0200	commit: Add target_dummy_repo second commit
