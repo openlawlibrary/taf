@@ -14,7 +14,7 @@ def sc_get_tuf_key_id(key_id, pin):
   ))
 
 
-def check_inserted_targets_key_id(repository, key_id, pin):
-  """Check if inserted smart card's private key id is same as TAF's targets key id."""
+def check_inserted_key_id(repository, role, key_id, pin):
+  """Check if inserted smart card's private key id is same as TAF's key id."""
   sc_key_id = sc_get_tuf_key_id(key_id, pin)
-  return sc_key_id == repository.get_role_keys('targets')[0]
+  return sc_key_id in repository.get_role_keys(role)
