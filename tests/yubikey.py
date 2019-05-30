@@ -19,10 +19,6 @@ class _Session:
     pass
 
   def findObjects(self, *args):
-    # If pin is wrong, return empty list
-    # if args[0][0][1] != self.yubikey.pin:
-    #   return []
-
     return {
         CKO_CERTIFICATE: ['cert'],
         CKO_PUBLIC_KEY: ['pub_key'],

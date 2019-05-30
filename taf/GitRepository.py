@@ -1,12 +1,12 @@
 import json
 import os
+import re
 import shutil
 import subprocess
-import re
-import taf.settings as settings
-from taf.exceptions import InvalidRepositoryError
 from pathlib import Path
 
+import taf.settings as settings
+from taf.exceptions import InvalidRepositoryError
 from taf.utils import run
 
 
@@ -36,11 +36,7 @@ class GitRepository(object):
 
   @property
   def is_git_repository(self):
-    try:
-      self._git('rev-parse --git-dir')
-    except subprocess.CalledProcessError:
-      return False
-    return True
+    return (Path(self.repo_path) / '.git').is_dir()
 
   @property
   def name(self):
@@ -208,7 +204,10 @@ def _get_repo_path(root_dir, repo_name):
     raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
 
+
 _repo_name_re = re.compile(r'^\w[\w_-]*/\w[\w_-]*$')
+
+
 def _validate_repo_name(repo_name):
   """ Ensure the repo name is not malicious """
   match = _repo_name_re.match(repo_name)
@@ -219,12 +218,13 @@ def _validate_repo_name(repo_name):
 
 
 _url_re = re.compile(
-  r'^(?:http|ftp)s?://' # http:// or https://
-  r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
-  r'localhost|' #localhost...
-  r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
-  r'(?::\d+)?' # optional port
-  r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+    r'^(?:http|ftp)s?://'  # http:// or https://
+    # domain...
+    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'
+    r'localhost|'  # localhost...
+    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+    r'(?::\d+)?'  # optional port
+    r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
 
 def _validate_url(url):
