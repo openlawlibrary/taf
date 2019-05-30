@@ -3,9 +3,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from pytest import fixture, yield_fixture
+from taf.repository_tool import load_repository
 
 import oll_sc
-from taf.repository_tool import load_repository
 
 from .yubikey import (Root1YubiKey, Root2YubiKey, Root3YubiKey, TargetYubiKey,
                       init_pkcs11_mock)
@@ -43,7 +43,7 @@ def origin_repos(repo_paths):
     shutil.rmtree(temp_path)
 
 
-@yield_fixture
+@yield_fixture(scope='session', autouse=True)
 def taf_happy_path():
   """TAF repository for testing."""
   taf_repo_path = TEST_DATA_REPOS_PATH / 'test-happy-path/taf'
@@ -55,25 +55,25 @@ def taf_happy_path():
       yield taf_repo
 
 
-@fixture
+@fixture(scope='session', autouse=True)
 def targets_yk():
   """Targets YubiKey."""
   return TargetYubiKey(KEYSTORE_PATH)
 
 
-@fixture
+@fixture(scope='session', autouse=True)
 def root1_yk():
   """Root1 YubiKey."""
   return Root1YubiKey(KEYSTORE_PATH)
 
 
-@fixture
+@fixture(scope='session', autouse=True)
 def root2_yk():
   """Root2 YubiKey."""
   return Root2YubiKey(KEYSTORE_PATH)
 
 
-@fixture
+@fixture(scope='session', autouse=True)
 def root3_yk():
   """Root3 YubiKey."""
   return Root3YubiKey(KEYSTORE_PATH)

@@ -29,4 +29,5 @@ install:
 script:
   - pylint taf
   - bandit -c .bandit -r taf
-  - pytest --cov-report term-missing --cov=taf tests/ --cov-fail-under 95
+  - pytest
+  # - pytest --cov-report term-missing --cov=taf tests/ --cov-fail-under 95
