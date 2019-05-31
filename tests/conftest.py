@@ -6,6 +6,8 @@ from pytest import fixture, yield_fixture
 from taf.repository_tool import load_repository
 
 import oll_sc
+from tuf.repository_tool import (import_rsa_privatekey_from_file,
+                                 import_rsa_publickey_from_file)
 
 from .yubikey import (Root1YubiKey, Root2YubiKey, Root3YubiKey, TargetYubiKey,
                       init_pkcs11_mock)
@@ -77,3 +79,21 @@ def root2_yk():
 def root3_yk():
   """Root3 YubiKey."""
   return Root3YubiKey(KEYSTORE_PATH)
+
+
+@fixture(scope='session', autouse=True)
+def snapshot_key():
+  """Snapshot key."""
+  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'snapshot.pub'))
+  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'snapshot'))
+  key['keyval']['private'] = priv_key['keyval']['private']
+  return key
+
+
+@fixture(scope='session', autouse=True)
+def timestamp_key():
+  """Timestamp key."""
+  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'timestamp.pub'))
+  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'timestamp'))
+  key['keyval']['private'] = priv_key['keyval']['private']
+  return key

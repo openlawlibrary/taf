@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 import subprocess
@@ -48,3 +49,9 @@ def normalize_file_line_endings(file_path):
   if replaced_content != content:
     with open(file_path, 'wb') as open_file:
       open_file.write(replaced_content)
+
+
+def to_tuf_datetime_format(start_date, interval):
+  datetime_object = start_date + datetime.timedelta(interval)
+  datetime_object = datetime_object.replace(microsecond=0)
+  return datetime_object.isoformat() + 'Z'

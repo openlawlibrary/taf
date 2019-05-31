@@ -1,25 +1,53 @@
-class InvalidCommitError(Exception):
+class TAFError(Exception):
   pass
 
 
-class InvalidBranchError(Exception):
+class InvalidBranchError(TAFError):
   pass
 
 
-class InvalidOrMissingMetadataError(Exception):
+class InvalidCommitError(TAFError):
   pass
 
 
-class NoSpeculativeBranchError(Exception):
+class InvalidKeyError(TAFError):
+  def __init__(self, metadata_role):
+    super().__init__('Cannot sign {} metadata file with inserted key.'.format(metadata_role))
+
+
+class InvalidOrMissingMetadataError(TAFError):
   pass
 
 
-class RepositoriesNotFoundError(Exception):
+class InvalidRepositoryError(TAFError):
   pass
 
-class InvalidRepositoryError(Exception):
+
+class MetadataUpdateError(TAFError):
+  def __init__(self, metadata_role, message):
+    super().__init__('Error happened while updating metadata {}:\n\n{}'
+                     .format(metadata_role, message))
+    self.metadata_role = metadata_role
+    self.message = message
+
+
+class TargetsMetadataUpdateError(MetadataUpdateError):
+  def __init__(self, message):
+    super().__init__('targets', message)
+
+
+class TimestampMetadataUpdateError(MetadataUpdateError):
+  def __init__(self, message):
+    super().__init__('timestamp', message)
+
+
+class NoSpeculativeBranchError(TAFError):
   pass
 
-class UpdateFailedError(Exception):
+
+class RepositoriesNotFoundError(TAFError):
   pass
 
+
+class UpdateFailedError(TAFError):
+  pass
