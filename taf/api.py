@@ -7,7 +7,8 @@ from tuf.exceptions import Error as TUFError
 
 from .exceptions import (InvalidKeyError, TargetsMetadataUpdateError,
                          TimestampMetadataUpdateError)
-from .sc_utils import is_valid_metadata_key, is_valid_metadata_yubikey
+from .sc_utils import (get_yubikey_public_key, is_valid_metadata_key,
+                       is_valid_metadata_yubikey)
 
 
 def update_targets(repository, targets_data, date, targets_key_slot, targets_key_pin):
@@ -26,15 +27,19 @@ def update_targets(repository, targets_data, date, targets_key_slot, targets_key
   Raises:
     - InvalidKeyError: If wrong key is used to sign metadata
     - MetadataUpdateError: If any other error happened during metadata update
+    - SmartCardError: If PIN is wrong or smart card is not inserted, or can't perform signing, ...
   """
   try:
     if not is_valid_metadata_yubikey(repository, 'targets', targets_key_slot, targets_key_pin):
       raise InvalidKeyError('targets')
 
+    pub_key = get_yubikey_public_key(targets_key_slot, targets_key_pin)
+
     repository.add_targets(targets_data)
     repository.set_metadata_expiration_date('targets', date)
-    repository.write_targets_metadata(targets_key_slot, targets_key_pin)
-  except (SmartCardError, TUFError, SSLibError) as e:
+    repository.write_targets_metadata(pub_key, targets_key_slot, targets_key_pin)
+
+  except (TUFError, SSLibError) as e:
     raise TargetsMetadataUpdateError(str(e))
 
 
@@ -55,7 +60,8 @@ def update_timestamp(repository, timestamp_key,
     None
 
   Raises:
-    - securesystemslib.exceptions.FormatError: if 'PEM' is improperly formatted.
+    - InvalidKeyError: If wrong key is used to sign metadata
+    - TimestampMetadataUpdateError: If any other error happened during metadata update
   """
   try:
     if not is_valid_metadata_key(repository, 'timestamp', timestamp_key):

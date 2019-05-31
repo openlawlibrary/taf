@@ -57,31 +57,39 @@ def taf_happy_path():
       yield taf_repo
 
 
-@fixture(scope='session', autouse=True)
+@fixture
 def targets_yk():
   """Targets YubiKey."""
-  return TargetYubiKey(KEYSTORE_PATH)
+  key = TargetYubiKey(KEYSTORE_PATH)
+  yield key
+  key.remove()
 
 
-@fixture(scope='session', autouse=True)
+@fixture
 def root1_yk():
   """Root1 YubiKey."""
-  return Root1YubiKey(KEYSTORE_PATH)
+  key = Root1YubiKey(KEYSTORE_PATH)
+  yield key
+  key.remove()
 
 
-@fixture(scope='session', autouse=True)
+@fixture
 def root2_yk():
   """Root2 YubiKey."""
-  return Root2YubiKey(KEYSTORE_PATH)
+  key = Root2YubiKey(KEYSTORE_PATH)
+  yield key
+  key.remove()
 
 
-@fixture(scope='session', autouse=True)
+@fixture
 def root3_yk():
   """Root3 YubiKey."""
-  return Root3YubiKey(KEYSTORE_PATH)
+  key = Root3YubiKey(KEYSTORE_PATH)
+  yield key
+  key.remove()
 
 
-@fixture(scope='session', autouse=True)
+@fixture
 def snapshot_key():
   """Snapshot key."""
   key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'snapshot.pub'))
@@ -90,7 +98,7 @@ def snapshot_key():
   return key
 
 
-@fixture(scope='session', autouse=True)
+@fixture
 def timestamp_key():
   """Timestamp key."""
   key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'timestamp.pub'))

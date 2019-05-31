@@ -4,6 +4,9 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from PyKCS11 import (CKO_CERTIFICATE, CKO_PRIVATE_KEY, CKO_PUBLIC_KEY,
                      PyKCS11Error)
+from securesystemslib.pyca_crypto_keys import create_rsa_signature
+
+from tuf.repository_tool import import_rsakey_from_pem
 
 
 class _Session:
@@ -38,8 +41,8 @@ class _Session:
   def logout(self):
     pass
 
-  def sign(self, pk, data, mechanism):
-    return b'signature'
+  def sign(self, _pk, data, _mechanism):
+    return self.yubikey.sign(data)
 
 
 class PKCS11:
@@ -89,6 +92,8 @@ class FakeYubiKey:
 
     self.pin = pin
 
+    self._tuf_key = import_rsakey_from_pem(self.priv_key.decode('utf-8'))
+
   def insert(self):
     """Insert YubiKey in USB slot."""
     global INSERTED_YUBIKEY
@@ -106,7 +111,10 @@ class FakeYubiKey:
       INSERTED_YUBIKEY = None
 
   def sign(self, data):
-    """TODO: Sign data using the same function as TUF"""
+    """Sign data using the same function as TUF"""
+    private_key = self._tuf_key['keyval']['private']
+    sig, _ = create_rsa_signature(private_key, data, 'rsassa-pss-sha256')
+    return sig
 
 
 class TargetYubiKey(FakeYubiKey):
