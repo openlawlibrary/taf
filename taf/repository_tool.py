@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 
 import securesystemslib
@@ -202,6 +203,24 @@ class Repository:
   def write_timestamp_metadata(self, timestamp_key):
     self._repository.timestamp.load_signing_key(timestamp_key)
     self._repository.write('timestamp')
+
+  def write_targets_metadata(self, targets_key, targets_key_slot, targets_key_pin):
+
+    def signature_provider(key_id, key_slot, key_pin, data):
+      import binascii
+      from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
+
+      data = securesystemslib.formats.encode_canonical(data)
+      signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
+
+      return {
+          'keyid': key_id,
+          'sig': binascii.hexlify(signature).decode()
+      }
+
+    self._repository.targets.add_external_signature_provider(
+        targets_key, partial(signature_provider, targets_key['keyid'], targets_key_slot, targets_key_pin))
+    self._repository.write('targets')
 
 
 def load_role_key(role, keystore):
