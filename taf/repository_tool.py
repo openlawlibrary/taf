@@ -7,7 +7,6 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import securesystemslib
-
 from taf.utils import normalize_file_line_endings
 
 role_keys_cache = {}
@@ -177,10 +176,6 @@ class Repository:
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
 
-  # def update_targets_metadata(self, targets_data, date, targets_key_pin):
-    # self._repository.targets.add_external_signature_provider()
-    # self._repository.targets.
-
   def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
     """
     Generates metadata of just one metadata file, corresponding
@@ -203,6 +198,10 @@ class Repository:
       timestamp_key = load_role_key('timestamp', keystore)
       self._repository.timestamp.load_signing_key(timestamp_key)
       self._repository.writeall()
+
+  def write_timestamp_metadata(self, timestamp_key):
+    self._repository.timestamp.load_signing_key(timestamp_key)
+    self._repository.write('timestamp')
 
 
 def load_role_key(role, keystore):
