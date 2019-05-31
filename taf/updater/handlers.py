@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import tempfile
@@ -7,6 +8,8 @@ import tuf.client.handlers as handlers
 
 from taf.updater.AuthenticationRepo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
+
+logger = logging.getLogger(__name__)
 
 
 class GitUpdater(handlers.MetadataUpdater):
@@ -241,11 +244,10 @@ class GitUpdater(handlers.MetadataUpdater):
   def on_successful_update(self, filename, mirror):
     # after the is successfully completed, set the
     # next commit as current for the given file
-    print('{} updated from {}'.format(filename, mirror))
+    logger.debug('%s updated from commit %s', filename, mirror)
 
   def on_unsuccessful_update(self, filename):
-    # TODO an error message
-    pass
+    logger.error('Failed to update %s', filename)
 
   def update_done(self):
     # the only metadata file that is always updated

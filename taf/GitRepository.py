@@ -1,13 +1,17 @@
+import logging
 import json
 import os
 import shutil
 import subprocess
 import re
+import taf.log
 import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from pathlib import Path
 
 from taf.utils import run
+
+logger = logging.getLogger(__name__)
 
 
 class GitRepository(object):
@@ -46,15 +50,39 @@ class GitRepository(object):
   def name(self):
     return os.path.basename(self.repo_path)
 
-  def _git(self, cmd, *args):
-    """Call git commands in subprocess
 
-    E.G.:
+  def _git(self, cmd, *args, **kwargs):
+    """Call git commands in subprocess
+    e.g.:
       self._git('checkout {}', branch_name)
     """
+    log_error = kwargs.pop('log_error', False)
+    log_error_msg = kwargs.pop('log_error_msg', '')
+    reraise_error = kwargs.pop('reraise_error', False)
+    log_success_msg = kwargs.pop('log_success_msg', '')
+
     if len(args):
       cmd = cmd.format(*args)
-    return run('git -C {} {}'.format(self.repo_path, cmd))
+    command = 'git -C {} {}'.format(self.repo_path, cmd)
+
+    if log_error or log_error_msg:
+      try:
+        result = run(command)
+        if log_success_msg:
+          logger.debug('Repo %s:' + log_success_msg, self.name)
+      except CalledProcessError as e:
+        if log_error_msg:
+          logger.error(log_error_msg)
+        else:
+          logger.error('Repo %s: error occurred while executing %s:\n%s',
+                        self.name, command, e.output)
+        if reraise_error:
+          raise
+    else:
+      result = run(command)
+      if log_success_msg:
+        logger.debug('Repo %s:' + log_success_msg, self.name)
+    return result
 
   def all_commits_since_commit(self, since_commit):
     if since_commit is not None:
@@ -81,7 +109,7 @@ class GitRepository(object):
     If the branch does not exist and create is set to False,
     raise an exception."""
     try:
-      self._git('checkout {}', branch_name)
+      self._git('checkout {}', branch_name, log_error=True, reraise_error=True)
     except subprocess.CalledProcessError as e:
       if create:
         self.create_and_checkout_branch(branch_name)
@@ -104,7 +132,7 @@ class GitRepository(object):
         if from_filesystem:
           url = url.replace('/', os.sep)
 
-        self._git('clone {} . {}', url, params)
+        self._git('clone {} . {}', url, params, log_success_msg='Successfully cloned')
       except subprocess.CalledProcessError:
         print('Cannot clone repository {} from url {}'.format(self.name, url))
       else:

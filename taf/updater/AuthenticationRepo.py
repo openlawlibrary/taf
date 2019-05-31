@@ -1,8 +1,12 @@
+import logging
 import json
+import os
 from collections import defaultdict
 from subprocess import CalledProcessError
 
 from taf.GitRepository import GitRepository
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticationRepo(GitRepository):
@@ -32,24 +36,36 @@ class AuthenticationRepo(GitRepository):
   def target_commits_at_revisions(self, commits):
     targets = defaultdict(dict)
     for commit in commits:
-      try:
-        targets_at_revision = \
-            self.get_json(commit, self.metadata_path + '/targets.json')['signed']['targets']
-        repositories_at_revision = \
-            self.get_json(commit, self.targets_path + '/repositories.json')['repositories']
-        for target_path in targets_at_revision:
-          try:
-            if target_path not in repositories_at_revision:
-              # we only care about repositories
-              continue
-            target_commit = \
-                self.get_json(commit, self.targets_path + '/' + target_path).get('commit')
-            targets[commit][target_path] = target_commit
-          except json.decoder.JSONDecodeError:
-            print('Target file {} is not a valid json at revision.  {}'.format(target_path, commit))
-            continue
-      except (CalledProcessError, json.decoder.JSONDecodeError):
-        # if there is a commit without targets.json or repositories.json (e.g. the initial commit)
-        # an error will occur
+      targets_at_revision = self._safely_get_json(commit, os.path.join(self.metadata_path,
+                                                                       'targets.json'))
+      if targets_at_revision is None:
         continue
+      targets_at_revision = ['signed']['targets']
+
+      repositories_at_revision = self._safely_get_json(commit, os.path.join(self.targets_path,
+                                                                            'repositories.json'))
+      if repositories_at_revision is not None:
+        repositories_at_revision = repositories_at_revision['repositories']
+
+      for target_path in targets_at_revision:
+        if target_path not in repositories_at_revision:
+          # we only care about repositories
+          continue
+        try:
+          target_commit = \
+              self.get_json(commit, self.targets_path + '/' + target_path).get('commit')
+          targets[commit][target_path] = target_commit
+        except json.decoder.JSONDecodeError:
+          logger.info('Target file {} is not a valid json at revision.  {}'.
+                      format(target_path, commit))
+          continue
     return targets
+
+
+  def _safely_get_json(self, commit, path):
+    try:
+      return self.get_json(commit, path)
+    except CalledProcessError:
+      logger.info('%s not available at revision %s', os.path.basename(path), commit)
+    except json.decoder.JSONDecodeError:
+      logger.info('%s not a valid json at revision %s', os.path.basename(path), commit)
