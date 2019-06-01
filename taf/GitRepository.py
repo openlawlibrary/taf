@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 import re
-import taf.log
 import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from pathlib import Path
@@ -70,7 +69,7 @@ class GitRepository(object):
         result = run(command)
         if log_success_msg:
           logger.debug('Repo %s:' + log_success_msg, self.name)
-      except CalledProcessError as e:
+      except subprocess.CalledProcessError as e:
         if log_error_msg:
           logger.error(log_error_msg)
         else:

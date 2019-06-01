@@ -40,12 +40,13 @@ class AuthenticationRepo(GitRepository):
                                                                        'targets.json'))
       if targets_at_revision is None:
         continue
-      targets_at_revision = ['signed']['targets']
+      targets_at_revision = targets_at_revision['signed']['targets']
 
       repositories_at_revision = self._safely_get_json(commit, os.path.join(self.targets_path,
                                                                             'repositories.json'))
-      if repositories_at_revision is not None:
-        repositories_at_revision = repositories_at_revision['repositories']
+      if repositories_at_revision is None:
+        continue
+      repositories_at_revision = repositories_at_revision['repositories']
 
       for target_path in targets_at_revision:
         if target_path not in repositories_at_revision:
@@ -56,8 +57,7 @@ class AuthenticationRepo(GitRepository):
               self.get_json(commit, self.targets_path + '/' + target_path).get('commit')
           targets[commit][target_path] = target_commit
         except json.decoder.JSONDecodeError:
-          logger.info('Target file {} is not a valid json at revision.  {}'.
-                      format(target_path, commit))
+          logger.info('Target file %s is not a valid json at revision %s', target_path, commit)
           continue
     return targets
 

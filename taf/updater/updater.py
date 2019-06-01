@@ -1,7 +1,5 @@
 import logging
 import shutil
-import traceback
-
 import tuf
 import tuf.client.updater as tuf_updater
 
