@@ -1,4 +1,3 @@
-import logging
 import shutil
 import tuf
 import tuf.client.updater as tuf_updater
@@ -9,7 +8,7 @@ import taf.settings as settings
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
-logger = logging.getLogger(__name__)
+logger = taf.log.get_logger(__name__)
 
 
 def update(url, clients_directory, repo_name, targets_dir, update_from_filesystem):

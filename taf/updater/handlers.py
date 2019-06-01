@@ -1,15 +1,14 @@
-import logging
 import os
 import shutil
 import tempfile
-
 import securesystemslib
+import taf.log
 import tuf.client.handlers as handlers
 
 from taf.updater.AuthenticationRepo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 
-logger = logging.getLogger(__name__)
+logger = taf.log.get_logger(__name__)
 
 
 class GitUpdater(handlers.MetadataUpdater):

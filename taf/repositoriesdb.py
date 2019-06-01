@@ -1,5 +1,4 @@
 import json
-import logging
 import taf.log
 from pathlib import Path
 from subprocess import CalledProcessError
@@ -17,7 +16,7 @@ from taf.GitRepository import GitRepository
 #     }
 # }
 
-logger = logging.getLogger(__name__)
+logger = taf.log.get_logger(__name__)
 
 _repositories_dict = {}
 repositories_path = 'targets/repositories.json'
@@ -183,7 +182,7 @@ def get_deduplicated_repositories(auth_repo, commits):
   # persuming that the newest commit is the last one
   for commit in commits:
     if not commit in all_repositories:
-      logger.error('Repositories defined in authentication repository %s at revision have '
+      logger.error('Repositories defined in authentication repository %s at revision %s have '
                    'not been loaded', auth_repo.repo_name, commit)
       raise RepositoriesNotFoundError('Repositories defined in authentication repository '
                                       '{} at revision {} have not been loaded'

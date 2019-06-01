@@ -1,4 +1,3 @@
-import logging
 import json
 import os
 import shutil
@@ -11,7 +10,7 @@ from pathlib import Path
 
 from taf.utils import run
 
-logger = logging.getLogger(__name__)
+logger = taf.log.get_logger(__name__)
 
 
 class GitRepository(object):
@@ -104,7 +103,7 @@ class GitRepository(object):
     else:
       commits = commits.split('\n')
       commits.reverse()
-    logger.debug('Repo %s: fetched the following commits', self.repo_name, ', '.join(commits))
+    logger.debug('Repo %s: fetched the following commits %s', self.repo_name, ', '.join(commits))
     return commits
 
   def checkout_branch(self, branch_name, create=False):
@@ -138,7 +137,7 @@ class GitRepository(object):
 
         self._git('clone {} . {}', url, params, log_success_msg='successfully cloned')
       except subprocess.CalledProcessError:
-        logger.error('Git repo %s: cannot clone from url %s', self.repo_nake, url)
+        logger.error('Git repo %s: cannot clone from url %s', self.repo_name, url)
       else:
         break
 

@@ -23,6 +23,10 @@ if taf.settings.ENABLE_FILE_LOGGING:
 
 if taf.settings.SEPARATE_ERRORS:
   error_handler = logging.FileHandler(taf.settings.ERROR_LOF_FILENAME)
-  error_handler.setLevel(taf.setting.ERROR_LOGGING_LEVEL)
+  error_handler.setLevel(taf.settings.ERROR_LOGGING_LEVEL)
   error_handler.setFormatter(formatter)
   logger.addHandler(error_handler)
+
+
+def get_logger(name):
+  return logging.getLogger(name)

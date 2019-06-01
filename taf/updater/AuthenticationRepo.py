@@ -1,4 +1,3 @@
-import logging
 import json
 import os
 import taf.log
@@ -7,7 +6,7 @@ from subprocess import CalledProcessError
 
 from taf.GitRepository import GitRepository
 
-logger = logging.getLogger(__name__)
+logger = taf.log.get_logger(__name__)
 
 
 class AuthenticationRepo(GitRepository):
@@ -39,14 +38,13 @@ class AuthenticationRepo(GitRepository):
   def target_commits_at_revisions(self, commits):
     targets = defaultdict(dict)
     for commit in commits:
-      targets_at_revision = self._safely_get_json(commit, os.path.join(self.metadata_path,
-                                                                       'targets.json'))
+      targets_at_revision = self._safely_get_json(commit, self.metadata_path + '/targets.json')
       if targets_at_revision is None:
         continue
       targets_at_revision = targets_at_revision['signed']['targets']
 
-      repositories_at_revision = self._safely_get_json(commit, os.path.join(self.targets_path,
-                                                                            'repositories.json'))
+      repositories_at_revision = self._safely_get_json(commit,
+                                                       self.targets_path + '/repositories.json')
       if repositories_at_revision is None:
         continue
       repositories_at_revision = repositories_at_revision['repositories']
@@ -60,7 +58,7 @@ class AuthenticationRepo(GitRepository):
               self.get_json(commit, self.targets_path + '/' + target_path).get('commit')
           targets[commit][target_path] = target_commit
         except json.decoder.JSONDecodeError:
-          logger.info('Auth repo %s: target file %s is not a valid json at revision %s',
+          logger.debug('Auth repo %s: target file %s is not a valid json at revision %s',
                       self.repo_name, target_path, commit)
           continue
     return targets
@@ -70,8 +68,8 @@ class AuthenticationRepo(GitRepository):
     try:
       return self.get_json(commit, path)
     except CalledProcessError:
-      logger.info('Auth repo %s: %s not available at revision %s', os.path.basename(path),
-                  self.repo_name, commit)
+      logger.info('Auth repo %s: %s not available at revision %s', self.repo_name,
+                  os.path.basename(path), commit)
     except json.decoder.JSONDecodeError:
-      logger.info('Auth repo %s: %s not a valid json at revision %s', os.path.basename(path),
-                  self.repo_name, commit)
+      logger.info('Auth repo %s: %s not a valid json at revision %s', self.repo_name,
+                  os.path.basename(path), commit)

@@ -16,7 +16,7 @@ LOG_LEVEL = logging.DEBUG
 ENABLE_CONSOLE_LOGGING = True
 
 # wheter to log to a file, which does not mean that console logging cannnot be enabled as well
-ENABLE_FILE_LOGGING = False
+ENABLE_FILE_LOGGING = True
 
 # should errors be logged to a separate file if logging to file is enabled,
 SEPARATE_ERRORS = False
