@@ -2,6 +2,7 @@ import logging
 import shutil
 import tuf
 import tuf.client.updater as tuf_updater
+import taf.log
 
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
@@ -43,7 +44,6 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   # TODO old HEAD as an input parameter
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
-
   settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
   repository_mirrors = {'mirror1': {'url_prefix': url,
@@ -69,7 +69,7 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   # update target repositories
   _update_target_repositories(repositories, repositories_commits)
 
-  logger.info('Merging the latest commit into the authentication repository')
+  logger.info('Merging commit %s into %s', commits[-1], users_auth_repo.repo_name)
   # if there were no errors, merge the last validated authentication repository commit
   users_auth_repo.merge_commit(commits[-1])
   users_auth_repo.checkout_branch('master')
@@ -115,7 +115,6 @@ def _update_authentication_repository(repository_updater):
 
 def _update_target_repositories(repositories, repositories_commits):
   logger.info('Validating target repositories')
-  logger.debug('Found the following target repositories %s', repositories)
   # keep track of the repositories which were cloned
   # so that they can be removed if the update fails
   cloned_repositories = []
@@ -136,16 +135,17 @@ def _update_target_repositories(repositories, repositories_commits):
     except UpdateFailedError as e:
       # delete all repositories that were cloned
       for repo in cloned_repositories:
-        logger.debug('Removing clone repository %s', repo.repo_path)
+        logger.debug('Removing cloned repository %s', repo.repo_path)
         shutil.rmtree(repo.repo_path)
       # TODO is it important to undo a fetch if the repository was not cloned?
       raise e
 
-  logger.info('Successfully validated all target repositories. Merging latest commits')
+  logger.info('Successfully validated all target repositories.')
   # if update is successful, merge the commits
   for path, repository in repositories.items():
     repository.checkout_branch('master')
     if len(repositories_commits[path]):
+      logger.info('Merging %s into %s', repositories_commits[path][-1], repository.repo_name)
       repository.merge_commit(repositories_commits[path][-1])
 
 
@@ -157,8 +157,6 @@ def _update_target_repository(repository, old_head, target_commits):
     new_commits.insert(0, old_head)
   else:
     new_commits = repository.all_commits_since_commit(old_head)
-
-  logger.debug('New commits: %s' ', '.join(new_commits))
 
   # A new commit might have been pushed after the update process
   # started and before fetch was called
@@ -177,4 +175,4 @@ def _update_target_repository(repository, old_head, target_commits):
                  'target repository %s', repository.repo_name)
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
                             'and target repository {}'.format(repository.repo_name))
-  logger.info('Successfully validated  %s', repository.repo_name)
+  logger.info('Successfully validated %s', repository.repo_name)

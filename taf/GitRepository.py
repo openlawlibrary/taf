@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import re
 import taf.settings as settings
+import taf.log
 from taf.exceptions import InvalidRepositoryError
 from pathlib import Path
 
@@ -32,7 +33,7 @@ class GitRepository(object):
     self.repo_path = _get_repo_path(root_dir, repo_name)
     if not settings.update_from_filesystem:
       for url in repo_urls:
-        _validate_url(url)
+        _validate_url(url, repo_name)
     self.repo_urls = repo_urls
     self.additional_info = additional_info
     self.bare = bare
@@ -44,11 +45,6 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       return False
     return True
-
-  @property
-  def name(self):
-    return os.path.basename(self.repo_path)
-
 
   def _git(self, cmd, *args, **kwargs):
     """Call git commands in subprocess
@@ -68,19 +64,19 @@ class GitRepository(object):
       try:
         result = run(command)
         if log_success_msg:
-          logger.debug('Repo %s:' + log_success_msg, self.name)
+          logger.debug('Repo %s:' + log_success_msg, self.repo_name)
       except subprocess.CalledProcessError as e:
         if log_error_msg:
           logger.error(log_error_msg)
         else:
           logger.error('Repo %s: error occurred while executing %s:\n%s',
-                        self.name, command, e.output)
+                        self.repo_name, command, e.output)
         if reraise_error:
           raise
     else:
       result = run(command)
       if log_success_msg:
-        logger.debug('Repo %s:' + log_success_msg, self.name)
+        logger.debug('Repo %s: ' + log_success_msg, self.repo_name)
     return result
 
   def all_commits_since_commit(self, since_commit):
@@ -89,17 +85,26 @@ class GitRepository(object):
     else:
       commits = self._git('log --format=format:%H').strip()
     if not commits:
-      return []
-    commits = commits.split('\n')
-    commits.reverse()
+      commits = []
+    else:
+      commits = commits.split('\n')
+      commits.reverse()
+
+    if since_commit is not None:
+      logger.debug('Repo %s: found the following commits after commit %s: %s', self.repo_name,
+                   since_commit, ', '.join(commits))
+    else:
+      logger.debug('Repo %s: found the following commits: %s', self.repo_name, ', '.join(commits))
     return commits
 
   def all_fetched_commits(self, branch='master'):
     commits = self._git('rev-list ..origin/{}', branch).strip()
     if not commits:
-      return []
-    commits = commits.split('\n')
-    commits.reverse()
+      commits = []
+    else:
+      commits = commits.split('\n')
+      commits.reverse()
+    logger.debug('Repo %s: fetched the following commits', self.repo_name, ', '.join(commits))
     return commits
 
   def checkout_branch(self, branch_name, create=False):
@@ -131,9 +136,9 @@ class GitRepository(object):
         if from_filesystem:
           url = url.replace('/', os.sep)
 
-        self._git('clone {} . {}', url, params, log_success_msg='Successfully cloned')
+        self._git('clone {} . {}', url, params, log_success_msg='successfully cloned')
       except subprocess.CalledProcessError:
-        print('Cannot clone repository {} from url {}'.format(self.name, url))
+        logger.error('Git repo %s: cannot clone from url %s', self.repo_nake, url)
       else:
         break
 
@@ -232,6 +237,7 @@ def _get_repo_path(root_dir, repo_name):
   _validate_repo_name(repo_name)
   repo_dir = str((Path(root_dir) / (repo_name or '')))
   if not repo_dir.startswith(repo_dir):
+    logger.error('Repo %s: repository name is not valid', repo_name)
     raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
 
@@ -240,6 +246,7 @@ def _validate_repo_name(repo_name):
   """ Ensure the repo name is not malicious """
   match = _repo_name_re.match(repo_name)
   if not match:
+    logger.error('Repo %s: repository name is not valid', repo_name)
     raise InvalidRepositoryError('Repository name must be in format namespace/repository '
                                  'and can only contain letters, numbers, underscores and '
                                  'dashes, but got "{}"'.format(repo_name))
@@ -254,8 +261,9 @@ _url_re = re.compile(
   r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
 
-def _validate_url(url):
+def _validate_url(url, repo_name):
   """ ensure valid URL """
   match = _url_re.match(url)
   if not match:
-    raise InvalidRepositoryError('Repository url must be a valid URL, but got "{}".'.format(url))
+    logger.error('Repo %s: repository URL (%s) is not valid', repo_name, url)
+    raise InvalidRepositoryError('Repository URL must be a valid URL, but got "{}".'.format(url))

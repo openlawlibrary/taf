@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+import taf.log
 from collections import defaultdict
 from subprocess import CalledProcessError
 
@@ -31,6 +32,8 @@ class AuthenticationRepo(GitRepository):
         if previous_commit is None or target_commit != previous_commit:
           repositories_commits[target_path].append(target_commit)
         previous_commits[target_path] = target_commit
+    logger.debug('Auth repo %s: new commits per repositories accoring to targets.json: %s',
+                 self.repo_name, repositories_commits)
     return repositories_commits
 
   def target_commits_at_revisions(self, commits):
@@ -57,7 +60,8 @@ class AuthenticationRepo(GitRepository):
               self.get_json(commit, self.targets_path + '/' + target_path).get('commit')
           targets[commit][target_path] = target_commit
         except json.decoder.JSONDecodeError:
-          logger.info('Target file %s is not a valid json at revision %s', target_path, commit)
+          logger.info('Auth repo %s: target file %s is not a valid json at revision %s',
+                      self.repo_name, target_path, commit)
           continue
     return targets
 
@@ -66,6 +70,8 @@ class AuthenticationRepo(GitRepository):
     try:
       return self.get_json(commit, path)
     except CalledProcessError:
-      logger.info('%s not available at revision %s', os.path.basename(path), commit)
+      logger.info('Auth repo %s: %s not available at revision %s', os.path.basename(path),
+                  self.repo_name, commit)
     except json.decoder.JSONDecodeError:
-      logger.info('%s not a valid json at revision %s', os.path.basename(path), commit)
+      logger.info('Auth repo %s: %s not a valid json at revision %s', os.path.basename(path),
+                  self.repo_name, commit)
