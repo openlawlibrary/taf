@@ -9,9 +9,9 @@ from pathlib import Path
 
 import securesystemslib
 from securesystemslib.exceptions import Error as SSLibError
-from taf.utils import normalize_file_line_endings
 
 from oll_sc.exceptions import SmartCardError
+from taf.utils import normalize_file_line_endings
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  METADATA_STAGED_DIRECTORY_NAME,
@@ -274,7 +274,7 @@ class Repository:
     Args:
       - targets_data(dict): Dictionary with targets data
       - date(datetime): Build date
-      - targets_key_slot(tuple): Slot with key on a smart card used for signing
+      - targets_key_slot(tuple|int): Slot with key on a smart card used for signing
       - targets_key_pin(str): Targets key pin
 
     Returns:
@@ -286,6 +286,9 @@ class Repository:
       - SmartCardError: If PIN is wrong or smart card is not inserted, or can't perform signing, ...
     """
     from .sc_utils import get_yubikey_public_key, is_valid_metadata_yubikey
+
+    if isinstance(targets_key_slot, int):
+      targets_key_slot = (targets_key_slot, )
 
     try:
       if not is_valid_metadata_yubikey(self, 'targets', targets_key_slot, targets_key_pin):
