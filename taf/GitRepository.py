@@ -15,7 +15,8 @@ logger = taf.log.get_logger(__name__)
 
 class GitRepository(object):
 
-  def __init__(self, root_dir, repo_name=None, repo_urls=None, additional_info=None, bare=False):
+  def __init__(self, root_dir, repo_name=None, repo_urls=None, additional_info=None, bare=False,
+               *args, **kwargs):
     """
     Args:
       root_dir: the root directory, repo_name is relative to it

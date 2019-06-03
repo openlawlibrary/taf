@@ -8,6 +8,7 @@ import taf.settings as settings
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
+
 logger = taf.log.get_logger(__name__)
 
 
@@ -68,10 +69,14 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   # update target repositories
   _update_target_repositories(repositories, repositories_commits)
 
-  logger.info('Merging commit %s into %s', commits[-1], users_auth_repo.repo_name)
+  last_commit = commits[-1]
+  logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
   # if there were no errors, merge the last validated authentication repository commit
-  users_auth_repo.merge_commit(commits[-1])
+  users_auth_repo.merge_commit(last_commit)
   users_auth_repo.checkout_branch('master')
+  # update the last validated commit
+  users_auth_repo.set_last_validated_commit(last_commit)
+
 
 
 def _update_authentication_repository(repository_updater):
@@ -92,8 +97,13 @@ def _update_authentication_repository(repository_updater):
         target_filepath = target['filepath']
         trusted_length = target['fileinfo']['length']
         trusted_hashes = target['fileinfo']['hashes']
-        repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
-        logger.debug('Successfully validated target file %s at %s', target_filepath, current_commit)
+        try:
+          repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
+        except Exception as e:
+          logger.error('Could not validate file', target_filepath)
+          raise e
+        logger.debug('Successfully validated target file %s at %s', target_filepath,
+                     current_commit)
   except Exception as e:
     # for now, useful for debugging
     logger.error('Validation of authentication repository %s failed due to error %s',

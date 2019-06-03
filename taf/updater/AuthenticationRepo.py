@@ -11,11 +11,51 @@ logger = taf.log.get_logger(__name__)
 
 class AuthenticationRepo(GitRepository):
 
+
   def __init__(self, root_dir, metadata_path, targets_path, repo_name=None,
                repo_urls=None, additional_info=None, bare=False):
     super().__init__(root_dir, repo_name, repo_urls, additional_info, bare)
     self.targets_path = targets_path
     self.metadata_path = metadata_path
+
+  LAST_VALIDATED_FILENAME = 'last_validated_commit'
+
+  @property
+  def conf_dir(self):
+    """
+    Returns location of the directory which stores the authentication repository's
+    configuration files. That is, the last validated commit.
+    Create the directory if it does not exist.
+    """
+    # the repository's name consists of the namespace and name (namespace/name)
+    # the configuration directory should be _name
+    last_dir = os.path.basename(os.path.normpath(self.repo_path))
+    conf_path = os.path.join(os.path.dirname(self.repo_path), f'_{last_dir}')
+    if not os.path.exists(conf_path):
+        os.makedirs(conf_path)
+    return conf_path
+
+  @property
+  def last_validated_commit(self):
+    """
+    Return the last validated commit of the authentication repository
+    """
+    path = os.path.join(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+    try:
+      with open(path) as f:
+        return f.read()
+    except FileNotFoundError:
+        return None
+
+  def set_last_validated_commit(self, commit):
+    """
+    Set the last validated commit of the authentication repository
+    """
+    path = os.path.join(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+    logger.debug('Auth repo %s: setting last validated commit to: %s',
+                 self.repo_name, commit)
+    with open(path, 'w') as f:
+      f.write(commit)
 
   def sorted_commits_per_repositories(self, commits):
     """Create a list of of subsequent commits per repository
@@ -62,7 +102,6 @@ class AuthenticationRepo(GitRepository):
                       self.repo_name, target_path, commit)
           continue
     return targets
-
 
   def _safely_get_json(self, commit, path):
     try:

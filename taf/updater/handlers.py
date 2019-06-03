@@ -4,7 +4,7 @@ import tempfile
 import securesystemslib
 import taf.log
 import tuf.client.handlers as handlers
-
+from subprocess import CalledProcessError
 from taf.updater.AuthenticationRepo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 
@@ -118,25 +118,55 @@ class GitUpdater(handlers.MetadataUpdater):
     We have to presume that the initial metadata is correct though (or at least
     the initial root.json).
     """
-    # TODO handle the case when the local repository does not
-    # exist and needs to be cloned
-    # for now, it is assumed that there is a local repository
-
     # TODO check if users authentication repository is clean
+
+    # load the last validated commit fromt he conf file
+    last_validated_commit = self.users_auth_repo.last_validated_commit
+
+    try:
+      commits_since = self.validation_auth_repo.all_commits_since_commit(last_validated_commit)
+    except CalledProcessError as e:
+      if 'Invalid revision range' in e.output:
+        logger.error('Unathorized force push detected - commit %s is no longer contained '
+                     'by repository repository. %s', last_validated_commit,
+                     self.validation_auth_repo.repo_name)
+        raise UpdateFailedError('Commit {} is no longer contained by repository {}. This means '
+                                'that there was an authorized push to the remote authentication '
+                                'repository.'.format(last_validated_commit,
+                                                     self.validation_auth_repo.repo_name))
+      else:
+        raise e
+
+    # check if the user's head commit mathces the saved one
+    # that should always be the case
+    # if it is not, it means that someone, accidentally or maliciosly manually modified
+    # the repository
+
     if not self.users_auth_repo.is_git_repository:
       users_head_sha = None
     else:
       self.users_auth_repo.checkout_branch('master')
       users_head_sha = self.users_auth_repo.head_commit_sha()
-      # find all commits after the top commit of the
-      # client's local authentication repository
-      # TODO detect force-push removal of commits
 
-    self.commits = self.validation_auth_repo.all_commits_since_commit(users_head_sha)
+    if last_validated_commit != users_head_sha:
+      # if user's head is before last_validated_commit, we can report tnat, but
+      # continue with the update. The repository should be updated to the latest version anyway,
+      # meaning that the head commit and the stored last validated commit should match
+      # if the user's head commit is after last_validated_commit, or if it has
+      # not been pushed to the remote repository, that's a bigger problem problem.
+      # We could do a reset hard automatically, but the question is if we want to
+      # do that or not. The user should be notified of this mismatch in any case
+      # For now, let's raise an error here
+      msg = 'Saved last validated commit {} does not match the head commit of the ' + \
+            'authentication repository {}'.format(last_validated_commit, users_head_sha)
+      logger.error(msg)
+      raise UpdatedFailedError(msg)
+
     # insert the current one at the beginning of the list
     if users_head_sha is not None:
-      self.commits.insert(0, users_head_sha)
+      commits_since.insert(0, users_head_sha)
 
+    self.commits = commits_since
     self.users_head_sha = users_head_sha
     self.current_commit_index = 0
 

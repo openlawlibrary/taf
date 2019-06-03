@@ -19,7 +19,7 @@ ENABLE_CONSOLE_LOGGING = True
 ENABLE_FILE_LOGGING = True
 
 # should errors be logged to a separate file if logging to file is enabled,
-SEPARATE_ERRORS = False
+SEPARATE_ERRORS = True
 
 CONSOLE_LOGGING_LEVEL = logging.DEBUG
 
