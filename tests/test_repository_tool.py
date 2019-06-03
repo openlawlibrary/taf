@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 import securesystemslib
 import taf.exceptions
-from taf.api import update_targets, update_timestamp
 from taf.utils import to_tuf_datetime_format
 
 import oll_sc.exceptions
@@ -16,7 +15,7 @@ def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
   interval = 1
   expected_expiration_date = to_tuf_datetime_format(start_date, interval)
 
-  update_timestamp(taf_happy_path, timestamp_key, start_date, interval)
+  taf_happy_path.update_timestamp(timestamp_key, start_date, interval)
   new_timestamp_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'timestamp.json')
   signable = securesystemslib.util.load_json_file(new_timestamp_metadata)
   tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
@@ -27,7 +26,7 @@ def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
 
 def test_update_timestamp_wrong_key(taf_happy_path, snapshot_key):
   with pytest.raises(taf.exceptions.InvalidKeyError):
-    update_timestamp(taf_happy_path, snapshot_key)
+    taf_happy_path.update_timestamp(snapshot_key)
 
 
 def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
@@ -51,7 +50,7 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
   }
 
   targets_yk.insert()
-  update_targets(taf_happy_path, targets_data, datetime.datetime.now(), (1, ), '123456')
+  taf_happy_path.update_targets(targets_data, datetime.datetime.now(), (1, ), '123456')
 
   assert (targets_path / 'branch').read_text() == branch_id
   assert target_commit_sha in (targets_path / 'dummy/target_dummy_repo').read_text()
@@ -62,10 +61,10 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
 def test_update_targets_valid_key_wrong_pin(taf_happy_path, targets_yk):
   with pytest.raises(oll_sc.exceptions.SmartCardWrongPinError):
     targets_yk.insert()
-    update_targets(taf_happy_path, None, datetime.datetime.now(), (1, ), '123')
+    taf_happy_path.update_targets(None, datetime.datetime.now(), (1, ), '123')
 
 
 def test_update_targets_wrong_key(taf_happy_path, root1_yk):
   with pytest.raises(taf.exceptions.InvalidKeyError):
     root1_yk.insert()
-    update_targets(taf_happy_path, None, datetime.datetime.now(), (1, ), '123456')
+    taf_happy_path.update_targets(None, datetime.datetime.now(), (1, ), '123456')
