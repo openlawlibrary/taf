@@ -273,6 +273,23 @@ class Repository:
         targets_key, partial(targets_signature_provider, targets_key['keyid'], targets_key_slot, targets_key_pin))
     self._repository.write('targets')
 
+  def update_all(self, targets_key_slot, targets_key_pin, keystore, **kwargs):
+    targets_date = kwargs.get('targets_date', datetime.datetime.now())
+    snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
+    timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
+
+    targets_interval = kwargs.get('targets_interval', None)
+    snapshot_interval = kwargs.get('snapshot_interval', None)
+    timestamp_interval = kwargs.get('timestamp_interval', None)
+
+    self.update_targets(targets_key_slot, targets_key_pin, None, targets_date, targets_interval)
+
+    snapshot_key = load_role_key(keystore, 'snapshot')
+    self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval)
+
+    timestamp_key = load_role_key(keystore, 'timestamp')
+    self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval)
+
   def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None):
     """Update snapshot periodically.
 
@@ -328,14 +345,19 @@ class Repository:
     except (SmartCardError, TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
 
-  def update_targets(self, targets_data, date, targets_key_slot, targets_key_pin):
+  def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
+                     start_date=datetime.datetime.now(), interval=None):
     """Update target data, sign with smart card and write.
 
     Args:
-      - targets_data(dict): Dictionary with targets data
-      - date(datetime): Build date
       - targets_key_slot(tuple|int): Slot with key on a smart card used for signing
       - targets_key_pin(str): Targets key pin
+      - targets_data(dict): (Optional) Dictionary with targets data
+      - start_date(datetime): Date to which the specified interval is added when
+                              calculating expiration date. If a value is not
+                              provided, it is set to the current time
+      - interval(int): A number of days added to the start date. If not provided,
+                       the default value is used
 
     Returns:
       None
@@ -356,8 +378,10 @@ class Repository:
 
       pub_key = get_yubikey_public_key(targets_key_slot, targets_key_pin)
 
-      self.add_targets(targets_data)
-      self.set_metadata_expiration_date('targets', date)
+      if targets_data:
+        self.add_targets(targets_data)
+
+      self.set_metadata_expiration_date('targets', start_date, interval)
       self.write_targets_metadata(pub_key, targets_key_slot, targets_key_pin)
 
     except (TUFError, SSLibError) as e:
