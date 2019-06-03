@@ -11,32 +11,39 @@ from taf.utils import to_tuf_datetime_format
 
 
 def test_update_all(taf_happy_path, targets_yk, keystore):
-  date_now = datetime.datetime.now()
-  dates = {
+  date_now = targets_date = datetime.datetime.now()
+  targets_interval = 1
+  snapshot_date = date_now + datetime.timedelta(1)
+  snapshot_interval = 2
+  timestamp_date = date_now + datetime.timedelta(2)
+  timestamp_interval = 3
+
+  kwargs = {
       'targets_date': date_now,
-      'snapshot_date': date_now + datetime.timedelta(1),
-      'timestamp_date': date_now + datetime.timedelta(2),
-  }
-  intervals = {
-      'targets_interval': 1,
-      'snapshot_interval': 2,
-      'timestamp_interval': 3
+      'snapshot_date': snapshot_date,
+      'timestamp_date': timestamp_date,
+      'targets_interval': targets_interval,
+      'snapshot_interval': snapshot_interval,
+      'timestamp_interval': timestamp_interval
   }
 
   targets_yk.insert()
-  taf_happy_path.update_all((1, ), '123456', keystore, **dict(dates, **intervals))
+  taf_happy_path.update_all((1, ), '123456', keystore, **kwargs)
 
   new_targets_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'targets.json')
   new_snapshot_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'snapshot.json')
   new_timestamp_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'timestamp.json')
 
-  for metadata, date, interval in zip([new_targets_metadata, new_snapshot_metadata, new_timestamp_metadata],
-                                      dates.values(), intervals.values()):
+  def check_expiration_date(metadata, date, interval):
     signable = securesystemslib.util.load_json_file(metadata)
     tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
     actual_expiration_date = signable['signed']['expires']
 
     assert actual_expiration_date == to_tuf_datetime_format(date, interval)
+
+  check_expiration_date(new_targets_metadata, targets_date, targets_interval)
+  check_expiration_date(new_snapshot_metadata, snapshot_date, snapshot_interval)
+  check_expiration_date(new_timestamp_metadata, timestamp_date, timestamp_interval)
 
 
 def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
