@@ -260,19 +260,6 @@ class Repository:
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
 
-  def write_timestamp_metadata(self, timestamp_key):
-    self._repository.timestamp.load_signing_key(timestamp_key)
-    self._repository.write('timestamp')
-
-  def write_snapshot_metadata(self, snapshot_key):
-    self._repository.snapshot.load_signing_key(snapshot_key)
-    self._repository.write('snapshot')
-
-  def write_targets_metadata(self, targets_key, targets_key_slot, targets_key_pin):
-    self._repository.targets.add_external_signature_provider(
-        targets_key, partial(targets_signature_provider, targets_key['keyid'], targets_key_slot, targets_key_pin))
-    self._repository.write('targets')
-
   def update_all(self, targets_key_slot, targets_key_pin, keystore, **kwargs):
     targets_date = kwargs.get('targets_date', datetime.datetime.now())
     snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
@@ -282,19 +269,30 @@ class Repository:
     snapshot_interval = kwargs.get('snapshot_interval', None)
     timestamp_interval = kwargs.get('timestamp_interval', None)
 
-    self.update_targets(targets_key_slot, targets_key_pin, None, targets_date, targets_interval)
+    consistent_snapshot = kwargs.get('consistent_snapshot', False)
+
+    self.update_targets(targets_key_slot, targets_key_pin,
+                        None, targets_date, targets_interval, write=False)
 
     snapshot_key = load_role_key(keystore, 'snapshot')
-    self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval)
+    self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=False)
 
     timestamp_key = load_role_key(keystore, 'timestamp')
-    self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval)
+    self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=False)
 
-  def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None):
+    self._repository.writeall(consistent_snapshot)
+
+  def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update snapshot periodically.
 
     Args:
       - snapshot_key(securesystemslib.formats.RSAKEY_SCHEMA): Snapshot key.
+      - start_date(datetime): Date to which the specified interval is added when
+                              calculating expiration date. If a value is not
+                              provided, it is set to the current time
+      - interval(int): A number of days added to the start date. If not provided,
+                      the default value is used
+      - write(bool): If True snapshot metadata will be signed and written
 
     Returns:
       None
@@ -310,12 +308,15 @@ class Repository:
         raise InvalidKeyError('targets')
 
       self.set_metadata_expiration_date('snapshot', start_date, interval)
-      self.write_snapshot_metadata(snapshot_key)
+
+      self._repository.snapshot.load_signing_key(snapshot_key)
+      if write:
+        self._repository.write('snapshot')
 
     except (SmartCardError, TUFError, SSLibError) as e:
       raise SnapshotMetadataUpdateError(str(e))
 
-  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None):
+  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update timestamp periodically.
 
     Args:
@@ -325,6 +326,7 @@ class Repository:
                               provided, it is set to the current time
       - interval(int): A number of days added to the start date. If not provided,
                       the default value is used
+      - write(bool): If True timestmap metadata will be signed and written
 
     Returns:
       None
@@ -340,13 +342,16 @@ class Repository:
         raise InvalidKeyError('targets')
 
       self.set_metadata_expiration_date('timestamp', start_date, interval)
-      self.write_timestamp_metadata(timestamp_key)
+
+      self._repository.timestamp.load_signing_key(timestamp_key)
+      if write:
+        self._repository.write('timestamp')
 
     except (SmartCardError, TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
 
   def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
-                     start_date=datetime.datetime.now(), interval=None):
+                     start_date=datetime.datetime.now(), interval=None, write=True):
     """Update target data, sign with smart card and write.
 
     Args:
@@ -358,6 +363,7 @@ class Repository:
                               provided, it is set to the current time
       - interval(int): A number of days added to the start date. If not provided,
                        the default value is used
+      - write(bool): If True targets metadata will be signed and written
 
     Returns:
       None
@@ -382,7 +388,13 @@ class Repository:
         self.add_targets(targets_data)
 
       self.set_metadata_expiration_date('targets', start_date, interval)
-      self.write_targets_metadata(pub_key, targets_key_slot, targets_key_pin)
+
+      self._repository.targets.add_external_signature_provider(
+          pub_key,
+          partial(targets_signature_provider, pub_key['keyid'], targets_key_slot, targets_key_pin)
+      )
+      if write:
+        self._repository.write('targets')
 
     except (TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
