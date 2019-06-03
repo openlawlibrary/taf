@@ -30,9 +30,9 @@ class AuthenticationRepo(GitRepository):
     # the repository's name consists of the namespace and name (namespace/name)
     # the configuration directory should be _name
     last_dir = os.path.basename(os.path.normpath(self.repo_path))
-    conf_path = os.path.join(os.path.dirname(self.repo_path), f'_{last_dir}')
+    conf_path = os.path.join(os.path.dirname(self.repo_path), '_{}'.format(last_dir))
     if not os.path.exists(conf_path):
-        os.makedirs(conf_path)
+      os.makedirs(conf_path)
     return conf_path
 
   @property
@@ -45,7 +45,7 @@ class AuthenticationRepo(GitRepository):
       with open(path) as f:
         return f.read()
     except FileNotFoundError:
-        return None
+      return None
 
   def set_last_validated_commit(self, commit):
     """

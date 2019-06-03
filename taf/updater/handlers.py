@@ -157,10 +157,10 @@ class GitUpdater(handlers.MetadataUpdater):
       # We could do a reset hard automatically, but the question is if we want to
       # do that or not. The user should be notified of this mismatch in any case
       # For now, let's raise an error here
-      msg = 'Saved last validated commit {} does not match the head commit of the ' + \
-            'authentication repository {}'.format(last_validated_commit, users_head_sha)
+      msg = '''Saved last validated commit {} does not match the head commit of the
+authentication repository {}'''.format(last_validated_commit, users_head_sha)
       logger.error(msg)
-      raise UpdatedFailedError(msg)
+      raise UpdateFailedError(msg)
 
     # insert the current one at the beginning of the list
     if users_head_sha is not None:

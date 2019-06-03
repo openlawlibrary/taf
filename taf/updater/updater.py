@@ -99,8 +99,8 @@ def _update_authentication_repository(repository_updater):
         trusted_hashes = target['fileinfo']['hashes']
         try:
           repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
-        except Exception as e:
-          logger.error('Could not validate file', target_filepath)
+        except tuf.exceptions.NoWorkingMirrorError as e:
+          logger.error('Could not validate file %s', target_filepath)
           raise e
         logger.debug('Successfully validated target file %s at %s', target_filepath,
                      current_commit)
