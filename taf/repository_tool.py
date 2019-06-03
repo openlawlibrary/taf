@@ -17,7 +17,8 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  METADATA_STAGED_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME)
 
-from .exceptions import (InvalidKeyError, TargetsMetadataUpdateError,
+from .exceptions import (InvalidKeyError, SnapshotMetadataUpdateError,
+                         TargetsMetadataUpdateError,
                          TimestampMetadataUpdateError)
 
 role_keys_cache = {}
@@ -263,10 +264,69 @@ class Repository:
     self._repository.timestamp.load_signing_key(timestamp_key)
     self._repository.write('timestamp')
 
+  def write_snapshot_metadata(self, snapshot_key):
+    self._repository.snapshot.load_signing_key(snapshot_key)
+    self._repository.write('snapshot')
+
   def write_targets_metadata(self, targets_key, targets_key_slot, targets_key_pin):
     self._repository.targets.add_external_signature_provider(
         targets_key, partial(targets_signature_provider, targets_key['keyid'], targets_key_slot, targets_key_pin))
     self._repository.write('targets')
+
+  def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None):
+    """Update snapshot periodically.
+
+    Args:
+      - snapshot_key(securesystemslib.formats.RSAKEY_SCHEMA): Snapshot key.
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - SnapshotMetadataUpdateError: If any other error happened during metadata update
+    """
+    from .sc_utils import is_valid_metadata_key
+
+    try:
+      if not is_valid_metadata_key(self, 'snapshot', snapshot_key):
+        raise InvalidKeyError('targets')
+
+      self.set_metadata_expiration_date('snapshot', start_date, interval)
+      self.write_snapshot_metadata(snapshot_key)
+
+    except (SmartCardError, TUFError, SSLibError) as e:
+      raise SnapshotMetadataUpdateError(str(e))
+
+  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None):
+    """Update timestamp periodically.
+
+    Args:
+      - timestamp_key(securesystemslib.formats.RSAKEY_SCHEMA): Timestamp key.
+      - start_date(datetime): Date to which the specified interval is added when
+                              calculating expiration date. If a value is not
+                              provided, it is set to the current time
+      - interval(int): A number of days added to the start date. If not provided,
+                      the default value is used
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - TimestampMetadataUpdateError: If any other error happened during metadata update
+    """
+    from .sc_utils import is_valid_metadata_key
+
+    try:
+      if not is_valid_metadata_key(self, 'timestamp', timestamp_key):
+        raise InvalidKeyError('targets')
+
+      self.set_metadata_expiration_date('timestamp', start_date, interval)
+      self.write_timestamp_metadata(timestamp_key)
+
+    except (SmartCardError, TUFError, SSLibError) as e:
+      raise TimestampMetadataUpdateError(str(e))
 
   def update_targets(self, targets_data, date, targets_key_slot, targets_key_pin):
     """Update target data, sign with smart card and write.
@@ -303,38 +363,8 @@ class Repository:
     except (TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
 
-  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None):
-    """Update timestamp periodically.
 
-    Args:
-      - timestamp_key(securesystemslib.formats.RSAKEY_SCHEMA): Timestamp key.
-      - start_date(datetime): Date to which the specified interval is added when
-                              calculating expiration date. If a value is not
-                              provided, it is set to the current time
-      - interval(int): A number of days added to the start date. If not provided,
-                      the default value is used
-
-    Returns:
-      None
-
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - TimestampMetadataUpdateError: If any other error happened during metadata update
-    """
-    from .sc_utils import is_valid_metadata_key
-
-    try:
-      if not is_valid_metadata_key(self, 'timestamp', timestamp_key):
-        raise InvalidKeyError('targets')
-
-      self.set_metadata_expiration_date('timestamp', start_date, interval)
-      self.write_timestamp_metadata(timestamp_key)
-
-    except (SmartCardError, TUFError, SSLibError) as e:
-      raise TimestampMetadataUpdateError(str(e))
-
-
-def load_role_key(role, keystore):
+def load_role_key(keystore, role, password=None):
   """
   Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password
@@ -349,7 +379,7 @@ def load_role_key(role, keystore):
     try:
       # try loading the key without passing in a passphrase
       # if that fails, prompt the user to enter it
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), password=password)
     except securesystemslib.exceptions.CryptoError:
       while key is None:
         passphrase = getpass.getpass('Enter {} passphrase:'.format(role))
