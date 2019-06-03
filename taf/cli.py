@@ -29,7 +29,8 @@ def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, upd
     taf_repo.add_existing_target(file_path)
 
     if update_all:
-      taf_repo.update_all(targets_key_slot, targets_key_pin, keystore)
+      taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)
+      taf_repo.update_snapshot_and_timestmap(keystore)  # Calls writeall()
     else:
       taf_repo.update_targets(targets_key_slot, targets_key_pin)
 
@@ -54,7 +55,8 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, update_all, keysto
         taf_repo.add_existing_target(relpath)
 
     if update_all:
-      taf_repo.update_all(targets_key_slot, targets_key_pin, keystore)
+      taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)
+      taf_repo.update_snapshot_and_timestmap(keystore)  # Calls writeall()
     else:
       taf_repo.update_targets(targets_key_slot, targets_key_pin)
 

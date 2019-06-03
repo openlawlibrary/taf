@@ -25,7 +25,7 @@ class InvalidRepositoryError(TAFError):
 
 class MetadataUpdateError(TAFError):
   def __init__(self, metadata_role, message):
-    super().__init__('Error happened while updating {} metadata:\n\n{}'
+    super().__init__('Error happened while updating {} metadata role(s):\n\n{}'
                      .format(metadata_role, message))
     self.metadata_role = metadata_role
     self.message = message

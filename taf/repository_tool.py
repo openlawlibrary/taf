@@ -17,7 +17,8 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  METADATA_STAGED_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME)
 
-from .exceptions import (InvalidKeyError, SnapshotMetadataUpdateError,
+from .exceptions import (InvalidKeyError, MetadataUpdateError,
+                         SnapshotMetadataUpdateError,
                          TargetsMetadataUpdateError,
                          TimestampMetadataUpdateError)
 
@@ -260,30 +261,40 @@ class Repository:
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
 
-  def update_all(self, targets_key_slot, targets_key_pin, keystore, **kwargs):
-    targets_date = kwargs.get('targets_date', datetime.datetime.now())
-    snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
-    timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
+  def update_snapshot_and_timestmap(self, keystore, **kwargs):
+    """Update snapshot and timestamp metadata.
 
-    targets_interval = kwargs.get('targets_interval', None)
-    snapshot_interval = kwargs.get('snapshot_interval', None)
-    timestamp_interval = kwargs.get('timestamp_interval', None)
+    Args:
+      - keystore(str): Path to keystore with snapshot and timestamp keys
+      - kwargs(dict): (Optional) Expiration dates and intervals
 
-    consistent_snapshot = kwargs.get('consistent_snapshot', False)
+    Returns:
+      None
 
-    self.update_targets(targets_key_slot, targets_key_pin,
-                        None, targets_date, targets_interval, write=False)
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - MetadataUpdateError: If any other error happened during metadata update
+    """
+    try:
+      snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
+      snapshot_interval = kwargs.get('snapshot_interval', None)
 
-    snapshot_key = load_role_key(keystore, 'snapshot')
-    self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=False)
+      timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
+      timestamp_interval = kwargs.get('timestamp_interval', None)
 
-    timestamp_key = load_role_key(keystore, 'timestamp')
-    self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=False)
+      snapshot_key = load_role_key(keystore, 'snapshot')
+      self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=False)
 
-    self._repository.writeall(consistent_snapshot)
+      timestamp_key = load_role_key(keystore, 'timestamp')
+      self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=False)
+
+      self._repository.writeall()
+
+    except (TUFError, SSLibError) as e:
+      raise MetadataUpdateError('all', str(e))
 
   def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None, write=True):
-    """Update snapshot periodically.
+    """Update snapshot metadata.
 
     Args:
       - snapshot_key(securesystemslib.formats.RSAKEY_SCHEMA): Snapshot key.
@@ -317,7 +328,7 @@ class Repository:
       raise SnapshotMetadataUpdateError(str(e))
 
   def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
-    """Update timestamp periodically.
+    """Update timestamp metadata.
 
     Args:
       - timestamp_key(securesystemslib.formats.RSAKEY_SCHEMA): Timestamp key.
