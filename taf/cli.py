@@ -1,9 +1,10 @@
 import os
+
 import click
-import datetime
 
 from taf.repository_tool import load_repository
 from taf.updater.updater import update as taf_updater
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
 @click.group()
@@ -14,43 +15,48 @@ def cli():
 @cli.command()
 @click.option('--repo-path', help='Authentication repository\'s path')
 @click.option('--file-path', help='Target file\'s path, relative to the targets directory')
-@click.option('--keystore-path', help='Path of the keystore file')
-@click.option('--targets-role', default='targets', help='Targets metadata file to be updated')
-def add_target_file(repo_path, file_path, keystore_path, targets_role):
-  with load_repository(repo_path) as tuf_repo:
-    tuf_repo.add_existing_target(file_path)
-    tuf_repo.write_roles_metadata(targets_role, keystore_path, True)
+@click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
+@click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
+@click.option('--update-all', is_flag=False, default=True, help='Update snapshot and timestamp')
+@click.option('--keystore', default='', help='Path of the keystore file')
+@click
+def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, update_all, keystore):
+  if update_all and not os.path.exists(keystore):
+    click.echo('\nError: Missing option "--keystore" if --update-all is passed.')
+    return
+
+  with load_repository(repo_path) as taf_repo:
+    taf_repo.add_existing_target(file_path)
+
+    if update_all:
+      taf_repo.update_all(targets_key_slot, targets_key_pin, keystore)
+    else:
+      taf_repo.update_targets(targets_key_slot, targets_key_pin)
 
 
 @cli.command()
 @click.option('--repo-path', help='Authentication repository\'s path')
-@click.option('--keystore-path', help='Path of the keystore file')
-@click.option('--targets-role', default='targets', help='Targets metadata file to be updated')
-def add_targets(repo_path, keystore_path, targets_role):
-  targets_path = os.path.join(repo_path, 'targets')
-  with load_repository(repo_path) as tuf_repo:
+@click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
+@click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
+@click.option('--update-all', is_flag=False, default=True, help='Update snapshot and timestamp')
+@click.option('--keystore', default='', help='Path of the keystore file')
+def add_targets(repo_path, targets_key_slot, targets_key_pin, update_all, keystore):
+  if update_all and not os.path.exists(keystore):
+    click.echo('\nError: Missing option "--keystore" if --update-all is passed.')
+    return
+
+  targets_path = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
+  with load_repository(repo_path) as taf_repo:
     for root, _, filenames in os.walk(targets_path):
       for filename in filenames:
         relpath = os.path.relpath(os.path.join(root, filename), targets_path)
         relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
-        tuf_repo.add_existing_target(relpath)
-    tuf_repo.write_roles_metadata(targets_role, keystore_path, True)
+        taf_repo.add_existing_target(relpath)
 
-
-@cli.command()
-@click.option('--repo-path', help='Authentication repository\'s path')
-@click.option('--keystore-path', help='Path of the keystore file')
-@click.option('--metadata-role', help='Metadata file to be updated')
-@click.option('--expiration-date', default=None, help='New expiration date. If not provided,'
-              'it will be set based on the default interval for the given role')
-def update_metadata_expiration_date(repo_path, keystore_path, metadata_role, expiration_date):
-  with load_repository(repo_path) as repository:
-    if expiration_date is not None:
-      expiration_date = datetime.datetime.strptime(expiration_date, '%Y-%m-%d')
-      repository.set_metadata_expiration_date(metadata_role, expiration_date, 0)
+    if update_all:
+      taf_repo.update_all(targets_key_slot, targets_key_pin, keystore)
     else:
-      repository.set_metadata_expiration_date(metadata_role)
-    repository.write_roles_metadata(metadata_role, keystore_path)
+      taf_repo.update_targets(targets_key_slot, targets_key_pin)
 
 
 @cli.command()
