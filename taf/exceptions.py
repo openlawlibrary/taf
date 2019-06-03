@@ -31,6 +31,11 @@ class MetadataUpdateError(TAFError):
     self.message = message
 
 
+class SnapshotMetadataUpdateError(MetadataUpdateError):
+  def __init__(self, message):
+    super().__init__('snapshot', message)
+
+
 class TargetsMetadataUpdateError(MetadataUpdateError):
   def __init__(self, message):
     super().__init__('targets', message)
