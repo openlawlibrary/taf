@@ -10,27 +10,24 @@ import tuf
 from taf.utils import to_tuf_datetime_format
 
 
-def test_update_all(taf_happy_path, targets_yk, keystore):
-  date_now = targets_date = datetime.datetime.now()
-  targets_interval = 1
+def test_update_snapshot_and_timestmap(taf_happy_path, keystore):
+  date_now = datetime.datetime.now()
   snapshot_date = date_now + datetime.timedelta(1)
   snapshot_interval = 2
   timestamp_date = date_now + datetime.timedelta(2)
   timestamp_interval = 3
 
   kwargs = {
-      'targets_date': date_now,
       'snapshot_date': snapshot_date,
       'timestamp_date': timestamp_date,
-      'targets_interval': targets_interval,
       'snapshot_interval': snapshot_interval,
       'timestamp_interval': timestamp_interval
   }
 
-  targets_yk.insert()
-  taf_happy_path.update_all((1, ), '123456', keystore, **kwargs)
+  taf_happy_path.update_snapshot_and_timestmap(keystore, **kwargs)
 
-  new_targets_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'targets.json')
+  old_targets_metadata = Path(taf_happy_path.metadata_path) / 'targets.json'
+  new_targets_metadata = Path(taf_happy_path.metadata_staged_path) / 'targets.json'
   new_snapshot_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'snapshot.json')
   new_timestamp_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'timestamp.json')
 
@@ -41,9 +38,11 @@ def test_update_all(taf_happy_path, targets_yk, keystore):
 
     assert actual_expiration_date == to_tuf_datetime_format(date, interval)
 
-  check_expiration_date(new_targets_metadata, targets_date, targets_interval)
   check_expiration_date(new_snapshot_metadata, snapshot_date, snapshot_interval)
   check_expiration_date(new_timestamp_metadata, timestamp_date, timestamp_interval)
+
+  # Targets data should remain the same
+  assert old_targets_metadata.read_bytes() == new_targets_metadata.read_bytes()
 
 
 def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
