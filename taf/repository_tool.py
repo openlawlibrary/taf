@@ -8,7 +8,17 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
+from securesystemslib.exceptions import Error as SSLibError
 from taf.utils import normalize_file_line_endings
+
+from oll_sc.exceptions import SmartCardError
+from tuf.exceptions import Error as TUFError
+from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
+                                 METADATA_STAGED_DIRECTORY_NAME,
+                                 TARGETS_DIRECTORY_NAME)
+
+from .exceptions import (InvalidKeyError, TargetsMetadataUpdateError,
+                         TimestampMetadataUpdateError)
 
 role_keys_cache = {}
 
@@ -21,6 +31,78 @@ expiration_intervals = {
 }
 
 
+@contextmanager
+def load_repository(repo_path):
+  """
+  Load a tuf repository, given a path of an authentication
+  repository. This repository is expected to contain a metadata
+  folder, where all tuf metadata files are stored. Since TUF expects
+  all metadata files to be in a metadata.staged directory, this
+  function created that directories, copies all metadata files
+  and then deletes it.
+  Args:
+    repo_path: path of an authentication repository.
+  """
+  from tuf.repository_tool import load_repository as load_tuf_repository
+
+  # create a metadata.staged directory and copy all
+  # files from the metadata directory
+  staged_dir = os.path.join(repo_path, METADATA_STAGED_DIRECTORY_NAME)
+  metadata_dir = os.path.join(repo_path, METADATA_DIRECTORY_NAME)
+
+  shutil.copytree(metadata_dir, staged_dir)
+
+  tuf_repository = load_tuf_repository(repo_path)
+  repository = Repository(tuf_repository, repo_path)
+  yield repository
+
+  # copy everything from the staged directory to the metadata directory
+  # and removed metadata.staged
+  for filename in os.listdir(staged_dir):
+    shutil.copy(os.path.join(staged_dir, filename), metadata_dir)
+  shutil.rmtree(staged_dir)
+
+
+def mark_role_as_dirty(role):
+  """
+  Mark a tuf role as dirty. This can be used to make tuf
+  generate new timestamp and snapshot, if they cannot be
+  generated at the same time as targets metadata
+  args:
+    role: a tuf role
+  """
+  import tuf
+  roleinfo = tuf.roledb.get_roleinfo(role)
+  tuf.roledb.update_roleinfo(role, roleinfo)
+
+
+def targets_signature_provider(key_id, key_slot, key_pin, data):
+  """Targets signature provider used to sign data with YubiKey.
+
+  Args:
+    - key_id(str): Key id from targets metadata file
+    - key_slot(tuple): Key slot on smart card (YubiKey)
+    - key_pin(str): PIN for signing key
+    - data(dict): Data to sign
+
+  Returns:
+    Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
+
+  Raises:
+    - SmartCardError: If signing with YubiKey cannot be performed
+  """
+  from binascii import hexlify
+  from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
+
+  data = securesystemslib.formats.encode_canonical(data)
+  signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
+
+  return {
+      'keyid': key_id,
+      'sig': hexlify(signature).decode()
+  }
+
+
 class Repository:
 
   def __init__(self, repository, repository_path):
@@ -31,15 +113,15 @@ class Repository:
 
   @property
   def targets_path(self):
-    return os.path.join(self.repository_path, 'targets')
+    return os.path.join(self.repository_path, TARGETS_DIRECTORY_NAME)
 
   @property
   def metadata_path(self):
-    return os.path.join(self.repository_path, 'metadata')
+    return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
 
   @property
   def metadata_staged_path(self):
-    return os.path.join(self.repository_path, 'metadata.staged')
+    return os.path.join(self.repository_path, METADATA_STAGED_DIRECTORY_NAME)
 
   def add_existing_target(self, file_path, targets_role='targets', custom=None):
     """
@@ -177,50 +259,76 @@ class Repository:
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
 
-  def write_roles_metadata(self, role, keystore, update_snapshot_and_timestamp=False):
-    """
-    Generates metadata of just one metadata file, corresponding
-    to the provided role
-    args:
-      repository: a tu repository
-      role: a tuf role
-      keystore: location of the keystore file
-      update_snapshot_and_timestamp: should timestamp and snapshot.json also be updated
-    """
-    private_role_key = load_role_key(role, keystore)
-    self._role_obj(role).load_signing_key(private_role_key)
-    # only write this role's metadata
-
-    if not update_snapshot_and_timestamp:
-      self._repository.write(role)
-    else:
-      snapshot_key = load_role_key('snapshot', keystore)
-      self._repository.snapshot.load_signing_key(snapshot_key)
-      timestamp_key = load_role_key('timestamp', keystore)
-      self._repository.timestamp.load_signing_key(timestamp_key)
-      self._repository.writeall()
-
   def write_timestamp_metadata(self, timestamp_key):
     self._repository.timestamp.load_signing_key(timestamp_key)
     self._repository.write('timestamp')
 
   def write_targets_metadata(self, targets_key, targets_key_slot, targets_key_pin):
-
-    def signature_provider(key_id, key_slot, key_pin, data):
-      import binascii
-      from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
-
-      data = securesystemslib.formats.encode_canonical(data)
-      signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
-
-      return {
-          'keyid': key_id,
-          'sig': binascii.hexlify(signature).decode()
-      }
-
     self._repository.targets.add_external_signature_provider(
-        targets_key, partial(signature_provider, targets_key['keyid'], targets_key_slot, targets_key_pin))
+        targets_key, partial(targets_signature_provider, targets_key['keyid'], targets_key_slot, targets_key_pin))
     self._repository.write('targets')
+
+  def update_targets(self, targets_data, date, targets_key_slot, targets_key_pin):
+    """Update target data, sign with smart card and write.
+
+    Args:
+      - targets_data(dict): Dictionary with targets data
+      - date(datetime): Build date
+      - targets_key_slot(tuple): Slot with key on a smart card used for signing
+      - targets_key_pin(str): Targets key pin
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - MetadataUpdateError: If any other error happened during metadata update
+      - SmartCardError: If PIN is wrong or smart card is not inserted, or can't perform signing, ...
+    """
+    from .sc_utils import get_yubikey_public_key, is_valid_metadata_yubikey
+
+    try:
+      if not is_valid_metadata_yubikey(self, 'targets', targets_key_slot, targets_key_pin):
+        raise InvalidKeyError('targets')
+
+      pub_key = get_yubikey_public_key(targets_key_slot, targets_key_pin)
+
+      self.add_targets(targets_data)
+      self.set_metadata_expiration_date('targets', date)
+      self.write_targets_metadata(pub_key, targets_key_slot, targets_key_pin)
+
+    except (TUFError, SSLibError) as e:
+      raise TargetsMetadataUpdateError(str(e))
+
+  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None):
+    """Update timestamp periodically.
+
+    Args:
+      - timestamp_key(securesystemslib.formats.RSAKEY_SCHEMA): Timestamp key.
+      - start_date(datetime): Date to which the specified interval is added when
+                              calculating expiration date. If a value is not
+                              provided, it is set to the current time
+      - interval(int): A number of days added to the start date. If not provided,
+                      the default value is used
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - TimestampMetadataUpdateError: If any other error happened during metadata update
+    """
+    from .sc_utils import is_valid_metadata_key
+
+    try:
+      if not is_valid_metadata_key(self, 'timestamp', timestamp_key):
+        raise InvalidKeyError('targets')
+
+      self.set_metadata_expiration_date('timestamp', start_date, interval)
+      self.write_timestamp_metadata(timestamp_key)
+
+    except (SmartCardError, TUFError, SSLibError) as e:
+      raise TimestampMetadataUpdateError(str(e))
 
 
 def load_role_key(role, keystore):
@@ -249,49 +357,3 @@ def load_role_key(role, keystore):
           pass
     role_keys_cache[role] = key
   return key
-
-
-@contextmanager
-def load_repository(repo_path):
-  """
-  Load a tuf repository, given a path of an authentication
-  repository. This repository is expected to contain a metadata
-  folder, where all tuf metadata files are stored. Since TUF expects
-  all metadata files to be in a metadata.staged directory, this
-  function created that directories, copies all metadata files
-  and then deletes it.
-  Args:
-    repo_path: path of an authentication repository.
-  """
-  from tuf.repository_tool import load_repository as load_tuf_repository
-
-  # create a metadata.staged directory and copy all
-  # files from the metadata directory
-  staged_dir = os.path.join(repo_path, 'metadata.staged')
-  metadata_dir = os.path.join(repo_path, 'metadata')
-  os.mkdir(staged_dir)
-  for filename in os.listdir(metadata_dir):
-    shutil.copy(os.path.join(metadata_dir, filename), staged_dir)
-
-  tuf_repository = load_tuf_repository(repo_path)
-  repository = Repository(tuf_repository, repo_path)
-  yield repository
-
-  # copy everything from the staged directory to the metadata directory
-  # and removed metadata.staged
-  for filename in os.listdir(staged_dir):
-    shutil.copy(os.path.join(staged_dir, filename), metadata_dir)
-  shutil.rmtree(staged_dir)
-
-
-def mark_role_as_dirty(role):
-  """
-  Mark a tuf role as dirty. This can be used to make tuf
-  generate new timestamp and snapshot, if they cannot be
-  generated at the same time as targets metadata
-  args:
-    role: a tuf role
-  """
-  import tuf
-  roleinfo = tuf.roledb.get_roleinfo(role)
-  tuf.roledb.update_roleinfo(role, roleinfo)
