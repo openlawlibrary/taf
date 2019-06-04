@@ -283,9 +283,9 @@ class Repository:
       timestamp_interval = kwargs.get('timestamp_interval', None)
 
       snapshot_key = load_role_key(keystore, 'snapshot')
-      self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=False)
-
       timestamp_key = load_role_key(keystore, 'timestamp')
+
+      self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=False)
       self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=False)
 
       self._repository.writeall()
@@ -316,7 +316,7 @@ class Repository:
 
     try:
       if not is_valid_metadata_key(self, 'snapshot', snapshot_key):
-        raise InvalidKeyError('targets')
+        raise InvalidKeyError('snapshot')
 
       self.set_metadata_expiration_date('snapshot', start_date, interval)
 
@@ -324,7 +324,7 @@ class Repository:
       if write:
         self._repository.write('snapshot')
 
-    except (SmartCardError, TUFError, SSLibError) as e:
+    except (TUFError, SSLibError) as e:
       raise SnapshotMetadataUpdateError(str(e))
 
   def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
@@ -350,7 +350,7 @@ class Repository:
 
     try:
       if not is_valid_metadata_key(self, 'timestamp', timestamp_key):
-        raise InvalidKeyError('targets')
+        raise InvalidKeyError('timestamp')
 
       self.set_metadata_expiration_date('timestamp', start_date, interval)
 
@@ -358,7 +358,7 @@ class Repository:
       if write:
         self._repository.write('timestamp')
 
-    except (SmartCardError, TUFError, SSLibError) as e:
+    except (TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
 
   def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
@@ -382,7 +382,6 @@ class Repository:
     Raises:
       - InvalidKeyError: If wrong key is used to sign metadata
       - MetadataUpdateError: If any other error happened during metadata update
-      - SmartCardError: If PIN is wrong or smart card is not inserted, or can't perform signing, ...
     """
     from .sc_utils import get_yubikey_public_key, is_valid_metadata_yubikey
 
@@ -407,7 +406,7 @@ class Repository:
       if write:
         self._repository.write('targets')
 
-    except (TUFError, SSLibError) as e:
+    except (SmartCardError, TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
 
 
