@@ -127,20 +127,18 @@ class GitUpdater(handlers.MetadataUpdater):
       commits_since = self.validation_auth_repo.all_commits_since_commit(last_validated_commit)
     except CalledProcessError as e:
       if 'Invalid revision range' in e.output:
-        logger.error('Unathorized force push detected - commit %s is no longer contained '
-                     'by repository repository. %s', last_validated_commit,
-                     self.validation_auth_repo.repo_name)
-        raise UpdateFailedError('Commit {} is no longer contained by repository {}. This means '
-                                'that there was an authorized push to the remote authentication '
-                                'repository.'.format(last_validated_commit,
-                                                     self.validation_auth_repo.repo_name))
+        logger.error('Commit %s is not contained by the remote repository %s.',
+                     last_validated_commit, self.validation_auth_repo.repo_name)
+        raise UpdateFailedError('Commit {} is no longer contained by repository {}. This could '
+                                'either mean that there was an unauthorized push tot the remote '
+                                'repository, or that last_validated_commit file was modified.'.
+                                format(last_validated_commit, self.validation_auth_repo.repo_name))
       else:
         raise e
 
-    # check if the user's head commit mathces the saved one
-    # that should always be the case
-    # if it is not, it means that someone, accidentally or maliciosly manually modified
-    # the repository
+    # Check if the user's head commit mathces the saved one
+    # That should always be the case
+    # If it is not, it means that someone, accidentally or maliciosly made manual changes
 
     if not self.users_auth_repo.is_git_repository:
       users_head_sha = None
@@ -149,14 +147,14 @@ class GitUpdater(handlers.MetadataUpdater):
       users_head_sha = self.users_auth_repo.head_commit_sha()
 
     if last_validated_commit != users_head_sha:
-      # if user's head is before last_validated_commit, we can report tnat, but
-      # continue with the update. The repository should be updated to the latest version anyway,
-      # meaning that the head commit and the stored last validated commit should match
-      # if the user's head commit is after last_validated_commit, or if it has
-      # not been pushed to the remote repository, that's a bigger problem problem.
-      # We could do a reset hard automatically, but the question is if we want to
-      # do that or not. The user should be notified of this mismatch in any case
-      # For now, let's raise an error here
+      # TODO add a flag --force/f which, if provided, should force an automatic revert
+      # of the users authentication repository to the last validated commit
+      # This could be done if a user accidentally committed something to the auth repo
+      # or manually pulled the changes
+      # If the user deleted the repository or executed reset --hard, we could handle
+      # that by starting validation from the last validated commit, as opposed to the
+      # user's head sha.
+      # For now, we will raise an error
       msg = '''Saved last validated commit {} does not match the head commit of the
 authentication repository {}'''.format(last_validated_commit, users_head_sha)
       logger.error(msg)
