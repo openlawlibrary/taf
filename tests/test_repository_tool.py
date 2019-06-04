@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 import securesystemslib
 
-import oll_sc.exceptions
 import taf.exceptions
 import tuf
 from taf.utils import to_tuf_datetime_format
@@ -113,7 +112,7 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
 
 
 def test_update_targets_valid_key_wrong_pin(taf_happy_path, targets_yk):
-  with pytest.raises(oll_sc.exceptions.SmartCardWrongPinError):
+  with pytest.raises(taf.exceptions.TargetsMetadataUpdateError):
     targets_yk.insert()
     taf_happy_path.update_targets((1, ), '123')
 
