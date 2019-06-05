@@ -103,6 +103,8 @@ def load_role_key(keystore, role, password=None):
   """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
+  NOTE: Keys inside keystore should match a role name!
+
   Args:
     - keystore(str): Path to the keystore directory
     - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -113,7 +115,7 @@ def load_role_key(keystore, role, password=None):
 
   Raises:
     - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-    - securesystemslib.exceptions.CryptoError: If 'filepath' is not a valid encrypted key file.
+    - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
   """
   key = role_keys_cache.get(role, None)
   if key is None:
@@ -201,7 +203,7 @@ class Repository:
       return self._repository.root
     return self._repository.targets(role)
 
-  def _try_load_key(self, role, key):
+  def _try_load_metadata_key(self, role, key):
     """Check if given key can be used to sign given role and load it.
 
     Args:
@@ -454,7 +456,7 @@ class Repository:
       - SnapshotMetadataUpdateError: If any other error happened during metadata update
     """
     try:
-      self._try_load_key('snapshot', snapshot_key)
+      self._try_load_metadata_key('snapshot', snapshot_key)
       self._update_metadata('snapshot', start_date, interval, write=write)
     except (TUFError, SSLibError) as e:
       raise SnapshotMetadataUpdateError(str(e))
@@ -463,7 +465,7 @@ class Repository:
     """Update snapshot and timestamp metadata.
 
     Args:
-      - keystore(str): Path to keystore with snapshot and timestamp keys
+      - keystore(str): Path to the keystore directory
       - kwargs(dict): (Optional) Expiration dates and intervals
 
     Returns:
@@ -557,7 +559,7 @@ class Repository:
       - TimestampMetadataUpdateError: If any other error happened during metadata update
     """
     try:
-      self._try_load_key('timestamp', timestamp_key)
+      self._try_load_metadata_key('timestamp', timestamp_key)
       self._update_metadata('timestamp', start_date, interval, write=write)
     except (TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
