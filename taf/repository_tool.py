@@ -461,7 +461,7 @@ class Repository:
     except (TUFError, SSLibError) as e:
       raise SnapshotMetadataUpdateError(str(e))
 
-  def update_snapshot_and_timestmap(self, keystore, **kwargs):
+  def update_snapshot_and_timestmap(self, keystore, write=True, **kwargs):
     """Update snapshot and timestamp metadata.
 
     Args:
@@ -485,10 +485,8 @@ class Repository:
       snapshot_key = load_role_key(keystore, 'snapshot')
       timestamp_key = load_role_key(keystore, 'timestamp')
 
-      self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=False)
-      self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=False)
-
-      self._repository.writeall()
+      self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=write)
+      self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=write)
 
     except (TUFError, SSLibError) as e:
       raise MetadataUpdateError('all', str(e))
@@ -563,3 +561,18 @@ class Repository:
       self._update_metadata('timestamp', start_date, interval, write=write)
     except (TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
+
+  def writeall(self):
+    """Write all dirty metadata files.
+
+    Args:
+      None
+
+    Returns:
+      None
+
+    Raises:
+      - tuf.exceptions.UnsignedMetadataError: If any of the top-level and delegated roles do not
+                                              have the minimum threshold of signatures.
+    """
+    self._repository.writeall()
