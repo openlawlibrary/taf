@@ -17,12 +17,12 @@ def cli():
 @click.option('--file-path', help='Target file\'s path, relative to the targets directory')
 @click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
 @click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
-@click.option('--update-all', is_flag=False, default=True, help='Update snapshot and timestamp')
+@click.option('--update-all', is_flag=True, default=False, help='Update snapshot and timestamp')
 @click.option('--keystore', default='', help='Path of the keystore file')
 @click
 def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, update_all, keystore):
   if update_all and not os.path.exists(keystore):
-    click.echo('\nError: Missing option "--keystore" if --update-all is passed.')
+    click.echo('\nError: Option "--keystore" is required if "--update-all" is passed.')
     return
 
   with load_repository(repo_path) as taf_repo:
@@ -39,7 +39,7 @@ def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, upd
 @click.option('--repo-path', help='Authentication repository\'s path')
 @click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
 @click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
-@click.option('--update-all', is_flag=False, default=True, help='Update snapshot and timestamp')
+@click.option('--update-all', is_flag=True, default=False, help='Update snapshot and timestamp')
 @click.option('--keystore', default='', help='Path of the keystore file')
 def add_targets(repo_path, targets_key_slot, targets_key_pin, update_all, keystore):
   if update_all and not os.path.exists(keystore):

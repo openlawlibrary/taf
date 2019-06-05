@@ -52,6 +52,9 @@ def normalize_file_line_endings(file_path):
 
 
 def to_tuf_datetime_format(start_date, interval):
+  """Used to convert datetime to format used while writing metadata:
+    e.g. "2020-05-29T21:59:34Z",
+  """
   datetime_object = start_date + datetime.timedelta(interval)
   datetime_object = datetime_object.replace(microsecond=0)
   return datetime_object.isoformat() + 'Z'
