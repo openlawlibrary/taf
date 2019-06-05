@@ -27,7 +27,7 @@ class GitRepository(object):
     self.repo_name = repo_name
     self.root_dir = root_dir
     self.repo_path = _get_repo_path(root_dir, repo_name)
-    if not settings.update_from_filesystem:
+    if repo_urls is not None and settings.update_from_filesystem is False:
       for url in repo_urls:
         _validate_url(url)
     self.repo_urls = repo_urls
