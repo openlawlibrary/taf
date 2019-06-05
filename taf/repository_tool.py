@@ -290,6 +290,8 @@ class Repository:
       If it does not exist, an empty file will be created. To replace an existing file with an
       empty file, specify empty content (target: '')
 
+      Custom is an optional property which, if present, will be used to specify a TUF target's
+
       - targets_role(str): Targets or delegated role: a targets role (the root targets role
                            or one of the delegated ones)
       - files_to_keep(list|tuple): List of files defined in the previous version of targets.json
