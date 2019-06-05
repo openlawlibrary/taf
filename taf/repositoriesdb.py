@@ -51,8 +51,8 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
   """
 
   global _repositories_dict
-  if auth_repo.name not in _repositories_dict:
-    _repositories_dict[auth_repo.name] = {}
+  if auth_repo.repo_name not in _repositories_dict:
+    _repositories_dict[auth_repo.repo_name] = {}
 
   if commits is None:
     commits = [auth_repo.head_commit_sha()]
@@ -62,11 +62,10 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
   for commit in commits:
     repositories_dict = {}
     # check if already loaded
-    if commit in _repositories_dict[auth_repo.name]:
+    if commit in _repositories_dict[auth_repo.repo_name]:
       continue
 
-    _repositories_dict[auth_repo.name][commit] = repositories_dict
-
+    _repositories_dict[auth_repo.repo_name][commit] = repositories_dict
     try:
       repositories = _get_json_file(auth_repo, repositories_path, commit)
       targets = _get_json_file(auth_repo, targets_path, commit)
@@ -95,7 +94,6 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
                         .format(type(git_repo)))
 
       repositories_dict[path] = git_repo
-
 
 def _determine_repo_class(repo_classes, path):
   # if no class is specified, return the default one

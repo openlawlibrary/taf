@@ -24,9 +24,8 @@ class GitRepository(object):
     it is set by joining root_dir and repo_name. Otherwise, it is set to just
     root_dir.
     """
-    self.repo_name = repo_name
     self.root_dir = root_dir
-    self.repo_path = _get_repo_path(root_dir, repo_name)
+    self.repo_path, self.repo_name = _get_repo_path_and_name(root_dir, repo_name)
     if repo_urls is not None and settings.update_from_filesystem is False:
       for url in repo_urls:
         _validate_url(url)
@@ -193,16 +192,20 @@ class GitRepository(object):
       self._git('--set-upstream origin {}', branch).strip()
 
 
-def _get_repo_path(root_dir, repo_name):
+def _get_repo_path_and_name(root_dir, repo_name):
   """
   get the path to a repo and ensure it is valid.
   (since this is coming from potentially untrusted data)
   """
-  _validate_repo_name(repo_name)
-  repo_dir = str((Path(root_dir) / (repo_name or '')))
-  if not repo_dir.startswith(repo_dir):
-    raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
-  return repo_dir
+  if repo_name is not None:
+    _validate_repo_name(repo_name)
+    repo_dir = str((Path(root_dir) / (repo_name or '')))
+    if not repo_dir.startswith(repo_dir):
+      raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
+  else:
+    _, repo_name = os.path.split(root_dir)
+    repo_dir = root_dir
+  return repo_dir, repo_name
 
 
 _repo_name_re = re.compile(r'^\w[\w_-]*/\w[\w_-]*$')
