@@ -180,8 +180,8 @@ class GitUpdater(handlers.MetadataUpdater):
     temp_dir = tempfile.mkdtemp()
     repo_name = self.users_auth_repo.repo_name
     self.validation_auth_repo = AuthenticationRepo(temp_dir, self.metadata_path, self.targets_path,
-                                                   repo_name, [url], True)
-    self.validation_auth_repo.clone()
+                                                   repo_name, [url])
+    self.validation_auth_repo.clone(bare=True)
     self.validation_auth_repo.fetch(fetch_all=True)
 
   def cleanup(self):

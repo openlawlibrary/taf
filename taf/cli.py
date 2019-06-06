@@ -19,7 +19,6 @@ def cli():
 @click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
 @click.option('--update-all', is_flag=True, default=False, help='Update snapshot and timestamp')
 @click.option('--keystore', default='', help='Path of the keystore file')
-@click
 def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, update_all, keystore):
   if update_all and not os.path.exists(keystore):
     click.echo('\nError: Option "--keystore" is required if "--update-all" is passed.')

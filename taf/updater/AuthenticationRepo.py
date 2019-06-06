@@ -8,8 +8,8 @@ from taf.GitRepository import GitRepository
 class AuthenticationRepo(GitRepository):
 
   def __init__(self, root_dir, metadata_path, targets_path, repo_name=None,
-               repo_urls=None, additional_info=None, bare=False):
-    super().__init__(root_dir, repo_name, repo_urls, additional_info, bare)
+               repo_urls=None, additional_info=None):
+    super().__init__(root_dir, repo_name, repo_urls, additional_info)
     self.targets_path = targets_path
     self.metadata_path = metadata_path
 

@@ -159,17 +159,17 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
 def get_deduplicated_repositories(auth_repo, commits):
   global _repositories_dict
-  all_repositories = _repositories_dict.get(auth_repo.name)
+  all_repositories = _repositories_dict.get(auth_repo.repo_name)
   if all_repositories is None:
     raise RepositoriesNotFoundError('Repositories defined in authentication repository'
-                                    ' {} have not been loaded'.format(auth_repo.name))
+                                    ' {} have not been loaded'.format(auth_repo.repo_name))
   repositories = {}
   # persuming that the newest commit is the last one
   for commit in commits:
     if not commit in all_repositories:
       raise RepositoriesNotFoundError('Repositories defined in authentication repository '
                                       '{} at revision {} have not been loaded'
-                                      .format(auth_repo.name, commit))
+                                      .format(auth_repo.repo_name, commit))
     for path, repo in all_repositories[commit].items():
       # will overwrite older repo with newer
       repositories[path] = repo
@@ -184,10 +184,10 @@ def get_repository(auth_repo, path, commit=None):
 def get_repositories(auth_repo, commit):
   global _repositories_dict
 
-  all_repositories = _repositories_dict.get(auth_repo.name)
+  all_repositories = _repositories_dict.get(auth_repo.repo_name)
   if all_repositories is None:
     raise RepositoriesNotFoundError('Repositories defined in authentication repository'
-                                    ' {} have not been loaded'.format(auth_repo.name))
+                                    ' {} have not been loaded'.format(auth_repo.repo_name))
 
   if commit is None:
     commit = auth_repo.head_commit_sha()
@@ -196,7 +196,7 @@ def get_repositories(auth_repo, commit):
   if repositories is None:
     raise RepositoriesNotFoundError('Repositories defined in authentication repository '
                                     '{} at revision {} have not been loaded'
-                                    .format(auth_repo.name, commit))
+                                    .format(auth_repo.repo_name, commit))
   return repositories
 
 
