@@ -17,17 +17,17 @@ ci_require = [
     "pylint==2.3.1",
     "bandit==1.6.0",
     "coverage==4.5.3",
-    "coveralls==1.7.0"
+    "pytest-cov==2.7.1",
 ]
 
 dev_require = [
     "autopep8==1.4.4",
     "pylint==2.3.1",
-    "bandit==1.6.0"
+    "bandit==1.6.0",
 ]
 
 tests_require = [
-    "pytest==4.5.0"
+    "pytest==4.5.0",
 ]
 
 setup(
@@ -51,8 +51,10 @@ setup(
     zip_safe=False,
     install_requires=[
         'click==6.7',
+        'colorama>=0.3.9'
         'cryptography==2.3.1',
-        'oll-tuf==0.11.2.dev5',
+        'oll-sc==0.1.0',
+        'oll-tuf==0.11.2.dev6',
     ],
     extras_require={
         'ci': ci_require,

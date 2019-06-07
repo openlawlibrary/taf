@@ -3,20 +3,14 @@ import os
 import taf.log
 from collections import defaultdict
 from subprocess import CalledProcessError
-
-from taf.GitRepository import GitRepository
+from taf.git import GitRepository, NamedGitRepository
 
 logger = taf.log.get_logger(__name__)
 
 
-class AuthenticationRepo(GitRepository):
 
+class AuthRepoMixin(object):
 
-  def __init__(self, root_dir, metadata_path, targets_path, repo_name=None,
-               repo_urls=None, additional_info=None, bare=False):
-    super().__init__(root_dir, repo_name, repo_urls, additional_info, bare)
-    self.targets_path = targets_path
-    self.metadata_path = metadata_path
 
   LAST_VALIDATED_FILENAME = 'last_validated_commit'
 
@@ -112,3 +106,22 @@ class AuthenticationRepo(GitRepository):
     except json.decoder.JSONDecodeError:
       logger.info('Auth repo %s: %s not a valid json at revision %s', self.repo_name,
                   os.path.basename(path), commit)
+
+
+class AuthenticationRepo(AuthRepoMixin, GitRepository):
+
+  def __init__(self, repo_path, metadata_path, targets_path,
+               repo_urls=None, additional_info=None):
+    super().__init__(repo_path, repo_urls, additional_info)
+    self.targets_path = targets_path
+    self.metadata_path = metadata_path
+
+
+class NamedAuthenticationRepo(AuthRepoMixin, NamedGitRepository):
+
+  def __init__(self, root_dir, repo_name, metadata_path, targets_path,
+               repo_urls=None, additional_info=None):
+
+    super().__init__(root_dir, repo_name, repo_urls, additional_info)
+    self.targets_path = targets_path
+    self.metadata_path = metadata_path

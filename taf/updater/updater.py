@@ -1,20 +1,56 @@
-import shutil
-import tuf
-import tuf.client.updater as tuf_updater
-import taf.log
 
+import json
+import shutil
+import traceback
+import tuf
+import os
+import tuf.client.updater as tuf_updater
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
+import taf.log
+from subprocess import CalledProcessError
+from collections import defaultdict
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
-
 logger = taf.log.get_logger(__name__)
 
-
-def update(url, clients_directory, repo_name, targets_dir, update_from_filesystem):
+def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem):
   """
-  The general idea is the updater is the following:
+  <Arguments>
+   url:
+    URL of the remote authentication repository
+   clients_repo_path:
+    Client's authentication repository's full path
+   targets_dir:
+    Directory where the target repositories are located
+   update_from_filesystem:
+    A flag which indicates if the URL is acutally a file system path
+  """
+  # if the repository's name is not provided, divide it in parent directory
+  # and repository name, since TUF's updater expects a name
+  # but set the validate_repo_name setting to False
+  clients_dir, repo_name = os.path.split(os.path.normpath(clients_repo_path))
+  settings.validate_repo_name = False
+  update_named_repository(url, clients_dir, repo_name, targets_dir,
+                          update_from_filesystem)
+
+def update_named_repository(url, clients_directory, repo_name, targets_dir,
+                            update_from_filesystem):
+  """
+   <Arguments>
+    url:
+      URL of the remote authentication repository
+    clients_directory:
+      Directory where the client's authentication repository is located
+    repo_name:
+      Name of the authentication repository. Can be namespace prefixed
+    targets_dir:
+      Directory where the target repositories are located
+    update_from_filesystem:
+      A flag which indicates if the URL is acutally a file system path
+
+  The general idea of the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
   are in the 'metadata' directory
   - Clients have a clone of that repository on their local machine and want to update it
@@ -76,7 +112,6 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   users_auth_repo.checkout_branch('master')
   # update the last validated commit
   users_auth_repo.set_last_validated_commit(last_commit)
-
 
 
 def _update_authentication_repository(repository_updater):
@@ -166,7 +201,6 @@ def _update_target_repository(repository, old_head, target_commits):
     new_commits.insert(0, old_head)
   else:
     new_commits = repository.all_commits_since_commit(old_head)
-
   # A new commit might have been pushed after the update process
   # started and before fetch was called
   # So, the number of new commits, pushed to the target repository, could
@@ -183,5 +217,5 @@ def _update_target_repository(repository, old_head, target_commits):
     logger.error('Mismatch between target commits specified in authentication repository and the '
                  'target repository %s', repository.repo_name)
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
-                            'and target repository {}'.format(repository.repo_name))
+                            ' and target repository {}'.format(repository.repo_name))
   logger.info('Successfully validated %s', repository.repo_name)

@@ -4,17 +4,30 @@ sudo: false
 cache: pip
 python: 3.5
 
+os:
+  - linux
+dist:
+  - xenial
+compiler:
+  - gcc
+
+# install dependencies
+addons:
+  apt:
+    update: true
+    packages:
+      - libhdf5-serial-dev
+      - zlib1g-dev
+      - libatlas-base-dev
+      - lcov
+      - swig3.0
+
 install:
-  - pip install .[ci] # Install TAF with CI deps
+  - mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+  - pip install .[ci] # Install with CI deps
 
 script:
   - pylint taf
   - bandit -c .bandit -r taf
-  - coverage run --source taf tests/aggregate_tests.py
-  # - coverage report -m --fail-under 99
-
-after_success:
-  - cd tests
-  - coveralls
-  - cd -
-
+  - pytest
+  # - pytest --cov-report term-missing --cov=taf tests/ --cov-fail-under 95

@@ -4,7 +4,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 
 from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
-from taf.GitRepository import GitRepository
+from taf.git import NamedGitRepository
 
 # {
 #     'authentication_repo_name': {
@@ -43,9 +43,9 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       When determening a target's class, in case when targets_classes is a dictionary,
       it is first checked if its path is in a key in the dictionary. If it is not found,
       it is checked if default class is set, by looking up value of 'default'. If nothing
-      is found, the class is set to TAF's GitRepository.
+      is found, the class is set to TAF's NamedGitRepository.
       If target_classes is a single class, all targets will be of that type.
-      If target_classes is None, all targets will be of TAF's GitRepository type.
+      If target_classes is None, all targets will be of TAF's NamedGitRepository type.
     root_dir: root directory relative to which the target paths are specified
     commits: Authentication repository's commits at which to read targets.json
     only_load_targets: specifies if only repositories specified in targets.json should be loaded.
@@ -74,7 +74,6 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       continue
 
     _repositories_dict[auth_repo.repo_name][commit] = repositories_dict
-
     try:
       repositories = _get_json_file(auth_repo, repositories_path, commit)
       targets = _get_json_file(auth_repo, targets_path, commit)
@@ -98,8 +97,8 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
         git_repo_class = _determine_repo_class(repo_classes, path)
         git_repo = git_repo_class(root_dir, path, urls, additional_info)
 
-      if not isinstance(git_repo, GitRepository):
-        raise Exception('{} is not a subclass of GitRepository'
+      if not isinstance(git_repo, NamedGitRepository):
+        raise Exception('{} is not a subclass of NamedGitRepository'
                         .format(type(git_repo)))
 
       repositories_dict[path] = git_repo
@@ -111,7 +110,7 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
 def _determine_repo_class(repo_classes, path):
   # if no class is specified, return the default one
   if repo_classes is None:
-    return GitRepository
+    return NamedGitRepository
 
   # if only one value is specified, that means that all target repositories
   # should be of the same class
@@ -124,7 +123,7 @@ def _determine_repo_class(repo_classes, path):
   if 'default' in repo_classes:
     return repo_classes['default']
 
-  return GitRepository
+  return NamedGitRepository
 
 
 def _get_custom_data(repo, target):

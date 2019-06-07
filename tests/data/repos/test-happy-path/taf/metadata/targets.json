@@ -1,0 +1,41 @@
+{
+ "signatures": [
+  {
+   "keyid": "d36f105af5bdb063d1005ee254e7e236b8dc116097a6dd78a22111b1d429533f",
+   "sig": "09c46030effaf197264fec521528956f928e8e59ad134a010925b1bc53f2ed0187f71130f9917545c6484a1865ead5f18212c026f170c0e54400b9440c89af9b894f8f6708eeb446678ff6a4228857360ce618b63cc59d13212101a075e3fee880c5bc8dbf6dddbbdc52866b81e99a1def28ec27228e8b5e675643f31997528cfaf593bb51e37adf63f56f349579fb48eac2268f6215954cd8c576fa7cb176e844148492615db2dd87a1195ce6eb95cf0bee8209a14e5062140c69e2110f15947c91ba69c150510b9b772fb6af26865c57fed1a0a6263b992587c5f496cb575e62f3f3a0b9b861ac19ef16f235eb9ec747c1400387682974262239753b371547"
+  }
+ ],
+ "signed": {
+  "_type": "targets",
+  "delegations": {
+   "keys": {},
+   "roles": []
+  },
+  "expires": "2019-08-29T23:38:24Z",
+  "spec_version": "1.0",
+  "targets": {
+   "branch": {
+    "hashes": {
+     "sha256": "943317cf1551484e5e44c9c32a030635977c85c6a2a04ff1aed0f66f99f25fdd",
+     "sha512": "1b5ad51243cd140fee1d8b32eca468672145f3021315b90ac4e431a2a64bf44d4f296fd078a6681fb9318c851f65bf703457bd66299f1bbbcbc321e74591302c"
+    },
+    "length": 36
+   },
+   "dummy/target_dummy_repo": {
+    "hashes": {
+     "sha256": "6742aac70c1c50e3143aaf4609d6e16d8b8a0ba405fe8dde281de3330eea4cfd",
+     "sha512": "1ef9643a899417b524840dad09da24a8ea3c0ad83006c12a26c2254b5f0d4b9d5f6bfb8ea111f34f862576e43aeb69cd2ceb2be5e91e7651cddbf1d28d1ab52c"
+    },
+    "length": 58
+   },
+   "repositories.json": {
+    "hashes": {
+     "sha256": "ad9439bbc093303dccbf3fd2ff8595c775ecbe8cf39e4db283d17ec1cfbe6ad1",
+     "sha512": "35c8f4cd1ad7650ab62485dbb1d1255ee015f8d495f24e3ea871158538f0386a6fec5a433f5a5e4ed8e794af74ca9824b7e0402a8497740380ad94fa9a6b4a97"
+    },
+    "length": 212
+   }
+  },
+  "version": 3
+ }
+}

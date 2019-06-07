@@ -3,9 +3,11 @@ import shutil
 import tempfile
 import securesystemslib
 import taf.log
+import taf.settings as settings
 import tuf.client.handlers as handlers
 from subprocess import CalledProcessError
-from taf.updater.AuthenticationRepo import AuthenticationRepo
+from taf.updater.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
+from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
 
 logger = taf.log.get_logger(__name__)
@@ -86,10 +88,15 @@ class GitUpdater(handlers.MetadataUpdater):
     auth_url = mirrors['mirror1']['url_prefix']
     self.metadata_path = mirrors['mirror1']['metadata_path']
     self.targets_path = mirrors['mirror1']['targets_path']
+    if settings.validate_repo_name:
+      self.users_auth_repo = NamedAuthenticationRepo(repository_directory, repository_name,
+                                                     self.metadata_path, self.targets_path,
+                                                     repo_urls=[auth_url])
+    else:
+      users_repo_path = os.path.join(repository_directory, repository_name)
+      self.users_auth_repo = AuthenticationRepo(users_repo_path, self.metadata_path,
+                                                self.targets_path, repo_urls=[auth_url])
 
-    self.users_auth_repo = AuthenticationRepo(repository_directory, self.metadata_path,
-                                              self.targets_path, repository_name,
-                                              repo_urls=[auth_url])
     self._clone_validation_repo(auth_url)
     repository_directory = self.users_auth_repo.repo_path
     if os.path.exists(repository_directory):
@@ -208,10 +215,9 @@ authentication repository {}'''.format(last_validated_commit, users_head_sha)
     to a the temp directory and will be deleted one the update is done.
     """
     temp_dir = tempfile.mkdtemp()
-    repo_name = self.users_auth_repo.repo_name
-    self.validation_auth_repo = AuthenticationRepo(temp_dir, self.metadata_path, self.targets_path,
-                                                   repo_name, [url], True)
-    self.validation_auth_repo.clone()
+    repo_path = os.path.join(temp_dir, self.users_auth_repo.repo_name)
+    self.validation_auth_repo = GitRepository(repo_path, [url])
+    self.validation_auth_repo.clone(bare=True)
     self.validation_auth_repo.fetch(fetch_all=True)
 
   def cleanup(self):
