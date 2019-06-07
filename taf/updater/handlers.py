@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import securesystemslib
+import taf.settings as settings
 import tuf.client.handlers as handlers
 
 from taf.git import GitRepository, NamedGitRepository
@@ -83,12 +84,12 @@ class GitUpdater(handlers.MetadataUpdater):
     auth_url = mirrors['mirror1']['url_prefix']
     self.metadata_path = mirrors['mirror1']['metadata_path']
     self.targets_path = mirrors['mirror1']['targets_path']
-
-    if repository_name:
+    if settings.validate_repo_name:
       self.users_auth_repo = NamedGitRepository(repository_directory, repository_name,
                                                 repo_urls=[auth_url])
     else:
-      self.users_auth_repo = GitRepository(repository_directory, repo_urls=[auth_url])
+      users_repo_path = os.path.join(repository_directory, repository_name)
+      self.users_auth_repo = GitRepository(users_repo_path, repo_urls=[auth_url])
 
     self._clone_validation_repo(auth_url)
     repository_directory = self.users_auth_repo.repo_path

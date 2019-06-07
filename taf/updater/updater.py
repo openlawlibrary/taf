@@ -3,6 +3,7 @@ import json
 import shutil
 import traceback
 import tuf
+import os
 import tuf.client.updater as tuf_updater
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
@@ -13,9 +14,42 @@ from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
 
-def update(url, clients_directory, repo_name, targets_dir, update_from_filesystem):
+def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem):
   """
-  The general idea is the updater is the following:
+  <Arguments>
+   url:
+    URL of the remote authentication repository
+   clients_repo_path:
+    Client's authentication repository's full path
+   targets_dir:
+    Directory where the target repositories are located
+   update_from_filesystem:
+    A flag which indicates if the URL is acutally a file system path
+  """
+  # if the repository's name is not provided, divide it in parent directory
+  # and repository name, since TUF's updater expects a name
+  # but set the validate_repo_name setting to False
+  clients_dir, repo_name = os.path.split(os.path.normpath(clients_repo_path))
+  settings.validate_repo_name = False
+  update_named_repository(url, clients_dir, repo_name, targets_dir,
+                          update_from_filesystem)
+
+def update_named_repository(url, clients_directory, repo_name, targets_dir,
+                            update_from_filesystem):
+  """
+   <Arguments>
+    url:
+      URL of the remote authentication repository
+    clients_directory:
+      Directory where the client's authentication repository is located
+    repo_name:
+      Name of the authentication repository. Can be namespace prefixed
+    targets_dir:
+      Directory where the target repositories are located
+    update_from_filesystem:
+      A flag which indicates if the URL is acutally a file system path
+
+  The general idea of the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
   are in the 'metadata' directory
   - Clients have a clone of that repository on their local machine and want to update it
@@ -44,7 +78,6 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
 
   # TODO old HEAD as an input parameter
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-
 
   settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
@@ -188,7 +221,6 @@ def _update_target_repository(repository, old_head, target_commits):
     new_commits.insert(0, old_head)
   else:
     new_commits = repository.all_commits_since_commit(old_head)
-
   # A new commit might have been pushed after the update process
   # started and before fetch was called
   update_successful = len(new_commits) >= len(target_commits)
@@ -200,5 +232,5 @@ def _update_target_repository(repository, old_head, target_commits):
 
   if not update_successful:
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
-                            'and target repository {}'.format(repository.repo_name))
+                            ' and target repository {}'.format(repository.repo_name))
   print('Successfully updated {}'.format(repository.repo_name))
