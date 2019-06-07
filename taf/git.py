@@ -19,9 +19,6 @@ class GitRepository(object):
       repo_path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
-    repo_path is the absolute path to this repository. If repo_name is not None,
-    it is set by joining root_dir and repo_name. Otherwise, it is set to just
-    root_dir.
     """
 
     self.repo_path = repo_path
@@ -197,9 +194,8 @@ class NamedGitRepository(GitRepository):
       repo_name: repository's path relative to the root directory root_dir
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
-    repo_path is the absolute path to this repository. If repo_name is not None,
-    it is set by joining root_dir and repo_name. Otherwise, it is set to just
-    root_dir.
+    repo_path is the absolute path to this repository. It is set by joining
+    root_dir and repo_name.
     """
     repo_path = _get_repo_path(root_dir, repo_name)
     super().__init__(repo_path, repo_urls, additional_info)
