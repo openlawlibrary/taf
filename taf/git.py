@@ -12,35 +12,27 @@ from taf.utils import run
 
 class GitRepository(object):
 
-  def __init__(self, root_dir, repo_name=None, repo_urls=None, additional_info=None, bare=False):
+
+  def __init__(self, repo_path, repo_urls=None, additional_info=None):
     """
     Args:
-      root_dir: the root directory, repo_name is relative to it
-      repo_name: repository's relative path, as specified in targets.json
-      in case of target repositories (oprional)
+      repo_path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
-    repo_path is the absolute path to this repository. If target path is not None,
-    it is set by joining root_dir and repo_name. Otherwise, it is set to just
-    root_dir.
     """
-    self.repo_name = repo_name
-    self.root_dir = root_dir
-    self.repo_path = _get_repo_path(root_dir, repo_name)
+
+    self.repo_path = repo_path
     if repo_urls is not None and settings.update_from_filesystem is False:
       for url in repo_urls:
         _validate_url(url)
     self.repo_urls = repo_urls
     self.additional_info = additional_info
-    self.bare = bare
+    self.repo_name = os.path.basename(self.repo_path)
 
   @property
   def is_git_repository(self):
     return (Path(self.repo_path) / '.git').is_dir()
 
-  @property
-  def name(self):
-    return os.path.basename(self.repo_path)
 
   def _git(self, cmd, *args):
     """Call git commands in subprocess
@@ -84,14 +76,14 @@ class GitRepository(object):
       else:
         raise(e)
 
-  def clone(self, no_checkout=False, from_filesystem=True):
+  def clone(self, no_checkout=False, from_filesystem=True, bare=False):
 
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
     if self.repo_urls is None:
       raise Exception('Cannot clone repository. No urls were specified')
     params = ''
-    if self.bare:
+    if bare:
       params = '--bare'
     elif no_checkout:
       params = '--no-checkout'
@@ -102,7 +94,7 @@ class GitRepository(object):
 
         self._git('clone {} . {}', url, params)
       except subprocess.CalledProcessError:
-        print('Cannot clone repository {} from url {}'.format(self.name, url))
+        print('Cannot clone repository {} from url {}'.format(self.repo_name, url))
       else:
         break
 
@@ -193,6 +185,23 @@ class GitRepository(object):
       self._git('--set-upstream origin {}', branch).strip()
 
 
+class NamedGitRepository(GitRepository):
+
+  def __init__(self, root_dir, repo_name, repo_urls=None, additional_info=None):
+    """
+    Args:
+      root_dir: the root directory
+      repo_name: repository's path relative to the root directory root_dir
+      repo_urls: repository's urls (optional)
+      additional_info: a dictionary containing other data (optional)
+    repo_path is the absolute path to this repository. It is set by joining
+    root_dir and repo_name.
+    """
+    repo_path = _get_repo_path(root_dir, repo_name)
+    super().__init__(repo_path, repo_urls, additional_info)
+    self.repo_name = repo_name
+
+
 def _get_repo_path(root_dir, repo_name):
   """
   get the path to a repo and ensure it is valid.
@@ -204,7 +213,6 @@ def _get_repo_path(root_dir, repo_name):
     raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
 
-
 _repo_name_re = re.compile(r'^\w[\w_-]*/\w[\w_-]*$')
 
 
@@ -215,7 +223,6 @@ def _validate_repo_name(repo_name):
     raise InvalidRepositoryError('Repository name must be in format namespace/repository '
                                  'and can only contain letters, numbers, underscores and '
                                  'dashes, but got "{}"'.format(repo_name))
-
 
 _url_re = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://

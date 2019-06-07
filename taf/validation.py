@@ -112,4 +112,4 @@ def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, tar
   if target_repo_commit != targets_head_sha:
     raise InvalidBranchError('Commit {} of repository {} does '
                              'not match the commit sha specified in targets.json!'
-                             .format(target_repo_commit, target_repo.name))
+                             .format(target_repo_commit, target_repo.repo_name))

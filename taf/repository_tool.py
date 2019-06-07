@@ -468,7 +468,12 @@ class Repository:
 
     Args:
       - keystore(str): Path to the keystore directory
-      - kwargs(dict): (Optional) Expiration dates and intervals
+      - write(bool): (Optional) If True snapshot and timestamp metadata will be signed and written
+      - kwargs(dict): (Optional) Expiration dates and intervals:
+                      - snapshot_date(datetime)
+                      - snapshot_interval(int)
+                      - timestamp_date(datetime)
+                      - timestamp_ionterval(int)
 
     Returns:
       None

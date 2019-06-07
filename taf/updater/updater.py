@@ -1,18 +1,55 @@
+
+import json
 import shutil
 import traceback
-
 import tuf
+import os
 import tuf.client.updater as tuf_updater
-
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
+
+from subprocess import CalledProcessError
+from collections import defaultdict
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
 
-def update(url, clients_directory, repo_name, targets_dir, update_from_filesystem):
+def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem):
   """
-  The general idea is the updater is the following:
+  <Arguments>
+   url:
+    URL of the remote authentication repository
+   clients_repo_path:
+    Client's authentication repository's full path
+   targets_dir:
+    Directory where the target repositories are located
+   update_from_filesystem:
+    A flag which indicates if the URL is acutally a file system path
+  """
+  # if the repository's name is not provided, divide it in parent directory
+  # and repository name, since TUF's updater expects a name
+  # but set the validate_repo_name setting to False
+  clients_dir, repo_name = os.path.split(os.path.normpath(clients_repo_path))
+  settings.validate_repo_name = False
+  update_named_repository(url, clients_dir, repo_name, targets_dir,
+                          update_from_filesystem)
+
+def update_named_repository(url, clients_directory, repo_name, targets_dir,
+                            update_from_filesystem):
+  """
+   <Arguments>
+    url:
+      URL of the remote authentication repository
+    clients_directory:
+      Directory where the client's authentication repository is located
+    repo_name:
+      Name of the authentication repository. Can be namespace prefixed
+    targets_dir:
+      Directory where the target repositories are located
+    update_from_filesystem:
+      A flag which indicates if the URL is acutally a file system path
+
+  The general idea of the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
   are in the 'metadata' directory
   - Clients have a clone of that repository on their local machine and want to update it
@@ -42,7 +79,6 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   # TODO old HEAD as an input parameter
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
-
   settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
   repository_mirrors = {'mirror1': {'url_prefix': url,
@@ -63,7 +99,8 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   commits = repository_updater.update_handler.commits
   repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
   repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
-  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+  repositories_commits = sorted_commits_per_repositories(users_auth_repo, commits,
+                                                         'metadata', 'targets')
 
   # update target repositories
   _update_target_repositories(repositories, repositories_commits)
@@ -72,6 +109,47 @@ def update(url, clients_directory, repo_name, targets_dir, update_from_filesyste
   users_auth_repo.merge_commit(commits[-1])
   users_auth_repo.checkout_branch('master')
 
+
+def sorted_commits_per_repositories(repo, commits, metadata_dir, targets_dir):
+  """Create a list of of subsequent commits per repository
+  keeping in mind that targets metadata file is not updated
+  everytime something is committed to the authentication repo
+  """
+  repositories_commits = defaultdict(list)
+  targets = _target_commits_at_revisions(repo, commits, metadata_dir, targets_dir)
+  previous_commits = {}
+  for commit in commits:
+    for target_path, target_commit in targets[commit].items():
+      previous_commit = previous_commits.get(target_path)
+      if previous_commit is None or target_commit != previous_commit:
+        repositories_commits[target_path].append(target_commit)
+      previous_commits[target_path] = target_commit
+  return repositories_commits
+
+def _target_commits_at_revisions(repo, commits, metadata_dir, targets_dir):
+  targets = defaultdict(dict)
+  for commit in commits:
+    try:
+      targets_at_revision = \
+          repo.get_json(commit, metadata_dir + '/targets.json')['signed']['targets']
+      repositories_at_revision = \
+          repo.get_json(commit, targets_dir + '/repositories.json')['repositories']
+      for target_path in targets_at_revision:
+        try:
+          if target_path not in repositories_at_revision:
+            # we only care about repositories
+            continue
+          target_commit = \
+              repo.get_json(commit, targets_dir + '/' + target_path).get('commit')
+          targets[commit][target_path] = target_commit
+        except json.decoder.JSONDecodeError:
+          print('Target file {} is not a valid json at revision.  {}'.format(target_path, commit))
+          continue
+    except (CalledProcessError, json.decoder.JSONDecodeError):
+      # if there is a commit without targets.json or repositories.json (e.g. the initial commit)
+      # an error will occur
+      continue
+  return targets
 
 def _update_authentication_repository(repository_updater):
 
@@ -143,7 +221,6 @@ def _update_target_repository(repository, old_head, target_commits):
     new_commits.insert(0, old_head)
   else:
     new_commits = repository.all_commits_since_commit(old_head)
-
   # A new commit might have been pushed after the update process
   # started and before fetch was called
   update_successful = len(new_commits) >= len(target_commits)
@@ -155,5 +232,5 @@ def _update_target_repository(repository, old_head, target_commits):
 
   if not update_successful:
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
-                            'and target repository {}'.format(repository.repo_name))
+                            ' and target repository {}'.format(repository.repo_name))
   print('Successfully updated {}'.format(repository.repo_name))
