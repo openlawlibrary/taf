@@ -64,18 +64,18 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, update_all, keysto
 @click.option('--url', help="Authentication repository's url")
 @click.option('--clients-dir', help="Directory containing the client's authentication repository")
 @click.option('--targets-dir', help="Directory containing the target repositories")
-@click.option('--from-fs', is_flag=True, default=True, help='Indicates if the we want to clone a '
+@click.option('--from-fs', is_flag=True, default=False, help='Indicates if the we want to clone a '
               'repository from the filesystem')
 def update(url, clients_dir, targets_dir, from_fs):
   update_repository(url, clients_dir, targets_dir, from_fs)
 
 
 @cli.command()
-@click.option('--url', default='E:\\OLL2\\updater\\smc-law', help="Authentication repository's url")
-@click.option('--clients-dir', default='E:\\OLL2\\updater\\client', help="Directory containing the client's authentication repository")
-@click.option('--repo-name', default='openlaw/smc-law')
-@click.option('--targets_dir', default='E:\\OLL2\\updater', help="Directory containing the target repositories")
-@click.option('--from-fs', is_flag=True, default=True, help='Indicates if the we want to clone a '
+@click.option('--url', help="Authentication repository's url")
+@click.option('--clients-dir', help="Directory containing the client's authentication repository")
+@click.option('--repo-name', help="Repository's name")
+@click.option('--targets-dir', help="Directory containing the target repositories")
+@click.option('--from-fs', is_flag=True, default=False, help='Indicates if the we want to clone a '
               'repository from the filesystem')
 def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
   update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs)

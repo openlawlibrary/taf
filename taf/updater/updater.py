@@ -1,15 +1,10 @@
-
-import json
 import shutil
-import traceback
 import tuf
 import os
 import tuf.client.updater as tuf_updater
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
 import taf.log
-from subprocess import CalledProcessError
-from collections import defaultdict
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
