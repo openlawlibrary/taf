@@ -13,26 +13,24 @@ from taf.utils import run
 class GitRepository(object):
 
 
-  def __init__(self, root_dir, repo_name=None, repo_urls=None, additional_info=None):
+  def __init__(self, repo_path, repo_urls=None, additional_info=None):
     """
     Args:
-      root_dir: the root directory, repo_name is relative to it. If repo_name is not
-      provided, root_dir is expected to be the repository's full path
-      repo_name: repository's path relative to the root directory root_dir (optional)
+      repo_path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
     repo_path is the absolute path to this repository. If repo_name is not None,
     it is set by joining root_dir and repo_name. Otherwise, it is set to just
     root_dir.
     """
-    self.root_dir = root_dir
-    self.repo_path, self.repo_name = _get_repo_path_and_name(root_dir, repo_name)
+
+    self.repo_path = repo_path
     if repo_urls is not None and settings.update_from_filesystem is False:
       for url in repo_urls:
         _validate_url(url)
     self.repo_urls = repo_urls
     self.additional_info = additional_info
-
+    self.repo_name = os.path.basename(self.repo_path)
 
   @property
   def is_git_repository(self):
@@ -190,21 +188,34 @@ class GitRepository(object):
       self._git('--set-upstream origin {}', branch).strip()
 
 
-def _get_repo_path_and_name(root_dir, repo_name):
+class NamedGitRepository(GitRepository):
+
+  def __init__(self, root_dir, repo_name, repo_urls=None, additional_info=None):
+    """
+    Args:
+      root_dir: the root directory
+      repo_name: repository's path relative to the root directory root_dir
+      repo_urls: repository's urls (optional)
+      additional_info: a dictionary containing other data (optional)
+    repo_path is the absolute path to this repository. If repo_name is not None,
+    it is set by joining root_dir and repo_name. Otherwise, it is set to just
+    root_dir.
+    """
+    repo_path = _get_repo_path(root_dir, repo_name)
+    super().__init__(repo_path, repo_urls, additional_info)
+    self.repo_name = repo_name
+
+
+def _get_repo_path(root_dir, repo_name):
   """
   get the path to a repo and ensure it is valid.
   (since this is coming from potentially untrusted data)
   """
-  if repo_name is not None:
-    _validate_repo_name(repo_name)
-    repo_dir = str((Path(root_dir) / (repo_name or '')))
-    if not repo_dir.startswith(repo_dir):
-      raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
-  else:
-    _, repo_name = os.path.split(root_dir)
-    repo_dir = root_dir
-  return repo_dir, repo_name
-
+  _validate_repo_name(repo_name)
+  repo_dir = str((Path(root_dir) / (repo_name or '')))
+  if not repo_dir.startswith(repo_dir):
+    raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
+  return repo_dir
 
 _repo_name_re = re.compile(r'^\w[\w_-]*/\w[\w_-]*$')
 
@@ -216,7 +227,6 @@ def _validate_repo_name(repo_name):
     raise InvalidRepositoryError('Repository name must be in format namespace/repository '
                                  'and can only contain letters, numbers, underscores and '
                                  'dashes, but got "{}"'.format(repo_name))
-
 
 _url_re = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://
