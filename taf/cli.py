@@ -1,7 +1,8 @@
 import os
 
 import click
-
+import json
+import taf.init_repo as init
 from taf.repository_tool import load_repository
 from taf.updater.updater import update_repository, update_named_repository
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -58,6 +59,47 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, update_all, keysto
       taf_repo.update_snapshot_and_timestmap(keystore)  # Calls writeall()
     else:
       taf_repo.update_targets(targets_key_slot, targets_key_pin)
+
+
+@cli.command()
+@click.option('--repo-location', default='repository', help='Location of the repository')
+@click.option('--targets-dir', default='targets', help='Directory where the target '
+                                             'repositories are located')
+@click.option('--keystore-location', default='keystore', help='Location of the keystore file')
+@click.option('--keys-description', help='A dictionary containing information about the keys or a path'
+                                         ' to a json file which which stores the needed information')
+@click.option('--namespace', default='', help='Namespace of the target repositories')
+def add_target_repos(repo_location, targets_dir, keystore_location, keys_description,
+                     namespace):
+  if os.path.isfile(keys_description):
+    with open(keys_description) as f:
+      keys_description = json.loads(f.read())
+  init.add_target_repos(repo_location, targets_dir, keystore_location, keys_description,
+                        namespace)
+
+
+@cli.command()
+@click.option('--repo-location', default='repository', help='Location of the repository')
+@click.option('--keystore-location', default='keystore', help='Location of the keystore file')
+@click.option('--keys-description', help='A dictionary containing information about the keys or a path'
+                                         ' to a json file which which stores the needed information')
+def create_repo(repo_location, keystore_location, keys_description):
+  if os.path.isfile(keys_description):
+    with open(keys_description) as f:
+      keys_description = json.loads(f.read())
+  init.create_repository(repo_location, keystore_location, keys_description)
+
+
+@cli.command()
+@click.option('--keystore-location', default='keystore', help='Location of the keystore file')
+@click.option('--keys-description', help='A dictionary containing information about the keys or a path'
+                                         ' to a json file which which stores the needed information')
+def generate_keys(keystore_location, keys_description):
+  if os.path.isfile(keys_description):
+    with open(keys_description) as f:
+      keys_description = json.loads(f.read())
+  init.generate_keys(keystore_location, keys_description)
+
 
 
 @cli.command()
