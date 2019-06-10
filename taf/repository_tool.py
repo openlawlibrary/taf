@@ -7,14 +7,16 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
+import tuf.repository_tool
+
 from securesystemslib.exceptions import Error as SSLibError
 
 from oll_sc.exceptions import SmartCardError
 from taf.utils import normalize_file_line_endings
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
-                                 METADATA_STAGED_DIRECTORY_NAME,
-                                 TARGETS_DIRECTORY_NAME, import_rsakey_from_pem)
+                                 TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
+                                 load_repository)
 
 from .exceptions import (InvalidKeyError, MetadataUpdateError,
                          SnapshotMetadataUpdateError,
@@ -57,49 +59,7 @@ def get_yubikey_public_key(key_slot, pin):
   return import_rsakey_from_pem(pub_key_pem)
 
 
-@contextmanager
-def load_repository(repo_path):
-  """ Load a tuf repository, given a path of an authentication repository.
-  This repository is expected to contain a metadata folder, where all tuf metadata files are
-  stored. Since TUF expects all metadata files to be in a metadata.staged directory, this function
-  creates that directories, copies all metadata files and then deletes it.
-
-  Args:
-    - repo_path(str): Path of an authentication repository.
-
-  Returns:
-    Repository that comforms to `taf.repository_tool.Repository`
-
-  Raises:
-    - OSError: If `metadata.staged` cannot be created
-    - securesystemslib.exceptions.FormatError: If 'repository_directory' or any of the metadata
-                                               files are improperly formatted.
-
-    - securesystemslib.exceptions.RepositoryError: If the Root role cannot be found.
-                                                    At a minimum, a repository must contain
-                                                    'root.json'
-  """
-  from tuf.repository_tool import load_repository as load_tuf_repository
-
-  # create a metadata.staged directory and copy all
-  # files from the metadata directory
-  staged_dir = os.path.join(repo_path, METADATA_STAGED_DIRECTORY_NAME)
-  metadata_dir = os.path.join(repo_path, METADATA_DIRECTORY_NAME)
-
-  shutil.copytree(metadata_dir, staged_dir)
-
-  tuf_repository = load_tuf_repository(repo_path)
-  repository = Repository(tuf_repository, repo_path)
-  yield repository
-
-  # copy everything from the staged directory to the metadata directory
-  # and removed metadata.staged
-  for filename in os.listdir(staged_dir):
-    shutil.copy(os.path.join(staged_dir, filename), metadata_dir)
-  shutil.rmtree(staged_dir)
-
-
-def load_role_key(keystore, role, password=None):
+def load_role_key(keystore, role, password=''):
   """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
@@ -117,10 +77,9 @@ def load_role_key(keystore, role, password=None):
     - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
     - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
   """
-  key = role_keys_cache.get(role, None)
+  key = role_keys_cache.get(role)
   if key is None:
     from tuf.repository_tool import import_rsa_privatekey_from_file
-
     key = import_rsa_privatekey_from_file(os.path.join(keystore, role), password=password)
     role_keys_cache[role] = key
   return key
@@ -155,9 +114,11 @@ def targets_signature_provider(key_id, key_slot, key_pin, data):
 
 class Repository:
 
-  def __init__(self, repository, repository_path):
-    self._repository = repository
+  def __init__(self, repository_path):
     self.repository_path = repository_path
+    tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
+    tuf_repository = load_repository(repository_path)
+    self._repository = tuf_repository
 
   _required_files = ['repositories.json']
 
@@ -472,8 +433,10 @@ class Repository:
       - kwargs(dict): (Optional) Expiration dates and intervals:
                       - snapshot_date(datetime)
                       - snapshot_interval(int)
+                      - snapshot_password(string)
                       - timestamp_date(datetime)
-                      - timestamp_ionterval(int)
+                      - timestamp_interval(int)
+                      - timestamp_passworord(string)
 
     Returns:
       None
@@ -485,18 +448,49 @@ class Repository:
     try:
       snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
       snapshot_interval = kwargs.get('snapshot_interval', None)
+      snapshot_password = kwargs.get('snapshot_password')
 
       timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
       timestamp_interval = kwargs.get('timestamp_interval', None)
+      timestamp_password = kwargs.get('timestamp_password')
 
-      snapshot_key = load_role_key(keystore, 'snapshot')
-      timestamp_key = load_role_key(keystore, 'timestamp')
+      snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
+      timestamp_key = load_role_key(keystore, 'timestamp', timestamp_password)
 
       self.update_snapshot(snapshot_key, snapshot_date, snapshot_interval, write=write)
       self.update_timestamp(timestamp_key, timestamp_date, timestamp_interval, write=write)
 
     except (TUFError, SSLibError) as e:
       raise MetadataUpdateError('all', str(e))
+
+
+  def update_targets_from_keystore(self, keystore, targets_password, start_date=datetime.datetime.now(),
+                                   interval=None, write=True):
+    """Update targets metadata. Sign it with a key from the file system
+
+    Args:
+      - targets_key(securesystemslib.formats.RSAKEY_SCHEMA): Targets key.
+      - start_date(datetime): Date to which the specified interval is added when
+                              calculating expiration date. If a value is not
+                              provided, it is set to the current time
+      - interval(int): Number of days added to the start date. If not provided,
+                      the default value is used
+      - write(bool): If True timestmap metadata will be signed and written
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - TimestampMetadataUpdateError: If any other error happened during metadata update
+    """
+    targets_key = load_role_key(keystore, 'targets', targets_password)
+    try:
+      self._try_load_metadata_key('targets', targets_key)
+      self._update_metadata('targets', start_date, interval, write=write)
+    except (TUFError, SSLibError) as e:
+      raise TimestampMetadataUpdateError(str(e))
+
 
   def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
                      start_date=datetime.datetime.now(), interval=None, write=True):
