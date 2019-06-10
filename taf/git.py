@@ -137,6 +137,12 @@ class GitRepository(object):
   def get_file(self, commit, path):
     return self._git('show {}:{}', commit, path)
 
+  def get_remote_url(self):
+    try:
+      return self._git('config --get remote.origin.url')
+    except subprocess.CalledProcessError:
+      return None
+
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
     try:

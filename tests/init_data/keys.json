@@ -7,12 +7,8 @@
   },
   "targets": {
     "length": 2048,
-    "passwords": ["targets"]
+    "passwords": ["targetspassword"]
   },
-  "snapshot": {
-    "passwords": [""]
-  },
-  "timestamp": {
-    "passwords": [""]
-  }
+  "snapshot": {},
+  "timestamp": {}
 }
