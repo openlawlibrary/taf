@@ -1,12 +1,11 @@
 import json
 import os
-import shutil
 import tuf.repository_tool
 from tuf.repository_tool import generate_and_write_rsa_keypair, import_rsa_publickey_from_file, \
                                 import_rsa_privatekey_from_file, create_new_repository, \
                                 METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
 from taf.git import GitRepository
-from taf.repository_tool import load_repository, Repository
+from taf.repository_tool import Repository
 
 
 def add_target_repos(repository_location, targets_directory, namespace=''):
@@ -164,11 +163,8 @@ def register_target_file(repo_path, file_path, keystore_location, roles_key_info
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
-  if update_all:
-    taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)
-    taf_repo.update_snapshot_and_timestmap(keystore)  # Calls writeall()
-  else:
-    taf_repo.update_targets(targets_key_slot, targets_key_pin)
+  _write_targets_metadata(taf_repo, update_all, keystore_location, roles_key_infos,
+                          targets_key_slot, targets_key_pin)
 
 
 def register_target_files(repo_path, keystore_location, roles_key_infos, targets_key_slot=None,
@@ -228,5 +224,3 @@ def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore_lo
     timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
     taf_repo.update_snapshot_and_timestmap(keystore_location, snapshot_password=snapshot_password,
                                            timestamp_password=timestamp_password)
-
-

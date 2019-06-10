@@ -1,8 +1,6 @@
 import datetime
 import json
 import os
-import shutil
-from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 
@@ -129,10 +127,6 @@ class Repository:
   @property
   def metadata_path(self):
     return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
-
-  @property
-  def metadata_staged_path(self):
-    return os.path.join(self.repository_path, METADATA_STAGED_DIRECTORY_NAME)
 
   def _add_target(self, targets_obj, file_path, custom=None):
     normalize_file_line_endings(
