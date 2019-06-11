@@ -103,8 +103,8 @@ def generate_keys(keystore_location, keys_description):
 def init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_location,
                     keys_description, commit):
   if os.path.isfile(keys_description):
-   with open(keys_description) as f:
-     keys_description = json.loads(f.read())
+    with open(keys_description) as f:
+      keys_description = json.loads(f.read())
   developer_tool.init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_location,
                            keys_description, should_commit=commit)
 
