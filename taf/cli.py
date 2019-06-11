@@ -19,8 +19,10 @@ def cli():
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 @click.option('--update-all', is_flag=True, default=True, help='Update snapshot and timestamp')
+@click.option('--commit_msg', default=None, help='Commit message to be used in case the changes'
+              'should be automatically committed')
 def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore, keys_description,
-                update_all):
+                update_all, commit_msg):
   if not os.path.exists(keystore) and (update_all or not(targets_key_slot and targets_key_pin)):
     click.echo('\nError: Keystore must be provided and exist on disk if update_all is True or '
                'if the targets key should be loaded from the file system')
@@ -29,7 +31,8 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore, keys_des
     with open(keys_description) as f:
       keys_description = json.loads(f.read())
   developer_tool.register_target_files(repo_path, keystore, keys_description, targets_key_slot,
-                                       targets_key_pin, update_all)
+                                       targets_key_pin, update_all, commit_msg)
+
 
 @cli.command()
 @click.option('--repo-path',  default='repository', help='Authentication repository\'s path')
@@ -67,11 +70,12 @@ def add_target_repos(repo_location, targets_dir, namespace):
 @click.option('--keystore-location', default='keystore', help='Location of the keystore file')
 @click.option('--keys-description', help='A dictionary containing information about the '
               'keys or a path to a json file which which stores the needed information')
-def create_repo(repo_location, keystore_location, keys_description):
+@click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
+def create_repo(repo_location, keystore_location, keys_description, commit):
   if os.path.isfile(keys_description):
     with open(keys_description) as f:
       keys_description = json.loads(f.read())
-  developer_tool.create_repository(repo_location, keystore_location, keys_description)
+  developer_tool.create_repository(repo_location, keystore_location, keys_description, commit)
 
 
 @cli.command()
@@ -84,6 +88,25 @@ def generate_keys(keystore_location, keys_description):
       keys_description = json.loads(f.read())
   developer_tool.generate_keys(keystore_location, keys_description)
 
+
+@cli.command()
+@click.option('--repo-location', default='repository', help='Location of the repository')
+@click.option('--targets-dir', default='targets', help='Directory where the target '
+              'repositories are located')
+@click.option('--namespace', default='', help='Namespace of the target repositories')
+@click.option('--targets-rel-dir', default=None, help=' Directory relative to which urls '
+              'of the target repositories are set, if they do not have remote set')
+@click.option('--keystore-location', default='keystore', help='Location of the keystore file')
+@click.option('--keys-description', help='A dictionary containing information about the '
+              'keys or a path to a json file which which stores the needed information')
+@click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
+def init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_location,
+                    keys_description, commit):
+  if os.path.isfile(keys_description):
+   with open(keys_description) as f:
+     keys_description = json.loads(f.read())
+  developer_tool.init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_location,
+                           keys_description, should_commit=commit)
 
 @cli.command()
 @click.option('--repo-location', default='repository', help='Location of the repository')
