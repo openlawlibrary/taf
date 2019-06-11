@@ -199,7 +199,8 @@ class GitRepository(object):
     if not os.path.isdir(self.repo_path):
       os.makedirs(self.repo_path, exist_ok=True)
     self._git('init')
-    self._git('remote add origin {}', self.repo_urls[0])
+    if self.repo_urls is not None and len(self.repo_urls):
+      self._git('remote add origin {}', self.repo_urls[0])
 
   def list_files_at_revision(self, commit, path=''):
     if path is None:

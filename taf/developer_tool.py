@@ -30,23 +30,26 @@ def add_target_repos(repository_location, targets_directory, namespace=''):
     commit = target_repo.head_commit_sha()
     target_repo_name = os.path.basename(target_repo_dir)
     with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
-      f.write(commit)
+      json.dump({'commit': commit}, f,  indent=4)
 
 
-def create_repository(repository_location, keystore_location, roles_key_infos):
+def create_repository(repository_location, keystore_location, roles_key_infos, should_commit=True):
   """
-    <Purpose>
-      Create a new authentication repository. Generate initial metadata files.
-      The initial targets metadata file is empty (does not specify any targets)
-    <Arguments>
-      repository_location:
-        Authentication repository's location
-      targets_directory:
-        Directory which contains target repositories
-      keystore_location:
-        Location of the keystore files
-      roles_key_infos:
-        A dictionary whose keys are role names, while values contain information about the keys.
+  <Purpose>
+    Create a new authentication repository. Generate initial metadata files.
+    The initial targets metadata file is empty (does not specify any targets)
+  <Arguments>
+    repository_location:
+      Authentication repository's location
+    targets_directory:
+      Directory which contains target repositories
+    keystore_location:
+      Location of the keystore files
+    roles_key_infos:
+      A dictionary whose keys are role names, while values contain information about the keys.
+    should_commit:
+      Indicates if if a the git repository should be initialized, and if the initial metadata
+      should be committed
   """
   if os.path.isdir(repository_location):
     print('{} already exists'.format(repository_location))
@@ -72,6 +75,10 @@ def create_repository(repository_location, keystore_location, roles_key_infos):
       role_obj.add_verification_key(public_key)
       role_obj.load_signing_key(private_key)
   repository.writeall()
+  if should_commit:
+    auth_repo = GitRepository(repository_location)
+    auth_repo.init_repo()
+    auth_repo.commit('Initial metadata')
 
 
 def generate_keys(keystore_location, roles_key_infos):
@@ -148,6 +155,47 @@ def _get_key_name(role_name, key_num, num_of_keys):
     return role_name + str(key_num + 1)
 
 
+def init_repo(repository_location, targets_directory, namespace, targets_relative_dir,
+              keystore_location, roles_key_infos, targets_key_slot=None, targets_key_pin=None,
+              should_commit=True):
+  """
+  <Purpose>
+    Generate initial repository:
+    1. Crete tuf authentication repository
+    2. Commit initial metadata files if commit == True
+    3. Add target repositories
+    4. Generate repositories.json
+    5. Update tuf metadata
+    6. Commit the changes if commit == True
+  <Arguments>
+    repository_location:
+      Authentication repository's location
+    targets_directory:
+      Directory which contains target repositories
+    namespace:
+      Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+    targets_relative_dir:
+      Directory relative to which urls of the target repositories are set, if they do not have remote set
+    keystore_location:
+      Location of the keystore files
+    roles_key_infos:
+      A dictionary whose keys are role names, while values contain information about the keys.
+    targets_key_slot(tuple|int):
+      Slot with key on a smart card used for signing
+    targets_key_pin(str):
+      Targets key pin
+    should_commit:
+      Indicates if if a the git repository should be initialized, and if the initial metadata
+      should be committed
+  """
+  create_repository(repository_location, keystore_location, roles_key_infos, should_commit)
+  add_target_repos(repository_location, targets_directory, namespace)
+  generate_repositories_json(repository_location, targets_directory, namespace,
+                             targets_relative_dir)
+  commit_msg = 'Added initial targets' if should_commit else None
+  register_target_files(repository_location, keystore_location, roles_key_infos,
+                        commit_msg=commit_msg)
+
 def _load_role_key_from_keys_dict(role, roles_key_infos):
   password = None
   if roles_key_infos is not None and len(roles_key_infos):
@@ -168,7 +216,7 @@ def register_target_file(repo_path, file_path, keystore_location, roles_key_info
 
 
 def register_target_files(repo_path, keystore_location, roles_key_infos, targets_key_slot=None,
-                          targets_key_pin=None, update_all=True):
+                          targets_key_pin=None, update_all=True, commit_msg=None):
   """
   <Purpose>
     Register all files found in the target directory as tatges - updates the targets
@@ -187,6 +235,8 @@ def register_target_files(repo_path, keystore_location, roles_key_infos, targets
       Targets key pin
     update_all:
       Indicates if snapshot and timestamp should also be updated. Set to True by default
+    commit_msg:
+      Commit message. If specified, the changes made to the authentication are committed.
   """
   targets_path = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   taf_repo = Repository(repo_path)
@@ -197,6 +247,10 @@ def register_target_files(repo_path, keystore_location, roles_key_infos, targets
       taf_repo.add_existing_target(relpath)
   _write_targets_metadata(taf_repo, update_all, keystore_location, roles_key_infos,
                             targets_key_slot, targets_key_pin)
+  if commit_msg is not None:
+    auth_repo = GitRepository(repo_path)
+    auth_repo.commit(commit_msg)
+
 
 
 def _role_obj(role, repository):
@@ -224,3 +278,8 @@ def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore_lo
     timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
     taf_repo.update_snapshot_and_timestmap(keystore_location, snapshot_password=snapshot_password,
                                            timestamp_password=timestamp_password)
+
+
+# TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing
+# repository etc.)
+
