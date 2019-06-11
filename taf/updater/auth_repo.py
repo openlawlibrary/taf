@@ -65,7 +65,7 @@ class AuthRepoMixin(object):
         if previous_commit is None or target_commit != previous_commit:
           repositories_commits[target_path].append(target_commit)
         previous_commits[target_path] = target_commit
-    logger.debug('Auth repo %s: new commits per repositories accoring to targets.json: %s',
+    logger.debug('Auth repo %s: new commits per repositories according to targets.json: %s',
                  self.repo_name, repositories_commits)
     return repositories_commits
 

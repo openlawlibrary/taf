@@ -101,7 +101,8 @@ class GitRepository(object):
     If the branch does not exist and create is set to False,
     raise an exception."""
     try:
-      self._git('checkout {}', branch_name, log_error=True, reraise_error=True)
+      self._git('checkout {}', branch_name, log_error=True, reraise_error=True,
+                log_success_msg='checked out branch {}'.format(branch_name))
     except subprocess.CalledProcessError as e:
       if create:
         self.create_and_checkout_branch(branch_name)
@@ -126,12 +127,13 @@ class GitRepository(object):
 
         self._git('clone {} . {}', url, params, log_success_msg='successfully cloned')
       except subprocess.CalledProcessError:
-        logger.error('Git repo %s: cannot clone from url %s', self.repo_name, url)
+        logger.error('Repo %s: cannot clone from url %s', self.repo_name, url)
       else:
         break
 
   def create_and_checkout_branch(self, branch_name):
-    self._git('checkout -b {}', branch_name)
+    self._git('checkout -b {}', branch_name,  log_success_msg='created and checked out branch {}'.
+              format(branch_name, log_error=True, reraise_error=True))
 
   def commit(self, message):
     """Create a commit with the provided message
@@ -150,12 +152,14 @@ class GitRepository(object):
     on a speculative branch and not on the master branch.
     """
 
+    logger.debug('Repo %s: finding commits which are on branch %s, but not on branch %s',
+                 self.repo_name, branch1, branch2)
     commits = self._git('log {} --not {} --no-merges --format=format:%H', branch1, branch2)
     commits = commits.split('\n') if commits else []
     if include_branching_commit:
       branching_commit = self._git('rev-list -n 1 {}~1', commits[-1])
       commits.append(branching_commit)
-
+    logger.debug('Repo %s: found the following commits: %s', self.repo_name, commits)
     return commits
 
   def get_commits_date(self, commit):

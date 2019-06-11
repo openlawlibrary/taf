@@ -32,7 +32,7 @@ def run(*command, **kwargs):
       logger.debug(err.stdout)
     if err.stderr:
       logger.debug(err.stderr)
-    logger.debug('Command %s returned non-zero exit status %s', ' '.join(command), err.returncode)
+    logger.info('Command %s returned non-zero exit status %s', ' '.join(command), err.returncode)
     raise err
   if completed.stdout:
     if taf.settings.LOG_COMMAND_OUTPUT:
