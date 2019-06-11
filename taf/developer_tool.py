@@ -193,8 +193,8 @@ def init_repo(repository_location, targets_directory, namespace, targets_relativ
   generate_repositories_json(repository_location, targets_directory, namespace,
                              targets_relative_dir)
   commit_msg = 'Added initial targets' if should_commit else None
-  register_target_files(repository_location, keystore_location, roles_key_infos,
-                        commit_msg=commit_msg)
+  register_target_files(repository_location, keystore_location, roles_key_infos, targets_key_slot,
+                        targets_key_pin, commit_msg=commit_msg)
 
 def _load_role_key_from_keys_dict(role, roles_key_infos):
   password = None
