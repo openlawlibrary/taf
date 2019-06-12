@@ -57,7 +57,7 @@ def get_yubikey_public_key(key_slot, pin):
   return import_rsakey_from_pem(pub_key_pem)
 
 
-def load_role_key(keystore, role, password=''):
+def load_role_key(keystore, role, password=None):
   """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
