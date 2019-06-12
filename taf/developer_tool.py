@@ -200,9 +200,7 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
   password = None
   if roles_key_infos is not None and len(roles_key_infos):
     if role in roles_key_infos:
-      password = roles_key_infos[role].get('passwords', [None])[0]
-      if password == '':
-        password = None
+      password = roles_key_infos[role].get('passwords', [None])[0] or None
   return password
 
 
