@@ -1,4 +1,6 @@
 
+import logging
+
 # Set a directory that should be used for all temporary files. If this
 # is None, then the system default will be used. The system default
 # will also be used if a directory path set here is invalid or
@@ -14,7 +16,25 @@ validate_repo_name = True
 # tuf.log.enable_file_logging() and tuf.log.disable_file_logging().
 ENABLE_FILE_LOGGING = False
 
-# If file logging is enabled via 'ENABLE_FILE_LOGGING', TAF log messages will
-# be saved to 'LOG_FILENAME'
-# not acutally implemented yet
+LOG_LEVEL = logging.DEBUG
+
+# whether to log to the console, which does not mean that file logging cannot be enabled as well
+ENABLE_CONSOLE_LOGGING = True
+
+# whether to log to a file, which does not mean that console logging cannnot be enabled as well
+ENABLE_FILE_LOGGING = True
+
+# should errors be logged to a separate file if logging to file is enabled,
+SEPARATE_ERRORS = True
+
+CONSOLE_LOGGING_LEVEL = logging.DEBUG
+
+FILE_LOGGING_LEVEL = logging.INFO
+
+ERROR_LOGGING_LEVEL = logging.WARNING
+
 LOG_FILENAME = 'taf.log'
+
+ERROR_LOF_FILENAME = 'taf.err'
+
+LOG_COMMAND_OUTPUT = False
