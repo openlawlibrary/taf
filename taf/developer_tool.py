@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import tuf.repository_tool
 from tuf.repository_tool import generate_and_write_rsa_keypair, import_rsa_publickey_from_file, \
                                 import_rsa_privatekey_from_file, create_new_repository, \
@@ -142,6 +143,8 @@ def generate_repositories_json(repository_location, targets_directory, namespace
         url = os.path.relpath(target_repo.repo_path, targets_relative_dir)
       else:
         url = target_repo.repo_path
+      # convert to posix path
+      url = pathlib.Path(url).as_posix()
     repositories[target_repo_namespaced_name] = {'urls': [url]}
 
   with open(os.path.join(auth_repo_targets_dir, 'repositories.json'), 'w') as f:

@@ -1,0 +1,19 @@
+{
+    "repositories": {
+        "namespace/TargetRepo1": {
+            "urls": [
+                "namespace/TargetRepo1"
+            ]
+        },
+        "namespace/TargetRepo2": {
+            "urls": [
+                "namespace/TargetRepo2"
+            ]
+        },
+        "namespace/TargetRepo3": {
+            "urls": [
+                "namespace/TargetRepo3"
+            ]
+        }
+    }
+}
