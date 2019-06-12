@@ -47,32 +47,35 @@ def test_update_snapshot_and_timestmap(taf_happy_path, keystore):
 
   taf_happy_path.update_snapshot_and_timestmap(keystore, **kwargs)
 
-  old_targets_metadata = Path(taf_happy_path.metadata_path) / 'targets.json'
-  new_targets_metadata = Path(taf_happy_path.metadata_staged_path) / 'targets.json'
-  new_snapshot_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'snapshot.json')
-  new_timestamp_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'timestamp.json')
+  targets_metadata_path = Path(taf_happy_path.metadata_path) / 'targets.json'
+  snapshot_metadata_path = Path(taf_happy_path.metadata_path) / 'snapshot.json'
+  timestamp_metadata_path = Path(taf_happy_path.metadata_path) / 'timestamp.json'
 
-  def check_expiration_date(metadata, date, interval):
-    signable = securesystemslib.util.load_json_file(metadata)
+  old_targets_metadata = targets_metadata_path.read_bytes()
+  old_snaphost_metadata = snapshot_metadata_path.read_bytes()
+  old_timestamp_metadata = timestamp_metadata_path.read_bytes()
+
+
+  def check_expiration_date(metadata_path, date, interval):
+    signable = securesystemslib.util.load_json_file(metadata_path)
     tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
     actual_expiration_date = signable['signed']['expires']
 
     assert actual_expiration_date == to_tuf_datetime_format(date, interval)
 
-  check_expiration_date(new_snapshot_metadata, snapshot_date, snapshot_interval)
-  check_expiration_date(new_timestamp_metadata, timestamp_date, timestamp_interval)
+  check_expiration_date(str(snapshot_metadata_path), snapshot_date, snapshot_interval)
+  check_expiration_date(str(timestamp_metadata_path), timestamp_date, timestamp_interval)
 
   # Targets data should remain the same
-  assert old_targets_metadata.read_bytes() == new_targets_metadata.read_bytes()
+  assert old_targets_metadata == targets_metadata_path.read_bytes()
 
 
 def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
   start_date = datetime.datetime.now()
   interval = 1
   expected_expiration_date = to_tuf_datetime_format(start_date, interval)
-
   taf_happy_path.update_snapshot(snapshot_key, start_date, interval)
-  new_snapshot_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'snapshot.json')
+  new_snapshot_metadata = str(Path(taf_happy_path.metadata_path) / 'snapshot.json')
   signable = securesystemslib.util.load_json_file(new_snapshot_metadata)
   tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
   actual_expiration_date = signable['signed']['expires']
@@ -91,7 +94,7 @@ def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
   expected_expiration_date = to_tuf_datetime_format(start_date, interval)
 
   taf_happy_path.update_timestamp(timestamp_key, start_date, interval)
-  new_timestamp_metadata = str(Path(taf_happy_path.metadata_staged_path) / 'timestamp.json')
+  new_timestamp_metadata = str(Path(taf_happy_path.metadata_path) / 'timestamp.json')
   signable = securesystemslib.util.load_json_file(new_timestamp_metadata)
   tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
   actual_expiration_date = signable['signed']['expires']
