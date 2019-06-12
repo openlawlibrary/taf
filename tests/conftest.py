@@ -3,9 +3,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from pytest import fixture, yield_fixture
-
+from taf.repository_tool import Repository
 import oll_sc
-from taf.repository_tool import load_repository
 from tuf.repository_tool import (import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file)
 
@@ -53,8 +52,8 @@ def taf_happy_path():
 
   with origin_repos([taf_repo_path, target_dummy_repo_path]) as origins:
     taf_repo_origin_path = origins[taf_repo_path.name]
-    with load_repository(taf_repo_origin_path) as taf_repo:
-      yield taf_repo
+    taf_repo = Repository(taf_repo_origin_path)
+    yield taf_repo
 
 
 @fixture
