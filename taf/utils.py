@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import subprocess
+import taf.settings
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,8 @@ def run(*command, **kwargs):
   stdout."""
   if len(command) == 1 and isinstance(command[0], str):
     command = command[0].split()
-  logger.debug('About to run command %s', ' '.join(command))
+  if taf.settings.LOG_COMMAND_OUTPUT:
+    logger.debug('About to run command %s', ' '.join(command))
 
   def _format_word(word, **env):
     """To support word such as @{u} needed for git commands."""
@@ -30,10 +32,11 @@ def run(*command, **kwargs):
       logger.debug(err.stdout)
     if err.stderr:
       logger.debug(err.stderr)
-    logger.debug('Command %s returned non-zero exit status %s', ' '.join(command), err.returncode)
+    logger.info('Command %s returned non-zero exit status %s', ' '.join(command), err.returncode)
     raise err
   if completed.stdout:
-    logger.debug(completed.stdout)
+    if taf.settings.LOG_COMMAND_OUTPUT:
+      logger.debug(completed.stdout)
   return completed.stdout.rstrip() if completed.returncode == 0 else None
 
 

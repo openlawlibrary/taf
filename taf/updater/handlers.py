@@ -2,11 +2,15 @@ import os
 import shutil
 import tempfile
 import securesystemslib
+import taf.log
 import taf.settings as settings
 import tuf.client.handlers as handlers
-
-from taf.git import GitRepository, NamedGitRepository
+from subprocess import CalledProcessError
+from taf.updater.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
+from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
+
+logger = taf.log.get_logger(__name__)
 
 
 class GitUpdater(handlers.MetadataUpdater):
@@ -85,11 +89,13 @@ class GitUpdater(handlers.MetadataUpdater):
     self.metadata_path = mirrors['mirror1']['metadata_path']
     self.targets_path = mirrors['mirror1']['targets_path']
     if settings.validate_repo_name:
-      self.users_auth_repo = NamedGitRepository(repository_directory, repository_name,
-                                                repo_urls=[auth_url])
+      self.users_auth_repo = NamedAuthenticationRepo(repository_directory, repository_name,
+                                                     self.metadata_path, self.targets_path,
+                                                     repo_urls=[auth_url])
     else:
       users_repo_path = os.path.join(repository_directory, repository_name)
-      self.users_auth_repo = GitRepository(users_repo_path, repo_urls=[auth_url])
+      self.users_auth_repo = AuthenticationRepo(users_repo_path, self.metadata_path,
+                                                self.targets_path, repo_urls=[auth_url])
 
     self._clone_validation_repo(auth_url)
     repository_directory = self.users_auth_repo.repo_path
@@ -119,25 +125,53 @@ class GitUpdater(handlers.MetadataUpdater):
     We have to presume that the initial metadata is correct though (or at least
     the initial root.json).
     """
-    # TODO handle the case when the local repository does not
-    # exist and needs to be cloned
-    # for now, it is assumed that there is a local repository
-
     # TODO check if users authentication repository is clean
+
+    # load the last validated commit fromt he conf file
+    last_validated_commit = self.users_auth_repo.last_validated_commit
+
+    try:
+      commits_since = self.validation_auth_repo.all_commits_since_commit(last_validated_commit)
+    except CalledProcessError as e:
+      if 'Invalid revision range' in e.output:
+        logger.error('Commit %s is not contained by the remote repository %s.',
+                     last_validated_commit, self.validation_auth_repo.repo_name)
+        raise UpdateFailedError('Commit {} is no longer contained by repository {}. This could '
+                                'either mean that there was an unauthorized push tot the remote '
+                                'repository, or that last_validated_commit file was modified.'.
+                                format(last_validated_commit, self.validation_auth_repo.repo_name))
+      else:
+        raise e
+
+    # Check if the user's head commit mathces the saved one
+    # That should always be the case
+    # If it is not, it means that someone, accidentally or maliciosly made manual changes
+
     if not self.users_auth_repo.is_git_repository:
       users_head_sha = None
     else:
       self.users_auth_repo.checkout_branch('master')
       users_head_sha = self.users_auth_repo.head_commit_sha()
-      # find all commits after the top commit of the
-      # client's local authentication repository
-      # TODO detect force-push removal of commits
 
-    self.commits = self.validation_auth_repo.all_commits_since_commit(users_head_sha)
+    if last_validated_commit != users_head_sha:
+      # TODO add a flag --force/f which, if provided, should force an automatic revert
+      # of the users authentication repository to the last validated commit
+      # This could be done if a user accidentally committed something to the auth repo
+      # or manually pulled the changes
+      # If the user deleted the repository or executed reset --hard, we could handle
+      # that by starting validation from the last validated commit, as opposed to the
+      # user's head sha.
+      # For now, we will raise an error
+      msg = '''Saved last validated commit {} does not match the head commit of the
+authentication repository {}'''.format(last_validated_commit, users_head_sha)
+      logger.error(msg)
+      raise UpdateFailedError(msg)
+
     # insert the current one at the beginning of the list
     if users_head_sha is not None:
-      self.commits.insert(0, users_head_sha)
+      commits_since.insert(0, users_head_sha)
 
+    self.commits = commits_since
     self.users_head_sha = users_head_sha
     self.current_commit_index = 0
 
@@ -243,11 +277,10 @@ class GitUpdater(handlers.MetadataUpdater):
   def on_successful_update(self, filename, mirror):
     # after the is successfully completed, set the
     # next commit as current for the given file
-    print('{} updated from {}'.format(filename, mirror))
+    logger.debug('%s updated from commit %s', filename, mirror)
 
   def on_unsuccessful_update(self, filename):
-    # TODO an error message
-    pass
+    logger.error('Failed to update %s', filename)
 
   def update_done(self):
     # the only metadata file that is always updated
