@@ -19,7 +19,7 @@ def cli():
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 @click.option('--update-all', is_flag=True, default=True, help='Update snapshot and timestamp')
-@click.option('--commit_msg', default=None, help='Commit message to be used in case the changes'
+@click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
 def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore, keys_description,
                 update_all, commit_msg):
@@ -107,6 +107,7 @@ def init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_l
       keys_description = json.loads(f.read())
   developer_tool.init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_location,
                            keys_description, should_commit=commit)
+
 
 @cli.command()
 @click.option('--repo-location', default='repository', help='Location of the repository')
