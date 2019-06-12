@@ -14,7 +14,6 @@ logger = taf.log.get_logger(__name__)
 
 class GitRepository(object):
 
-
   def __init__(self, repo_path, repo_urls=None, additional_info=None):
     """
     Args:
@@ -32,7 +31,11 @@ class GitRepository(object):
 
   @property
   def is_git_repository(self):
-    return (Path(self.repo_path) / '.git').is_dir()
+    try:
+      self._git('rev-parse --git-dir')
+      return True
+    except subprocess.CalledProcessError:
+      return False
 
   def _git(self, cmd, *args, **kwargs):
     """Call git commands in subprocess
@@ -250,6 +253,7 @@ def _get_repo_path(root_dir, repo_name):
     raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
 
+
 _repo_name_re = re.compile(r'^\w[\w_-]*/\w[\w_-]*$')
 
 
@@ -261,6 +265,7 @@ def _validate_repo_name(repo_name):
     raise InvalidRepositoryError('Repository name must be in format namespace/repository '
                                  'and can only contain letters, numbers, underscores and '
                                  'dashes, but got "{}"'.format(repo_name))
+
 
 _url_re = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://
