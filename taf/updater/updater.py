@@ -146,7 +146,7 @@ def _update_authentication_repository(repository_updater):
   logger.info('Successfully validated authentication repository %s', users_auth_repo.repo_name)
   # fetch the latest commit or clone the repository without checkout
   # do not merge before targets are validated as well
-  if users_auth_repo.is_git_repository:
+  if users_auth_repo.is_git_repository_root:
     users_auth_repo.fetch(True)
   else:
     users_auth_repo.clone(no_checkout=True)
@@ -158,7 +158,7 @@ def _update_target_repositories(repositories, repositories_commits):
   # so that they can be removed if the update fails
   cloned_repositories = []
   for path, repository in repositories.items():
-    if not repository.is_git_repository:
+    if not repository.is_git_repository_root:
       old_head = None
     else:
       old_head = repository.head_commit_sha()

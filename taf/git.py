@@ -22,12 +22,21 @@ class GitRepository(object):
       additional_info: a dictionary containing other data (optional)
     """
     self.repo_path = repo_path
-    if repo_urls is not None and settings.update_from_filesystem is False:
-      for url in repo_urls:
-        _validate_url(url)
+    if repo_urls is not None:
+      if settings.update_from_filesystem is False:
+        for url in repo_urls:
+          _validate_url(url)
+      else:
+        repo_urls = [str((Path(repo_path) / url).resolve()) if
+        not os.path.isabs(url) else url
+        for url in repo_urls]
     self.repo_urls = repo_urls
     self.additional_info = additional_info
     self.repo_name = os.path.basename(self.repo_path)
+
+  @property
+  def is_git_repository_root(self):
+    return (Path(self.repo_path) / '.git').is_dir()
 
   @property
   def is_git_repository(self):
@@ -125,9 +134,6 @@ class GitRepository(object):
       params = '--no-checkout'
     for url in self.repo_urls:
       try:
-        if from_filesystem:
-          url = url.replace('/', os.sep)
-
         self._git('clone {} . {}', url, params, log_success_msg='successfully cloned')
       except subprocess.CalledProcessError:
         logger.error('Repo %s: cannot clone from url %s', self.repo_name, url)

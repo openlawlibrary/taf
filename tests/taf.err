@@ -1,0 +1,204 @@
+[2019-06-13 14:10:32,505] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 14:10:32,565] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92 due to error targets/repositories.json not available at revision 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92
+
+[2019-06-13 14:36:07,663] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 14:36:07,718] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92 due to error targets/repositories.json not available at revision 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92
+
+[2019-06-13 14:37:11,101] [ERROR] [_git:64@git.py]
+Repo auth_repo: error occurred while executing git -C E:\OLL2\taf\tests\data\client\organization\auth_repo checkout master:
+error: Your local changes to the following files would be overwritten by checkout:
+	tests/conftest.py
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/index
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/logs/HEAD
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/repo1_file1.txt
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/repo1_file2.txt
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/index
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/logs/HEAD
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/repo2_file2.txt
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/index
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/logs/HEAD
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/repo3_file2.txt
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/COMMIT_EDITMSG
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/index
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/logs/HEAD
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/refs/heads/master
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/1.root.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/root.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/snapshot.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/targets.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/timestamp.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/targets/repositories.json
+	tests/taf.err
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+
+[2019-06-13 14:38:34,021] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 14:38:34,067] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92 due to error targets/repositories.json not available at revision 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92
+
+[2019-06-13 14:43:58,992] [ERROR] [_git:64@git.py]
+Repo auth_repo: error occurred while executing git -C E:\OLL2\taf\tests\data\client\organization\auth_repo checkout master:
+error: Your local changes to the following files would be overwritten by checkout:
+	tests/conftest.py
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/index
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/logs/HEAD
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/git/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/repo1_file1.txt
+	tests/data/repos/test-updater-valid/namespace/TargetRepo1/repo1_file2.txt
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/index
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/logs/HEAD
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/git/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo2/repo2_file2.txt
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/index
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/logs/HEAD
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/git/refs/heads/master
+	tests/data/repos/test-updater-valid/namespace/TargetRepo3/repo3_file2.txt
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/COMMIT_EDITMSG
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/index
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/logs/HEAD
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/logs/refs/heads/master
+	tests/data/repos/test-updater-valid/organization/auth_repo/git/refs/heads/master
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/1.root.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/root.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/snapshot.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/targets.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/metadata/timestamp.json
+	tests/data/repos/test-updater-valid/organization/auth_repo/targets/repositories.json
+	tests/taf.err
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+
+[2019-06-13 14:54:43,222] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 14:58:52,614] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 15:16:45,425] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 15:16:45,810] [ERROR] [clone:137@git.py]
+Repo namespace/TargetRepo1: cannot clone from url ..\..\origin\test_updater_valid\namespace\TargetRepo1
+
+[2019-06-13 15:17:06,459] [ERROR] [_update_target_repository:214@updater.py]
+Mismatch between target commits specified in authentication repository and the target repository namespace/TargetRepo1
+
+[2019-06-13 15:19:32,001] [ERROR] [_init_commits:167@handlers.py]
+Saved last validated commit None does not match the head commit of the
+authentication repository 9bd5b3fd98835ee3d791d7c13596dc06e3cb8e92
+
+[2019-06-13 16:02:39,291] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 16:03:43,754] [ERROR] [clone:137@git.py]
+Repo namespace/TargetRepo1: cannot clone from url ..\..\origin\test_updater_valid\namespace\TargetRepo1
+
+[2019-06-13 16:13:54,241] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit e70fd650e9375f66c5763b12b72f936ebf786d36 due to error targets/repositories.json not available at revision e70fd650e9375f66c5763b12b72f936ebf786d36
+
+[2019-06-13 16:14:07,531] [ERROR] [clone:137@git.py]
+Repo namespace/TargetRepo1: cannot clone from url ..\..\origin\test_updater_valid\namespace\TargetRepo1
+
+[2019-06-13 16:15:13,913] [ERROR] [_update_target_repository:195@updater.py]
+Mismatch between target commits specified in authentication repository and the target repository namespace/TargetRepo1
+
+[2019-06-13 16:25:58,682] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 16:26:44,605] [ERROR] [clone:137@git.py]
+Repo namespace/TargetRepo1: cannot clone from url ..\..\..\test_updater_valid\namespace\TargetRepo1
+
+[2019-06-13 16:28:04,522] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 16:39:21,090] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 16:44:10,767] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 16:45:17,244] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 16:45:41,088] [ERROR] [clone:141@git.py]
+Repo namespace/TargetRepo1: cannot clone from url E:\OLL2\taf\tests\data\client\namespace\TargetRepo1\..\..\..\test_updater_valid\namespace\TargetRepo1
+
+[2019-06-13 16:45:42,881] [ERROR] [_update_target_repository:195@updater.py]
+Mismatch between target commits specified in authentication repository and the target repository namespace/TargetRepo1
+
+[2019-06-13 16:54:46,775] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 17:05:23,026] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 5b8cd06bcf46e8c6aa548f827954057f4070c1b2 due to error targets/repositories.json not available at revision 5b8cd06bcf46e8c6aa548f827954057f4070c1b2
+
+[2019-06-13 17:14:54,731] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 6073f0bbdea782472d3cd28ae3ae9695b3155034 due to error targets/repositories.json not available at revision 6073f0bbdea782472d3cd28ae3ae9695b3155034
+
+[2019-06-13 17:17:00,342] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 6073f0bbdea782472d3cd28ae3ae9695b3155034 due to error targets/repositories.json not available at revision 6073f0bbdea782472d3cd28ae3ae9695b3155034
+
+[2019-06-13 17:17:56,703] [ERROR] [_init_commits:167@handlers.py]
+Saved last validated commit None does not match the head commit of the
+authentication repository 678f030a59d13983daa7fd2ad82ccb73a9bcbda0
+
+[2019-06-13 17:18:25,551] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 6073f0bbdea782472d3cd28ae3ae9695b3155034 due to error targets/repositories.json not available at revision 6073f0bbdea782472d3cd28ae3ae9695b3155034
+
+[2019-06-13 17:18:52,326] [ERROR] [clone:137@git.py]
+Repo namespace/TargetRepo1: cannot clone from url E:\OLL2\taf\tests\data\repos\origin\namespace\TargetRepo1
+
+[2019-06-13 17:18:53,130] [ERROR] [_update_target_repository:195@updater.py]
+Mismatch between target commits specified in authentication repository and the target repository namespace/TargetRepo1
+
+[2019-06-13 17:19:42,709] [ERROR] [_init_commits:167@handlers.py]
+Saved last validated commit None does not match the head commit of the
+authentication repository 678f030a59d13983daa7fd2ad82ccb73a9bcbda0
+
+[2019-06-13 17:19:59,213] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 6073f0bbdea782472d3cd28ae3ae9695b3155034 due to error targets/repositories.json not available at revision 6073f0bbdea782472d3cd28ae3ae9695b3155034
+
+[2019-06-13 17:24:47,959] [ERROR] [clone:137@git.py]
+Repo namespace/TargetRepo1: cannot clone from url E:\OLL2\taf\tests\data\repos\origin\namespace\TargetRepo1
+
+[2019-06-13 17:24:48,627] [ERROR] [_update_target_repository:195@updater.py]
+Mismatch between target commits specified in authentication repository and the target repository namespace/TargetRepo1
+
+[2019-06-13 17:25:12,132] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-13 17:45:37,068] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-13 17:49:16,345] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-13 17:50:23,665] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-13 17:51:19,913] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-13 17:51:50,130] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+

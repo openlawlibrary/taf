@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import stat
 import subprocess
 import taf.settings
 
@@ -53,6 +54,13 @@ def normalize_file_line_endings(file_path):
     with open(file_path, 'wb') as open_file:
       open_file.write(replaced_content)
 
+
+def on_rm_error(func, path, exc_info):
+  """Used by when calling rmtree to ensure that readonly files and folders
+  are deleted.
+  """
+  os.chmod(path, stat.S_IWRITE)
+  os.unlink(path)
 
 def to_tuf_datetime_format(start_date, interval):
   """Used to convert datetime to format used while writing metadata:

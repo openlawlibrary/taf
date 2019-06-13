@@ -2,17 +2,17 @@
     "repositories": {
         "namespace/TargetRepo1": {
             "urls": [
-                "namespace/TargetRepo1"
+                "../../../origin/test-updater-valid/namespace/TargetRepo1"
             ]
         },
         "namespace/TargetRepo2": {
             "urls": [
-                "namespace/TargetRepo2"
+                "../../../origin/test-updater-valid/namespace/TargetRepo2"
             ]
         },
         "namespace/TargetRepo3": {
             "urls": [
-                "namespace/TargetRepo3"
+                "../../../origin/test-updater-valid/namespace/TargetRepo3"
             ]
         }
     }
