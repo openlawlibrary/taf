@@ -37,7 +37,8 @@ def origin_repos(test_name):
      if dir_name == 'git':
       repo_rel_path = os.path.relpath(root, test_dir_path)
       dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
-      shutil.copytree(root, dst_path)
+      # convert dst_path to string in order to support python 3.5
+      shutil.copytree(root, str(dst_path))
       (dst_path / 'git').rename(dst_path / '.git')
       repo_rel_path = Path(repo_rel_path).as_posix()
       temp_paths[repo_rel_path] = str(dst_path)
@@ -69,6 +70,10 @@ def updater_valid_test_repositories():
 @fixture
 def client_dir():
   return CLIENT_DIR_PATH
+
+@fixture
+def origin_dir():
+  return TEST_DATA_ORIGIN_PATH
 
 @fixture
 def keystore():
