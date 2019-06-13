@@ -55,7 +55,7 @@ def normalize_file_line_endings(file_path):
       open_file.write(replaced_content)
 
 
-def on_rm_error(func, path, exc_info):
+def on_rm_error(_func, path, _exc_info):
   """Used by when calling rmtree to ensure that readonly files and folders
   are deleted.
   """
