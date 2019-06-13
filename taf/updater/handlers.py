@@ -100,7 +100,7 @@ class GitUpdater(handlers.MetadataUpdater):
     self._clone_validation_repo(auth_url)
     repository_directory = self.users_auth_repo.repo_path
     if os.path.exists(repository_directory):
-      if not self.users_auth_repo.is_git_repository:
+      if not self.users_auth_repo.is_git_repository_root:
         if os.listdir(repository_directory):
           raise UpdateFailedError('{} is not a git repository and is not empty'
                                   .format(repository_directory))
@@ -147,7 +147,7 @@ class GitUpdater(handlers.MetadataUpdater):
     # That should always be the case
     # If it is not, it means that someone, accidentally or maliciosly made manual changes
 
-    if not self.users_auth_repo.is_git_repository:
+    if not self.users_auth_repo.is_git_repository_root:
       users_head_sha = None
     else:
       self.users_auth_repo.checkout_branch('master')
