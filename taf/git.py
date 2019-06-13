@@ -3,11 +3,13 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path
-
 import taf.settings as settings
+import taf.log
+from pathlib import Path
 from taf.exceptions import InvalidRepositoryError
 from taf.utils import run
+
+logger = taf.log.get_logger(__name__)
 
 
 class GitRepository(object):
@@ -19,7 +21,6 @@ class GitRepository(object):
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
     """
-
     self.repo_path = repo_path
     if repo_urls is not None and settings.update_from_filesystem is False:
       for url in repo_urls:
@@ -36,15 +37,38 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       return False
 
-  def _git(self, cmd, *args):
+  def _git(self, cmd, *args, **kwargs):
     """Call git commands in subprocess
-
-    E.G.:
+    e.g.:
       self._git('checkout {}', branch_name)
     """
+    log_error = kwargs.pop('log_error', False)
+    log_error_msg = kwargs.pop('log_error_msg', '')
+    reraise_error = kwargs.pop('reraise_error', False)
+    log_success_msg = kwargs.pop('log_success_msg', '')
+
     if len(args):
       cmd = cmd.format(*args)
-    return run('git -C {} {}'.format(self.repo_path, cmd))
+    command = 'git -C {} {}'.format(self.repo_path, cmd)
+
+    if log_error or log_error_msg:
+      try:
+        result = run(command)
+        if log_success_msg:
+          logger.debug('Repo %s:' + log_success_msg, self.repo_name)
+      except subprocess.CalledProcessError as e:
+        if log_error_msg:
+          logger.error(log_error_msg)
+        else:
+          logger.error('Repo %s: error occurred while executing %s:\n%s',
+                        self.repo_name, command, e.output)
+        if reraise_error:
+          raise
+    else:
+      result = run(command)
+      if log_success_msg:
+        logger.debug('Repo %s: ' + log_success_msg, self.repo_name)
+    return result
 
   def all_commits_since_commit(self, since_commit):
     if since_commit is not None:
@@ -52,17 +76,26 @@ class GitRepository(object):
     else:
       commits = self._git('log --format=format:%H').strip()
     if not commits:
-      return []
-    commits = commits.split('\n')
-    commits.reverse()
+      commits = []
+    else:
+      commits = commits.split('\n')
+      commits.reverse()
+
+    if since_commit is not None:
+      logger.debug('Repo %s: found the following commits after commit %s: %s', self.repo_name,
+                   since_commit, ', '.join(commits))
+    else:
+      logger.debug('Repo %s: found the following commits: %s', self.repo_name, ', '.join(commits))
     return commits
 
   def all_fetched_commits(self, branch='master'):
     commits = self._git('rev-list ..origin/{}', branch).strip()
     if not commits:
-      return []
-    commits = commits.split('\n')
-    commits.reverse()
+      commits = []
+    else:
+      commits = commits.split('\n')
+      commits.reverse()
+    logger.debug('Repo %s: fetched the following commits %s', self.repo_name, ', '.join(commits))
     return commits
 
   def checkout_branch(self, branch_name, create=False):
@@ -71,7 +104,8 @@ class GitRepository(object):
     If the branch does not exist and create is set to False,
     raise an exception."""
     try:
-      self._git('checkout {}', branch_name)
+      self._git('checkout {}', branch_name, log_error=True, reraise_error=True,
+                log_success_msg='checked out branch {}'.format(branch_name))
     except subprocess.CalledProcessError as e:
       if create:
         self.create_and_checkout_branch(branch_name)
@@ -94,14 +128,15 @@ class GitRepository(object):
         if from_filesystem:
           url = url.replace('/', os.sep)
 
-        self._git('clone {} . {}', url, params)
+        self._git('clone {} . {}', url, params, log_success_msg='successfully cloned')
       except subprocess.CalledProcessError:
-        print('Cannot clone repository {} from url {}'.format(self.repo_name, url))
+        logger.error('Repo %s: cannot clone from url %s', self.repo_name, url)
       else:
         break
 
   def create_and_checkout_branch(self, branch_name):
-    self._git('checkout -b {}', branch_name)
+    self._git('checkout -b {}', branch_name,  log_success_msg='created and checked out branch {}'.
+              format(branch_name, log_error=True, reraise_error=True))
 
   def commit(self, message):
     """Create a commit with the provided message
@@ -120,12 +155,14 @@ class GitRepository(object):
     on a speculative branch and not on the master branch.
     """
 
+    logger.debug('Repo %s: finding commits which are on branch %s, but not on branch %s',
+                 self.repo_name, branch1, branch2)
     commits = self._git('log {} --not {} --no-merges --format=format:%H', branch1, branch2)
     commits = commits.split('\n') if commits else []
     if include_branching_commit:
       branching_commit = self._git('rev-list -n 1 {}~1', commits[-1])
       commits.append(branching_commit)
-
+    logger.debug('Repo %s: found the following commits: %s', self.repo_name, commits)
     return commits
 
   def get_commits_date(self, commit):
@@ -212,6 +249,7 @@ def _get_repo_path(root_dir, repo_name):
   _validate_repo_name(repo_name)
   repo_dir = str((Path(root_dir) / (repo_name or '')))
   if not repo_dir.startswith(repo_dir):
+    logger.error('Repo %s: repository name is not valid', repo_name)
     raise InvalidRepositoryError('Invalid repository name: {}'.format(repo_name))
   return repo_dir
 
@@ -223,6 +261,7 @@ def _validate_repo_name(repo_name):
   """ Ensure the repo name is not malicious """
   match = _repo_name_re.match(repo_name)
   if not match:
+    logger.error('Repo %s: repository name is not valid', repo_name)
     raise InvalidRepositoryError('Repository name must be in format namespace/repository '
                                  'and can only contain letters, numbers, underscores and '
                                  'dashes, but got "{}"'.format(repo_name))
@@ -242,4 +281,5 @@ def _validate_url(url):
   """ ensure valid URL """
   match = _url_re.match(url)
   if not match:
-    raise InvalidRepositoryError('Repository url must be a valid URL, but got "{}".'.format(url))
+    logger.error('Repository URL (%s) is not valid', url)
+    raise InvalidRepositoryError('Repository URL must be a valid URL, but got "{}".'.format(url))

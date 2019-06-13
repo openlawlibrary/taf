@@ -1,18 +1,14 @@
-
-import json
 import shutil
-import traceback
 import tuf
 import os
 import tuf.client.updater as tuf_updater
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
-
-from subprocess import CalledProcessError
-from collections import defaultdict
+import taf.log
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 
+logger = taf.log.get_logger(__name__)
 
 def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem):
   """
@@ -99,84 +95,55 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
   commits = repository_updater.update_handler.commits
   repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
   repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
-  repositories_commits = sorted_commits_per_repositories(users_auth_repo, commits,
-                                                         'metadata', 'targets')
+  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
 
   # update target repositories
   _update_target_repositories(repositories, repositories_commits)
 
+  last_commit = commits[-1]
+  logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
   # if there were no errors, merge the last validated authentication repository commit
-  users_auth_repo.merge_commit(commits[-1])
+  users_auth_repo.merge_commit(last_commit)
   users_auth_repo.checkout_branch('master')
+  # update the last validated commit
+  users_auth_repo.set_last_validated_commit(last_commit)
 
-
-def sorted_commits_per_repositories(repo, commits, metadata_dir, targets_dir):
-  """Create a list of of subsequent commits per repository
-  keeping in mind that targets metadata file is not updated
-  everytime something is committed to the authentication repo
-  """
-  repositories_commits = defaultdict(list)
-  targets = _target_commits_at_revisions(repo, commits, metadata_dir, targets_dir)
-  previous_commits = {}
-  for commit in commits:
-    for target_path, target_commit in targets[commit].items():
-      previous_commit = previous_commits.get(target_path)
-      if previous_commit is None or target_commit != previous_commit:
-        repositories_commits[target_path].append(target_commit)
-      previous_commits[target_path] = target_commit
-  return repositories_commits
-
-def _target_commits_at_revisions(repo, commits, metadata_dir, targets_dir):
-  targets = defaultdict(dict)
-  for commit in commits:
-    try:
-      targets_at_revision = \
-          repo.get_json(commit, metadata_dir + '/targets.json')['signed']['targets']
-      repositories_at_revision = \
-          repo.get_json(commit, targets_dir + '/repositories.json')['repositories']
-      for target_path in targets_at_revision:
-        try:
-          if target_path not in repositories_at_revision:
-            # we only care about repositories
-            continue
-          target_commit = \
-              repo.get_json(commit, targets_dir + '/' + target_path).get('commit')
-          targets[commit][target_path] = target_commit
-        except json.decoder.JSONDecodeError:
-          print('Target file {} is not a valid json at revision.  {}'.format(target_path, commit))
-          continue
-    except (CalledProcessError, json.decoder.JSONDecodeError):
-      # if there is a commit without targets.json or repositories.json (e.g. the initial commit)
-      # an error will occur
-      continue
-  return targets
 
 def _update_authentication_repository(repository_updater):
 
   users_auth_repo = repository_updater.update_handler.users_auth_repo
+  logger.info('Validating authentication repository %s', users_auth_repo.repo_name)
   try:
     while not repository_updater.update_handler.update_done():
+      current_commit = repository_updater.update_handler.current_commit
       repository_updater.refresh()
       # using refresh, we have updated all main roles
       # we still need to update the delegated roles (if there are any)
       # that is handled by get_current_targets
       current_targets = repository_updater.update_handler.get_current_targets()
+      logger.debug('Validated metadata files at revision %s', current_commit)
       for target_path in current_targets:
         target = repository_updater.get_one_valid_targetinfo(target_path)
         target_filepath = target['filepath']
         trusted_length = target['fileinfo']['length']
         trusted_hashes = target['fileinfo']['hashes']
-        repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
-        print('Successfully validated file {} at {}'
-              .format(target_filepath, repository_updater.update_handler.current_commit))
+        try:
+          repository_updater._get_target_file(target_filepath, trusted_length, trusted_hashes)  # pylint: disable=W0212 # noqa
+        except tuf.exceptions.NoWorkingMirrorError as e:
+          logger.error('Could not validate file %s', target_filepath)
+          raise e
+        logger.debug('Successfully validated target file %s at %s', target_filepath,
+                     current_commit)
   except Exception as e:
     # for now, useful for debugging
-    traceback.print_exc()
-    raise UpdateFailedError('Failed to update authentication repository {} due to error: {}'
-                            .format(users_auth_repo.repo_path, e))
+    logger.error('Validation of authentication repository %s failed due to error %s',
+                 users_auth_repo.repo_name,  e)
+    raise UpdateFailedError('Validation of authentication repository {} due to error: {}'
+                            .format(users_auth_repo.repo_name, e))
   finally:
     repository_updater.update_handler.cleanup()
 
+  logger.info('Successfully validated authentication repository %s', users_auth_repo.repo_name)
   # fetch the latest commit or clone the repository without checkout
   # do not merge before targets are validated as well
   if users_auth_repo.is_git_repository:
@@ -186,6 +153,9 @@ def _update_authentication_repository(repository_updater):
 
 
 def _update_target_repositories(repositories, repositories_commits):
+  logger.info('Validating target repositories')
+  # keep track of the repositories which were cloned
+  # so that they can be removed if the update fails
   cloned_repositories = []
   for path, repository in repositories.items():
     if not repository.is_git_repository:
@@ -204,18 +174,23 @@ def _update_target_repositories(repositories, repositories_commits):
     except UpdateFailedError as e:
       # delete all repositories that were cloned
       for repo in cloned_repositories:
+        logger.debug('Removing cloned repository %s', repo.repo_path)
         shutil.rmtree(repo.repo_path)
       # TODO is it important to undo a fetch if the repository was not cloned?
       raise e
 
+  logger.info('Successfully validated all target repositories.')
   # if update is successful, merge the commits
   for path, repository in repositories.items():
     repository.checkout_branch('master')
-    repository.merge_commit(repositories_commits[path][-1])
+    if len(repositories_commits[path]):
+      logger.info('Merging %s into %s', repositories_commits[path][-1], repository.repo_name)
+      repository.merge_commit(repositories_commits[path][-1])
 
 
 def _update_target_repository(repository, old_head, target_commits):
 
+  logger.info('Validating target repository %s', repository.repo_name)
   if old_head is not None:
     new_commits = repository.all_fetched_commits()
     new_commits.insert(0, old_head)
@@ -223,6 +198,9 @@ def _update_target_repository(repository, old_head, target_commits):
     new_commits = repository.all_commits_since_commit(old_head)
   # A new commit might have been pushed after the update process
   # started and before fetch was called
+  # So, the number of new commits, pushed to the target repository, could
+  # be greater than the number of these commits according to the authentication
+  # repository. The opposite cannot be the case.
   update_successful = len(new_commits) >= len(target_commits)
   if update_successful:
     for target_commit, repo_commit in zip(target_commits, new_commits):
@@ -231,6 +209,8 @@ def _update_target_repository(repository, old_head, target_commits):
         break
 
   if not update_successful:
+    logger.error('Mismatch between target commits specified in authentication repository and the '
+                 'target repository %s', repository.repo_name)
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
                             ' and target repository {}'.format(repository.repo_name))
-  print('Successfully updated {}'.format(repository.repo_name))
+  logger.info('Successfully validated %s', repository.repo_name)
