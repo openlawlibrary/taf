@@ -246,7 +246,7 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
 
   if len(found_repos):
     logger.debug('Auth repo %s: found the following repositories %s', auth_repo.repo_name,
-                 ', '.join(repositories.keys()))
+                 repositories)
     return found_repos
   logger.error('Auth repo %s: repositories associated with custom data %s not found',
                auth_repo.repo_name, custom_data)
