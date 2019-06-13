@@ -18,8 +18,7 @@ def test_update_no_client_repo(updater_valid_test_repositories, origin_dir, clie
   clients_auth_repo_path = client_dir / 'organization/auth_repo'
   targets_dir = client_dir
   origin_auth_repo_path = updater_valid_test_repositories['organization/auth_repo']
-  targets_dir = str(client_dir)
-  update_repository(origin_auth_repo_path, clients_auth_repo_path, targets_dir, True)
+  update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True)
   origin_dir = origin_dir / 'test-updater-valid'
   _check_if_commits_match(updater_valid_test_repositories, origin_dir, client_dir)
 

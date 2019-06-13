@@ -28,8 +28,8 @@ class GitRepository(object):
           _validate_url(url)
       else:
         repo_urls = [str((Path(repo_path) / url).resolve()) if
-        not os.path.isabs(url) else url
-        for url in repo_urls]
+                     not os.path.isabs(url) else url
+                     for url in repo_urls]
     self.repo_urls = repo_urls
     self.additional_info = additional_info
     self.repo_name = os.path.basename(self.repo_path)
@@ -121,7 +121,7 @@ class GitRepository(object):
       else:
         raise(e)
 
-  def clone(self, no_checkout=False, from_filesystem=True, bare=False):
+  def clone(self, no_checkout=False, bare=False):
 
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
