@@ -4,3 +4,6 @@
 	bare = false
 	logallrefupdates = true
 	ignorecase = true
+[gui]
+	wmstate = normal
+	geometry = 1322x693+228+228 254 315

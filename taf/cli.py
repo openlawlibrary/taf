@@ -12,26 +12,26 @@ def cli():
 
 
 @cli.command()
-@click.option('--repo-path', default='repository', help='Authentication repository\'s path')
+@click.option('--repo-location', default='repository', help='Authentication repository\'s path')
 @click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
 @click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
-@click.option('--keystore', default='keystore', help='Path of the keystore file')
+@click.option('--keystore-location', default='keystore', help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 @click.option('--update-all', is_flag=True, default=True, help='Update snapshot and timestamp')
 @click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
-def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore, keys_description,
-                update_all, commit_msg):
-  if not os.path.exists(keystore) and (update_all or not(targets_key_slot and targets_key_pin)):
+def add_targets(repo_location, targets_key_slot, targets_key_pin, keystore_location,
+                keys_description, update_all, commit_msg):
+  if not os.path.exists(keystore_location) and (update_all or not(targets_key_slot and targets_key_pin)):
     click.echo('\nError: Keystore must be provided and exist on disk if update_all is True or '
                'if the targets key should be loaded from the file system')
     return
   if os.path.isfile(keys_description):
     with open(keys_description) as f:
       keys_description = json.loads(f.read())
-  developer_tool.register_target_files(repo_path, keystore, keys_description, targets_key_slot,
-                                       targets_key_pin, update_all, commit_msg)
+  developer_tool.register_target_files(repo_location, keystore_location, keys_description,
+                                       targets_key_slot, targets_key_pin, update_all, commit_msg)
 
 
 @cli.command()
