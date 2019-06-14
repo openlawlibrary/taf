@@ -236,6 +236,14 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       self._git('--set-upstream origin {}', branch).strip()
 
+  def reset_num_of_commits(self, num_of_commits, hard=False):
+    flag = '--hard' if hard else '--soft'
+    self._git('reset {} HEAD~{}'.format(flag, num_of_commits))
+
+  def reset_to_commit(self, commit, hard=False):
+    flag = '--hard' if hard else '--soft'
+    self._git('reset {} {}'.format(flag, commit))
+
 
 class NamedGitRepository(GitRepository):
 
