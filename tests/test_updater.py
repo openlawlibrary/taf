@@ -77,8 +77,8 @@ def _clone_and_revert_client_repositories(repositories, origin_dir, client_dir, 
 
 
 def _clone_client_repo(repository_rel_path, origin_dir, client_dir):
-  origin_repo_path = origin_dir / repository_rel_path
-  client_repo_path = client_dir / repository_rel_path
+  origin_repo_path = str(origin_dir / repository_rel_path)
+  client_repo_path = str(client_dir / repository_rel_path)
   client_repo = GitRepository(client_repo_path, [origin_repo_path])
   client_repo.clone()
   return client_repo
