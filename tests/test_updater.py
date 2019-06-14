@@ -2,6 +2,7 @@ import shutil
 import os
 from pathlib import Path
 from taf.git import GitRepository, NamedGitRepository
+from taf.updater.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository, update_named_repository
 from pytest import fixture
 from taf.utils import on_rm_error
@@ -20,6 +21,7 @@ def test_valid_update_no_client_repo(updater_valid_test_repositories, origin_dir
   update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True)
   origin_dir = origin_dir / 'test-updater-valid'
   _check_if_commits_match(updater_valid_test_repositories, origin_dir, client_dir)
+  _chekc_last_validated_commit(clients_auth_repo_path)
 
 
 def test_valid_update_existing_client_repo(updater_valid_test_repositories, origin_dir, client_dir):
@@ -35,7 +37,15 @@ def test_valid_update_existing_client_repo(updater_valid_test_repositories, orig
   origin_auth_repo_path = updater_valid_test_repositories['organization/auth_repo']
   update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True)
   _check_if_commits_match(updater_valid_test_repositories, origin_dir, client_dir, start_head_shas)
+  _chekc_last_validated_commit(clients_auth_repo_path)
 
+
+def _chekc_last_validated_commit(clients_auth_repo_path):
+  # check if last validated commit is created and the saved commit is correct
+  client_auth_repo = AuthenticationRepo(str(clients_auth_repo_path), 'metadata', 'targets')
+  head_sha = client_auth_repo.head_commit_sha()
+  last_validated_commit = client_auth_repo.last_validated_commit
+  assert head_sha == last_validated_commit
 
 def _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas=None):
   for repository_rel_path in repositories:
