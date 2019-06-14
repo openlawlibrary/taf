@@ -27,7 +27,10 @@ class GitRepository(object):
         for url in repo_urls:
           _validate_url(url)
       else:
-        repo_urls = [str((Path(repo_path) / url).resolve()) if
+        print('resolving urls')
+        print('Repo ' + repo_path)
+        print('URL: ' + repo_urls[0])
+        repo_urls = [os.path.normpath(os.path.join(repo_path, url)) if
                      not os.path.isabs(url) else url
                      for url in repo_urls]
     self.repo_urls = repo_urls

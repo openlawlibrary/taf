@@ -208,3 +208,15 @@ Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/re
 [2019-06-13 20:36:03,429] [WARNING] [load_repositories:81@repositoriesdb.py]
 Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
 
+[2019-06-14 10:28:47,069] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-14 10:47:32,201] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-14 10:48:15,077] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
+[2019-06-14 11:31:41,132] [WARNING] [load_repositories:81@repositoriesdb.py]
+Skipping commit 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7 due to error targets/repositories.json not available at revision 491e5c80e0e1b6aa76b212cbd3f8e533f3dac9f7
+
