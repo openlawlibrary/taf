@@ -380,10 +380,10 @@ class Repository:
     """
     try:
       from tuf.keydb import get_key
+      signable = None
+
       role_obj = self._role_obj(role)
       key = get_key(role_obj.keys[0])
-
-      signable = None
 
       def _provider(data):
         nonlocal signable
