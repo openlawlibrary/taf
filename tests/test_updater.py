@@ -19,30 +19,37 @@ def run_around_tests(client_dir):
         shutil.rmtree(str(Path(root) / dir_name), onerror=on_rm_error)
 
 
-def test_valid_update_no_client_repo(updater_valid_test_repositories, origin_dir, client_dir):
+@pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-additional-target-commit'])
+def test_valid_update_no_client_repo(test_name, updater_repositories, origin_dir, client_dir):
+  updater_valid_test_repositories = updater_repositories[test_name]
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
   origin_auth_repo_path = updater_valid_test_repositories[AUTH_REPO_REL_PATH]
   update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True)
-  origin_dir = origin_dir / 'test-updater-valid'
+  origin_dir = origin_dir / test_name
   _check_if_commits_match(updater_valid_test_repositories, origin_dir, client_dir)
   _chekc_last_validated_commit(clients_auth_repo_path)
 
 
-def test_valid_update_existing_client_repos(updater_valid_test_repositories, origin_dir, client_dir):
+@pytest.mark.parametrize('test_name, num_of_commits_to_revert', [('test-updater-valid', 3),
+                         ('test-updater-additional-target-commit', 1)])
+def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
+                                            updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
   # revert them to an older commit
-  origin_dir = origin_dir / 'test-updater-valid'
+  updater_valid_test_repositories = updater_repositories[test_name]
+  origin_dir = origin_dir / test_name
   client_repos = _clone_and_revert_client_repositories(updater_valid_test_repositories,
-                                                       origin_dir, client_dir, 3)
+                                                       origin_dir, client_dir, num_of_commits_to_revert)
   # create valid last validated commit file
   _create_last_validated_commit(client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha())
   _update_and_check_commit_shas(client_repos, updater_valid_test_repositories, origin_dir,
                                 client_dir)
 
 
-def test_no_update_necessary(updater_valid_test_repositories, origin_dir, client_dir):
+def test_no_update_necessary(updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
   # revert them to an older commit
+  updater_valid_test_repositories = updater_repositories['test-updater-valid']
   origin_dir = origin_dir / 'test-updater-valid'
   client_repos = _clone_client_repositories(updater_valid_test_repositories,
                                             origin_dir, client_dir)
@@ -52,17 +59,21 @@ def test_no_update_necessary(updater_valid_test_repositories, origin_dir, client
                                 client_dir)
 
 
-def test_updater_invalid_target_sha_no_client_repos(updater_invalid_target_sha_repositories,
+@pytest.mark.parametrize('test_name', ['test-updater-invalid-target-sha', 'test-updater-missing-target-commit'])
+def test_updater_invalid_target_sha_no_client_repos(test_name, updater_repositories,
                                                     origin_dir, client_dir):
+  updater_invalid_target_sha_repositories = updater_repositories[test_name]
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
   origin_auth_repo_path = updater_invalid_target_sha_repositories[AUTH_REPO_REL_PATH]
   expected_error = 'Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1'
   _update_invalid_repos_and_check_if_repos_exist(client_dir, updater_invalid_target_sha_repositories,
                                                  expected_error)
 
-def test_updater_invalid_target_sha_existing_client_repos(updater_invalid_target_sha_repositories,
-                                                          origin_dir, client_dir):
 
+@pytest.mark.parametrize('test_name', ['test-updater-invalid-target-sha', 'test-updater-missing-target-commit'])
+def test_updater_invalid_target_sha_existing_client_repos(test_name, updater_repositories,
+                                                          origin_dir, client_dir):
+  updater_invalid_target_sha_repositories = updater_repositories[test_name]
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
   origin_dir = origin_dir / 'test-updater-invalid-target-sha'
   origin_auth_repo_path = updater_invalid_target_sha_repositories[AUTH_REPO_REL_PATH]

@@ -203,12 +203,21 @@ def _update_target_repository(repository, old_head, target_commits):
   # So, the number of new commits, pushed to the target repository, could
   # be greater than the number of these commits according to the authentication
   # repository. The opposite cannot be the case.
+  # In general, if there are additional commits in the target repositories,
+  # the updater will finish the update successfully, but will only update the
+  # target repositories until the latest validate commit
   update_successful = len(new_commits) >= len(target_commits)
   if update_successful:
     for target_commit, repo_commit in zip(target_commits, new_commits):
       if target_commit != repo_commit:
         update_successful = False
         break
+  if len(new_commits) > len(target_commits):
+    additional_commits = new_commits[len(target_commits):]
+    logger.warning('Found commits {} in repository {} that are not accounted for in the authentication repo.'
+                   'Reoisitory will be updated up to commit {}', additional_commits,  repository.repo_name,
+                    new_commits[-1])
+
 
   if not update_successful:
     logger.error('Mismatch between target commits specified in authentication repository and the '

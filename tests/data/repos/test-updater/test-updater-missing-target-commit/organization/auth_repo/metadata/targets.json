@@ -1,0 +1,48 @@
+{
+ "signatures": [
+  {
+   "keyid": "d36f105af5bdb063d1005ee254e7e236b8dc116097a6dd78a22111b1d429533f",
+   "sig": "1b58de31e2e25d0e69af46497f9c9e831040df7b7624476562b2db8a5eca4bd1b870f50388432c1f1387f736aeaa1992ee209076ed360a4b619139599fadf205e460caad7b68ecb922b7444f111cc47f182f34e38c19b14ba88060f1cc51056af8f5b9396e0e7c676dac273ca74c21c70503d969f06f3b8155e89f63087b666b289c4b92ab4a44175c271a9816850bd0c54a90cc440c50ce034a713a0d815777f37e22f955f44cf8eba33e645c6a4c7acf7f239e053024d94d442e6cf1beb12aad7a84fcb6175b42920bcec7229abcfbab15702d6447cfd8a193da372217d4b717852f26158f9c34bc824e9f3a2b667e1c889ca4c761b60834f82a3457292848"
+  }
+ ],
+ "signed": {
+  "_type": "targets",
+  "delegations": {
+   "keys": {},
+   "roles": []
+  },
+  "expires": "2019-09-15T16:51:12Z",
+  "spec_version": "1.0",
+  "targets": {
+   "namespace/TargetRepo1": {
+    "hashes": {
+     "sha256": "ceea7ba3c549edb71e34fdb0235aba628699cb0cceae7c019679c10ef7a6c2a7",
+     "sha512": "b76d1c5701262952b63ecd291f4602b5d14707125da169e2c4989de9b016dbe089a02c3749763776d2738cdd460052a0875c5bcd701cd4cb21747437df4cabdd"
+    },
+    "length": 60
+   },
+   "namespace/TargetRepo2": {
+    "hashes": {
+     "sha256": "ff212d857205fa69f077ad7f17fc6b64a161737d3d7fcc54dbad2287e09d1595",
+     "sha512": "853258bdfd0bccaf0cec77160189beb00e9352048721081bf4420d378a11a87339136cc5412ae2c7d70d3a7def273c5428bcaf5258e0a77c699f7b8c14e5f14e"
+    },
+    "length": 60
+   },
+   "namespace/TargetRepo3": {
+    "hashes": {
+     "sha256": "ff09e0cb07241086fea7a471c4cb69471cf728cb858ab5bdb55e383365686e83",
+     "sha512": "8c664001cc0b53a41d447c34ff80ef0e386b346092a05e28f7ad39b146a095ad294fa2c8be322192fb7c2f060ea40bbbf2c0bcbcdd2bfe2cb08ea70dd8def19d"
+    },
+    "length": 60
+   },
+   "repositories.json": {
+    "hashes": {
+     "sha256": "fe183cad9184b4cfbddbc4ce712b510e57418e4885b763fbe4fa47115112282e",
+     "sha512": "e74627289c9fcf030edd60688f9d83bc4d4091cb7c6ddcd5ca981594f44c2c838ca39356d38092c42a962fa172faee83f324b7b8dbbef87a48388e7b10d936e3"
+    },
+    "length": 540
+   }
+  },
+  "version": 4
+ }
+}
