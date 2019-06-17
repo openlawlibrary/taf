@@ -7,6 +7,8 @@ import taf.settings as settings
 import taf.log
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
+from taf.utils import on_rm_error
+
 
 logger = taf.log.get_logger(__name__)
 
@@ -175,7 +177,7 @@ def _update_target_repositories(repositories, repositories_commits):
       # delete all repositories that were cloned
       for repo in cloned_repositories:
         logger.debug('Removing cloned repository %s', repo.repo_path)
-        shutil.rmtree(repo.repo_path)
+        shutil.rmtree(repo.repo_path, onerror=on_rm_error)
       # TODO is it important to undo a fetch if the repository was not cloned?
       raise e
 
