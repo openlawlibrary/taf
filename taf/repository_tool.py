@@ -366,6 +366,34 @@ class Repository:
     role_obj = self._role_obj(role)
     return role_obj.keys
 
+  def get_signable_metadata(self, role):
+    """Return signable portion of newly generate metadata for given role.
+
+    Args:
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+
+    Returns:
+      A string representing the 'object' encoded in canonical JSON form or None
+
+    Raises:
+      None
+    """
+    try:
+      from tuf.keydb import get_key
+      role_obj = self._role_obj(role)
+      key = get_key(role_obj.keys[0])
+
+      signable = None
+
+      def _provider(data):
+        nonlocal signable
+        signable = securesystemslib.formats.encode_canonical(data)
+
+      role_obj.add_external_signature_provider(key, _provider)
+      self.writeall()
+    except (IndexError, TUFError, SSLibError):
+      return signable
+
   def is_valid_metadata_key(self, role, key):
     """Checks if metadata role contains key id of provided key.
 
@@ -406,6 +434,27 @@ class Repository:
 
     public_key = get_yubikey_public_key(key_slot, pin)
     return self.is_valid_metadata_key(role, public_key)
+
+  def remove_metadata_key(self, role, key_id):
+    """Remove metadata key of the provided role.
+
+    Args:
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+      - key_id(str): An object conformant to 'securesystemslib.formats.KEYID_SCHEMA'.
+
+    Returns:
+      None
+
+    Raises:
+      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                      targets object.
+      - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+
+    """
+    from tuf.keydb import get_key
+    key = get_key(key_id)
+    self._role_obj(role).remove_verification_key(key)
 
   def set_metadata_expiration_date(self, role, start_date=datetime.datetime.now(), interval=None):
     """Set expiration date of the provided role.
