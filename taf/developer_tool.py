@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import pathlib
@@ -263,6 +264,11 @@ def _role_obj(role, repository):
     return repository.timestamp
   elif role == 'root':
     return repository.root
+
+
+def update_metadata_expiration_date(repo_location, role, start_date=datetime.datetime.now(), interval=None):
+  taf_repo = Repository(repo_location)
+  taf_repo.set_metadata_expiration_date(role, start_date, interval)
 
 
 def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore_location,

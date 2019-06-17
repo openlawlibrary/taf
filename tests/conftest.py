@@ -54,7 +54,6 @@ def origin_repos(test_name):
   shutil.rmtree(test_dst_path, onerror=on_rm_error)
 
 
-
 def _copy_repos(test_dir_path, test_name):
   paths = {}
   for root, dirs, files in os.walk(test_dir_path):
@@ -68,6 +67,7 @@ def _copy_repos(test_dir_path, test_name):
       repo_rel_path = Path(repo_rel_path).as_posix()
       paths[repo_rel_path] = str(dst_path)
   return paths
+
 
 @yield_fixture(scope='session', autouse=True)
 def taf_happy_path():

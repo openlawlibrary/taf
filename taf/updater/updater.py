@@ -214,8 +214,8 @@ def _update_target_repository(repository, old_head, target_commits):
         break
   if len(new_commits) > len(target_commits):
     additional_commits = new_commits[len(target_commits):]
-    logger.warning('Found commits {} in repository {} that are not accounted for in the authentication repo.'
-                   'Reoisitory will be updated up to commit {}', additional_commits,  repository.repo_name,
+    logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
+                   'Reoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
                     new_commits[-1])
 
 

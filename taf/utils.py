@@ -1,3 +1,4 @@
+import click
 import datetime
 import logging
 import os
@@ -7,6 +8,28 @@ import taf.settings
 
 logger = logging.getLogger(__name__)
 
+
+def _iso_parse(date):
+    return datetime.datetime.strptime(date, '%Y-%m-%d').date()
+
+
+class IsoDateParamType(click.ParamType):
+    name = 'iso_date'
+
+    def convert(self, date, param, ctx):
+        if date is None:
+            return datetime.date.today().isoformat()
+
+        if hasattr(date, 'isoformat'):
+            return date.isoformat()
+
+        try:
+            return _iso_parse(date).isoformat()
+        except ValueError as ex:
+            self.fail(str(ex), param, ctx)
+
+
+ISO_DATE_PARAM_TYPE = IsoDateParamType()
 
 def run(*command, **kwargs):
   """Run a command and return its output. Call with `debug=True` to print to

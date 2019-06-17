@@ -1,9 +1,10 @@
 import os
-
 import click
+import datetime
 import json
 import taf.developer_tool as developer_tool
 from taf.updater.updater import update_repository, update_named_repository
+from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 
 
 @click.group()
@@ -118,6 +119,17 @@ def init_repo(repo_location, targets_dir, namespace, targets_rel_dir, keystore_l
               'of the target repositories are set, if they do not have remote set')
 def generate_repositories_json(repo_location, targets_dir, namespace, targets_rel_dir):
   developer_tool.generate_repositories_json(repo_location, targets_dir, namespace, targets_rel_dir)
+
+
+@cli.command()
+@click.option('--repo-location', default='repository', help='Location of the repository')
+@click.option('--role', default='timestamp', help='Metadata role whose expiration date should be '
+              'updated')
+@click.option('--start-date', default=datetime.date.today(), help='Date to which the intercal is added', type=ISO_DATE)
+@click.option('--interval', default=None, help='Time interval added to the start date')
+def update_expiration_date(repo_location, role, start_date, interval):
+  start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+  developer_tool.update_metadata_expiration_date(repo_location, role, start_date, interval)
 
 
 @cli.command()
