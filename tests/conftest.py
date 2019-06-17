@@ -66,6 +66,11 @@ def updater_valid_test_repositories():
   with origin_repos(test_dir) as origins:
     yield origins
 
+@yield_fixture(scope="session", autouse=True)
+def updater_invalid_target_sha_repositories():
+  test_dir = 'test-updater-invalid-target-sha'
+  with origin_repos(test_dir) as origins:
+    yield origins
 
 @fixture
 def client_dir():
