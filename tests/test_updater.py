@@ -64,6 +64,7 @@ def test_updater_invalid_target_sha_existing_client_repos(updater_invalid_target
                                                           origin_dir, client_dir):
 
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+  origin_dir = origin_dir / 'test-updater-invalid-target-sha'
   origin_auth_repo_path = updater_invalid_target_sha_repositories[AUTH_REPO_REL_PATH]
   expected_error = 'Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1'
   client_repos = _clone_and_revert_client_repositories(updater_invalid_target_sha_repositories,
@@ -109,16 +110,16 @@ def _clone_and_revert_client_repositories(repositories, origin_dir, client_dir, 
   client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
   client_auth_repo.reset_num_of_commits(num_of_commits, True)
   client_auth_repo_head_sha = client_auth_repo.head_commit_sha()
-  client_repos[auth_repo_rel_path] = client_auth_repo
+  client_repos[AUTH_REPO_REL_PATH] = client_auth_repo
 
   for repository_rel_path in repositories:
-    if repository_rel_path == auth_repo_rel_path:
+    if repository_rel_path == AUTH_REPO_REL_PATH:
       continue
 
     client_repo = _clone_client_repo(repository_rel_path, origin_dir, client_dir)
     # read the commit sha stored in target files
     commit = client_auth_repo.get_json(client_auth_repo_head_sha,
-                                           str((Path('targets') / repository_rel_path).as_posix()))
+                                       str((Path('targets') / repository_rel_path).as_posix()))
     commit_sha = commit['commit']
     client_repo.reset_to_commit(commit_sha, True)
     client_repos[repository_rel_path] = client_repo
