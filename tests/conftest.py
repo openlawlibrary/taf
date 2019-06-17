@@ -25,13 +25,38 @@ def pytest_configure(config):
 
 
 @contextmanager
+def origin_repos_group(test_group_dir):
+  all_paths = {}
+  test_group_dir = str(TEST_DATA_REPOS_PATH / test_group_dir)
+  for test_dir in os.scandir(test_group_dir):
+    if test_dir.is_dir():
+      all_paths[test_dir.name] = _copy_repos(test_dir.path, test_dir.name)
+
+  yield all_paths
+
+  for test_name in all_paths:
+    test_dst_path = str(TEST_DATA_ORIGIN_PATH / test_name)
+    shutil.rmtree(test_dst_path, onerror=on_rm_error)
+
+
+@contextmanager
 def origin_repos(test_name):
-  """Coppies git repository from `data/repos/test-XYZ` to data/repos/origin/XYZ
+  """Coppies git repository from `data/repos/test-XYZ` to data/repos/origin/test-XYZ
   path and renames `git` to `.git` for each repository.
   """
 
-  temp_paths = {}
   test_dir_path = str(TEST_DATA_REPOS_PATH / test_name)
+  temp_paths = _copy_repos(test_dir_path, test_name)
+
+  yield temp_paths
+
+  test_dst_path = str(TEST_DATA_ORIGIN_PATH / test_name)
+  shutil.rmtree(test_dst_path, onerror=on_rm_error)
+
+
+
+def _copy_repos(test_dir_path, test_name):
+  paths = {}
   for root, dirs, files in os.walk(test_dir_path):
    for dir_name in dirs:
      if dir_name == 'git':
@@ -41,13 +66,8 @@ def origin_repos(test_name):
       shutil.copytree(root, str(dst_path))
       (dst_path / 'git').rename(dst_path / '.git')
       repo_rel_path = Path(repo_rel_path).as_posix()
-      temp_paths[repo_rel_path] = str(dst_path)
-
-  yield temp_paths
-
-  test_dst_path = str(TEST_DATA_ORIGIN_PATH / test_name)
-  shutil.rmtree(test_dst_path, onerror=on_rm_error)
-
+      paths[repo_rel_path] = str(dst_path)
+  return paths
 
 @yield_fixture(scope='session', autouse=True)
 def taf_happy_path():
@@ -61,16 +81,11 @@ def taf_happy_path():
     yield taf_repo
 
 @yield_fixture(scope="session", autouse=True)
-def updater_valid_test_repositories():
-  test_dir = 'test-updater-valid'
-  with origin_repos(test_dir) as origins:
+def updater_repositories():
+  test_dir = 'test-updater'
+  with origin_repos_group(test_dir) as origins:
     yield origins
 
-@yield_fixture(scope="session", autouse=True)
-def updater_invalid_target_sha_repositories():
-  test_dir = 'test-updater-invalid-target-sha'
-  with origin_repos(test_dir) as origins:
-    yield origins
 
 @fixture
 def client_dir():
