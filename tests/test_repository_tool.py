@@ -107,6 +107,25 @@ def test_update_timestamp_wrong_key(taf_happy_path, wrong_keystore):
     taf_happy_path.update_timestamp(wrong_keystore)
 
 
+def test_update_targets_from_keystore_valid_key(taf_happy_path, keystore):
+  start_date = datetime.datetime.now()
+  interval = 1
+  expected_expiration_date = to_tuf_datetime_format(start_date, interval)
+
+  taf_happy_path.update_targets_from_keystore(keystore, start_date=start_date, interval=interval)
+  new_targets_data = str(Path(taf_happy_path.metadata_path) / 'targets.json')
+  signable = securesystemslib.util.load_json_file(new_targets_data)
+  tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
+  actual_expiration_date = signable['signed']['expires']
+
+  assert actual_expiration_date == expected_expiration_date
+
+
+def test_update_targets_from_keystore_wrong_key(taf_happy_path, wrong_keystore):
+  with pytest.raises(taf.exceptions.InvalidKeyError):
+    taf_happy_path.update_targets_from_keystore(wrong_keystore)
+
+
 def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
   targets_path = Path(taf_happy_path.targets_path)
   repositories_json_path = targets_path / 'repositories.json'
