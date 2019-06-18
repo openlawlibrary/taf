@@ -121,15 +121,22 @@ def generate_repositories_json(repo_location, targets_dir, namespace, targets_re
   developer_tool.generate_repositories_json(repo_location, targets_dir, namespace, targets_rel_dir)
 
 
+
 @cli.command()
 @click.option('--repo-location', default='repository', help='Location of the repository')
+@click.option('--keystore', default='keystore', help='Location of the keystore file')
+@click.option('--keys-description', help='A dictionary containing information about the keys or a path'
+              ' to a json file which which stores the needed information')
 @click.option('--role', default='timestamp', help='Metadata role whose expiration date should be '
               'updated')
-@click.option('--start-date', default=datetime.date.today(), help='Date to which the intercal is added', type=ISO_DATE)
-@click.option('--interval', default=None, help='Time interval added to the start date')
-def update_expiration_date(repo_location, role, start_date, interval):
-  start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
-  developer_tool.update_metadata_expiration_date(repo_location, role, start_date, interval)
+@click.option('--start-date', default=datetime.datetime.now(), help='Date to which the intercal is added', type=ISO_DATE)
+@click.option('--interval', default=None, help='Time interval added to the start date', type=int)
+@click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
+              'should be automatically committed')
+def update_expiration_date(repo_location, keystore, keys_description, role, start_date, interval,
+                           commit_msg):
+  developer_tool.update_metadata_expiration_date(repo_location, keystore, keys_description, role,
+                                                 start_date, interval, commit_msg)
 
 
 @cli.command()
