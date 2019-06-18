@@ -266,9 +266,18 @@ def _role_obj(role, repository):
     return repository.root
 
 
-def update_metadata_expiration_date(repo_location, role, start_date=datetime.datetime.now(), interval=None):
+def update_metadata_expiration_date(repo_location, keystore_location, roles_key_infos, role,
+                                    start_date=datetime.datetime.now(), interval=None, commit_msg=None):
   taf_repo = Repository(repo_location)
-  taf_repo.set_metadata_expiration_date(role, start_date, interval)
+  update_methods = {'timestamp': taf_repo.update_timestamp,
+                    'snapshot': taf_repo.update_snapshot,
+                    'targets': taf_repo.update_targets_from_keystore}
+  password = _load_role_key_from_keys_dict(role, roles_key_infos)
+  update_methods[role](keystore_location, password, start_date, interval)
+
+  if commit_msg is not None:
+    auth_repo = GitRepository(repo_location)
+    auth_repo.commit(commit_msg)
 
 
 def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore_location,
