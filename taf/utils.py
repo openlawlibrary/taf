@@ -10,24 +10,23 @@ logger = logging.getLogger(__name__)
 
 
 def _iso_parse(date):
-    return datetime.datetime.strptime(date, '%Y-%m-%d').date()
+  return datetime.datetime.strptime(date, '%Y-%m-%d').date()
 
 
 class IsoDateParamType(click.ParamType):
-    name = 'iso_date'
+  name = 'iso_date'
 
-    def convert(self, date, param, ctx):
-        if date is None:
-            return datetime.date.today().isoformat()
+  def convert(self, value, param, ctx):
+    if value is None:
+      return datetime.date.today().isoformat()
 
-        if hasattr(date, 'isoformat'):
-            return date.isoformat()
+    if hasattr(value, 'isoformat'):
+      return value.isoformat()
 
-        try:
-            return _iso_parse(date).isoformat()
-        except ValueError as ex:
-            self.fail(str(ex), param, ctx)
-
+    try:
+      return _iso_parse(value).isoformat()
+    except ValueError as ex:
+      self.fail(str(ex), param, ctx)
 
 ISO_DATE_PARAM_TYPE = IsoDateParamType()
 
