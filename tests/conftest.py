@@ -9,6 +9,7 @@ from taf.utils import on_rm_error
 import oll_sc
 from tuf.repository_tool import (import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file)
+import taf.repository_tool as repository_tool
 
 from .yubikey import (Root1YubiKey, Root2YubiKey, Root3YubiKey, TargetYubiKey,
                       init_pkcs11_mock)
@@ -17,6 +18,7 @@ TEST_DATA_PATH = Path(__file__).parent / 'data'
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / 'repos'
 TEST_DATA_ORIGIN_PATH = TEST_DATA_REPOS_PATH / 'origin'
 KEYSTORE_PATH = TEST_DATA_PATH / 'keystore'
+WRONG_KEYSTORE_PATH = TEST_DATA_PATH / 'wrong_keystore'
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / 'client'
 
 
@@ -78,6 +80,7 @@ def taf_happy_path():
   with origin_repos(test_dir) as origins:
     taf_repo_origin_path = origins[taf_repo_name]
     taf_repo = Repository(taf_repo_origin_path)
+    repository_tool.DISABLE_KEYS_CACHING = True
     yield taf_repo
 
 @yield_fixture(scope="session", autouse=True)
@@ -149,3 +152,8 @@ def timestamp_key():
   priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'timestamp'))
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
+
+@fixture
+def wrong_keystore():
+  """Path of the wrong keystore"""
+  return str(WRONG_KEYSTORE_PATH)

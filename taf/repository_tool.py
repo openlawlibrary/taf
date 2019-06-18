@@ -56,6 +56,7 @@ def get_yubikey_public_key(key_slot, pin):
   pub_key_pem = sc_export_pub_key_pem(key_slot, pin).decode('utf-8')
   return import_rsakey_from_pem(pub_key_pem)
 
+DISABLE_KEYS_CACHING = False
 
 def load_role_key(keystore, role, password=None):
   """Loads the specified role's key from a keystore file.
@@ -75,10 +76,15 @@ def load_role_key(keystore, role, password=None):
     - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
     - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
   """
+
   key = role_keys_cache.get(role)
   if key is None:
     from tuf.repository_tool import import_rsa_privatekey_from_file
-    key = import_rsa_privatekey_from_file(os.path.join(keystore, role), password=password)
+    if password is not None:
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), password=password)
+    else:
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
+  if not DISABLE_KEYS_CACHING:
     role_keys_cache[role] = key
   return key
 
@@ -393,7 +399,7 @@ class Repository:
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
 
-  def update_snapshot(self, keystore, password, start_date=datetime.datetime.now(), interval=None, write=True):
+  def update_snapshot(self, keystore, password=None, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update snapshot metadata.
 
     Args:
@@ -458,7 +464,7 @@ class Repository:
       raise MetadataUpdateError('all', str(e))
 
 
-  def update_targets_from_keystore(self, keystore, targets_password, start_date=datetime.datetime.now(),
+  def update_targets_from_keystore(self, keystore, targets_password=None, start_date=datetime.datetime.now(),
                                    interval=None, write=True):
     """Update targets metadata. Sign it with a key from the file system
 
@@ -532,7 +538,7 @@ class Repository:
     except (SmartCardError, TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
 
-  def update_timestamp(self, keystore, password, start_date=datetime.datetime.now(), interval=None, write=True):
+  def update_timestamp(self, keystore, password=None, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update timestamp metadata.
 
     Args:

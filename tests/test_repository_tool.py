@@ -70,11 +70,11 @@ def test_update_snapshot_and_timestmap(taf_happy_path, keystore):
   assert old_targets_metadata == targets_metadata_path.read_bytes()
 
 
-def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
+def test_update_snapshot_valid_key(taf_happy_path, keystore):
   start_date = datetime.datetime.now()
   interval = 1
   expected_expiration_date = to_tuf_datetime_format(start_date, interval)
-  taf_happy_path.update_snapshot(snapshot_key, start_date, interval)
+  taf_happy_path.update_snapshot(keystore, start_date=start_date, interval=interval)
   new_snapshot_metadata = str(Path(taf_happy_path.metadata_path) / 'snapshot.json')
   signable = securesystemslib.util.load_json_file(new_snapshot_metadata)
   tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
@@ -83,17 +83,17 @@ def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
   assert actual_expiration_date == expected_expiration_date
 
 
-def test_update_snapshot_wrong_key(taf_happy_path, timestamp_key):
+def test_update_snapshot_wrong_key(taf_happy_path, wrong_keystore):
   with pytest.raises(taf.exceptions.InvalidKeyError):
-    taf_happy_path.update_snapshot(timestamp_key)
+    taf_happy_path.update_snapshot(wrong_keystore)
 
 
-def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
+def test_update_timestamp_valid_key(taf_happy_path, keystore):
   start_date = datetime.datetime.now()
   interval = 1
   expected_expiration_date = to_tuf_datetime_format(start_date, interval)
 
-  taf_happy_path.update_timestamp(timestamp_key, start_date, interval)
+  taf_happy_path.update_timestamp(keystore, start_date=start_date, interval=interval)
   new_timestamp_metadata = str(Path(taf_happy_path.metadata_path) / 'timestamp.json')
   signable = securesystemslib.util.load_json_file(new_timestamp_metadata)
   tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
@@ -102,9 +102,9 @@ def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
   assert actual_expiration_date == expected_expiration_date
 
 
-def test_update_timestamp_wrong_key(taf_happy_path, snapshot_key):
+def test_update_timestamp_wrong_key(taf_happy_path, wrong_keystore):
   with pytest.raises(taf.exceptions.InvalidKeyError):
-    taf_happy_path.update_timestamp(snapshot_key)
+    taf_happy_path.update_timestamp(wrong_keystore)
 
 
 def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
