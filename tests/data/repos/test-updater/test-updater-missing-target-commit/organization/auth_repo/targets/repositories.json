@@ -2,17 +2,17 @@
     "repositories": {
         "namespace/TargetRepo1": {
             "urls": [
-                "../../../origin/test-updater-invalid-target-sha/namespace/TargetRepo1"
+                "../../../origin/test-updater-missing-target-commit/namespace/TargetRepo1"
             ]
         },
         "namespace/TargetRepo2": {
             "urls": [
-                "../../../origin/test-updater-invalid-target-sha/namespace/TargetRepo2"
+                "../../../origin/test-updater-missing-target-commit/namespace/TargetRepo2"
             ]
         },
         "namespace/TargetRepo3": {
             "urls": [
-                "../../../origin/test-updater-invalid-target-sha/namespace/TargetRepo3"
+                "../../../origin/test-updater-missing-target-commit/namespace/TargetRepo3"
             ]
         }
     }

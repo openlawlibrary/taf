@@ -77,39 +77,46 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
   # TODO old HEAD as an input parameter
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
+
   settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
   repository_mirrors = {'mirror1': {'url_prefix': url,
-                                    'metadata_path': 'metadata',
-                                    'targets_path': 'targets',
-                                    'confined_target_dirs': ['']}}
+                                      'metadata_path': 'metadata',
+                                      'targets_path': 'targets',
+                                      'confined_target_dirs': ['']}}
 
   tuf.settings.repositories_directory = clients_directory
   repository_updater = tuf_updater.Updater(repo_name,
-                                           repository_mirrors,
-                                           GitUpdater)
-
-  # validate the authentication repository and fetch new commits
-  _update_authentication_repository(repository_updater)
-
-  # get target repositories and their commits, as specified in targets.json
+                                            repository_mirrors,
+                                            GitUpdater)
   users_auth_repo = repository_updater.update_handler.users_auth_repo
-  commits = repository_updater.update_handler.commits
-  repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
-  repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
-  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+  try:
+    # validate the authentication repository and fetch new commits
+    _update_authentication_repository(repository_updater)
 
-  # update target repositories
-  _update_target_repositories(repositories, repositories_commits)
+    # get target repositories and their commits, as specified in targets.json
 
-  last_commit = commits[-1]
-  logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
-  # if there were no errors, merge the last validated authentication repository commit
-  users_auth_repo.merge_commit(last_commit)
-  users_auth_repo.checkout_branch('master')
-  # update the last validated commit
-  users_auth_repo.set_last_validated_commit(last_commit)
+    commits = repository_updater.update_handler.commits
+    repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
+    repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
+    repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
 
+    # update target repositories
+    _update_target_repositories(repositories, repositories_commits)
+
+
+    last_commit = commits[-1]
+    logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
+    # if there were no errors, merge the last validated authentication repository commit
+    users_auth_repo.merge_commit(last_commit)
+    users_auth_repo.checkout_branch('master')
+    # update the last validated commit
+    users_auth_repo.set_last_validated_commit(last_commit)
+  except Exception as e:
+    if users_auth_repo.last_validated_commit is None:
+      shutil.rmtree(users_auth_repo.repo_path, onerror=on_rm_error)
+      shutil.rmtree(users_auth_repo.conf_dir)
+    raise e
 
 def _update_authentication_repository(repository_updater):
 
@@ -140,7 +147,7 @@ def _update_authentication_repository(repository_updater):
     # for now, useful for debugging
     logger.error('Validation of authentication repository %s failed due to error %s',
                  users_auth_repo.repo_name,  e)
-    raise UpdateFailedError('Validation of authentication repository {} due to error: {}'
+    raise UpdateFailedError('Validation of authentication repository {} failed due to error: {}'
                             .format(users_auth_repo.repo_name, e))
   finally:
     repository_updater.update_handler.cleanup()
