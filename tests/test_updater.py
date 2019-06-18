@@ -16,6 +16,7 @@ TARGET1_SHA_MISMATCH = 'Mismatch between target commits specified in authenticat
 NO_WORKING_MIRROS = 'Validation of authentication repository auth_repo failed due to error: No working mirror was found'
 TIMESTAMP_EXPIRED = "Metadata 'timestamp' expired"
 REPLAYED_METADTA = 'ReplayedMetadataError'
+METADATA_CHANGED_BUT_SHOULDNT = 'Metadata file targets.json should be the same at revisions'
 settings.update_from_filesystem = True
 
 @fixture(autouse=True)
@@ -72,7 +73,8 @@ def test_no_update_necessary(updater_repositories, origin_dir, client_dir):
                         ('test-updater-missing-target-commit', TARGET1_SHA_MISMATCH),
                         ('test-updater-wrong-key', NO_WORKING_MIRROS),
                         ('test-updater-invalid-expiration-date', TIMESTAMP_EXPIRED),
-                        ('test-updater-invalid-version-number', REPLAYED_METADTA)])
+                        ('test-updater-invalid-version-number', REPLAYED_METADTA),
+                        ('test-updater-just-targets-updated', METADATA_CHANGED_BUT_SHOULDNT)])
 def test_updater_invalid_update(test_name, expected_error, updater_repositories, origin_dir, client_dir):
   repositories = updater_repositories[test_name]
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
