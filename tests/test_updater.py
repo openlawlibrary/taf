@@ -99,6 +99,33 @@ def test_updater_invalid_target_sha_existing_client_repos(test_name, expected_er
                                                    expected_error)
 
 
+def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
+  # clone the origin repositories
+  # revert them to an older commit
+  repositories = updater_repositories['test-updater-valid']
+  origin_dir = origin_dir / 'test-updater-valid'
+  client_repos = _clone_and_revert_client_repositories(repositories, origin_dir,
+                                                       client_dir, 3)
+  expected_error = 'Saved last validated commit None does not match the head commit'
+  # try to update without setting the last validated commit
+  _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
+                                                   repositories, expected_error)
+
+
+def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_dir):
+  # clone the origin repositories
+  # revert them to an older commit
+  repositories = updater_repositories['test-updater-valid']
+  origin_dir = origin_dir / 'test-updater-valid'
+  client_repos = _clone_and_revert_client_repositories(repositories, origin_dir,
+                                                       client_dir, 3)
+  first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_since_commit(None)[0]
+  expected_error = 'Saved last validated commit {} does not match the head commit'.format(first_commit)
+  _create_last_validated_commit(client_dir, first_commit)
+  # try to update without setting the last validated commit
+  _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
+                                                   repositories, expected_error)
+
 def _chekc_last_validated_commit(clients_auth_repo_path):
   # check if last validated commit is created and the saved commit is correct
   client_auth_repo = AuthenticationRepo(str(clients_auth_repo_path), 'metadata', 'targets')
