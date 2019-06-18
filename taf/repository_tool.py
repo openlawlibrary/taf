@@ -452,7 +452,7 @@ class Repository:
 
 
       self.update_snapshot(keystore, snapshot_password, snapshot_date, snapshot_interval, write=write)
-      self.update_timestamp(keysore, timestamp_password, timestamp_date, timestamp_interval, write=write)
+      self.update_timestamp(keystore, timestamp_password, timestamp_date, timestamp_interval, write=write)
 
     except (TUFError, SSLibError) as e:
       raise MetadataUpdateError('all', str(e))

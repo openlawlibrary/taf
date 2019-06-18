@@ -59,7 +59,8 @@ def test_no_update_necessary(updater_repositories, origin_dir, client_dir):
                                 client_dir)
 
 
-@pytest.mark.parametrize('test_name', ['test-updater-invalid-target-sha', 'test-updater-missing-target-commit'])
+@pytest.mark.parametrize('test_name', ['test-updater-invalid-target-sha', 'test-updater-missing-target-commit',
+                                       'test-updater-valid-with-updated-expiration-dates'])
 def test_updater_invalid_target_sha_no_client_repos(test_name, updater_repositories,
                                                     origin_dir, client_dir):
   updater_invalid_target_sha_repositories = updater_repositories[test_name]
@@ -151,6 +152,7 @@ def _create_last_validated_commit(client_dir, client_auth_repo_head_sha):
   client_conf_repo.mkdir(parents=True, exist_ok=True)
   with open(str(client_conf_repo/'last_validated_commit'), 'w') as f:
     f.write(client_auth_repo_head_sha)
+
 
 def _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir):
   start_head_shas = {repo_rel_path: repo.head_commit_sha()
