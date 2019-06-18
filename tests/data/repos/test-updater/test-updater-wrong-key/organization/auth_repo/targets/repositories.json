@@ -1,0 +1,19 @@
+{
+    "repositories": {
+        "namespace/TargetRepo1": {
+            "urls": [
+                "../../../origin/test-updater-wrong-key/namespace/TargetRepo1"
+            ]
+        },
+        "namespace/TargetRepo2": {
+            "urls": [
+                "../../../origin/test-updater-wrong-key/namespace/TargetRepo2"
+            ]
+        },
+        "namespace/TargetRepo3": {
+            "urls": [
+                "../../../origin/test-updater-wrong-key/namespace/TargetRepo3"
+            ]
+        }
+    }
+}
