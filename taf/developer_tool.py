@@ -10,19 +10,19 @@ from taf.git import GitRepository
 from taf.repository_tool import Repository
 
 
-def add_target_repos(repository_location, targets_directory, namespace=''):
+def add_target_repos(repo_path, targets_directory, namespace=''):
   """
   <Purpose>
     Create or update target files by reading the latest commits of the provided target repositories
   <Arguments>
-    repository_location:
+    repo_path:
       Authentication repository's location
     targets_directory:
       Directory which contains target repositories
     namespace:
       Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
   """
-  auth_repo_targets_dir = os.path.join(repository_location, TARGETS_DIRECTORY_NAME)
+  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   if namespace:
     auth_repo_targets_dir = os.path.join(auth_repo_targets_dir, namespace)
     if not os.path.exists(auth_repo_targets_dir):
@@ -35,17 +35,17 @@ def add_target_repos(repository_location, targets_directory, namespace=''):
       json.dump({'commit': commit}, f,  indent=4)
 
 
-def create_repository(repository_location, keystore_location, roles_key_infos, should_commit=True):
+def create_repository(repo_path, keystore, roles_key_infos, should_commit=True):
   """
   <Purpose>
     Create a new authentication repository. Generate initial metadata files.
     The initial targets metadata file is empty (does not specify any targets)
   <Arguments>
-    repository_location:
+    repo_path:
       Authentication repository's location
     targets_directory:
       Directory which contains target repositories
-    keystore_location:
+    keystore:
       Location of the keystore files
     roles_key_infos:
       A dictionary whose keys are role names, while values contain information about the keys.
@@ -53,11 +53,11 @@ def create_repository(repository_location, keystore_location, roles_key_infos, s
       Indicates if if a the git repository should be initialized, and if the initial metadata
       should be committed
   """
-  if os.path.isdir(repository_location):
-    print('{} already exists'.format(repository_location))
+  if os.path.isdir(repo_path):
+    print('{} already exists'.format(repo_path))
     return
   tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-  repository = create_new_repository(repository_location)
+  repository = create_new_repository(repo_path)
   for role_name, key_info in roles_key_infos.items():
     num_of_keys = key_info.get('number', 1)
     passwords = key_info.get('passwords', [None] * num_of_keys)
@@ -66,31 +66,31 @@ def create_repository(repository_location, keystore_location, roles_key_infos, s
     role_obj.threshold = threshold
     for key_num in range(num_of_keys):
       key_name = _get_key_name(role_name, key_num, num_of_keys)
-      public_key = import_rsa_publickey_from_file(os.path.join(keystore_location,
+      public_key = import_rsa_publickey_from_file(os.path.join(keystore,
                                                                key_name + '.pub'))
       password = passwords[key_num]
       if password:
-        private_key = import_rsa_privatekey_from_file(os.path.join(keystore_location, key_name),
+        private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
                                                       password)
       else:
-        private_key = import_rsa_privatekey_from_file(os.path.join(keystore_location, key_name))
+        private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
       role_obj.add_verification_key(public_key)
       role_obj.load_signing_key(private_key)
   repository.writeall()
   if should_commit:
-    auth_repo = GitRepository(repository_location)
+    auth_repo = GitRepository(repo_path)
     auth_repo.init_repo()
     auth_repo.commit('Initial metadata')
 
 
-def generate_keys(keystore_location, roles_key_infos):
+def generate_keys(keystore, roles_key_infos):
   """
   <Purpose>
     Generate public and private keys and writes them to disk. Names of keys correspond to names
     of the TUF roles. If more than one key should be generated per role, a counter is appended
     to the role's name. E.g. root1, root2, root3 etc.
   <Arguments>
-    keystore_location:
+    keystore:
       Location where the generated files should be saved
     roles_key_infos:
       A dictionary whose keys are role names, while values contain information about the keys.
@@ -108,17 +108,17 @@ def generate_keys(keystore_location, roles_key_infos):
     for key_num in range(num_of_keys):
       key_name = _get_key_name(role_name, key_num, num_of_keys)
       password = passwords[key_num]
-      generate_and_write_rsa_keypair(os.path.join(keystore_location, key_name), bits=bits,
+      generate_and_write_rsa_keypair(os.path.join(keystore, key_name), bits=bits,
                                      password=password)
 
 
-def generate_repositories_json(repository_location, targets_directory, namespace='',
+def generate_repositories_json(repo_path, targets_directory, namespace='',
                                targets_relative_dir=None):
   """
   <Purpose>
     Generatesinitial repositories.json
   <Arguments>
-    repository_location:
+    repo_path:
       Authentication repository's location
     targets_directory:
       Directory which contains target repositories
@@ -128,7 +128,7 @@ def generate_repositories_json(repository_location, targets_directory, namespace
       Directory relative to which urls of the target repositories are set, if they do not have remote set
   """
   repositories = {}
-  auth_repo_targets_dir = os.path.join(repository_location, TARGETS_DIRECTORY_NAME)
+  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   for target_repo_dir in os.listdir(targets_directory):
     target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
     target_repo_name = os.path.basename(target_repo_dir)
@@ -159,8 +159,8 @@ def _get_key_name(role_name, key_num, num_of_keys):
     return role_name + str(key_num + 1)
 
 
-def init_repo(repository_location, targets_directory, namespace, targets_relative_dir,
-              keystore_location, roles_key_infos, targets_key_slot=None, targets_key_pin=None,
+def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
+              keystore, roles_key_infos, targets_key_slot=None, targets_key_pin=None,
               should_commit=True):
   """
   <Purpose>
@@ -172,7 +172,7 @@ def init_repo(repository_location, targets_directory, namespace, targets_relativ
     5. Update tuf metadata
     6. Commit the changes if commit == True
   <Arguments>
-    repository_location:
+    repo_path:
       Authentication repository's location
     targets_directory:
       Directory which contains target repositories
@@ -180,7 +180,7 @@ def init_repo(repository_location, targets_directory, namespace, targets_relativ
       Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
     targets_relative_dir:
       Directory relative to which urls of the target repositories are set, if they do not have remote set
-    keystore_location:
+    keystore:
       Location of the keystore files
     roles_key_infos:
       A dictionary whose keys are role names, while values contain information about the keys.
@@ -192,12 +192,12 @@ def init_repo(repository_location, targets_directory, namespace, targets_relativ
       Indicates if if a the git repository should be initialized, and if the initial metadata
       should be committed
   """
-  create_repository(repository_location, keystore_location, roles_key_infos, should_commit)
-  add_target_repos(repository_location, targets_directory, namespace)
-  generate_repositories_json(repository_location, targets_directory, namespace,
+  create_repository(repo_path, keystore, roles_key_infos, should_commit)
+  add_target_repos(repo_path, targets_directory, namespace)
+  generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir)
   commit_msg = 'Added initial targets' if should_commit else None
-  register_target_files(repository_location, keystore_location, roles_key_infos, targets_key_slot,
+  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot,
                         targets_key_pin, commit_msg=commit_msg)
 
 def _load_role_key_from_keys_dict(role, roles_key_infos):
@@ -208,16 +208,16 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
   return password
 
 
-def register_target_file(repo_path, file_path, keystore_location, roles_key_infos,
+def register_target_file(repo_path, file_path, keystore, roles_key_infos,
                          targets_key_slot=None, targets_key_pin=None, update_all=True):
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
-  _write_targets_metadata(taf_repo, update_all, keystore_location, roles_key_infos,
+  _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
                           targets_key_slot, targets_key_pin)
 
 
-def register_target_files(repo_path, keystore_location, roles_key_infos, targets_key_slot=None,
+def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=None,
                           targets_key_pin=None, update_all=True, commit_msg=None):
   """
   <Purpose>
@@ -227,7 +227,7 @@ def register_target_files(repo_path, keystore_location, roles_key_infos, targets
   <Arguments>
     repo_path:
       Authentication repository's path
-    keystore_location:
+    keystore:
       Location of the keystore files
     roles_key_infos:
       A dictionary whose keys are role names, while values contain information about the keys.
@@ -247,8 +247,8 @@ def register_target_files(repo_path, keystore_location, roles_key_infos, targets
       relpath = os.path.relpath(os.path.join(root, filename), targets_path)
       relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
       taf_repo.add_existing_target(relpath)
-  _write_targets_metadata(taf_repo, update_all, keystore_location, roles_key_infos,
-                            targets_key_slot, targets_key_pin)
+  _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
+                          targets_key_slot, targets_key_pin)
   if commit_msg is not None:
     auth_repo = GitRepository(repo_path)
     auth_repo.commit(commit_msg)
@@ -266,36 +266,37 @@ def _role_obj(role, repository):
     return repository.root
 
 
-def update_metadata_expiration_date(repo_location, keystore_location, roles_key_infos, role,
+def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
                                     start_date=datetime.datetime.now(), interval=None, commit_msg=None):
-  taf_repo = Repository(repo_location)
+  taf_repo = Repository(repo_path)
   update_methods = {'timestamp': taf_repo.update_timestamp,
                     'snapshot': taf_repo.update_snapshot,
                     'targets': taf_repo.update_targets_from_keystore}
   password = _load_role_key_from_keys_dict(role, roles_key_infos)
-  update_methods[role](keystore_location, password, start_date, interval)
+  update_methods[role](keystore, password, start_date, interval)
 
   if commit_msg is not None:
-    auth_repo = GitRepository(repo_location)
+    auth_repo = GitRepository(repo_path)
     auth_repo.commit(commit_msg)
 
 
-def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore_location,
+def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
                             roles_key_infos, targets_key_slot=None, targets_key_pin=None):
 
   if targets_key_slot is not None and targets_key_pin is not None:
     taf_repo.update_targets(targets_key_slot, targets_key_pin)
   else:
     targets_password = _load_role_key_from_keys_dict('targets', roles_key_infos)
-    taf_repo.update_targets_from_keystore(keystore_location, targets_password)
+    taf_repo.update_targets_from_keystore(keystore, targets_password)
 
   if update_snapshot_and_timestmap:
     snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
     timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
-    taf_repo.update_snapshot_and_timestmap(keystore_location, snapshot_password=snapshot_password,
+    taf_repo.update_snapshot_and_timestmap(keystore, snapshot_password=snapshot_password,
                                            timestamp_password=timestamp_password)
 
 
 # TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing
 # repository etc.)
+# TODO create tests for this
 
