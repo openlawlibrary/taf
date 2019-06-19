@@ -57,6 +57,7 @@ from taf.exceptions import UpdateFailedError
 
 AUTH_REPO_REL_PATH = 'organization/auth_repo'
 TARGET1_SHA_MISMATCH = 'Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1'
+TARGETS_MISMATCH_ANY = 'Mismatch between target commits specified in authentication repository and target repository'
 NO_WORKING_MIRROS = 'Validation of authentication repository auth_repo failed due to error: No working mirror was found'
 TIMESTAMP_EXPIRED = "Metadata 'timestamp' expired"
 REPLAYED_METADTA = 'ReplayedMetadataError'
@@ -147,7 +148,7 @@ def test_no_target_repositories(updater_repositories, origin_dir, client_dir):
   client_repos = {AUTH_REPO_REL_PATH: client_auth_repo}
   _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
                                                    repositories,
-                                                   TARGET1_SHA_MISMATCH)
+                                                   TARGETS_MISMATCH_ANY)
   # makre sure that the target repositories still do not exist
   for repository_rel_path in repositories:
     if repository_rel_path != AUTH_REPO_REL_PATH:
