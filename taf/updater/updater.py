@@ -130,6 +130,8 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
       shutil.rmtree(users_auth_repo.repo_path, onerror=on_rm_error)
       shutil.rmtree(users_auth_repo.conf_dir)
     raise e
+  finally:
+    repositoriesdb.clear_repositories_db()
 
 def _update_authentication_repository(repository_updater):
 

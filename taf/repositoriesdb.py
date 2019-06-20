@@ -23,6 +23,10 @@ repositories_path = 'targets/repositories.json'
 targets_path = 'metadata/targets.json'
 
 
+def clear_repositories_db():
+  global _repositories_dict
+  _repositories_dict.clear()
+
 def load_repositories(auth_repo, repo_classes=None, factory=None,
                       root_dir=None, only_load_targets=False, commits=None):
   """
