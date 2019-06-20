@@ -14,14 +14,16 @@ logger = taf.log.get_logger(__name__)
 
 class GitRepository(object):
 
-  def __init__(self, repo_path, repo_urls=None, additional_info=None):
+  def __init__(self, repo_path, repo_urls=None, additional_info=None, default_branch='master'):
     """
     Args:
       repo_path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
+      default_branch: repository's default branch
     """
     self.repo_path = str(repo_path)
+    self.default_branch = default_branch
     if repo_urls is not None:
       if settings.update_from_filesystem is False:
         for url in repo_urls:
@@ -247,18 +249,20 @@ class GitRepository(object):
 
 class NamedGitRepository(GitRepository):
 
-  def __init__(self, root_dir, repo_name, repo_urls=None, additional_info=None):
+  def __init__(self, root_dir, repo_name, repo_urls=None, additional_info=None,
+               default_branch='master'):
     """
     Args:
       root_dir: the root directory
       repo_name: repository's path relative to the root directory root_dir
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
+      default_branch: repository's default branch
     repo_path is the absolute path to this repository. It is set by joining
     root_dir and repo_name.
     """
     repo_path = _get_repo_path(root_dir, repo_name)
-    super().__init__(repo_path, repo_urls, additional_info)
+    super().__init__(repo_path, repo_urls, additional_info, default_branch)
     self.repo_name = repo_name
 
 
