@@ -38,7 +38,9 @@ class GitRepository(object):
 
   @property
   def is_git_repository_root(self):
-    return (Path(self.repo_path) / '.git').is_dir()
+    """Check if path is git repository."""
+    git_path = Path(self.repo_path) / '.git'
+    return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
 
   @property
   def is_git_repository(self):
