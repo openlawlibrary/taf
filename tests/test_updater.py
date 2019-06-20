@@ -283,8 +283,8 @@ def _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir, r
 
   with pytest.raises(UpdateFailedError, match=expected_error) as excinfo:
     update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True)
-    _check_if_commits_remained_same(client_repos, start_head_shas)
-    # all repositories should still have the same head commit
+
+  # all repositories should still have the same head commit
   for repo_path, repo in client_repos.items():
     current_head = repo.head_commit_sha()
     assert current_head == start_head_shas[repo_path]
