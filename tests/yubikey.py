@@ -31,7 +31,8 @@ class _Session:
   def getAttributeValue(self, obj, *args):
     return {
         'cert': ['TODO: Create certificates'],
-        'pub_key': [self.yubikey.pub_key_der]
+        'pub_key': [self.yubikey.pub_key_der],
+        'priv_key': [True]
     }.get(obj, [])
 
   def login(self, pin, user_type=None):
