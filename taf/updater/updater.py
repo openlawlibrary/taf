@@ -102,6 +102,7 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
                                             repository_mirrors,
                                             GitUpdater)
   users_auth_repo = repository_updater.update_handler.users_auth_repo
+  existing_repo = users_auth_repo.is_git_repository_root
   try:
     # validate the authentication repository and fetch new commits
     _update_authentication_repository(repository_updater)
@@ -126,7 +127,7 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
     # update the last validated commit
     users_auth_repo.set_last_validated_commit(last_commit)
   except Exception as e:
-    if users_auth_repo.last_validated_commit is None:
+    if not existing_repo:
       shutil.rmtree(users_auth_repo.repo_path, onerror=on_rm_error)
       shutil.rmtree(users_auth_repo.conf_dir)
     raise e
@@ -237,7 +238,7 @@ def _update_target_repository(repository, old_head, target_commits):
   if len(new_commits) > len(target_commits):
     additional_commits = new_commits[len(target_commits):]
     logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
-                   'Reoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
+                   'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
                     new_commits[-1])
 
 

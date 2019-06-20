@@ -438,7 +438,7 @@ class Repository:
                       - snapshot_password(string)
                       - timestamp_date(datetime)
                       - timestamp_interval(int)
-                      - timestamp_passworord(string)
+                      - timestamp_password(string)
 
     Returns:
       None
