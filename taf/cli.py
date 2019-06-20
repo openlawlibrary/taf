@@ -1,9 +1,11 @@
-import os
-import click
 import datetime
 import json
+import os
+
+import click
+
 import taf.developer_tool as developer_tool
-from taf.updater.updater import update_repository, update_named_repository
+from taf.updater.updater import update_named_repository, update_repository
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 
 
@@ -102,7 +104,7 @@ def generate_keys(keystore, keys_description):
               'keys or a path to a json file which which stores the needed information')
 @click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
 def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                    keys_description, commit):
+              keys_description, commit):
   if os.path.isfile(keys_description):
     with open(keys_description) as f:
       keys_description = json.loads(f.read())
@@ -119,7 +121,6 @@ def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
               'of the target repositories are set, if they do not have remote set')
 def generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir):
   developer_tool.generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir)
-
 
 
 @cli.command()

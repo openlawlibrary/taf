@@ -1,9 +1,10 @@
 import json
-import taf.log
 from pathlib import Path
 from subprocess import CalledProcessError
 
-from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
+import taf.log
+from taf.exceptions import (InvalidOrMissingMetadataError,
+                            RepositoriesNotFoundError)
 from taf.git import NamedGitRepository
 
 # {
@@ -26,6 +27,7 @@ targets_path = 'metadata/targets.json'
 def clear_repositories_db():
   global _repositories_dict
   _repositories_dict.clear()
+
 
 def load_repositories(auth_repo, repo_classes=None, factory=None,
                       root_dir=None, only_load_targets=False, commits=None):
@@ -56,7 +58,6 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       If set to false, all repositories defined in repositories.json are loaded, regardless of if
       they are targets or not.
   """
-
 
   global _repositories_dict
   if auth_repo.repo_name not in _repositories_dict:
@@ -169,7 +170,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
   paths = list(filter(_compare, repositories)) if custom else list(repositories)
   if len(paths):
-    logger.debug('Auth repo %s: found the following paths %s', auth_repo.repo_name, paths )
+    logger.debug('Auth repo %s: found the following paths %s', auth_repo.repo_name, paths)
     return paths
   logger.error('Auth repo %s: repositories associated with custom data %s not found',
                auth_repo.repo_name, custom)

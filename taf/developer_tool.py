@@ -2,10 +2,14 @@ import datetime
 import json
 import os
 import pathlib
+
 import tuf.repository_tool
-from tuf.repository_tool import generate_and_write_rsa_keypair, import_rsa_publickey_from_file, \
-                                import_rsa_privatekey_from_file, create_new_repository, \
-                                METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
+from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
+                                 TARGETS_DIRECTORY_NAME, create_new_repository,
+                                 generate_and_write_rsa_keypair,
+                                 import_rsa_privatekey_from_file,
+                                 import_rsa_publickey_from_file)
+
 from taf.git import GitRepository
 from taf.repository_tool import Repository
 
@@ -133,7 +137,7 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
     target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
     target_repo_name = os.path.basename(target_repo_dir)
     target_repo_namespaced_name = target_repo_name if not namespace else '{}/{}'.format(
-      namespace, target_repo_name)
+        namespace, target_repo_name)
     # determine url to specify in initial repositories.json
     # if the repository has a remote set, use that url
     # otherwise, set url to the repository's absolute or relative path (relative
@@ -200,6 +204,7 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
   register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot,
                         targets_key_pin, commit_msg=commit_msg)
 
+
 def _load_role_key_from_keys_dict(role, roles_key_infos):
   password = None
   if roles_key_infos is not None and len(roles_key_infos):
@@ -221,7 +226,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
                           targets_key_pin=None, update_all=True, commit_msg=None):
   """
   <Purpose>
-    Register all files found in the target directory as tatges - updates the targets
+    Register all files found in the target directory as targets - updates the targets
     metadata file. Update snapshot and timestamp if update_fall==True. Sign targets
     with yubikey if targets_key_pin and targets_key_slot are provided.
   <Arguments>
@@ -252,7 +257,6 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
   if commit_msg is not None:
     auth_repo = GitRepository(repo_path)
     auth_repo.commit(commit_msg)
-
 
 
 def _role_obj(role, repository):
@@ -299,4 +303,3 @@ def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
 # TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing
 # repository etc.)
 # TODO create tests for this
-

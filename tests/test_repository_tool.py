@@ -1,12 +1,12 @@
 import datetime
 from pathlib import Path
 
+import oll_sc.exceptions
 import pytest
 import securesystemslib
-
-import oll_sc.exceptions
-import taf.exceptions
 import tuf
+
+import taf.exceptions
 from taf.utils import to_tuf_datetime_format
 
 
@@ -52,9 +52,6 @@ def test_update_snapshot_and_timestmap(taf_happy_path, keystore):
   timestamp_metadata_path = Path(taf_happy_path.metadata_path) / 'timestamp.json'
 
   old_targets_metadata = targets_metadata_path.read_bytes()
-  old_snaphost_metadata = snapshot_metadata_path.read_bytes()
-  old_timestamp_metadata = timestamp_metadata_path.read_bytes()
-
 
   def check_expiration_date(metadata_path, date, interval):
     signable = securesystemslib.util.load_json_file(metadata_path)
