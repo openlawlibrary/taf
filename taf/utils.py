@@ -1,9 +1,11 @@
-import click
 import datetime
 import logging
 import os
 import stat
 import subprocess
+
+import click
+
 import taf.settings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +29,9 @@ class IsoDateParamType(click.ParamType):
     except ValueError as ex:
       self.fail(str(ex), param, ctx)
 
+
 ISO_DATE_PARAM_TYPE = IsoDateParamType()
+
 
 def run(*command, **kwargs):
   """Run a command and return its output. Call with `debug=True` to print to
@@ -82,6 +86,7 @@ def on_rm_error(_func, path, _exc_info):
   """
   os.chmod(path, stat.S_IWRITE)
   os.unlink(path)
+
 
 def to_tuf_datetime_format(start_date, interval):
   """Used to convert datetime to format used while writing metadata:

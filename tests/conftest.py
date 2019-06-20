@@ -1,15 +1,16 @@
-import shutil
 import os
+import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
-from pytest import fixture, yield_fixture
-from taf.repository_tool import Repository
-from taf.utils import on_rm_error
 import oll_sc
+from pytest import fixture, yield_fixture
 from tuf.repository_tool import (import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file)
+
 import taf.repository_tool as repository_tool
+from taf.repository_tool import Repository
+from taf.utils import on_rm_error
 
 from .yubikey import (Root1YubiKey, Root2YubiKey, Root3YubiKey, TargetYubiKey,
                       init_pkcs11_mock)
@@ -58,16 +59,16 @@ def origin_repos(test_name):
 
 def _copy_repos(test_dir_path, test_name):
   paths = {}
-  for root, dirs, files in os.walk(test_dir_path):
-   for dir_name in dirs:
-     if dir_name == 'git':
-      repo_rel_path = os.path.relpath(root, test_dir_path)
-      dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
-      # convert dst_path to string in order to support python 3.5
-      shutil.copytree(root, str(dst_path))
-      (dst_path / 'git').rename(dst_path / '.git')
-      repo_rel_path = Path(repo_rel_path).as_posix()
-      paths[repo_rel_path] = str(dst_path)
+  for root, dirs, _ in os.walk(test_dir_path):
+    for dir_name in dirs:
+      if dir_name == 'git':
+        repo_rel_path = os.path.relpath(root, test_dir_path)
+        dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
+        # convert dst_path to string in order to support python 3.5
+        shutil.copytree(root, str(dst_path))
+        (dst_path / 'git').rename(dst_path / '.git')
+        repo_rel_path = Path(repo_rel_path).as_posix()
+        paths[repo_rel_path] = str(dst_path)
   return paths
 
 
@@ -83,6 +84,7 @@ def taf_happy_path():
     repository_tool.DISABLE_KEYS_CACHING = True
     yield taf_repo
 
+
 @yield_fixture(scope="session", autouse=True)
 def updater_repositories():
   test_dir = 'test-updater'
@@ -94,9 +96,11 @@ def updater_repositories():
 def client_dir():
   return CLIENT_DIR_PATH
 
+
 @fixture
 def origin_dir():
   return TEST_DATA_ORIGIN_PATH
+
 
 @fixture
 def keystore():
@@ -152,6 +156,7 @@ def timestamp_key():
   priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'timestamp'))
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
+
 
 @fixture
 def wrong_keystore():

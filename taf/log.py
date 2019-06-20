@@ -1,9 +1,9 @@
 import logging
+
 import taf.settings
 
-
 _FORMAT_STRING = '[%(asctime)s] [%(levelname)s] ' + \
-  '[%(funcName)s:%(lineno)s@%(filename)s]\n%(message)s\n'
+    '[%(funcName)s:%(lineno)s@%(filename)s]\n%(message)s\n'
 formatter = logging.Formatter(_FORMAT_STRING)
 
 logger = logging.getLogger('taf')

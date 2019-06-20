@@ -3,9 +3,10 @@ import os
 import re
 import shutil
 import subprocess
-import taf.settings as settings
-import taf.log
 from pathlib import Path
+
+import taf.log
+import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from taf.utils import run
 
@@ -74,7 +75,7 @@ class GitRepository(object):
           logger.error(log_error_msg)
         else:
           logger.error('Repo %s: error occurred while executing %s:\n%s',
-                        self.repo_name, command, e.output)
+                       self.repo_name, command, e.output)
         if reraise_error:
           raise
     else:

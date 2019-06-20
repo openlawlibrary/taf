@@ -6,15 +6,14 @@ from pathlib import Path
 
 import securesystemslib
 import tuf.repository_tool
-
-from securesystemslib.exceptions import Error as SSLibError
-
 from oll_sc.exceptions import SmartCardError
-from taf.utils import normalize_file_line_endings
+from securesystemslib.exceptions import Error as SSLibError
 from tuf.exceptions import Error as TUFError
-from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
-                                 TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
-                                 load_repository)
+from tuf.repository_tool import (
+    METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
+    load_repository)
+
+from taf.utils import normalize_file_line_endings
 
 from .exceptions import (InvalidKeyError, MetadataUpdateError,
                          SnapshotMetadataUpdateError,
@@ -56,7 +55,9 @@ def get_yubikey_public_key(key_slot, pin):
   pub_key_pem = sc_export_pub_key_pem(key_slot, pin).decode('utf-8')
   return import_rsakey_from_pem(pub_key_pem)
 
+
 DISABLE_KEYS_CACHING = False
+
 
 def load_role_key(keystore, role, password=None):
   """Loads the specified role's key from a keystore file.
@@ -456,13 +457,12 @@ class Repository:
       timestamp_interval = kwargs.get('timestamp_interval', None)
       timestamp_password = kwargs.get('timestamp_password')
 
-
-      self.update_snapshot(keystore, snapshot_password, snapshot_date, snapshot_interval, write=write)
-      self.update_timestamp(keystore, timestamp_password, timestamp_date, timestamp_interval, write=write)
-
+      self.update_snapshot(keystore, snapshot_password, snapshot_date,
+                           snapshot_interval, write=write)
+      self.update_timestamp(keystore, timestamp_password, timestamp_date,
+                            timestamp_interval, write=write)
     except (TUFError, SSLibError) as e:
       raise MetadataUpdateError('all', str(e))
-
 
   def update_targets_from_keystore(self, keystore, targets_password=None, start_date=datetime.datetime.now(),
                                    interval=None, write=True):
@@ -490,7 +490,6 @@ class Repository:
       self._update_metadata('targets', start_date, interval, write=write)
     except (TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
-
 
   def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
                      start_date=datetime.datetime.now(), interval=None, write=True):
