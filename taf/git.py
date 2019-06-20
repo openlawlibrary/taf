@@ -188,7 +188,7 @@ class GitRepository(object):
 
   def get_remote_url(self):
     try:
-      return self._git('config --get remote.origin.url')
+      return self._git('config --get remote.origin.url').strip()
     except subprocess.CalledProcessError:
       return None
 
