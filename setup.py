@@ -52,8 +52,8 @@ setup(
     install_requires=[
         'click==6.7',
         'colorama>=0.3.9'
-        'cryptography==2.3.1',
-        'oll-sc==0.1.0',
+        'cryptography>=2.3.1',
+        'oll-sc==0.1.1',
         'oll-tuf==0.11.2.dev6',
     ],
     extras_require={
