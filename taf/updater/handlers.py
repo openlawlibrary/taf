@@ -9,6 +9,7 @@ from subprocess import CalledProcessError
 from taf.updater.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
 from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
+from taf.utils import on_rm_error
 
 logger = taf.log.get_logger(__name__)
 
@@ -229,7 +230,7 @@ authentication repository {}'''.format(last_validated_commit, users_head_sha)
     shutil.rmtree(self.current_path)
     shutil.rmtree(self.previous_path)
     temp_dir = os.path.abspath(os.path.join(self.validation_auth_repo.repo_path, os.pardir))
-    shutil.rmtree(temp_dir)
+    shutil.rmtree(temp_dir, onerror=on_rm_error)
 
   def earliest_valid_expiration_time(self):
     # metadata at a certain revision should not expire before the
