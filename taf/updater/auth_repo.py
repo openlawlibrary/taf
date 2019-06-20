@@ -110,9 +110,9 @@ class AuthRepoMixin(object):
 
 class AuthenticationRepo(AuthRepoMixin, GitRepository):
 
-  def __init__(self, repo_path, metadata_path, targets_path,
-               repo_urls=None, additional_info=None):
-    super().__init__(repo_path, repo_urls, additional_info)
+  def __init__(self, repo_path, metadata_path, targets_path, repo_urls=None,
+               additional_info=None, default_branch='master'):
+    super().__init__(repo_path, repo_urls, additional_info, default_branch)
     self.targets_path = targets_path
     self.metadata_path = metadata_path
 
@@ -120,8 +120,9 @@ class AuthenticationRepo(AuthRepoMixin, GitRepository):
 class NamedAuthenticationRepo(AuthRepoMixin, NamedGitRepository):
 
   def __init__(self, root_dir, repo_name, metadata_path, targets_path,
-               repo_urls=None, additional_info=None):
+               repo_urls=None, additional_info=None, default_branch='master'):
 
-    super().__init__(root_dir, repo_name, repo_urls, additional_info)
+    super().__init__(root_dir, repo_name, repo_urls, additional_info,
+                     default_branch)
     self.targets_path = targets_path
     self.metadata_path = metadata_path
