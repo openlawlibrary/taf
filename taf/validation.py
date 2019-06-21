@@ -63,7 +63,7 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
     msg = 'Branches {} of target repositories do not have the same number of commits' \
           .format(branch_name)
     for target, commits in targets_and_commits.items():
-      msg += '\n{} has {} commits.'.format(target.target_path, len(commits))
+      msg += '\n{} has {} commits.'.format(target.repo_name, len(commits))
     raise InvalidBranchError(msg)
 
 
@@ -107,8 +107,8 @@ def _compare_commit_with_targets_metadata(tuf_repo, tuf_commit, target_repo, tar
   Check if commit sha of a repository's speculative branch commit matches the
   specified target value in targets.json.
   """
-  target_path = 'targets/{}'.format(target_repo.target_path)
-  targets_head_sha = tuf_repo.get_json(tuf_commit, target_path)['commit']
+  repo_name = 'targets/{}'.format(target_repo.repo_name)
+  targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)['commit']
   if target_repo_commit != targets_head_sha:
     raise InvalidBranchError('Commit {} of repository {} does '
                              'not match the commit sha specified in targets.json!'
