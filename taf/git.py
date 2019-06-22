@@ -64,7 +64,6 @@ class GitRepository(object):
     if len(args):
       cmd = cmd.format(*args)
     command = 'git -C {} {}'.format(self.repo_path, cmd)
-
     if log_error or log_error_msg:
       try:
         result = run(command)
@@ -226,6 +225,14 @@ class GitRepository(object):
       file_in_repo = os.path.relpath(file_in_repo, path)
       list_of_files.append(file_in_repo)
     return list_of_files
+
+  def list_commits(self, **kwargs):
+    params = []
+    for name, value in kwargs.items():
+      params.append('--{}={}'.format(name, value))
+
+    return self._git('log {}', ' '.join(params)).split('\n')
+
 
   def merge_commit(self, commit):
     self._git('merge {}', commit)

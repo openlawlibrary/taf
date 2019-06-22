@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import pathlib
+from collections import defaultdict
 
 import tuf.repository_tool
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
@@ -37,6 +38,41 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
     target_repo_name = os.path.basename(target_repo_dir)
     with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
       json.dump({'commit': commit}, f,  indent=4)
+
+
+def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_dir, keystore,
+                    roles_key_infos):
+  create_repository(repo_path, keystore, roles_key_infos)
+  generate_repositories_json(repo_path, targets_directory, namespace,
+                             targets_relative_dir)
+  register_target_files(repo_path, keystore, roles_key_infos, commit_msg='Added repositories.json')
+  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
+  if namespace:
+    auth_repo_targets_dir = os.path.join(auth_repo_targets_dir, namespace)
+    if not os.path.exists(auth_repo_targets_dir):
+      os.makedirs(auth_repo_targets_dir)
+  # group commits by dates
+  # first add first repos at a date, then second repost at that date
+  commits_by_date = defaultdict(dict)
+  target_repositories = []
+  for target_repo_dir in os.listdir(targets_directory):
+    target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
+    target_repo_name = os.path.basename(target_repo_dir)
+    target_repositories.append(target_repo_name)
+    commits = target_repo.list_commits(format='format:%H|%cd', date='short')
+    for commit in commits[::-1]:
+      sha, date = commit.split('|')
+      commits_by_date[date].setdefault(target_repo_name, []).append(sha)
+
+  for date in sorted(commits_by_date.keys()):
+    repos_and_commits = commits_by_date[date]
+    for target_repo_name in target_repositories:
+      if target_repo_name in repos_and_commits:
+        for sha in commits_by_date[date][target_repo_name]:
+          with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
+            json.dump({'commit': sha}, f,  indent=4)
+          register_target_files(repo_path, keystore, roles_key_infos,
+                                commit_msg='Updated {}'.format(target_repo_name))
 
 
 def create_repository(repo_path, keystore, roles_key_infos, should_commit=True):
