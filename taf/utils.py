@@ -1,10 +1,36 @@
 import datetime
 import logging
 import os
+import stat
 import subprocess
+
+import click
+
 import taf.settings
 
 logger = logging.getLogger(__name__)
+
+
+def _iso_parse(date):
+  return datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S.%f')
+
+
+class IsoDateParamType(click.ParamType):
+  name = 'iso_date'
+
+  def convert(self, value, param, ctx):
+    if value is None:
+      return datetime.datetime.now()
+
+    if isinstance(value, datetime.datetime):
+      return value
+    try:
+      return _iso_parse(value)
+    except ValueError as ex:
+      self.fail(str(ex), param, ctx)
+
+
+ISO_DATE_PARAM_TYPE = IsoDateParamType()
 
 
 def run(*command, **kwargs):
@@ -52,6 +78,14 @@ def normalize_file_line_endings(file_path):
   if replaced_content != content:
     with open(file_path, 'wb') as open_file:
       open_file.write(replaced_content)
+
+
+def on_rm_error(_func, path, _exc_info):
+  """Used by when calling rmtree to ensure that readonly files and folders
+  are deleted.
+  """
+  os.chmod(path, stat.S_IWRITE)
+  os.unlink(path)
 
 
 def to_tuf_datetime_format(start_date, interval):

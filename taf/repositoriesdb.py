@@ -1,9 +1,10 @@
 import json
-import taf.log
 from pathlib import Path
 from subprocess import CalledProcessError
 
-from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
+import taf.log
+from taf.exceptions import (InvalidOrMissingMetadataError,
+                            RepositoriesNotFoundError)
 from taf.git import NamedGitRepository
 
 # {
@@ -21,6 +22,11 @@ logger = taf.log.get_logger(__name__)
 _repositories_dict = {}
 repositories_path = 'targets/repositories.json'
 targets_path = 'metadata/targets.json'
+
+
+def clear_repositories_db():
+  global _repositories_dict
+  _repositories_dict.clear()
 
 
 def load_repositories(auth_repo, repo_classes=None, factory=None,
@@ -52,7 +58,6 @@ def load_repositories(auth_repo, repo_classes=None, factory=None,
       If set to false, all repositories defined in repositories.json are loaded, regardless of if
       they are targets or not.
   """
-
 
   global _repositories_dict
   if auth_repo.repo_name not in _repositories_dict:
@@ -165,7 +170,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
   paths = list(filter(_compare, repositories)) if custom else list(repositories)
   if len(paths):
-    logger.debug('Auth repo %s: found the following paths %s', auth_repo.repo_name, paths )
+    logger.debug('Auth repo %s: found the following paths %s', auth_repo.repo_name, paths)
     return paths
   logger.error('Auth repo %s: repositories associated with custom data %s not found',
                auth_repo.repo_name, custom)
@@ -246,7 +251,7 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
 
   if len(found_repos):
     logger.debug('Auth repo %s: found the following repositories %s', auth_repo.repo_name,
-                 ', '.join(repositories.keys()))
+                 repositories)
     return found_repos
   logger.error('Auth repo %s: repositories associated with custom data %s not found',
                auth_repo.repo_name, custom_data)

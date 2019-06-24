@@ -9,6 +9,7 @@ from subprocess import CalledProcessError
 from taf.updater.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
 from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
+from taf.utils import on_rm_error
 
 logger = taf.log.get_logger(__name__)
 
@@ -100,7 +101,7 @@ class GitUpdater(handlers.MetadataUpdater):
     self._clone_validation_repo(auth_url)
     repository_directory = self.users_auth_repo.repo_path
     if os.path.exists(repository_directory):
-      if not self.users_auth_repo.is_git_repository:
+      if not self.users_auth_repo.is_git_repository_root:
         if os.listdir(repository_directory):
           raise UpdateFailedError('{} is not a git repository and is not empty'
                                   .format(repository_directory))
@@ -147,7 +148,7 @@ class GitUpdater(handlers.MetadataUpdater):
     # That should always be the case
     # If it is not, it means that someone, accidentally or maliciosly made manual changes
 
-    if not self.users_auth_repo.is_git_repository:
+    if not self.users_auth_repo.is_git_repository_root:
       users_head_sha = None
     else:
       self.users_auth_repo.checkout_branch('master')
@@ -229,7 +230,7 @@ authentication repository {}'''.format(last_validated_commit, users_head_sha)
     shutil.rmtree(self.current_path)
     shutil.rmtree(self.previous_path)
     temp_dir = os.path.abspath(os.path.join(self.validation_auth_repo.repo_path, os.pardir))
-    shutil.rmtree(temp_dir)
+    shutil.rmtree(temp_dir, onerror=on_rm_error)
 
   def earliest_valid_expiration_time(self):
     # metadata at a certain revision should not expire before the

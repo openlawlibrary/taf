@@ -21,7 +21,7 @@ LOG_LEVEL = logging.DEBUG
 # whether to log to the console, which does not mean that file logging cannot be enabled as well
 ENABLE_CONSOLE_LOGGING = True
 
-# whether to log to a file, which does not mean that console logging cannnot be enabled as well
+# whether to log to a file, which does not mean that console logging cannot be enabled as well
 ENABLE_FILE_LOGGING = True
 
 # should errors be logged to a separate file if logging to file is enabled,

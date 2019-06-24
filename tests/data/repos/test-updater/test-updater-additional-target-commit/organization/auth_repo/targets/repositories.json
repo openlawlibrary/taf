@@ -1,0 +1,19 @@
+{
+    "repositories": {
+        "namespace/TargetRepo1": {
+            "urls": [
+                "../../../origin/test-updater-additional-target-commit/namespace/TargetRepo1"
+            ]
+        },
+        "namespace/TargetRepo2": {
+            "urls": [
+                "../../../origin/test-updater-additional-target-commit/namespace/TargetRepo2"
+            ]
+        },
+        "namespace/TargetRepo3": {
+            "urls": [
+                "../../../origin/test-updater-additional-target-commit/namespace/TargetRepo3"
+            ]
+        }
+    }
+}

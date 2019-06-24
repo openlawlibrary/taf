@@ -7,10 +7,13 @@ import taf.settings as settings
 import taf.log
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
+from taf.utils import on_rm_error
+
 
 logger = taf.log.get_logger(__name__)
 
-def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem):
+def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem,
+                      target_repo_classes=None, target_factory=None):
   """
   <Arguments>
    url:
@@ -21,6 +24,12 @@ def update_repository(url, clients_repo_path, targets_dir, update_from_filesyste
     Directory where the target repositories are located
    update_from_filesystem:
     A flag which indicates if the URL is acutally a file system path
+   target_repo_classes:
+    A class or a dictionary used when instantiating target repositories.
+    See repositoriesdb load_repositories for more details.
+   target_factory:
+    A git repositories factory used when instantiating target repositories.
+    See repositoriesdb load_repositories for more details.
   """
   # if the repository's name is not provided, divide it in parent directory
   # and repository name, since TUF's updater expects a name
@@ -28,10 +37,10 @@ def update_repository(url, clients_repo_path, targets_dir, update_from_filesyste
   clients_dir, repo_name = os.path.split(os.path.normpath(clients_repo_path))
   settings.validate_repo_name = False
   update_named_repository(url, clients_dir, repo_name, targets_dir,
-                          update_from_filesystem)
+                          update_from_filesystem, target_repo_classes, target_factory)
 
 def update_named_repository(url, clients_directory, repo_name, targets_dir,
-                            update_from_filesystem):
+                            update_from_filesystem, target_repo_classes=None, target_factory=None):
   """
    <Arguments>
     url:
@@ -44,6 +53,12 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
       Directory where the target repositories are located
     update_from_filesystem:
       A flag which indicates if the URL is acutally a file system path
+    target_repo_classes:
+      A class or a dictionary used when instantiating target repositories.
+      See repositoriesdb load_repositories for more details.
+    target_factory:
+      A git repositories factory used when instantiating target repositories.
+      See repositoriesdb load_repositories for more details.
 
   The general idea of the updater is the following:
   - We have a git repository which contains the metadata files. These metadata files
@@ -72,8 +87,8 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
   loads data from a most recent commit.
   """
 
-  # TODO old HEAD as an input parameter
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
+
 
   settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
@@ -84,30 +99,40 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
 
   tuf.settings.repositories_directory = clients_directory
   repository_updater = tuf_updater.Updater(repo_name,
-                                           repository_mirrors,
-                                           GitUpdater)
-
-  # validate the authentication repository and fetch new commits
-  _update_authentication_repository(repository_updater)
-
-  # get target repositories and their commits, as specified in targets.json
+                                            repository_mirrors,
+                                            GitUpdater)
   users_auth_repo = repository_updater.update_handler.users_auth_repo
-  commits = repository_updater.update_handler.commits
-  repositoriesdb.load_repositories(users_auth_repo, root_dir=targets_dir, commits=commits)
-  repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
-  repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+  existing_repo = users_auth_repo.is_git_repository_root
+  try:
+    # validate the authentication repository and fetch new commits
+    _update_authentication_repository(repository_updater)
 
-  # update target repositories
-  _update_target_repositories(repositories, repositories_commits)
+    # get target repositories and their commits, as specified in targets.json
 
-  last_commit = commits[-1]
-  logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
-  # if there were no errors, merge the last validated authentication repository commit
-  users_auth_repo.merge_commit(last_commit)
-  users_auth_repo.checkout_branch('master')
-  # update the last validated commit
-  users_auth_repo.set_last_validated_commit(last_commit)
+    commits = repository_updater.update_handler.commits
+    repositoriesdb.load_repositories(users_auth_repo, repo_classes=target_repo_classes,
+                                     factory=target_factory, root_dir=targets_dir,
+                                     commits=commits)
+    repositories = repositoriesdb.get_deduplicated_repositories(users_auth_repo, commits)
+    repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
 
+    # update target repositories
+    _update_target_repositories(repositories, repositories_commits)
+
+    last_commit = commits[-1]
+    logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
+    # if there were no errors, merge the last validated authentication repository commit
+    users_auth_repo.checkout_branch(users_auth_repo.default_branch)
+    users_auth_repo.merge_commit(last_commit)
+    # update the last validated commit
+    users_auth_repo.set_last_validated_commit(last_commit)
+  except Exception as e:
+    if not existing_repo:
+      shutil.rmtree(users_auth_repo.repo_path, onerror=on_rm_error)
+      shutil.rmtree(users_auth_repo.conf_dir)
+    raise e
+  finally:
+    repositoriesdb.clear_repositories_db()
 
 def _update_authentication_repository(repository_updater):
 
@@ -138,7 +163,7 @@ def _update_authentication_repository(repository_updater):
     # for now, useful for debugging
     logger.error('Validation of authentication repository %s failed due to error %s',
                  users_auth_repo.repo_name,  e)
-    raise UpdateFailedError('Validation of authentication repository {} due to error: {}'
+    raise UpdateFailedError('Validation of authentication repository {} failed due to error: {}'
                             .format(users_auth_repo.repo_name, e))
   finally:
     repository_updater.update_handler.cleanup()
@@ -146,7 +171,7 @@ def _update_authentication_repository(repository_updater):
   logger.info('Successfully validated authentication repository %s', users_auth_repo.repo_name)
   # fetch the latest commit or clone the repository without checkout
   # do not merge before targets are validated as well
-  if users_auth_repo.is_git_repository:
+  if users_auth_repo.is_git_repository_root:
     users_auth_repo.fetch(True)
   else:
     users_auth_repo.clone(no_checkout=True)
@@ -158,7 +183,7 @@ def _update_target_repositories(repositories, repositories_commits):
   # so that they can be removed if the update fails
   cloned_repositories = []
   for path, repository in repositories.items():
-    if not repository.is_git_repository:
+    if not repository.is_git_repository_root:
       old_head = None
     else:
       old_head = repository.head_commit_sha()
@@ -175,14 +200,14 @@ def _update_target_repositories(repositories, repositories_commits):
       # delete all repositories that were cloned
       for repo in cloned_repositories:
         logger.debug('Removing cloned repository %s', repo.repo_path)
-        shutil.rmtree(repo.repo_path)
+        shutil.rmtree(repo.repo_path, onerror=on_rm_error)
       # TODO is it important to undo a fetch if the repository was not cloned?
       raise e
 
   logger.info('Successfully validated all target repositories.')
   # if update is successful, merge the commits
   for path, repository in repositories.items():
-    repository.checkout_branch('master')
+    repository.checkout_branch(repository.default_branch)
     if len(repositories_commits[path]):
       logger.info('Merging %s into %s', repositories_commits[path][-1], repository.repo_name)
       repository.merge_commit(repositories_commits[path][-1])
@@ -201,12 +226,21 @@ def _update_target_repository(repository, old_head, target_commits):
   # So, the number of new commits, pushed to the target repository, could
   # be greater than the number of these commits according to the authentication
   # repository. The opposite cannot be the case.
+  # In general, if there are additional commits in the target repositories,
+  # the updater will finish the update successfully, but will only update the
+  # target repositories until the latest validate commit
   update_successful = len(new_commits) >= len(target_commits)
   if update_successful:
     for target_commit, repo_commit in zip(target_commits, new_commits):
       if target_commit != repo_commit:
         update_successful = False
         break
+  if len(new_commits) > len(target_commits):
+    additional_commits = new_commits[len(target_commits):]
+    logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
+                   'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
+                    new_commits[-1])
+
 
   if not update_successful:
     logger.error('Mismatch between target commits specified in authentication repository and the '

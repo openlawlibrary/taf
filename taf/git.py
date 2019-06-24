@@ -3,9 +3,10 @@ import os
 import re
 import shutil
 import subprocess
-import taf.settings as settings
-import taf.log
 from pathlib import Path
+
+import taf.log
+import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from taf.utils import run
 
@@ -14,20 +15,33 @@ logger = taf.log.get_logger(__name__)
 
 class GitRepository(object):
 
-  def __init__(self, repo_path, repo_urls=None, additional_info=None):
+  def __init__(self, repo_path, repo_urls=None, additional_info=None, default_branch='master'):
     """
     Args:
       repo_path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
+      default_branch: repository's default branch
     """
-    self.repo_path = repo_path
-    if repo_urls is not None and settings.update_from_filesystem is False:
-      for url in repo_urls:
-        _validate_url(url)
+    self.repo_path = str(repo_path)
+    self.default_branch = default_branch
+    if repo_urls is not None:
+      if settings.update_from_filesystem is False:
+        for url in repo_urls:
+          _validate_url(url)
+      else:
+        repo_urls = [os.path.normpath(os.path.join(self.repo_path, url)) if
+                     not os.path.isabs(url) else url
+                     for url in repo_urls]
     self.repo_urls = repo_urls
     self.additional_info = additional_info
     self.repo_name = os.path.basename(self.repo_path)
+
+  @property
+  def is_git_repository_root(self):
+    """Check if path is git repository."""
+    git_path = Path(self.repo_path) / '.git'
+    return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
 
   @property
   def is_git_repository(self):
@@ -61,7 +75,7 @@ class GitRepository(object):
           logger.error(log_error_msg)
         else:
           logger.error('Repo %s: error occurred while executing %s:\n%s',
-                        self.repo_name, command, e.output)
+                       self.repo_name, command, e.output)
         if reraise_error:
           raise
     else:
@@ -112,7 +126,7 @@ class GitRepository(object):
       else:
         raise(e)
 
-  def clone(self, no_checkout=False, from_filesystem=True, bare=False):
+  def clone(self, no_checkout=False, bare=False):
 
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
@@ -125,9 +139,6 @@ class GitRepository(object):
       params = '--no-checkout'
     for url in self.repo_urls:
       try:
-        if from_filesystem:
-          url = url.replace('/', os.sep)
-
         self._git('clone {} . {}', url, params, log_success_msg='successfully cloned')
       except subprocess.CalledProcessError:
         logger.error('Repo %s: cannot clone from url %s', self.repo_name, url)
@@ -176,6 +187,12 @@ class GitRepository(object):
   def get_file(self, commit, path):
     return self._git('show {}:{}', commit, path)
 
+  def get_remote_url(self):
+    try:
+      return self._git('config --get remote.origin.url').strip()
+    except subprocess.CalledProcessError:
+      return None
+
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
     try:
@@ -193,7 +210,8 @@ class GitRepository(object):
     if not os.path.isdir(self.repo_path):
       os.makedirs(self.repo_path, exist_ok=True)
     self._git('init')
-    self._git('remote add origin {}', self.repo_urls[0])
+    if self.repo_urls is not None and len(self.repo_urls):
+      self._git('remote add origin {}', self.repo_urls[0])
 
   def list_files_at_revision(self, commit, path=''):
     if path is None:
@@ -223,21 +241,31 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       self._git('--set-upstream origin {}', branch).strip()
 
+  def reset_num_of_commits(self, num_of_commits, hard=False):
+    flag = '--hard' if hard else '--soft'
+    self._git('reset {} HEAD~{}'.format(flag, num_of_commits))
+
+  def reset_to_commit(self, commit, hard=False):
+    flag = '--hard' if hard else '--soft'
+    self._git('reset {} {}'.format(flag, commit))
+
 
 class NamedGitRepository(GitRepository):
 
-  def __init__(self, root_dir, repo_name, repo_urls=None, additional_info=None):
+  def __init__(self, root_dir, repo_name, repo_urls=None, additional_info=None,
+               default_branch='master'):
     """
     Args:
       root_dir: the root directory
       repo_name: repository's path relative to the root directory root_dir
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
+      default_branch: repository's default branch
     repo_path is the absolute path to this repository. It is set by joining
     root_dir and repo_name.
     """
     repo_path = _get_repo_path(root_dir, repo_name)
-    super().__init__(repo_path, repo_urls, additional_info)
+    super().__init__(repo_path, repo_urls, additional_info, default_branch)
     self.repo_name = repo_name
 
 

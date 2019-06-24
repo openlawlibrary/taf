@@ -31,7 +31,8 @@ class _Session:
   def getAttributeValue(self, obj, *args):
     return {
         'cert': ['TODO: Create certificates'],
-        'pub_key': [self.yubikey.pub_key_der]
+        'pub_key': [self.yubikey.pub_key_der],
+        'priv_key': [True]
     }.get(obj, [])
 
   def login(self, pin, user_type=None):
@@ -124,14 +125,14 @@ class TargetYubiKey(FakeYubiKey):
 
 class Root1YubiKey(FakeYubiKey):
   def __init__(self, keystore_path):
-    super().__init__(keystore_path / 'root_key1', keystore_path / 'root_key1.pub')
+    super().__init__(keystore_path / 'root1', keystore_path / 'root1.pub')
 
 
 class Root2YubiKey(FakeYubiKey):
   def __init__(self, keystore_path):
-    super().__init__(keystore_path / 'root_key2', keystore_path / 'root_key2.pub')
+    super().__init__(keystore_path / 'root2', keystore_path / 'root2.pub')
 
 
 class Root3YubiKey(FakeYubiKey):
   def __init__(self, keystore_path):
-    super().__init__(keystore_path / 'root_key3', keystore_path / 'root_key3.pub')
+    super().__init__(keystore_path / 'root3', keystore_path / 'root3.pub')

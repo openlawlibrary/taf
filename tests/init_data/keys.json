@@ -1,0 +1,12 @@
+{
+  "root": {
+    "number": 3,
+    "length": 2048,
+	"threshold": 2
+  },
+  "targets": {
+    "length": 2048
+  },
+  "snapshot": {},
+  "timestamp": {}
+}
