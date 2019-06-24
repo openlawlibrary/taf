@@ -193,7 +193,7 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
       url = pathlib.Path(url).as_posix()
     repositories[target_repo_namespaced_name] = {'urls': [url]}
     if target_repo_namespaced_name in custom_data:
-        repositories[target_repo_namespaced_name]['custom'] = custom_data[target_repo_namespaced_name]
+      repositories[target_repo_namespaced_name]['custom'] = custom_data[target_repo_namespaced_name]
 
   with open(os.path.join(auth_repo_targets_dir, 'repositories.json'), 'w') as f:
     json.dump({'repositories': repositories}, f,  indent=4)
