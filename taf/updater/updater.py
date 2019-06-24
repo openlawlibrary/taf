@@ -210,8 +210,11 @@ def _update_target_repositories(repositories, repositories_commits):
     repository.checkout_branch(repository.default_branch)
     if len(repositories_commits[path]):
       logger.info('Merging %s into %s', repositories_commits[path][-1], repository.repo_name)
-      repository.merge_commit(repositories_commits[path][-1])
-
+      last_validated_commit = repositories_commits[path][-1]
+      if repository in cloned_repositories:
+        repository.checkout_commit(last_validated_commit)
+      else:
+        repository.merge_commit(last_validated_commit)
 
 def _update_target_repository(repository, old_head, target_commits):
 
@@ -239,7 +242,7 @@ def _update_target_repository(repository, old_head, target_commits):
     additional_commits = new_commits[len(target_commits):]
     logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
                    'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
-                    new_commits[-1])
+                    target_commits[-1])
 
 
   if not update_successful:

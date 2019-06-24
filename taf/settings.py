@@ -27,7 +27,7 @@ ENABLE_FILE_LOGGING = True
 # should errors be logged to a separate file if logging to file is enabled,
 SEPARATE_ERRORS = True
 
-CONSOLE_LOGGING_LEVEL = logging.DEBUG
+CONSOLE_LOGGING_LEVEL = logging.INFO
 
 FILE_LOGGING_LEVEL = logging.INFO
 

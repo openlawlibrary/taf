@@ -127,6 +127,7 @@ class GitRepository(object):
 
   def clone(self, no_checkout=False, bare=False):
 
+    logger.info('Repo %s: cloning repository', self.repo_name)
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
     if self.repo_urls is None:
@@ -147,6 +148,9 @@ class GitRepository(object):
   def create_and_checkout_branch(self, branch_name):
     self._git('checkout -b {}', branch_name,  log_success_msg='created and checked out branch {}'.
               format(branch_name, log_error=True, reraise_error=True))
+
+  def checkout_commit(self, commit):
+    self._git('checkout {}', commit, log_success_msg='checked out commit {}'.format(commit))
 
   def commit(self, message):
     """Create a commit with the provided message

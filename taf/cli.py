@@ -78,13 +78,15 @@ def add_target_repos(repo_path, targets_dir, namespace):
 @click.option('--keystore', default='keystore', help='Location of the keystore file')
 @click.option('--keys-description', help='A dictionary containing information about the '
               'keys or a path to a json file which which stores the needed information')
+@click.option('--repos-custom', default=None, help='A dictionary containing custom '
+              'targets info which will be included in repositories.json')
 def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                    keys_description):
+                    keys_description, repos_custom):
   if os.path.isfile(keys_description):
     with open(keys_description) as f:
       keys_description = json.loads(f.read())
   developer_tool.build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                                 keys_description)
+                                 keys_description, repos_custom)
 
 
 @cli.command()
@@ -121,14 +123,16 @@ def generate_keys(keystore, keys_description):
 @click.option('--keystore', default='keystore', help='Location of the keystore file')
 @click.option('--keys-description', help='A dictionary containing information about the '
               'keys or a path to a json file which which stores the needed information')
+@click.option('--repos-custom', default=None, help='A dictionary containing custom '
+              'targets info which will be included in repositories.json')
 @click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
 def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-              keys_description, commit):
+              keys_description, repos_custom, commit):
   if os.path.isfile(keys_description):
     with open(keys_description) as f:
       keys_description = json.loads(f.read())
   developer_tool.init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                           keys_description, should_commit=commit)
+                           keys_description, repos_custom, should_commit=commit)
 
 
 @cli.command()

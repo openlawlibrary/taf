@@ -41,10 +41,10 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
 
 
 def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_dir, keystore,
-                    roles_key_infos):
+                    roles_key_infos, repos_custom):
   create_repository(repo_path, keystore, roles_key_infos)
   generate_repositories_json(repo_path, targets_directory, namespace,
-                             targets_relative_dir)
+                             targets_relative_dir, repos_custom)
   register_target_files(repo_path, keystore, roles_key_infos, commit_msg='Added repositories.json')
   auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   if namespace:
@@ -57,6 +57,7 @@ def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_di
   target_repositories = []
   for target_repo_dir in os.listdir(targets_directory):
     target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
+    target_repo.checkout_branch('master')
     target_repo_name = os.path.basename(target_repo_dir)
     target_repositories.append(target_repo_name)
     commits = target_repo.list_commits(format='format:%H|%cd', date='short')
@@ -153,7 +154,7 @@ def generate_keys(keystore, roles_key_infos):
 
 
 def generate_repositories_json(repo_path, targets_directory, namespace='',
-                               targets_relative_dir=None):
+                               targets_relative_dir=None, custom_data=None):
   """
   <Purpose>
     Generatesinitial repositories.json
@@ -168,6 +169,10 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
       Directory relative to which urls of the target repositories are set, if they do not have remote set
   """
   repositories = {}
+  if custom_data is not None:
+    custom_data = json.loads(custom_data)
+  else:
+    custom_data = {}
   auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   for target_repo_dir in os.listdir(targets_directory):
     target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
@@ -187,6 +192,8 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
       # convert to posix path
       url = pathlib.Path(url).as_posix()
     repositories[target_repo_namespaced_name] = {'urls': [url]}
+    if target_repo_namespaced_name in custom_data:
+        repositories[target_repo_namespaced_name]['custom'] = custom_data[target_repo_namespaced_name]
 
   with open(os.path.join(auth_repo_targets_dir, 'repositories.json'), 'w') as f:
     json.dump({'repositories': repositories}, f,  indent=4)
@@ -201,7 +208,7 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
               keystore, roles_key_infos, targets_key_slot=None, targets_key_pin=None,
-              should_commit=True):
+              repos_custom=None, should_commit=True):
   """
   <Purpose>
     Generate initial repository:
@@ -235,7 +242,7 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
   create_repository(repo_path, keystore, roles_key_infos, should_commit)
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
-                             targets_relative_dir)
+                             targets_relative_dir, repos_custom)
   commit_msg = 'Added initial targets' if should_commit else None
   register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot,
                         targets_key_pin, commit_msg=commit_msg)
