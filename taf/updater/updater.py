@@ -117,7 +117,8 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
     repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
 
     # update target repositories
-    _update_target_repositories(repositories, repositories_commits)
+    repositories_json = users_auth_repo.get_json(commits[-1], 'targets/repositories.json')
+    _update_target_repositories(repositories, repositories_json, repositories_commits)
 
     last_commit = commits[-1]
     logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
@@ -177,7 +178,7 @@ def _update_authentication_repository(repository_updater):
     users_auth_repo.clone(no_checkout=True)
 
 
-def _update_target_repositories(repositories, repositories_commits):
+def _update_target_repositories(repositories, repositories_json, repositories_commits):
   logger.info('Validating target repositories')
   # keep track of the repositories which were cloned
   # so that they can be removed if the update fails
@@ -195,7 +196,7 @@ def _update_target_repositories(repositories, repositories_commits):
       repository.fetch(True)
 
     try:
-      _update_target_repository(repository, old_head, repositories_commits[path])
+      _update_target_repository(repository, repositories_json, old_head, repositories_commits[path])
     except UpdateFailedError as e:
       # delete all repositories that were cloned
       for repo in cloned_repositories:
@@ -216,14 +217,18 @@ def _update_target_repositories(repositories, repositories_commits):
       else:
         repository.merge_commit(last_validated_commit)
 
-def _update_target_repository(repository, old_head, target_commits):
+def _update_target_repository(repository, repositories_json, old_head, target_commits):
 
   logger.info('Validating target repository %s', repository.repo_name)
+  allow_unauthenticated = repositories_json['repositories'][repository.repo_name]. \
+                            get('custom', {}).get('allow-unauthenticated-commits', False)
+
   if old_head is not None:
     new_commits = repository.all_fetched_commits()
     new_commits.insert(0, old_head)
   else:
     new_commits = repository.all_commits_since_commit(old_head)
+
   # A new commit might have been pushed after the update process
   # started and before fetch was called
   # So, the number of new commits, pushed to the target repository, could
@@ -232,22 +237,35 @@ def _update_target_repository(repository, old_head, target_commits):
   # In general, if there are additional commits in the target repositories,
   # the updater will finish the update successfully, but will only update the
   # target repositories until the latest validate commit
-  update_successful = len(new_commits) >= len(target_commits)
-  if update_successful:
-    for target_commit, repo_commit in zip(target_commits, new_commits):
-      if target_commit != repo_commit:
-        update_successful = False
-        break
-  if len(new_commits) > len(target_commits):
-    additional_commits = new_commits[len(target_commits):]
-    logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
-                   'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
-                    target_commits[-1])
+  if not allow_unauthenticated:
+    update_successful = len(new_commits) >= len(target_commits)
+    if update_successful:
+      for target_commit, repo_commit in zip(target_commits, new_commits):
+        if target_commit != repo_commit:
+          update_successful = False
+          break
+    if len(new_commits) > len(target_commits):
+      additional_commits = new_commits[len(target_commits):]
+      logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
+                    'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
+                      target_commits[-1])
+  else:
+    logger.info('Unauthenticated commits allowed in repository %s', repository.repo_name)
+    update_successful = True
+    target_commits_index = 0
+    for commit in new_commits:
+      if commit in target_commits:
+        if commit != target_commits[target_commits_index]:
+          update_successful = False
+          break
+        else:
+          target_commits_index += 1
 
+    update_successful = target_commits != len(target_commits)
 
   if not update_successful:
     logger.error('Mismatch between target commits specified in authentication repository and the '
-                 'target repository %s', repository.repo_name)
+                'target repository %s', repository.repo_name)
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
                             ' and target repository {}'.format(repository.repo_name))
   logger.info('Successfully validated %s', repository.repo_name)

@@ -42,6 +42,8 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
 
 def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_dir, keystore,
                     roles_key_infos, repos_custom):
+  # read the key infos here, no need to read the file multiple times
+  roles_key_infos = _read_input_dict(roles_key_infos)
   create_repository(repo_path, keystore, roles_key_infos)
   generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir, repos_custom)
@@ -94,6 +96,8 @@ def create_repository(repo_path, keystore, roles_key_infos, should_commit=True):
       Indicates if if a the git repository should be initialized, and if the initial metadata
       should be committed
   """
+  roles_key_infos = _read_input_dict(roles_key_infos)
+
   if os.path.isdir(repo_path):
     print('{} already exists'.format(repo_path))
     return
@@ -142,6 +146,7 @@ def generate_keys(keystore, roles_key_infos):
       Names of the keys are set to names of the roles plus a counter, if more than one key
       should be generated.
   """
+  roles_key_infos = _read_input_dict(roles_key_infos)
   for role_name, key_info in roles_key_infos.items():
     num_of_keys = key_info.get('number', 1)
     bits = key_info.get('length', 3072)
@@ -168,11 +173,8 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
     targets_relative_dir:
       Directory relative to which urls of the target repositories are set, if they do not have remote set
   """
+  custom_data = _read_input_dict(custom_data)
   repositories = {}
-  if custom_data is not None:
-    custom_data = json.loads(custom_data)
-  else:
-    custom_data = {}
   auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   for target_repo_dir in os.listdir(targets_directory):
     target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
@@ -239,6 +241,8 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
       Indicates if if a the git repository should be initialized, and if the initial metadata
       should be committed
   """
+  # read the key infos here, no need to read the file multiple times
+  roles_key_infos = _read_input_dict(roles_key_infos)
   create_repository(repo_path, keystore, roles_key_infos, should_commit)
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
@@ -258,11 +262,24 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
 
 def register_target_file(repo_path, file_path, keystore, roles_key_infos,
                          targets_key_slot=None, targets_key_pin=None, update_all=True):
+  roles_key_infos = _read_input_dict(roles_key_infos)
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
   _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
                           targets_key_slot, targets_key_pin)
+
+
+def _read_input_dict(value):
+  if value is None:
+    return {}
+  if type(value) is str:
+    if os.path.isfile(value):
+      with open(value) as f:
+        value = json.loads(f.read())
+    else:
+      value = json.loads(value)
+  return value
 
 
 def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=None,
@@ -315,6 +332,7 @@ def _role_obj(role, repository):
 
 def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
                                     start_date=datetime.datetime.now(), interval=None, commit_msg=None):
+  roles_key_infos = _read_input_dict(roles_key_infos)
   taf_repo = Repository(repo_path)
   update_methods = {'timestamp': taf_repo.update_timestamp,
                     'snapshot': taf_repo.update_snapshot,

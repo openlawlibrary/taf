@@ -76,7 +76,8 @@ def run_around_tests(client_dir):
 
 
 @pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-additional-target-commit',
-                                       'test-updater-valid-with-updated-expiration-dates'])
+                                       'test-updater-valid-with-updated-expiration-dates',
+                                       'test-updater-allow-unauthenticated-commits'])
 def test_valid_update_no_client_repo(test_name, updater_repositories, origin_dir, client_dir):
   repositories = updater_repositories[test_name]
   origin_dir = origin_dir / test_name

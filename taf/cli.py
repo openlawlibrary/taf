@@ -128,11 +128,8 @@ def generate_keys(keystore, keys_description):
 @click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
 def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
               keys_description, repos_custom, commit):
-  if os.path.isfile(keys_description):
-    with open(keys_description) as f:
-      keys_description = json.loads(f.read())
   developer_tool.init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                           keys_description, repos_custom, should_commit=commit)
+                           keys_description, repos_custom=repos_custom, should_commit=commit)
 
 
 @cli.command()
