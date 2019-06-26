@@ -397,6 +397,29 @@ class Repository:
     public_key = get_yubikey_public_key(key_slot, pin)
     return self.is_valid_metadata_key(role, public_key)
 
+  def add_metadata_key(self, role, pub_key_pem):
+    """Add metadata key of the provided role.
+
+    Args:
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+      - pub_key_pem(str|bytes): Public key in PEM format
+
+    Returns:
+      None
+
+    Raises:
+      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                      targets object.
+      - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+
+    """
+    if isinstance(pub_key_pem, bytes):
+      pub_key_pem = pub_key_pem.decode('utf-8')
+
+    key = import_rsakey_from_pem(pub_key_pem)
+    self._role_obj(role).add_verification_key(key)
+
   def remove_metadata_key(self, role, key_id):
     """Remove metadata key of the provided role.
 
