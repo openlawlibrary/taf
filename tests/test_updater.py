@@ -85,7 +85,8 @@ def test_valid_update_no_client_repo(test_name, updater_repositories, origin_dir
 
 
 @pytest.mark.parametrize('test_name, num_of_commits_to_revert', [('test-updater-valid', 3),
-                                                                 ('test-updater-additional-target-commit', 1)])
+                                                                 ('test-updater-additional-target-commit', 1),
+                                                                 ('test-updater-allow-unauthenticated-commits', 1)])
 def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
                                             updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
