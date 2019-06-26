@@ -261,7 +261,7 @@ def _update_target_repository(repository, repositories_json, old_head, target_co
         else:
           target_commits_index += 1
 
-    update_successful = target_commits != len(target_commits)
+    update_successful = target_commits_index == len(target_commits)
 
   if not update_successful:
     logger.error('Mismatch between target commits specified in authentication repository and the '
