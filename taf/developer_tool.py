@@ -422,7 +422,7 @@ def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
     taf_repo.update_targets_from_keystore(keystore, targets_password)
 
   if update_snapshot_and_timestmap:
-    is keystore is not None:
+    if keystore is not None:
       snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
       timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
       timestamp_key = load_role_key(keystore, 'timestamp', password)
