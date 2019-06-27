@@ -10,7 +10,8 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  generate_and_write_rsa_keypair,
                                  import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file,
-                                 import_rsakey_from_pem)
+                                 import_rsakey_from_pem,
+                                 load_role_key)
 
 from taf.git import GitRepository
 from taf.repository_tool import Repository, get_yubikey_public_key
@@ -173,7 +174,6 @@ def generate_keys(keystore, roles_key_infos):
       should be generated.
   """
   roles_key_infos = _read_input_dict(roles_key_infos)
-  yubikeys = {}
   for role_name, key_info in roles_key_infos.items():
     num_of_keys = key_info.get('number', 1)
     bits = key_info.get('length', 3072)
@@ -342,9 +342,8 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
       relpath = os.path.relpath(os.path.join(root, filename), targets_path)
       relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
       taf_repo.add_existing_target(relpath)
-  targets_key_pin = getpass('Please insert targets pin')
   _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
-                          targets_key_slot, targets_key_pin)
+                          targets_key_slot)
   if commit_msg is not None:
     auth_repo = GitRepository(repo_path)
     auth_repo.commit(commit_msg)
@@ -405,17 +404,24 @@ def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
 def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
                             roles_key_infos, targets_key_slot=None, targets_key_pin=None):
 
-  if targets_key_slot is not None and targets_key_pin is not None:
+  if targets_key_slot is not None:
+    targets_key_pin = getpass('Please insert targets pin')
     taf_repo.update_targets(targets_key_slot, targets_key_pin)
   else:
     targets_password = _load_role_key_from_keys_dict('targets', roles_key_infos)
     taf_repo.update_targets_from_keystore(keystore, targets_password)
 
   if update_snapshot_and_timestmap:
-    snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
-    timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
-    taf_repo.update_snapshot_and_timestmap(keystore, snapshot_password=snapshot_password,
-                                           timestamp_password=timestamp_password)
+    is keystore is not None:
+      snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
+      timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
+      timestamp_key = load_role_key(keystore, 'timestamp', password)
+      snapshot_key = load_role_key(keystore, 'snapshot', password)
+    else:
+      timestamp_key = get_pass('Enter timestamp key')
+      snapshot_key = get_pass('Enter snapshot key')
+
+    taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key)
 
 
 # TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing

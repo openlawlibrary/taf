@@ -400,11 +400,11 @@ class Repository:
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
 
-  def update_snapshot(self, keystore, password=None, start_date=datetime.datetime.now(), interval=None, write=True):
+  def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update snapshot metadata.
 
     Args:
-      - keystore(str): Path to the keystore directory
+      - snapshot_key
       - password: Keystore file password
       - start_date(datetime): Date to which the specified interval is added when
                               calculating expiration date. If a value is not
@@ -420,26 +420,25 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - SnapshotMetadataUpdateError: If any other error happened during metadata update
     """
-    snapshot_key = load_role_key(keystore, 'snapshot', password)
     try:
       self._try_load_metadata_key('snapshot', snapshot_key)
       self._update_metadata('snapshot', start_date, interval, write=write)
     except (TUFError, SSLibError) as e:
       raise SnapshotMetadataUpdateError(str(e))
 
-  def update_snapshot_and_timestmap(self, keystore, write=True, **kwargs):
+  def update_snapshot_and_timestmap(self, snapshot_key, timestamp_key, write=True,
+                                    **kwargs):
     """Update snapshot and timestamp metadata.
 
     Args:
-      - keystore(str): Path to the keystore directory
+      - snapshot_key(str): snapshot key
+      - timestamp_key(str): timestamp key
       - write(bool): (Optional) If True snapshot and timestamp metadata will be signed and written
       - kwargs(dict): (Optional) Expiration dates and intervals:
                       - snapshot_date(datetime)
                       - snapshot_interval(int)
-                      - snapshot_password(string)
                       - timestamp_date(datetime)
                       - timestamp_interval(int)
-                      - timestamp_password(string)
 
     Returns:
       None
@@ -451,11 +450,9 @@ class Repository:
     try:
       snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
       snapshot_interval = kwargs.get('snapshot_interval', None)
-      snapshot_password = kwargs.get('snapshot_password')
 
       timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
       timestamp_interval = kwargs.get('timestamp_interval', None)
-      timestamp_password = kwargs.get('timestamp_password')
 
       self.update_snapshot(keystore, snapshot_password, snapshot_date,
                            snapshot_interval, write=write)
@@ -538,12 +535,11 @@ class Repository:
     except (SmartCardError, TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
 
-  def update_timestamp(self, keystore, password=None, start_date=datetime.datetime.now(), interval=None, write=True):
+  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update timestamp metadata.
 
     Args:
-      - keystore(str): Path to the keystore directory
-      - password: Keystore file password
+      - timestamp_key
       - start_date(datetime): Date to which the specified interval is added when
                               calculating expiration date. If a value is not
                               provided, it is set to the current time
@@ -558,7 +554,6 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - TimestampMetadataUpdateError: If any other error happened during metadata update
     """
-    timestamp_key = load_role_key(keystore, 'timestamp', password)
     try:
       self._try_load_metadata_key('timestamp', timestamp_key)
       self._update_metadata('timestamp', start_date, interval, write=write)
