@@ -16,7 +16,7 @@ def cli():
 
 @cli.command()
 @click.option('--repo-path', default='repository', help='Authentication repository\'s path')
-@click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
+@click.option('--targets-key-slot', default=None, type=int, help='Targets key (YubiKey) slot with signing key')
 @click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
 @click.option('--keystore', default='keystore', help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
@@ -30,9 +30,6 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore,
     click.echo('\nError: Keystore must be provided and exist on disk if update_all is True or '
                'if the targets key should be loaded from the file system')
     return
-  if os.path.isfile(keys_description):
-    with open(keys_description) as f:
-      keys_description = json.loads(f.read())
   developer_tool.register_target_files(repo_path, keystore, keys_description,
                                        targets_key_slot, targets_key_pin, update_all, commit_msg)
 
@@ -40,7 +37,7 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore,
 @cli.command()
 @click.option('--repo-path',  default='repository', help='Authentication repository\'s path')
 @click.option('--file-path', help="Target file's path, relative to the targets directory")
-@click.option('--targets-key-slot', default=None, help='Targets key (YubiKey) slot with signing key')
+@click.option('--targets-key-slot', type=int, default=None, help='Targets key (YubiKey) slot with signing key')
 @click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
 @click.option('--keystore', default='keystore', help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
@@ -52,9 +49,6 @@ def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, key
     click.echo('\nError: Keystore must be provided and exist on disk if update_all is True or '
                'if the targets key should be loaded from the file system')
     return
-  if os.path.isfile(keys_description):
-    with open(keys_description) as f:
-      keys_description = json.loads(f.read())
   developer_tool.register_target_file(repo_path, file_path, keystore, keys_description,
                                       targets_key_slot, targets_key_pin, update_all)
 
@@ -82,9 +76,6 @@ def add_target_repos(repo_path, targets_dir, namespace):
               'targets info which will be included in repositories.json')
 def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
                     keys_description, repos_custom):
-  if os.path.isfile(keys_description):
-    with open(keys_description) as f:
-      keys_description = json.loads(f.read())
   developer_tool.build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
                                  keys_description, repos_custom)
 
@@ -96,9 +87,6 @@ def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore
               'keys or a path to a json file which which stores the needed information')
 @click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
 def create_repo(repo_path, keystore, keys_description, commit):
-  if os.path.isfile(keys_description):
-    with open(keys_description) as f:
-      keys_description = json.loads(f.read())
   developer_tool.create_repository(repo_path, keystore, keys_description, commit)
 
 
@@ -107,9 +95,6 @@ def create_repo(repo_path, keystore, keys_description, commit):
 @click.option('--keys-description', help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 def generate_keys(keystore, keys_description):
-  if os.path.isfile(keys_description):
-    with open(keys_description) as f:
-      keys_description = json.loads(f.read())
   developer_tool.generate_keys(keystore, keys_description)
 
 

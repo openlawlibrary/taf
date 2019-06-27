@@ -513,7 +513,7 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - MetadataUpdateError: If any other error happened during metadata update
     """
-    import pdb; pdb.set_trace()
+
     if isinstance(targets_key_slot, int):
       targets_key_slot = (targets_key_slot, )
 

@@ -192,3 +192,12 @@ current head SHA. For example,
     "commit": "248f82dbd2a2ba3555d0803b0377c1065d5b03d9"
 }
 ```
+
+This command does not update the metadata files.
+
+### `add_targets`
+
+This command registers the target files. This assumes that the target files
+were previously updated. It traverses through all files found inside the
+`targets` directory and updates the `targets` metadata file based on their
+content. Once `targets` file updated, so are `snapshot` and `timestamp`

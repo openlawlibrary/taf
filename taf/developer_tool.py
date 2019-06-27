@@ -305,6 +305,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
     commit_msg:
       Commit message. If specified, the changes made to the authentication are committed.
   """
+  roles_key_infos = _read_input_dict(roles_key_infos)
   targets_path = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
   taf_repo = Repository(repo_path)
   for root, _, filenames in os.walk(targets_path):
