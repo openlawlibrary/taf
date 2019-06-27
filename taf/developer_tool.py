@@ -4,6 +4,7 @@ import os
 import pathlib
 import securesystemslib
 from collections import defaultdict
+from binascii import hexlify
 import tuf.repository_tool
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
@@ -11,10 +12,10 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file,
                                  import_rsakey_from_pem,
-                                 load_role_key)
+                                 generate_rsa_key)
 
 from taf.git import GitRepository
-from taf.repository_tool import Repository, get_yubikey_public_key
+from taf.repository_tool import Repository, get_yubikey_public_key, load_role_key
 from oll_sc.yk_api import yk_serial_num, yk_setup
 from getpass import getpass
 from functools import partial
@@ -426,11 +427,11 @@ def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
     if keystore is not None:
       snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
       timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
-      timestamp_key = load_role_key(keystore, 'timestamp', password)
-      snapshot_key = load_role_key(keystore, 'snapshot', password)
+      timestamp_key = load_role_key(keystore, 'timestamp', timestamp_password)
+      snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
     else:
-      timestamp_key = get_pass('Enter timestamp key')
-      snapshot_key = get_pass('Enter snapshot key')
+      timestamp_key = getpass('Enter timestamp key')
+      snapshot_key = getpass('Enter snapshot key')
 
     taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key)
 
