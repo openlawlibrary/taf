@@ -2,18 +2,23 @@ import datetime
 import json
 import os
 import pathlib
+import securesystemslib
 from collections import defaultdict
-
 import tuf.repository_tool
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
                                  generate_and_write_rsa_keypair,
                                  import_rsa_privatekey_from_file,
-                                 import_rsa_publickey_from_file)
+                                 import_rsa_publickey_from_file,
+                                 import_rsakey_from_pem)
 
 from taf.git import GitRepository
-from taf.repository_tool import Repository
+from taf.repository_tool import Repository, get_yubikey_public_key
+from oll_sc.yk_api import yk_serial_num, yk_setup
+from getpass import getpass
+from functools import partial
 
+YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=365)
 
 def add_target_repos(repo_path, targets_directory, namespace=''):
   """
@@ -96,8 +101,8 @@ def create_repository(repo_path, keystore, roles_key_infos, should_commit=True):
       Indicates if if a the git repository should be initialized, and if the initial metadata
       should be committed
   """
+  yubikeys = {}
   roles_key_infos = _read_input_dict(roles_key_infos)
-
   if os.path.isdir(repo_path):
     print('{} already exists'.format(repo_path))
     return
@@ -107,20 +112,41 @@ def create_repository(repo_path, keystore, roles_key_infos, should_commit=True):
     num_of_keys = key_info.get('number', 1)
     passwords = key_info.get('passwords', [None] * num_of_keys)
     threshold = key_info.get('threshold', 1)
+    is_yubikey = key_info.get('yubikey', False)
     role_obj = _role_obj(role_name, repository)
     role_obj.threshold = threshold
     for key_num in range(num_of_keys):
       key_name = _get_key_name(role_name, key_num, num_of_keys)
-      public_key = import_rsa_publickey_from_file(os.path.join(keystore,
-                                                               key_name + '.pub'))
-      password = passwords[key_num]
-      if password:
-        private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
-                                                      password)
+      if is_yubikey:
+        serial_num = yk_serial_num()
+        while serial_num in yubikeys:
+          print("Yubikey with serial number {} is already in use.\n".format(serial_num))
+          input("Please insert new Yubikey and press ENTER.")
+          serial_num = yk_serial_num()
+
+        pin = getpass('Enter PIN for {}: '.format(key_name))
+        cert_cn = input('Enter key holder name: ')
+
+        print('Generating keys, please wait...')
+        pub_key_pem = yk_setup(pin, cert_cn).decode('utf-8')
+
+        key = import_rsakey_from_pem(pub_key_pem)
+        # set Yubikey expiration date
+        role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
+
+        role_obj.add_external_signature_provider(key, partial(signature_provider, key['keyid']))
+        yubikeys[serial_num] = key
       else:
-        private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
-      role_obj.add_verification_key(public_key)
-      role_obj.load_signing_key(private_key)
+        public_key = import_rsa_publickey_from_file(os.path.join(keystore,
+                                                                 key_name + '.pub'))
+        password = passwords[key_num]
+        if password:
+          private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
+                                                        password)
+        else:
+          private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
+          role_obj.add_verification_key(public_key)
+          role_obj.load_signing_key(private_key)
   repository.writeall()
   if should_commit:
     auth_repo = GitRepository(repo_path)
@@ -147,15 +173,18 @@ def generate_keys(keystore, roles_key_infos):
       should be generated.
   """
   roles_key_infos = _read_input_dict(roles_key_infos)
+  yubikeys = {}
   for role_name, key_info in roles_key_infos.items():
     num_of_keys = key_info.get('number', 1)
     bits = key_info.get('length', 3072)
     passwords = key_info.get('passwords', [''] * num_of_keys)
+    is_yubikey = key_info.get('yubikey', False)
     for key_num in range(num_of_keys):
-      key_name = _get_key_name(role_name, key_num, num_of_keys)
-      password = passwords[key_num]
-      generate_and_write_rsa_keypair(os.path.join(keystore, key_name), bits=bits,
-                                     password=password)
+      if not is_yubikey:
+        key_name = _get_key_name(role_name, key_num, num_of_keys)
+        password = passwords[key_num]
+        generate_and_write_rsa_keypair(os.path.join(keystore, key_name), bits=bits,
+                                       password=password)
 
 
 def generate_repositories_json(repo_path, targets_directory, namespace='',
@@ -283,7 +312,7 @@ def _read_input_dict(value):
 
 
 def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=None,
-                          targets_key_pin=None, update_all=True, commit_msg=None):
+                          update_all=True, commit_msg=None):
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets
@@ -313,6 +342,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
       relpath = os.path.relpath(os.path.join(root, filename), targets_path)
       relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
       taf_repo.add_existing_target(relpath)
+  targets_key_pin = getpass('Please insert targets pin')
   _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
                           targets_key_slot, targets_key_pin)
   if commit_msg is not None:
@@ -330,6 +360,32 @@ def _role_obj(role, repository):
   elif role == 'root':
     return repository.root
 
+
+def signature_provider(key_id, data):
+  key_slot = (2,)
+  key_pin = None
+
+  def _check_key_id(expected_key_id):
+    try:
+      nonlocal key_pin
+      key_pin = getpass(
+        "Please insert YubiKey with key id {}, input PIN and press ENTER.\n".\
+          format(key_id))
+      inserted_key = get_yubikey_public_key(key_slot, key_pin)
+      return expected_key_id == inserted_key['keyid']
+    except:
+      return False
+
+  while not _check_key_id(key_id):
+    pass
+
+  data = securesystemslib.formats.encode_canonical(data)
+  signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
+
+  return {
+      'keyid': key_id,
+      'sig': hexlify(signature).decode()
+  }
 
 def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
                                     start_date=datetime.datetime.now(), interval=None, commit_msg=None):

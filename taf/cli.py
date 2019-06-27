@@ -16,7 +16,6 @@ def cli():
 @cli.command()
 @click.option('--repo-path', default='repository', help='Authentication repository\'s path')
 @click.option('--targets-key-slot', default=None, type=int, help='Targets key (YubiKey) slot with signing key')
-@click.option('--targets-key-pin', default=None, help='Targets key (YubiKey) pin.')
 @click.option('--keystore', default='keystore', help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
@@ -30,7 +29,7 @@ def add_targets(repo_path, targets_key_slot, targets_key_pin, keystore,
                'if the targets key should be loaded from the file system')
     return
   developer_tool.register_target_files(repo_path, keystore, keys_description,
-                                       targets_key_slot, targets_key_pin, update_all, commit_msg)
+                                       targets_key_slot, update_all, commit_msg)
 
 
 @cli.command()
@@ -95,6 +94,8 @@ def create_repo(repo_path, keystore, keys_description, commit):
               ' to a json file which which stores the needed information')
 def generate_keys(keystore, keys_description):
   developer_tool.generate_keys(keystore, keys_description)
+
+
 
 
 @cli.command()
