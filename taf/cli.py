@@ -16,7 +16,7 @@ def cli():
 @cli.command()
 @click.option('--repo-path', default='repository', help='Authentication repository\'s path')
 @click.option('--targets-key-slot', default=None, type=int, help='Targets key (YubiKey) slot with signing key')
-@click.option('--keystore', default='keystore', help='Path of the keystore file')
+@click.option('--keystore', default=None, help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 @click.option('--update-all', is_flag=True, default=True, help='Update snapshot and timestamp')
@@ -80,7 +80,7 @@ def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore
 
 @cli.command()
 @click.option('--repo-path', default='repository', help='Location of the repository')
-@click.option('--keystore', default='keystore', help='Location of the keystore file')
+@click.option('--keystore', default=None, help='Location of the keystore file')
 @click.option('--keys-description', help='A dictionary containing information about the '
               'keys or a path to a json file which which stores the needed information')
 @click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')

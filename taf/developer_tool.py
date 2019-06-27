@@ -138,16 +138,26 @@ def create_repository(repo_path, keystore, roles_key_infos, should_commit=True):
         role_obj.add_external_signature_provider(key, partial(signature_provider, key['keyid']))
         yubikeys[serial_num] = key
       else:
-        public_key = import_rsa_publickey_from_file(os.path.join(keystore,
+        # if keystore exists, load the keys
+        # this is useful when generating tests
+        if keystore is not None:
+          public_key = import_rsa_publickey_from_file(os.path.join(keystore,
                                                                  key_name + '.pub'))
-        password = passwords[key_num]
-        if password:
-          private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
+          password = passwords[key_num]
+          if password:
+            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
                                                         password)
+          else:
+            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
+        # if it is not provided, generate the keys and print
         else:
-          private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
-          role_obj.add_verification_key(public_key)
-          role_obj.load_signing_key(private_key)
+          key = generate_rsa_key()
+          print("{} key:\n\n{}\n\n".format(role_name, key['keyval']['private']))
+          public_key = key['keyval']['public']
+          private_key = key['keyval']['private']
+
+        role_obj.add_verification_key(public_key)
+        role_obj.load_signing_key(private_key)
   repository.writeall()
   if should_commit:
     auth_repo = GitRepository(repo_path)
