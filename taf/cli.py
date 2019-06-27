@@ -69,7 +69,7 @@ def add_target_repos(repo_path, targets_dir, namespace):
 
 
 @cli.command()
-@click.option('--repo-path', default='repository', help='Location of the repository')
+@click.option('--repo-path', default='repository', help='Location of the authentication repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
 @click.option('--namespace', default='', help='Namespace of the target repositories')
