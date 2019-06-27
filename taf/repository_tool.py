@@ -462,7 +462,7 @@ class Repository:
     except (TUFError, SSLibError) as e:
       raise MetadataUpdateError('all', str(e))
 
-  def update_targets_from_keystore(self, keystore, targets_password=None, start_date=datetime.datetime.now(),
+  def update_targets_from_keystore(self, targets_key, start_date=datetime.datetime.now(),
                                    interval=None, write=True):
     """Update targets metadata. Sign it with a key from the file system
 
@@ -482,7 +482,6 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - TimestampMetadataUpdateError: If any other error happened during metadata update
     """
-    targets_key = load_role_key(keystore, 'targets', targets_password)
     try:
       self._try_load_metadata_key('targets', targets_key)
       self._update_metadata('targets', start_date, interval, write=write)
