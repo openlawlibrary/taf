@@ -4,9 +4,6 @@ TAF provides a number of commands for creating and updating the authentication r
 Some of them focus on creation and initial setup of the repositories, while the others
 provide an easy way of updating information about target repositories.
 
-At the moment, creation of repositories does not support using YubiKeys. However,
-if a key used to sign the metadata files is imported to a YubiKey, that YubiKey can
-later be used for signing.
 
 ## Options
 
@@ -90,7 +87,8 @@ information about them (e.g. passwords of the keystore files) easier to use, an 
     "number": 3,
     "length": 2048,
     "passwords": ["password1", "password2", "password3"]
-	  "threshold": 2
+	  "threshold": 2,
+    "yubikey": true
   },
   "targets": {
     "length": 2048
@@ -107,6 +105,7 @@ Configurable properties include the following:
 - `passwords` - a list of passwords of the keystore files corresponding to the current role. The first
 entry in the list is expected to specify the first key's password.
 - `threshold` - role's keys threshold
+- `yubikey` - a flag which signalizes that the keys should be on YubiKeys
 
 Names of keys must follow a certain naming convention. That is,their names are composed of the role's name
 and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1`, `targets2`, `snapshot` etc.
@@ -120,12 +119,11 @@ If a property is omitted from the specification, it will have the default value.
 The `keys-description` option can either directly contain the described json, or be a path to a file
 which contains it.
 
-### `targets-key-slot` and `targets-key-pin`
+### `targets-key-slot`
 
-At the moment, none of the commands require usage of YubiKeys. `targets` metadata file can be signed
-by loading a `targets` key from disk. This is enough when creating test repositories. However,
-if `targets` should be signed using a key stored on a YubiKey, it is necessary to provide the YubiKey's
-slot and pin.
+None of the commands require usage of YubiKeys, but if the `keystore` option is not used, a user
+is expected to either directly enter keys and/or use YubiKeys for signing. The slot is set to 2
+by default.
 
 ## Commands
 
