@@ -64,7 +64,6 @@ class GitRepository(object):
     if len(args):
       cmd = cmd.format(*args)
     command = 'git -C {} {}'.format(self.repo_path, cmd)
-
     if log_error or log_error_msg:
       try:
         result = run(command)
@@ -128,6 +127,7 @@ class GitRepository(object):
 
   def clone(self, no_checkout=False, bare=False):
 
+    logger.info('Repo %s: cloning repository', self.repo_name)
     shutil.rmtree(self.repo_path, True)
     os.makedirs(self.repo_path, exist_ok=True)
     if self.repo_urls is None:
@@ -148,6 +148,9 @@ class GitRepository(object):
   def create_and_checkout_branch(self, branch_name):
     self._git('checkout -b {}', branch_name,  log_success_msg='created and checked out branch {}'.
               format(branch_name, log_error=True, reraise_error=True))
+
+  def checkout_commit(self, commit):
+    self._git('checkout {}', commit, log_success_msg='checked out commit {}'.format(commit))
 
   def commit(self, message):
     """Create a commit with the provided message
@@ -226,6 +229,14 @@ class GitRepository(object):
       file_in_repo = os.path.relpath(file_in_repo, path)
       list_of_files.append(file_in_repo)
     return list_of_files
+
+  def list_commits(self, **kwargs):
+    params = []
+    for name, value in kwargs.items():
+      params.append('--{}={}'.format(name, value))
+
+    return self._git('log {}', ' '.join(params)).split('\n')
+
 
   def merge_commit(self, commit):
     self._git('merge {}', commit)

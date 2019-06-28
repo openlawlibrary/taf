@@ -53,7 +53,7 @@ from pytest import fixture
 import taf.settings as settings
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
-from taf.updater.auth_repo import AuthenticationRepo
+from taf.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 
@@ -76,7 +76,8 @@ def run_around_tests(client_dir):
 
 
 @pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-additional-target-commit',
-                                       'test-updater-valid-with-updated-expiration-dates'])
+                                       'test-updater-valid-with-updated-expiration-dates',
+                                       'test-updater-allow-unauthenticated-commits'])
 def test_valid_update_no_client_repo(test_name, updater_repositories, origin_dir, client_dir):
   repositories = updater_repositories[test_name]
   origin_dir = origin_dir / test_name
@@ -84,7 +85,8 @@ def test_valid_update_no_client_repo(test_name, updater_repositories, origin_dir
 
 
 @pytest.mark.parametrize('test_name, num_of_commits_to_revert', [('test-updater-valid', 3),
-                                                                 ('test-updater-additional-target-commit', 1)])
+                                                                 ('test-updater-additional-target-commit', 1),
+                                                                 ('test-updater-allow-unauthenticated-commits', 1)])
 def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
                                             updater_repositories, origin_dir, client_dir):
   # clone the origin repositories

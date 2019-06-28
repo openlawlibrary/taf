@@ -1,0 +1,22 @@
+{
+    "repositories": {
+        "namespace/TargetRepo1": {
+            "urls": [
+                "../../../origin/test-updater-allow-unauthenticated-commits/namespace/TargetRepo1"
+            ]
+        },
+        "namespace/TargetRepo2": {
+            "urls": [
+                "../../../origin/test-updater-allow-unauthenticated-commits/namespace/TargetRepo2"
+            ],
+            "custom": {
+                "allow-unauthenticated-commits": true
+            }
+        },
+        "namespace/TargetRepo3": {
+            "urls": [
+                "../../../origin/test-updater-allow-unauthenticated-commits/namespace/TargetRepo3"
+            ]
+        }
+    }
+}

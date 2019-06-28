@@ -30,6 +30,13 @@ class AuthRepoMixin(object):
     return conf_path
 
   @property
+  def certs_dir(self):
+    certs_dir = os.path.join(self.repo_path, 'certs')
+    if not os.path.exists(certs_dir):
+      os.makedirs(certs_dir)
+    return certs_dir
+
+  @property
   def last_validated_commit(self):
     """
     Return the last validated commit of the authentication repository
@@ -110,7 +117,7 @@ class AuthRepoMixin(object):
 
 class AuthenticationRepo(AuthRepoMixin, GitRepository):
 
-  def __init__(self, repo_path, metadata_path, targets_path, repo_urls=None,
+  def __init__(self, repo_path, metadata_path='metadata', targets_path='targets', repo_urls=None,
                additional_info=None, default_branch='master'):
     super().__init__(repo_path, repo_urls, additional_info, default_branch)
     self.targets_path = targets_path
@@ -119,7 +126,7 @@ class AuthenticationRepo(AuthRepoMixin, GitRepository):
 
 class NamedAuthenticationRepo(AuthRepoMixin, NamedGitRepository):
 
-  def __init__(self, root_dir, repo_name, metadata_path, targets_path,
+  def __init__(self, root_dir, repo_name, metadata_path='metadata', targets_path='targets',
                repo_urls=None, additional_info=None, default_branch='master'):
 
     super().__init__(root_dir, repo_name, repo_urls, additional_info,
