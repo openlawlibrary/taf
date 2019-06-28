@@ -36,14 +36,14 @@ def add_targets(repo_path, targets_key_slot, keystore, keys_description, update_
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 @click.option('--update-all', is_flag=True, default=False, help='Update snapshot and timestamp')
-def add_target_file(repo_path, file_path, targets_key_slot, targets_key_pin, keystore,
+def add_target_file(repo_path, file_path, targets_key_slot, keystore,
                     keys_description, update_all):
   if not os.path.exists(keystore) and (update_all or not(targets_key_slot and targets_key_pin)):
     click.echo('\nError: Keystore must be provided and exist on disk if update_all is True or '
                'if the targets key should be loaded from the file system')
     return
   developer_tool.register_target_file(repo_path, file_path, keystore, keys_description,
-                                      targets_key_slot, targets_key_pin, update_all)
+                                      targets_key_slot, update_all)
 
 
 @cli.command()

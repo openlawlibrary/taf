@@ -53,7 +53,7 @@ from pytest import fixture
 import taf.settings as settings
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
-from taf.updater.auth_repo import AuthenticationRepo
+from taf.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 

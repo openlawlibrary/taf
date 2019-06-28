@@ -15,9 +15,10 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  generate_rsa_key)
 from tuf.keydb import get_key
 from taf.git import GitRepository
+from taf.auth_repo import AuthenticationRepo
 from taf.repository_tool import Repository, get_yubikey_public_key, load_role_key
 from oll_sc.yk_api import yk_serial_num, yk_setup
-from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
+from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256, sc_export_x509_pem
 from getpass import getpass
 from functools import partial
 from securesystemslib.exceptions import UnknownKeyError
@@ -43,6 +44,7 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
     auth_repo_targets_dir = os.path.join(auth_repo_targets_dir, namespace)
     if not os.path.exists(auth_repo_targets_dir):
       os.makedirs(auth_repo_targets_dir)
+
   for target_repo_dir in os.listdir(targets_directory):
     repo_path = os.path.join(targets_directory, target_repo_dir)
     if os.path.isdir(repo_path):
@@ -112,10 +114,11 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
   yubikeys = defaultdict(dict)
   roles_key_infos = _read_input_dict(roles_key_infos)
   if os.path.isdir(repo_path):
-    repo = GitRepository(repo_path)
+    repo = AuthenticationRepo(repo_path)
     if repo.is_git_repository:
       print('Repository {} already exists'.format(repo_path))
       return
+
   tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
   repository = create_new_repository(repo_path)
   for role_name, key_info in roles_key_infos.items():
@@ -163,7 +166,12 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
 
           print('Generating keys, please wait...')
           pub_key_pem = yk_setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
+
           key = import_rsakey_from_pem(pub_key_pem)
+
+          cert_path = os.path.join(repo.certs_dir, key['keyid'] + '.cert')
+          with open(cert_path, 'wb') as f:
+            f.write(sc_export_x509_pem((2,), pin))
 
         # set Yubikey expiration date
         role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
@@ -409,7 +417,7 @@ def signature_provider(key_id, cert_cn, data):
         "Please insert {} YubiKey, input PIN and press ENTER.\n".format(cert_cn))
       inserted_key = get_yubikey_public_key(key_slot, key_pin)
       return expected_key_id == inserted_key['keyid']
-    except:
+    except Exception:
       return False
 
   while not _check_key_id(key_id):
