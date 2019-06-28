@@ -6,7 +6,6 @@ import securesystemslib
 from collections import defaultdict
 from binascii import hexlify
 import tuf.repository_tool
-import re
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
                                  generate_and_write_rsa_keypair,
@@ -140,7 +139,6 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
 
         print('Generating keys, please wait...')
         pub_key_pem = yk_setup(pin, cert_cn).decode('utf-8')
-        import pdb; pdb.set_trace()
         key = import_rsakey_from_pem(pub_key_pem)
         # set Yubikey expiration date
         role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
@@ -261,8 +259,8 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 
 def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
-              keystore, roles_key_infos, targets_key_slot=None, targets_key_pin=None,
-              repos_custom=None, commit_message=None):
+              keystore, roles_key_infos, targets_key_slot=2,
+              repos_custom=None, commit=None):
   """
   <Purpose>
     Generate initial repository:
@@ -287,20 +285,16 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
       A dictionary whose keys are role names, while values contain information about the keys.
     targets_key_slot(tuple|int):
       Slot with key on a smart card used for signing
-    targets_key_pin(str):
-      Targets key pin
     commit_message:
       If provided, the changes will be committed automatically using the specified message
   """
   # read the key infos here, no need to read the file multiple times
   roles_key_infos = _read_input_dict(roles_key_infos)
-  create_repository(repo_path, keystore, roles_key_infos, should_commit)
+  create_repository(repo_path, keystore, roles_key_infos, "Initial metadata")
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir, repos_custom)
-  commit_msg = 'Added initial targets' if should_commit else None
-  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot,
-                        targets_key_pin, commit_msg=commit_msg)
+  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot, commit_msg=commit)
 
 
 def _load_role_key_from_keys_dict(role, roles_key_infos):
@@ -312,13 +306,13 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
 
 
 def register_target_file(repo_path, file_path, keystore, roles_key_infos,
-                         targets_key_slot=None, targets_key_pin=None, update_all=True):
+                         targets_key_slot=2, update_all=True):
   roles_key_infos = _read_input_dict(roles_key_infos)
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
   _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
-                          targets_key_slot, targets_key_pin)
+                          targets_key_slot)
 
 
 def _read_input_dict(value):
@@ -333,13 +327,13 @@ def _read_input_dict(value):
   return value
 
 
-def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=None,
+def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=2,
                           update_all=True, commit_msg=None):
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets
     metadata file. Update snapshot and timestamp if update_fall==True. Sign targets
-    with yubikey if targets_key_pin and targets_key_slot are provided.
+    with yubikey if keystore is not provided
   <Arguments>
     repo_path:
       Authentication repository's path
@@ -349,8 +343,6 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
       A dictionary whose keys are role names, while values contain information about the keys.
     targets_key_slot(tuple|int):
       Slot with key on a smart card used for signing
-    targets_key_pin(str):
-      Targets key pin
     update_all:
       Indicates if snapshot and timestamp should also be updated. Set to True by default
     commit_msg:

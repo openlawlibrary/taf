@@ -110,7 +110,7 @@ def generate_keys(keystore, keys_description):
 def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
               keys_description, custom, commit):
   developer_tool.init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                           keys_description, repos_custom=custom, should_commit=commit)
+                           keys_description, repos_custom=custom, commit=commit)
 
 
 @cli.command()
