@@ -13,16 +13,18 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  import_rsa_publickey_from_file,
                                  import_rsakey_from_pem,
                                  generate_rsa_key)
-
+from tuf.keydb import get_key
 from taf.git import GitRepository
 from taf.repository_tool import Repository, get_yubikey_public_key, load_role_key
 from oll_sc.yk_api import yk_serial_num, yk_setup
 from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
 from getpass import getpass
 from functools import partial
+from securesystemslib.exceptions import UnknownKeyError
 
 
-YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=365)
+EXPIRATION_INTERVAL = 36500
+YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
 def add_target_repos(repo_path, targets_directory, namespace=''):
   """
@@ -107,7 +109,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
     commit_message:
       If provided, the changes will be committed automatically using the specified message
   """
-  yubikeys = {}
+  yubikeys = defaultdict(dict)
   roles_key_infos = _read_input_dict(roles_key_infos)
   if os.path.isdir(repo_path):
     repo = GitRepository(repo_path)
@@ -127,24 +129,47 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
       key_name = _get_key_name(role_name, key_num, num_of_keys)
       if is_yubikey:
         print('Genarating keys for {}'.format(key_name))
-        input("Please insert a new YubiKey and press ENTER.")
-        serial_num = yk_serial_num()
-        while serial_num in yubikeys:
-          print("YubikKy with serial number {} is already in use.\n".format(serial_num))
-          input("Please insert new YubiKey and press ENTER.")
+        use_existing = False
+        if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
+          use_existing = input('Do you want to reuse alredy set up YubiKey? y/n ') == 'y'
+          if use_existing:
+            key = None
+            key_id_certs = {}
+            while key is None:
+              for existing_role_name, role_keys in yubikeys.items():
+                if existing_role_name == role_name:
+                  continue
+                print(existing_role_name)
+                for key_and_cert in role_keys.values():
+                  key, cert_cn = key_and_cert
+                  key_id_certs[key['keyid']] = cert_cn
+                  print('{} id: {}'.format(cert_cn, key['keyid']))
+              existing_keyid = input("Enter existing YubiKey's id and press ENTER ")
+              try:
+                key = get_key(existing_keyid)
+                cert_cn = key_id_certs[existing_keyid]
+              except UnknownKeyError:
+                pass
+        if not use_existing:
+          input("Please insert a new YubiKey and press ENTER.")
           serial_num = yk_serial_num()
+          while serial_num in yubikeys[role_name]:
+            print("YubikKy with serial number {} is already in use.\n".format(serial_num))
+            input("Please insert new YubiKey and press ENTER.")
+            serial_num = yk_serial_num()
 
-        pin = getpass('Enter PIN for {}: '.format(key_name))
-        cert_cn = input("Enter key holder's name: ")
+          pin = getpass('Enter PIN for {}: '.format(key_name))
+          cert_cn = input("Enter key holder's name: ")
 
-        print('Generating keys, please wait...')
-        pub_key_pem = yk_setup(pin, cert_cn).decode('utf-8')
-        key = import_rsakey_from_pem(pub_key_pem)
+          print('Generating keys, please wait...')
+          pub_key_pem = yk_setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
+          key = import_rsakey_from_pem(pub_key_pem)
+
         # set Yubikey expiration date
         role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-
-        role_obj.add_external_signature_provider(key, partial(signature_provider, key['keyid'], key_name))
-        yubikeys[serial_num] = key
+        role_obj.add_external_signature_provider(key, partial(signature_provider,
+                                                 key['keyid'], cert_cn))
+        yubikeys[role_name][serial_num] = (key, cert_cn)
       else:
         # if keystore exists, load the keys
         # this is useful when generating tests
@@ -374,15 +399,14 @@ def _role_obj(role, repository):
     return repository.root
 
 
-def signature_provider(key_id, key_name, data):
+def signature_provider(key_id, cert_cn, data):
   key_slot = (2,)
   key_pin = None
-
   def _check_key_id(expected_key_id):
     try:
       nonlocal key_pin
       key_pin = getpass(
-        "Please insert {} YubiKey, input PIN and press ENTER.\n".format(key_name))
+        "Please insert {} YubiKey, input PIN and press ENTER.\n".format(cert_cn))
       inserted_key = get_yubikey_public_key(key_slot, key_pin)
       return expected_key_id == inserted_key['keyid']
     except:
