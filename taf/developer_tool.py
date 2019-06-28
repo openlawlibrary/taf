@@ -113,8 +113,8 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
   """
   yubikeys = defaultdict(dict)
   roles_key_infos = _read_input_dict(roles_key_infos)
+  repo = AuthenticationRepo(repo_path)
   if os.path.isdir(repo_path):
-    repo = AuthenticationRepo(repo_path)
     if repo.is_git_repository:
       print('Repository {} already exists'.format(repo_path))
       return
