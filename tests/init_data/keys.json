@@ -1,8 +1,9 @@
 {
   "root": {
-    "number": 3,
+    "yubikey": true,
+    "number": 2,
     "length": 2048,
-	"threshold": 2
+	"threshold": 1
   },
   "targets": {
     "length": 2048

@@ -6,7 +6,7 @@ import taf.log
 import taf.settings as settings
 import tuf.client.handlers as handlers
 from subprocess import CalledProcessError
-from taf.updater.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
+from taf.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
 from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
 from taf.utils import on_rm_error

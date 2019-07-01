@@ -157,6 +157,14 @@ def timestamp_key():
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
 
+@fixture
+def targets_key():
+  """Timestamp key."""
+  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'targets.pub'))
+  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'targets'))
+  key['keyval']['private'] = priv_key['keyval']['private']
+  return key
+
 
 @fixture
 def wrong_keystore():
