@@ -184,6 +184,7 @@ def _update_target_repositories(repositories, repositories_json, repositories_co
   # so that they can be removed if the update fails
   cloned_repositories = []
   for path, repository in repositories.items():
+
     if not repository.is_git_repository_root:
       old_head = None
     else:
@@ -223,11 +224,14 @@ def _update_target_repository(repository, repositories_json, old_head, target_co
   allow_unauthenticated = repositories_json['repositories'][repository.repo_name]. \
                             get('custom', {}).get('allow-unauthenticated-commits', False)
 
-  if old_head is not None:
-    new_commits = repository.all_fetched_commits()
-    new_commits.insert(0, old_head)
+  if not allow_unauthenticated:
+    if old_head is not None:
+      new_commits = repository.all_fetched_commits()
+      new_commits.insert(0, old_head)
+    else:
+      new_commits = repository.all_commits_since_commit(old_head)
   else:
-    new_commits = repository.all_commits_since_commit(old_head)
+    new_commits = repository.all_commits_since_commit(None)
 
   # A new commit might have been pushed after the update process
   # started and before fetch was called
