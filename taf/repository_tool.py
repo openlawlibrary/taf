@@ -301,7 +301,7 @@ class Repository:
       # create the target file
       content = target_data.get('target', None)
       if content is None:
-        if not os.path.isfile(target_path):
+        if not os.path.isfile(str(target_path)):
           target_path.touch()
       else:
         with open(str(target_path), 'w') as f:
