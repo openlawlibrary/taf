@@ -19,7 +19,7 @@ def run_around_tests(taf_happy_path):
   for root, _, filenames in os.walk(str(taf_happy_path.targets_path)):
     for filename in filenames:
       file_path = str(Path(root) / filename)
-      relpath = Path(os.path.relpath(file_path, taf_happy_path.targets_path)).as_posix()
+      relpath = Path(os.path.relpath(file_path, str(taf_happy_path.targets_path))).as_posix()
       files_to_keep.append(relpath)
   taf_happy_path.add_targets({}, files_to_keep=files_to_keep)
 
