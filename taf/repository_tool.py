@@ -264,13 +264,16 @@ class Repository:
       files_to_keep = []
     # leave all files required by the framework and additional files specified by the user
     files_to_keep.extend(self._required_files)
+    # add all repositories defined in repositories.json to files_to_keep
+    files_to_keep.extend(self._get_target_repositories())
 
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
     for root, _, files in os.walk(self.targets_path):
       for filename in files:
         filepath = os.path.join(root, filename)
-        if filepath not in data and filename not in files_to_keep:
+        file_rel_path = os.path.relpath(filepath, self.targets_path)
+        if filepath not in data and file_rel_path not in files_to_keep:
           os.remove(filepath)
 
     targets_obj = self._role_obj(targets_role)
@@ -309,6 +312,13 @@ class Repository:
       target_path = os.path.join(self.targets_path, path)
       previous_custom = previous_targets[path].get('custom')
       self._add_target(targets_obj, target_path, previous_custom)
+
+  def _get_target_repositories(self):
+    repositories_path = os.path.join(self.targets_path, 'repositories.json')
+    if os.path.exists(repositories_path):
+      with open(repositories_path) as f:
+        repositories = json.load(f)['repositories']
+        return list(repositories.keys())
 
   def get_role_keys(self, role):
     """Registers new target files with TUF.
