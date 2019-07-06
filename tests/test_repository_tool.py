@@ -32,7 +32,7 @@ def _check_target_files(repo, data, old_targets):
   for target_rel_path, content in data.items():
     target_path = targets_path / target_rel_path
     assert target_path.exists()
-    with open(target_path) as f:
+    with open(str(target_path)) as f:
       file_content = f.read()
       target_content = content['target']
       if isinstance(target_content, dict):
@@ -47,7 +47,7 @@ def _check_target_files(repo, data, old_targets):
   repository_targets = []
   repositories_path = targets_path / 'repositories.json'
   assert repositories_path.exists()
-  with open(repositories_path) as f:
+  with open(str(repositories_path)) as f:
     repositories = json.load(f)['repositories']
     for target_rel_path in repositories:
       target_path = targets_path / target_rel_path
@@ -63,9 +63,9 @@ def _check_target_files(repo, data, old_targets):
 def _get_old_targets(repo):
   targets_path = repo.targets_path
   old_targets = []
-  for root, _, filenames in os.walk(targets_path):
+  for root, _, filenames in os.walk(str(targets_path)):
     for filename in filenames:
-      rel_path = os.path.relpath(Path(root) / filename, targets_path)
+      rel_path = os.path.relpath(str(Path(root) / filename), str(targets_path))
       old_targets.append(Path(rel_path).as_posix())
   return old_targets
 

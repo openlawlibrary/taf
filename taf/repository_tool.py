@@ -281,10 +281,10 @@ class Repository:
     files_to_keep.extend(self._get_target_repositories())
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
-    for root, _, files in os.walk(self.targets_path):
+    for root, _, files in os.walk(str(self.targets_path)):
       for filename in files:
         filepath = Path(root) / filename
-        file_rel_path = str(Path(os.path.relpath(filepath, self.targets_path)).as_posix())
+        file_rel_path = str(Path(os.path.relpath(str(filepath), str(self.targets_path))).as_posix())
         if filepath not in data and file_rel_path not in files_to_keep:
           filepath.unlink()
 
@@ -293,7 +293,7 @@ class Repository:
     for path, target_data in data.items():
       # if the target's parent directory should not be "targets", create
       # its parent directories if they do not exist
-      target_path = (self.targets_path / path).resolve()
+      target_path = self.targets_path / path
       target_dir = target_path.parents[0]
       if not target_dir.exists():
         os.makedirs(target_dir)
@@ -304,7 +304,7 @@ class Repository:
         if not os.path.isfile(target_path):
           target_path.touch()
       else:
-        with open(target_path, 'w') as f:
+        with open(str(target_path), 'w') as f:
           if isinstance(content, dict):
             json.dump(content, f, indent=4)
           else:
@@ -322,14 +322,14 @@ class Repository:
       # but it might also be specified in data, if it needs to be updated
       if path in data:
         continue
-      target_path = (self.targets_path / path).resolve()
+      target_path = self.targets_path / path
       previous_custom = previous_targets[path].get('custom')
       self._add_target(targets_obj, str(target_path), previous_custom)
 
   def _get_target_repositories(self):
     repositories_path = self.targets_path / 'repositories.json'
     if repositories_path.exists():
-      with open(repositories_path) as f:
+      with open(str(repositories_path)) as f:
         repositories = json.load(f)['repositories']
         return [str(Path(target_path).as_posix()) for target_path in repositories]
 

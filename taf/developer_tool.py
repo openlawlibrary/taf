@@ -272,7 +272,7 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
     url = target_repo.get_remote_url()
     if url is None:
       if targets_relative_dir is not None:
-        url = os.path.relpath(target_repo.repo_path, targets_relative_dir)
+        url = os.path.relpath(str(target_repo.repo_path), str(targets_relative_dir))
       else:
         url = target_repo.repo_path
       # convert to posix path
@@ -386,7 +386,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
   repo_path = Path(repo_path).resolve()
   targets_path = repo_path / TARGETS_DIRECTORY_NAME
   taf_repo = Repository(str(repo_path))
-  for root, _, filenames in os.walk(targets_path):
+  for root, _, filenames in os.walk(str(targets_path)):
     for filename in filenames:
       taf_repo.add_existing_target(str(Path(root) / filename))
   _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
