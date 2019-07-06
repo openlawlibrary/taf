@@ -296,7 +296,7 @@ class Repository:
       target_path = self.targets_path / path
       target_dir = target_path.parents[0]
       if not target_dir.exists():
-        os.makedirs(target_dir)
+        os.makedirs(str(target_dir))
 
       # create the target file
       content = target_data.get('target', None)

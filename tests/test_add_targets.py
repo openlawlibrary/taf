@@ -14,6 +14,7 @@ def run_around_tests(taf_happy_path):
   repo = GitRepository(taf_happy_path.repository_path)
   repo.reset_to_head()
   repo.clean()
+  taf_happy_path._repository.targets.clear_targets()
 
 def test_add_targets_new_files(taf_happy_path):
 
