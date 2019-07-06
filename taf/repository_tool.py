@@ -323,7 +323,9 @@ class Repository:
       if path in data:
         continue
       target_path = self.targets_path / path
-      previous_custom = previous_targets[path].get('custom')
+      previous_custom = None
+      if path in previous_targets:
+        previous_custom = previous_targets[path].get('custom')
       self._add_target(targets_obj, str(target_path), previous_custom)
 
   def _get_target_repositories(self):

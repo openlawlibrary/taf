@@ -126,7 +126,7 @@ class GitRepository(object):
         raise(e)
 
   def clean(self):
-    self._git('clean -f')
+    self._git('clean -fd')
 
   def clone(self, no_checkout=False, bare=False):
 

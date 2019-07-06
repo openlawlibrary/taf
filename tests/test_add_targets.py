@@ -15,6 +15,14 @@ def run_around_tests(taf_happy_path):
   repo.reset_to_head()
   repo.clean()
   taf_happy_path._repository.targets.clear_targets()
+  files_to_keep = []
+  for root, _, filenames in os.walk(str(taf_happy_path.targets_path)):
+    for filename in filenames:
+      file_path = str(Path(root) / filename)
+      relpath = Path(os.path.relpath(file_path, taf_happy_path.targets_path)).as_posix()
+      files_to_keep.append(relpath)
+  taf_happy_path.add_targets({}, files_to_keep=files_to_keep)
+
 
 def test_add_targets_new_files(taf_happy_path):
 
