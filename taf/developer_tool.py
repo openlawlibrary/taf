@@ -22,6 +22,7 @@ from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256, sc_export_x509_pem
 from getpass import getpass
 from functools import partial
 from securesystemslib.exceptions import UnknownKeyError
+from pathlib import Path
 
 
 EXPIRATION_INTERVAL = 36500
@@ -382,13 +383,12 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
       Commit message. If specified, the changes made to the authentication are committed.
   """
   roles_key_infos = _read_input_dict(roles_key_infos)
-  targets_path = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
-  taf_repo = Repository(repo_path)
+  repo_path = Path(repo_path).resolve()
+  targets_path = repo_path / TARGETS_DIRECTORY_NAME
+  taf_repo = Repository(str(repo_path))
   for root, _, filenames in os.walk(targets_path):
     for filename in filenames:
-      relpath = os.path.relpath(os.path.join(root, filename), targets_path)
-      relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
-      taf_repo.add_existing_target(relpath)
+      taf_repo.add_existing_target(str(Path(root) / filename))
   _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
                           targets_key_slot)
   if commit_msg is not None:

@@ -129,15 +129,23 @@ class Repository:
 
   @property
   def targets_path(self):
-    return os.path.join(self.repository_path, TARGETS_DIRECTORY_NAME)
+    return Path(self.repository_path) / TARGETS_DIRECTORY_NAME
 
   @property
   def metadata_path(self):
     return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
 
   def _add_target(self, targets_obj, file_path, custom=None):
-    normalize_file_line_endings(
-        os.path.join(self.repository_path, TARGETS_DIRECTORY_NAME, file_path))
+    """
+    <Purpose>
+      Normalizes line endings (converts all line endings to unix style endings) and
+      registers the target file as a TUF target
+    <Arguments>
+      targets_obj: TUF targets objects (instance of TUF's targets role class)
+      file_path: full path of the target file
+      custom: custom target data
+    """
+    normalize_file_line_endings(file_path)
     targets_obj.add_target(file_path, custom)
 
   def _role_obj(self, role):
@@ -248,9 +256,14 @@ class Repository:
 
       Content of the target file can be a dictionary, in which case a jason file will be created.
       If that is not the case, an ordinary textual file will be created.
-      If target is not specified and the file already exists, it will not be modified.
+      If content is not specified and the file already exists, it will not be modified.
       If it does not exist, an empty file will be created. To replace an existing file with an
       empty file, specify empty content (target: '')
+
+      If a target exists on disk, but is not specified in the provided targets data dictionary,
+      it will be:
+      - removed, if the target does not correspond to a repository defined in repositories.json
+      - left as is,  if the target does correspondw to a repository defined in repositories.json
 
       Custom is an optional property which, if present, will be used to specify a TUF target's
 
@@ -266,30 +279,30 @@ class Repository:
     files_to_keep.extend(self._required_files)
     # add all repositories defined in repositories.json to files_to_keep
     files_to_keep.extend(self._get_target_repositories())
-
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
     for root, _, files in os.walk(self.targets_path):
       for filename in files:
-        filepath = os.path.join(root, filename)
-        file_rel_path = os.path.relpath(filepath, self.targets_path)
+        filepath = Path(root) / filename
+        file_rel_path = str(Path(os.path.relpath(filepath, self.targets_path)).as_posix())
         if filepath not in data and file_rel_path not in files_to_keep:
-          os.remove(filepath)
+          filepath.unlink()
 
     targets_obj = self._role_obj(targets_role)
 
     for path, target_data in data.items():
       # if the target's parent directory should not be "targets", create
       # its parent directories if they do not exist
-      target_path = os.path.join(self.targets_path, path)
-      if not os.path.exists(os.path.dirname(target_path)):
-        os.makedirs(os.path.dirname(target_path))
+      target_path = (self.targets_path / path).resolve()
+      target_dir = target_path.parents[0]
+      if not target_dir.exists():
+        os.makedirs(target_dir)
 
       # create the target file
       content = target_data.get('target', None)
       if content is None:
         if not os.path.isfile(target_path):
-          Path(target_path).touch()
+          target_path.touch()
       else:
         with open(target_path, 'w') as f:
           if isinstance(content, dict):
@@ -298,7 +311,7 @@ class Repository:
             f.write(content)
 
       custom = target_data.get('custom', None)
-      self._add_target(targets_obj, target_path, custom)
+      self._add_target(targets_obj, str(target_path), custom)
 
     with open(os.path.join(self.metadata_path, '{}.json'.format(targets_role))) as f:
       previous_targets = json.load(f)['signed']['targets']
@@ -309,16 +322,17 @@ class Repository:
       # but it might also be specified in data, if it needs to be updated
       if path in data:
         continue
-      target_path = os.path.join(self.targets_path, path)
+      target_path = (self.targets_path / path).resolve()
       previous_custom = previous_targets[path].get('custom')
-      self._add_target(targets_obj, target_path, previous_custom)
+      self._add_target(targets_obj, str(target_path), previous_custom)
 
   def _get_target_repositories(self):
-    repositories_path = os.path.join(self.targets_path, 'repositories.json')
-    if os.path.exists(repositories_path):
+    repositories_path = self.targets_path / 'repositories.json'
+    if repositories_path.exists():
       with open(repositories_path) as f:
         repositories = json.load(f)['repositories']
-        return list(repositories.keys())
+        return [str(Path(target_path).as_posix()) for target_path in repositories]
+
 
   def get_role_keys(self, role):
     """Registers new target files with TUF.
