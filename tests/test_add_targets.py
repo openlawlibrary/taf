@@ -50,7 +50,20 @@ def test_add_targets_nested_files(taf_happy_path):
   taf_happy_path.add_targets(data)
   _check_target_files(taf_happy_path, data, old_targets)
 
-def _check_target_files(repo, data, old_targets):
+
+def test_add_targets_files_to_keep(taf_happy_path):
+  old_targets = _get_old_targets(taf_happy_path)
+  data = {
+    'a_new_file': {'target': 'new file content'}
+  }
+  files_to_keep = ['branch']
+  taf_happy_path.add_targets(data, files_to_keep=files_to_keep)
+  _check_target_files(taf_happy_path, data, old_targets, files_to_keep)
+
+def _check_target_files(repo, data, old_targets, files_to_keep=None):
+  if files_to_keep is None:
+    files_to_keep = []
+
   targets_path = repo.targets_path
   for target_rel_path, content in data.items():
     target_path = targets_path / target_rel_path
@@ -77,9 +90,14 @@ def _check_target_files(repo, data, old_targets):
       assert target_path.exists()
       repository_targets.append(target_rel_path)
 
+  # make sure that files to keep exist
+  for file_to_keep in files_to_keep:
+    target_path = targets_path / file_to_keep
+    assert target_path.exists()
+
   for old_target in old_targets:
     if old_target not in repository_targets and old_target not in data and \
-      old_target not in repo._required_files:
+      old_target not in repo._required_files and not old_target in files_to_keep:
       assert (targets_path / old_target).exists() is False
 
 
