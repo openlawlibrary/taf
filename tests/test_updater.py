@@ -100,11 +100,12 @@ def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
   _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
-def test_no_update_necessary(updater_repositories, origin_dir, client_dir):
+@pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-allow-unauthenticated-commits'])
+def test_no_update_necessary(test_name, updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
   # revert them to an older commit
-  repositories = updater_repositories['test-updater-valid']
-  origin_dir = origin_dir / 'test-updater-valid'
+  repositories = updater_repositories[test_name]
+  origin_dir = origin_dir / test_name
   client_repos = _clone_client_repositories(repositories, origin_dir, client_dir)
   # create valid last validated commit file
   _create_last_validated_commit(client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha())
