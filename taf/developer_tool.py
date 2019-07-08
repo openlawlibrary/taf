@@ -22,6 +22,7 @@ from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256, sc_export_x509_pem
 from getpass import getpass
 from functools import partial
 from securesystemslib.exceptions import UnknownKeyError
+from pathlib import Path
 
 
 EXPIRATION_INTERVAL = 36500
@@ -39,21 +40,23 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
     namespace:
       Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
   """
-  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
+  repo_path = Path(repo_path).resolve()
+  targets_directory = Path(targets_directory).resolve()
+  auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
   if namespace:
-    auth_repo_targets_dir = os.path.join(auth_repo_targets_dir, namespace)
-    if not os.path.exists(auth_repo_targets_dir):
+    auth_repo_targets_dir = auth_repo_targets_dir / namespace
+    if not auth_repo_targets_dir.exists():
       os.makedirs(auth_repo_targets_dir)
 
-  for target_repo_dir in os.listdir(targets_directory):
-    repo_path = os.path.join(targets_directory, target_repo_dir)
-    if os.path.isdir(repo_path):
-      target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
-      if target_repo.is_git_repository:
-        commit = target_repo.head_commit_sha()
-        target_repo_name = os.path.basename(target_repo_dir)
-        with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
-          json.dump({'commit': commit}, f,  indent=4)
+  for target_repo_dir in targets_directory.glob('*'):
+    if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
+      continue
+    target_repo = GitRepository(str(target_repo_dir))
+    if target_repo.is_git_repository:
+      commit = target_repo.head_commit_sha()
+      target_repo_name = os.path.basename(target_repo_dir)
+      with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
+        json.dump({'commit': commit}, f,  indent=4)
 
 
 def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_dir, keystore,
