@@ -67,18 +67,21 @@ def run(*command, **kwargs):
 
 
 def normalize_file_line_endings(file_path):
-  # replacement strings
-  WINDOWS_LINE_ENDING = b'\r\n'
-  UNIX_LINE_ENDING = b'\n'
-  with open(file_path, 'rb') as open_file:
+  with open(file_path, 'r') as open_file:
     content = open_file.read()
 
-  replaced_content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
-
+  replaced_content = normalize_line_endings(content)
   if replaced_content != content:
-    with open(file_path, 'wb') as open_file:
+    with open(file_path, 'w') as open_file:
       open_file.write(replaced_content)
 
+
+def normalize_line_endings(file_content):
+
+  WINDOWS_LINE_ENDING = '\r\n'
+  UNIX_LINE_ENDING = '\n'
+  replaced_content = file_content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING).rstrip(UNIX_LINE_ENDING)
+  return replaced_content
 
 def on_rm_error(_func, path, _exc_info):
   """Used by when calling rmtree to ensure that readonly files and folders
