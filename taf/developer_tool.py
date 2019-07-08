@@ -366,7 +366,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets
-    metadata file. Update snapshot and timestamp if update_fall==True. Sign targets
+    metadata file, snapshot and timestamp. Sign targets
     with yubikey if keystore is not provided
   <Arguments>
     repo_path:
