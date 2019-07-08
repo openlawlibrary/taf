@@ -281,11 +281,10 @@ class Repository:
     files_to_keep.extend(self._get_target_repositories())
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
-    for root, _, files in os.walk(str(self.targets_path)):
-      for filename in files:
-        filepath = Path(root) / filename
+    for filepath in self.targets_path.rglob('*'):
+      if filepath.is_file():
         file_rel_path = str(Path(os.path.relpath(str(filepath), str(self.targets_path))).as_posix())
-        if filepath not in data and file_rel_path not in files_to_keep:
+        if file_rel_path not in data and file_rel_path not in files_to_keep:
           filepath.unlink()
 
     targets_obj = self._role_obj(targets_role)
@@ -295,13 +294,12 @@ class Repository:
       # its parent directories if they do not exist
       target_path = self.targets_path / path
       target_dir = target_path.parents[0]
-      if not target_dir.exists():
-        os.makedirs(str(target_dir))
+      target_dir.mkdir(parents=True, exist_ok=True)
 
       # create the target file
       content = target_data.get('target', None)
       if content is None:
-        if not os.path.isfile(str(target_path)):
+        if not target_path.is_file():
           target_path.touch()
       else:
         with open(str(target_path), 'w') as f:
@@ -331,10 +329,9 @@ class Repository:
   def _get_target_repositories(self):
     repositories_path = self.targets_path / 'repositories.json'
     if repositories_path.exists():
-      with open(str(repositories_path)) as f:
-        repositories = json.load(f)['repositories']
-        return [str(Path(target_path).as_posix()) for target_path in repositories]
-
+      repositories = repositories_path.read_text()
+      repositories = json.loads(repositories)['repositories']
+      return [str(Path(target_path).as_posix()) for target_path in repositories]
 
   def get_role_keys(self, role):
     """Registers new target files with TUF.
