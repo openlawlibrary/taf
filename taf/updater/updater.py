@@ -204,9 +204,9 @@ def _update_target_repositories(repositories, repositories_json, repositories_co
     else:
       repository.fetch(True)
 
-    if allow_unauthenticated and old_head is not None:
-      old_head =  repositories_commits[path][0]
     if old_head is not None:
+      if allow_unauthenticated:
+        old_head = repositories_commits[path][0]
       new_commits_for_repo = repository.all_fetched_commits()
       new_commits_for_repo.insert(0, old_head)
     else:
