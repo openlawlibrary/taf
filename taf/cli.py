@@ -43,7 +43,7 @@ def add_target_file(repo_path, file_path, targets_key_slot, keystore,
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
-@click.option('--namespace', default='', help='Namespace of the target repositories')
+@click.option('--namespace', default=None, help='Namespace of the target repositories')
 def add_target_repos(repo_path, targets_dir, namespace):
   developer_tool.add_target_repos(repo_path, targets_dir, namespace)
 
@@ -108,7 +108,7 @@ def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
-@click.option('--namespace', default='', help='Namespace of the target repositories')
+@click.option('--namespace', default=None, help='Namespace of the target repositories')
 @click.option('--targets-rel-dir', default=None, help=' Directory relative to which urls '
               'of the target repositories are set, if they do not have remote set')
 @click.option('--custom', default=None, help='A dictionary containing custom '

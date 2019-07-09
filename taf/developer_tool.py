@@ -28,7 +28,7 @@ from pathlib import Path
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
-def add_target_repos(repo_path, targets_directory, namespace=''):
+def add_target_repos(repo_path, targets_directory, namespace=None):
   """
   <Purpose>
     Create or update target files by reading the latest commits of the provided target repositories
@@ -42,6 +42,8 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
   """
   repo_path = Path(repo_path).resolve()
   targets_directory = Path(targets_directory).resolve()
+  if namespace is None:
+    namespace = targets_directory.name
   auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
   if namespace:
     auth_repo_targets_dir = auth_repo_targets_dir / namespace
@@ -239,7 +241,7 @@ def generate_keys(keystore, roles_key_infos):
                                        password=password)
 
 
-def generate_repositories_json(repo_path, targets_directory, namespace='',
+def generate_repositories_json(repo_path, targets_directory, namespace=None,
                                targets_relative_dir=None, custom_data=None):
   """
   <Purpose>
@@ -254,19 +256,22 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
     targets_relative_dir:
       Directory relative to which urls of the target repositories are set, if they do not have remote set
   """
+
   custom_data = _read_input_dict(custom_data)
   repositories = {}
 
   repo_path = Path(repo_path).resolve()
   auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
   targets_directory = Path(targets_directory).resolve()
+  if namespace is None:
+    namespace = targets_directory.name
   for target_repo_dir in targets_directory.glob('*'):
     if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
       continue
     target_repo = GitRepository(target_repo_dir)
     if not target_repo.is_git_repository:
       continue
-    target_repo_name = target_repo_dir.stem
+    target_repo_name = target_repo_dir.name
     target_repo_namespaced_name = target_repo_name if not namespace else '{}/{}'.format(
         namespace, str(target_repo_name))
     # determine url to specify in initial repositories.json
