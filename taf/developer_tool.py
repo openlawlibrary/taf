@@ -256,17 +256,19 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
   """
   custom_data = _read_input_dict(custom_data)
   repositories = {}
-  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
-  for target_repo_dir in os.listdir(targets_directory):
-    repo_path = os.path.join(targets_directory, target_repo_dir)
-    if not os.path.isdir(repo_path):
+
+  repo_path = Path(repo_path).resolve()
+  auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
+  targets_directory = Path(targets_directory).resolve()
+  for target_repo_dir in targets_directory.glob('*'):
+    if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
       continue
-    target_repo = GitRepository(repo_path)
+    target_repo = GitRepository(target_repo_dir)
     if not target_repo.is_git_repository:
       continue
-    target_repo_name = os.path.basename(target_repo_dir)
+    target_repo_name = target_repo_dir.stem
     target_repo_namespaced_name = target_repo_name if not namespace else '{}/{}'.format(
-        namespace, target_repo_name)
+        namespace, str(target_repo_name))
     # determine url to specify in initial repositories.json
     # if the repository has a remote set, use that url
     # otherwise, set url to the repository's absolute or relative path (relative
@@ -274,9 +276,10 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
     url = target_repo.get_remote_url()
     if url is None:
       if targets_relative_dir is not None:
-        url = os.path.relpath(target_repo.repo_path, targets_relative_dir)
+        url = os.path.relpath(str(Path(target_repo.repo_path).resolve()),
+                              str(Path(targets_relative_dir).resolve()))
       else:
-        url = target_repo.repo_path
+        url = str(Path(target_repo.repo_path).resolve())
       # convert to posix path
       url = pathlib.Path(url).as_posix()
     repositories[target_repo_namespaced_name] = {'urls': [url]}
