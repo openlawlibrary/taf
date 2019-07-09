@@ -2,6 +2,7 @@ from taf.git import GitRepository
 from taf.exceptions import InvalidRepositoryError
 import pytest
 
+
 def test_url_validation_valid_urls():
   urls = ['https://github.com/account/repo_name.git',
           'https://github.com/account/repo_name',
@@ -12,6 +13,7 @@ def test_url_validation_valid_urls():
   repo = GitRepository('path', urls)
   for test_url, repo_url in zip(urls, repo.repo_urls):
     assert test_url == repo_url
+
 
 def test_url_invalid_urls():
   urls = ['abc://something.com']
