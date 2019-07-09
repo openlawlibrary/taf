@@ -350,12 +350,12 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
 
 
 def register_target_file(repo_path, file_path, keystore, roles_key_infos,
-                         targets_key_slot=2, update_all=True):
+                         targets_key_slot=2):
   roles_key_infos = _read_input_dict(roles_key_infos)
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
-  _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
+  _write_targets_metadata(taf_repo, keystore, roles_key_infos,
                           targets_key_slot)
 
 
@@ -372,11 +372,11 @@ def _read_input_dict(value):
 
 
 def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=2,
-                          update_all=True, commit_msg=None):
+                          commit_msg=None):
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets
-    metadata file. Update snapshot and timestamp if update_fall==True. Sign targets
+    metadata file, snapshot and timestamp. Sign targets
     with yubikey if keystore is not provided
   <Arguments>
     repo_path:
@@ -387,20 +387,17 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
       A dictionary whose keys are role names, while values contain information about the keys.
     targets_key_slot(tuple|int):
       Slot with key on a smart card used for signing
-    update_all:
-      Indicates if snapshot and timestamp should also be updated. Set to True by default
     commit_msg:
       Commit message. If specified, the changes made to the authentication are committed.
   """
   roles_key_infos = _read_input_dict(roles_key_infos)
-  targets_path = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
-  taf_repo = Repository(repo_path)
-  for root, _, filenames in os.walk(targets_path):
+  repo_path = Path(repo_path).resolve()
+  targets_path = repo_path / TARGETS_DIRECTORY_NAME
+  taf_repo = Repository(str(repo_path))
+  for root, _, filenames in os.walk(str(targets_path)):
     for filename in filenames:
-      relpath = os.path.relpath(os.path.join(root, filename), targets_path)
-      relpath = os.path.normpath(relpath).replace(os.path.sep, '/')
-      taf_repo.add_existing_target(relpath)
-  _write_targets_metadata(taf_repo, update_all, keystore, roles_key_infos,
+      taf_repo.add_existing_target(str(Path(root) / filename))
+  _write_targets_metadata(taf_repo, keystore, roles_key_infos,
                           targets_key_slot)
   if commit_msg is not None:
     auth_repo = GitRepository(repo_path)
@@ -457,8 +454,7 @@ def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
     auth_repo.commit(commit_msg)
 
 
-def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
-                            roles_key_infos, targets_key_slot=None):
+def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slot=None):
 
   if keystore is not None:
     # load all keys from keystore files
@@ -467,11 +463,10 @@ def _write_targets_metadata(taf_repo, update_snapshot_and_timestmap, keystore,
     targets_password = _load_role_key_from_keys_dict('targets', roles_key_infos)
     targets_key = load_role_key(keystore, 'targets', targets_password)
     taf_repo.update_targets_from_keystore(targets_key, write=False)
-    if update_snapshot_and_timestmap:
-      snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
-      timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
-      timestamp_key = load_role_key(keystore, 'timestamp', timestamp_password)
-      snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
+    snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
+    timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
+    timestamp_key = load_role_key(keystore, 'timestamp', timestamp_password)
+    snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
   else:
     targets_key_pin = getpass('Please insert targets YubiKey, input PIN and press ENTER.')
     taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)

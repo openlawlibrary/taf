@@ -125,6 +125,9 @@ class GitRepository(object):
       else:
         raise(e)
 
+  def clean(self):
+    self._git('clean -fd')
+
   def clone(self, no_checkout=False, bare=False):
 
     logger.info('Repo %s: cloning repository', self.repo_name)
@@ -259,6 +262,9 @@ class GitRepository(object):
   def reset_to_commit(self, commit, hard=False):
     flag = '--hard' if hard else '--soft'
     self._git('reset {} {}'.format(flag, commit))
+
+  def reset_to_head(self):
+    self._git('reset --hard HEAD')
 
 
 class NamedGitRepository(GitRepository):
