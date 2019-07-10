@@ -35,7 +35,7 @@ EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
 
-def add_target_repos(repo_path, targets_directory, namespace=''):
+def add_target_repos(repo_path, targets_directory, namespace=None):
   """
   <Purpose>
     Create or update target files by reading the latest commits of the provided target repositories
@@ -47,21 +47,25 @@ def add_target_repos(repo_path, targets_directory, namespace=''):
     namespace:
       Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
   """
-  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
+  repo_path = Path(repo_path).resolve()
+  targets_directory = Path(targets_directory).resolve()
+  if namespace is None:
+    namespace = targets_directory.name
+  auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
   if namespace:
-    auth_repo_targets_dir = os.path.join(auth_repo_targets_dir, namespace)
-    if not os.path.exists(auth_repo_targets_dir):
+    auth_repo_targets_dir = auth_repo_targets_dir / namespace
+    if not auth_repo_targets_dir.exists():
       os.makedirs(auth_repo_targets_dir)
 
-  for target_repo_dir in os.listdir(targets_directory):
-    repo_path = os.path.join(targets_directory, target_repo_dir)
-    if os.path.isdir(repo_path):
-      target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
-      if target_repo.is_git_repository:
-        commit = target_repo.head_commit_sha()
-        target_repo_name = os.path.basename(target_repo_dir)
-        with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
-          json.dump({'commit': commit}, f,  indent=4)
+  for target_repo_dir in targets_directory.glob('*'):
+    if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
+      continue
+    target_repo = GitRepository(str(target_repo_dir))
+    if target_repo.is_git_repository:
+      commit = target_repo.head_commit_sha()
+      target_repo_name = target_repo_dir.name
+      (auth_repo_targets_dir / target_repo_name).write_text(json.dumps({'commit': commit},
+                                                                       indent=4))
 
 
 def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_dir, keystore,
@@ -257,7 +261,7 @@ def generate_keys(keystore, roles_key_infos):
                                        password=password)
 
 
-def generate_repositories_json(repo_path, targets_directory, namespace='',
+def generate_repositories_json(repo_path, targets_directory, namespace=None,
                                targets_relative_dir=None, custom_data=None):
   """
   <Purpose>
@@ -272,19 +276,26 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
     targets_relative_dir:
       Directory relative to which urls of the target repositories are set, if they do not have remote set
   """
+
   custom_data = _read_input_dict(custom_data)
   repositories = {}
-  auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
-  for target_repo_dir in os.listdir(targets_directory):
-    repo_path = os.path.join(targets_directory, target_repo_dir)
-    if not os.path.isdir(repo_path):
+
+  repo_path = Path(repo_path).resolve()
+  auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
+  targets_directory = Path(targets_directory).resolve()
+  if targets_relative_dir is not None:
+    targets_relative_dir = Path(targets_relative_dir).resolve()
+  if namespace is None:
+    namespace = targets_directory.name
+  for target_repo_dir in targets_directory.glob('*'):
+    if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
       continue
-    target_repo = GitRepository(repo_path)
+    target_repo = GitRepository(target_repo_dir.resolve())
     if not target_repo.is_git_repository:
       continue
-    target_repo_name = os.path.basename(target_repo_dir)
+    target_repo_name = target_repo_dir.name
     target_repo_namespaced_name = target_repo_name if not namespace else '{}/{}'.format(
-        namespace, target_repo_name)
+        namespace, str(target_repo_name))
     # determine url to specify in initial repositories.json
     # if the repository has a remote set, use that url
     # otherwise, set url to the repository's absolute or relative path (relative
@@ -294,15 +305,15 @@ def generate_repositories_json(repo_path, targets_directory, namespace='',
       if targets_relative_dir is not None:
         url = os.path.relpath(str(target_repo.repo_path), str(targets_relative_dir))
       else:
-        url = target_repo.repo_path
+        url = str(Path(target_repo.repo_path).resolve())
       # convert to posix path
       url = pathlib.Path(url).as_posix()
     repositories[target_repo_namespaced_name] = {'urls': [url]}
     if target_repo_namespaced_name in custom_data:
       repositories[target_repo_namespaced_name]['custom'] = custom_data[target_repo_namespaced_name]
 
-  with open(os.path.join(auth_repo_targets_dir, 'repositories.json'), 'w') as f:
-    json.dump({'repositories': repositories}, f,  indent=4)
+  (auth_repo_targets_dir / 'repositories.json').write_text(json.dumps({'repositories': repositories},
+                                                                      indent=4))
 
 
 def _get_key_name(role_name, key_num, num_of_keys):
