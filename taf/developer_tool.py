@@ -34,7 +34,6 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
-
 def add_target_repos(repo_path, targets_directory, namespace=None):
   """
   <Purpose>
