@@ -4,6 +4,7 @@ import os
 import stat
 import subprocess
 from getpass import getpass
+from pathlib import Path
 
 import click
 
@@ -11,7 +12,6 @@ import taf.settings
 from oll_sc.api import sc_is_present
 from oll_sc.exceptions import SmartCardError
 from taf.exceptions import PINMissmatchError
-from taf.repository_tool import get_yubikey_public_key
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,42 @@ class IsoDateParamType(click.ParamType):
 ISO_DATE_PARAM_TYPE = IsoDateParamType()
 
 
+def extract_x509(cert_pem):
+  from cryptography import x509
+  from cryptography.hazmat.backends import default_backend
+
+  cert = x509.load_pem_x509_certificate(cert_pem, default_backend())
+
+  def _get_attr(oid):
+    attrs = cert.subject.get_attributes_for_oid(oid)
+    return attrs[0].value if len(attrs) > 0 else ""
+
+  return {
+      "name": _get_attr(x509.OID_COMMON_NAME),
+      "organization": _get_attr(x509.OID_ORGANIZATION_NAME),
+      "country": _get_attr(x509.OID_COUNTRY_NAME),
+      "state": _get_attr(x509.OID_STATE_OR_PROVINCE_NAME),
+      "locality": _get_attr(x509.OID_LOCALITY_NAME),
+      "valid_from": cert.not_valid_before.strftime("%Y-%m-%d"),
+      "valid_to": cert.not_valid_after.strftime("%Y-%m-%d"),
+  }
+
+
+def get_cert_names_from_keyids(certs_dir, keyids):
+  cert_names = []
+  for keyid in keyids:
+    try:
+      name = extract_x509((Path(certs_dir) / keyid + ".pem").read_bytes())['name']
+      if not name:
+        print("Cannot extract common name from x509, using key id instead.")
+        cert_names.append(keyid)
+      else:
+        cert_names.append(name)
+    except FileNotFoundError:
+      print("Certificate does not exist ({}).".format(keyid))
+  return cert_names
+
+
 def get_pin_for(name, confirm=True):
   pin = getpass('Enter PIN for {}: '.format(name))
   if confirm:
@@ -47,6 +83,8 @@ def get_pin_for(name, confirm=True):
 
 
 def get_yubikey_pin_for_keyid(expected_keyids, key_slot=(2,), holders_name=' '):
+  from taf.repository_tool import get_yubikey_public_key
+
   if isinstance(expected_keyids, str):
     expected_keyids = (expected_keyids)
   if isinstance(key_slot, int) or isinstance(key_slot, str):

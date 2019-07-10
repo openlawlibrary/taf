@@ -20,7 +20,8 @@ from taf.auth_repo import AuthenticationRepo
 from taf.exceptions import PINMissmatchError
 from taf.git import GitRepository
 from taf.repository_tool import Repository, load_role_key
-from taf.utils import get_pin_for, get_yubikey_pin_for_keyid
+from taf.utils import (get_cert_names_from_keyids, get_pin_for,
+                       get_yubikey_pin_for_keyid)
 from tuf.keydb import get_key
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
@@ -144,7 +145,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
             print('Genarating keys for {}'.format(key_name))
             use_existing = False
             if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
-              use_existing = input('Do you want to reuse alredy set up YubiKey? y/n ') == 'y'
+              use_existing = input('Do you want to reuse already set up Yubikey? y/n ') == 'y'
               if use_existing:
                 key = None
                 key_id_certs = {}
@@ -157,14 +158,14 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
                       key, cert_cn = key_and_cert
                       key_id_certs[key['keyid']] = cert_cn
                       print('{} id: {}'.format(cert_cn, key['keyid']))
-                  existing_keyid = input("Enter existing YubiKey's id and press ENTER ")
+                  existing_keyid = input("Enter existing Yubikey's id and press ENTER ")
                   try:
                     key = get_key(existing_keyid)
                     cert_cn = key_id_certs[existing_keyid]
                   except UnknownKeyError:
                     pass
             if not use_existing:
-              input("Please insert a new YubiKey and press ENTER.")
+              input("Please insert a new Yubikey and press ENTER.")
               serial_num = yk_serial_num()
               while serial_num in yubikeys[role_name]:
                 print("Yubikey with serial number {} is already in use.\n".format(serial_num))
@@ -460,16 +461,23 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slo
     targets_password = _load_role_key_from_keys_dict('targets', roles_key_infos)
     targets_key = load_role_key(keystore, 'targets', targets_password)
     taf_repo.update_targets_from_keystore(targets_key, write=False)
+
     snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
+    snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
+
     timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)
     timestamp_key = load_role_key(keystore, 'timestamp', timestamp_password)
-    snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
   else:
-    targets_key_pin = get_yubikey_pin_for_keyid(taf_repo.get_role_keys('targets'), targets_key_slot)
+    target_keys = taf_repo.get_role_keys('targets')
+    cert_names = get_cert_names_from_keyids(taf_repo.certs_dir, target_keys)
+    targets_key_pin = get_yubikey_pin_for_keyid(target_keys, targets_key_slot,
+                                                ' or '.join(cert_names))
     taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)
+
     snapshot_pem = getpass('Enter snapshot key')
     snapshot_pem = _form_private_pem(snapshot_pem)
     snapshot_key = import_rsakey_from_pem(snapshot_pem)
+
     timestamp_pem = getpass('Enter timestamp key')
     timestamp_pem = _form_private_pem(timestamp_pem)
     timestamp_key = import_rsakey_from_pem(timestamp_pem)
