@@ -56,9 +56,9 @@ def add_target_repos(repo_path, targets_directory, namespace=None):
     target_repo = GitRepository(str(target_repo_dir))
     if target_repo.is_git_repository:
       commit = target_repo.head_commit_sha()
-      target_repo_name = os.path.basename(target_repo_dir)
-      with open(os.path.join(auth_repo_targets_dir, target_repo_name), 'w') as f:
-        json.dump({'commit': commit}, f,  indent=4)
+      target_repo_name = target_repo_dir.name
+      (auth_repo_targets_dir / target_repo_name).write_text(json.dumps({'commit': commit},
+                                                                       indent=4))
 
 
 def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_dir, keystore,
@@ -263,12 +263,14 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
   repo_path = Path(repo_path).resolve()
   auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
   targets_directory = Path(targets_directory).resolve()
+  if targets_relative_dir is not None:
+    targets_relative_dir = Path(targets_relative_dir).resolve()
   if namespace is None:
     namespace = targets_directory.name
   for target_repo_dir in targets_directory.glob('*'):
     if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
       continue
-    target_repo = GitRepository(target_repo_dir)
+    target_repo = GitRepository(target_repo_dir.resolve())
     if not target_repo.is_git_repository:
       continue
     target_repo_name = target_repo_dir.name
@@ -281,8 +283,7 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
     url = target_repo.get_remote_url()
     if url is None:
       if targets_relative_dir is not None:
-        url = os.path.relpath(str(Path(target_repo.repo_path).resolve()),
-                              str(Path(targets_relative_dir).resolve()))
+        url = os.path.relpath(str(target_repo.repo_path), str(targets_relative_dir))
       else:
         url = str(Path(target_repo.repo_path).resolve())
       # convert to posix path
@@ -291,8 +292,9 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
     if target_repo_namespaced_name in custom_data:
       repositories[target_repo_namespaced_name]['custom'] = custom_data[target_repo_namespaced_name]
 
-  with open(os.path.join(auth_repo_targets_dir, 'repositories.json'), 'w') as f:
-    json.dump({'repositories': repositories}, f,  indent=4)
+  (auth_repo_targets_dir / 'repositories.json').write_text(json.dumps({'repositories': repositories},
+                                                                      indent=4))
+
 
 
 def _get_key_name(role_name, key_num, num_of_keys):
