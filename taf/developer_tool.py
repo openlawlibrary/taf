@@ -2,31 +2,37 @@ import datetime
 import json
 import os
 import pathlib
-import securesystemslib
-from collections import defaultdict
 from binascii import hexlify
+from collections import defaultdict
+from functools import partial
+from getpass import getpass
+from pathlib import Path
+
+import securesystemslib
+from securesystemslib.exceptions import Error as SSLibError
+from securesystemslib.exceptions import UnknownKeyError
+
 import tuf.repository_tool
+from oll_sc.api import sc_export_x509_pem, sc_sign_rsa_pkcs_pss_sha256
+from oll_sc.exceptions import SmartCardError
+from oll_sc.yk_api import yk_serial_num, yk_setup
+from taf.auth_repo import AuthenticationRepo
+from taf.exceptions import PINMissmatchError
+from taf.git import GitRepository
+from taf.repository_tool import Repository, load_role_key
+from taf.utils import get_pin_for, get_yubikey_pin_for_keyid
+from tuf.keydb import get_key
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
                                  generate_and_write_rsa_keypair,
+                                 generate_rsa_key,
                                  import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file,
-                                 import_rsakey_from_pem,
-                                 generate_rsa_key)
-from tuf.keydb import get_key
-from taf.git import GitRepository
-from taf.auth_repo import AuthenticationRepo
-from taf.repository_tool import Repository, get_yubikey_public_key, load_role_key
-from oll_sc.yk_api import yk_serial_num, yk_setup
-from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256, sc_export_x509_pem
-from getpass import getpass
-from functools import partial
-from securesystemslib.exceptions import UnknownKeyError
-from pathlib import Path
-
+                                 import_rsakey_from_pem)
 
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
+
 
 def add_target_repos(repo_path, targets_directory, namespace=''):
   """
@@ -130,74 +136,87 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
     role_obj = _role_obj(role_name, repository)
     role_obj.threshold = threshold
     for key_num in range(num_of_keys):
-      key_name = _get_key_name(role_name, key_num, num_of_keys)
-      if is_yubikey:
-        print('Genarating keys for {}'.format(key_name))
-        use_existing = False
-        if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
-          use_existing = input('Do you want to reuse alredy set up YubiKey? y/n ') == 'y'
-          if use_existing:
-            key = None
-            key_id_certs = {}
-            while key is None:
-              for existing_role_name, role_keys in yubikeys.items():
-                if existing_role_name == role_name:
-                  continue
-                print(existing_role_name)
-                for key_and_cert in role_keys.values():
-                  key, cert_cn = key_and_cert
-                  key_id_certs[key['keyid']] = cert_cn
-                  print('{} id: {}'.format(cert_cn, key['keyid']))
-              existing_keyid = input("Enter existing YubiKey's id and press ENTER ")
-              try:
-                key = get_key(existing_keyid)
-                cert_cn = key_id_certs[existing_keyid]
-              except UnknownKeyError:
-                pass
-        if not use_existing:
-          input("Please insert a new YubiKey and press ENTER.")
-          serial_num = yk_serial_num()
-          while serial_num in yubikeys[role_name]:
-            print("YubikKy with serial number {} is already in use.\n".format(serial_num))
-            input("Please insert new YubiKey and press ENTER.")
-            serial_num = yk_serial_num()
+      # Repeat key setup until successful
+      while True:
+        try:
+          key_name = _get_key_name(role_name, key_num, num_of_keys)
+          if is_yubikey:
+            print('Genarating keys for {}'.format(key_name))
+            use_existing = False
+            if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
+              use_existing = input('Do you want to reuse alredy set up YubiKey? y/n ') == 'y'
+              if use_existing:
+                key = None
+                key_id_certs = {}
+                while key is None:
+                  for existing_role_name, role_keys in yubikeys.items():
+                    if existing_role_name == role_name:
+                      continue
+                    print(existing_role_name)
+                    for key_and_cert in role_keys.values():
+                      key, cert_cn = key_and_cert
+                      key_id_certs[key['keyid']] = cert_cn
+                      print('{} id: {}'.format(cert_cn, key['keyid']))
+                  existing_keyid = input("Enter existing YubiKey's id and press ENTER ")
+                  try:
+                    key = get_key(existing_keyid)
+                    cert_cn = key_id_certs[existing_keyid]
+                  except UnknownKeyError:
+                    pass
+            if not use_existing:
+              input("Please insert a new YubiKey and press ENTER.")
+              serial_num = yk_serial_num()
+              while serial_num in yubikeys[role_name]:
+                print("Yubikey with serial number {} is already in use.\n".format(serial_num))
+                input("Please insert new Yubikey and press ENTER.")
+                serial_num = yk_serial_num()
 
-          pin = getpass('Enter PIN for {}: '.format(key_name))
-          cert_cn = input("Enter key holder's name: ")
+              pin = get_pin_for(key_name)
 
-          print('Generating keys, please wait...')
-          pub_key_pem = yk_setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
+              cert_cn = input("Enter key holder's name: ")
 
-          key = import_rsakey_from_pem(pub_key_pem)
+              print('Generating keys, please wait...')
+              pub_key_pem = yk_setup(
+                  pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
 
-          cert_path = os.path.join(repo.certs_dir, key['keyid'] + '.cert')
-          with open(cert_path, 'wb') as f:
-            f.write(sc_export_x509_pem((2,), pin))
+              key = import_rsakey_from_pem(pub_key_pem)
 
-        # set Yubikey expiration date
-        role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-        role_obj.add_external_signature_provider(key, partial(signature_provider,
-                                                 key['keyid'], cert_cn))
-        yubikeys[role_name][serial_num] = (key, cert_cn)
-      else:
-        # if keystore exists, load the keys
-        # this is useful when generating tests
-        if keystore is not None:
-          public_key = import_rsa_publickey_from_file(os.path.join(keystore,
-                                                                   key_name + '.pub'))
-          password = passwords[key_num]
-          if password:
-            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
-                                                                       password)
+              cert_path = os.path.join(repo.certs_dir, key['keyid'] + '.cert')
+              with open(cert_path, 'wb') as f:
+                f.write(sc_export_x509_pem((2,), pin))
+
+            # set Yubikey expiration date
+            role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
+            role_obj.add_external_signature_provider(key, partial(signature_provider,
+                                                                  key['keyid'], cert_cn))
+            yubikeys[role_name][serial_num] = (key, cert_cn)
           else:
-            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
-        # if it does not, generate the keys and print the output
-        else:
-          key = generate_rsa_key()
-          print("{} key:\n\n{}\n\n".format(role_name, key['keyval']['private']))
-          public_key = private_key = key
-        role_obj.add_verification_key(public_key)
-        role_obj.load_signing_key(private_key)
+            # if keystore exists, load the keys
+            # this is useful when generating tests
+            if keystore is not None:
+              public_key = import_rsa_publickey_from_file(os.path.join(keystore,
+                                                                       key_name + '.pub'))
+              password = passwords[key_num]
+              if password:
+                private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
+                                                              password)
+              else:
+                private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
+            # if it does not, generate the keys and print the output
+            else:
+              key = generate_rsa_key()
+              print("{} key:\n\n{}\n\n".format(role_name, key['keyval']['private']))
+              public_key = private_key = key
+            role_obj.add_verification_key(public_key)
+            role_obj.load_signing_key(private_key)
+
+            # Everything is setup
+            break
+
+        except (PINMissmatchError, SSLibError, SmartCardError, FileNotFoundError) as e:
+          print(str(e))
+          continue  # Start setup for current key from the begging
+
   repository.writeall()
   if commit_message is not None and len(commit_message):
     auth_repo = GitRepository(repo_path)
@@ -407,20 +426,7 @@ def _role_obj(role, repository):
 
 def signature_provider(key_id, cert_cn, data):
   key_slot = (2,)
-  key_pin = None
-  def _check_key_id(expected_key_id):
-    try:
-      nonlocal key_pin
-      key_pin = getpass(
-        "Please insert {} YubiKey, input PIN and press ENTER.\n".format(cert_cn))
-      inserted_key = get_yubikey_public_key(key_slot, key_pin)
-      return expected_key_id == inserted_key['keyid']
-    except Exception:
-      return False
-
-  while not _check_key_id(key_id):
-    pass
-
+  key_pin = get_yubikey_pin_for_keyid(key_id, key_slot, cert_cn)
   data = securesystemslib.formats.encode_canonical(data)
   signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
 
@@ -428,6 +434,7 @@ def signature_provider(key_id, cert_cn, data):
       'keyid': key_id,
       'sig': hexlify(signature).decode()
   }
+
 
 def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
                                     start_date=datetime.datetime.now(), interval=None, commit_msg=None):
@@ -458,7 +465,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slo
     timestamp_key = load_role_key(keystore, 'timestamp', timestamp_password)
     snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
   else:
-    targets_key_pin = getpass('Please insert targets YubiKey, input PIN and press ENTER.')
+    targets_key_pin = get_yubikey_pin_for_keyid(taf_repo.get_role_keys('targets'), targets_key_slot)
     taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)
     snapshot_pem = getpass('Enter snapshot key')
     snapshot_pem = _form_private_pem(snapshot_pem)
@@ -468,6 +475,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slo
     timestamp_key = import_rsakey_from_pem(timestamp_pem)
   taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key, write=False)
   taf_repo.writeall()
+
 
 def _form_private_pem(pem):
   return '-----BEGIN RSA PRIVATE KEY-----\n{}\n-----END RSA PRIVATE KEY-----'.format(pem)
