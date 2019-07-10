@@ -64,8 +64,13 @@ NO_WORKING_MIRRORS = 'Validation of authentication repository auth_repo failed d
 TIMESTAMP_EXPIRED = "Metadata 'timestamp' expired"
 REPLAYED_METADATA = 'ReplayedMetadataError'
 METADATA_CHANGED_BUT_SHOULDNT = 'Metadata file targets.json should be the same at revisions'
-settings.update_from_filesystem = True
 
+
+def setup_module(module):
+  settings.update_from_filesystem = True
+
+def teardown_module(module):
+  settings.update_from_filesystem = False
 
 @fixture(autouse=True)
 def run_around_tests(client_dir):
