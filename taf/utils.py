@@ -9,8 +9,6 @@ from pathlib import Path
 import click
 
 import taf.settings
-from oll_sc.api import sc_is_present
-from oll_sc.exceptions import SmartCardError
 from taf.exceptions import PINMissmatchError
 
 logger = logging.getLogger(__name__)
@@ -84,6 +82,8 @@ def get_pin_for(name, confirm=True):
 
 def get_yubikey_pin_for_keyid(expected_keyids, key_slot=(2,), holders_name=' '):
   from taf.repository_tool import get_yubikey_public_key
+  from oll_sc.api import sc_is_present
+  from oll_sc.exceptions import SmartCardError
 
   if isinstance(expected_keyids, str):
     expected_keyids = (expected_keyids)
