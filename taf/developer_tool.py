@@ -314,7 +314,6 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
   (auth_repo_targets_dir / 'repositories.json').write_text(json.dumps({'repositories': repositories},
                                                                       indent=4))
 
-
 def _get_key_name(role_name, key_num, num_of_keys):
   if num_of_keys == 1:
     return role_name
