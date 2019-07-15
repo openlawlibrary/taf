@@ -152,7 +152,12 @@ class GitUpdater(handlers.MetadataUpdater):
       users_head_sha = None
     else:
       self.users_auth_repo.checkout_branch('master')
-      users_head_sha = self.users_auth_repo.head_commit_sha()
+      if last_validated_commit is not None:
+        users_head_sha = self.users_auth_repo.head_commit_sha()
+      else:
+        # if the user's repository exists, but there is no last_validated_commit
+        # start the update from the beginning
+        users_head_sha = None
 
     if last_validated_commit != users_head_sha:
       # TODO add a flag --force/f which, if provided, should force an automatic revert
