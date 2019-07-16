@@ -125,7 +125,7 @@ class Repository:
     tuf_repository = load_repository(repository_path)
     self._repository = tuf_repository
 
-  _required_files = ['repositories.json']
+  _framework_files = ['repositories.json', 'test-auth-repo']
 
   @property
   def targets_path(self):
@@ -276,7 +276,7 @@ class Repository:
     if files_to_keep is None:
       files_to_keep = []
     # leave all files required by the framework and additional files specified by the user
-    files_to_keep.extend(self._required_files)
+    files_to_keep.extend(self._framework_files)
     # add all repositories defined in repositories.json to files_to_keep
     files_to_keep.extend(self._get_target_repositories())
     # delete files if they no longer correspond to a target defined

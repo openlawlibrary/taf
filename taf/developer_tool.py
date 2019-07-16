@@ -348,11 +348,13 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
   """
   # read the key infos here, no need to read the file multiple times
   roles_key_infos = _read_input_dict(roles_key_infos)
-  create_repository(repo_path, keystore, roles_key_infos, "Initial metadata", test)
+  commit_msg = 'Initial commit' if commit else None
+  create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir, repos_custom)
-  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot, commit_msg=commit)
+  commit_msg = 'Added targets' if commit else None
+  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot, commit_msg=commit_msg)
 
 
 def _load_role_key_from_keys_dict(role, roles_key_infos):

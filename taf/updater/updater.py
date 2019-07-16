@@ -13,7 +13,7 @@ from taf.utils import on_rm_error
 logger = taf.log.get_logger(__name__)
 
 def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem,
-                      target_repo_classes=None, target_factory=None):
+                      authenticate_test_repo=False, target_repo_classes=None, target_factory=None):
   """
   <Arguments>
    url:
@@ -24,6 +24,8 @@ def update_repository(url, clients_repo_path, targets_dir, update_from_filesyste
     Directory where the target repositories are located
    update_from_filesystem:
     A flag which indicates if the URL is acutally a file system path
+   authenticate_test_repo:
+    A flag which indicates that the repository to be updated is a test repository
    target_repo_classes:
     A class or a dictionary used when instantiating target repositories.
     See repositoriesdb load_repositories for more details.
@@ -37,10 +39,12 @@ def update_repository(url, clients_repo_path, targets_dir, update_from_filesyste
   clients_dir, repo_name = os.path.split(os.path.normpath(clients_repo_path))
   settings.validate_repo_name = False
   update_named_repository(url, clients_dir, repo_name, targets_dir,
-                          update_from_filesystem, target_repo_classes, target_factory)
+                          update_from_filesystem, authenticate_test_repo,
+                          target_repo_classes, target_factory)
 
 def update_named_repository(url, clients_directory, repo_name, targets_dir,
-                            update_from_filesystem, target_repo_classes=None, target_factory=None):
+                            update_from_filesystem, authenticate_test_repo=False,
+                            target_repo_classes=None, target_factory=None):
   """
    <Arguments>
     url:
@@ -53,6 +57,8 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
       Directory where the target repositories are located
     update_from_filesystem:
       A flag which indicates if the URL is acutally a file system path
+    authenticate_test_repo:
+      A flag which indicates that the repository to be updated is a test repository
     target_repo_classes:
       A class or a dictionary used when instantiating target repositories.
       See repositoriesdb load_repositories for more details.
@@ -104,12 +110,28 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
   users_auth_repo = repository_updater.update_handler.users_auth_repo
   existing_repo = users_auth_repo.is_git_repository_root
   try:
+    validation_auth_repo = repository_updater.update_handler.validation_auth_repo
+    commits = repository_updater.update_handler.commits
+    last_validated_commit = users_auth_repo.last_validated_commit
+    if last_validated_commit is None:
+      # check if the repository being updated is a test repository
+      targets = validation_auth_repo.get_json(commits[-1], 'metadata/targets.json')
+      test_repo = 'test-auth-repo' in targets['signed']['targets']
+      if test_repo and not authenticate_test_repo:
+        raise UpdateFailedError('Repository {} is a test repository. Call update with '
+                                '"--authenticate-test-repo" to update a test '
+                                'repository'.format(users_auth_repo.repo_name))
+      elif not test_repo and authenticate_test_repo:
+        raise UpdateFailedError('Repository {} is not a test repository, but update was called '
+                              'with the "--authenticate-test-repo" flag'.format(users_auth_repo.repo_name))
+
+
     # validate the authentication repository and fetch new commits
     _update_authentication_repository(repository_updater)
 
     # get target repositories and their commits, as specified in targets.json
 
-    commits = repository_updater.update_handler.commits
+
     repositoriesdb.load_repositories(users_auth_repo, repo_classes=target_repo_classes,
                                      factory=target_factory, root_dir=targets_dir,
                                      commits=commits)
@@ -118,7 +140,6 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
 
     # update target repositories
     repositories_json = users_auth_repo.get_json(commits[-1], 'targets/repositories.json')
-    last_validated_commit = users_auth_repo.last_validated_commit
     _update_target_repositories(repositories, repositories_json, repositories_commits,
                                 last_validated_commit)
 

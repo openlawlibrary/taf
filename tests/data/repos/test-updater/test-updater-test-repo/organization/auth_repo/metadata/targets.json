@@ -1,0 +1,55 @@
+{
+ "signatures": [
+  {
+   "keyid": "d36f105af5bdb063d1005ee254e7e236b8dc116097a6dd78a22111b1d429533f",
+   "sig": "4ac9a6fbdb1457b7bf67ef052d6277845ace48c1e2e8ab14a85532dcdcd6d25782e368c9311bb5d1c450f74f67cb4def8e5e70bb1d58e3b8ce2d3e549a5d5f82de6ddd0cbc8fc6ecdc6b93bf08ee475a8c4dd438ddea096944e720943a6dea3438fe7737c371dead0b9bbc3870c98bafcb105a0b1a34f071640d612770062dee789258a07808774610bc988e14870090be53110c7b37ddcce932e1ef7d54bc67c1a831193b7e64222933dd8d6f78991c67259f7aa91355e14a5c0df4e64d7f4020d9bf81745a28b152c99fcb6b128034b124e55a982cec3eef7fede7fc2a9fd2324195b7ee235111fdec76cadd943bff8f3c543ac6c2f423c0831bd0f2946444"
+  }
+ ],
+ "signed": {
+  "_type": "targets",
+  "delegations": {
+   "keys": {},
+   "roles": []
+  },
+  "expires": "2019-10-13T22:59:02Z",
+  "spec_version": "1.0",
+  "targets": {
+   "namespace/TargetRepo1": {
+    "hashes": {
+     "sha256": "004dab321437c358151b98beafcb49f18d0c629a79eea2badd2ab8bcc7605b2f",
+     "sha512": "fe00bb33e96d9beb683ae73b7f0d688c3bf347b1b871db1106df9331eefc3834cc82a03854806ac8777a27b4faf8c611afa6411d515da4ee30d1c8abdc625593"
+    },
+    "length": 60
+   },
+   "namespace/TargetRepo2": {
+    "hashes": {
+     "sha256": "ff212d857205fa69f077ad7f17fc6b64a161737d3d7fcc54dbad2287e09d1595",
+     "sha512": "853258bdfd0bccaf0cec77160189beb00e9352048721081bf4420d378a11a87339136cc5412ae2c7d70d3a7def273c5428bcaf5258e0a77c699f7b8c14e5f14e"
+    },
+    "length": 60
+   },
+   "namespace/TargetRepo3": {
+    "hashes": {
+     "sha256": "ff09e0cb07241086fea7a471c4cb69471cf728cb858ab5bdb55e383365686e83",
+     "sha512": "8c664001cc0b53a41d447c34ff80ef0e386b346092a05e28f7ad39b146a095ad294fa2c8be322192fb7c2f060ea40bbbf2c0bcbcdd2bfe2cb08ea70dd8def19d"
+    },
+    "length": 60
+   },
+   "repositories.json": {
+    "hashes": {
+     "sha256": "f465b1f6d840c49592345505cf5e708059498dbb2d569aa7aefb8ee8da95abf2",
+     "sha512": "b0240da58de92215e9a46580ef8e7d20a800682b43adfd2d3c59c8c64c164aaacb323f8851a2d4cb51151d54b1891e706c19be4d7516d8320b2231b845139dae"
+    },
+    "length": 513
+   },
+   "test-auth-repo": {
+    "hashes": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "sha512": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+    },
+    "length": 0
+   }
+  },
+  "version": 2
+ }
+}
