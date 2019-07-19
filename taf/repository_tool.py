@@ -324,7 +324,8 @@ class Repository:
       previous_custom = None
       if path in previous_targets:
         previous_custom = previous_targets[path].get('custom')
-      self._add_target(targets_obj, str(target_path), previous_custom)
+      if target_path.is_file():
+        self._add_target(targets_obj, str(target_path), previous_custom)
 
   def _get_target_repositories(self):
     repositories_path = self.targets_path / 'repositories.json'

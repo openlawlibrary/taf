@@ -4,7 +4,6 @@ import taf.log
 from collections import defaultdict
 from subprocess import CalledProcessError
 from taf.git import GitRepository, NamedGitRepository
-from tuf.repository_tool import METADATA_DIRECTORY_NAME
 
 logger = taf.log.get_logger(__name__)
 
