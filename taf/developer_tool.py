@@ -31,6 +31,7 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
+
 def add_target_repos(repo_path, targets_directory, namespace=None):
   """
   <Purpose>
@@ -144,20 +145,20 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
         if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
           use_existing = input('Do you want to reuse already set up Yubikey? y/n ') == 'y'
           if use_existing:
-            key = None
+            existing_key = None
             key_id_certs = {}
-            while key is None:
+            while existing_key is None:
               for existing_role_name, role_keys in yubikeys.items():
                 if existing_role_name == role_name:
                   continue
-                print(existing_role_name)
+                print("Existing keys for role {} are:\n".format(existing_role_name))
                 for key_and_cert in role_keys.values():
                   key, cert_cn = key_and_cert
                   key_id_certs[key['keyid']] = cert_cn
                   print('{} id: {}'.format(cert_cn, key['keyid']))
-              existing_keyid = input("Enter existing Yubikey's id and press ENTER ")
+              existing_keyid = input("\nEnter existing Yubikey's id and press ENTER ")
               try:
-                key = get_key(existing_keyid)
+                existing_key = get_key(existing_keyid)
                 cert_cn = key_id_certs[existing_keyid]
               except UnknownKeyError:
                 pass
@@ -300,6 +301,7 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
 
   (auth_repo_targets_dir / 'repositories.json').write_text(json.dumps({'repositories': repositories},
                                                                       indent=4))
+
 
 def _get_key_name(role_name, key_num, num_of_keys):
   if num_of_keys == 1:
