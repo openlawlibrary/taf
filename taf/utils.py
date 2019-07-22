@@ -72,11 +72,16 @@ def get_cert_names_from_keyids(certs_dir, keyids):
   return cert_names
 
 
-def get_pin_for(name, confirm=True):
+def get_pin_for(name, confirm=True, repeat=True):
   pin = getpass('Enter PIN for {}: '.format(name))
   if confirm:
     if pin != getpass('Confirm PIN for {}: '.format(name)):
-      raise PINMissmatchError("PINs doesn't match!")
+      err_msg = "PINs doesn't match!"
+      if repeat:
+        print(err_msg)
+        get_pin_for(name, confirm, repeat)
+      else:
+        raise PINMissmatchError(err_msg)
   return pin
 
 
@@ -92,11 +97,11 @@ def get_yubikey_pin_for_keyid(expected_keyids, key_slot=(2,), holders_name=' '):
 
   while True:
     try:
-      input("Please insert {} yubikey and press ENTER.\n".format(holders_name))
+      input("Please insert {}'s yubikey and press ENTER.\n".format(holders_name))
       if not sc_is_present():
         continue
 
-      key_pin = get_pin_for(holders_name)
+      key_pin = get_pin_for(holders_name, confirm=False)
       inserted_key = get_yubikey_public_key(key_slot, key_pin)
       if inserted_key['keyid'] not in expected_keyids:
         print("Please insert valid yubikey!")
