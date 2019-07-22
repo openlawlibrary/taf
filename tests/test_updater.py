@@ -172,10 +172,10 @@ def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
   origin_dir = origin_dir / 'test-updater-valid'
   client_repos = _clone_and_revert_client_repositories(repositories, origin_dir,
                                                        client_dir, 3)
-  expected_error = 'Saved last validated commit None does not match the head commit'
-  # try to update without setting the last validated commit
-  _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
-                                                   repositories, expected_error)
+
+  # update without setting the last validated commit
+  # update should start from the beginning and be successful
+  _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
 def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_dir):
