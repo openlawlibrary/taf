@@ -158,7 +158,6 @@ def normalize_file_line_endings(file_path):
 
 
 def normalize_line_endings(file_content):
-
   WINDOWS_LINE_ENDING = '\r\n'
   UNIX_LINE_ENDING = '\n'
   replaced_content = file_content.replace(
