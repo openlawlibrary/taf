@@ -31,7 +31,6 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
-
 def add_target_repos(repo_path, targets_directory, namespace=None):
   """
   <Purpose>
@@ -301,7 +300,6 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
 
   (auth_repo_targets_dir / 'repositories.json').write_text(json.dumps({'repositories': repositories},
                                                                       indent=4))
-
 
 def _get_key_name(role_name, key_num, num_of_keys):
   if num_of_keys == 1:
