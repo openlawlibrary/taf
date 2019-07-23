@@ -125,6 +125,9 @@ class GitRepository(object):
       else:
         raise(e)
 
+  def clean(self):
+    self._git('clean -fd')
+
   def clone(self, no_checkout=False, bare=False):
 
     logger.info('Repo %s: cloning repository', self.repo_name)
@@ -260,6 +263,9 @@ class GitRepository(object):
     flag = '--hard' if hard else '--soft'
     self._git('reset {} {}'.format(flag, commit))
 
+  def reset_to_head(self):
+    self._git('reset --hard HEAD')
+
 
 class NamedGitRepository(GitRepository):
 
@@ -306,7 +312,7 @@ def _validate_repo_name(repo_name):
                                  'dashes, but got "{}"'.format(repo_name))
 
 
-_url_re = re.compile(
+_http_fttp_url = re.compile(
     r'^(?:http|ftp)s?://'  # http:// or https://
     # domain...
     r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'
@@ -315,10 +321,14 @@ _url_re = re.compile(
     r'(?::\d+)?'  # optional port
     r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
+_ssh_url = re.compile(r'((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)?(/)?')
+
 
 def _validate_url(url):
   """ ensure valid URL """
-  match = _url_re.match(url)
-  if not match:
-    logger.error('Repository URL (%s) is not valid', url)
-    raise InvalidRepositoryError('Repository URL must be a valid URL, but got "{}".'.format(url))
+  for _url_re in [_http_fttp_url, _ssh_url]:
+    match = _url_re.match(url)
+    if match:
+      return
+  logger.error('Repository URL (%s) is not valid', url)
+  raise InvalidRepositoryError('Repository URL must be a valid URL, but got "{}".'.format(url))

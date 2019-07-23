@@ -64,8 +64,13 @@ NO_WORKING_MIRRORS = 'Validation of authentication repository auth_repo failed d
 TIMESTAMP_EXPIRED = "Metadata 'timestamp' expired"
 REPLAYED_METADATA = 'ReplayedMetadataError'
 METADATA_CHANGED_BUT_SHOULDNT = 'Metadata file targets.json should be the same at revisions'
-settings.update_from_filesystem = True
 
+
+def setup_module(module):
+  settings.update_from_filesystem = True
+
+def teardown_module(module):
+  settings.update_from_filesystem = False
 
 @fixture(autouse=True)
 def run_around_tests(client_dir):
@@ -100,11 +105,12 @@ def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
   _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
-def test_no_update_necessary(updater_repositories, origin_dir, client_dir):
+@pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-allow-unauthenticated-commits'])
+def test_no_update_necessary(test_name, updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
   # revert them to an older commit
-  repositories = updater_repositories['test-updater-valid']
-  origin_dir = origin_dir / 'test-updater-valid'
+  repositories = updater_repositories[test_name]
+  origin_dir = origin_dir / test_name
   client_repos = _clone_client_repositories(repositories, origin_dir, client_dir)
   # create valid last validated commit file
   _create_last_validated_commit(client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha())
@@ -166,10 +172,10 @@ def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
   origin_dir = origin_dir / 'test-updater-valid'
   client_repos = _clone_and_revert_client_repositories(repositories, origin_dir,
                                                        client_dir, 3)
-  expected_error = 'Saved last validated commit None does not match the head commit'
-  # try to update without setting the last validated commit
-  _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
-                                                   repositories, expected_error)
+
+  # update without setting the last validated commit
+  # update should start from the beginning and be successful
+  _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
 def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_dir):

@@ -17,12 +17,11 @@ def cli():
 @click.option('--keystore', default=None, help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
-@click.option('--update-all', is_flag=True, default=True, help='Update snapshot and timestamp')
 @click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
-def add_targets(repo_path, targets_key_slot, keystore, keys_description, update_all, commit_msg):
+def add_targets(repo_path, targets_key_slot, keystore, keys_description, commit_msg):
   developer_tool.register_target_files(repo_path, keystore, keys_description, targets_key_slot,
-                                       update_all, commit_msg)
+                                       commit_msg)
 
 
 @cli.command()
@@ -32,18 +31,17 @@ def add_targets(repo_path, targets_key_slot, keystore, keys_description, update_
 @click.option('--keystore', default='keystore', help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
-@click.option('--update-all', is_flag=True, default=False, help='Update snapshot and timestamp')
 def add_target_file(repo_path, file_path, targets_key_slot, keystore,
-                    keys_description, update_all):
+                    keys_description):
   developer_tool.register_target_file(repo_path, file_path, keystore, keys_description,
-                                      targets_key_slot, update_all)
+                                      targets_key_slot)
 
 
 @cli.command()
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
-@click.option('--namespace', default='', help='Namespace of the target repositories')
+@click.option('--namespace', default=None, help='Namespace of the target repositories')
 def add_target_repos(repo_path, targets_dir, namespace):
   developer_tool.add_target_repos(repo_path, targets_dir, namespace)
 
@@ -108,7 +106,7 @@ def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
-@click.option('--namespace', default='', help='Namespace of the target repositories')
+@click.option('--namespace', default=None, help='Namespace of the target repositories')
 @click.option('--targets-rel-dir', default=None, help=' Directory relative to which urls '
               'of the target repositories are set, if they do not have remote set')
 @click.option('--custom', default=None, help='A dictionary containing custom '

@@ -118,7 +118,9 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
 
     # update target repositories
     repositories_json = users_auth_repo.get_json(commits[-1], 'targets/repositories.json')
-    _update_target_repositories(repositories, repositories_json, repositories_commits)
+    last_validated_commit = users_auth_repo.last_validated_commit
+    _update_target_repositories(repositories, repositories_json, repositories_commits,
+                                last_validated_commit)
 
     last_commit = commits[-1]
     logger.info('Merging commit %s into %s', last_commit, users_auth_repo.repo_name)
@@ -178,25 +180,54 @@ def _update_authentication_repository(repository_updater):
     users_auth_repo.clone(no_checkout=True)
 
 
-def _update_target_repositories(repositories, repositories_json, repositories_commits):
+def _update_target_repositories(repositories, repositories_json, repositories_commits,
+                                last_validated_commit):
   logger.info('Validating target repositories')
+
   # keep track of the repositories which were cloned
   # so that they can be removed if the update fails
   cloned_repositories = []
+  allow_unauthenticated = {}
+  new_commits = {}
+
   for path, repository in repositories.items():
-    if not repository.is_git_repository_root:
+
+    allow_unauthenticated_for_repo = repositories_json['repositories'][repository.repo_name]. \
+      get('custom', {}).get('allow-unauthenticated-commits', False)
+    allow_unauthenticated[path] = allow_unauthenticated_for_repo
+
+    # if last_validated_commit is None, start the update from the beginning
+
+    is_git_repository = repository.is_git_repository_root
+    if last_validated_commit is None or not is_git_repository:
       old_head = None
     else:
       old_head = repository.head_commit_sha()
 
-    if old_head is None:
+    if old_head is None and not is_git_repository:
       repository.clone(no_checkout=True)
       cloned_repositories.append(repository)
     else:
       repository.fetch(True)
 
+    if old_head is not None:
+      if allow_unauthenticated:
+        old_head = repositories_commits[path][0]
+      new_commits_for_repo = repository.all_fetched_commits()
+      new_commits_for_repo.insert(0, old_head)
+    else:
+      new_commits_for_repo = repository.all_commits_since_commit(old_head)
+      if is_git_repository:
+        # this happens in the case when last_validated_commit does not exist
+        # we want to validate all commits, so combine existing commits and
+        # fetched commits
+        fetched_commits = repository.all_fetched_commits()
+        new_commits_for_repo.extend(fetched_commits)
+    new_commits[path] = new_commits_for_repo
+
     try:
-      _update_target_repository(repository, repositories_json, old_head, repositories_commits[path])
+      _update_target_repository(repository, new_commits_for_repo, repositories_commits[path],
+                                allow_unauthenticated_for_repo)
     except UpdateFailedError as e:
       # delete all repositories that were cloned
       for repo in cloned_repositories:
@@ -212,23 +243,18 @@ def _update_target_repositories(repositories, repositories_json, repositories_co
     if len(repositories_commits[path]):
       logger.info('Merging %s into %s', repositories_commits[path][-1], repository.repo_name)
       last_validated_commit = repositories_commits[path][-1]
-      if repository in cloned_repositories:
-        repository.checkout_commit(last_validated_commit)
+      commit_to_merge = last_validated_commit if not allow_unauthenticated[path] else new_commits[path][-1]
+      repository.merge_commit(commit_to_merge)
+      if not allow_unauthenticated[path]:
+        repository.checkout_commit(commit_to_merge)
       else:
-        repository.merge_commit(last_validated_commit)
+        repository.checkout_branch(repository.default_branch)
 
-def _update_target_repository(repository, repositories_json, old_head, target_commits):
+
+def _update_target_repository(repository, new_commits, target_commits,
+                              allow_unauthenticated):
 
   logger.info('Validating target repository %s', repository.repo_name)
-  allow_unauthenticated = repositories_json['repositories'][repository.repo_name]. \
-                            get('custom', {}).get('allow-unauthenticated-commits', False)
-
-  if old_head is not None:
-    new_commits = repository.all_fetched_commits()
-    new_commits.insert(0, old_head)
-  else:
-    new_commits = repository.all_commits_since_commit(old_head)
-
   # A new commit might have been pushed after the update process
   # started and before fetch was called
   # So, the number of new commits, pushed to the target repository, could
