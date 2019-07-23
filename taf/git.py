@@ -51,6 +51,10 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       return False
 
+  @property
+  def initial_commit(self):
+    return self._git('rev-list --max-parents=0 HEAD').strip() if self.is_git_repository else None
+
   def _git(self, cmd, *args, **kwargs):
     """Call git commands in subprocess
     e.g.:
@@ -239,7 +243,6 @@ class GitRepository(object):
       params.append('--{}={}'.format(name, value))
 
     return self._git('log {}', ' '.join(params)).split('\n')
-
 
   def merge_commit(self, commit):
     self._git('merge {}', commit)

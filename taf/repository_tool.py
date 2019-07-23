@@ -5,20 +5,20 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
+from securesystemslib.exceptions import Error as SSLibError
+
 import tuf.repository_tool
 from oll_sc.exceptions import SmartCardError
-from securesystemslib.exceptions import Error as SSLibError
+from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
+                            SnapshotMetadataUpdateError,
+                            TargetsMetadataUpdateError,
+                            TimestampMetadataUpdateError)
+from taf.git import GitRepository
+from taf.utils import normalize_file_line_endings
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
     load_repository)
-
-from taf.utils import normalize_file_line_endings
-
-from .exceptions import (InvalidKeyError, MetadataUpdateError,
-                         SnapshotMetadataUpdateError,
-                         TargetsMetadataUpdateError,
-                         TimestampMetadataUpdateError)
 
 # Default expiration intervals per role
 expiration_intervals = {
@@ -134,6 +134,10 @@ class Repository:
   @property
   def metadata_path(self):
     return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
+
+  @property
+  def repo_id(self):
+    return GitRepository(self.repository_path).initial_commit
 
   def _add_target(self, targets_obj, file_path, custom=None):
     """
@@ -548,7 +552,6 @@ class Repository:
 
       timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
       timestamp_interval = kwargs.get('timestamp_interval', None)
-
 
       self.update_snapshot(snapshot_key, snapshot_date,
                            snapshot_interval, write=write)
