@@ -10,6 +10,7 @@ from securesystemslib.exceptions import Error as SSLibError
 import tuf.repository_tool
 from oll_sc.exceptions import SmartCardError
 from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
+                            RootMetadataUpdateError,
                             SnapshotMetadataUpdateError,
                             TargetsMetadataUpdateError,
                             TimestampMetadataUpdateError)
@@ -114,6 +115,15 @@ def targets_signature_provider(key_id, key_slot, key_pin, data):
   return {
       'keyid': key_id,
       'sig': hexlify(signature).decode()
+  }
+
+
+def root_signature_provider(signature_dict, key_id, _data):
+  from binascii import hexlify
+
+  return {
+      'keyid': key_id,
+      'sig': hexlify(signature_dict.get(key_id)).decode()
   }
 
 
@@ -498,6 +508,31 @@ class Repository:
       interval = expiration_intervals.get(role, 1)
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
+
+  def update_root(self, signature_dict):
+    """Update root metadata.
+
+    Args:
+      - signature_dict(dict): key_id-signature dictionary
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - SnapshotMetadataUpdateError: If any other error happened during metadata update
+    """
+    from tuf.keydb import get_key
+    try:
+      for key_id in signature_dict:
+        key = get_key(key_id)
+        self._repository.root.add_external_signature_provider(
+            key,
+            partial(root_signature_provider, signature_dict, key_id)
+        )
+      self.writeall()
+    except (TUFError, SSLibError) as e:
+      raise RootMetadataUpdateError(str(e))
 
   def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update snapshot metadata.
