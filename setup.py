@@ -53,7 +53,7 @@ setup(
         'click==6.7',
         'colorama>=0.3.9'
         'cryptography>=2.3.1',
-        'oll-sc>=0.1.3',
+        'yubikey-manager==3.0.0',
         'oll-tuf==0.11.2.dev6',
     ],
     extras_require={
