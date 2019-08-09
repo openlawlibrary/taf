@@ -31,6 +31,10 @@ class MetadataUpdateError(TAFError):
     self.message = message
 
 
+class PINMissmatchError(Exception):
+  pass
+
+
 class SnapshotMetadataUpdateError(MetadataUpdateError):
   def __init__(self, message):
     super().__init__('snapshot', message)
