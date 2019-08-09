@@ -167,7 +167,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
           serial_num = yk_serial_num()
           while serial_num in yubikeys[role_name]:
             print("Yubikey with serial number {} is already in use.\n".format(serial_num))
-            input("Please insert new Yubikey and press ENTER.")
+            input("Please insert a new Yubikey and press ENTER.")
             serial_num = yk_serial_num()
 
           pin = get_pin_for(key_name)
