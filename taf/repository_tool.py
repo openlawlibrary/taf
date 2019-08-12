@@ -292,7 +292,7 @@ class Repository:
     for path, target_data in data.items():
       # if the target's parent directory should not be "targets", create
       # its parent directories if they do not exist
-      target_path = (self.targets_path / path).resolve()
+      target_path = (self.targets_path / path).absolute()
       target_dir = target_path.parents[0]
       target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -320,7 +320,7 @@ class Repository:
       # but it might also be specified in data, if it needs to be updated
       if path in data:
         continue
-      target_path = (self.targets_path / path).resolve()
+      target_path = (self.targets_path / path).absolute()
       previous_custom = None
       if path in previous_targets:
         previous_custom = previous_targets[path].get('custom')
