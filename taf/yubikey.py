@@ -1,48 +1,112 @@
 import datetime
 from contextlib import contextmanager
+from functools import wraps
 
 from cryptography.hazmat.primitives import serialization
 from ykman.descriptor import list_devices, open_device
-from ykman.piv import (ALGO, DEFAULT_MANAGEMENT_KEY, PIN, PIN_POLICY, PUK, SLOT,
+from ykman.piv import (ALGO, DEFAULT_MANAGEMENT_KEY, PIN_POLICY, SLOT,
                        PivController, generate_random_management_key)
 from ykman.util import TRANSPORT
 
+from taf.exceptions import YubikeyError
+from tuf.repository_tool import import_rsakey_from_pem
+
+DEFAULT_PIN = '123456'
+DEFAULT_PUK = '12345678'
+
+
+def raise_yubikey_err(msg=None):
+  """Decorator used to catch all errors raised by yubikey-manager and raise
+  YubikeyError. We don't need to handle specific cases.
+  """
+  def wrapper(f):
+    @wraps(f)
+    def decorator(*args, **kwargs):
+      try:
+        return f(*args, **kwargs)
+      except Exception as e:
+        err_msg = '{} Reason: {}'.format(msg, str(e)) if msg else str(e)
+        raise YubikeyError(err_msg) from e
+    return decorator
+  return wrapper
+
+
+def _get_tuf_key_id_from_certificate(cert):
+  """Helper function to get TAF key_id from certificate. Used if more than one
+  Yubikey is inserted.
+  """
+  cert = cert.public_key().public_bytes(encoding=serialization.Encoding.PEM,
+                                        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+  return import_rsakey_from_pem(cert.decode('utf-8'))['keyid']
+
 
 @contextmanager
-def _yk():
-  yk = open_device(transports=TRANSPORT.CCID)
-  yield yk
-  yk.close()
+def _yk_piv_ctrl(serial=None, key_id=None):
+  """Context manager to open connection and instantiate piv controller.
 
+  Args:
+    - key_id(str): TAF key_id of Yubikey to get
+                   (if multiple keys are inserted)
 
-@contextmanager
-def _yk_piv_ctrl():
-  yk = open_device(transports=TRANSPORT.CCID)
-  yield PivController(yk.driver)
+  Returns:
+    - ykman.piv.PivController
+
+  Raises:
+    - YubikeyError
+  """
+  # If key_id is given, iterate all devices, read x509 certs and try to match
+  # key ids.
+  if key_id is not None:
+    for yk in list_devices(transports=TRANSPORT.CCID):
+      yk_ctrl = PivController(yk.driver)
+      device_key_id = _get_tuf_key_id_from_certificate(yk_ctrl.read_certificate(SLOT.SIGNATURE))
+      if device_key_id == key_id:
+        break
+      else:
+        yk.close()
+
+  else:
+    yk = open_device(transports=TRANSPORT.CCID, serial=serial)
+    yk_ctrl = PivController(yk.driver)
+
+  yield yk_ctrl, yk.serial
   yk.close()
 
 
 def is_inserted():
   """Checks if YubiKey is inserted.
 
-    Args:
-      None
+  Args:
+    None
 
-    Returns:
-      True if at least one Yubikey is inserted (bool)
+  Returns:
+    True if at least one Yubikey is inserted (bool)
 
-    Raises:
-      -
-    """
+  Raises:
+    - YubikeyError
+  """
   return len(list(list_devices(transports=TRANSPORT.CCID))) > 0
 
 
-def get_serial_num():
-  with _yk() as yk:
-    return yk.serial
+@raise_yubikey_err("Cannot get serial number.")
+def get_serial_num(key_id=None):
+  """Get Yubikey serial number.
+
+  Args:
+    None
+
+  Returns:
+    Yubikey serial number
+
+  Raises:
+    - YubikeyError
+  """
+  with _yk_piv_ctrl(key_id=key_id) as (_, serial):
+    return serial
 
 
-def export_piv_x509(cert_format=serialization.Encoding.PEM):
+@raise_yubikey_err("Cannot export x509 certificate.")
+def export_piv_x509(key_id=None, cert_format=serialization.Encoding.PEM):
   """Exports YubiKey's piv slot x509.
 
   Args:
@@ -52,14 +116,15 @@ def export_piv_x509(cert_format=serialization.Encoding.PEM):
     PIV x509 certificate in a given format (bytes)
 
   Raises:
-    -
+    - YubikeyError
   """
-  with _yk_piv_ctrl() as ctrl:
+  with _yk_piv_ctrl(key_id=key_id) as (ctrl, _):
     x509 = ctrl.read_certificate(SLOT.SIGNATURE)
     return x509.public_bytes(encoding=cert_format)
 
 
-def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM):
+@raise_yubikey_err("Cannot export public key.")
+def export_piv_pub_key(key_id=None, pub_key_format=serialization.Encoding.PEM):
   """Exports YubiKey's piv slot public key.
 
   Args:
@@ -69,15 +134,35 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM):
     PIV public key in a given format (bytes)
 
   Raises:
-    -
+    - YubikeyError
   """
-  with _yk_piv_ctrl() as ctrl:
+  with _yk_piv_ctrl(key_id=key_id) as (ctrl, _):
     x509 = ctrl.read_certificate(SLOT.SIGNATURE)
     return x509.public_key().public_bytes(encoding=pub_key_format,
                                           format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
-def sign_piv_rsa_pkcs1v15(data, pin):
+@raise_yubikey_err("Cannot get public key in TUF format.")
+def get_piv_public_key_taf(key_id=None):
+  """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
+
+  Args:
+    None
+
+  Returns:
+    A dictionary containing the RSA keys and other identifying information
+    from inserted smart card.
+    Conforms to 'securesystemslib.formats.RSAKEY_SCHEMA'.
+
+  Raises:
+    - YubikeyError
+  """
+  pub_key_pem = export_piv_pub_key(key_id=key_id).decode('utf-8')
+  return import_rsakey_from_pem(pub_key_pem)
+
+
+@raise_yubikey_err("Cannot sign data.")
+def sign_piv_rsa_pkcs1v15(data, pin, key_id=None):
   """Sign data with key from YubiKey's piv slot.
 
   Args:
@@ -88,15 +173,15 @@ def sign_piv_rsa_pkcs1v15(data, pin):
     Signature (bytes)
 
   Raises:
-    - TypeError: If data is not type of bytes.
-    - ykman.piv.WrongPin: If pin is wrong.
+    - YubikeyError
   """
-  with _yk_piv_ctrl() as ctrl:
+  with _yk_piv_ctrl(key_id=key_id) as (ctrl, _):
     ctrl.verify(pin)
     return ctrl.sign(SLOT.SIGNATURE, ALGO.RSA2048, data)
 
 
-def yk_setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_random_management_key()):
+@raise_yubikey_err("Cannot setup Yubikey.")
+def setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_random_management_key()):
   """Use to setup inserted Yubikey, with following steps (order is important):
       - reset to factory settings
       - set management key
@@ -116,10 +201,9 @@ def yk_setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_r
     PIV public key in PEM format (bytes)
 
   Raises:
-    - TypeError: If data is not type of bytes.
-    - ykman.piv.WrongPin: If pin is wrong.
+    - YubikeyError
   """
-  with _yk_piv_ctrl() as ctrl:
+  with _yk_piv_ctrl() as (ctrl, _):
     # Factory reset and set PINs
     ctrl.reset()
 
@@ -130,7 +214,7 @@ def yk_setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_r
     pub_key = ctrl.generate_key(SLOT.SIGNATURE, ALGO.RSA2048, PIN_POLICY.ALWAYS)
 
     ctrl.authenticate(mgm_key)
-    ctrl.verify(PIN)
+    ctrl.verify(DEFAULT_PIN)
 
     # Generate and import certificate
     now = datetime.datetime.now()
@@ -138,8 +222,8 @@ def yk_setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_r
     ctrl.generate_self_signed_certificate(SLOT.SIGNATURE, pub_key, cert_cn, now, valid_to)
 
     ctrl.set_pin_retries(pin_retries=pin_retries, puk_retries=pin_retries)
-    ctrl.change_pin(PIN, pin)
-    ctrl.change_puk(PUK, pin)
+    ctrl.change_pin(DEFAULT_PIN, pin)
+    ctrl.change_puk(DEFAULT_PUK, pin)
 
   return pub_key.public_bytes(
       serialization.Encoding.PEM,

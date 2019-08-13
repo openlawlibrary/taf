@@ -61,3 +61,7 @@ class RepositoriesNotFoundError(TAFError):
 
 class UpdateFailedError(TAFError):
   pass
+
+
+class YubikeyError(Exception):
+  pass
