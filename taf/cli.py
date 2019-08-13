@@ -1,4 +1,5 @@
 import datetime
+
 import click
 
 import taf.developer_tool as developer_tool
@@ -13,28 +14,23 @@ def cli():
 
 @cli.command()
 @click.option('--repo-path', default='repository', help='Authentication repository\'s path')
-@click.option('--targets-key-slot', default=2, type=int, help='Targets key (YubiKey) slot with signing key')
 @click.option('--keystore', default=None, help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
 @click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
-def add_targets(repo_path, targets_key_slot, keystore, keys_description, commit_msg):
-  developer_tool.register_target_files(repo_path, keystore, keys_description, targets_key_slot,
-                                       commit_msg)
+def add_targets(repo_path, keystore, keys_description, commit_msg):
+  developer_tool.register_target_files(repo_path, keystore, keys_description, commit_msg)
 
 
 @cli.command()
 @click.option('--repo-path',  default='repository', help='Authentication repository\'s path')
 @click.option('--file-path', help="Target file's path, relative to the targets directory")
-@click.option('--targets-key-slot', type=int, default=None, help='Targets key (YubiKey) slot with signing key')
 @click.option('--keystore', default='keystore', help='Path of the keystore file')
 @click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
-def add_target_file(repo_path, file_path, targets_key_slot, keystore,
-                    keys_description):
-  developer_tool.register_target_file(repo_path, file_path, keystore, keys_description,
-                                      targets_key_slot)
+def add_target_file(repo_path, file_path, keystore, keys_description):
+  developer_tool.register_target_file(repo_path, file_path, keystore, keys_description)
 
 
 @cli.command()

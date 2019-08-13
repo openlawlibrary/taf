@@ -2,31 +2,32 @@ import datetime
 import json
 import os
 import pathlib
-import securesystemslib
-from collections import defaultdict
 from binascii import hexlify
+from collections import defaultdict
+from functools import partial
+from getpass import getpass
+from pathlib import Path
+
+import securesystemslib
+from securesystemslib.exceptions import UnknownKeyError
+
+import taf.yubikey as yk
 import tuf.repository_tool
+from taf.auth_repo import AuthenticationRepo
+from taf.git import GitRepository
+from taf.repository_tool import Repository, load_role_key
+from tuf.keydb import get_key
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
                                  generate_and_write_rsa_keypair,
+                                 generate_rsa_key,
                                  import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file,
-                                 import_rsakey_from_pem,
-                                 generate_rsa_key)
-from tuf.keydb import get_key
-from taf.git import GitRepository
-from taf.auth_repo import AuthenticationRepo
-from taf.repository_tool import Repository, get_yubikey_public_key, load_role_key
-from oll_sc.yk_api import yk_serial_num, yk_setup
-from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256, sc_export_x509_pem
-from getpass import getpass
-from functools import partial
-from securesystemslib.exceptions import UnknownKeyError
-from pathlib import Path
-
+                                 import_rsakey_from_pem)
 
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
+
 
 def add_target_repos(repo_path, targets_directory, namespace=None):
   """
@@ -160,28 +161,28 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
                 pass
         if not use_existing:
           input("Please insert a new YubiKey and press ENTER.")
-          serial_num = yk_serial_num()
+          serial_num = yk.get_serial_num()
           while serial_num in yubikeys[role_name]:
             print("YubikKy with serial number {} is already in use.\n".format(serial_num))
             input("Please insert new YubiKey and press ENTER.")
-            serial_num = yk_serial_num()
+            serial_num = yk.get_serial_num()
 
           pin = getpass('Enter PIN for {}: '.format(key_name))
           cert_cn = input("Enter key holder's name: ")
 
           print('Generating keys, please wait...')
-          pub_key_pem = yk_setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
+          pub_key_pem = yk.setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
 
           key = import_rsakey_from_pem(pub_key_pem)
 
           cert_path = os.path.join(repo.certs_dir, key['keyid'] + '.cert')
           with open(cert_path, 'wb') as f:
-            f.write(sc_export_x509_pem((2,), pin))
+            f.write(yk.export_piv_x509())
 
         # set Yubikey expiration date
         role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
         role_obj.add_external_signature_provider(key, partial(signature_provider,
-                                                 key['keyid'], cert_cn))
+                                                              key['keyid'], cert_cn))
         yubikeys[role_name][serial_num] = (key, cert_cn)
       else:
         # if keystore exists, load the keys
@@ -192,7 +193,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
           password = passwords[key_num]
           if password:
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
-                                                                       password)
+                                                          password)
           else:
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
         # if it does not, generate the keys and print the output
@@ -296,7 +297,6 @@ def generate_repositories_json(repo_path, targets_directory, namespace=None,
                                                                       indent=4))
 
 
-
 def _get_key_name(role_name, key_num, num_of_keys):
   if num_of_keys == 1:
     return role_name
@@ -305,8 +305,7 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 
 def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
-              keystore, roles_key_infos, targets_key_slot=2,
-              repos_custom=None, commit=None):
+              keystore, roles_key_infos, repos_custom=None, commit=None):
   """
   <Purpose>
     Generate initial repository:
@@ -329,8 +328,6 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
       Location of the keystore files
     roles_key_infos:
       A dictionary whose keys are role names, while values contain information about the keys.
-    targets_key_slot(tuple|int):
-      Slot with key on a smart card used for signing
     commit_message:
       If provided, the changes will be committed automatically using the specified message
   """
@@ -340,7 +337,7 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir, repos_custom)
-  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot, commit_msg=commit)
+  register_target_files(repo_path, keystore, roles_key_infos, commit_msg=commit)
 
 
 def _load_role_key_from_keys_dict(role, roles_key_infos):
@@ -351,14 +348,12 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
   return password
 
 
-def register_target_file(repo_path, file_path, keystore, roles_key_infos,
-                         targets_key_slot=2):
+def register_target_file(repo_path, file_path, keystore, roles_key_infos):
   roles_key_infos = _read_input_dict(roles_key_infos)
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
-  _write_targets_metadata(taf_repo, keystore, roles_key_infos,
-                          targets_key_slot)
+  _write_targets_metadata(taf_repo, keystore, roles_key_infos)
 
 
 def _read_input_dict(value):
@@ -373,8 +368,7 @@ def _read_input_dict(value):
   return value
 
 
-def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot=2,
-                          commit_msg=None):
+def register_target_files(repo_path, keystore, roles_key_infos, commit_msg=None):
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets
@@ -387,8 +381,6 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
       Location of the keystore files
     roles_key_infos:
       A dictionary whose keys are role names, while values contain information about the keys.
-    targets_key_slot(tuple|int):
-      Slot with key on a smart card used for signing
     commit_msg:
       Commit message. If specified, the changes made to the authentication are committed.
   """
@@ -399,8 +391,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot
   for root, _, filenames in os.walk(str(targets_path)):
     for filename in filenames:
       taf_repo.add_existing_target(str(Path(root) / filename))
-  _write_targets_metadata(taf_repo, keystore, roles_key_infos,
-                          targets_key_slot)
+  _write_targets_metadata(taf_repo, keystore, roles_key_infos)
   if commit_msg is not None:
     auth_repo = GitRepository(repo_path)
     auth_repo.commit(commit_msg)
@@ -418,14 +409,9 @@ def _role_obj(role, repository):
 
 
 def signature_provider(key_id, cert_cn, data):
-  key_slot = (2,)
-  key_pin = None
   def _check_key_id(expected_key_id):
     try:
-      nonlocal key_pin
-      key_pin = getpass(
-        "Please insert {} YubiKey, input PIN and press ENTER.\n".format(cert_cn))
-      inserted_key = get_yubikey_public_key(key_slot, key_pin)
+      inserted_key = yk.get_piv_public_key_taf()
       return expected_key_id == inserted_key['keyid']
     except Exception:
       return False
@@ -434,12 +420,15 @@ def signature_provider(key_id, cert_cn, data):
     pass
 
   data = securesystemslib.formats.encode_canonical(data)
-  signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
+  key_pin = getpass("Please insert {} YubiKey, input PIN and press ENTER.\n"
+                    .format(cert_cn))
+  signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
   return {
       'keyid': key_id,
       'sig': hexlify(signature).decode()
   }
+
 
 def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
                                     start_date=datetime.datetime.now(), interval=None, commit_msg=None):
@@ -456,7 +445,7 @@ def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
     auth_repo.commit(commit_msg)
 
 
-def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slot=None):
+def _write_targets_metadata(taf_repo, keystore, roles_key_infos):
 
   if keystore is not None:
     # load all keys from keystore files
@@ -471,7 +460,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slo
     snapshot_key = load_role_key(keystore, 'snapshot', snapshot_password)
   else:
     targets_key_pin = getpass('Please insert targets YubiKey, input PIN and press ENTER.')
-    taf_repo.update_targets(targets_key_slot, targets_key_pin, write=False)
+    taf_repo.update_targets(targets_key_pin, write=False)
     snapshot_pem = getpass('Enter snapshot key')
     snapshot_pem = _form_private_pem(snapshot_pem)
     snapshot_key = import_rsakey_from_pem(snapshot_pem)
@@ -480,6 +469,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, targets_key_slo
     timestamp_key = import_rsakey_from_pem(timestamp_pem)
   taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key, write=False)
   taf_repo.writeall()
+
 
 def _form_private_pem(pem):
   return '-----BEGIN RSA PRIVATE KEY-----\n{}\n-----END RSA PRIVATE KEY-----'.format(pem)

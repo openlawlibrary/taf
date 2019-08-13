@@ -3,17 +3,17 @@ import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
-import oll_sc
 from pytest import fixture, yield_fixture
+
+import taf.repository_tool as repository_tool
+import taf.yubikey
+from taf.repository_tool import Repository
+from taf.utils import on_rm_error
 from tuf.repository_tool import (import_rsa_privatekey_from_file,
                                  import_rsa_publickey_from_file)
 
-import taf.repository_tool as repository_tool
-from taf.repository_tool import Repository
-from taf.utils import on_rm_error
-
-from .yubikey import (Root1YubiKey, Root2YubiKey, Root3YubiKey, TargetYubiKey,
-                      init_pkcs11_mock)
+from .yubikey_utils import (Root1YubiKey, Root2YubiKey, Root3YubiKey,
+                            TargetYubiKey, _yk_piv_ctrl_mock)
 
 TEST_DATA_PATH = Path(__file__).parent / 'data'
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / 'repos'
@@ -24,7 +24,7 @@ CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / 'client'
 
 
 def pytest_configure(config):
-  oll_sc.init_pkcs11 = init_pkcs11_mock
+  taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
 
 
 @contextmanager
@@ -47,7 +47,6 @@ def origin_repos(test_name):
   """Coppies git repository from `data/repos/test-XYZ` to data/repos/origin/test-XYZ
   path and renames `git` to `.git` for each repository.
   """
-
   test_dir_path = str(TEST_DATA_REPOS_PATH / test_name)
   temp_paths = _copy_repos(test_dir_path, test_name)
 
@@ -109,35 +108,33 @@ def keystore():
 
 
 @fixture
+def wrong_keystore():
+  """Path of the wrong keystore"""
+  return str(WRONG_KEYSTORE_PATH)
+
+
+@fixture
 def targets_yk():
   """Targets YubiKey."""
-  key = TargetYubiKey(KEYSTORE_PATH)
-  yield key
-  key.remove()
+  return TargetYubiKey(KEYSTORE_PATH)
 
 
 @fixture
 def root1_yk():
   """Root1 YubiKey."""
-  key = Root1YubiKey(KEYSTORE_PATH)
-  yield key
-  key.remove()
+  return Root1YubiKey(KEYSTORE_PATH)
 
 
 @fixture
 def root2_yk():
   """Root2 YubiKey."""
-  key = Root2YubiKey(KEYSTORE_PATH)
-  yield key
-  key.remove()
+  return Root2YubiKey(KEYSTORE_PATH)
 
 
 @fixture
 def root3_yk():
   """Root3 YubiKey."""
-  key = Root3YubiKey(KEYSTORE_PATH)
-  yield key
-  key.remove()
+  return Root3YubiKey(KEYSTORE_PATH)
 
 
 @fixture
@@ -157,6 +154,7 @@ def timestamp_key():
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
 
+
 @fixture
 def targets_key():
   """Timestamp key."""
@@ -164,9 +162,3 @@ def targets_key():
   priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'targets'))
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
-
-
-@fixture
-def wrong_keystore():
-  """Path of the wrong keystore"""
-  return str(WRONG_KEYSTORE_PATH)

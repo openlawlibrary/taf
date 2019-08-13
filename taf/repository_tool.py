@@ -7,13 +7,13 @@ from pathlib import Path
 import securesystemslib
 from securesystemslib.exceptions import Error as SSLibError
 
+import taf.yubikey as yk
 import tuf.repository_tool
-from oll_sc.exceptions import SmartCardError
 from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
                             RootMetadataUpdateError,
                             SnapshotMetadataUpdateError,
                             TargetsMetadataUpdateError,
-                            TimestampMetadataUpdateError)
+                            TimestampMetadataUpdateError, YubikeyError)
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
 from tuf.exceptions import Error as TUFError
@@ -31,30 +31,6 @@ expiration_intervals = {
 
 # Loaded keys cache
 role_keys_cache = {}
-
-
-def get_yubikey_public_key(key_slot, pin):
-  """Return public key from a smart card in TUF's RSAKEY_SCHEMA format.
-
-  Args:
-    - key_slot(tuple): Key ID as tuple (e.g. (1,))
-    - pin(str): Pin for session login
-
-  Returns:
-    A dictionary containing the RSA keys and other identifying information
-    from inserted smart card.
-    Conforms to 'securesystemslib.formats.RSAKEY_SCHEMA'.
-
-  Raises:
-    - SmartCardNotPresentError: If smart card is not inserted
-    - SmartCardWrongPinError: If pin is incorrect
-    - SmartCardFindKeyObjectError: If public key for given key id does not exist
-    - securesystemslib.exceptions.FormatError: if 'PEM' is improperly formatted.
-  """
-  from oll_sc.api import sc_export_pub_key_pem
-
-  pub_key_pem = sc_export_pub_key_pem(key_slot, pin).decode('utf-8')
-  return import_rsakey_from_pem(pub_key_pem)
 
 
 DISABLE_KEYS_CACHING = False
@@ -91,12 +67,11 @@ def load_role_key(keystore, role, password=None):
   return key
 
 
-def targets_signature_provider(key_id, key_slot, key_pin, data):
+def targets_signature_provider(key_id, key_pin, data):
   """Targets signature provider used to sign data with YubiKey.
 
   Args:
     - key_id(str): Key id from targets metadata file
-    - key_slot(tuple): Key slot on smart card (YubiKey)
     - key_pin(str): PIN for signing key
     - data(dict): Data to sign
 
@@ -104,13 +79,12 @@ def targets_signature_provider(key_id, key_slot, key_pin, data):
     Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
 
   Raises:
-    - SmartCardError: If signing with YubiKey cannot be performed
+    - YubikeyError: If signing with YubiKey cannot be performed
   """
   from binascii import hexlify
-  from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
 
   data = securesystemslib.formats.encode_canonical(data)
-  signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
+  signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
   return {
       'keyid': key_id,
@@ -411,27 +385,23 @@ class Repository:
 
     return key['keyid'] in self.get_role_keys(role)
 
-  def is_valid_metadata_yubikey(self, role, key_slot, pin):
+  def is_valid_metadata_yubikey(self, role):
     """Checks if metadata role contains key id from YubiKey.
 
     Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - key_slot(tuple): Key ID as tuple (e.g. (1,))
-      - pin(str): Pin for session login
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
 
     Returns:
       Boolean. True if smart card key id belongs to metadata role key ids
 
     Raises:
-      - SmartCardNotPresentError: If smart card is not inserted
-      - SmartCardWrongPinError: If pin is incorrect
-      - SmartCardFindKeyObjectError: If public key for given key id does not exist
+      - YubikeyError
       - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
       - securesystemslib.exceptions.UnknownRoleError: If role does not exist
     """
     securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
-    public_key = get_yubikey_public_key(key_slot, pin)
+    public_key = yk.get_piv_public_key_taf()
     return self.is_valid_metadata_key(role, public_key)
 
   def add_metadata_key(self, role, pub_key_pem):
@@ -621,12 +591,11 @@ class Repository:
     except (TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
 
-  def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
+  def update_targets(self, targets_key_pin, targets_data=None,
                      start_date=datetime.datetime.now(), interval=None, write=True):
     """Update target data, sign with smart card and write.
 
     Args:
-      - targets_key_slot(tuple|int): Slot with key on a smart card used for signing
       - targets_key_pin(str): Targets key pin
       - targets_data(dict): (Optional) Dictionary with targets data
       - start_date(datetime): Date to which the specified interval is added when
@@ -643,15 +612,11 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - MetadataUpdateError: If any other error happened during metadata update
     """
-
-    if isinstance(targets_key_slot, int):
-      targets_key_slot = (targets_key_slot, )
-
     try:
-      if not self.is_valid_metadata_yubikey('targets', targets_key_slot, targets_key_pin):
+      if not self.is_valid_metadata_yubikey('targets'):
         raise InvalidKeyError('targets')
 
-      pub_key = get_yubikey_public_key(targets_key_slot, targets_key_pin)
+      pub_key = yk.get_piv_public_key_taf()
 
       if targets_data:
         self.add_targets(targets_data)
@@ -660,12 +625,12 @@ class Repository:
 
       self._repository.targets.add_external_signature_provider(
           pub_key,
-          partial(targets_signature_provider, pub_key['keyid'], targets_key_slot, targets_key_pin)
+          partial(targets_signature_provider, pub_key['keyid'], targets_key_pin)
       )
       if write:
         self._repository.write('targets')
 
-    except (SmartCardError, TUFError, SSLibError) as e:
+    except (YubikeyError, TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
 
   def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
