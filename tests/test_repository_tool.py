@@ -9,6 +9,11 @@ import tuf
 from taf.utils import to_tuf_datetime_format
 
 
+def test_check_no_key_inserted_for_targets_should_raise_error(taf_happy_path):
+  with pytest.raises(taf.exceptions.YubikeyError):
+    taf_happy_path.is_valid_metadata_yubikey('targets')
+
+
 def test_check_targets_key_id_for_targets_should_return_true(taf_happy_path, targets_yk):
   targets_yk.insert()
   assert taf_happy_path.is_valid_metadata_yubikey('targets')
