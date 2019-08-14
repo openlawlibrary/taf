@@ -5,7 +5,7 @@ from functools import wraps
 from cryptography.hazmat.primitives import serialization
 from ykman.descriptor import list_devices, open_device
 from ykman.piv import (ALGO, DEFAULT_MANAGEMENT_KEY, PIN_POLICY, SLOT,
-                       PivController, generate_random_management_key)
+                       PivController, WrongPin, generate_random_management_key)
 from ykman.util import TRANSPORT
 
 from taf.exceptions import YubikeyError
@@ -59,7 +59,8 @@ def _yk_piv_ctrl(serial=None, key_id=None):
   if key_id is not None:
     for yk in list_devices(transports=TRANSPORT.CCID):
       yk_ctrl = PivController(yk.driver)
-      device_key_id = _get_tuf_key_id_from_certificate(yk_ctrl.read_certificate(SLOT.SIGNATURE))
+      device_key_id = _get_tuf_key_id_from_certificate(
+          yk_ctrl.read_certificate(SLOT.SIGNATURE))
       if device_key_id == key_id:
         break
       else:
@@ -86,6 +87,27 @@ def is_inserted():
     - YubikeyError
   """
   return len(list(list_devices(transports=TRANSPORT.CCID))) > 0
+
+
+@raise_yubikey_err()
+def is_valid_pin(pin):
+  """Checks if given pin is valid.
+
+  Args:
+    pin(str): Yubikey piv PIN
+
+  Returns:
+    tuple: True if PIN is valid, otherwise False, number of PIN retries
+
+  Raises:
+    - YubikeyError
+  """
+  with _yk_piv_ctrl() as (ctrl, _):
+    try:
+      ctrl.verify(pin)
+      return True, None  # ctrl.get_pin_tries() fails if PIN is valid
+    except WrongPin:
+      return False, ctrl.get_pin_tries()
 
 
 @raise_yubikey_err("Cannot get serial number.")
