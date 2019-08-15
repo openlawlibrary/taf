@@ -199,6 +199,9 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       return None
 
+  def delete_branch(self, branch_name):
+    self._git('branch -D {}', branch_name)
+
   def head_commit_sha(self):
     """Finds sha of the commit to which the current HEAD points"""
     try:
@@ -240,7 +243,6 @@ class GitRepository(object):
 
     return self._git('log {}', ' '.join(params)).split('\n')
 
-
   def merge_commit(self, commit):
     self._git('merge {}', commit)
 
@@ -255,6 +257,9 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       self._git('--set-upstream origin {}', branch).strip()
 
+  def rename_branch(self, old_name, new_name):
+    self._git('branch -m {} {}', old_name, new_name)
+
   def reset_num_of_commits(self, num_of_commits, hard=False):
     flag = '--hard' if hard else '--soft'
     self._git('reset {} HEAD~{}'.format(flag, num_of_commits))
@@ -266,6 +271,8 @@ class GitRepository(object):
   def reset_to_head(self):
     self._git('reset --hard HEAD')
 
+  def set_upstream(self, branch_name):
+    self._git(f'branch -u origin/{branch_name}')
 
 class NamedGitRepository(GitRepository):
 
