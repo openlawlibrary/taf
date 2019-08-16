@@ -1,0 +1,13 @@
+{
+  "repositories": {
+    "dummy/target_dummy_repo": {
+      "custom": {
+        "type": "dummy"
+      },
+      "urls": [
+        "../../target_dummy_repo",
+        "..\\..\\target_dummy_repo"
+      ]
+    }
+  }
+}

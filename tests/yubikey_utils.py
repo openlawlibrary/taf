@@ -63,7 +63,8 @@ class FakePivController:
     self.pub_key = serialization.load_pem_public_key(
         self._driver.pub_key_pem, default_backend())
 
-    self._tuf_key = import_rsakey_from_pem(self._driver.priv_key_pem.decode('utf-8'))
+    self._tuf_key = import_rsakey_from_pem(
+        self._driver.priv_key_pem.decode('utf-8'))  # SCHEME MISSING HERE
 
   @property
   def driver(self):

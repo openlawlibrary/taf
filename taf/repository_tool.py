@@ -5,10 +5,9 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
-from securesystemslib.exceptions import Error as SSLibError
-
 import taf.yubikey as yk
 import tuf.repository_tool
+from securesystemslib.exceptions import Error as SSLibError
 from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
                             RootMetadataUpdateError,
                             SnapshotMetadataUpdateError,
@@ -67,12 +66,13 @@ def load_role_key(keystore, role, password=None):
   return key
 
 
-def targets_signature_provider(key_id, key_pin, data):
+def targets_signature_provider(key_id, key_pin, key, data):
   """Targets signature provider used to sign data with YubiKey.
 
   Args:
     - key_id(str): Key id from targets metadata file
     - key_pin(str): PIN for signing key
+    - key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
     - data(dict): Data to sign
 
   Returns:
@@ -92,7 +92,7 @@ def targets_signature_provider(key_id, key_pin, data):
   }
 
 
-def root_signature_provider(signature_dict, key_id, _data):
+def root_signature_provider(signature_dict, key_id, _key, _data):
   from binascii import hexlify
 
   return {
@@ -385,11 +385,12 @@ class Repository:
 
     return key['keyid'] in self.get_role_keys(role)
 
-  def is_valid_metadata_yubikey(self, role):
+  def is_valid_metadata_yubikey(self, role, public_key):
     """Checks if metadata role contains key id from YubiKey.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
+      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): Rsa public key dict
 
     Returns:
       Boolean. True if smart card key id belongs to metadata role key ids
@@ -401,7 +402,6 @@ class Repository:
     """
     securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
-    public_key = yk.get_piv_public_key_taf()
     return self.is_valid_metadata_key(role, public_key)
 
   def add_metadata_key(self, role, pub_key_pem):
@@ -592,7 +592,8 @@ class Repository:
       raise TimestampMetadataUpdateError(str(e))
 
   def update_targets(self, targets_key_pin, targets_data=None,
-                     start_date=datetime.datetime.now(), interval=None, write=True):
+                     start_date=datetime.datetime.now(), interval=None,
+                     write=True, scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
     """Update target data, sign with smart card and write.
 
     Args:
@@ -604,6 +605,7 @@ class Repository:
       - interval(int): Number of days added to the start date. If not provided,
                        the default value is used
       - write(bool): If True targets metadata will be signed and written
+      - scheme(str): Rsa signature scheme (default is rsa-pkcs1v15-sha256)
 
     Returns:
       None
@@ -613,10 +615,10 @@ class Repository:
       - MetadataUpdateError: If any other error happened during metadata update
     """
     try:
-      if not self.is_valid_metadata_yubikey('targets'):
-        raise InvalidKeyError('targets')
+      pub_key = yk.get_piv_public_key_taf(scheme)
 
-      pub_key = yk.get_piv_public_key_taf()
+      if not self.is_valid_metadata_yubikey('targets', pub_key):
+        raise InvalidKeyError('targets')
 
       if targets_data:
         self.add_targets(targets_data)

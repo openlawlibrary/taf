@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 e4e829eebae99652c8ab7cf6f8433b9cf8994468 Daniel Elero <danixeee@gmail.com> 1565953736 +0200	commit (initial): Generated initial metadata
+e4e829eebae99652c8ab7cf6f8433b9cf8994468 3307c55d510774455883adde800ce9c8e775e9b9 Daniel Elero <danixeee@gmail.com> 1565954485 +0200	commit: Add dummy targets
+3307c55d510774455883adde800ce9c8e775e9b9 e4e829eebae99652c8ab7cf6f8433b9cf8994468 Daniel Elero <danixeee@gmail.com> 1565956173 +0200	reset: moving to HEAD~1
+e4e829eebae99652c8ab7cf6f8433b9cf8994468 ad19f64e3542d68949ee32e1e11d125831a23675 Daniel Elero <danixeee@gmail.com> 1565956479 +0200	commit: Add targets

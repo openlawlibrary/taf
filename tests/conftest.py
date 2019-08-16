@@ -75,13 +75,23 @@ def _copy_repos(test_dir_path, test_name):
 def taf_happy_path():
   """TAF repository for testing."""
   taf_repo_name = 'taf'
-  test_dir = 'test-happy-path'
+  test_happy_path_dir = 'test-happy-path'
+  test_happy_path_pkcs1v15_dir = 'test-happy-path-pkcs1v15'
 
-  with origin_repos(test_dir) as origins:
-    taf_repo_origin_path = origins[taf_repo_name]
-    taf_repo = Repository(taf_repo_origin_path)
+  with origin_repos(test_happy_path_dir) as origins, \
+          origin_repos(test_happy_path_pkcs1v15_dir) as pkcs1v15_origins:
+
+    # Repository using rsassa-pss-sha256 scheme
+    # taf_repo_origin_path = origins[taf_repo_name]
+    # taf_repo = Repository(taf_repo_origin_path)
+
+    # Repository using rsa-pkcs1v15-sha256 scheme
+    taf_repo_pkcs1v15_origin_path = pkcs1v15_origins[taf_repo_name]
+    taf_repo_pkcs1v15 = Repository(taf_repo_pkcs1v15_origin_path)
+
     repository_tool.DISABLE_KEYS_CACHING = True
-    yield taf_repo
+
+    yield taf_repo_pkcs1v15
 
 
 @yield_fixture(scope="session", autouse=True)

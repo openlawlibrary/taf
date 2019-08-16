@@ -9,10 +9,9 @@ from getpass import getpass
 from pathlib import Path
 
 import securesystemslib
-from securesystemslib.exceptions import UnknownKeyError
-
 import taf.yubikey as yk
 import tuf.repository_tool
+from securesystemslib.exceptions import UnknownKeyError
 from taf.auth_repo import AuthenticationRepo
 from taf.git import GitRepository
 from taf.repository_tool import Repository, load_role_key
@@ -25,6 +24,7 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  import_rsa_publickey_from_file,
                                  import_rsakey_from_pem)
 
+# Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(days=EXPIRATION_INTERVAL)
 
@@ -132,6 +132,8 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
     passwords = key_info.get('passwords', [None] * num_of_keys)
     threshold = key_info.get('threshold', 1)
     is_yubikey = key_info.get('yubikey', False)
+    scheme = key_info.get('scheme', yk.DEFAULT_RSA_SIGNATURE_SCHEME)
+
     role_obj = _role_obj(role_name, repository)
     role_obj.threshold = threshold
     for key_num in range(num_of_keys):
@@ -173,7 +175,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
           print('Generating keys, please wait...')
           pub_key_pem = yk.setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode('utf-8')
 
-          key = import_rsakey_from_pem(pub_key_pem)
+          key = import_rsakey_from_pem(pub_key_pem, scheme)
 
           cert_path = os.path.join(repo.certs_dir, key['keyid'] + '.cert')
           with open(cert_path, 'wb') as f:
@@ -190,12 +192,14 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
         if keystore is not None:
           public_key = import_rsa_publickey_from_file(os.path.join(keystore,
                                                                    key_name + '.pub'))
+          public_key['scheme'] = scheme
           password = passwords[key_num]
           if password:
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
                                                           password)
           else:
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
+            private_key['scheme'] = scheme
         # if it does not, generate the keys and print the output
         else:
           key = generate_rsa_key()
@@ -408,7 +412,7 @@ def _role_obj(role, repository):
     return repository.root
 
 
-def signature_provider(key_id, cert_cn, data):
+def signature_provider(key_id, cert_cn, key, data):
   def _check_key_id(expected_key_id):
     try:
       inserted_key = yk.get_piv_public_key_taf()

@@ -14,6 +14,10 @@ from tuf.repository_tool import import_rsakey_from_pem
 DEFAULT_PIN = '123456'
 DEFAULT_PUK = '12345678'
 
+# Default scheme for all RSA keys. It can be changed in keys.json while
+# generating repository
+DEFAULT_RSA_SIGNATURE_SCHEME = 'rsa-pkcs1v15-sha256'
+
 
 def raise_yubikey_err(msg=None):
   """Decorator used to catch all errors raised by yubikey-manager and raise
@@ -165,11 +169,12 @@ def export_piv_pub_key(key_id=None, pub_key_format=serialization.Encoding.PEM):
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_taf(key_id=None):
+def get_piv_public_key_taf(key_id=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
   """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
   Args:
-    None
+    - key_id(str): If multiple keys are inserted, get one by id
+    - scheme(str): Rsa signature scheme (default is rsa-pkcs1v15-sha256)
 
   Returns:
     A dictionary containing the RSA keys and other identifying information
@@ -180,7 +185,7 @@ def get_piv_public_key_taf(key_id=None):
     - YubikeyError
   """
   pub_key_pem = export_piv_pub_key(key_id=key_id).decode('utf-8')
-  return import_rsakey_from_pem(pub_key_pem)
+  return import_rsakey_from_pem(pub_key_pem, scheme)
 
 
 @raise_yubikey_err("Cannot sign data.")
