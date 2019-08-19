@@ -19,5 +19,3 @@ def test_url_invalid_urls():
   urls = ['abc://something.com']
   with pytest.raises(InvalidRepositoryError):
     repo = GitRepository('path', urls)
-
-

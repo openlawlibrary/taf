@@ -80,13 +80,15 @@ def run_around_tests(client_dir):
       shutil.rmtree(str(Path(root) / dir_name), onerror=on_rm_error)
 
 
-@pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-additional-target-commit',
-                                       'test-updater-valid-with-updated-expiration-dates',
-                                       'test-updater-allow-unauthenticated-commits'])
-def test_valid_update_no_client_repo(test_name, updater_repositories, origin_dir, client_dir):
+@pytest.mark.parametrize('test_name, test_repo', [('test-updater-valid', False),
+                         ('test-updater-additional-target-commit', False),
+                         ('test-updater-valid-with-updated-expiration-dates', False),
+                         ('test-updater-allow-unauthenticated-commits', False),
+                         ('test-updater-test-repo', True)])
+def test_valid_update_no_client_repo(test_name, test_repo, updater_repositories, origin_dir, client_dir):
   repositories = updater_repositories[test_name]
   origin_dir = origin_dir / test_name
-  _update_and_check_commit_shas(None, repositories, origin_dir, client_dir)
+  _update_and_check_commit_shas(None, repositories, origin_dir, client_dir, test_repo)
 
 
 @pytest.mark.parametrize('test_name, num_of_commits_to_revert', [('test-updater-valid', 3),
@@ -105,8 +107,10 @@ def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
   _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
-@pytest.mark.parametrize('test_name', ['test-updater-valid', 'test-updater-allow-unauthenticated-commits'])
-def test_no_update_necessary(test_name, updater_repositories, origin_dir, client_dir):
+@pytest.mark.parametrize('test_name, test_repo', [('test-updater-valid', False),
+                         ('test-updater-allow-unauthenticated-commits', False),
+                         ('test-updater-test-repo', True)])
+def test_no_update_necessary(test_name, test_repo, updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
   # revert them to an older commit
   repositories = updater_repositories[test_name]
@@ -114,7 +118,7 @@ def test_no_update_necessary(test_name, updater_repositories, origin_dir, client
   client_repos = _clone_client_repositories(repositories, origin_dir, client_dir)
   # create valid last validated commit file
   _create_last_validated_commit(client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha())
-  _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
+  _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir, test_repo)
 
 
 @pytest.mark.parametrize('test_name, expected_error', [
@@ -172,7 +176,6 @@ def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
   origin_dir = origin_dir / 'test-updater-valid'
   client_repos = _clone_and_revert_client_repositories(repositories, origin_dir,
                                                        client_dir, 3)
-
   # update without setting the last validated commit
   # update should start from the beginning and be successful
   _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
@@ -192,6 +195,29 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
   # try to update without setting the last validated commit
   _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
                                                    repositories, expected_error)
+
+def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
+  repositories = updater_repositories['test-updater-test-repo']
+  origin_dir = origin_dir / 'test-updater-test-repo'
+  expected_error = 'Repository auth_repo is a test repository.'
+  # try to update without setting the last validated commit
+  _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error, test)
+
+
+def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
+  repositories = updater_repositories['test-updater-test-repo']
+  origin_dir = origin_dir / 'test-updater-test-repo'
+  expected_error = 'Repository auth_repo is a test repository.'
+  # try to update without setting the last validated commit
+  _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error)
+
+
+def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
+  repositories = updater_repositories['test-updater-valid']
+  origin_dir = origin_dir / 'test-updater-valid'
+  expected_error = 'Repository auth_repo is not a test repository.'
+  # try to update without setting the last validated commit
+  _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error, True)
 
 
 def _check_last_validated_commit(clients_auth_repo_path):
@@ -268,7 +294,8 @@ def _create_last_validated_commit(client_dir, client_auth_repo_head_sha):
     f.write(client_auth_repo_head_sha)
 
 
-def _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir):
+def _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir,
+                                  authetnicate_test_repo=False):
   if client_repos is not None:
     start_head_shas = {repo_rel_path: repo.head_commit_sha()
                        for repo_rel_path, repo in client_repos.items()}
@@ -277,13 +304,14 @@ def _update_and_check_commit_shas(client_repos, repositories, origin_dir, client
 
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
   origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
-  update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True)
+  update_repository(str(origin_auth_repo_path), str(clients_auth_repo_path), str(client_dir), True,
+                    authenticate_test_repo=authetnicate_test_repo)
   _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas)
   _check_last_validated_commit(clients_auth_repo_path)
 
 
 def _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir, repositories,
-                                                     expected_error):
+                                                     expected_error, authenticate_test_repo=False):
 
   start_head_shas = {repo_rel_path: repo.head_commit_sha()
                      for repo_rel_path, repo in client_repos.items()}
@@ -292,7 +320,7 @@ def _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir, r
 
   with pytest.raises(UpdateFailedError, match=expected_error):
     update_repository(str(origin_auth_repo_path), str(
-        clients_auth_repo_path), str(client_dir), True)
+        clients_auth_repo_path), str(client_dir), True, authenticate_test_repo=authenticate_test_repo)
 
   # all repositories should still have the same head commit
   for repo_path, repo in client_repos.items():
@@ -300,13 +328,14 @@ def _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir, r
     assert current_head == start_head_shas[repo_path]
 
 
-def _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error):
+def _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error,
+                                                  authenticate_test_repo=False):
 
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
   origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
   with pytest.raises(UpdateFailedError, match=expected_error):
     update_repository(str(origin_auth_repo_path), str(
-        clients_auth_repo_path), str(client_dir), True)
+        clients_auth_repo_path), str(client_dir), True, authenticate_test_repo=authenticate_test_repo),
 
   # the client repositories should not exits
   for repository_rel_path in repositories:
