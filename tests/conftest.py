@@ -8,9 +8,8 @@ from pytest import fixture, yield_fixture
 import taf.repository_tool as repository_tool
 import taf.yubikey
 from taf.repository_tool import Repository
-from taf.utils import on_rm_error
-from tuf.repository_tool import (import_rsa_privatekey_from_file,
-                                 import_rsa_publickey_from_file)
+from taf.utils import (import_rsa_privatekey_from_file,
+                       import_rsa_publickey_from_file, on_rm_error)
 
 from .yubikey_utils import (Root1YubiKey, Root2YubiKey, Root3YubiKey,
                             TargetYubiKey, _yk_piv_ctrl_mock)
@@ -25,6 +24,13 @@ CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / 'client'
 
 def pytest_configure(config):
   taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
+
+
+def pytest_generate_tests(metafunc):
+  if "taf_happy_path" in metafunc.fixturenames:
+    metafunc.parametrize("taf_happy_path",
+                         ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"],
+                         indirect=True)
 
 
 @contextmanager
@@ -72,26 +78,24 @@ def _copy_repos(test_dir_path, test_name):
 
 
 @yield_fixture(scope='session', autouse=True)
-def taf_happy_path():
+def taf_happy_path(request, pytestconfig):
   """TAF repository for testing."""
-  taf_repo_name = 'taf'
-  test_happy_path_dir = 'test-happy-path'
-  test_happy_path_pkcs1v15_dir = 'test-happy-path-pkcs1v15'
+  repository_tool.DISABLE_KEYS_CACHING = True
 
-  with origin_repos(test_happy_path_dir) as origins, \
-          origin_repos(test_happy_path_pkcs1v15_dir) as pkcs1v15_origins:
+  def _create_origin(test_dir, taf_repo_name='taf'):
+    with origin_repos(test_dir) as origins:
+      taf_repo_origin_path = origins[taf_repo_name]
+      yield Repository(taf_repo_origin_path)
 
-    # Repository using rsassa-pss-sha256 scheme
-    # taf_repo_origin_path = origins[taf_repo_name]
-    # taf_repo = Repository(taf_repo_origin_path)
+  scheme = request.param
+  pytestconfig.option.signature_scheme = scheme
 
-    # Repository using rsa-pkcs1v15-sha256 scheme
-    taf_repo_pkcs1v15_origin_path = pkcs1v15_origins[taf_repo_name]
-    taf_repo_pkcs1v15 = Repository(taf_repo_pkcs1v15_origin_path)
-
-    repository_tool.DISABLE_KEYS_CACHING = True
-
-    yield taf_repo_pkcs1v15
+  if scheme == 'rsassa-pss-sha256':
+    yield from _create_origin('test-happy-path')
+  elif scheme == 'rsa-pkcs1v15-sha256':
+    yield from _create_origin('test-happy-path-pkcs1v15')
+  else:
+    raise ValueError("Invalid test config. Invalid scheme: {}".format(scheme))
 
 
 @yield_fixture(scope="session", autouse=True)
@@ -124,51 +128,57 @@ def wrong_keystore():
 
 
 @fixture
-def targets_yk():
+def targets_yk(pytestconfig):
   """Targets YubiKey."""
-  return TargetYubiKey(KEYSTORE_PATH)
+  return TargetYubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
 
 
 @fixture
-def root1_yk():
+def root1_yk(pytestconfig):
   """Root1 YubiKey."""
-  return Root1YubiKey(KEYSTORE_PATH)
+  return Root1YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
 
 
 @fixture
-def root2_yk():
+def root2_yk(pytestconfig):
   """Root2 YubiKey."""
-  return Root2YubiKey(KEYSTORE_PATH)
+  return Root2YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
 
 
 @fixture
-def root3_yk():
+def root3_yk(pytestconfig):
   """Root3 YubiKey."""
-  return Root3YubiKey(KEYSTORE_PATH)
+  return Root3YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
 
 
 @fixture
-def snapshot_key():
+def snapshot_key(pytestconfig):
   """Snapshot key."""
-  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'snapshot.pub'))
-  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'snapshot'))
+  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'snapshot.pub'),
+                                       pytestconfig.option.signature_scheme)
+  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'snapshot'),
+                                             pytestconfig.option.signature_scheme)
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
 
 
 @fixture
-def timestamp_key():
+def timestamp_key(pytestconfig):
   """Timestamp key."""
-  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'timestamp.pub'))
-  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'timestamp'))
+  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'timestamp.pub'),
+                                       pytestconfig.option.signature_scheme)
+  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'timestamp'),
+                                             pytestconfig.option.signature_scheme)
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
 
 
-@fixture
-def targets_key():
-  """Timestamp key."""
-  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'targets.pub'))
-  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'targets'))
+@yield_fixture
+def targets_key(pytestconfig):
+  """Targets key."""
+  key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'targets.pub'),
+                                       pytestconfig.option.signature_scheme)
+  priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'targets'),
+                                             pytestconfig.option.signature_scheme)
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
