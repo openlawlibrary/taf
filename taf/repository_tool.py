@@ -69,7 +69,7 @@ def load_role_key(keystore, role, password=None,
   return key
 
 
-def targets_signature_provider(key_id, key_pin, key, data):
+def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W0613
   """Targets signature provider used to sign data with YubiKey.
 
   Args:

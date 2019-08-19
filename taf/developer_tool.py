@@ -432,7 +432,7 @@ def _role_obj(role, repository):
     return repository.root
 
 
-def signature_provider(key_id, cert_cn, key, data):
+def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
   def _check_key_id(expected_key_id):
     try:
       inserted_key = yk.get_piv_public_key_taf()
