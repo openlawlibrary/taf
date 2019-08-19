@@ -3,13 +3,13 @@ from contextlib import contextmanager
 from functools import wraps
 
 from cryptography.hazmat.primitives import serialization
+from tuf.repository_tool import import_rsakey_from_pem
 from ykman.descriptor import list_devices, open_device
 from ykman.piv import (ALGO, DEFAULT_MANAGEMENT_KEY, PIN_POLICY, SLOT,
                        PivController, WrongPin, generate_random_management_key)
 from ykman.util import TRANSPORT
 
 from taf.exceptions import YubikeyError
-from tuf.repository_tool import import_rsakey_from_pem
 
 DEFAULT_PIN = '123456'
 DEFAULT_PUK = '12345678'
