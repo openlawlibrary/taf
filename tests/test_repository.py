@@ -1,6 +1,7 @@
-from taf.git import GitRepository
-from taf.exceptions import InvalidRepositoryError
 import pytest
+
+from taf.exceptions import InvalidRepositoryError
+from taf.git import GitRepository
 
 
 def test_url_validation_valid_urls():
@@ -19,5 +20,3 @@ def test_url_invalid_urls():
   urls = ['abc://something.com']
   with pytest.raises(InvalidRepositoryError):
     repo = GitRepository('path', urls)
-
-

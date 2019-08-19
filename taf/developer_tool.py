@@ -9,19 +9,20 @@ from getpass import getpass
 from pathlib import Path
 
 import securesystemslib
-import taf.yubikey as yk
 import tuf.repository_tool
 from securesystemslib.exceptions import UnknownKeyError
-from taf.auth_repo import AuthenticationRepo
-from taf.git import GitRepository
-from taf.repository_tool import Repository, load_role_key
-from taf.utils import (import_rsa_privatekey_from_file,
-                       import_rsa_publickey_from_file)
 from tuf.keydb import get_key
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
                                  generate_and_write_rsa_keypair,
                                  generate_rsa_key, import_rsakey_from_pem)
+
+import taf.yubikey as yk
+from taf.auth_repo import AuthenticationRepo
+from taf.git import GitRepository
+from taf.repository_tool import Repository, load_role_key
+from taf.utils import (get_pin_for, import_rsa_privatekey_from_file,
+                       import_rsa_publickey_from_file)
 
 # Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500
@@ -99,7 +100,7 @@ def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_di
                                 commit_msg='Updated {}'.format(target_repo_name))
 
 
-def create_repository(repo_path, keystore, roles_key_infos, commit_message=None):
+def create_repository(repo_path, keystore, roles_key_infos, commit_message=None, test=False):
   """
   <Purpose>
     Create a new authentication repository. Generate initial metadata files.
@@ -115,6 +116,8 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
       A dictionary whose keys are role names, while values contain information about the keys.
     commit_message:
       If provided, the changes will be committed automatically using the specified message
+    test:
+      Indicates if the created repository is a test authentication repository
   """
   yubikeys = defaultdict(dict)
   roles_key_infos = _read_input_dict(roles_key_infos)
@@ -138,25 +141,25 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
     for key_num in range(num_of_keys):
       key_name = _get_key_name(role_name, key_num, num_of_keys)
       if is_yubikey:
-        print('Genarating keys for {}'.format(key_name))
+        print('Generating keys for {}'.format(key_name))
         use_existing = False
         if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
-          use_existing = input('Do you want to reuse alredy set up YubiKey? y/n ') == 'y'
+          use_existing = input('Do you want to reuse already set up Yubikey? y/n ') == 'y'
           if use_existing:
-            key = None
+            existing_key = None
             key_id_certs = {}
-            while key is None:
+            while existing_key is None:
               for existing_role_name, role_keys in yubikeys.items():
                 if existing_role_name == role_name:
                   continue
-                print(existing_role_name)
+                print("Existing keys for role {} are:\n".format(existing_role_name))
                 for key_and_cert in role_keys.values():
                   key, cert_cn = key_and_cert
                   key_id_certs[key['keyid']] = cert_cn
                   print('{} id: {}'.format(cert_cn, key['keyid']))
-              existing_keyid = input("Enter existing YubiKey's id and press ENTER ")
+              existing_keyid = input("\nEnter existing Yubikey's id and press ENTER ")
               try:
-                key = get_key(existing_keyid)
+                existing_key = get_key(existing_keyid)
                 cert_cn = key_id_certs[existing_keyid]
               except UnknownKeyError:
                 pass
@@ -168,7 +171,8 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
             input("Please insert new YubiKey and press ENTER.")
             serial_num = yk.get_serial_num()
 
-          pin = getpass('Enter PIN for {}: '.format(key_name))
+          pin = get_pin_for(key_name)
+
           cert_cn = input("Enter key holder's name: ")
 
           print('Generating keys, please wait...')
@@ -207,6 +211,15 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
           public_key = private_key = key
         role_obj.add_verification_key(public_key)
         role_obj.load_signing_key(private_key)
+
+  # if the repository is a test repository, add a target file called test-auth-repo
+  if test:
+    target_paths = Path(repo_path) / 'targets'
+    test_auth_file = target_paths / 'test-auth-repo'
+    test_auth_file.touch()
+    targets_obj = _role_obj('targets', repository)
+    targets_obj.add_target(str(test_auth_file))
+
   repository.writeall()
   if commit_message is not None and len(commit_message):
     auth_repo = GitRepository(repo_path)
@@ -309,7 +322,8 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 
 def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
-              keystore, roles_key_infos, repos_custom=None, commit=None):
+              keystore, roles_key_infos, repos_custom=None, commit=None,
+              test=False):
   """
   <Purpose>
     Generate initial repository:
@@ -334,10 +348,13 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
       A dictionary whose keys are role names, while values contain information about the keys.
     commit_message:
       If provided, the changes will be committed automatically using the specified message
+    test:
+      Indicates if the created repository is a test authentication repository
   """
   # read the key infos here, no need to read the file multiple times
   roles_key_infos = _read_input_dict(roles_key_infos)
-  create_repository(repo_path, keystore, roles_key_infos, "Initial metadata")
+  commit_msg = 'Initial commit' if commit else None
+  create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir, repos_custom)
@@ -352,12 +369,12 @@ def _load_role_key_from_keys_dict(role, roles_key_infos):
   return password
 
 
-def register_target_file(repo_path, file_path, keystore, roles_key_infos):
+def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme):
   roles_key_infos = _read_input_dict(roles_key_infos)
   taf_repo = Repository(repo_path)
   taf_repo.add_existing_target(file_path)
 
-  _write_targets_metadata(taf_repo, keystore, roles_key_infos)
+  _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
 
 
 def _read_input_dict(value):
@@ -470,6 +487,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
     snapshot_pem = getpass('Enter snapshot key')
     snapshot_pem = _form_private_pem(snapshot_pem)
     snapshot_key = import_rsakey_from_pem(snapshot_pem)
+
     timestamp_pem = getpass('Enter timestamp key')
     timestamp_pem = _form_private_pem(timestamp_pem)
     timestamp_key = import_rsakey_from_pem(timestamp_pem)

@@ -1,10 +1,11 @@
 
-from pathlib import Path
-import pytest
 import json
 import os
+from pathlib import Path
+
+import pytest
 from pytest import fixture
-import os
+
 from taf.git import GitRepository
 
 
@@ -31,9 +32,9 @@ def test_add_targets_new_files(taf_happy_path):
   json_file_content = {'attr1': 'value1', 'attr2': 'value2'}
   regular_file_content = 'this file is not empty'
   data = {
-    'new_json_file': {'target': json_file_content},
-    'new_file': {'target': regular_file_content},
-    'empty_file': {'target': None}
+      'new_json_file': {'target': json_file_content},
+      'new_file': {'target': regular_file_content},
+      'empty_file': {'target': None}
   }
   taf_happy_path.add_targets(data)
   _check_target_files(taf_happy_path, data, old_targets)
@@ -44,8 +45,8 @@ def test_add_targets_nested_files(taf_happy_path):
   old_targets = _get_old_targets(taf_happy_path)
 
   data = {
-    'inner_folder1/new_file_1': {'target': 'file 1 content'},
-    'inner_folder2/new_file_2': {'target': 'file 2 content'}
+      'inner_folder1/new_file_1': {'target': 'file 1 content'},
+      'inner_folder2/new_file_2': {'target': 'file 2 content'}
   }
   taf_happy_path.add_targets(data)
   _check_target_files(taf_happy_path, data, old_targets)
@@ -54,11 +55,12 @@ def test_add_targets_nested_files(taf_happy_path):
 def test_add_targets_files_to_keep(taf_happy_path):
   old_targets = _get_old_targets(taf_happy_path)
   data = {
-    'a_new_file': {'target': 'new file content'}
+      'a_new_file': {'target': 'new file content'}
   }
   files_to_keep = ['branch']
   taf_happy_path.add_targets(data, files_to_keep=files_to_keep)
   _check_target_files(taf_happy_path, data, old_targets, files_to_keep)
+
 
 def _check_target_files(repo, data, old_targets, files_to_keep=None):
   if files_to_keep is None:
@@ -92,12 +94,16 @@ def _check_target_files(repo, data, old_targets, files_to_keep=None):
 
   # make sure that files to keep exist
   for file_to_keep in files_to_keep:
+    # if the file didn't exists prior to adding new targets
+    # it won't exists after adding them
+    if file_to_keep not in old_targets:
+      continue
     target_path = targets_path / file_to_keep
     assert target_path.exists()
 
   for old_target in old_targets:
     if old_target not in repository_targets and old_target not in data and \
-      old_target not in repo._required_files and not old_target in files_to_keep:
+            old_target not in repo._framework_files and not old_target in files_to_keep:
       assert (targets_path / old_target).exists() is False
 
 

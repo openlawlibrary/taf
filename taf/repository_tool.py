@@ -5,20 +5,22 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
-import taf.yubikey as yk
 import tuf.repository_tool
 from securesystemslib.exceptions import Error as SSLibError
+from tuf.exceptions import Error as TUFError
+from tuf.repository_tool import (
+    METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
+    load_repository)
+
+import taf.yubikey as yk
 from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
                             RootMetadataUpdateError,
                             SnapshotMetadataUpdateError,
                             TargetsMetadataUpdateError,
                             TimestampMetadataUpdateError, YubikeyError)
 from taf.git import GitRepository
-from taf.utils import normalize_file_line_endings
-from tuf.exceptions import Error as TUFError
-from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
-    load_repository)
+from taf.utils import (import_rsa_privatekey_from_file,
+                       normalize_file_line_endings)
 
 # Default expiration intervals per role
 expiration_intervals = {
@@ -55,10 +57,8 @@ def load_role_key(keystore, role, password=None,
     - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
     - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
   """
-
   key = role_keys_cache.get(role)
   if key is None:
-    from taf.utils import import_rsa_privatekey_from_file
     if password is not None:
       key = import_rsa_privatekey_from_file(os.path.join(keystore, role),
                                             scheme, password=password)
@@ -112,7 +112,7 @@ class Repository:
     tuf_repository = load_repository(repository_path)
     self._repository = tuf_repository
 
-  _required_files = ['repositories.json']
+  _framework_files = ['repositories.json', 'test-auth-repo']
 
   @property
   def targets_path(self):
@@ -267,23 +267,24 @@ class Repository:
     if files_to_keep is None:
       files_to_keep = []
     # leave all files required by the framework and additional files specified by the user
-    files_to_keep.extend(self._required_files)
+    files_to_keep.extend(self._framework_files)
     # add all repositories defined in repositories.json to files_to_keep
     files_to_keep.extend(self._get_target_repositories())
     # delete files if they no longer correspond to a target defined
     # in targets metadata and are not specified in files_to_keep
+    targets_obj = self._role_obj(targets_role)
     for filepath in self.targets_path.rglob('*'):
       if filepath.is_file():
         file_rel_path = str(Path(os.path.relpath(str(filepath), str(self.targets_path))).as_posix())
         if file_rel_path not in data and file_rel_path not in files_to_keep:
+          if file_rel_path in targets_obj.target_files:
+            targets_obj.remove_target(file_rel_path)
           filepath.unlink()
-
-    targets_obj = self._role_obj(targets_role)
 
     for path, target_data in data.items():
       # if the target's parent directory should not be "targets", create
       # its parent directories if they do not exist
-      target_path = self.targets_path / path
+      target_path = (self.targets_path / path).absolute()
       target_dir = target_path.parents[0]
       target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -311,11 +312,12 @@ class Repository:
       # but it might also be specified in data, if it needs to be updated
       if path in data:
         continue
-      target_path = self.targets_path / path
+      target_path = (self.targets_path / path).absolute()
       previous_custom = None
       if path in previous_targets:
         previous_custom = previous_targets[path].get('custom')
-      self._add_target(targets_obj, str(target_path), previous_custom)
+      if target_path.is_file():
+        self._add_target(targets_obj, str(target_path), previous_custom)
 
   def _get_target_repositories(self):
     repositories_path = self.targets_path / 'repositories.json'

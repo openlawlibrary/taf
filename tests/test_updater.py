@@ -51,9 +51,9 @@ import pytest
 from pytest import fixture
 
 import taf.settings as settings
+from taf.auth_repo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
-from taf.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 
@@ -69,8 +69,10 @@ METADATA_CHANGED_BUT_SHOULDNT = 'Metadata file targets.json should be the same a
 def setup_module(module):
   settings.update_from_filesystem = True
 
+
 def teardown_module(module):
   settings.update_from_filesystem = False
+
 
 @fixture(autouse=True)
 def run_around_tests(client_dir):

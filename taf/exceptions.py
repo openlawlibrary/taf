@@ -36,6 +36,10 @@ class RootMetadataUpdateError(MetadataUpdateError):
     super().__init__('root', message)
 
 
+class PINMissmatchError(Exception):
+  pass
+
+
 class SnapshotMetadataUpdateError(MetadataUpdateError):
   def __init__(self, message):
     super().__init__('snapshot', message)
