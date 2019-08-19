@@ -54,7 +54,7 @@ setup(
         'colorama>=0.3.9'
         'cryptography>=2.3.1',
         'yubikey-manager==3.0.0',
-        'oll-tuf==0.11.2.dev6',
+        'oll-tuf==0.11.2.dev7',
     ],
     extras_require={
         'ci': ci_require,
