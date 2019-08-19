@@ -5,20 +5,19 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
+from securesystemslib.exceptions import Error as SSLibError
+
 import tuf.repository_tool
 from oll_sc.exceptions import SmartCardError
-from securesystemslib.exceptions import Error as SSLibError
+from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
+                            SnapshotMetadataUpdateError,
+                            TargetsMetadataUpdateError,
+                            TimestampMetadataUpdateError)
+from taf.utils import normalize_file_line_endings
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
     load_repository)
-
-from taf.utils import normalize_file_line_endings
-
-from .exceptions import (InvalidKeyError, MetadataUpdateError,
-                         SnapshotMetadataUpdateError,
-                         TargetsMetadataUpdateError,
-                         TimestampMetadataUpdateError)
 
 # Default expiration intervals per role
 expiration_intervals = {
@@ -477,7 +476,6 @@ class Repository:
 
       timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
       timestamp_interval = kwargs.get('timestamp_interval', None)
-
 
       self.update_snapshot(snapshot_key, snapshot_date,
                            snapshot_interval, write=write)
