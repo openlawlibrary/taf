@@ -35,7 +35,8 @@ role_keys_cache = {}
 DISABLE_KEYS_CACHING = False
 
 
-def load_role_key(keystore, role, password=None):
+def load_role_key(keystore, role, password=None,
+                  scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
   """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
@@ -45,6 +46,7 @@ def load_role_key(keystore, role, password=None):
     - keystore(str): Path to the keystore directory
     - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
     - password(str): (Optional) password used for PEM decryption
+    - scheme(str): A signature scheme used for signing.
 
   Returns:
     - An RSA key object, conformant to 'securesystemslib.RSAKEY_SCHEMA'.
@@ -56,11 +58,12 @@ def load_role_key(keystore, role, password=None):
 
   key = role_keys_cache.get(role)
   if key is None:
-    from tuf.repository_tool import import_rsa_privatekey_from_file
+    from taf.utils import import_rsa_privatekey_from_file
     if password is not None:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), password=password)
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role),
+                                            scheme, password=password)
     else:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), scheme)
   if not DISABLE_KEYS_CACHING:
     role_keys_cache[role] = key
   return key

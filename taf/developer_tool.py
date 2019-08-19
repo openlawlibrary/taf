@@ -372,7 +372,8 @@ def _read_input_dict(value):
   return value
 
 
-def register_target_files(repo_path, keystore, roles_key_infos, commit_msg=None):
+def register_target_files(repo_path, keystore, roles_key_infos,
+                          commit_msg=None, scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets
@@ -387,6 +388,8 @@ def register_target_files(repo_path, keystore, roles_key_infos, commit_msg=None)
       A dictionary whose keys are role names, while values contain information about the keys.
     commit_msg:
       Commit message. If specified, the changes made to the authentication are committed.
+    scheme:
+      A signature scheme used for signing.
   """
   roles_key_infos = _read_input_dict(roles_key_infos)
   repo_path = Path(repo_path).resolve()
@@ -395,7 +398,7 @@ def register_target_files(repo_path, keystore, roles_key_infos, commit_msg=None)
   for root, _, filenames in os.walk(str(targets_path)):
     for filename in filenames:
       taf_repo.add_existing_target(str(Path(root) / filename))
-  _write_targets_metadata(taf_repo, keystore, roles_key_infos)
+  _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
   if commit_msg is not None:
     auth_repo = GitRepository(repo_path)
     auth_repo.commit(commit_msg)
@@ -449,14 +452,13 @@ def update_metadata_expiration_date(repo_path, keystore, roles_key_infos, role,
     auth_repo.commit(commit_msg)
 
 
-def _write_targets_metadata(taf_repo, keystore, roles_key_infos):
-
+def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
   if keystore is not None:
     # load all keys from keystore files
     # convenient when generating test repositories
     # not recommended in production
     targets_password = _load_role_key_from_keys_dict('targets', roles_key_infos)
-    targets_key = load_role_key(keystore, 'targets', targets_password)
+    targets_key = load_role_key(keystore, 'targets', targets_password, scheme)
     taf_repo.update_targets_from_keystore(targets_key, write=False)
     snapshot_password = _load_role_key_from_keys_dict('snapshot', roles_key_infos)
     timestamp_password = _load_role_key_from_keys_dict('timestamp', roles_key_infos)

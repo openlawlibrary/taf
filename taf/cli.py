@@ -5,6 +5,7 @@ import click
 import taf.developer_tool as developer_tool
 from taf.updater.updater import update_named_repository, update_repository
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
+from taf.yubikey import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 @click.group()
@@ -19,8 +20,9 @@ def cli():
               ' to a json file which which stores the needed information')
 @click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
-def add_targets(repo_path, keystore, keys_description, commit_msg):
-  developer_tool.register_target_files(repo_path, keystore, keys_description, commit_msg)
+@click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
+def add_targets(repo_path, keystore, keys_description, commit_msg, scheme):
+  developer_tool.register_target_files(repo_path, keystore, keys_description, commit_msg, scheme)
 
 
 @cli.command()
