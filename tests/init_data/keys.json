@@ -1,6 +1,5 @@
 {
   "root": {
-    "yubikey": true,
     "number": 2,
     "length": 2048,
 	"threshold": 1

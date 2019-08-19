@@ -92,12 +92,16 @@ def _check_target_files(repo, data, old_targets, files_to_keep=None):
 
   # make sure that files to keep exist
   for file_to_keep in files_to_keep:
+    # if the file didn't exists prior to adding new targets
+    # it won't exists after adding them
+    if file_to_keep not in old_targets:
+      continue
     target_path = targets_path / file_to_keep
     assert target_path.exists()
 
   for old_target in old_targets:
     if old_target not in repository_targets and old_target not in data and \
-      old_target not in repo._required_files and not old_target in files_to_keep:
+      old_target not in repo._framework_files and not old_target in files_to_keep:
       assert (targets_path / old_target).exists() is False
 
 
