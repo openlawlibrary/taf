@@ -385,12 +385,12 @@ class Repository:
 
     return key['keyid'] in self.get_role_keys(role)
 
-  def is_valid_metadata_yubikey(self, role, public_key):
+  def is_valid_metadata_yubikey(self, role, public_key=None):
     """Checks if metadata role contains key id from YubiKey.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
-      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): Rsa public key dict
+      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
 
     Returns:
       Boolean. True if smart card key id belongs to metadata role key ids
@@ -401,6 +401,9 @@ class Repository:
       - securesystemslib.exceptions.UnknownRoleError: If role does not exist
     """
     securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
+
+    if public_key is None:
+      public_key = yk.get_piv_public_key_taf()
 
     return self.is_valid_metadata_key(role, public_key)
 
