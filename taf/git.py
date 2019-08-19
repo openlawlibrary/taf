@@ -272,7 +272,7 @@ class GitRepository(object):
     self._git('reset --hard HEAD')
 
   def set_upstream(self, branch_name):
-    self._git(f'branch -u origin/{branch_name}')
+    self._git('branch -u origin/{}', branch_name)
 
 class NamedGitRepository(GitRepository):
 
