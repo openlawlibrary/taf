@@ -596,7 +596,7 @@ class Repository:
 
   def update_targets(self, targets_key_pin, targets_data=None,
                      start_date=datetime.datetime.now(), interval=None,
-                     write=True, scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
+                     write=True, public_key=None):
     """Update target data, sign with smart card and write.
 
     Args:
@@ -608,7 +608,7 @@ class Repository:
       - interval(int): Number of days added to the start date. If not provided,
                        the default value is used
       - write(bool): If True targets metadata will be signed and written
-      - scheme(str): Rsa signature scheme (default is rsa-pkcs1v15-sha256)
+      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
 
     Returns:
       None
@@ -618,9 +618,10 @@ class Repository:
       - MetadataUpdateError: If any other error happened during metadata update
     """
     try:
-      pub_key = yk.get_piv_public_key_taf(scheme)
+      if public_key is None:
+        public_key = yk.get_piv_public_key_taf()
 
-      if not self.is_valid_metadata_yubikey('targets', pub_key):
+      if not self.is_valid_metadata_yubikey('targets', public_key):
         raise InvalidKeyError('targets')
 
       if targets_data:
@@ -629,8 +630,8 @@ class Repository:
       self.set_metadata_expiration_date('targets', start_date, interval)
 
       self._repository.targets.add_external_signature_provider(
-          pub_key,
-          partial(targets_signature_provider, pub_key['keyid'], targets_key_pin)
+          public_key,
+          partial(targets_signature_provider, public_key['keyid'], targets_key_pin)
       )
       if write:
         self._repository.write('targets')

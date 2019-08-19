@@ -15,14 +15,13 @@ from securesystemslib.exceptions import UnknownKeyError
 from taf.auth_repo import AuthenticationRepo
 from taf.git import GitRepository
 from taf.repository_tool import Repository, load_role_key
+from taf.utils import (import_rsa_privatekey_from_file,
+                       import_rsa_publickey_from_file)
 from tuf.keydb import get_key
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
                                  generate_and_write_rsa_keypair,
-                                 generate_rsa_key,
-                                 import_rsa_privatekey_from_file,
-                                 import_rsa_publickey_from_file,
-                                 import_rsakey_from_pem)
+                                 generate_rsa_key, import_rsakey_from_pem)
 
 # Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500
@@ -165,7 +164,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
           input("Please insert a new YubiKey and press ENTER.")
           serial_num = yk.get_serial_num()
           while serial_num in yubikeys[role_name]:
-            print("YubikKy with serial number {} is already in use.\n".format(serial_num))
+            print("Yubikey with serial number {} is already in use.\n".format(serial_num))
             input("Please insert new YubiKey and press ENTER.")
             serial_num = yk.get_serial_num()
 
@@ -191,15 +190,16 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
         # this is useful when generating tests
         if keystore is not None:
           public_key = import_rsa_publickey_from_file(os.path.join(keystore,
-                                                                   key_name + '.pub'))
-          public_key['scheme'] = scheme
+                                                                   key_name + '.pub'),
+                                                      scheme)
           password = passwords[key_num]
           if password:
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
+                                                          scheme,
                                                           password)
           else:
-            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name))
-            private_key['scheme'] = scheme
+            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name), scheme)
+
         # if it does not, generate the keys and print the output
         else:
           key = generate_rsa_key()
