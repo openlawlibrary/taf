@@ -1,16 +1,18 @@
-import shutil
-import tuf
 import os
+import shutil
+
+import tuf
 import tuf.client.updater as tuf_updater
+
+import taf.log
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
-import taf.log
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 
-
 logger = taf.log.get_logger(__name__)
+
 
 def update_repository(url, clients_repo_path, targets_dir, update_from_filesystem,
                       authenticate_test_repo=False, target_repo_classes=None, target_factory=None):
@@ -41,6 +43,7 @@ def update_repository(url, clients_repo_path, targets_dir, update_from_filesyste
   update_named_repository(url, clients_dir, repo_name, targets_dir,
                           update_from_filesystem, authenticate_test_repo,
                           target_repo_classes, target_factory)
+
 
 def update_named_repository(url, clients_directory, repo_name, targets_dir,
                             update_from_filesystem, authenticate_test_repo=False,
@@ -95,7 +98,6 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
 
   # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
-
   settings.update_from_filesystem = update_from_filesystem
   # instantiate TUF's updater
   repository_mirrors = {'mirror1': {'url_prefix': url,
@@ -105,8 +107,8 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
 
   tuf.settings.repositories_directory = clients_directory
   repository_updater = tuf_updater.Updater(repo_name,
-                                            repository_mirrors,
-                                            GitUpdater)
+                                           repository_mirrors,
+                                           GitUpdater)
   users_auth_repo = repository_updater.update_handler.users_auth_repo
   existing_repo = users_auth_repo.is_git_repository_root
   try:
@@ -123,14 +125,12 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
                                 'repository'.format(users_auth_repo.repo_name))
       elif not test_repo and authenticate_test_repo:
         raise UpdateFailedError('Repository {} is not a test repository, but update was called '
-                              'with the "--authenticate-test-repo" flag'.format(users_auth_repo.repo_name))
-
+                                'with the "--authenticate-test-repo" flag'.format(users_auth_repo.repo_name))
 
     # validate the authentication repository and fetch new commits
     _update_authentication_repository(repository_updater)
 
     # get target repositories and their commits, as specified in targets.json
-
 
     repositoriesdb.load_repositories(users_auth_repo, repo_classes=target_repo_classes,
                                      factory=target_factory, root_dir=targets_dir,
@@ -140,6 +140,7 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
 
     # update target repositories
     repositories_json = users_auth_repo.get_json(commits[-1], 'targets/repositories.json')
+    last_validated_commit = users_auth_repo.last_validated_commit
     _update_target_repositories(repositories, repositories_json, repositories_commits,
                                 last_validated_commit)
 
@@ -157,6 +158,7 @@ def update_named_repository(url, clients_directory, repo_name, targets_dir,
     raise e
   finally:
     repositoriesdb.clear_repositories_db()
+
 
 def _update_authentication_repository(repository_updater):
 
@@ -214,7 +216,7 @@ def _update_target_repositories(repositories, repositories_json, repositories_co
   for path, repository in repositories.items():
 
     allow_unauthenticated_for_repo = repositories_json['repositories'][repository.repo_name]. \
-      get('custom', {}).get('allow-unauthenticated-commits', False)
+        get('custom', {}).get('allow-unauthenticated-commits', False)
     allow_unauthenticated[path] = allow_unauthenticated_for_repo
 
     # if last_validated_commit is None, start the update from the beginning
@@ -294,8 +296,8 @@ def _update_target_repository(repository, new_commits, target_commits,
     if len(new_commits) > len(target_commits):
       additional_commits = new_commits[len(target_commits):]
       logger.warning('Found commits %s in repository %s that are not accounted for in the authentication repo.'
-                    'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
-                      target_commits[-1])
+                     'Repoisitory will be updated up to commit %s', additional_commits,  repository.repo_name,
+                     target_commits[-1])
   else:
     logger.info('Unauthenticated commits allowed in repository %s', repository.repo_name)
     update_successful = True
@@ -312,7 +314,7 @@ def _update_target_repository(repository, new_commits, target_commits,
 
   if not update_successful:
     logger.error('Mismatch between target commits specified in authentication repository and the '
-                'target repository %s', repository.repo_name)
+                 'target repository %s', repository.repo_name)
     raise UpdateFailedError('Mismatch between target commits specified in authentication repository'
                             ' and target repository {}'.format(repository.repo_name))
   logger.info('Successfully validated %s', repository.repo_name)

@@ -119,11 +119,10 @@ If a property is omitted from the specification, it will have the default value.
 The `keys-description` option can either directly contain the described json, or be a path to a file
 which contains it.
 
-### `targets-key-slot`
+### `targets-key`
 
 None of the commands require usage of YubiKeys, but if the `keystore` option is not used, a user
-is expected to either directly enter keys and/or use YubiKeys for signing. The slot is set to 2
-by default.
+is expected to either directly enter keys and/or use YubiKeys for signing.
 
 ## Commands
 

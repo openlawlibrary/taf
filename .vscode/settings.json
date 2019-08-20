@@ -7,10 +7,6 @@
   ],
   "python.linting.pep8Enabled": false,
   "python.linting.flake8Enabled": false,
-  "python.linting.pylintArgs": [
-    "--ignored-modules=PyKCS11",
-    "--extension-pkg-whitelist=PyKCS11"
-  ],
   "python.sortImports.args": [
     "-l",
     "80"

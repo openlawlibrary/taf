@@ -5,19 +5,22 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
-from securesystemslib.exceptions import Error as SSLibError
-
 import tuf.repository_tool
-from oll_sc.exceptions import SmartCardError
-from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
-                            SnapshotMetadataUpdateError,
-                            TargetsMetadataUpdateError,
-                            TimestampMetadataUpdateError)
-from taf.utils import normalize_file_line_endings
+from securesystemslib.exceptions import Error as SSLibError
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
     load_repository)
+
+import taf.yubikey as yk
+from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
+                            RootMetadataUpdateError,
+                            SnapshotMetadataUpdateError,
+                            TargetsMetadataUpdateError,
+                            TimestampMetadataUpdateError, YubikeyError)
+from taf.git import GitRepository
+from taf.utils import (import_rsa_privatekey_from_file,
+                       normalize_file_line_endings)
 
 # Default expiration intervals per role
 expiration_intervals = {
@@ -31,34 +34,11 @@ expiration_intervals = {
 role_keys_cache = {}
 
 
-def get_yubikey_public_key(key_slot, pin):
-  """Return public key from a smart card in TUF's RSAKEY_SCHEMA format.
-
-  Args:
-    - key_slot(tuple): Key ID as tuple (e.g. (1,))
-    - pin(str): Pin for session login
-
-  Returns:
-    A dictionary containing the RSA keys and other identifying information
-    from inserted smart card.
-    Conforms to 'securesystemslib.formats.RSAKEY_SCHEMA'.
-
-  Raises:
-    - SmartCardNotPresentError: If smart card is not inserted
-    - SmartCardWrongPinError: If pin is incorrect
-    - SmartCardFindKeyObjectError: If public key for given key id does not exist
-    - securesystemslib.exceptions.FormatError: if 'PEM' is improperly formatted.
-  """
-  from oll_sc.api import sc_export_pub_key_pem
-
-  pub_key_pem = sc_export_pub_key_pem(key_slot, pin).decode('utf-8')
-  return import_rsakey_from_pem(pub_key_pem)
-
-
 DISABLE_KEYS_CACHING = False
 
 
-def load_role_key(keystore, role, password=None):
+def load_role_key(keystore, role, password=None,
+                  scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
   """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
@@ -68,6 +48,7 @@ def load_role_key(keystore, role, password=None):
     - keystore(str): Path to the keystore directory
     - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
     - password(str): (Optional) password used for PEM decryption
+    - scheme(str): A signature scheme used for signing.
 
   Returns:
     - An RSA key object, conformant to 'securesystemslib.RSAKEY_SCHEMA'.
@@ -76,43 +57,64 @@ def load_role_key(keystore, role, password=None):
     - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
     - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
   """
-
   key = role_keys_cache.get(role)
   if key is None:
-    from tuf.repository_tool import import_rsa_privatekey_from_file
     if password is not None:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), password=password)
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role),
+                                            scheme, password=password)
     else:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role))
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), scheme)
   if not DISABLE_KEYS_CACHING:
     role_keys_cache[role] = key
   return key
 
 
-def targets_signature_provider(key_id, key_slot, key_pin, data):
+def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W0613
   """Targets signature provider used to sign data with YubiKey.
 
   Args:
     - key_id(str): Key id from targets metadata file
-    - key_slot(tuple): Key slot on smart card (YubiKey)
     - key_pin(str): PIN for signing key
+    - key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
     - data(dict): Data to sign
 
   Returns:
     Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
 
   Raises:
-    - SmartCardError: If signing with YubiKey cannot be performed
+    - YubikeyError: If signing with YubiKey cannot be performed
   """
   from binascii import hexlify
-  from oll_sc.api import sc_sign_rsa_pkcs_pss_sha256
 
-  data = securesystemslib.formats.encode_canonical(data)
-  signature = sc_sign_rsa_pkcs_pss_sha256(data, key_slot, key_pin)
+  data = securesystemslib.formats.encode_canonical(data).encode('utf-8')
+  signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
   return {
       'keyid': key_id,
       'sig': hexlify(signature).decode()
+  }
+
+
+def root_signature_provider(signature_dict, key_id, _key, _data):
+  """Root signature provider used to return signatures created remotely.
+
+  Args:
+    - signature_dict(dict): Dict where key is key_id and value is signature
+    - key_id(str): Key id from targets metadata file
+    - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
+    - _data(dict): Data to sign (already signed remotely)
+
+  Returns:
+    Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
+
+  Raises:
+    - KeyError: If signature for key_id is not present in signature_dict
+  """
+  from binascii import hexlify
+
+  return {
+      'keyid': key_id,
+      'sig': hexlify(signature_dict.get(key_id)).decode()
   }
 
 
@@ -133,6 +135,10 @@ class Repository:
   @property
   def metadata_path(self):
     return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
+
+  @property
+  def repo_id(self):
+    return GitRepository(self.repository_path).initial_commit
 
   def _add_target(self, targets_obj, file_path, custom=None):
     """
@@ -352,6 +358,34 @@ class Repository:
     role_obj = self._role_obj(role)
     return role_obj.keys
 
+  def get_signable_metadata(self, role):
+    """Return signable portion of newly generate metadata for given role.
+
+    Args:
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+
+    Returns:
+      A string representing the 'object' encoded in canonical JSON form or None
+
+    Raises:
+      None
+    """
+    try:
+      from tuf.keydb import get_key
+      signable = None
+
+      role_obj = self._role_obj(role)
+      key = get_key(role_obj.keys[0])
+
+      def _provider(data):
+        nonlocal signable
+        signable = securesystemslib.formats.encode_canonical(data)
+
+      role_obj.add_external_signature_provider(key, _provider)
+      self.writeall()
+    except (IndexError, TUFError, SSLibError):
+      return signable
+
   def is_valid_metadata_key(self, role, key):
     """Checks if metadata role contains key id of provided key.
 
@@ -370,28 +404,71 @@ class Repository:
 
     return key['keyid'] in self.get_role_keys(role)
 
-  def is_valid_metadata_yubikey(self, role, key_slot, pin):
+  def is_valid_metadata_yubikey(self, role, public_key=None):
     """Checks if metadata role contains key id from YubiKey.
 
     Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - key_slot(tuple): Key ID as tuple (e.g. (1,))
-      - pin(str): Pin for session login
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
+      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
 
     Returns:
       Boolean. True if smart card key id belongs to metadata role key ids
 
     Raises:
-      - SmartCardNotPresentError: If smart card is not inserted
-      - SmartCardWrongPinError: If pin is incorrect
-      - SmartCardFindKeyObjectError: If public key for given key id does not exist
+      - YubikeyError
       - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
       - securesystemslib.exceptions.UnknownRoleError: If role does not exist
     """
     securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
-    public_key = get_yubikey_public_key(key_slot, pin)
+    if public_key is None:
+      public_key = yk.get_piv_public_key_tuf()
+
     return self.is_valid_metadata_key(role, public_key)
+
+  def add_metadata_key(self, role, pub_key_pem):
+    """Add metadata key of the provided role.
+
+    Args:
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+      - pub_key_pem(str|bytes): Public key in PEM format
+
+    Returns:
+      None
+
+    Raises:
+      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                      targets object.
+      - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+
+    """
+    if isinstance(pub_key_pem, bytes):
+      pub_key_pem = pub_key_pem.decode('utf-8')
+
+    key = import_rsakey_from_pem(pub_key_pem)
+    self._role_obj(role).add_verification_key(key)
+
+  def remove_metadata_key(self, role, key_id):
+    """Remove metadata key of the provided role.
+
+    Args:
+      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+      - key_id(str): An object conformant to 'securesystemslib.formats.KEYID_SCHEMA'.
+
+    Returns:
+      None
+
+    Raises:
+      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                      targets object.
+      - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+
+    """
+    from tuf.keydb import get_key
+    key = get_key(key_id)
+    self._role_obj(role).remove_verification_key(key)
 
   def set_metadata_expiration_date(self, role, start_date=datetime.datetime.now(), interval=None):
     """Set expiration date of the provided role.
@@ -423,6 +500,31 @@ class Repository:
       interval = expiration_intervals.get(role, 1)
     expiration_date = start_date + datetime.timedelta(interval)
     role_obj.expiration = expiration_date
+
+  def update_root(self, signature_dict):
+    """Update root metadata.
+
+    Args:
+      - signature_dict(dict): key_id-signature dictionary
+
+    Returns:
+      None
+
+    Raises:
+      - InvalidKeyError: If wrong key is used to sign metadata
+      - SnapshotMetadataUpdateError: If any other error happened during metadata update
+    """
+    from tuf.keydb import get_key
+    try:
+      for key_id in signature_dict:
+        key = get_key(key_id)
+        self._repository.root.add_external_signature_provider(
+            key,
+            partial(root_signature_provider, signature_dict, key_id)
+        )
+      self.writeall()
+    except (TUFError, SSLibError) as e:
+      raise RootMetadataUpdateError(str(e))
 
   def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None, write=True):
     """Update snapshot metadata.
@@ -511,12 +613,12 @@ class Repository:
     except (TUFError, SSLibError) as e:
       raise TimestampMetadataUpdateError(str(e))
 
-  def update_targets(self, targets_key_slot, targets_key_pin, targets_data=None,
-                     start_date=datetime.datetime.now(), interval=None, write=True):
+  def update_targets(self, targets_key_pin, targets_data=None,
+                     start_date=datetime.datetime.now(), interval=None,
+                     write=True, public_key=None):
     """Update target data, sign with smart card and write.
 
     Args:
-      - targets_key_slot(tuple|int): Slot with key on a smart card used for signing
       - targets_key_pin(str): Targets key pin
       - targets_data(dict): (Optional) Dictionary with targets data
       - start_date(datetime): Date to which the specified interval is added when
@@ -525,6 +627,7 @@ class Repository:
       - interval(int): Number of days added to the start date. If not provided,
                        the default value is used
       - write(bool): If True targets metadata will be signed and written
+      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
 
     Returns:
       None
@@ -533,15 +636,12 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - MetadataUpdateError: If any other error happened during metadata update
     """
-
-    if isinstance(targets_key_slot, int):
-      targets_key_slot = (targets_key_slot, )
-
     try:
-      if not self.is_valid_metadata_yubikey('targets', targets_key_slot, targets_key_pin):
-        raise InvalidKeyError('targets')
+      if public_key is None:
+        public_key = yk.get_piv_public_key_tuf()
 
-      pub_key = get_yubikey_public_key(targets_key_slot, targets_key_pin)
+      if not self.is_valid_metadata_yubikey('targets', public_key):
+        raise InvalidKeyError('targets')
 
       if targets_data:
         self.add_targets(targets_data)
@@ -549,13 +649,13 @@ class Repository:
       self.set_metadata_expiration_date('targets', start_date, interval)
 
       self._repository.targets.add_external_signature_provider(
-          pub_key,
-          partial(targets_signature_provider, pub_key['keyid'], targets_key_slot, targets_key_pin)
+          public_key,
+          partial(targets_signature_provider, public_key['keyid'], targets_key_pin)
       )
       if write:
         self._repository.write('targets')
 
-    except (SmartCardError, TUFError, SSLibError) as e:
+    except (YubikeyError, TUFError, SSLibError) as e:
       raise TargetsMetadataUpdateError(str(e))
 
   def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
