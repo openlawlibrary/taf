@@ -3,7 +3,10 @@ import pytest
 from taf.yubikey import (DEFAULT_PIN, export_piv_pub_key, export_piv_x509,
                          get_serial_num, is_inserted, sign_piv_rsa_pkcs1v15)
 
+from . import TEST_WITH_REAL_YK
 
+
+@pytest.mark.skipif(not TEST_WITH_REAL_YK, reason="list_devices() is not mocked.")
 def test_is_inserted():
   assert is_inserted() == True
 
