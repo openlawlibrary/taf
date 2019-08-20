@@ -59,6 +59,10 @@ class GitRepository(object):
     except subprocess.CalledProcessError:
       return False
 
+  @property
+  def initial_commit(self):
+    return self._git('rev-list --max-parents=0 HEAD').strip() if self.is_git_repository else None
+
   def is_remote_branch(self, branch_name):
     for remote in self.remotes:
       if branch_name.startswith(remote + '/'):

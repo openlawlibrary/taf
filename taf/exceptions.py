@@ -31,6 +31,11 @@ class MetadataUpdateError(TAFError):
     self.message = message
 
 
+class RootMetadataUpdateError(MetadataUpdateError):
+  def __init__(self, message):
+    super().__init__('root', message)
+
+
 class PINMissmatchError(Exception):
   pass
 
@@ -59,4 +64,8 @@ class RepositoriesNotFoundError(TAFError):
 
 
 class UpdateFailedError(TAFError):
+  pass
+
+
+class YubikeyError(Exception):
   pass

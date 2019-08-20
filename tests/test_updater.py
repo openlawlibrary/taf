@@ -51,9 +51,9 @@ import pytest
 from pytest import fixture
 
 import taf.settings as settings
+from taf.auth_repo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
-from taf.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 
@@ -69,8 +69,10 @@ METADATA_CHANGED_BUT_SHOULDNT = 'Metadata file targets.json should be the same a
 def setup_module(module):
   settings.update_from_filesystem = True
 
+
 def teardown_module(module):
   settings.update_from_filesystem = False
+
 
 @fixture(autouse=True)
 def run_around_tests(client_dir):
@@ -81,10 +83,10 @@ def run_around_tests(client_dir):
 
 
 @pytest.mark.parametrize('test_name, test_repo', [('test-updater-valid', False),
-                         ('test-updater-additional-target-commit', False),
-                         ('test-updater-valid-with-updated-expiration-dates', False),
-                         ('test-updater-allow-unauthenticated-commits', False),
-                         ('test-updater-test-repo', True)])
+                                                  ('test-updater-additional-target-commit', False),
+                                                  ('test-updater-valid-with-updated-expiration-dates', False),
+                                                  ('test-updater-allow-unauthenticated-commits', False),
+                                                  ('test-updater-test-repo', True)])
 def test_valid_update_no_client_repo(test_name, test_repo, updater_repositories, origin_dir, client_dir):
   repositories = updater_repositories[test_name]
   origin_dir = origin_dir / test_name
@@ -108,8 +110,8 @@ def test_valid_update_existing_client_repos(test_name, num_of_commits_to_revert,
 
 
 @pytest.mark.parametrize('test_name, test_repo', [('test-updater-valid', False),
-                         ('test-updater-allow-unauthenticated-commits', False),
-                         ('test-updater-test-repo', True)])
+                                                  ('test-updater-allow-unauthenticated-commits', False),
+                                                  ('test-updater-test-repo', True)])
 def test_no_update_necessary(test_name, test_repo, updater_repositories, origin_dir, client_dir):
   # clone the origin repositories
   # revert them to an older commit
@@ -195,13 +197,6 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
   # try to update without setting the last validated commit
   _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir,
                                                    repositories, expected_error)
-
-def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
-  repositories = updater_repositories['test-updater-test-repo']
-  origin_dir = origin_dir / 'test-updater-test-repo'
-  expected_error = 'Repository auth_repo is a test repository.'
-  # try to update without setting the last validated commit
-  _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error, test)
 
 
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
@@ -329,7 +324,7 @@ def _update_invalid_repos_and_check_if_remained_same(client_repos, client_dir, r
 
 
 def _update_invalid_repos_and_check_if_repos_exist(client_dir, repositories, expected_error,
-                                                  authenticate_test_repo=False):
+                                                   authenticate_test_repo=False):
 
   clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
   origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]

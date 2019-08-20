@@ -7,6 +7,7 @@ from getpass import getpass
 from pathlib import Path
 
 import click
+import securesystemslib
 
 import taf.settings
 from taf.exceptions import PINMissmatchError
@@ -85,38 +86,6 @@ def get_pin_for(name, confirm=True, repeat=True):
   return pin
 
 
-def get_yubikey_pin_for_keyid(expected_keyids, key_slot=(2,), holders_name=' '):
-  from taf.repository_tool import get_yubikey_public_key
-  from oll_sc.api import sc_is_present
-  from oll_sc.exceptions import SmartCardError
-
-  if isinstance(expected_keyids, str):
-    expected_keyids = (expected_keyids)
-  if isinstance(key_slot, int) or isinstance(key_slot, str):
-    key_slot = (int(key_slot),)
-
-  while True:
-    try:
-      input("Please insert {}'s yubikey and press ENTER.\n".format(holders_name))
-
-      # TODO: Check inserted Yubikey before asking for a PIN
-
-      if not sc_is_present():
-        continue
-
-      key_pin = get_pin_for(holders_name, confirm=False)
-      inserted_key = get_yubikey_public_key(key_slot, key_pin)
-      if inserted_key['keyid'] not in expected_keyids:
-        print("Please insert appropriate yubikey!")
-        continue
-
-      return key_pin
-
-    except (PINMissmatchError, SmartCardError) as e:
-      print(str(e))
-      continue
-
-
 def run(*command, **kwargs):
   """Run a command and return its output. Call with `debug=True` to print to
   stdout."""
@@ -182,3 +151,97 @@ def to_tuf_datetime_format(start_date, interval):
   datetime_object = start_date + datetime.timedelta(interval)
   datetime_object = datetime_object.replace(microsecond=0)
   return datetime_object.isoformat() + 'Z'
+
+
+def import_rsa_publickey_from_file(filepath, scheme):
+  """
+  <Purpose>
+    Import the RSA key stored in 'filepath'.  The key object returned is in the
+    format 'securesystemslib.formats.RSAKEY_SCHEMA'.  If the RSA PEM in
+    'filepath' contains a private key, it is discarded.
+
+  <Arguments>
+    filepath:
+      <filepath>.pub file, an RSA PEM file.
+    scheme:
+      RSA signature scheme (str)
+
+  <Exceptions>
+    securesystemslib.exceptions.FormatError, if 'filepath' is improperly
+    formatted.
+
+    securesystemslib.exceptions.Error, if a valid RSA key object cannot be
+    generated.  This may be caused by an improperly formatted PEM file.
+
+  <Side Effects>
+    'filepath' is read and its contents extracted.
+
+  <Returns>
+    An RSA key object conformant to 'securesystemslib.formats.RSAKEY_SCHEMA'.
+  """
+  securesystemslib.formats.PATH_SCHEMA.check_match(filepath)
+  securesystemslib.formats.RSA_SCHEME_SCHEMA.check_match(scheme)
+
+  # Read the contents of the key file that should be in PEM format and contains
+  # the public portion of the RSA key.
+  with open(filepath, 'rb') as file_object:
+    rsa_pubkey_pem = file_object.read().decode('utf-8')
+
+  # Convert 'rsa_pubkey_pem' to 'securesystemslib.formats.RSAKEY_SCHEMA' format.
+  try:
+    rsakey_dict = securesystemslib.keys.import_rsakey_from_public_pem(rsa_pubkey_pem,
+                                                                      scheme)
+
+  except securesystemslib.exceptions.FormatError as e:
+    raise securesystemslib.exceptions.Error('Cannot import improperly formatted'
+                                            ' PEM file.' + repr(str(e)))
+
+  return rsakey_dict
+
+
+def import_rsa_privatekey_from_file(filepath, scheme, password=None):
+  """
+  <Purpose>
+    Import the encrypted PEM file in 'filepath', decrypt it, and return the key
+    object in 'securesystemslib.RSAKEY_SCHEMA' format.
+
+  <Arguments>
+    filepath:
+      <filepath> file, an RSA encrypted PEM file.  Unlike the public RSA PEM
+      key file, 'filepath' does not have an extension.
+
+    scheme:
+      RSA signature scheme (str)
+
+    password:
+      The passphrase to decrypt 'filepath'.
+
+  <Exceptions>
+    securesystemslib.exceptions.FormatError, if the arguments are improperly
+    formatted.
+
+    securesystemslib.exceptions.CryptoError, if 'filepath' is not a valid
+    encrypted key file.
+
+  <Side Effects>
+    The contents of 'filepath' is read, decrypted, and the key stored.
+
+  <Returns>
+    An RSA key object, conformant to 'securesystemslib.RSAKEY_SCHEMA'.
+  """
+  securesystemslib.formats.PATH_SCHEMA.check_match(filepath)
+  securesystemslib.formats.RSA_SCHEME_SCHEMA.check_match(scheme)
+
+  try:
+    private_key = securesystemslib.interface.import_rsa_privatekey_from_file(
+        filepath, password, scheme)
+
+  except securesystemslib.exceptions.CryptoError:
+    if password is None:
+      private_key = securesystemslib.interface.import_rsa_privatekey_from_file(
+          filepath, password, prompt=True)
+
+    else:
+      raise
+
+  return private_key

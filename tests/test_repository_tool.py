@@ -1,7 +1,6 @@
 import datetime
 from pathlib import Path
 
-import oll_sc.exceptions
 import pytest
 import securesystemslib
 import tuf
@@ -9,26 +8,26 @@ import tuf
 import taf.exceptions
 from taf.utils import to_tuf_datetime_format
 
+from . import TEST_WITH_REAL_YK
 
-def test_check_no_key_inserted_for_targets_should_raise_error(taf_happy_path):
-  with pytest.raises(oll_sc.exceptions.SmartCardNotPresentError):
-    taf_happy_path.is_valid_metadata_yubikey('targets', (1,), '123456')
+
+@pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
+def test_check_no_key_inserted_for_targets_should_raise_error(taf_happy_path, targets_yk):
+  targets_yk.insert()
+  targets_yk.remove()
+  with pytest.raises(taf.exceptions.YubikeyError):
+    taf_happy_path.is_valid_metadata_yubikey('targets')
 
 
 def test_check_targets_key_id_for_targets_should_return_true(taf_happy_path, targets_yk):
+  from tuf.keydb import _keydb_dict
   targets_yk.insert()
-  assert taf_happy_path.is_valid_metadata_yubikey('targets', (1,), '123456')
-
-
-def test_check_targets_key_id_for_targets_with_wrong_pin_should_raise_error(taf_happy_path, targets_yk):
-  with pytest.raises(oll_sc.exceptions.SmartCardWrongPinError):
-    targets_yk.insert()
-    taf_happy_path.is_valid_metadata_yubikey('targets', (1,), 'wrong pin')
+  assert taf_happy_path.is_valid_metadata_yubikey('targets', targets_yk.tuf_key)
 
 
 def test_check_root_key_id_for_targets_should_return_false(taf_happy_path, root1_yk):
   root1_yk.insert()
-  assert not taf_happy_path.is_valid_metadata_yubikey('targets', (1,), '123456')
+  assert not taf_happy_path.is_valid_metadata_yubikey('targets', root1_yk.tuf_key)
 
 
 def test_update_snapshot_and_timestmap(taf_happy_path, snapshot_key, timestamp_key):
@@ -144,7 +143,9 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
   }
 
   targets_yk.insert()
-  taf_happy_path.update_targets((1, ), '123456', targets_data, datetime.datetime.now())
+  taf_happy_path.update_targets('123456', targets_data,
+                                datetime.datetime.now(),
+                                public_key=targets_yk.tuf_key)
 
   assert (targets_path / 'branch').read_text() == branch_id
   assert target_commit_sha in (targets_path / 'dummy/target_dummy_repo').read_text()
@@ -155,10 +156,11 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
 def test_update_targets_valid_key_wrong_pin(taf_happy_path, targets_yk):
   with pytest.raises(taf.exceptions.TargetsMetadataUpdateError):
     targets_yk.insert()
-    taf_happy_path.update_targets((1, ), '123')
+    taf_happy_path.update_targets('123', public_key=targets_yk.tuf_key)
 
 
+@pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
 def test_update_targets_wrong_key(taf_happy_path, root1_yk):
   with pytest.raises(taf.exceptions.InvalidKeyError):
     root1_yk.insert()
-    taf_happy_path.update_targets((1, ), '123456')
+    taf_happy_path.update_targets('123456')
