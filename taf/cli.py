@@ -1,8 +1,10 @@
 import datetime
+from pathlib import Path
 
 import click
 
 import taf.developer_tool as developer_tool
+import taf.yubikey as yk
 from taf.updater.updater import update_named_repository, update_repository
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 from taf.yubikey import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -155,6 +157,22 @@ def update(url, clients_dir, targets_dir, from_fs):
               'repository from the filesystem')
 def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
   update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs)
+
+
+@cli.command()
+def setup_test_yubikey():
+  targets_key_path = Path(__file__).parent.parent / "tests" / "data" / "keystore" / "targets"
+  targets_key_pem = targets_key_path.read_bytes()
+
+  click.echo("\nImporting RSA private key from {} to Yubikey..."
+             .format(targets_key_path))
+
+  pin = '123456'
+  pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=targets_key_pem)
+
+  click.echo("\nPrivate key successfully imported.\n")
+  click.echo("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
+  click.echo("Pin: {}\n".format(pin))
 
 
 cli()

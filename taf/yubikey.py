@@ -2,7 +2,9 @@ import datetime
 from contextlib import contextmanager
 from functools import wraps
 
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from tuf.repository_tool import import_rsakey_from_pem
 from ykman.descriptor import list_devices, open_device
 from ykman.piv import (ALGO, DEFAULT_MANAGEMENT_KEY, PIN_POLICY, SLOT,
@@ -210,11 +212,12 @@ def sign_piv_rsa_pkcs1v15(data, pin, key_id=None):
 
 
 @raise_yubikey_err("Cannot setup Yubikey.")
-def setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_random_management_key()):
+def setup(pin, cert_cn, cert_exp_days=365, pin_retries=10,
+          private_key_pem=None, mgm_key=generate_random_management_key()):
   """Use to setup inserted Yubikey, with following steps (order is important):
       - reset to factory settings
       - set management key
-      - generate key(RSA2048)
+      - generate key(RSA2048) or import given one
       - generate and import self-signed certificate(X509)
       - set pin retries
       - set pin
@@ -224,6 +227,8 @@ def setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_rand
     - cert_cn(str): x509 common name
     - cert_exp_days(int): x509 expiration (in days from now)
     - pin_retries(int): Number of retries for PIN
+    - private_key_pem(str): Private key in PEM format. If given, it will be
+                            imported to Yubikey.
     - mgm_key(bytes): New management key
 
   Returns:
@@ -240,7 +245,12 @@ def setup(pin, cert_cn, cert_exp_days=365, pin_retries=10, mgm_key=generate_rand
     ctrl.set_mgm_key(mgm_key)
 
     # Generate RSA2048
-    pub_key = ctrl.generate_key(SLOT.SIGNATURE, ALGO.RSA2048, PIN_POLICY.ALWAYS)
+    if private_key_pem is None:
+      pub_key = ctrl.generate_key(SLOT.SIGNATURE, ALGO.RSA2048, PIN_POLICY.ALWAYS)
+    else:
+      private_key = load_pem_private_key(private_key_pem, None, default_backend())
+      ctrl.import_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
+      pub_key = private_key.public_key()
 
     ctrl.authenticate(mgm_key)
     ctrl.verify(DEFAULT_PIN)
