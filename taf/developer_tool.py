@@ -435,7 +435,7 @@ def _role_obj(role, repository):
 def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
   def _check_key_id(expected_key_id):
     try:
-      inserted_key = yk.get_piv_public_key_taf()
+      inserted_key = yk.get_piv_public_key_tuf()
       return expected_key_id == inserted_key['keyid']
     except Exception:
       return False

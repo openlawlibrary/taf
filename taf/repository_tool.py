@@ -96,6 +96,20 @@ def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W
 
 
 def root_signature_provider(signature_dict, key_id, _key, _data):
+  """Root signature provider used to return signatures created remotely.
+
+  Args:
+    - signature_dict(dict): Dict where key is key_id and value is signature
+    - key_id(str): Key id from targets metadata file
+    - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
+    - _data(dict): Data to sign (already signed remotely)
+
+  Returns:
+    Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
+
+  Raises:
+    - KeyError: If signature for key_id is not present in signature_dict
+  """
   from binascii import hexlify
 
   return {
@@ -408,7 +422,7 @@ class Repository:
     securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
     if public_key is None:
-      public_key = yk.get_piv_public_key_taf()
+      public_key = yk.get_piv_public_key_tuf()
 
     return self.is_valid_metadata_key(role, public_key)
 
@@ -624,7 +638,7 @@ class Repository:
     """
     try:
       if public_key is None:
-        public_key = yk.get_piv_public_key_taf()
+        public_key = yk.get_piv_public_key_tuf()
 
       if not self.is_valid_metadata_yubikey('targets', public_key):
         raise InvalidKeyError('targets')

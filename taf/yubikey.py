@@ -28,8 +28,10 @@ def raise_yubikey_err(msg=None):
     def decorator(*args, **kwargs):
       try:
         return f(*args, **kwargs)
+      except YubikeyError:
+        raise
       except Exception as e:
-        err_msg = '{} Reason: {}'.format(msg, str(e)) if msg else str(e)
+        err_msg = '{} Reason: ({}) {}'.format(msg, type(e).__name__, str(e)) if msg else str(e)
         raise YubikeyError(err_msg) from e
     return decorator
   return wrapper
@@ -169,7 +171,7 @@ def export_piv_pub_key(key_id=None, pub_key_format=serialization.Encoding.PEM):
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_taf(key_id=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def get_piv_public_key_tuf(key_id=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
   """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
   Args:
