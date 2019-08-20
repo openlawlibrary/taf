@@ -103,7 +103,7 @@ def build_auth_repo(repo_path, targets_directory, namespace, targets_relative_di
                                 commit_msg='Updated {}'.format(target_repo_name))
 
 
-def create_repository(repo_path, keystore, roles_key_infos, commit_message=None):
+def create_repository(repo_path, keystore, roles_key_infos, commit_message=None, test=False):
   """
   <Purpose>
     Create a new authentication repository. Generate initial metadata files.
@@ -119,6 +119,8 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
       A dictionary whose keys are role names, while values contain information about the keys.
     commit_message:
       If provided, the changes will be committed automatically using the specified message
+    test:
+      Indicates if the created repository is a test authentication repository
   """
   yubikeys = defaultdict(dict)
   roles_key_infos = _read_input_dict(roles_key_infos)
@@ -208,6 +210,14 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None)
           public_key = private_key = key
         role_obj.add_verification_key(public_key)
         role_obj.load_signing_key(private_key)
+
+  # if the repository is a test repository, add a target file called test-auth-repo
+  if test:
+    target_paths = Path(repo_path) / 'targets'
+    test_auth_file = target_paths / 'test-auth-repo'
+    test_auth_file.touch()
+    targets_obj = _role_obj('targets', repository)
+    targets_obj.add_target(str(test_auth_file))
 
   repository.writeall()
   if commit_message is not None and len(commit_message):
@@ -312,7 +322,7 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
               keystore, roles_key_infos, targets_key_slot=2,
-              repos_custom=None, commit=None):
+              repos_custom=None, commit=None, test=False):
   """
   <Purpose>
     Generate initial repository:
@@ -339,14 +349,18 @@ def init_repo(repo_path, targets_directory, namespace, targets_relative_dir,
       Slot with key on a smart card used for signing
     commit_message:
       If provided, the changes will be committed automatically using the specified message
+    test:
+      Indicates if the created repository is a test authentication repository
   """
   # read the key infos here, no need to read the file multiple times
   roles_key_infos = _read_input_dict(roles_key_infos)
-  create_repository(repo_path, keystore, roles_key_infos, "Initial metadata")
+  commit_msg = 'Initial commit' if commit else None
+  create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
   add_target_repos(repo_path, targets_directory, namespace)
   generate_repositories_json(repo_path, targets_directory, namespace,
                              targets_relative_dir, repos_custom)
-  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot, commit_msg=commit)
+  commit_msg = 'Added targets' if commit else None
+  register_target_files(repo_path, keystore, roles_key_infos, targets_key_slot, commit_msg=commit_msg)
 
 
 def _load_role_key_from_keys_dict(role, roles_key_infos):

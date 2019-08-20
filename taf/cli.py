@@ -71,8 +71,10 @@ def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore
               'keys or a path to a json file which which stores the needed information')
 @click.option('--commit-msg', default=None, help='Commit message. If provided, the '
               'changes will be committed automatically')
-def create_repo(repo_path, keystore, keys_description, commit_msg):
-  developer_tool.create_repository(repo_path, keystore, keys_description, commit_msg)
+@click.option('--test', is_flag=True, default=False, help='Indicates if the created repository '
+              'is a test authentication repository')
+def create_repo(repo_path, keystore, keys_description, commit_msg, test):
+  developer_tool.create_repository(repo_path, keystore, keys_description, commit_msg, test)
 
 
 @cli.command()
@@ -96,10 +98,12 @@ def generate_keys(keystore, keys_description):
 @click.option('--custom', default=None, help='A dictionary containing custom '
               'targets info which will be included in repositories.json')
 @click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
+@click.option('--test', is_flag=True, default=False, help='Indicates if the created repository '
+              'is a test authentication repository')
 def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-              keys_description, custom, commit):
+              keys_description, custom, commit, test):
   developer_tool.init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                           keys_description, repos_custom=custom, commit=commit)
+                           keys_description, repos_custom=custom, commit=commit, test=test)
 
 
 @cli.command()
