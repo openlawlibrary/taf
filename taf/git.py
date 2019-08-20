@@ -37,6 +37,14 @@ class GitRepository(object):
     self.additional_info = additional_info
     self.repo_name = os.path.basename(self.repo_path)
 
+  _remotes = None
+
+  @property
+  def remotes(self):
+    if self._remotes is None:
+      self._remotes = self._git('remote').split('\n')
+    return self._remotes
+
   @property
   def is_git_repository_root(self):
     """Check if path is git repository."""
@@ -50,6 +58,12 @@ class GitRepository(object):
       return True
     except subprocess.CalledProcessError:
       return False
+
+  def is_remote_branch(self, branch_name):
+    for remote in self.remotes:
+      if branch_name.startswith(remote + '/'):
+        return True
+    return False
 
   def _git(self, cmd, *args, **kwargs):
     """Call git commands in subprocess
@@ -110,6 +124,13 @@ class GitRepository(object):
       commits.reverse()
     logger.debug('Repo %s: fetched the following commits %s', self.repo_name, ', '.join(commits))
     return commits
+
+
+  def branch_local_name(self, remote_branch_name):
+    """Strip remote from the given remote branch"""
+    for remote in self.remotes:
+      if remote_branch_name.startswith(remote + '/'):
+        return remote_branch_name.split('/', 1)[1]
 
   def checkout_branch(self, branch_name, create=False):
     """Check out the specified branch. If it does not exists and
