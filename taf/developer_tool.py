@@ -443,7 +443,7 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
   while not _check_key_id(key_id):
     pass
 
-  data = securesystemslib.formats.encode_canonical(data)
+  data = securesystemslib.formats.encode_canonical(data).encode('utf-8')
   key_pin = getpass("Please insert {} YubiKey, input PIN and press ENTER.\n"
                     .format(cert_cn))
   signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)

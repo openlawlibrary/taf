@@ -8,7 +8,10 @@ import tuf
 import taf.exceptions
 from taf.utils import to_tuf_datetime_format
 
+from . import TEST_WITH_REAL_YK
 
+
+@pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
 def test_check_no_key_inserted_for_targets_should_raise_error(taf_happy_path, targets_yk):
   targets_yk.insert()
   targets_yk.remove()
@@ -156,6 +159,7 @@ def test_update_targets_valid_key_wrong_pin(taf_happy_path, targets_yk):
     taf_happy_path.update_targets('123', public_key=targets_yk.tuf_key)
 
 
+@pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
 def test_update_targets_wrong_key(taf_happy_path, root1_yk):
   with pytest.raises(taf.exceptions.InvalidKeyError):
     root1_yk.insert()

@@ -167,7 +167,7 @@ def setup_test_yubikey():
   click.echo("\nImporting RSA private key from {} to Yubikey..."
              .format(targets_key_path))
 
-  pin = '123456'
+  pin = yk.DEFAULT_PIN
   pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=targets_key_pem)
 
   click.echo("\nPrivate key successfully imported.\n")

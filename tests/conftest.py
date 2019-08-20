@@ -11,6 +11,7 @@ from taf.repository_tool import Repository
 from taf.utils import (import_rsa_privatekey_from_file,
                        import_rsa_publickey_from_file, on_rm_error)
 
+from . import TEST_WITH_REAL_YK
 from .yubikey_utils import (Root1YubiKey, Root2YubiKey, Root3YubiKey,
                             TargetYubiKey, _yk_piv_ctrl_mock)
 
@@ -23,14 +24,15 @@ CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / 'client'
 
 
 def pytest_configure(config):
-  taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
+  if not TEST_WITH_REAL_YK:
+    taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
 
 
 def pytest_generate_tests(metafunc):
   if "taf_happy_path" in metafunc.fixturenames:
-    metafunc.parametrize("taf_happy_path",
-                         ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"],
-                         indirect=True)
+    # When running tests with real yubikey, use just rsa-pkcs1v15-sha256 scheme
+    schemes = ["rsa-pkcs1v15-sha256"] if TEST_WITH_REAL_YK else ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"]
+    metafunc.parametrize("taf_happy_path", schemes, indirect=True)
 
 
 @contextmanager

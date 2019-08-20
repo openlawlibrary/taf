@@ -86,7 +86,7 @@ def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W
   """
   from binascii import hexlify
 
-  data = securesystemslib.formats.encode_canonical(data)
+  data = securesystemslib.formats.encode_canonical(data).encode('utf-8')
   signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
   return {
