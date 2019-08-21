@@ -11,6 +11,18 @@ URL = 'https://github.com/openlawlibrary/taf/tree/master'
 with open('README.md', encoding='utf-8') as file_object:
   long_description = file_object.read()
 
+# Create platform specific wheel
+# https://stackoverflow.com/a/45150383/9669050
+try:
+  from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+  class bdist_wheel(_bdist_wheel):
+    def finalize_options(self):
+      _bdist_wheel.finalize_options(self)
+      self.root_is_pure = False
+except ImportError:
+  bdist_wheel = None
+
 packages = find_packages()
 
 ci_require = [
@@ -42,6 +54,7 @@ setup(
     keywords=KEYWORDS,
     packages=packages,
     include_package_data=True,
+    cmdclass={'bdist_wheel': bdist_wheel},
     data_files=[
         ('lib/site-packages/taf', [
             './LICENSE.txt',

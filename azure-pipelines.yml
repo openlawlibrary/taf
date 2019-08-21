@@ -1,0 +1,70 @@
+strategy:
+  matrix:
+    linux-ubuntu-16-04:
+      imageName: 'ubuntu-16.04'
+    macOS:
+      imageName: 'macOS-10.14'
+    windows-64bit:
+      imageName: 'vs2017-win2016'
+      platform: x64
+    windows-32bit:
+      imageName: 'vs2017-win2016'
+      platform: x86
+pool:
+  vmImage: $(imageName)
+
+trigger:
+- master
+
+pr:
+- master
+
+steps:
+# Set python version - 64bit python 3.6
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.6'
+  condition: not(and(eq( variables['Agent.OS'], 'Windows_NT' ), eq( variables['platform'], 'x86' )))
+# Set python version - 32bit python 3.6
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.6'
+    architecture: x86
+  condition: and(eq( variables['Agent.OS'], 'Windows_NT' ), eq( variables['platform'], 'x86' ))
+# Linux dependencies
+- bash: |
+    sudo apt-add-repository -y ppa:yubico/stable
+    sudo apt-get update
+    sudo apt-get install -qq libykpers-1-1 python-pyscard swig libpcsclite-dev
+    pip install --disable-pip-version-check --upgrade pip
+  condition: eq( variables['Agent.OS'], 'Linux' )
+  displayName: Install build dependencies [Linux]
+# macOS dependencies
+- bash: |
+    brew update
+    brew install ykpers libyubikey libusb swig openssl
+  condition: eq( variables['Agent.OS'], 'Darwin' )
+  displayName: Install build dependencies [macOS]
+# Windows dependencies
+- powershell: |
+    choco install swig -y
+    choco update swig
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: Install build dependencies [Windows]
+
+- script: python -m pip install --upgrade pip setuptools wheel
+  displayName: 'Install tools'
+
+- script: python setup.py sdist bdist_wheel clean --all
+  displayName: 'Build TAF'
+
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: dist
+    contents: '*'
+    targetFolder: $(Build.ArtifactStagingDirectory)
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: $(Build.ArtifactStagingDirectory)
+    artifactName: wheels
