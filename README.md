@@ -38,3 +38,10 @@ To run tests with real Yubikey:
 2. Run `taf setup_test_yubikey`
    WARNING: This command will import targets private key to signature slot of your Yubikey, as well as new self-signed x509 certificate!
 3. Run `REAL_YK=True pytest` or `set REAL_YK=True pytest` depending on platform.
+
+## Platform-specific Wheels
+
+1. Open https://dev.azure.com/openlawlibrary/TAF/_build
+2. Click on latest build
+3. Open *Summary* tab
+4. Under *Build artifacts published*, click on *wheels to download zip
