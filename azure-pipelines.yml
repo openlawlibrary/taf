@@ -1,3 +1,14 @@
+trigger:
+  branches:
+    include:
+    - master
+  tags:
+    include:
+    - v*
+
+pr:
+- master
+
 strategy:
   matrix:
     linux-ubuntu-16-04:
@@ -13,43 +24,37 @@ strategy:
 pool:
   vmImage: $(imageName)
 
-trigger:
-- master
-
-pr:
-- master
-
 steps:
 # Set python version - 64bit python 3.6
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.6'
-  condition: not(and(eq( variables['Agent.OS'], 'Windows_NT' ), eq( variables['platform'], 'x86' )))
+  condition: not(and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86')))
 # Set python version - 32bit python 3.6
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.6'
     architecture: x86
-  condition: and(eq( variables['Agent.OS'], 'Windows_NT' ), eq( variables['platform'], 'x86' ))
+  condition: and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86'))
 # Linux dependencies
 - bash: |
     sudo apt-add-repository -y ppa:yubico/stable
     sudo apt-get update
     sudo apt-get install -qq libykpers-1-1 python-pyscard swig libpcsclite-dev
     pip install --disable-pip-version-check --upgrade pip
-  condition: eq( variables['Agent.OS'], 'Linux' )
+  condition: eq( variables['Agent.OS'], 'Linux')
   displayName: Install build dependencies [Linux]
 # macOS dependencies
 - bash: |
     brew update
     brew install ykpers libyubikey libusb swig openssl
-  condition: eq( variables['Agent.OS'], 'Darwin' )
+  condition: eq( variables['Agent.OS'], 'Darwin')
   displayName: Install build dependencies [macOS]
 # Windows dependencies
 - powershell: |
     choco install swig -y
     choco update swig
-  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  condition: eq( variables['Agent.OS'], 'Windows_NT')
   displayName: Install build dependencies [Windows]
 
 - script: python -m pip install --upgrade pip setuptools wheel
@@ -68,3 +73,13 @@ steps:
   inputs:
     pathToPublish: $(Build.ArtifactStagingDirectory)
     artifactName: wheels
+
+- bash: |
+    python -m pip install twine
+    twine check dist/*
+    twine upload --skip-existing dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
+  env:
+    PYPI_USERNAME: $(pypiUsername)
+    PYPI_PASSWORD: $(pypiPassword)
+  # condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
+  displayName: 'Upload wheels'

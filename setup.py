@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = 'taf'
-VERSION = '0.1.5'
+VERSION = '0.1.5.test'
 AUTHOR = 'Open Law Library'
 AUTHOR_EMAIL = 'info@openlawlib.org'
 DESCRIPTION = 'Implementation of archival authentication'
@@ -10,6 +10,7 @@ URL = 'https://github.com/openlawlibrary/taf/tree/master'
 
 with open('README.md', encoding='utf-8') as file_object:
   long_description = file_object.read()
+
 
 # Create platform specific wheel
 # https://stackoverflow.com/a/45150383/9669050
