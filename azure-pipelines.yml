@@ -81,5 +81,5 @@ steps:
   env:
     PYPI_USERNAME: $(pypiUsername)
     PYPI_PASSWORD: $(pypiPassword)
-  # condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/v')
+  # condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/v') # UNCOMMENT
   displayName: 'Upload wheels'
