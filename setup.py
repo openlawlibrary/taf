@@ -1,7 +1,5 @@
 from setuptools import find_packages, setup
 
-from package import Package
-
 PACKAGE_NAME = 'taf'
 VERSION = '0.1.5.dev000'  # CHANGE
 AUTHOR = 'Open Law Library'
@@ -44,7 +42,6 @@ setup(
     keywords=KEYWORDS,
     packages=packages,
     include_package_data=True,
-    cmdclass={"package": Package},
     data_files=[
         ('lib/site-packages/taf', [
             './LICENSE.txt',
