@@ -1,3 +1,4 @@
+# TRIGGERS
 trigger:
   branches:
     include:
@@ -9,21 +10,28 @@ trigger:
 pr:
 - master
 
+# PLATFORMS
 strategy:
   matrix:
-    linux-ubuntu-16-04:
-      imageName: 'ubuntu-16.04'
+    # linux-ubuntu-16-04:
+    #   imageName: 'ubuntu-16.04'
     macOS:
       imageName: 'macOS-10.14'
-    windows-64bit:
-      imageName: 'vs2017-win2016'
-      platform: x64
-    windows-32bit:
-      imageName: 'vs2017-win2016'
-      platform: x86
+    # windows-64bit:
+    #   imageName: 'vs2017-win2016'
+    #   platform: x64
+    # windows-32bit:
+    #   imageName: 'vs2017-win2016'
+    #   platform: x86
 pool:
   vmImage: $(imageName)
 
+# VARIABLES
+# variables:
+#   YKPERS_VERSION: '1.20.0'
+#   YKPERS_BASEURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
+
+# BUILD STEPS
 steps:
 # Set python version - 64bit python 3.6
 - task: UsePythonVersion@0
@@ -36,26 +44,29 @@ steps:
     versionSpec: '3.6'
     architecture: x86
   condition: and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86'))
-# Linux dependencies
+# Linux setup
 - bash: |
     sudo apt-add-repository -y ppa:yubico/stable
     sudo apt-get update
     sudo apt-get install -qq libykpers-1-1 python-pyscard swig libpcsclite-dev
     pip install --disable-pip-version-check --upgrade pip
   condition: eq( variables['Agent.OS'], 'Linux')
-  displayName: Install build dependencies [Linux]
-# macOS dependencies
+  displayName: Linux setup
+# macOS setup
 - bash: |
     brew update
     brew install ykpers libyubikey libusb swig openssl
+
+    find /usr/local/Cellar/libusb/ -name '*.dylib' -exec cp '{}' ext_libs/libusb ';'
+    find /usr/local/Cellar/ykpers/ -name '*.dylib' -exec cp '{}' ext_libs/ykpers ';'
   condition: eq( variables['Agent.OS'], 'Darwin')
-  displayName: Install build dependencies [macOS]
-# Windows dependencies
+  displayName: macOS setup
+# Windows setup
 - powershell: |
     choco install swig -y
     choco update swig
   condition: eq( variables['Agent.OS'], 'Windows_NT')
-  displayName: Install build dependencies [Windows]
+  displayName: Windows setup
 
 - script: python -m pip install --upgrade pip setuptools wheel
   displayName: 'Install tools'
