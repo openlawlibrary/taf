@@ -17,14 +17,15 @@ strategy:
     #   imageName: 'ubuntu-16.04'
     macOS:
       imageName: 'macOS-10.14'
+      platformAlias: 'mac'
     windows-64bit:
       imageName: 'vs2017-win2016'
       platform: x64
-      winArch: 'win64'
+      platformAlias: 'win64'
     windows-32bit:
       imageName: 'vs2017-win2016'
       platform: x86
-      winArch: 'win32'
+      platformAlias: 'win32'
 pool:
   vmImage: $(imageName)
 
@@ -59,31 +60,26 @@ steps:
 - bash: |
     brew update
     brew install ykpers libyubikey libusb swig openssl
-
-    mkdir yk
-    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion)-mac.zip -O - | tar -xz -C ./yk
-    find ./yk/lib -name '*.dylib' -exec cp '{}' taf/libs ';'
-    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
-    rm -rf yk
-
-    install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
-    install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
   condition: eq( variables['Agent.OS'], 'Darwin')
   displayName: macOS setup
 # Windows setup
 - powershell: |
     choco install swig -y
     choco update swig
-
-    wget $(ykpersBaseURL)/ykpers-$(ykpersVersion)-$(winArch).zip -OutFile ykpers_zip.zip
-    7z x ykpers_zip.zip -o yk
-    Copy-Item ".\yk\bin\*.dll" ".\taf\libs" -Force -verbose
-
-    Invoke-WebRequest http://prdownloads.sourceforge.net/libusb/libusb-$(libusbVersion).7z -OutFile libusb_zip.7z -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
-    7z x libusb_zip.7z -o libusb
-    Copy-Item ".\libusb\libusb\dll\*.dll" ".\taf\libs" -Force -verbose
   condition: eq( variables['Agent.OS'], 'Windows_NT')
   displayName: Windows setup
+
+- bash: |
+    mkdir yk
+    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion)-$(platformAlias).zip -O - | tar -xz -C ./yk
+    find ./yk/lib -name '*.dylib' -exec cp '{}' taf/libs ';'
+    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
+    rm -rf yk
+
+    install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
+    install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
+  displayName: Download and copy platform dynamic libraries
+  condition: not(eq( variables['Agent.OS'], 'Linux'))
 
 - script: python -m pip install --upgrade pip setuptools wheel
   displayName: 'Install tools'
