@@ -17,12 +17,14 @@ strategy:
     #   imageName: 'ubuntu-16.04'
     macOS:
       imageName: 'macOS-10.14'
-    # windows-64bit:
-    #   imageName: 'vs2017-win2016'
-    #   platform: x64
-    # windows-32bit:
-    #   imageName: 'vs2017-win2016'
-    #   platform: x86
+    windows-64bit:
+      imageName: 'vs2017-win2016'
+      platform: x64
+      winArch: 'win64'
+    windows-32bit:
+      imageName: 'vs2017-win2016'
+      platform: x86
+      winArch: 'win32'
 pool:
   vmImage: $(imageName)
 
@@ -30,6 +32,7 @@ pool:
 variables:
   ykpersBaseURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
   ykpersVersion: '1.20.0'
+  libusbVersion: '1.0.22'
 
 # BUILD STEPS
 steps:
@@ -71,6 +74,14 @@ steps:
 - powershell: |
     choco install swig -y
     choco update swig
+
+    wget $(ykpersBaseURL)/ykpers-$(ykpersVersion)-$(winArch).zip -OutFile ykpers_zip.zip
+    7z x ykpers_zip.zip -o yk
+    Copy-Item ".\yk\bin\*.dll" ".\taf\libs" -Force -verbose
+
+    Invoke-WebRequest http://prdownloads.sourceforge.net/libusb/libusb-$(libusbVersion).7z -OutFile libusb_zip.7z -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+    7z x libusb_zip.7z -o libusb
+    Copy-Item ".\libusb\libusb\dll\*.dll" ".\taf\libs" -Force -verbose
   condition: eq( variables['Agent.OS'], 'Windows_NT')
   displayName: Windows setup
 
