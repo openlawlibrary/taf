@@ -57,6 +57,7 @@ steps:
     brew update
     brew install ykpers libyubikey libusb swig openssl
 
+    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' ext_libs/json-c ';'
     find /usr/local/Cellar/libusb/ -name '*.dylib' -exec cp '{}' ext_libs/libusb ';'
     find /usr/local/Cellar/ykpers/ -name '*.dylib' -exec cp '{}' ext_libs/ykpers ';'
   condition: eq( variables['Agent.OS'], 'Darwin')
@@ -85,12 +86,12 @@ steps:
     pathToPublish: $(Build.ArtifactStagingDirectory)
     artifactName: wheels
 
-- bash: |
-    python -m pip install twine
-    twine check dist/*
-    twine upload --skip-existing dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
-  env:
-    PYPI_USERNAME: $(pypiUsername)
-    PYPI_PASSWORD: $(pypiPassword)
-  # condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/v') # UNCOMMENT
-  displayName: 'Upload wheels'
+# - bash: |
+#     python -m pip install twine
+#     twine check dist/*
+#     twine upload --skip-existing dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
+#   env:
+#     PYPI_USERNAME: $(pypiUsername)
+#     PYPI_PASSWORD: $(pypiPassword)
+#   # condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/v') # UNCOMMENT
+#   displayName: 'Upload wheels'
