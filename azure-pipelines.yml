@@ -27,9 +27,9 @@ pool:
   vmImage: $(imageName)
 
 # VARIABLES
-# variables:
-#   YKPERS_VERSION: '1.20.0'
-#   YKPERS_BASEURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
+variables:
+  ykpersBaseURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
+  ykpersVersion: '1.20.0'
 
 # BUILD STEPS
 steps:
@@ -57,9 +57,11 @@ steps:
     brew update
     brew install ykpers libyubikey libusb swig openssl
 
-    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' ext_libs/json-c ';'
-    find /usr/local/Cellar/libusb/ -name '*.dylib' -exec cp '{}' ext_libs/libusb ';'
-    find /usr/local/Cellar/ykpers/ -name '*.dylib' -exec cp '{}' ext_libs/ykpers ';'
+    mkdir yk
+    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion).zip -O - | tar -xz -C ./yk
+    find ./yk/lib -name '*.dylib' -exec cp '{}' platform-libs ';'
+    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' platform-libs ';'
+    rm -rf yk
   condition: eq( variables['Agent.OS'], 'Darwin')
   displayName: macOS setup
 # Windows setup

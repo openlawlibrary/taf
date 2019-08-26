@@ -4,9 +4,7 @@ from pathlib import Path
 
 _PLATFORM = sys.platform
 
-_EXT_LIBS = Path(__file__).parent.parent / 'ext_libs'
-_YKPERS_PATH = str((_EXT_LIBS / 'ykpers').resolve())
-_LIB_USB_PATH = str((_EXT_LIBS / 'libusb').resolve())
+_PLATFORM_LIBS = str((Path(__file__).parent.parent / 'platform-libs').resolve())
 
 
 def _set_env(env_name, path):
@@ -17,14 +15,11 @@ def _set_env(env_name, path):
 
 
 if _PLATFORM == 'darwin':
-  _set_env('DYLD_LIBRARY_PATH', _YKPERS_PATH)
-  _set_env('DYLD_LIBRARY_PATH', _LIB_USB_PATH)
+  _set_env('DYLD_LIBRARY_PATH', _PLATFORM_LIBS)
 elif _PLATFORM == 'linux':
-  _set_env('LD_LIBRARY_PATH', _YKPERS_PATH)
-  _set_env('LD_LIBRARY_PATH', _LIB_USB_PATH)
+  _set_env('LD_LIBRARY_PATH', _PLATFORM_LIBS)
 elif _PLATFORM == 'win32':
-  _set_env('PATH', _YKPERS_PATH)
-  _set_env('PATH', _LIB_USB_PATH)
+  _set_env('PATH', _PLATFORM_LIBS)
 else:
   raise Exception('Platform "{}" is not supported!'.format(_PLATFORM))
 
