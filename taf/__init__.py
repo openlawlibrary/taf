@@ -4,7 +4,7 @@ from pathlib import Path
 
 _PLATFORM = sys.platform
 
-_PLATFORM_LIBS = str((Path(__file__).parent.parent / 'platform-libs').resolve())
+_PLATFORM_LIBS = str((Path(__file__).parent / 'libs').resolve())
 
 
 def _set_env(env_name, path):

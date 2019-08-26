@@ -15,5 +15,5 @@ prune .git
 prune env
 prune tests*
 
-recursive-include platform-libs *
+recursive-include taf taf/libs *
 recursive-exclude docs *

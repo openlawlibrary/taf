@@ -58,10 +58,13 @@ steps:
     brew install ykpers libyubikey libusb swig openssl
 
     mkdir yk
-    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion).zip -O - | tar -xz -C ./yk
-    find ./yk/lib -name '*.dylib' -exec cp '{}' platform-libs ';'
-    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' platform-libs ';'
+    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion)-mac.zip -O - | tar -xz -C ./yk
+    find ./yk/lib -name '*.dylib' -exec cp '{}' taf/libs ';'
+    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
     rm -rf yk
+
+    install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
+    install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
   condition: eq( variables['Agent.OS'], 'Darwin')
   displayName: macOS setup
 # Windows setup
