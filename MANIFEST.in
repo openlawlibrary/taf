@@ -17,3 +17,4 @@ prune tests*
 
 recursive-include taf taf/libs *
 recursive-exclude docs *
+recursive-exclude tests *

@@ -5,7 +5,7 @@ set -e -x
 yum -y install gcc rpm-build rpm-devel wget glibc swig pcsc-lite-devel
 
 # export PATH=/usr/local/swig/3.0.12/bin/:$PATH
-cd /taf
+cd /io
 ls -l
 
 # Upgrade pip
@@ -20,4 +20,4 @@ for whl in wheelhouse/*.whl; do
 done
 
 # Install packages and test
-/opt/python/cp36-cp36m/bin/python -m pip install taf --no-index -f ./wheelhouse
+# /opt/python/cp36-cp36m/bin/python -m pip install taf --no-index -f ./wheelhouse

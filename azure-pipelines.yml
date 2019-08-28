@@ -13,10 +13,10 @@ pr:
 # PLATFORMS
 strategy:
   matrix:
-    # linux-ubuntu-16-04:
-    #   imageName: 'ubuntu-16.04'
-    # macOS:
-    #   imageName: 'macOS-10.14'
+    linux-ubuntu-16-04:
+      imageName: 'ubuntu-16.04'
+    macOS:
+      imageName: 'macOS-10.14'
     windows-64bit:
       imageName: 'vs2017-win2016'
       platform: x64
