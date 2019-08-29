@@ -11,14 +11,11 @@ from ykman.piv import (ALGO, DEFAULT_MANAGEMENT_KEY, PIN_POLICY, SLOT,
                        PivController, WrongPin, generate_random_management_key)
 from ykman.util import TRANSPORT
 
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import YubikeyError
 
 DEFAULT_PIN = '123456'
 DEFAULT_PUK = '12345678'
-
-# Default scheme for all RSA keys. It can be changed in keys.json while
-# generating repository
-DEFAULT_RSA_SIGNATURE_SCHEME = 'rsa-pkcs1v15-sha256'
 
 
 def raise_yubikey_err(msg=None):
