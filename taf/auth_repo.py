@@ -3,6 +3,7 @@ import os
 import taf.log
 from collections import defaultdict
 from subprocess import CalledProcessError
+from pathlib import Path
 from taf.git import GitRepository, NamedGitRepository
 
 logger = taf.log.get_logger(__name__)
@@ -47,6 +48,17 @@ class AuthRepoMixin(object):
         return f.read()
     except FileNotFoundError:
       return None
+
+
+  def get_target(self, target_name, commit=None, safely=True):
+    if commit is None:
+      commit = self.head_commit_sha()
+    target_path = (Path(self.targets_path) / target_name).as_posix()
+    if safely:
+      return self._safely_get_json(commit, target_path)
+    else:
+      return  self.get_json(commit, target_path)
+
 
   def set_last_validated_commit(self, commit):
     """
@@ -113,6 +125,8 @@ class AuthRepoMixin(object):
     except json.decoder.JSONDecodeError:
       logger.info('Auth repo %s: %s not a valid json at revision %s', self.repo_name,
                   os.path.basename(path), commit)
+
+
 
 
 class AuthenticationRepo(AuthRepoMixin, GitRepository):
