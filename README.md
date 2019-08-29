@@ -24,7 +24,27 @@ Further reading:
 1. [UELMA whitepaper](whitepapers/UELMA-Open-Law-White-Paper.pdf)
 1. [TAF implementation and integration with TUF](docs/TUF/tuf-specification.md)
 
-## RUNNING TESTS
+## Installation Steps
+
+From _PyPI_
+
+```bash
+pip install taf
+```
+
+From source:
+
+```bash
+pip install -e .
+```
+
+Install extra dependencies when using _Yubikey_:
+
+```bash
+pip install taf[yubikey]
+```
+
+## Running Tests
 
 To run tests with mocked Yubikey:
 
@@ -38,3 +58,43 @@ To run tests with real Yubikey:
 2. Run `taf setup_test_yubikey`
    WARNING: This command will import targets private key to signature slot of your Yubikey, as well as new self-signed x509 certificate!
 3. Run `REAL_YK=True pytest` or `set REAL_YK=True pytest` depending on platform.
+
+## Platform-specific Wheels
+
+1. Open https://dev.azure.com/openlawlibrary/TAF/_build
+2. Click on latest build
+3. Open *Summary* tab
+4. Under *Build artifacts published*, click on *wheels to download zip
+
+## Building Wheels on Ubuntu 16.04 and 18.04
+
+**Binary wheels exists only for macOS, windows-32bit and windows-64bit platforms for python 3.6!**
+
+- Install dependencies
+
+```bash
+sudo add-apt-repository ppa:jonathonf/python-3.6
+sudo apt-get update
+sudo apt-get install python3.6
+sudo apt-get install python3.6-venv
+sudo apt-get install python3.6-dev
+sudo apt-get install swig
+sudo apt-get install libpcsclite-dev
+sudo apt-get install libssl-dev
+sudo apt-get install libykpers-1-dev
+```
+
+- Create virtual environment
+
+```bash
+python3.6 -m venv env
+pip install --upgrade pip
+pip install wheel
+pip install taf
+```
+
+- Test CLI
+
+```bash
+taf
+```

@@ -12,7 +12,7 @@ from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
     load_repository)
 
-import taf.yubikey as yk
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
                             RootMetadataUpdateError,
                             SnapshotMetadataUpdateError,
@@ -38,7 +38,7 @@ DISABLE_KEYS_CACHING = False
 
 
 def load_role_key(keystore, role, password=None,
-                  scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
+                  scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
   """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
@@ -84,10 +84,11 @@ def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W
   Raises:
     - YubikeyError: If signing with YubiKey cannot be performed
   """
+  from taf.yubikey import sign_piv_rsa_pkcs1v15
   from binascii import hexlify
 
   data = securesystemslib.formats.encode_canonical(data).encode('utf-8')
-  signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
+  signature = sign_piv_rsa_pkcs1v15(data, key_pin)
 
   return {
       'keyid': key_id,
@@ -422,7 +423,8 @@ class Repository:
     securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
     if public_key is None:
-      public_key = yk.get_piv_public_key_tuf()
+      from taf.yubikey import get_piv_public_key_tuf
+      public_key = get_piv_public_key_tuf()
 
     return self.is_valid_metadata_key(role, public_key)
 
@@ -638,7 +640,8 @@ class Repository:
     """
     try:
       if public_key is None:
-        public_key = yk.get_piv_public_key_tuf()
+        from taf.yubikey import get_piv_public_key_tuf
+        public_key = get_piv_public_key_tuf()
 
       if not self.is_valid_metadata_yubikey('targets', public_key):
         raise InvalidKeyError('targets')

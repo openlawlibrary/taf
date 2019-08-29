@@ -1,0 +1,122 @@
+# TRIGGERS
+trigger:
+  branches:
+    include:
+    - master
+  tags:
+    include:
+    - v*
+
+pr:
+- master
+
+# PLATFORMS
+strategy:
+  matrix:
+    linux-ubuntu-16-04:
+      imageName: 'ubuntu-16.04'
+    macOS:
+      imageName: 'macOS-10.14'
+    windows-64bit:
+      imageName: 'vs2017-win2016'
+      platform: x64
+      winArch: 'win64'
+    windows-32bit:
+      imageName: 'vs2017-win2016'
+      platform: x86
+      winArch: 'win32'
+pool:
+  vmImage: $(imageName)
+
+# VARIABLES
+variables:
+  ykpersBaseURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
+  ykpersVersion: '1.20.0'
+  libusbVersion: '1.0.22'
+
+# BUILD STEPS
+steps:
+# Set python version - 64bit python 3.6
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.6'
+  condition: not(and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86')))
+# Set python version - 32bit python 3.6
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.6'
+    architecture: x86
+  condition: and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86'))
+# Linux setup
+- bash: |
+    sudo apt-add-repository -y ppa:yubico/stable
+    sudo apt-get update
+    sudo apt-get install -qq libykpers-1-1 python-pyscard swig libpcsclite-dev
+    pip install --disable-pip-version-check --upgrade pip
+
+    # TODO: Use patchelf to change dependency paths (similar as install_name_tool for macOS)
+    # this will reduce needed dependencies for TAF to work (when building from source)
+
+    # find /usr/lib/x86_64-linux-gnu/ -name 'libykpers*.so*' -exec cp '{}' taf/libs ';'
+    # find /usr/lib/x86_64-linux-gnu/ -name 'libyubikey*.so*' -exec cp '{}' taf/libs ';'
+    # find /lib/x86_64-linux-gnu/ -name 'libusb*.so*' -exec cp '{}' taf/libs ';'
+    # find /lib/x86_64-linux-gnu/ -name 'libjson-c*.so*' -exec cp '{}' taf/libs ';'
+
+  condition: eq( variables['Agent.OS'], 'Linux')
+  displayName: Linux setup
+# macOS setup
+- bash: |
+    brew update
+    brew install ykpers libyubikey libusb swig openssl
+
+    mkdir yk
+    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion)-mac.zip -O - | tar -xz -C ./yk
+    find ./yk/lib -name '*.dylib' -exec cp '{}' taf/libs ';'
+    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
+    rm -rf yk
+
+    install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
+    install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
+  condition: eq( variables['Agent.OS'], 'Darwin')
+  displayName: macOS setup
+# Windows setup
+- powershell: |
+    choco install swig -y
+    choco upgrade swig
+
+    wget $(ykpersBaseURL)/ykpers-$(ykpersVersion)-$(winArch).zip -OutFile "ykpers-$(ykpersVersion)-$(winArch).zip"
+    7z x ykpers-$(ykpersVersion)-$(winArch).zip -o".\ykpers"
+    Copy-Item ".\ykpers\bin\*.dll" ".\taf\libs" -Force -verbose
+
+    Invoke-WebRequest http://prdownloads.sourceforge.net/libusb/libusb-$(libusbVersion).7z -OutFile libusb_zip.7z -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
+    7z x libusb_zip.7z -o"libusb"
+    Copy-Item ".\libusb\libusb\dll\*.dll" ".\taf\libs" -Force -verbose
+  condition: eq( variables['Agent.OS'], 'Windows_NT')
+  displayName: Windows setup
+
+- script: python -m pip install --upgrade pip setuptools wheel
+  displayName: 'Install tools'
+
+- script: python setup.py sdist bdist_wheel clean --all
+  displayName: 'Build TAF'
+
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: dist
+    contents: '*'
+    targetFolder: $(Build.ArtifactStagingDirectory)
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: $(Build.ArtifactStagingDirectory)
+    artifactName: wheels
+
+- bash: |
+    python -m pip install twine
+    twine check dist/*
+    twine upload --skip-existing dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
+  env:
+    PYPI_USERNAME: $(pypiUsername)
+    PYPI_PASSWORD: $(pypiPassword)
+  condition: and(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), not(eq( variables['Agent.OS'], 'Linux')))
+  displayName: 'Upload wheels'

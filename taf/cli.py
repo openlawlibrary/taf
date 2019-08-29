@@ -4,10 +4,9 @@ from pathlib import Path
 import click
 
 import taf.developer_tool as developer_tool
-import taf.yubikey as yk
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.updater.updater import update_named_repository, update_repository
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
-from taf.yubikey import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 @click.group()
@@ -161,6 +160,8 @@ def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
 
 @cli.command()
 def setup_test_yubikey():
+  import taf.yubikey as yk
+
   targets_key_path = Path(__file__).parent.parent / "tests" / "data" / "keystore" / "targets"
   targets_key_pem = targets_key_path.read_bytes()
 

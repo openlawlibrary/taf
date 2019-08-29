@@ -1,0 +1,20 @@
+recursive-exclude __pycache__  *.pyc *.pyo *.orig
+
+exclude *.js*
+exclude *.git*
+exclude *.coveragerc
+exclude *.sh
+exclude proc*
+exclude pylint*
+
+include requirements*.*
+exclude requirements-dev.*
+include *.py
+
+prune .git
+prune env
+prune tests*
+
+recursive-include taf taf/libs *
+recursive-exclude docs *
+recursive-exclude tests *

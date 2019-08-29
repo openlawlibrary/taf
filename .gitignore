@@ -124,3 +124,7 @@ dmypy.json
 
 # error logs
 *.err
+
+# extenral libs
+*.dylib
+*.dll

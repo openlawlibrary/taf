@@ -17,12 +17,20 @@ from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  generate_and_write_rsa_keypair,
                                  generate_rsa_key, import_rsakey_from_pem)
 
-import taf.yubikey as yk
 from taf.auth_repo import AuthenticationRepo
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.git import GitRepository
+from taf.log import get_logger
 from taf.repository_tool import Repository, load_role_key
 from taf.utils import (get_pin_for, import_rsa_privatekey_from_file,
                        import_rsa_publickey_from_file)
+
+logger = get_logger(__name__)
+
+try:
+  import taf.yubikey as yk
+except ImportError:
+  logger.warning('"yubico-manager" is not installed.')
 
 # Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500
@@ -134,7 +142,7 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None,
     passwords = key_info.get('passwords', [None] * num_of_keys)
     threshold = key_info.get('threshold', 1)
     is_yubikey = key_info.get('yubikey', False)
-    scheme = key_info.get('scheme', yk.DEFAULT_RSA_SIGNATURE_SCHEME)
+    scheme = key_info.get('scheme', DEFAULT_RSA_SIGNATURE_SCHEME)
 
     role_obj = _role_obj(role_name, repository)
     role_obj.threshold = threshold
@@ -390,7 +398,7 @@ def _read_input_dict(value):
 
 
 def register_target_files(repo_path, keystore, roles_key_infos,
-                          commit_msg=None, scheme=yk.DEFAULT_RSA_SIGNATURE_SCHEME):
+                          commit_msg=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
   """
   <Purpose>
     Register all files found in the target directory as targets - updates the targets

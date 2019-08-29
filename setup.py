@@ -13,6 +13,18 @@ with open('README.md', encoding='utf-8') as file_object:
 
 packages = find_packages()
 
+# Create platform specific wheel
+# https://stackoverflow.com/a/45150383/9669050
+try:
+  from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+  class bdist_wheel(_bdist_wheel):
+    def finalize_options(self):
+      _bdist_wheel.finalize_options(self)
+      self.root_is_pure = False
+except ImportError:
+  bdist_wheel = None
+
 ci_require = [
     "pylint==2.3.1",
     "bandit==1.6.0",
@@ -30,6 +42,10 @@ tests_require = [
     "pytest==4.5.0",
 ]
 
+yubikey_require = [
+    "yubikey-manager==3.0.0",
+]
+
 setup(
     name=PACKAGE_NAME,
     version=VERSION,
@@ -41,6 +57,7 @@ setup(
     author_email=AUTHOR_EMAIL,
     keywords=KEYWORDS,
     packages=packages,
+    cmdclass={'bdist_wheel': bdist_wheel},
     include_package_data=True,
     data_files=[
         ('lib/site-packages/taf', [
@@ -53,13 +70,13 @@ setup(
         'click==6.7',
         'colorama>=0.3.9'
         'cryptography>=2.3.1',
-        'yubikey-manager==3.0.0',
         'oll-tuf==0.11.2.dev7',
     ],
     extras_require={
         'ci': ci_require,
         'test': tests_require,
-        'dev': dev_require
+        'dev': dev_require,
+        'yubikey': yubikey_require,
     },
     tests_require=tests_require,
     entry_points={
