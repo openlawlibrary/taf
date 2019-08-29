@@ -1,3 +1,5 @@
+"""Add platform-dependent libraries to the path.
+"""
 import os
 import sys
 from pathlib import Path
@@ -22,10 +24,3 @@ elif _PLATFORM == 'win32':
   _set_env('PATH', _PLATFORM_LIBS)
 else:
   raise Exception('Platform "{}" is not supported!'.format(_PLATFORM))
-
-
-# ON macOS
-# BEFORE PACKAGING
-
-# install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib libykpers-1.dylib
-# install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib libykpers-1.dylib
