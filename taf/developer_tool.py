@@ -441,11 +441,9 @@ def _role_obj(role, repository):
 
 
 def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
-  from taf.yubikey import get_piv_public_key_tuf, sign_piv_rsa_pkcs1v15
-
   def _check_key_id(expected_key_id):
     try:
-      inserted_key=get_piv_public_key_tuf()
+      inserted_key = yk.get_piv_public_key_tuf()
       return expected_key_id == inserted_key['keyid']
     except Exception:
       return False
@@ -456,7 +454,7 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
   data=securesystemslib.formats.encode_canonical(data).encode('utf-8')
   key_pin=getpass("Please insert {} YubiKey, input PIN and press ENTER.\n"
                     .format(cert_cn))
-  signature=sign_piv_rsa_pkcs1v15(data, key_pin)
+  signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
   return {
       'keyid': key_id,
