@@ -24,7 +24,27 @@ Further reading:
 1. [UELMA whitepaper](whitepapers/UELMA-Open-Law-White-Paper.pdf)
 1. [TAF implementation and integration with TUF](docs/TUF/tuf-specification.md)
 
-## RUNNING TESTS
+## Installation Steps
+
+From _PyPI_
+
+```bash
+pip install taf
+```
+
+From source:
+
+```bash
+pip install -e .
+```
+
+Install extra dependencies when using _Yubikey_:
+
+```bash
+pip install taf[yubikey]
+```
+
+## Running Tests
 
 To run tests with mocked Yubikey:
 
