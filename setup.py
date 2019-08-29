@@ -42,6 +42,10 @@ tests_require = [
     "pytest==4.5.0",
 ]
 
+yubikey_require = [
+    "yubikey-manager==3.0.0",
+]
+
 setup(
     name=PACKAGE_NAME,
     version=VERSION,
@@ -66,13 +70,13 @@ setup(
         'click==6.7',
         'colorama>=0.3.9'
         'cryptography>=2.3.1',
-        'yubikey-manager==3.0.0',
         'oll-tuf==0.11.2.dev7',
     ],
     extras_require={
         'ci': ci_require,
         'test': tests_require,
-        'dev': dev_require
+        'dev': dev_require,
+        'yubikey': yubikey_require,
     },
     tests_require=tests_require,
     entry_points={
