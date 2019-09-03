@@ -36,22 +36,13 @@ def raise_yubikey_err(msg=None):
   return wrapper
 
 
-def _get_tuf_key_id_from_certificate(cert):
-  """Helper function to get TAF key_id from certificate. Used if more than one
-  Yubikey is inserted.
-  """
-  cert = cert.public_key().public_bytes(encoding=serialization.Encoding.PEM,
-                                        format=serialization.PublicFormat.SubjectPublicKeyInfo)
-  return import_rsakey_from_pem(cert.decode('utf-8'))['keyid']
-
-
 @contextmanager
-def _yk_piv_ctrl(serial=None, key_id=None):
+def _yk_piv_ctrl(serial=None, pub_key_pem=None):
   """Context manager to open connection and instantiate piv controller.
 
   Args:
-    - key_id(str): TAF key_id of Yubikey to get
-                   (if multiple keys are inserted)
+    - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                        are inserted
 
   Returns:
     - ykman.piv.PivController
@@ -59,14 +50,20 @@ def _yk_piv_ctrl(serial=None, key_id=None):
   Raises:
     - YubikeyError
   """
-  # If key_id is given, iterate all devices, read x509 certs and try to match
-  # key ids.
-  if key_id is not None:
+  # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
+  # public keys.
+  if pub_key_pem is not None:
     for yk in list_devices(transports=TRANSPORT.CCID):
       yk_ctrl = PivController(yk.driver)
-      device_key_id = _get_tuf_key_id_from_certificate(
-          yk_ctrl.read_certificate(SLOT.SIGNATURE))
-      if device_key_id == key_id:
+      device_pub_key_pem = (yk_ctrl
+                            .read_certificate(SLOT.SIGNATURE)
+                            .public_key()
+                            .public_bytes(
+                                encoding=serialization.Encoding.PEM,
+                                format=serialization.PublicFormat.SubjectPublicKeyInfo)
+                            .decode('utf-8'))
+      # Tries to match without last newline char
+      if device_pub_key_pem == pub_key_pem or device_pub_key_pem[:-1] == pub_key_pem:
         break
       else:
         yk.close()
@@ -116,11 +113,12 @@ def is_valid_pin(pin):
 
 
 @raise_yubikey_err("Cannot get serial number.")
-def get_serial_num(key_id=None):
+def get_serial_num(pub_key_pem=None):
   """Get Yubikey serial number.
 
   Args:
-    None
+    - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                        are inserted
 
   Returns:
     Yubikey serial number
@@ -128,16 +126,18 @@ def get_serial_num(key_id=None):
   Raises:
     - YubikeyError
   """
-  with _yk_piv_ctrl(key_id=key_id) as (_, serial):
+  with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (_, serial):
     return serial
 
 
 @raise_yubikey_err("Cannot export x509 certificate.")
-def export_piv_x509(key_id=None, cert_format=serialization.Encoding.PEM):
+def export_piv_x509(cert_format=serialization.Encoding.PEM, pub_key_pem=None):
   """Exports YubiKey's piv slot x509.
 
   Args:
     - cert_format(str): One of 'serialization.Encoding' formats.
+    - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                        are inserted
 
   Returns:
     PIV x509 certificate in a given format (bytes)
@@ -145,17 +145,19 @@ def export_piv_x509(key_id=None, cert_format=serialization.Encoding.PEM):
   Raises:
     - YubikeyError
   """
-  with _yk_piv_ctrl(key_id=key_id) as (ctrl, _):
+  with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
     x509 = ctrl.read_certificate(SLOT.SIGNATURE)
     return x509.public_bytes(encoding=cert_format)
 
 
 @raise_yubikey_err("Cannot export public key.")
-def export_piv_pub_key(key_id=None, pub_key_format=serialization.Encoding.PEM):
+def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=None):
   """Exports YubiKey's piv slot public key.
 
   Args:
     - pub_key_format(str): One of 'serialization.Encoding' formats.
+    - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                        are inserted
 
   Returns:
     PIV public key in a given format (bytes)
@@ -163,19 +165,20 @@ def export_piv_pub_key(key_id=None, pub_key_format=serialization.Encoding.PEM):
   Raises:
     - YubikeyError
   """
-  with _yk_piv_ctrl(key_id=key_id) as (ctrl, _):
+  with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
     x509 = ctrl.read_certificate(SLOT.SIGNATURE)
     return x509.public_key().public_bytes(encoding=pub_key_format,
                                           format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(key_id=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def get_piv_public_key_tuf(scheme='rsa-pkcs1v15-sha256', pub_key_pem=None):
   """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
   Args:
-    - key_id(str): If multiple keys are inserted, get one by id
     - scheme(str): Rsa signature scheme (default is rsa-pkcs1v15-sha256)
+    - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                        are inserted
 
   Returns:
     A dictionary containing the RSA keys and other identifying information
@@ -185,17 +188,19 @@ def get_piv_public_key_tuf(key_id=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
   Raises:
     - YubikeyError
   """
-  pub_key_pem = export_piv_pub_key(key_id=key_id).decode('utf-8')
+  pub_key_pem = export_piv_pub_key(pub_key_pem=pub_key_pem).decode('utf-8')
   return import_rsakey_from_pem(pub_key_pem, scheme)
 
 
 @raise_yubikey_err("Cannot sign data.")
-def sign_piv_rsa_pkcs1v15(data, pin, key_id=None):
+def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
   """Sign data with key from YubiKey's piv slot.
 
   Args:
     - data(bytes): Data to be signed
     - pin(str): Pin for piv slot login.
+    - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                        are inserted
 
   Returns:
     Signature (bytes)
@@ -203,7 +208,7 @@ def sign_piv_rsa_pkcs1v15(data, pin, key_id=None):
   Raises:
     - YubikeyError
   """
-  with _yk_piv_ctrl(key_id=key_id) as (ctrl, _):
+  with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
     ctrl.verify(pin)
     return ctrl.sign(SLOT.SIGNATURE, ALGO.RSA2048, data)
 
