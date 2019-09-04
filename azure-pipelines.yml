@@ -32,6 +32,7 @@ pool:
 variables:
   ykpersBaseURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
   ykpersVersion: '1.20.0'
+  libusbBaseURL: 'https://github.com/libusb/libusb/releases/download/'
   libusbVersion: '1.0.22'
 
 # BUILD STEPS
@@ -75,6 +76,8 @@ steps:
     find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
     rm -rf yk
 
+    find /usr/local/Cellar/libusb/ -name '*.dylib' -exec cp '{}' taf/libs ';'
+
     install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
     install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
   condition: eq( variables['Agent.OS'], 'Darwin')
@@ -88,9 +91,10 @@ steps:
     7z x ykpers-$(ykpersVersion)-$(winArch).zip -o".\ykpers"
     Copy-Item ".\ykpers\bin\*.dll" ".\taf\libs" -Force -verbose
 
-    Invoke-WebRequest http://prdownloads.sourceforge.net/libusb/libusb-$(libusbVersion).7z -OutFile libusb_zip.7z -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome
-    7z x libusb_zip.7z -o"libusb"
-    Copy-Item ".\libusb\libusb\dll\*.dll" ".\taf\libs" -Force -verbose
+    wget $(libusbBaseURL)/v$(libusbVersion)/libusb-$(libusbVersion).7z -OutFile "libusb-$(libusbVersion).7z"
+    7z x libusb-$(libusbVersion).7z -o".\libusb"
+    If("$(winArch)" -eq "win64") { Copy-Item ".\libusb\MinGW64\dll\*.dll" ".\taf\libs" -Force -verbose }
+    Else { Copy-Item ".\libusb\MinGW32\dll\*.dll" ".\taf\libs" -Force -verbose }
   condition: eq( variables['Agent.OS'], 'Windows_NT')
   displayName: Windows setup
 

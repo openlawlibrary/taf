@@ -11,6 +11,8 @@ from pathlib import Path
 import securesystemslib
 import tuf.repository_tool
 from securesystemslib.exceptions import UnknownKeyError
+from securesystemslib.interface import (import_rsa_privatekey_from_file,
+                                        import_rsa_publickey_from_file)
 from tuf.keydb import get_key
 from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
                                  TARGETS_DIRECTORY_NAME, create_new_repository,
@@ -22,8 +24,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.git import GitRepository
 from taf.log import get_logger
 from taf.repository_tool import Repository, load_role_key
-from taf.utils import (get_pin_for, import_rsa_privatekey_from_file,
-                       import_rsa_publickey_from_file)
+from taf.utils import get_pin_for
 
 logger = get_logger(__name__)
 
@@ -207,10 +208,9 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None,
           password = passwords[key_num]
           if password:
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
-                                                          scheme,
-                                                          password)
+                                                          password, scheme=scheme)
           else:
-            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name), scheme)
+            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name), scheme=scheme)
 
         # if it does not, generate the keys and print the output
         else:
