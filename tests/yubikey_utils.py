@@ -5,12 +5,11 @@ from contextlib import contextmanager
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from ykman.descriptor import FailedOpeningDeviceException
-from ykman.piv import WrongPin
-
 from securesystemslib.keys import format_metadata_to_key
 from securesystemslib.pyca_crypto_keys import create_rsa_signature
 from tuf.repository_tool import import_rsakey_from_pem
+from ykman.descriptor import FailedOpeningDeviceException
+from ykman.piv import WrongPin
 
 VALID_PIN = '123456'
 WRONG_PIN = '111111'
@@ -144,7 +143,7 @@ class Root3YubiKey(FakeYubiKey):
 
 
 @contextmanager
-def _yk_piv_ctrl_mock(serial=None, key_id=None):
+def _yk_piv_ctrl_mock(serial=None, pub_key_pem=None):
   global INSERTED_YUBIKEY
 
   if INSERTED_YUBIKEY is None:

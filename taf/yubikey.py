@@ -172,7 +172,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(scheme='rsa-pkcs1v15-sha256', pub_key_pem=None):
+def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None):
   """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
   Args:

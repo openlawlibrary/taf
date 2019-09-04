@@ -7,6 +7,7 @@ from pathlib import Path
 import securesystemslib
 import tuf.repository_tool
 from securesystemslib.exceptions import Error as SSLibError
+from securesystemslib.interface import import_rsa_privatekey_from_file
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
@@ -19,8 +20,7 @@ from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
                             TargetsMetadataUpdateError,
                             TimestampMetadataUpdateError, YubikeyError)
 from taf.git import GitRepository
-from taf.utils import (import_rsa_privatekey_from_file,
-                       normalize_file_line_endings)
+from taf.utils import normalize_file_line_endings
 
 # Default expiration intervals per role
 expiration_intervals = {
@@ -61,9 +61,9 @@ def load_role_key(keystore, role, password=None,
   if key is None:
     if password is not None:
       key = import_rsa_privatekey_from_file(os.path.join(keystore, role),
-                                            scheme, password=password)
+                                            password, scheme=scheme)
     else:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), scheme)
+      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), scheme=scheme)
   if not DISABLE_KEYS_CACHING:
     role_keys_cache[role] = key
   return key

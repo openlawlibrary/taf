@@ -70,7 +70,7 @@ setup(
         'click==6.7',
         'colorama>=0.3.9'
         'cryptography>=2.3.1',
-        'oll-tuf==0.11.2.dev7',
+        'oll-tuf==0.11.2.dev8',
     ],
     extras_require={
         'ci': ci_require,

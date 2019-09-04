@@ -1,6 +1,7 @@
 import pytest
 from taf.utils import normalize_line_endings
 
+
 def test_normalize_line_ending_extra_lines():
   test_content = b'''This is some text followed by two new lines
 

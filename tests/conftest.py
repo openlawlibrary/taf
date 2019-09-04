@@ -4,12 +4,13 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from pytest import fixture, yield_fixture
+from securesystemslib.interface import (import_rsa_privatekey_from_file,
+                                        import_rsa_publickey_from_file)
 
 import taf.repository_tool as repository_tool
 import taf.yubikey
 from taf.repository_tool import Repository
-from taf.utils import (import_rsa_privatekey_from_file,
-                       import_rsa_publickey_from_file, on_rm_error)
+from taf.utils import on_rm_error
 
 from . import TEST_WITH_REAL_YK
 from .yubikey_utils import (Root1YubiKey, Root2YubiKey, Root3YubiKey,
@@ -157,9 +158,9 @@ def root3_yk(pytestconfig):
 def snapshot_key(pytestconfig):
   """Snapshot key."""
   key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'snapshot.pub'),
-                                       pytestconfig.option.signature_scheme)
+                                       scheme=pytestconfig.option.signature_scheme)
   priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'snapshot'),
-                                             pytestconfig.option.signature_scheme)
+                                             scheme=pytestconfig.option.signature_scheme)
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
 
@@ -168,9 +169,9 @@ def snapshot_key(pytestconfig):
 def timestamp_key(pytestconfig):
   """Timestamp key."""
   key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'timestamp.pub'),
-                                       pytestconfig.option.signature_scheme)
+                                       scheme=pytestconfig.option.signature_scheme)
   priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'timestamp'),
-                                             pytestconfig.option.signature_scheme)
+                                             scheme=pytestconfig.option.signature_scheme)
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
 
@@ -179,8 +180,8 @@ def timestamp_key(pytestconfig):
 def targets_key(pytestconfig):
   """Targets key."""
   key = import_rsa_publickey_from_file(str(KEYSTORE_PATH / 'targets.pub'),
-                                       pytestconfig.option.signature_scheme)
+                                       scheme=pytestconfig.option.signature_scheme)
   priv_key = import_rsa_privatekey_from_file(str(KEYSTORE_PATH / 'targets'),
-                                             pytestconfig.option.signature_scheme)
+                                             scheme=pytestconfig.option.signature_scheme)
   key['keyval']['private'] = priv_key['keyval']['private']
   return key
