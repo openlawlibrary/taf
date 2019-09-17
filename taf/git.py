@@ -101,7 +101,7 @@ class GitRepository(object):
         logger.debug('Repo %s: ' + log_success_msg, self.repo_name)
     return result
 
-  def all_commits_since_commit(self, since_commit):
+  def all_commits_since_commit(self, since_commit=None):
     if since_commit is not None:
       commits = self._git('rev-list {}..HEAD', since_commit).strip()
     else:
@@ -128,7 +128,6 @@ class GitRepository(object):
       commits.reverse()
     logger.debug('Repo %s: fetched the following commits %s', self.repo_name, ', '.join(commits))
     return commits
-
 
   def branch_local_name(self, remote_branch_name):
     """Strip remote from the given remote branch"""
@@ -298,6 +297,7 @@ class GitRepository(object):
 
   def set_upstream(self, branch_name):
     self._git('branch -u origin/{}', branch_name)
+
 
 class NamedGitRepository(GitRepository):
 

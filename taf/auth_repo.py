@@ -1,17 +1,16 @@
 import json
 import os
-import taf.log
 from collections import defaultdict
-from subprocess import CalledProcessError
 from pathlib import Path
+from subprocess import CalledProcessError
+
+import taf.log
 from taf.git import GitRepository, NamedGitRepository
 
 logger = taf.log.get_logger(__name__)
 
 
-
 class AuthRepoMixin(object):
-
 
   LAST_VALIDATED_FILENAME = 'last_validated_commit'
 
@@ -49,7 +48,6 @@ class AuthRepoMixin(object):
     except FileNotFoundError:
       return None
 
-
   def get_target(self, target_name, commit=None, safely=True):
     if commit is None:
       commit = self.head_commit_sha()
@@ -57,8 +55,19 @@ class AuthRepoMixin(object):
     if safely:
       return self._safely_get_json(commit, target_path)
     else:
-      return  self.get_json(commit, target_path)
+      return self.get_json(commit, target_path)
 
+  def is_commit_authenticated(self, target_name, commit):
+    """Checks if passed commit is ever authenticated for given target name.
+    """
+    for auth_commit in reversed(self.all_commits_since_commit()):
+      target = self.get_target(target_name, auth_commit)
+      try:
+        if target['commit'] == commit:
+          return True
+      except TypeError:
+        continue
+    return False
 
   def set_last_validated_commit(self, commit):
     """
@@ -91,7 +100,8 @@ class AuthRepoMixin(object):
   def target_commits_at_revisions(self, commits):
     targets = defaultdict(dict)
     for commit in commits:
-      targets_at_revision = self._safely_get_json(commit, self.metadata_path + '/targets.json')
+      targets_at_revision = self._safely_get_json(
+          commit, self.metadata_path + '/targets.json')
       if targets_at_revision is None:
         continue
       targets_at_revision = targets_at_revision['signed']['targets']
@@ -112,7 +122,7 @@ class AuthRepoMixin(object):
           targets[commit][target_path] = target_commit
         except json.decoder.JSONDecodeError:
           logger.debug('Auth repo %s: target file %s is not a valid json at revision %s',
-                      self.repo_name, target_path, commit)
+                       self.repo_name, target_path, commit)
           continue
     return targets
 
@@ -125,8 +135,6 @@ class AuthRepoMixin(object):
     except json.decoder.JSONDecodeError:
       logger.info('Auth repo %s: %s not a valid json at revision %s', self.repo_name,
                   os.path.basename(path), commit)
-
-
 
 
 class AuthenticationRepo(AuthRepoMixin, GitRepository):
