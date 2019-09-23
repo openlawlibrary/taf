@@ -28,6 +28,12 @@ install:
   - pip install .[ci] # Install with CI deps
   - pip install .[yubikey]
 
+before_script:
+  - sudo touch /var/log/taf.log
+  - sudo chown travis /var/log/taf.log
+  - sudo touch /var/log/taf.err
+  - sudo chown travis /var/log/taf.err
+
 script:
   - pylint taf
   - bandit -c .bandit -r taf
