@@ -12,16 +12,16 @@ logger = logging.getLogger('taf')
 logger.setLevel(taf.settings.LOG_LEVEL)
 
 def _get_log_location():
-  lcation = taf.settings.LOGS_LOCATION
-  if lcation is None:
+  location = taf.settings.LOGS_LOCATION
+  if location is None:
     if os.name == 'nt':
-      lcation = Path.home() / '.taf'
-      lcation.mkdir(exist_ok=True)
+      location = Path.home() / '.taf'
+      location.mkdir(exist_ok=True)
     else:
-      lcation = Path('/var/log')
+      location = Path('/var/log')
   else:
-    lcation = Path(logs_location)
-  return lcation
+    location = Path(logs_location)
+  return location
 
 
 if taf.settings.ENABLE_CONSOLE_LOGGING:
