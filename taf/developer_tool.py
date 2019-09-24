@@ -13,25 +13,24 @@ import tuf.repository_tool
 from securesystemslib.exceptions import UnknownKeyError
 from securesystemslib.interface import (import_rsa_privatekey_from_file,
                                         import_rsa_publickey_from_file)
-from tuf.keydb import get_key
-from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
-                                 TARGETS_DIRECTORY_NAME, create_new_repository,
-                                 generate_and_write_rsa_keypair,
-                                 generate_rsa_key, import_rsakey_from_pem)
-
 from taf.auth_repo import AuthenticationRepo
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.git import GitRepository
 from taf.log import get_logger
 from taf.repository_tool import Repository, load_role_key
 from taf.utils import get_pin_for
+from tuf.keydb import get_key
+from tuf.repository_tool import (METADATA_DIRECTORY_NAME,
+                                 TARGETS_DIRECTORY_NAME, create_new_repository,
+                                 generate_and_write_rsa_keypair,
+                                 generate_rsa_key, import_rsakey_from_pem)
 
 logger = get_logger(__name__)
 
 try:
   import taf.yubikey as yk
 except ImportError:
-  logger.warning('"yubico-manager" is not installed.')
+  logger.warning('"yubikey-manager" is not installed.')
 
 # Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500
@@ -210,7 +209,8 @@ def create_repository(repo_path, keystore, roles_key_infos, commit_message=None,
             private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
                                                           password, scheme=scheme)
           else:
-            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name), scheme=scheme)
+            private_key = import_rsa_privatekey_from_file(os.path.join(keystore, key_name),
+                                                          scheme=scheme)
 
         # if it does not, generate the keys and print the output
         else:
@@ -494,11 +494,11 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
     taf_repo.update_targets(targets_key_pin, write=False)
     snapshot_pem = getpass('Enter snapshot key')
     snapshot_pem = _form_private_pem(snapshot_pem)
-    snapshot_key = import_rsakey_from_pem(snapshot_pem)
+    snapshot_key = import_rsakey_from_pem(snapshot_pem, scheme)
 
     timestamp_pem = getpass('Enter timestamp key')
     timestamp_pem = _form_private_pem(timestamp_pem)
-    timestamp_key = import_rsakey_from_pem(timestamp_pem)
+    timestamp_key = import_rsakey_from_pem(timestamp_pem, scheme)
   taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key, write=False)
   taf_repo.writeall()
 
