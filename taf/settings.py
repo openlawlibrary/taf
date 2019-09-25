@@ -33,8 +33,13 @@ FILE_LOGGING_LEVEL = logging.INFO
 
 ERROR_LOGGING_LEVEL = logging.WARNING
 
+# Location of the log files. It can be specified by setting LOGS_LOCATION
+# and by setting an environment variable called TAF_LOG.
+# If this location is not specified logs will be placed ~/.taf
+LOGS_LOCATION = None
+
 LOG_FILENAME = 'taf.log'
 
-ERROR_LOF_FILENAME = 'taf.err'
+ERROR_LOG_FILENAME = 'taf.err'
 
 LOG_COMMAND_OUTPUT = False
