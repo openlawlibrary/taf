@@ -33,8 +33,9 @@ FILE_LOGGING_LEVEL = logging.INFO
 
 ERROR_LOGGING_LEVEL = logging.WARNING
 
-# Location of the log files. If this location is not specified logs will be placed
-# in /var/log directory if case of Unix and MacOS, and inside # ~/log in case of Windows
+# Location of the log files. It can be specified by setting LOGS_LOCATION
+# and by setting an environment variable called TAF_LOG.
+# If this location is not specified logs will be placed ~/.taf
 LOGS_LOCATION = None
 
 LOG_FILENAME = 'taf.log'

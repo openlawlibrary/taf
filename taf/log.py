@@ -11,16 +11,14 @@ formatter = logging.Formatter(_FORMAT_STRING)
 logger = logging.getLogger('taf')
 logger.setLevel(taf.settings.LOG_LEVEL)
 
+
 def _get_log_location():
-  location = taf.settings.LOGS_LOCATION
+  location = taf.settings.LOGS_LOCATION or os.environ.get('TAF_LOG')
   if location is None:
-    if os.name == 'nt':
-      location = Path.home() / '.taf'
-      location.mkdir(exist_ok=True)
-    else:
-      location = Path('/var/log')
+    location = Path.home() / '.taf'
+    location.mkdir(exist_ok=True)
   else:
-    location = Path(logs_location)
+    location = Path(location)
   return location
 
 
