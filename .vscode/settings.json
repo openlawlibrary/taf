@@ -1,14 +1,18 @@
 {
-  "python.pythonPath": "./env/bin/python", // virtualenv env -p=python35
-  "editor.tabSize": 2,
-  "python.formatting.autopep8Args": [
-    "--indent-size=2",
-    "--max-line-length=100"
-  ],
-  "python.linting.pep8Enabled": false,
-  "python.linting.flake8Enabled": false,
-  "python.sortImports.args": [
-    "-l",
-    "80"
-  ]
+    "python.pythonPath": "./env/bin/python",
+    "python.testing.pytestPath": "./env/bin/pytest",
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.linting.flake8Enabled": false,
+    "python.linting.pep8Enabled": false,
+    "python.formatting.blackPath": "black",
+    "python.sortImports.args": [
+        "-l",
+        "88"
+    ],
+    "python.formatting.provider": "black"
 }
