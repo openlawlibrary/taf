@@ -27,9 +27,15 @@ try:
 except ImportError:
     bdist_wheel = None
 
-ci_require = ["pylint==2.3.1", "bandit==1.6.0", "coverage==4.5.3", "pytest-cov==2.7.1"]
+ci_require = [
+    "bandit>=1.6.0",
+    "black>=19.3b0",
+    "coverage==4.5.3",
+    "pre-commit>=1.18.3",
+    "pytest-cov==2.7.1",
+]
 
-dev_require = ["autopep8==1.4.4", "pylint==2.3.1", "bandit==1.6.0"]
+dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = ["pytest==4.5.0"]
 
