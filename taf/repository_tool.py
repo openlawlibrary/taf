@@ -10,25 +10,27 @@ from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME, import_rsakey_from_pem,
-    load_repository)
+    METADATA_DIRECTORY_NAME,
+    TARGETS_DIRECTORY_NAME,
+    import_rsakey_from_pem,
+    load_repository,
+)
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import (InvalidKeyError, MetadataUpdateError,
-                            RootMetadataUpdateError,
-                            SnapshotMetadataUpdateError,
-                            TargetsMetadataUpdateError,
-                            TimestampMetadataUpdateError, YubikeyError)
+from taf.exceptions import (
+    InvalidKeyError,
+    MetadataUpdateError,
+    RootMetadataUpdateError,
+    SnapshotMetadataUpdateError,
+    TargetsMetadataUpdateError,
+    TimestampMetadataUpdateError,
+    YubikeyError,
+)
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
 
 # Default expiration intervals per role
-expiration_intervals = {
-    'root': 365,
-    'targets': 90,
-    'snapshot': 7,
-    'timestamp': 1
-}
+expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
 
 # Loaded keys cache
 role_keys_cache = {}
@@ -37,9 +39,8 @@ role_keys_cache = {}
 DISABLE_KEYS_CACHING = False
 
 
-def load_role_key(keystore, role, password=None,
-                  scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-  """Loads the specified role's key from a keystore file.
+def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    """Loads the specified role's key from a keystore file.
   The keystore file can, but doesn't have to be password protected.
 
   NOTE: Keys inside keystore should match a role name!
@@ -57,20 +58,23 @@ def load_role_key(keystore, role, password=None,
     - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
     - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
   """
-  key = role_keys_cache.get(role)
-  if key is None:
-    if password is not None:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role),
-                                            password, scheme=scheme)
-    else:
-      key = import_rsa_privatekey_from_file(os.path.join(keystore, role), scheme=scheme)
-  if not DISABLE_KEYS_CACHING:
-    role_keys_cache[role] = key
-  return key
+    key = role_keys_cache.get(role)
+    if key is None:
+        if password is not None:
+            key = import_rsa_privatekey_from_file(
+                os.path.join(keystore, role), password, scheme=scheme
+            )
+        else:
+            key = import_rsa_privatekey_from_file(
+                os.path.join(keystore, role), scheme=scheme
+            )
+    if not DISABLE_KEYS_CACHING:
+        role_keys_cache[role] = key
+    return key
 
 
 def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W0613
-  """Targets signature provider used to sign data with YubiKey.
+    """Targets signature provider used to sign data with YubiKey.
 
   Args:
     - key_id(str): Key id from targets metadata file
@@ -84,20 +88,17 @@ def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W
   Raises:
     - YubikeyError: If signing with YubiKey cannot be performed
   """
-  from taf.yubikey import sign_piv_rsa_pkcs1v15
-  from binascii import hexlify
+    from taf.yubikey import sign_piv_rsa_pkcs1v15
+    from binascii import hexlify
 
-  data = securesystemslib.formats.encode_canonical(data).encode('utf-8')
-  signature = sign_piv_rsa_pkcs1v15(data, key_pin)
+    data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
+    signature = sign_piv_rsa_pkcs1v15(data, key_pin)
 
-  return {
-      'keyid': key_id,
-      'sig': hexlify(signature).decode()
-  }
+    return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
 def root_signature_provider(signature_dict, key_id, _key, _data):
-  """Root signature provider used to return signatures created remotely.
+    """Root signature provider used to return signatures created remotely.
 
   Args:
     - signature_dict(dict): Dict where key is key_id and value is signature
@@ -111,38 +112,34 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
   Raises:
     - KeyError: If signature for key_id is not present in signature_dict
   """
-  from binascii import hexlify
+    from binascii import hexlify
 
-  return {
-      'keyid': key_id,
-      'sig': hexlify(signature_dict.get(key_id)).decode()
-  }
+    return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
 
 
 class Repository:
+    def __init__(self, repository_path):
+        self.repository_path = repository_path
+        tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
+        tuf_repository = load_repository(repository_path)
+        self._repository = tuf_repository
 
-  def __init__(self, repository_path):
-    self.repository_path = repository_path
-    tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-    tuf_repository = load_repository(repository_path)
-    self._repository = tuf_repository
+    _framework_files = ["repositories.json", "test-auth-repo"]
 
-  _framework_files = ['repositories.json', 'test-auth-repo']
+    @property
+    def targets_path(self):
+        return Path(self.repository_path) / TARGETS_DIRECTORY_NAME
 
-  @property
-  def targets_path(self):
-    return Path(self.repository_path) / TARGETS_DIRECTORY_NAME
+    @property
+    def metadata_path(self):
+        return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
 
-  @property
-  def metadata_path(self):
-    return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
+    @property
+    def repo_id(self):
+        return GitRepository(self.repository_path).initial_commit
 
-  @property
-  def repo_id(self):
-    return GitRepository(self.repository_path).initial_commit
-
-  def _add_target(self, targets_obj, file_path, custom=None):
-    """
+    def _add_target(self, targets_obj, file_path, custom=None):
+        """
     <Purpose>
       Normalizes line endings (converts all line endings to unix style endings) and
       registers the target file as a TUF target
@@ -151,11 +148,11 @@ class Repository:
       file_path: full path of the target file
       custom: custom target data
     """
-    normalize_file_line_endings(file_path)
-    targets_obj.add_target(file_path, custom)
+        normalize_file_line_endings(file_path)
+        targets_obj.add_target(file_path, custom)
 
-  def _role_obj(self, role):
-    """Helper function for getting TUF's role object, given the role's name
+    def _role_obj(self, role):
+        """Helper function for getting TUF's role object, given the role's name
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -169,18 +166,18 @@ class Repository:
       - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
                                                       targets object.
    """
-    if role == 'targets':
-      return self._repository.targets
-    elif role == 'snapshot':
-      return self._repository.snapshot
-    elif role == 'timestamp':
-      return self._repository.timestamp
-    elif role == 'root':
-      return self._repository.root
-    return self._repository.targets(role)
+        if role == "targets":
+            return self._repository.targets
+        elif role == "snapshot":
+            return self._repository.snapshot
+        elif role == "timestamp":
+            return self._repository.timestamp
+        elif role == "root":
+            return self._repository.root
+        return self._repository.targets(role)
 
-  def _try_load_metadata_key(self, role, key):
-    """Check if given key can be used to sign given role and load it.
+    def _try_load_metadata_key(self, role, key):
+        """Check if given key can be used to sign given role and load it.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -195,12 +192,14 @@ class Repository:
                                                       targets object.
       - InvalidKeyError: If metadata cannot be signed with given key.
     """
-    if not self.is_valid_metadata_key(role, key):
-      raise InvalidKeyError(role)
-    self._role_obj(role).load_signing_key(key)
+        if not self.is_valid_metadata_key(role, key):
+            raise InvalidKeyError(role)
+        self._role_obj(role).load_signing_key(key)
 
-  def _update_metadata(self, role, start_date=datetime.datetime.now(), interval=None, write=False):
-    """Update metadata expiration date and (optionally) writes it.
+    def _update_metadata(
+        self, role, start_date=datetime.datetime.now(), interval=None, write=False
+    ):
+        """Update metadata expiration date and (optionally) writes it.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -218,12 +217,12 @@ class Repository:
       - securesystemslib.exceptions.Error: If securesystemslib error happened during metadata write
       - tuf.exceptions.Error: If TUF error happened during metadata write
     """
-    self.set_metadata_expiration_date(role, start_date, interval)
-    if write:
-      self._repository.write(role)
+        self.set_metadata_expiration_date(role, start_date, interval)
+        if write:
+            self._repository.write(role)
 
-  def add_existing_target(self, file_path, targets_role='targets', custom=None):
-    """Registers new target files with TUF.
+    def add_existing_target(self, file_path, targets_role="targets", custom=None):
+        """Registers new target files with TUF.
     The files are expected to be inside the targets directory.
 
     Args:
@@ -240,11 +239,11 @@ class Repository:
       - securesystemslib.exceptions.Error: If 'filepath' is not located in the repository's targets
                                            directory.
     """
-    targets_obj = self._role_obj(targets_role)
-    self._add_target(targets_obj, file_path, custom)
+        targets_obj = self._role_obj(targets_role)
+        self._add_target(targets_obj, file_path, custom)
 
-  def add_targets(self, data, targets_role='targets', files_to_keep=None):
-    """Creates a target .json file containing a repository's commit for each repository.
+    def add_targets(self, data, targets_role="targets", files_to_keep=None):
+        """Creates a target .json file containing a repository's commit for each repository.
     Adds those files to the tuf repository. Also removes all targets from the filesystem if their
     path is not among the provided ones. TUF does not delete targets automatically.
 
@@ -279,70 +278,76 @@ class Repository:
                                    that should remain targets. Files required by the framework will
                                    also remain targets.
     """
-    if files_to_keep is None:
-      files_to_keep = []
-    # leave all files required by the framework and additional files specified by the user
-    files_to_keep.extend(self._framework_files)
-    # add all repositories defined in repositories.json to files_to_keep
-    files_to_keep.extend(self._get_target_repositories())
-    # delete files if they no longer correspond to a target defined
-    # in targets metadata and are not specified in files_to_keep
-    targets_obj = self._role_obj(targets_role)
-    for filepath in self.targets_path.rglob('*'):
-      if filepath.is_file():
-        file_rel_path = str(Path(os.path.relpath(str(filepath), str(self.targets_path))).as_posix())
-        if file_rel_path not in data and file_rel_path not in files_to_keep:
-          if file_rel_path in targets_obj.target_files:
-            targets_obj.remove_target(file_rel_path)
-          filepath.unlink()
+        if files_to_keep is None:
+            files_to_keep = []
+        # leave all files required by the framework and additional files specified by the user
+        files_to_keep.extend(self._framework_files)
+        # add all repositories defined in repositories.json to files_to_keep
+        files_to_keep.extend(self._get_target_repositories())
+        # delete files if they no longer correspond to a target defined
+        # in targets metadata and are not specified in files_to_keep
+        targets_obj = self._role_obj(targets_role)
+        for filepath in self.targets_path.rglob("*"):
+            if filepath.is_file():
+                file_rel_path = str(
+                    Path(
+                        os.path.relpath(str(filepath), str(self.targets_path))
+                    ).as_posix()
+                )
+                if file_rel_path not in data and file_rel_path not in files_to_keep:
+                    if file_rel_path in targets_obj.target_files:
+                        targets_obj.remove_target(file_rel_path)
+                    filepath.unlink()
 
-    for path, target_data in data.items():
-      # if the target's parent directory should not be "targets", create
-      # its parent directories if they do not exist
-      target_path = (self.targets_path / path).absolute()
-      target_dir = target_path.parents[0]
-      target_dir.mkdir(parents=True, exist_ok=True)
+        for path, target_data in data.items():
+            # if the target's parent directory should not be "targets", create
+            # its parent directories if they do not exist
+            target_path = (self.targets_path / path).absolute()
+            target_dir = target_path.parents[0]
+            target_dir.mkdir(parents=True, exist_ok=True)
 
-      # create the target file
-      content = target_data.get('target', None)
-      if content is None:
-        if not target_path.is_file():
-          target_path.touch()
-      else:
-        with open(str(target_path), 'w') as f:
-          if isinstance(content, dict):
-            json.dump(content, f, indent=4)
-          else:
-            f.write(content)
+            # create the target file
+            content = target_data.get("target", None)
+            if content is None:
+                if not target_path.is_file():
+                    target_path.touch()
+            else:
+                with open(str(target_path), "w") as f:
+                    if isinstance(content, dict):
+                        json.dump(content, f, indent=4)
+                    else:
+                        f.write(content)
 
-      custom = target_data.get('custom', None)
-      self._add_target(targets_obj, str(target_path), custom)
+            custom = target_data.get("custom", None)
+            self._add_target(targets_obj, str(target_path), custom)
 
-    with open(os.path.join(self.metadata_path, '{}.json'.format(targets_role))) as f:
-      previous_targets = json.load(f)['signed']['targets']
+        with open(
+            os.path.join(self.metadata_path, "{}.json".format(targets_role))
+        ) as f:
+            previous_targets = json.load(f)["signed"]["targets"]
 
-    for path in files_to_keep:
-      # if path if both in data and files_to_keep, skip it
-      # e.g. repositories.json will always be in files_to_keep,
-      # but it might also be specified in data, if it needs to be updated
-      if path in data:
-        continue
-      target_path = (self.targets_path / path).absolute()
-      previous_custom = None
-      if path in previous_targets:
-        previous_custom = previous_targets[path].get('custom')
-      if target_path.is_file():
-        self._add_target(targets_obj, str(target_path), previous_custom)
+        for path in files_to_keep:
+            # if path if both in data and files_to_keep, skip it
+            # e.g. repositories.json will always be in files_to_keep,
+            # but it might also be specified in data, if it needs to be updated
+            if path in data:
+                continue
+            target_path = (self.targets_path / path).absolute()
+            previous_custom = None
+            if path in previous_targets:
+                previous_custom = previous_targets[path].get("custom")
+            if target_path.is_file():
+                self._add_target(targets_obj, str(target_path), previous_custom)
 
-  def _get_target_repositories(self):
-    repositories_path = self.targets_path / 'repositories.json'
-    if repositories_path.exists():
-      repositories = repositories_path.read_text()
-      repositories = json.loads(repositories)['repositories']
-      return [str(Path(target_path).as_posix()) for target_path in repositories]
+    def _get_target_repositories(self):
+        repositories_path = self.targets_path / "repositories.json"
+        if repositories_path.exists():
+            repositories = repositories_path.read_text()
+            repositories = json.loads(repositories)["repositories"]
+            return [str(Path(target_path).as_posix()) for target_path in repositories]
 
-  def get_role_keys(self, role):
-    """Registers new target files with TUF.
+    def get_role_keys(self, role):
+        """Registers new target files with TUF.
     The files are expected to be inside the targets directory.
 
     Args:
@@ -356,11 +361,11 @@ class Repository:
       - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
                                                       targets object.
     """
-    role_obj = self._role_obj(role)
-    return role_obj.keys
+        role_obj = self._role_obj(role)
+        return role_obj.keys
 
-  def get_signable_metadata(self, role):
-    """Return signable portion of newly generate metadata for given role.
+    def get_signable_metadata(self, role):
+        """Return signable portion of newly generate metadata for given role.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -371,24 +376,25 @@ class Repository:
     Raises:
       None
     """
-    try:
-      from tuf.keydb import get_key
-      signable = None
+        try:
+            from tuf.keydb import get_key
 
-      role_obj = self._role_obj(role)
-      key = get_key(role_obj.keys[0])
+            signable = None
 
-      def _provider(data):
-        nonlocal signable
-        signable = securesystemslib.formats.encode_canonical(data)
+            role_obj = self._role_obj(role)
+            key = get_key(role_obj.keys[0])
 
-      role_obj.add_external_signature_provider(key, _provider)
-      self.writeall()
-    except (IndexError, TUFError, SSLibError):
-      return signable
+            def _provider(data):
+                nonlocal signable
+                signable = securesystemslib.formats.encode_canonical(data)
 
-  def is_valid_metadata_key(self, role, key):
-    """Checks if metadata role contains key id of provided key.
+            role_obj.add_external_signature_provider(key, _provider)
+            self.writeall()
+        except (IndexError, TUFError, SSLibError):
+            return signable
+
+    def is_valid_metadata_key(self, role, key):
+        """Checks if metadata role contains key id of provided key.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -401,12 +407,12 @@ class Repository:
       - securesystemslib.exceptions.FormatError: If key does not match RSAKEY_SCHEMA
       - securesystemslib.exceptions.UnknownRoleError: If role does not exist
     """
-    securesystemslib.formats.RSAKEY_SCHEMA.check_match(key)
+        securesystemslib.formats.RSAKEY_SCHEMA.check_match(key)
 
-    return key['keyid'] in self.get_role_keys(role)
+        return key["keyid"] in self.get_role_keys(role)
 
-  def is_valid_metadata_yubikey(self, role, public_key=None):
-    """Checks if metadata role contains key id from YubiKey.
+    def is_valid_metadata_yubikey(self, role, public_key=None):
+        """Checks if metadata role contains key id from YubiKey.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
@@ -420,16 +426,17 @@ class Repository:
       - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
       - securesystemslib.exceptions.UnknownRoleError: If role does not exist
     """
-    securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
+        securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
-    if public_key is None:
-      from taf.yubikey import get_piv_public_key_tuf
-      public_key = get_piv_public_key_tuf()
+        if public_key is None:
+            from taf.yubikey import get_piv_public_key_tuf
 
-    return self.is_valid_metadata_key(role, public_key)
+            public_key = get_piv_public_key_tuf()
 
-  def add_metadata_key(self, role, pub_key_pem):
-    """Add metadata key of the provided role.
+        return self.is_valid_metadata_key(role, public_key)
+
+    def add_metadata_key(self, role, pub_key_pem):
+        """Add metadata key of the provided role.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -445,14 +452,14 @@ class Repository:
       - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
 
     """
-    if isinstance(pub_key_pem, bytes):
-      pub_key_pem = pub_key_pem.decode('utf-8')
+        if isinstance(pub_key_pem, bytes):
+            pub_key_pem = pub_key_pem.decode("utf-8")
 
-    key = import_rsakey_from_pem(pub_key_pem)
-    self._role_obj(role).add_verification_key(key)
+        key = import_rsakey_from_pem(pub_key_pem)
+        self._role_obj(role).add_verification_key(key)
 
-  def remove_metadata_key(self, role, key_id):
-    """Remove metadata key of the provided role.
+    def remove_metadata_key(self, role, key_id):
+        """Remove metadata key of the provided role.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -468,12 +475,15 @@ class Repository:
       - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
 
     """
-    from tuf.keydb import get_key
-    key = get_key(key_id)
-    self._role_obj(role).remove_verification_key(key)
+        from tuf.keydb import get_key
 
-  def set_metadata_expiration_date(self, role, start_date=datetime.datetime.now(), interval=None):
-    """Set expiration date of the provided role.
+        key = get_key(key_id)
+        self._role_obj(role).remove_verification_key(key)
+
+    def set_metadata_expiration_date(
+        self, role, start_date=datetime.datetime.now(), interval=None
+    ):
+        """Set expiration date of the provided role.
 
     Args:
       - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -497,14 +507,14 @@ class Repository:
       - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
                                                       targets object.
     """
-    role_obj = self._role_obj(role)
-    if interval is None:
-      interval = expiration_intervals.get(role, 1)
-    expiration_date = start_date + datetime.timedelta(interval)
-    role_obj.expiration = expiration_date
+        role_obj = self._role_obj(role)
+        if interval is None:
+            interval = expiration_intervals.get(role, 1)
+        expiration_date = start_date + datetime.timedelta(interval)
+        role_obj.expiration = expiration_date
 
-  def update_root(self, signature_dict):
-    """Update root metadata.
+    def update_root(self, signature_dict):
+        """Update root metadata.
 
     Args:
       - signature_dict(dict): key_id-signature dictionary
@@ -516,20 +526,26 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - SnapshotMetadataUpdateError: If any other error happened during metadata update
     """
-    from tuf.keydb import get_key
-    try:
-      for key_id in signature_dict:
-        key = get_key(key_id)
-        self._repository.root.add_external_signature_provider(
-            key,
-            partial(root_signature_provider, signature_dict, key_id)
-        )
-      self.writeall()
-    except (TUFError, SSLibError) as e:
-      raise RootMetadataUpdateError(str(e))
+        from tuf.keydb import get_key
 
-  def update_snapshot(self, snapshot_key, start_date=datetime.datetime.now(), interval=None, write=True):
-    """Update snapshot metadata.
+        try:
+            for key_id in signature_dict:
+                key = get_key(key_id)
+                self._repository.root.add_external_signature_provider(
+                    key, partial(root_signature_provider, signature_dict, key_id)
+                )
+            self.writeall()
+        except (TUFError, SSLibError) as e:
+            raise RootMetadataUpdateError(str(e))
+
+    def update_snapshot(
+        self,
+        snapshot_key,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update snapshot metadata.
 
     Args:
       - snapshot_key
@@ -548,15 +564,16 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - SnapshotMetadataUpdateError: If any other error happened during metadata update
     """
-    try:
-      self._try_load_metadata_key('snapshot', snapshot_key)
-      self._update_metadata('snapshot', start_date, interval, write=write)
-    except (TUFError, SSLibError) as e:
-      raise SnapshotMetadataUpdateError(str(e))
+        try:
+            self._try_load_metadata_key("snapshot", snapshot_key)
+            self._update_metadata("snapshot", start_date, interval, write=write)
+        except (TUFError, SSLibError) as e:
+            raise SnapshotMetadataUpdateError(str(e))
 
-  def update_snapshot_and_timestmap(self, snapshot_key, timestamp_key, write=True,
-                                    **kwargs):
-    """Update snapshot and timestamp metadata.
+    def update_snapshot_and_timestmap(
+        self, snapshot_key, timestamp_key, write=True, **kwargs
+    ):
+        """Update snapshot and timestamp metadata.
 
     Args:
       - snapshot_key(str): snapshot key
@@ -575,23 +592,26 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - MetadataUpdateError: If any other error happened during metadata update
     """
-    try:
-      snapshot_date = kwargs.get('snapshot_date', datetime.datetime.now())
-      snapshot_interval = kwargs.get('snapshot_interval', None)
+        try:
+            snapshot_date = kwargs.get("snapshot_date", datetime.datetime.now())
+            snapshot_interval = kwargs.get("snapshot_interval", None)
 
-      timestamp_date = kwargs.get('timestamp_date', datetime.datetime.now())
-      timestamp_interval = kwargs.get('timestamp_interval', None)
+            timestamp_date = kwargs.get("timestamp_date", datetime.datetime.now())
+            timestamp_interval = kwargs.get("timestamp_interval", None)
 
-      self.update_snapshot(snapshot_key, snapshot_date,
-                           snapshot_interval, write=write)
-      self.update_timestamp(timestamp_key, timestamp_date,
-                            timestamp_interval, write=write)
-    except (TUFError, SSLibError) as e:
-      raise MetadataUpdateError('all', str(e))
+            self.update_snapshot(
+                snapshot_key, snapshot_date, snapshot_interval, write=write
+            )
+            self.update_timestamp(
+                timestamp_key, timestamp_date, timestamp_interval, write=write
+            )
+        except (TUFError, SSLibError) as e:
+            raise MetadataUpdateError("all", str(e))
 
-  def update_targets_from_keystore(self, targets_key, start_date=datetime.datetime.now(),
-                                   interval=None, write=True):
-    """Update targets metadata. Sign it with a key from the file system
+    def update_targets_from_keystore(
+        self, targets_key, start_date=datetime.datetime.now(), interval=None, write=True
+    ):
+        """Update targets metadata. Sign it with a key from the file system
 
     Args:
       - targets_key(securesystemslib.formats.RSAKEY_SCHEMA): Targets key.
@@ -609,16 +629,22 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - TimestampMetadataUpdateError: If any other error happened during metadata update
     """
-    try:
-      self._try_load_metadata_key('targets', targets_key)
-      self._update_metadata('targets', start_date, interval, write=write)
-    except (TUFError, SSLibError) as e:
-      raise TimestampMetadataUpdateError(str(e))
+        try:
+            self._try_load_metadata_key("targets", targets_key)
+            self._update_metadata("targets", start_date, interval, write=write)
+        except (TUFError, SSLibError) as e:
+            raise TimestampMetadataUpdateError(str(e))
 
-  def update_targets(self, targets_key_pin, targets_data=None,
-                     start_date=datetime.datetime.now(), interval=None,
-                     write=True, public_key=None):
-    """Update target data, sign with smart card and write.
+    def update_targets(
+        self,
+        targets_key_pin,
+        targets_data=None,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+        public_key=None,
+    ):
+        """Update target data, sign with smart card and write.
 
     Args:
       - targets_key_pin(str): Targets key pin
@@ -638,31 +664,40 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - MetadataUpdateError: If any other error happened during metadata update
     """
-    try:
-      if public_key is None:
-        from taf.yubikey import get_piv_public_key_tuf
-        public_key = get_piv_public_key_tuf()
+        try:
+            if public_key is None:
+                from taf.yubikey import get_piv_public_key_tuf
 
-      if not self.is_valid_metadata_yubikey('targets', public_key):
-        raise InvalidKeyError('targets')
+                public_key = get_piv_public_key_tuf()
 
-      if targets_data:
-        self.add_targets(targets_data)
+            if not self.is_valid_metadata_yubikey("targets", public_key):
+                raise InvalidKeyError("targets")
 
-      self.set_metadata_expiration_date('targets', start_date, interval)
+            if targets_data:
+                self.add_targets(targets_data)
 
-      self._repository.targets.add_external_signature_provider(
-          public_key,
-          partial(targets_signature_provider, public_key['keyid'], targets_key_pin)
-      )
-      if write:
-        self._repository.write('targets')
+            self.set_metadata_expiration_date("targets", start_date, interval)
 
-    except (YubikeyError, TUFError, SSLibError) as e:
-      raise TargetsMetadataUpdateError(str(e))
+            self._repository.targets.add_external_signature_provider(
+                public_key,
+                partial(
+                    targets_signature_provider, public_key["keyid"], targets_key_pin
+                ),
+            )
+            if write:
+                self._repository.write("targets")
 
-  def update_timestamp(self, timestamp_key, start_date=datetime.datetime.now(), interval=None, write=True):
-    """Update timestamp metadata.
+        except (YubikeyError, TUFError, SSLibError) as e:
+            raise TargetsMetadataUpdateError(str(e))
+
+    def update_timestamp(
+        self,
+        timestamp_key,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update timestamp metadata.
 
     Args:
       - timestamp_key
@@ -680,14 +715,14 @@ class Repository:
       - InvalidKeyError: If wrong key is used to sign metadata
       - TimestampMetadataUpdateError: If any other error happened during metadata update
     """
-    try:
-      self._try_load_metadata_key('timestamp', timestamp_key)
-      self._update_metadata('timestamp', start_date, interval, write=write)
-    except (TUFError, SSLibError) as e:
-      raise TimestampMetadataUpdateError(str(e))
+        try:
+            self._try_load_metadata_key("timestamp", timestamp_key)
+            self._update_metadata("timestamp", start_date, interval, write=write)
+        except (TUFError, SSLibError) as e:
+            raise TimestampMetadataUpdateError(str(e))
 
-  def writeall(self):
-    """Write all dirty metadata files.
+    def writeall(self):
+        """Write all dirty metadata files.
 
     Args:
       None
@@ -699,4 +734,4 @@ class Repository:
       - tuf.exceptions.UnsignedMetadataError: If any of the top-level and delegated roles do not
                                               have the minimum threshold of signatures.
     """
-    self._repository.writeall()
+        self._repository.writeall()
