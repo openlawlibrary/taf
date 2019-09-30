@@ -15,12 +15,6 @@ from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
-from taf.auth_repo import AuthenticationRepo
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.git import GitRepository
-from taf.log import get_logger
-from taf.repository_tool import Repository, load_role_key
-from taf.utils import get_pin_for
 from tuf.keydb import get_key
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
@@ -30,6 +24,13 @@ from tuf.repository_tool import (
     generate_rsa_key,
     import_rsakey_from_pem,
 )
+
+from taf.auth_repo import AuthenticationRepo
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.git import GitRepository
+from taf.log import get_logger
+from taf.repository_tool import Repository, load_role_key
+from taf.utils import get_pin_for
 
 logger = get_logger(__name__)
 
@@ -139,7 +140,7 @@ def create_repository(
     """
   <Purpose>
     Create a new authentication repository. Generate initial metadata files.
-    The initial targets metadata file is empty (does not specify any targets)
+    The initial targets metadata file is empty (does not specify any targets).
   <Arguments>
     repo_path:
       Authentication repository's location
