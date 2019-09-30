@@ -1,71 +1,76 @@
 class TAFError(Exception):
-  pass
+    pass
 
 
 class InvalidBranchError(TAFError):
-  pass
+    pass
 
 
 class InvalidCommitError(TAFError):
-  pass
+    pass
 
 
 class InvalidKeyError(TAFError):
-  def __init__(self, metadata_role):
-    super().__init__('Cannot sign {} metadata file with inserted key.'.format(metadata_role))
+    def __init__(self, metadata_role):
+        super().__init__(
+            "Cannot sign {} metadata file with inserted key.".format(metadata_role)
+        )
 
 
 class InvalidOrMissingMetadataError(TAFError):
-  pass
+    pass
 
 
 class InvalidRepositoryError(TAFError):
-  pass
+    pass
 
 
 class MetadataUpdateError(TAFError):
-  def __init__(self, metadata_role, message):
-    super().__init__('Error happened while updating {} metadata role(s):\n\n{}'
-                     .format(metadata_role, message))
-    self.metadata_role = metadata_role
-    self.message = message
+    def __init__(self, metadata_role, message):
+        super().__init__(
+            "Error happened while updating {} metadata role(s):\n\n{}".format(
+                metadata_role, message
+            )
+        )
+        self.metadata_role = metadata_role
+        self.message = message
 
 
 class RootMetadataUpdateError(MetadataUpdateError):
-  def __init__(self, message):
-    super().__init__('root', message)
+    def __init__(self, message):
+        super().__init__("root", message)
 
 
 class PINMissmatchError(Exception):
-  pass
+    pass
 
 
 class SnapshotMetadataUpdateError(MetadataUpdateError):
-  def __init__(self, message):
-    super().__init__('snapshot', message)
+    def __init__(self, message):
+        super().__init__("snapshot", message)
 
 
 class TargetsMetadataUpdateError(MetadataUpdateError):
-  def __init__(self, message):
-    super().__init__('targets', message)
+    def __init__(self, message):
+        super().__init__("targets", message)
 
 
 class TimestampMetadataUpdateError(MetadataUpdateError):
-  def __init__(self, message):
-    super().__init__('timestamp', message)
+    def __init__(self, message):
+        super().__init__("timestamp", message)
 
 
 class NoSpeculativeBranchError(TAFError):
-  pass
+    pass
 
 
 class RepositoriesNotFoundError(TAFError):
-  pass
+    pass
 
 
 class UpdateFailedError(TAFError):
-  pass
+    pass
 
 
 class YubikeyError(Exception):
-  pass
+    pass

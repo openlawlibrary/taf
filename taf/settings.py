@@ -1,4 +1,3 @@
-
 import logging
 
 # Set a directory that should be used for all temporary files. If this
@@ -38,8 +37,8 @@ ERROR_LOGGING_LEVEL = logging.WARNING
 # If this location is not specified logs will be placed ~/.taf
 LOGS_LOCATION = None
 
-LOG_FILENAME = 'taf.log'
+LOG_FILENAME = "taf.log"
 
-ERROR_LOG_FILENAME = 'taf.err'
+ERROR_LOG_FILENAME = "taf.err"
 
 LOG_COMMAND_OUTPUT = False
