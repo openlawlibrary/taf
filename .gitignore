@@ -128,3 +128,6 @@ dmypy.json
 # extenral libs
 *.dylib
 *.dll
+
+# IDE
+.vscode/settings.json
