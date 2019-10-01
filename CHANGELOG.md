@@ -1,0 +1,58 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog][keepachangelog],
+and this project adheres to [Semantic Versioning][semver].
+
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+## [0.1.7] - 09/30/2019
+
+### Added
+
+- Add helper method to check if given commit has ever been validated ([65])
+
+### Changed
+
+- Pass scheme argument when loading _timestamp_ and _snapshot_ keys ([66])
+- Updated default logs location ([67])
+
+### Fixed
+
+[65]: https://github.com/openlawlibrary/taf/pull/65
+[66]: https://github.com/openlawlibrary/taf/pull/66
+[67]: https://github.com/openlawlibrary/taf/pull/67
+
+## [0.1.6] - 09/05/2019
+
+### Added
+
+### Changed
+
+- Update oll-tuf version ([63])
+- Remove utils function for importing RSA keys and refactor other files ([63])
+
+### Fixed
+
+- Fix azure pipeline script (include _libusb_ in wheels) ([63])
+
+[63]: https://github.com/openlawlibrary/taf/pull/63
+
+## [0.1.5] - 08/29/2019
+
+- Initial Version
+
+[keepachangelog]: https://keepachangelog.com/en/1.0.0/
+[semver]: https://semver.org/spec/v2.0.0.html
+
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/openlawlibrary/taf/compare/v0.1.6...v0.1.7
+[0.1.6]: https://github.com/openlawlibrary/taf/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/openlawlibrary/taf/compare/7795682e5358f365c140aebde31230602a5d8f0b...v0.1.5
