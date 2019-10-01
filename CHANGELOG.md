@@ -9,9 +9,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Initial [pre-commit](https://pre-commit.com/) configuration (black + flake8 + bandit) ([69])
+- Add changelog ([69])
+- Add pull request template ([69])
+
 ### Changed
 
+- Updated _travis_ script ([69])
+- Remove python 3.6 support ([69])
+- Use _f-strings_ instead of _format_ ([69])
+
 ### Fixed
+
+[69]: https://github.com/openlawlibrary/taf/pull/69
 
 ## [0.1.7] - 09/30/2019
 
