@@ -130,7 +130,7 @@ def build_auth_repo(
                         repo_path,
                         keystore,
                         roles_key_infos,
-                        commit_msg="Updated {}".format(target_repo_name),
+                        commit_msg=f"Updated {target_repo_name}",
                     )
 
 
@@ -160,7 +160,7 @@ def create_repository(
     repo = AuthenticationRepo(repo_path)
     if os.path.isdir(repo_path):
         if repo.is_git_repository:
-            print("Repository {} already exists".format(repo_path))
+            print(f"Repository {repo_path} already exists")
             return
 
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
@@ -177,7 +177,7 @@ def create_repository(
         for key_num in range(num_of_keys):
             key_name = _get_key_name(role_name, key_num, num_of_keys)
             if is_yubikey:
-                print("Generating keys for {}".format(key_name))
+                print(f"Generating keys for {key_name}")
                 use_existing = False
                 if len(yubikeys) > 1 or (
                     len(yubikeys) == 1 and role_name not in yubikeys
@@ -194,14 +194,12 @@ def create_repository(
                                 if existing_role_name == role_name:
                                     continue
                                 print(
-                                    "Existing keys for role {} are:\n".format(
-                                        existing_role_name
-                                    )
+                                    f"Existing keys for role {existing_role_name} are:\n"
                                 )
                                 for key_and_cert in role_keys.values():
                                     key, cert_cn = key_and_cert
                                     key_id_certs[key["keyid"]] = cert_cn
-                                    print("{} id: {}".format(cert_cn, key["keyid"]))
+                                    print(f"{cert_cn} id: {key['keyid']}")
                             existing_keyid = input(
                                 "\nEnter existing Yubikey's id and press ENTER "
                             )
@@ -215,9 +213,7 @@ def create_repository(
                     serial_num = yk.get_serial_num()
                     while serial_num in yubikeys[role_name]:
                         print(
-                            "Yubikey with serial number {} is already in use.\n".format(
-                                serial_num
-                            )
+                            f"Yubikey with serial number {serial_num} is already in use.\n"
                         )
                         input("Please insert new YubiKey and press ENTER.")
                         serial_num = yk.get_serial_num()
@@ -263,9 +259,7 @@ def create_repository(
                 # if it does not, generate the keys and print the output
                 else:
                     key = generate_rsa_key()
-                    print(
-                        "{} key:\n\n{}\n\n".format(role_name, key["keyval"]["private"])
-                    )
+                    print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
                     public_key = private_key = key
                 role_obj.add_verification_key(public_key)
                 role_obj.load_signing_key(private_key)
@@ -357,9 +351,7 @@ def generate_repositories_json(
             continue
         target_repo_name = target_repo_dir.name
         target_repo_namespaced_name = (
-            target_repo_name
-            if not namespace
-            else "{}/{}".format(namespace, str(target_repo_name))
+            target_repo_name if not namespace else f"{namespace}/{target_repo_name}"
         )
         # determine url to specify in initial repositories.json
         # if the repository has a remote set, use that url
@@ -530,9 +522,7 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
         pass
 
     data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
-    key_pin = getpass(
-        "Please insert {} YubiKey, input PIN and press ENTER.\n".format(cert_cn)
-    )
+    key_pin = getpass(f"Please insert {cert_cn} YubiKey, input PIN and press ENTER.\n")
     signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
@@ -591,9 +581,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
 
 
 def _form_private_pem(pem):
-    return "-----BEGIN RSA PRIVATE KEY-----\n{}\n-----END RSA PRIVATE KEY-----".format(
-        pem
-    )
+    return f"-----BEGIN RSA PRIVATE KEY-----\n{pem}\n-----END RSA PRIVATE KEY-----"
 
 
 # TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing

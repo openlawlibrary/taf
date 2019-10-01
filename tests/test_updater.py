@@ -235,8 +235,8 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
         repositories, origin_dir, client_dir, 3
     )
     first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_since_commit(None)[0]
-    expected_error = "Saved last validated commit {} does not match the head commit".format(
-        first_commit
+    expected_error = (
+        f"Saved last validated commit {first_commit} does not match the head commit"
     )
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit

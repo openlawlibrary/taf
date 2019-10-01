@@ -32,7 +32,7 @@ def update_repository(
    targets_dir:
     Directory where the target repositories are located
    update_from_filesystem:
-    A flag which indicates if the URL is acutally a file system path
+    A flag which indicates if the URL is actually a file system path
    authenticate_test_repo:
     A flag which indicates that the repository to be updated is a test repository
    target_repo_classes:
@@ -80,7 +80,7 @@ def update_named_repository(
     targets_dir:
       Directory where the target repositories are located
     update_from_filesystem:
-      A flag which indicates if the URL is acutally a file system path
+      A flag which indicates if the URL is actually a file system path
     authenticate_test_repo:
       A flag which indicates that the repository to be updated is a test repository
     target_repo_classes:
@@ -146,16 +146,14 @@ def update_named_repository(
             test_repo = "test-auth-repo" in targets["signed"]["targets"]
             if test_repo and not authenticate_test_repo:
                 raise UpdateFailedError(
-                    "Repository {} is a test repository. Call update with "
-                    '"--authenticate-test-repo" to update a test '
-                    "repository".format(users_auth_repo.repo_name)
+                    f"Repository {users_auth_repo.repo_name} is a test repository."
+                    'Call update with "--authenticate-test-repo to update a test "'
+                    "repository"
                 )
             elif not test_repo and authenticate_test_repo:
                 raise UpdateFailedError(
-                    "Repository {} is not a test repository, but update was called "
-                    'with the "--authenticate-test-repo" flag'.format(
-                        users_auth_repo.repo_name
-                    )
+                    f"Repository {users_auth_repo.repo_name} is not a test repository,"
+                    ' but update was called with the "--authenticate-test-repo" flag'
                 )
 
         # validate the authentication repository and fetch new commits
@@ -238,9 +236,8 @@ def _update_authentication_repository(repository_updater):
             e,
         )
         raise UpdateFailedError(
-            "Validation of authentication repository {} failed due to error: {}".format(
-                users_auth_repo.repo_name, e
-            )
+            f"Validation of authentication repository {users_auth_repo.repo_name}"
+            f" failed due to error: {e}"
         )
     finally:
         repository_updater.update_handler.cleanup()
@@ -367,7 +364,7 @@ def _update_target_repository(
             additional_commits = new_commits[len(target_commits) :]
             logger.warning(
                 "Found commits %s in repository %s that are not accounted for in the authentication repo."
-                "Repoisitory will be updated up to commit %s",
+                "Repository will be updated up to commit %s",
                 additional_commits,
                 repository.repo_name,
                 target_commits[-1],
@@ -396,6 +393,6 @@ def _update_target_repository(
         )
         raise UpdateFailedError(
             "Mismatch between target commits specified in authentication repository"
-            " and target repository {}".format(repository.repo_name)
+            f" and target repository {repository.repo_name}"
         )
     logger.info("Successfully validated %s", repository.repo_name)

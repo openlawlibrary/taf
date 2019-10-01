@@ -68,14 +68,14 @@ def get_cert_names_from_keyids(certs_dir, keyids):
             else:
                 cert_names.append(name)
         except FileNotFoundError:
-            print("Certificate does not exist ({}).".format(keyid))
+            print(f"Certificate does not exist ({keyid}).")
     return cert_names
 
 
 def get_pin_for(name, confirm=True, repeat=True):
-    pin = getpass("Enter PIN for {}: ".format(name))
+    pin = getpass(f"Enter PIN for {name}: ")
     if confirm:
-        if pin != getpass("Confirm PIN for {}: ".format(name)):
+        if pin != getpass(f"Confirm PIN for {name}: "):
             err_msg = "PINs don't match!"
             if repeat:
                 print(err_msg)

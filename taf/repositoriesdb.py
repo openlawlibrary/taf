@@ -112,7 +112,7 @@ def load_repositories(
 
             if not isinstance(git_repo, NamedGitRepository):
                 raise Exception(
-                    "{} is not a subclass of NamedGitRepository".format(type(git_repo))
+                    f"{type(git_repo)} is not a subclass of NamedGitRepository"
                 )
 
             repositories_dict[path] = git_repo
@@ -155,12 +155,10 @@ def _get_json_file(auth_repo, path, commit):
     try:
         return auth_repo.get_json(commit, path)
     except CalledProcessError:
-        raise InvalidOrMissingMetadataError(
-            "{} not available at revision {}".format(path, commit)
-        )
+        raise InvalidOrMissingMetadataError("{path} not available at revision {commit}")
     except json.decoder.JSONDecodeError:
         raise InvalidOrMissingMetadataError(
-            "{} not a valid json at revision {}".format(path, commit)
+            "{path} not a valid json at revision {commit}"
         )
 
 
@@ -199,7 +197,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
         custom,
     )
     raise RepositoriesNotFoundError(
-        "Repositories associated with custom data {} not found".format(custom)
+        f"Repositories associated with custom data {custom} not found"
     )
 
 
@@ -216,7 +214,7 @@ def get_deduplicated_repositories(auth_repo, commits):
         )
         raise RepositoriesNotFoundError(
             "Repositories defined in authentication repository"
-            " {} have not been loaded".format(auth_repo.repo_name)
+            f" {auth_repo.repo_name} have not been loaded"
         )
     repositories = {}
     # persuming that the newest commit is the last one
@@ -230,9 +228,7 @@ def get_deduplicated_repositories(auth_repo, commits):
             )
             raise RepositoriesNotFoundError(
                 "Repositories defined in authentication repository "
-                "{} at revision {} have not been loaded".format(
-                    auth_repo.repo_name, commit
-                )
+                "{auth_repo.repo_name} at revision {commit} have not been loaded"
             )
         for path, repo in all_repositories[commit].items():
             # will overwrite older repo with newer
@@ -265,7 +261,7 @@ def get_repositories(auth_repo, commit):
         )
         raise RepositoriesNotFoundError(
             "Repositories defined in authentication repository"
-            " {} have not been loaded".format(auth_repo.repo_name)
+            f" {auth_repo.repo_name} have not been loaded"
         )
 
     if commit is None:
@@ -281,7 +277,7 @@ def get_repositories(auth_repo, commit):
         )
         raise RepositoriesNotFoundError(
             "Repositories defined in authentication repository "
-            "{} at revision {} have not been loaded".format(auth_repo.repo_name, commit)
+            f"{auth_repo.repo_name} at revision {commit} have not been loaded"
         )
     logger.debug(
         "Auth repo %s: found the following repositories at revision %s: %s",
@@ -324,5 +320,5 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
         custom_data,
     )
     raise RepositoriesNotFoundError(
-        "Repositories associated with custom data {} not found".format(custom_data)
+        f"Repositories associated with custom data {custom_data} not found"
     )

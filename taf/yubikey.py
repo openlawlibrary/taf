@@ -39,9 +39,7 @@ def raise_yubikey_err(msg=None):
                 raise
             except Exception as e:
                 err_msg = (
-                    "{} Reason: ({}) {}".format(msg, type(e).__name__, str(e))
-                    if msg
-                    else str(e)
+                    f"{msg} Reason: ({type(e).__name__}) {str(e)}" if msg else str(e)
                 )
                 raise YubikeyError(err_msg) from e
 

@@ -13,7 +13,7 @@ class InvalidCommitError(TAFError):
 class InvalidKeyError(TAFError):
     def __init__(self, metadata_role):
         super().__init__(
-            "Cannot sign {} metadata file with inserted key.".format(metadata_role)
+            f"Cannot sign {metadata_role} metadata file with inserted key."
         )
 
 
@@ -28,9 +28,7 @@ class InvalidRepositoryError(TAFError):
 class MetadataUpdateError(TAFError):
     def __init__(self, metadata_role, message):
         super().__init__(
-            "Error happened while updating {} metadata role(s):\n\n{}".format(
-                metadata_role, message
-            )
+            f"Error happened while updating {metadata_role} metadata role(s):\n\n{message}"
         )
         self.metadata_role = metadata_role
         self.message = message

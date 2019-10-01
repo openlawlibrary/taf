@@ -58,7 +58,8 @@ setup(
     zip_safe=False,
     install_requires=[
         "click==6.7",
-        "colorama>=0.3.9" "cryptography>=2.3.1",
+        "colorama>=0.3.9",
+        "cryptography>=2.3.1",
         "oll-tuf==0.11.2.dev9",
     ],
     extras_require={
@@ -78,7 +79,6 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
