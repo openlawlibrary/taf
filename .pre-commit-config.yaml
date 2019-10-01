@@ -12,5 +12,5 @@ repos:
     rev: '1.6.2'
     hooks:
     -   id: bandit
-        args: [-l, --recursive, -x, tests, -c, .bandit]
+        args: [--recursive, -x, tests, -c, .bandit]
         files: .py$

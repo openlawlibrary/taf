@@ -24,8 +24,6 @@ def test_check_no_key_inserted_for_targets_should_raise_error(
 def test_check_targets_key_id_for_targets_should_return_true(
     taf_happy_path, targets_yk
 ):
-    from tuf.keydb import _keydb_dict
-
     targets_yk.insert()
     assert taf_happy_path.is_valid_metadata_yubikey("targets", targets_yk.tuf_key)
 
