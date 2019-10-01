@@ -2,7 +2,6 @@ import json
 import os
 from pathlib import Path
 
-import pytest
 from pytest import fixture
 
 from taf.git import GitRepository

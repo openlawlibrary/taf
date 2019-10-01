@@ -1,4 +1,3 @@
-import pytest
 from taf.utils import normalize_line_endings
 
 

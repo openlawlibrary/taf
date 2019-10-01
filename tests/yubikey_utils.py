@@ -5,7 +5,6 @@ from contextlib import contextmanager
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from securesystemslib.keys import format_metadata_to_key
 from securesystemslib.pyca_crypto_keys import create_rsa_signature
 from tuf.repository_tool import import_rsakey_from_pem
 from ykman.descriptor import FailedOpeningDeviceException
