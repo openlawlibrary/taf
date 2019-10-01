@@ -321,9 +321,7 @@ class Repository:
             custom = target_data.get("custom", None)
             self._add_target(targets_obj, str(target_path), custom)
 
-        with open(
-            os.path.join(self.metadata_path, "{}.json".format(targets_role))
-        ) as f:
+        with open(os.path.join(self.metadata_path, f"{targets_role}.json")) as f:
             previous_targets = json.load(f)["signed"]["targets"]
 
         for path in files_to_keep:

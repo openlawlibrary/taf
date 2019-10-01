@@ -89,7 +89,7 @@ class GitRepository(object):
 
         if len(args):
             cmd = cmd.format(*args)
-        command = "git -C {} {}".format(self.repo_path, cmd)
+        command = f"git -C {self.repo_path} {cmd}"
         if log_error or log_error_msg:
             try:
                 result = run(command)
@@ -170,7 +170,7 @@ class GitRepository(object):
                 branch_name,
                 log_error=True,
                 reraise_error=True,
-                log_success_msg="checked out branch {}".format(branch_name),
+                log_success_msg=f"checked out branch {branch_name}",
             )
         except subprocess.CalledProcessError as e:
             if create:
@@ -207,21 +207,16 @@ class GitRepository(object):
         self._git(
             "checkout -b {}",
             branch_name,
-            log_success_msg="created and checked out branch {}".format(
-                branch_name, log_error=True, reraise_error=True
-            ),
+            log_success_msg=f"created and checked out branch {branch_name}",
+            log_error=True,
+            reraise_error=True,
         )
 
     def checkout_commit(self, commit):
-        self._git(
-            "checkout {}",
-            commit,
-            log_success_msg="checked out commit {}".format(commit),
-        )
+        self._git("checkout {}", commit, log_success_msg=f"checked out commit {commit}")
 
     def commit(self, message):
-        """Create a commit with the provided message
-    on the currently checked out branch"""
+        """Create a commit with the provided message on the currently checked out branch"""
         self._git("add -A")
         try:
             self._git("diff --cached --exit-code --shortstat")
@@ -233,10 +228,10 @@ class GitRepository(object):
         self, branch1, branch2, include_branching_commit=False
     ):
         """
-    Meant to find commits belonging to a branch which branches off of
-    a commit from another branch. For example, to find only commits
-    on a speculative branch and not on the master branch.
-    """
+        Meant to find commits belonging to a branch which branches off of
+        a commit from another branch. For example, to find only commits
+        on a speculative branch and not on the master branch.
+        """
 
         logger.debug(
             "Repo %s: finding commits which are on branch %s, but not on branch %s",
@@ -313,7 +308,7 @@ class GitRepository(object):
     def list_commits(self, **kwargs):
         params = []
         for name, value in kwargs.items():
-            params.append("--{}={}".format(name, value))
+            params.append(f"--{name}={value}")
 
         return self._git("log {}", " ".join(params)).split("\n")
 
@@ -336,11 +331,11 @@ class GitRepository(object):
 
     def reset_num_of_commits(self, num_of_commits, hard=False):
         flag = "--hard" if hard else "--soft"
-        self._git("reset {} HEAD~{}".format(flag, num_of_commits))
+        self._git(f"reset {flag} HEAD~{num_of_commits}")
 
     def reset_to_commit(self, commit, hard=False):
         flag = "--hard" if hard else "--soft"
-        self._git("reset {} {}".format(flag, commit))
+        self._git(f"reset {flag} {commit}")
 
     def reset_to_head(self):
         self._git("reset --hard HEAD")
@@ -382,7 +377,7 @@ def _get_repo_path(root_dir, repo_name):
     repo_dir = str((Path(root_dir) / (repo_name or "")))
     if not repo_dir.startswith(repo_dir):
         logger.error("Repo %s: repository name is not valid", repo_name)
-        raise InvalidRepositoryError("Invalid repository name: {}".format(repo_name))
+        raise InvalidRepositoryError(f"Invalid repository name: {repo_name}")
     return repo_dir
 
 
@@ -397,7 +392,7 @@ def _validate_repo_name(repo_name):
         raise InvalidRepositoryError(
             "Repository name must be in format namespace/repository "
             "and can only contain letters, numbers, underscores and "
-            'dashes, but got "{}"'.format(repo_name)
+            f'dashes, but got "{repo_name}"'
         )
 
 
@@ -425,5 +420,5 @@ def _validate_url(url):
             return
     logger.error("Repository URL (%s) is not valid", url)
     raise InvalidRepositoryError(
-        'Repository URL must be a valid URL, but got "{}".'.format(url)
+        f'Repository URL must be a valid URL, but got "{url}".'
     )

@@ -1,14 +1,16 @@
 import os
 import shutil
 import tempfile
+from subprocess import CalledProcessError
+
 import securesystemslib
+import tuf.client.handlers as handlers
+
 import taf.log
 import taf.settings as settings
-import tuf.client.handlers as handlers
-from subprocess import CalledProcessError
 from taf.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
-from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
+from taf.git import GitRepository
 from taf.utils import on_rm_error
 
 logger = taf.log.get_logger(__name__)
@@ -112,9 +114,7 @@ class GitUpdater(handlers.MetadataUpdater):
             if not self.users_auth_repo.is_git_repository_root:
                 if os.listdir(repository_directory):
                     raise UpdateFailedError(
-                        "{} is not a git repository and is not empty".format(
-                            repository_directory
-                        )
+                        f"{repository_directory} is not a git repository and is not empty"
                     )
 
         # validation_auth_repo is a freshly cloned bare repository.
@@ -139,7 +139,7 @@ class GitUpdater(handlers.MetadataUpdater):
     """
         # TODO check if users authentication repository is clean
 
-        # load the last validated commit fromt he conf file
+        # load the last validated commit from he conf file
         last_validated_commit = self.users_auth_repo.last_validated_commit
 
         try:
@@ -154,18 +154,17 @@ class GitUpdater(handlers.MetadataUpdater):
                     self.validation_auth_repo.repo_name,
                 )
                 raise UpdateFailedError(
-                    "Commit {} is no longer contained by repository {}. This could "
+                    f"Commit {last_validated_commit} is no longer contained by repository"
+                    f" {self.validation_auth_repo.repo_name}. This could "
                     "either mean that there was an unauthorized push tot the remote "
-                    "repository, or that last_validated_commit file was modified.".format(
-                        last_validated_commit, self.validation_auth_repo.repo_name
-                    )
+                    "repository, or that last_validated_commit file was modified."
                 )
             else:
                 raise e
 
-        # Check if the user's head commit mathces the saved one
+        # Check if the user's head commit matches the saved one
         # That should always be the case
-        # If it is not, it means that someone, accidentally or maliciosly made manual changes
+        # If it is not, it means that someone, accidentally or maliciously made manual changes
 
         if not self.users_auth_repo.is_git_repository_root:
             users_head_sha = None
@@ -187,9 +186,9 @@ class GitUpdater(handlers.MetadataUpdater):
             # that by starting validation from the last validated commit, as opposed to the
             # user's head sha.
             # For now, we will raise an error
-            msg = """Saved last validated commit {} does not match the head commit of the
-authentication repository {}""".format(
-                last_validated_commit, users_head_sha
+            msg = (
+                f"Saved last validated commit {last_validated_commit} does not match the head"
+                f" commit of the authentication repository {users_head_sha}"
             )
             logger.error(msg)
             raise UpdateFailedError(msg)
@@ -282,9 +281,8 @@ authentication repository {}""".format(
         )
         if current_file.read() != previous_file.read():
             raise UpdateFailedError(
-                "Metadata file {} should be the same at revisions {} and {}, but is not.".format(
-                    metadata_filename, self.previous_commit, self.current_commit
-                )
+                f"Metadata file {metadata_filename} should be the same at revisions"
+                f" {self.previous_commit} and {self.current_commit}, but is not."
             )
 
     def get_current_targets(self):

@@ -109,7 +109,7 @@ def taf_happy_path(request, pytestconfig):
     elif scheme == "rsa-pkcs1v15-sha256":
         yield from _create_origin("test-happy-path-pkcs1v15")
     else:
-        raise ValueError("Invalid test config. Invalid scheme: {}".format(scheme))
+        raise ValueError(f"Invalid test config. Invalid scheme: {scheme}")
 
 
 @yield_fixture(scope="session", autouse=True)

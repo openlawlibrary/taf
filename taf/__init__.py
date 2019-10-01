@@ -23,4 +23,4 @@ elif _PLATFORM == "linux":
 elif _PLATFORM == "win32":
     _set_env("PATH", _PLATFORM_LIBS)
 else:
-    raise Exception('Platform "{}" is not supported!'.format(_PLATFORM))
+    raise Exception(f'Platform "{_PLATFORM}" is not supported!')

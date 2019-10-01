@@ -333,16 +333,16 @@ def setup_test_yubikey():
     )
     targets_key_pem = targets_key_path.read_bytes()
 
-    click.echo(
-        "\nImporting RSA private key from {} to Yubikey...".format(targets_key_path)
-    )
+    click.echo(f"\nImporting RSA private key from {targets_key_path} to Yubikey...")
 
     pin = yk.DEFAULT_PIN
-    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=targets_key_pem)
+    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=targets_key_pem).decode(
+        "utf-8"
+    )
 
     click.echo("\nPrivate key successfully imported.\n")
-    click.echo("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
-    click.echo("Pin: {}\n".format(pin))
+    click.echo(f"\nPublic key (PEM): \n{pub_key}")
+    click.echo(f"Pin: {pin}\n")
 
 
 cli()
