@@ -44,6 +44,21 @@ Install extra dependencies when using _Yubikey_:
 pip install taf[yubikey]
 ```
 
+## Development Setup
+
+We are using [pre-commit](https://pre-commit.com/) to run _black_ code formatter, _flake8_ and _bandit_ code quality checks.
+
+```bash
+pip install -e .[dev]
+pip install -e .[test]
+
+pre-commit install # registers git pre-commit hook
+
+pre-commit run --all-files # runs code formatting and quality checks for all files
+```
+
+NOTE: For _Windows_ users: Open [settings.json](.vscode/settings.json) and replace paths.
+
 ## Running Tests
 
 To run tests with mocked Yubikey:
