@@ -87,7 +87,7 @@ def get_pin_for(name, confirm=True, repeat=True):
 
 def run(*command, **kwargs):
     """Run a command and return its output. Call with `debug=True` to print to
-  stdout."""
+    stdout."""
     if len(command) == 1 and isinstance(command[0], str):
         command = command[0].split()
     if taf.settings.LOG_COMMAND_OUTPUT:
@@ -147,8 +147,8 @@ def normalize_line_endings(file_content):
 
 def on_rm_error(_func, path, _exc_info):
     """Used by when calling rmtree to ensure that readonly files and folders
-  are deleted.
-  """
+    are deleted.
+    """
     os.chmod(path, stat.S_IWRITE)
     os.unlink(path)
 
@@ -156,7 +156,7 @@ def on_rm_error(_func, path, _exc_info):
 def to_tuf_datetime_format(start_date, interval):
     """Used to convert datetime to format used while writing metadata:
     e.g. "2020-05-29T21:59:34Z",
-  """
+    """
     datetime_object = start_date + datetime.timedelta(interval)
     datetime_object = datetime_object.replace(microsecond=0)
     return datetime_object.isoformat() + "Z"

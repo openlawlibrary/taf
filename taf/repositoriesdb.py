@@ -37,32 +37,32 @@ def load_repositories(
     commits=None,
 ):
     """
-  Creates target repositories by reading repositories.json and targets.json files
-  at the specified revisions, given an authentication repo.
-  If the the commits are not specified, targets will be created based on the HEAD pointer
-  of the authentication repository. It is possible to specify git repository class that
-  will be created per target.
-  Args:
-    auth_repo: the authentication repository
-    target_classes: a single git repository class, or a dictionary whose keys are
-      target paths and values are git repository classes. E.g:
-      {
-        'path1': GitRepo1,
-        'path2': GitRepo2,
-        'default': GitRepo3
-      }
-      When determening a target's class, in case when targets_classes is a dictionary,
-      it is first checked if its path is in a key in the dictionary. If it is not found,
-      it is checked if default class is set, by looking up value of 'default'. If nothing
-      is found, the class is set to TAF's NamedGitRepository.
-      If target_classes is a single class, all targets will be of that type.
-      If target_classes is None, all targets will be of TAF's NamedGitRepository type.
-    root_dir: root directory relative to which the target paths are specified
-    commits: Authentication repository's commits at which to read targets.json
-    only_load_targets: specifies if only repositories specified in targets.json should be loaded.
-      If set to false, all repositories defined in repositories.json are loaded, regardless of if
-      they are targets or not.
-  """
+    Creates target repositories by reading repositories.json and targets.json files
+    at the specified revisions, given an authentication repo.
+    If the the commits are not specified, targets will be created based on the HEAD pointer
+    of the authentication repository. It is possible to specify git repository class that
+    will be created per target.
+    Args:
+        auth_repo: the authentication repository
+        target_classes: a single git repository class, or a dictionary whose keys are
+        target paths and values are git repository classes. E.g:
+        {
+            'path1': GitRepo1,
+            'path2': GitRepo2,
+            'default': GitRepo3
+        }
+        When determening a target's class, in case when targets_classes is a dictionary,
+        it is first checked if its path is in a key in the dictionary. If it is not found,
+        it is checked if default class is set, by looking up value of 'default'. If nothing
+        is found, the class is set to TAF's NamedGitRepository.
+        If target_classes is a single class, all targets will be of that type.
+        If target_classes is None, all targets will be of TAF's NamedGitRepository type.
+        root_dir: root directory relative to which the target paths are specified
+        commits: Authentication repository's commits at which to read targets.json
+        only_load_targets: specifies if only repositories specified in targets.json should be loaded.
+        If set to false, all repositories defined in repositories.json are loaded, regardless of if
+        they are targets or not.
+    """
 
     global _repositories_dict
     if auth_repo.repo_name not in _repositories_dict:
