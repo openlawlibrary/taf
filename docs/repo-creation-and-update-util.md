@@ -149,7 +149,7 @@ will generate a new authentication repository at `E:\OLL\auth_repo` and sign it 
 read from the specified keystore. Any of the keys are password protected, the password is read
 from json specified using `--keys-description`.
 
-### `add_target_repos`
+### `update_repos_from_fs`
 
 Creates or updates target files. Given a directory where the target repositories are located,
 traverses though all directories in that root directory, assuming that each child directory is
@@ -166,7 +166,7 @@ E:\OLL\repos\target_repos\namespace
 and if the command is called as follows
 
 ```
-taf add_target_repos  --repo-path E:\OLL\auth_repo --targets-dir E:\OLL\repos\target_repos\namespace --namespace namespace
+taf update_repos_from_fs  --repo-path E:\OLL\auth_repo --targets-dir E:\OLL\repos\target_repos\namespace --namespace namespace
 ```
 
 three target files will be created or updated. The resulting directory structure will be as seen below:
@@ -188,6 +188,16 @@ current head SHA. For example,
 {
     "commit": "248f82dbd2a2ba3555d0803b0377c1065d5b03d9"
 }
+```
+
+This command does not update the metadata files.
+
+### `update_repos_from_repositories_json`
+
+Creates or updates target files by iterating repositories from `repositories.json`. Saves the target repository's HEAD SHA to the corresponding file under targets directory.
+
+```
+taf update_repos_from_repositories_json  --repo-path E:\OLL\auth_repo
 ```
 
 This command does not update the metadata files.
