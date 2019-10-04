@@ -22,7 +22,7 @@ def cli():
 @click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
 @click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
-def add_targets(repo_path, keystore, keys_description, commit_msg, scheme):
+def sign_targets(repo_path, keystore, keys_description, commit_msg, scheme):
     developer_tool.register_target_files(repo_path, keystore, keys_description, commit_msg, scheme)
 
 
