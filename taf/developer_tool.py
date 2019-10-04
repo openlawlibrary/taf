@@ -157,6 +157,86 @@ def build_auth_repo(
                     )
 
 
+def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir):
+    print(f"Generating keys for {key_name}")
+    use_existing = False
+    if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
+        use_existing = input("Do you want to reuse already set up Yubikey? y/n ") == "y"
+        if use_existing:
+            existing_key = None
+            key_id_certs = {}
+            while existing_key is None:
+                for existing_role_name, role_keys in yubikeys.items():
+                    if existing_role_name == role_name:
+                        continue
+                    print(f"Existing keys for role {existing_role_name} are:\n")
+                    for key_and_cert in role_keys.values():
+                        key, cert_cn = key_and_cert
+                        key_id_certs[key["keyid"]] = cert_cn
+                        print(f"{cert_cn} id: {key['keyid']}")
+                existing_keyid = input("\nEnter existing Yubikey's id and press ENTER ")
+                try:
+                    existing_key = get_key(existing_keyid)
+                    cert_cn = key_id_certs[existing_keyid]
+                except UnknownKeyError:
+                    pass
+    if not use_existing:
+        input("Please insert a new YubiKey and press ENTER.")
+        serial_num = yk.get_serial_num()
+        while serial_num in yubikeys[role_name]:
+            print(f"Yubikey with serial number {serial_num} is already in use.\n")
+            input("Please insert new YubiKey and press ENTER.")
+            serial_num = yk.get_serial_num()
+
+        pin = get_pin_for(key_name)
+
+        cert_cn = input("Enter key holder's name: ")
+
+        print("Generating keys, please wait...")
+        pub_key_pem = yk.setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode(
+            "utf-8"
+        )
+
+        key = import_rsakey_from_pem(pub_key_pem, scheme)
+
+        cert_path = os.path.join(certs_dir, key["keyid"] + ".cert")
+        with open(cert_path, "wb") as f:
+            f.write(yk.export_piv_x509())
+
+    # set Yubikey expiration date
+    role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
+    role_obj.add_external_signature_provider(
+        key, partial(signature_provider, key["keyid"], cert_cn)
+    )
+    yubikeys[role_name][serial_num] = (key, cert_cn)
+
+
+def _register_key(keystore, passwords, role_obj, role_name, key_name, key_num, scheme):
+    # if keystore exists, load the keys
+    # this is useful when generating tests
+    if keystore is not None:
+        public_key = import_rsa_publickey_from_file(
+            os.path.join(keystore, key_name + ".pub"), scheme
+        )
+        password = passwords[key_num]
+        if password:
+            private_key = import_rsa_privatekey_from_file(
+                os.path.join(keystore, key_name), password, scheme=scheme
+            )
+        else:
+            private_key = import_rsa_privatekey_from_file(
+                os.path.join(keystore, key_name), scheme=scheme
+            )
+
+    # if it does not, generate the keys and print the output
+    else:
+        key = generate_rsa_key()
+        print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
+        public_key = private_key = key
+    role_obj.add_verification_key(public_key)
+    role_obj.load_signing_key(private_key)
+
+
 def create_repository(
     repo_path, keystore, roles_key_infos, commit_message=None, test=False
 ):
@@ -200,92 +280,13 @@ def create_repository(
         for key_num in range(num_of_keys):
             key_name = _get_key_name(role_name, key_num, num_of_keys)
             if is_yubikey:
-                print(f"Generating keys for {key_name}")
-                use_existing = False
-                if len(yubikeys) > 1 or (
-                    len(yubikeys) == 1 and role_name not in yubikeys
-                ):
-                    use_existing = (
-                        input("Do you want to reuse already set up Yubikey? y/n ")
-                        == "y"
-                    )
-                    if use_existing:
-                        existing_key = None
-                        key_id_certs = {}
-                        while existing_key is None:
-                            for existing_role_name, role_keys in yubikeys.items():
-                                if existing_role_name == role_name:
-                                    continue
-                                print(
-                                    f"Existing keys for role {existing_role_name} are:\n"
-                                )
-                                for key_and_cert in role_keys.values():
-                                    key, cert_cn = key_and_cert
-                                    key_id_certs[key["keyid"]] = cert_cn
-                                    print(f"{cert_cn} id: {key['keyid']}")
-                            existing_keyid = input(
-                                "\nEnter existing Yubikey's id and press ENTER "
-                            )
-                            try:
-                                existing_key = get_key(existing_keyid)
-                                cert_cn = key_id_certs[existing_keyid]
-                            except UnknownKeyError:
-                                pass
-                if not use_existing:
-                    input("Please insert a new YubiKey and press ENTER.")
-                    serial_num = yk.get_serial_num()
-                    while serial_num in yubikeys[role_name]:
-                        print(
-                            f"Yubikey with serial number {serial_num} is already in use.\n"
-                        )
-                        input("Please insert new YubiKey and press ENTER.")
-                        serial_num = yk.get_serial_num()
-
-                    pin = get_pin_for(key_name)
-
-                    cert_cn = input("Enter key holder's name: ")
-
-                    print("Generating keys, please wait...")
-                    pub_key_pem = yk.setup(
-                        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL
-                    ).decode("utf-8")
-
-                    key = import_rsakey_from_pem(pub_key_pem, scheme)
-
-                    cert_path = os.path.join(repo.certs_dir, key["keyid"] + ".cert")
-                    with open(cert_path, "wb") as f:
-                        f.write(yk.export_piv_x509())
-
-                # set Yubikey expiration date
-                role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-                role_obj.add_external_signature_provider(
-                    key, partial(signature_provider, key["keyid"], cert_cn)
+                _register_yubikey(
+                    yubikeys, role_obj, role_name, key_name, scheme, repo.certs_dir
                 )
-                yubikeys[role_name][serial_num] = (key, cert_cn)
             else:
-                # if keystore exists, load the keys
-                # this is useful when generating tests
-                if keystore is not None:
-                    public_key = import_rsa_publickey_from_file(
-                        os.path.join(keystore, key_name + ".pub"), scheme
-                    )
-                    password = passwords[key_num]
-                    if password:
-                        private_key = import_rsa_privatekey_from_file(
-                            os.path.join(keystore, key_name), password, scheme=scheme
-                        )
-                    else:
-                        private_key = import_rsa_privatekey_from_file(
-                            os.path.join(keystore, key_name), scheme=scheme
-                        )
-
-                # if it does not, generate the keys and print the output
-                else:
-                    key = generate_rsa_key()
-                    print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-                    public_key = private_key = key
-                role_obj.add_verification_key(public_key)
-                role_obj.load_signing_key(private_key)
+                _register_key(
+                    keystore, passwords, role_obj, role_name, key_name, key_num, scheme
+                )
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
