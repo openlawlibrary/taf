@@ -46,38 +46,61 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 )
 
 
-def add_target_repos(repo_path, targets_directory, namespace=None):
+def _update_target_repos(repo_path, targets_dir, target_repo_path):
+    """Updates target repo's commit sha"""
+    if not target_repo_path.is_dir() or target_repo_path == repo_path:
+        return
+
+    target_repo = GitRepository(str(target_repo_path))
+    if target_repo.is_git_repository:
+        commit = target_repo.head_commit_sha()
+        target_repo_name = target_repo_path.name
+        (targets_dir / target_repo_name).write_text(
+            json.dumps({"commit": commit}, indent=4)
+        )
+
+
+def update_target_repos_from_fs(repo_path, targets_directory, namespace=None):
     """
-  <Purpose>
-    Create or update target files by reading the latest commits of the provided target repositories
-  <Arguments>
-    repo_path:
-      Authentication repository's location
-    targets_directory:
-      Directory which contains target repositories
-    namespace:
-      Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
-  """
+    <Purpose>
+        Create or update target files by reading the latest commits of the provided target repositories
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        targets_directory:
+        Directory which contains target repositories
+        namespace:
+        Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+    """
     repo_path = Path(repo_path).resolve()
-    targets_directory = Path(targets_directory).resolve()
+    targets_dir = Path(targets_directory).resolve()
     if namespace is None:
-        namespace = targets_directory.name
+        namespace = targets_dir.name
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     if namespace:
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
         if not auth_repo_targets_dir.exists():
             os.makedirs(auth_repo_targets_dir)
 
-    for target_repo_dir in targets_directory.glob("*"):
-        if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
-            continue
-        target_repo = GitRepository(str(target_repo_dir))
-        if target_repo.is_git_repository:
-            commit = target_repo.head_commit_sha()
-            target_repo_name = target_repo_dir.name
-            (auth_repo_targets_dir / target_repo_name).write_text(
-                json.dumps({"commit": commit}, indent=4)
-            )
+    for target_repo_path in targets_dir.glob("*"):
+        _update_target_repos(repo_path, targets_dir, target_repo_path)
+
+
+def update_target_repos_from_repositories_json(repo_path):
+    """
+    <Purpose>
+        Create or update target files by reading the latest commits repositories.json
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+    """
+    repo_path = Path(repo_path).resolve()
+    targets_dir = repo_path / TARGETS_DIRECTORY_NAME
+    repositories_json = json.loads(Path(targets_dir).read_text())
+
+    for repo in repositories_json.get("repositories"):
+        target_repo_path = targets_dir / repo
+        _update_target_repos(repo_path, targets_dir, target_repo_path)
 
 
 def build_auth_repo(
@@ -138,23 +161,23 @@ def create_repository(
     repo_path, keystore, roles_key_infos, commit_message=None, test=False
 ):
     """
-  <Purpose>
-    Create a new authentication repository. Generate initial metadata files.
-    The initial targets metadata file is empty (does not specify any targets).
-  <Arguments>
-    repo_path:
-      Authentication repository's location
-    targets_directory:
-      Directory which contains target repositories
-    keystore:
-      Location of the keystore files
-    roles_key_infos:
-      A dictionary whose keys are role names, while values contain information about the keys.
-    commit_message:
-      If provided, the changes will be committed automatically using the specified message
-    test:
-      Indicates if the created repository is a test authentication repository
-  """
+    <Purpose>
+        Create a new authentication repository. Generate initial metadata files.
+        The initial targets metadata file is empty (does not specify any targets).
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        targets_directory:
+        Directory which contains target repositories
+        keystore:
+        Location of the keystore files
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys.
+        commit_message:
+        If provided, the changes will be committed automatically using the specified message
+        test:
+        Indicates if the created repository is a test authentication repository
+    """
     yubikeys = defaultdict(dict)
     roles_key_infos = _read_input_dict(roles_key_infos)
     repo = AuthenticationRepo(repo_path)
@@ -281,22 +304,22 @@ def create_repository(
 
 def generate_keys(keystore, roles_key_infos):
     """
-  <Purpose>
-    Generate public and private keys and writes them to disk. Names of keys correspond to names
-    of the TUF roles. If more than one key should be generated per role, a counter is appended
-    to the role's name. E.g. root1, root2, root3 etc.
-  <Arguments>
-    keystore:
-      Location where the generated files should be saved
-    roles_key_infos:
-      A dictionary whose keys are role names, while values contain information about the keys.
-      This includes:
-        - passwords of the keystore files
-        - number of keys per role (optional, defaults to one if not provided)
-        - key length (optional, defaults to TUF's default value, which is 3072)
-      Names of the keys are set to names of the roles plus a counter, if more than one key
-      should be generated.
-  """
+    <Purpose>
+        Generate public and private keys and writes them to disk. Names of keys correspond to names
+        of the TUF roles. If more than one key should be generated per role, a counter is appended
+        to the role's name. E.g. root1, root2, root3 etc.
+    <Arguments>
+        keystore:
+        Location where the generated files should be saved
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys.
+        This includes:
+            - passwords of the keystore files
+            - number of keys per role (optional, defaults to one if not provided)
+            - key length (optional, defaults to TUF's default value, which is 3072)
+        Names of the keys are set to names of the roles plus a counter, if more than one key
+        should be generated.
+    """
     roles_key_infos = _read_input_dict(roles_key_infos)
     for role_name, key_info in roles_key_infos.items():
         num_of_keys = key_info.get("number", 1)
@@ -320,18 +343,18 @@ def generate_repositories_json(
     custom_data=None,
 ):
     """
-  <Purpose>
-    Generatesinitial repositories.json
-  <Arguments>
-    repo_path:
-      Authentication repository's location
-    targets_directory:
-      Directory which contains target repositories
-    namespace:
-      Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
-    targets_relative_dir:
-      Directory relative to which urls of the target repositories are set, if they do not have remote set
-  """
+    <Purpose>
+        Generatesinitial repositories.json
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        targets_directory:
+        Directory which contains target repositories
+        namespace:
+        Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+        targets_relative_dir:
+        Directory relative to which urls of the target repositories are set, if they do not have remote set
+    """
 
     custom_data = _read_input_dict(custom_data)
     repositories = {}
@@ -397,37 +420,37 @@ def init_repo(
     test=False,
 ):
     """
-  <Purpose>
-    Generate initial repository:
-    1. Crete tuf authentication repository
-    2. Commit initial metadata files if commit == True
-    3. Add target repositories
-    4. Generate repositories.json
-    5. Update tuf metadata
-    6. Commit the changes if commit == True
-  <Arguments>
-    repo_path:
-      Authentication repository's location
-    targets_directory:
-      Directory which contains target repositories
-    namespace:
-      Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
-    targets_relative_dir:
-      Directory relative to which urls of the target repositories are set, if they do not have remote set
-    keystore:
-      Location of the keystore files
-    roles_key_infos:
-      A dictionary whose keys are role names, while values contain information about the keys.
-    commit_message:
-      If provided, the changes will be committed automatically using the specified message
-    test:
-      Indicates if the created repository is a test authentication repository
-  """
+    <Purpose>
+        Generate initial repository:
+        1. Crete tuf authentication repository
+        2. Commit initial metadata files if commit == True
+        3. Add target repositories
+        4. Generate repositories.json
+        5. Update tuf metadata
+        6. Commit the changes if commit == True
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        targets_directory:
+        Directory which contains target repositories
+        namespace:
+        Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+        targets_relative_dir:
+        Directory relative to which urls of the target repositories are set, if they do not have remote set
+        keystore:
+        Location of the keystore files
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys.
+        commit_message:
+        If provided, the changes will be committed automatically using the specified message
+        test:
+        Indicates if the created repository is a test authentication repository
+    """
     # read the key infos here, no need to read the file multiple times
     roles_key_infos = _read_input_dict(roles_key_infos)
     commit_msg = "Initial commit" if commit else None
     create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
-    add_target_repos(repo_path, targets_directory, namespace)
+    update_target_repos_from_fs(repo_path, targets_directory, namespace)
     generate_repositories_json(
         repo_path, targets_directory, namespace, targets_relative_dir, repos_custom
     )
@@ -470,22 +493,22 @@ def register_target_files(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
-  <Purpose>
-    Register all files found in the target directory as targets - updates the targets
-    metadata file, snapshot and timestamp. Sign targets
-    with yubikey if keystore is not provided
-  <Arguments>
-    repo_path:
-      Authentication repository's path
-    keystore:
-      Location of the keystore files
-    roles_key_infos:
-      A dictionary whose keys are role names, while values contain information about the keys.
-    commit_msg:
-      Commit message. If specified, the changes made to the authentication are committed.
-    scheme:
-      A signature scheme used for signing.
-  """
+    <Purpose>
+        Register all files found in the target directory as targets - updates the targets
+        metadata file, snapshot and timestamp. Sign targets
+        with yubikey if keystore is not provided
+    <Arguments>
+        repo_path:
+        Authentication repository's path
+        keystore:
+        Location of the keystore files
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys.
+        commit_msg:
+        Commit message. If specified, the changes made to the authentication are committed.
+        scheme:
+        A signature scheme used for signing.
+    """
     roles_key_infos = _read_input_dict(roles_key_infos)
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME

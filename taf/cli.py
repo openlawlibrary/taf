@@ -42,8 +42,16 @@ def add_target_file(repo_path, file_path, keystore, keys_description, scheme):
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
 @click.option('--namespace', default=None, help='Namespace of the target repositories')
-def add_target_repos(repo_path, targets_dir, namespace):
-    developer_tool.add_target_repos(repo_path, targets_dir, namespace)
+def update_repos_from_fs(repo_path, targets_dir, namespace):
+    "Updates target repositories by traversing given targets directory "
+    developer_tool.update_target_repos_from_fs(repo_path, targets_dir, namespace)
+
+
+@cli.command()
+@click.option("--repo-path", default="repository", help="Location of the repository")
+def update_repos_from_repositories_json(repo_path, targets_dir, namespace):
+    "Updates target repositories by traversing repositories.json "
+    developer_tool.update_target_repos_from_repositories_json(repo_path)
 
 
 @cli.command()
