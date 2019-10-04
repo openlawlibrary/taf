@@ -81,7 +81,7 @@ def _copy_repos(test_dir_path, test_name):
     for root, dirs, _ in os.walk(test_dir_path):
         for dir_name in dirs:
             if dir_name == "git":
-                repo_rel_path = os.path.relpath(root, test_dir_path)
+                repo_rel_path = Path(root).relative_to(test_dir_path)
                 dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
                 # convert dst_path to string in order to support python 3.5
                 shutil.copytree(root, str(dst_path))

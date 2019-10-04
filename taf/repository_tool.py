@@ -1,6 +1,5 @@
 import datetime
 import json
-import os
 from functools import partial
 from pathlib import Path
 
@@ -62,12 +61,10 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
     if key is None:
         if password is not None:
             key = import_rsa_privatekey_from_file(
-                os.path.join(keystore, role), password, scheme=scheme
+                Path(keystore, role), password, scheme=scheme
             )
         else:
-            key = import_rsa_privatekey_from_file(
-                os.path.join(keystore, role), scheme=scheme
-            )
+            key = import_rsa_privatekey_from_file(Path(keystore, role), scheme=scheme)
     if not DISABLE_KEYS_CACHING:
         role_keys_cache[role] = key
     return key
@@ -128,11 +125,11 @@ class Repository:
 
     @property
     def targets_path(self):
-        return Path(self.repository_path) / TARGETS_DIRECTORY_NAME
+        return Path(self.repository_path, TARGETS_DIRECTORY_NAME)
 
     @property
     def metadata_path(self):
-        return os.path.join(self.repository_path, METADATA_DIRECTORY_NAME)
+        return Path(self.repository_path, METADATA_DIRECTORY_NAME)
 
     @property
     def repo_id(self):
@@ -290,9 +287,7 @@ class Repository:
         for filepath in self.targets_path.rglob("*"):
             if filepath.is_file():
                 file_rel_path = str(
-                    Path(
-                        os.path.relpath(str(filepath), str(self.targets_path))
-                    ).as_posix()
+                    Path(filepath).relative_to(self.targets_path).as_posix()
                 )
                 if file_rel_path not in data and file_rel_path not in files_to_keep:
                     if file_rel_path in targets_obj.target_files:
@@ -321,8 +316,9 @@ class Repository:
             custom = target_data.get("custom", None)
             self._add_target(targets_obj, str(target_path), custom)
 
-        with open(os.path.join(self.metadata_path, f"{targets_role}.json")) as f:
-            previous_targets = json.load(f)["signed"]["targets"]
+        previous_targets = json.loads(
+            Path(self.metadata_path, f"{targets_role}.json").read_text()
+        )["signed"]["targets"]
 
         for path in files_to_keep:
             # if path if both in data and files_to_keep, skip it

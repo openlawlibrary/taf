@@ -1,7 +1,6 @@
 import datetime
 import json
 import os
-import pathlib
 from binascii import hexlify
 from collections import defaultdict
 from functools import partial
@@ -121,19 +120,18 @@ def build_auth_repo(
     register_target_files(
         repo_path, keystore, roles_key_infos, commit_msg="Added repositories.json"
     )
-    auth_repo_targets_dir = os.path.join(repo_path, TARGETS_DIRECTORY_NAME)
+    auth_repo_targets_dir = Path(repo_path, TARGETS_DIRECTORY_NAME)
     if namespace:
-        auth_repo_targets_dir = os.path.join(auth_repo_targets_dir, namespace)
-        if not os.path.exists(auth_repo_targets_dir):
-            os.makedirs(auth_repo_targets_dir)
+        auth_repo_targets_dir = auth_repo_targets_dir / namespace
+        auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
     # group commits by dates
     # first add first repos at a date, then second repost at that date
     commits_by_date = defaultdict(dict)
     target_repositories = []
     for target_repo_dir in os.listdir(targets_directory):
-        target_repo = GitRepository(os.path.join(targets_directory, target_repo_dir))
+        target_repo = GitRepository(Path(targets_directory, target_repo_dir))
         target_repo.checkout_branch("master")
-        target_repo_name = os.path.basename(target_repo_dir)
+        target_repo_name = str(Path(target_repo_dir).parent)
         target_repositories.append(target_repo_name)
         commits = target_repo.list_commits(format="format:%H|%cd", date="short")
         for commit in commits[::-1]:
@@ -145,10 +143,9 @@ def build_auth_repo(
         for target_repo_name in target_repositories:
             if target_repo_name in repos_and_commits:
                 for sha in commits_by_date[date][target_repo_name]:
-                    with open(
-                        os.path.join(auth_repo_targets_dir, target_repo_name), "w"
-                    ) as f:
-                        json.dump({"commit": sha}, f, indent=4)
+                    Path(auth_repo_targets_dir, target_repo_name).write_text(
+                        json.dumps({"commit": sha}, indent=4)
+                    )
                     register_target_files(
                         repo_path,
                         keystore,
@@ -199,7 +196,7 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
 
         key = import_rsakey_from_pem(pub_key_pem, scheme)
 
-        cert_path = os.path.join(certs_dir, key["keyid"] + ".cert")
+        cert_path = Path(certs_dir, f"{key['keyid']}.cert")
         with open(cert_path, "wb") as f:
             f.write(yk.export_piv_x509())
 
@@ -216,7 +213,7 @@ def _register_key(keystore, passwords, role_obj, role_name, key_name, key_num, s
     # this is useful when generating tests
     if keystore is not None:
         public_key = import_rsa_publickey_from_file(
-            os.path.join(keystore, key_name + ".pub"), scheme
+            os.path.join(keystore, f"{key_name}.pub"), scheme
         )
         password = passwords[key_num]
         if password:
@@ -384,13 +381,11 @@ def generate_repositories_json(
         url = target_repo.get_remote_url()
         if url is None:
             if targets_relative_dir is not None:
-                url = os.path.relpath(
-                    str(target_repo.repo_path), str(targets_relative_dir)
-                )
+                url = Path(target_repo.repo_path).relative_to(targets_relative_dir)
             else:
-                url = str(Path(target_repo.repo_path).resolve())
+                url = Path(target_repo.repo_path).resolve()
             # convert to posix path
-            url = pathlib.Path(url).as_posix()
+            url = str(url.as_posix())
         repositories[target_repo_namespaced_name] = {"urls": [url]}
         if target_repo_namespaced_name in custom_data:
             repositories[target_repo_namespaced_name]["custom"] = custom_data[
@@ -478,7 +473,7 @@ def _read_input_dict(value):
     if value is None:
         return {}
     if type(value) is str:
-        if os.path.isfile(value):
+        if Path(value).is_file():
             with open(value) as f:
                 value = json.loads(f.read())
         else:

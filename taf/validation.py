@@ -1,5 +1,8 @@
-import os
+from pathlib import Path
 
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
+
+from taf.constants import CAPSTONE
 from taf.exceptions import InvalidBranchError
 
 
@@ -106,8 +109,8 @@ def check_capstone(auth_repo, branch):
   Check if there is a capstone file (a target file called capstone) at the end of the specified branch.
   Assumes that the branch is checked out.
   """
-    capstone_path = os.path.join(auth_repo.repo_path, "targets", "capstone")
-    if not os.path.isfile(capstone_path):
+    capstone_path = Path(auth_repo.repo_path, TARGETS_DIRECTORY_NAME, CAPSTONE)
+    if not capstone_path.is_file():
         raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
 
 

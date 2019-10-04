@@ -17,11 +17,8 @@ def run_around_tests(taf_happy_path):
     files_to_keep = []
     for root, _, filenames in os.walk(str(taf_happy_path.targets_path)):
         for filename in filenames:
-            file_path = str(Path(root) / filename)
-            relpath = Path(
-                os.path.relpath(file_path, str(taf_happy_path.targets_path))
-            ).as_posix()
-            files_to_keep.append(relpath)
+            relpath = Path(root, filename).relative_to(taf_happy_path.targets_path)
+            files_to_keep.append(relpath.as_posix())
     taf_happy_path.add_targets({}, files_to_keep=files_to_keep)
 
 
@@ -114,6 +111,6 @@ def _get_old_targets(repo):
     old_targets = []
     for root, _, filenames in os.walk(str(targets_path)):
         for filename in filenames:
-            rel_path = os.path.relpath(str(Path(root) / filename), str(targets_path))
-            old_targets.append(Path(rel_path).as_posix())
+            rel_path = Path(root, filename).relative_to(targets_path)
+            old_targets.append(rel_path.as_posix())
     return old_targets
