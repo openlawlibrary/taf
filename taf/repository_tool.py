@@ -41,23 +41,23 @@ DISABLE_KEYS_CACHING = False
 
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Loads the specified role's key from a keystore file.
-  The keystore file can, but doesn't have to be password protected.
+    The keystore file can, but doesn't have to be password protected.
 
-  NOTE: Keys inside keystore should match a role name!
+    NOTE: Keys inside keystore should match a role name!
 
-  Args:
-    - keystore(str): Path to the keystore directory
-    - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-    - password(str): (Optional) password used for PEM decryption
-    - scheme(str): A signature scheme used for signing.
+    Args:
+        - keystore(str): Path to the keystore directory
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - password(str): (Optional) password used for PEM decryption
+        - scheme(str): A signature scheme used for signing.
 
-  Returns:
-    - An RSA key object, conformant to 'securesystemslib.RSAKEY_SCHEMA'.
+    Returns:
+        - An RSA key object, conformant to 'securesystemslib.RSAKEY_SCHEMA'.
 
-  Raises:
-    - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-    - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
-  """
+    Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
+    """
     key = role_keys_cache.get(role)
     if key is None:
         if password is not None:
@@ -76,18 +76,18 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
 def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W0613
     """Targets signature provider used to sign data with YubiKey.
 
-  Args:
-    - key_id(str): Key id from targets metadata file
-    - key_pin(str): PIN for signing key
-    - key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
-    - data(dict): Data to sign
+    Args:
+        - key_id(str): Key id from targets metadata file
+        - key_pin(str): PIN for signing key
+        - key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
+        - data(dict): Data to sign
 
-  Returns:
-    Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
+    Returns:
+        Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
 
-  Raises:
-    - YubikeyError: If signing with YubiKey cannot be performed
-  """
+    Raises:
+        - YubikeyError: If signing with YubiKey cannot be performed
+    """
     from taf.yubikey import sign_piv_rsa_pkcs1v15
     from binascii import hexlify
 
@@ -100,18 +100,18 @@ def targets_signature_provider(key_id, key_pin, key, data):  # pylint: disable=W
 def root_signature_provider(signature_dict, key_id, _key, _data):
     """Root signature provider used to return signatures created remotely.
 
-  Args:
-    - signature_dict(dict): Dict where key is key_id and value is signature
-    - key_id(str): Key id from targets metadata file
-    - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
-    - _data(dict): Data to sign (already signed remotely)
+    Args:
+        - signature_dict(dict): Dict where key is key_id and value is signature
+        - key_id(str): Key id from targets metadata file
+        - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
+        - _data(dict): Data to sign (already signed remotely)
 
-  Returns:
-    Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
+    Returns:
+        Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
 
-  Raises:
-    - KeyError: If signature for key_id is not present in signature_dict
-  """
+    Raises:
+        - KeyError: If signature for key_id is not present in signature_dict
+    """
     from binascii import hexlify
 
     return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
@@ -140,32 +140,32 @@ class Repository:
 
     def _add_target(self, targets_obj, file_path, custom=None):
         """
-    <Purpose>
-      Normalizes line endings (converts all line endings to unix style endings) and
-      registers the target file as a TUF target
-    <Arguments>
-      targets_obj: TUF targets objects (instance of TUF's targets role class)
-      file_path: full path of the target file
-      custom: custom target data
-    """
+        <Purpose>
+        Normalizes line endings (converts all line endings to unix style endings) and
+        registers the target file as a TUF target
+        <Arguments>
+        targets_obj: TUF targets objects (instance of TUF's targets role class)
+        file_path: full path of the target file
+        custom: custom target data
+        """
         normalize_file_line_endings(file_path)
         targets_obj.add_target(file_path, custom)
 
     def _role_obj(self, role):
         """Helper function for getting TUF's role object, given the role's name
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
 
-    Returns:
-      One of metadata objects:
-        Root, Snapshot, Timestamp, Targets or delegated metadata
+        Returns:
+        One of metadata objects:
+            Root, Snapshot, Timestamp, Targets or delegated metadata
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                      targets object.
-   """
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        """
         if role == "targets":
             return self._repository.targets
         elif role == "snapshot":
@@ -179,19 +179,19 @@ class Repository:
     def _try_load_metadata_key(self, role, key):
         """Check if given key can be used to sign given role and load it.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - key(securesystemslib.formats.RSAKEY_SCHEMA): Private key used to sign metadata
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - key(securesystemslib.formats.RSAKEY_SCHEMA): Private key used to sign metadata
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                      targets object.
-      - InvalidKeyError: If metadata cannot be signed with given key.
-    """
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        - InvalidKeyError: If metadata cannot be signed with given key.
+        """
         if not self.is_valid_metadata_key(role, key):
             raise InvalidKeyError(role)
         self._role_obj(role).load_signing_key(key)
@@ -201,83 +201,83 @@ class Repository:
     ):
         """Update metadata expiration date and (optionally) writes it.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - start_date(datetime): Date to which the specified interval is added when
-                              calculating expiration date. If a value is not
-                              provided, it is set to the current time
-      - interval(int): Number of days added to the start date. If not provided,
-                      the default value is used
-      - write(bool): If True metadata will be signed and written
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If a value is not
+                                provided, it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                        the default value is used
+        - write(bool): If True metadata will be signed and written
 
-    Returns:
-      - None
+        Returns:
+        - None
 
-    Raises:
-      - securesystemslib.exceptions.Error: If securesystemslib error happened during metadata write
-      - tuf.exceptions.Error: If TUF error happened during metadata write
-    """
+        Raises:
+        - securesystemslib.exceptions.Error: If securesystemslib error happened during metadata write
+        - tuf.exceptions.Error: If TUF error happened during metadata write
+        """
         self.set_metadata_expiration_date(role, start_date, interval)
         if write:
             self._repository.write(role)
 
     def add_existing_target(self, file_path, targets_role="targets", custom=None):
         """Registers new target files with TUF.
-    The files are expected to be inside the targets directory.
+        The files are expected to be inside the targets directory.
 
-    Args:
-      - file_path(str): Path to target file
-      - targets_role(str): Targets or delegated role: a targets role (the root targets role
-                           or one of the delegated ones)
-      - custom(dict): Custom information for given file
+        Args:
+        - file_path(str): Path to target file
+        - targets_role(str): Targets or delegated role: a targets role (the root targets role
+                            or one of the delegated ones)
+        - custom(dict): Custom information for given file
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If 'filepath' is improperly formatted.
-      - securesystemslib.exceptions.Error: If 'filepath' is not located in the repository's targets
-                                           directory.
-    """
+        Raises:
+        - securesystemslib.exceptions.FormatError: If 'filepath' is improperly formatted.
+        - securesystemslib.exceptions.Error: If 'filepath' is not located in the repository's targets
+                                            directory.
+        """
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
     def add_targets(self, data, targets_role="targets", files_to_keep=None):
         """Creates a target .json file containing a repository's commit for each repository.
-    Adds those files to the tuf repository. Also removes all targets from the filesystem if their
-    path is not among the provided ones. TUF does not delete targets automatically.
+        Adds those files to the tuf repository. Also removes all targets from the filesystem if their
+        path is not among the provided ones. TUF does not delete targets automatically.
 
-    Args:
-      - data(dict): Dictionary whose keys are target paths of repositories
-                    (as specified in targets.json, relative to the targets dictionary).
-                    The values are of form:
-                    {
-                      target: content of the target file
-                      custom: {
-                        custom_field1: custom_value1,
-                        custom_field2: custom_value2
-                      }
-                    }
+        Args:
+        - data(dict): Dictionary whose keys are target paths of repositories
+                        (as specified in targets.json, relative to the targets dictionary).
+                        The values are of form:
+                        {
+                        target: content of the target file
+                        custom: {
+                            custom_field1: custom_value1,
+                            custom_field2: custom_value2
+                        }
+                        }
 
-      Content of the target file can be a dictionary, in which case a jason file will be created.
-      If that is not the case, an ordinary textual file will be created.
-      If content is not specified and the file already exists, it will not be modified.
-      If it does not exist, an empty file will be created. To replace an existing file with an
-      empty file, specify empty content (target: '')
+        Content of the target file can be a dictionary, in which case a jason file will be created.
+        If that is not the case, an ordinary textual file will be created.
+        If content is not specified and the file already exists, it will not be modified.
+        If it does not exist, an empty file will be created. To replace an existing file with an
+        empty file, specify empty content (target: '')
 
-      If a target exists on disk, but is not specified in the provided targets data dictionary,
-      it will be:
-      - removed, if the target does not correspond to a repository defined in repositories.json
-      - left as is,  if the target does correspondw to a repository defined in repositories.json
+        If a target exists on disk, but is not specified in the provided targets data dictionary,
+        it will be:
+        - removed, if the target does not correspond to a repository defined in repositories.json
+        - left as is,  if the target does correspondw to a repository defined in repositories.json
 
-      Custom is an optional property which, if present, will be used to specify a TUF target's
+        Custom is an optional property which, if present, will be used to specify a TUF target's
 
-      - targets_role(str): Targets or delegated role: a targets role (the root targets role
-                           or one of the delegated ones)
-      - files_to_keep(list|tuple): List of files defined in the previous version of targets.json
-                                   that should remain targets. Files required by the framework will
-                                   also remain targets.
-    """
+        - targets_role(str): Targets or delegated role: a targets role (the root targets role
+                            or one of the delegated ones)
+        - files_to_keep(list|tuple): List of files defined in the previous version of targets.json
+                                    that should remain targets. Files required by the framework will
+                                    also remain targets.
+        """
         if files_to_keep is None:
             files_to_keep = []
         # leave all files required by the framework and additional files specified by the user
@@ -346,34 +346,34 @@ class Repository:
 
     def get_role_keys(self, role):
         """Registers new target files with TUF.
-    The files are expected to be inside the targets directory.
+        The files are expected to be inside the targets directory.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
 
-    Returns:
-      List of the role's keyids (i.e., keyids of the keys).
+        Returns:
+        List of the role's keyids (i.e., keyids of the keys).
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                      targets object.
-    """
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        """
         role_obj = self._role_obj(role)
         return role_obj.keys
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
 
-    Returns:
-      A string representing the 'object' encoded in canonical JSON form or None
+        Returns:
+        A string representing the 'object' encoded in canonical JSON form or None
 
-    Raises:
-      None
-    """
+        Raises:
+        None
+        """
         try:
             from tuf.keydb import get_key
 
@@ -394,17 +394,17 @@ class Repository:
     def is_valid_metadata_key(self, role, key):
         """Checks if metadata role contains key id of provided key.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - key(securesystemslib.formats.RSAKEY_SCHEMA): Timestamp key.
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - key(securesystemslib.formats.RSAKEY_SCHEMA): Timestamp key.
 
-    Returns:
-      Boolean. True if key id is in metadata role key ids, False otherwise.
+        Returns:
+        Boolean. True if key id is in metadata role key ids, False otherwise.
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If key does not match RSAKEY_SCHEMA
-      - securesystemslib.exceptions.UnknownRoleError: If role does not exist
-    """
+        Raises:
+        - securesystemslib.exceptions.FormatError: If key does not match RSAKEY_SCHEMA
+        - securesystemslib.exceptions.UnknownRoleError: If role does not exist
+        """
         securesystemslib.formats.RSAKEY_SCHEMA.check_match(key)
 
         return key["keyid"] in self.get_role_keys(role)
@@ -412,18 +412,18 @@ class Repository:
     def is_valid_metadata_yubikey(self, role, public_key=None):
         """Checks if metadata role contains key id from YubiKey.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
-      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
+        - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
 
-    Returns:
-      Boolean. True if smart card key id belongs to metadata role key ids
+        Returns:
+        Boolean. True if smart card key id belongs to metadata role key ids
 
-    Raises:
-      - YubikeyError
-      - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If role does not exist
-    """
+        Raises:
+        - YubikeyError
+        - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If role does not exist
+        """
         securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
         if public_key is None:
@@ -436,20 +436,20 @@ class Repository:
     def add_metadata_key(self, role, pub_key_pem):
         """Add metadata key of the provided role.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - pub_key_pem(str|bytes): Public key in PEM format
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - pub_key_pem(str|bytes): Public key in PEM format
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                      targets object.
-      - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
 
-    """
+        """
         if isinstance(pub_key_pem, bytes):
             pub_key_pem = pub_key_pem.decode("utf-8")
 
@@ -459,20 +459,20 @@ class Repository:
     def remove_metadata_key(self, role, key_id):
         """Remove metadata key of the provided role.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - key_id(str): An object conformant to 'securesystemslib.formats.KEYID_SCHEMA'.
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - key_id(str): An object conformant to 'securesystemslib.formats.KEYID_SCHEMA'.
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                      targets object.
-      - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
 
-    """
+        """
         from tuf.keydb import get_key
 
         key = get_key(key_id)
@@ -483,28 +483,28 @@ class Repository:
     ):
         """Set expiration date of the provided role.
 
-    Args:
-      - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-      - start_date(datetime): Date to which the specified interval is added when calculating
-                            expiration date. If a value is not provided, it is set to the
-                            current time.
-      - interval(int): A number of days added to the start date.
-                       If not provided, the default value is set based on the role:
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - start_date(datetime): Date to which the specified interval is added when calculating
+                                expiration date. If a value is not provided, it is set to the
+                                current time.
+        - interval(int): A number of days added to the start date.
+                        If not provided, the default value is set based on the role:
 
-                        root - 365 days
-                        targets - 90 days
-                        snapshot - 7 days
-                        timestamp - 1 day
-                        all other roles - 1 day
+                            root - 365 days
+                            targets - 90 days
+                            snapshot - 7 days
+                            timestamp - 1 day
+                            all other roles - 1 day
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-      - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                      targets object.
-    """
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        """
         role_obj = self._role_obj(role)
         if interval is None:
             interval = expiration_intervals.get(role, 1)
@@ -514,16 +514,16 @@ class Repository:
     def update_root(self, signature_dict):
         """Update root metadata.
 
-    Args:
-      - signature_dict(dict): key_id-signature dictionary
+        Args:
+        - signature_dict(dict): key_id-signature dictionary
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - SnapshotMetadataUpdateError: If any other error happened during metadata update
-    """
+        Raises:
+        - InvalidKeyError: If wrong key is used to sign metadata
+        - SnapshotMetadataUpdateError: If any other error happened during metadata update
+        """
         from tuf.keydb import get_key
 
         try:
@@ -545,23 +545,23 @@ class Repository:
     ):
         """Update snapshot metadata.
 
-    Args:
-      - snapshot_key
-      - password: Keystore file password
-      - start_date(datetime): Date to which the specified interval is added when
-                              calculating expiration date. If a value is not
-                              provided, it is set to the current time
-      - interval(int): Number of days added to the start date. If not provided,
-                      the default value is used
-      - write(bool): If True snapshot metadata will be signed and written
+        Args:
+        - snapshot_key
+        - password: Keystore file password
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If a value is not
+                                provided, it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                        the default value is used
+        - write(bool): If True snapshot metadata will be signed and written
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - SnapshotMetadataUpdateError: If any other error happened during metadata update
-    """
+        Raises:
+        - InvalidKeyError: If wrong key is used to sign metadata
+        - SnapshotMetadataUpdateError: If any other error happened during metadata update
+        """
         try:
             self._try_load_metadata_key("snapshot", snapshot_key)
             self._update_metadata("snapshot", start_date, interval, write=write)
@@ -573,23 +573,23 @@ class Repository:
     ):
         """Update snapshot and timestamp metadata.
 
-    Args:
-      - snapshot_key(str): snapshot key
-      - timestamp_key(str): timestamp key
-      - write(bool): (Optional) If True snapshot and timestamp metadata will be signed and written
-      - kwargs(dict): (Optional) Expiration dates and intervals:
-                      - snapshot_date(datetime)
-                      - snapshot_interval(int)
-                      - timestamp_date(datetime)
-                      - timestamp_interval(int)
+        Args:
+        - snapshot_key(str): snapshot key
+        - timestamp_key(str): timestamp key
+        - write(bool): (Optional) If True snapshot and timestamp metadata will be signed and written
+        - kwargs(dict): (Optional) Expiration dates and intervals:
+                        - snapshot_date(datetime)
+                        - snapshot_interval(int)
+                        - timestamp_date(datetime)
+                        - timestamp_interval(int)
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - MetadataUpdateError: If any other error happened during metadata update
-    """
+        Raises:
+        - InvalidKeyError: If wrong key is used to sign metadata
+        - MetadataUpdateError: If any other error happened during metadata update
+        """
         try:
             snapshot_date = kwargs.get("snapshot_date", datetime.datetime.now())
             snapshot_interval = kwargs.get("snapshot_interval", None)
@@ -611,22 +611,22 @@ class Repository:
     ):
         """Update targets metadata. Sign it with a key from the file system
 
-    Args:
-      - targets_key(securesystemslib.formats.RSAKEY_SCHEMA): Targets key.
-      - start_date(datetime): Date to which the specified interval is added when
-                              calculating expiration date. If a value is not
-                              provided, it is set to the current time
-      - interval(int): Number of days added to the start date. If not provided,
-                      the default value is used
-      - write(bool): If True timestmap metadata will be signed and written
+        Args:
+        - targets_key(securesystemslib.formats.RSAKEY_SCHEMA): Targets key.
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If a value is not
+                                provided, it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                        the default value is used
+        - write(bool): If True timestmap metadata will be signed and written
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - TimestampMetadataUpdateError: If any other error happened during metadata update
-    """
+        Raises:
+        - InvalidKeyError: If wrong key is used to sign metadata
+        - TimestampMetadataUpdateError: If any other error happened during metadata update
+        """
         try:
             self._try_load_metadata_key("targets", targets_key)
             self._update_metadata("targets", start_date, interval, write=write)
@@ -644,24 +644,24 @@ class Repository:
     ):
         """Update target data, sign with smart card and write.
 
-    Args:
-      - targets_key_pin(str): Targets key pin
-      - targets_data(dict): (Optional) Dictionary with targets data
-      - start_date(datetime): Date to which the specified interval is added when
-                              calculating expiration date. If a value is not
-                              provided, it is set to the current time
-      - interval(int): Number of days added to the start date. If not provided,
-                       the default value is used
-      - write(bool): If True targets metadata will be signed and written
-      - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
+        Args:
+        - targets_key_pin(str): Targets key pin
+        - targets_data(dict): (Optional) Dictionary with targets data
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If a value is not
+                                provided, it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                        the default value is used
+        - write(bool): If True targets metadata will be signed and written
+        - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - MetadataUpdateError: If any other error happened during metadata update
-    """
+        Raises:
+        - InvalidKeyError: If wrong key is used to sign metadata
+        - MetadataUpdateError: If any other error happened during metadata update
+        """
         try:
             if public_key is None:
                 from taf.yubikey import get_piv_public_key_tuf
@@ -697,22 +697,22 @@ class Repository:
     ):
         """Update timestamp metadata.
 
-    Args:
-      - timestamp_key
-      - start_date(datetime): Date to which the specified interval is added when
-                              calculating expiration date. If a value is not
-                              provided, it is set to the current time
-      - interval(int): Number of days added to the start date. If not provided,
-                      the default value is used
-      - write(bool): If True timestmap metadata will be signed and written
+        Args:
+        - timestamp_key
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If a value is not
+                                provided, it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                        the default value is used
+        - write(bool): If True timestmap metadata will be signed and written
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - InvalidKeyError: If wrong key is used to sign metadata
-      - TimestampMetadataUpdateError: If any other error happened during metadata update
-    """
+        Raises:
+        - InvalidKeyError: If wrong key is used to sign metadata
+        - TimestampMetadataUpdateError: If any other error happened during metadata update
+        """
         try:
             self._try_load_metadata_key("timestamp", timestamp_key)
             self._update_metadata("timestamp", start_date, interval, write=write)
@@ -722,14 +722,14 @@ class Repository:
     def writeall(self):
         """Write all dirty metadata files.
 
-    Args:
-      None
+        Args:
+        None
 
-    Returns:
-      None
+        Returns:
+        None
 
-    Raises:
-      - tuf.exceptions.UnsignedMetadataError: If any of the top-level and delegated roles do not
-                                              have the minimum threshold of signatures.
-    """
+        Raises:
+        - tuf.exceptions.UnsignedMetadataError: If any of the top-level and delegated roles do not
+                                                have the minimum threshold of signatures.
+        """
         self._repository.writeall()

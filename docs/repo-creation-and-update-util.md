@@ -192,7 +192,7 @@ current head SHA. For example,
 
 This command does not update the metadata files.
 
-### `add_targets`
+### `sign_targets`
 
 This command registers the target files. This assumes that the target files
 were previously updated. It traverses through all files found inside the
