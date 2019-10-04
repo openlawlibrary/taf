@@ -8,20 +8,20 @@ from taf.exceptions import InvalidBranchError
 
 def validate_branch(auth_repo, target_repos, branch_name):
     """
-  Validates corresponding branches of the authentication repository
-  and the target repositories. Assumes that:
-  1. Commits of the target repositories' branches are merged into the default (master) branch
-  2. Commits of the authentication repository are not merged into the default (master) branch
-  directly - fresh timestamp and snapshot are generated.
-  Checks if:
-  1. For each target repository, a commit sha of each commit of the specified branch matches
-  the commit sha stored in the target file corresponding to that repository.
-  2. Versions of tuf metadata increase by one from one commit
-  to the next commit of a branch in the authentication repository
-  3. The last commit of the authentication repository's branch has capstone set (meaning
-  that a capstone file is one of the targets specified in targets.json)
-  4. If all commits of an authentication repository's branch have the same branch ID
-  """
+    Validates corresponding branches of the authentication repository
+    and the target repositories. Assumes that:
+    1. Commits of the target repositories' branches are merged into the default (master) branch
+    2. Commits of the authentication repository are not merged into the default (master) branch
+    directly - fresh timestamp and snapshot are generated.
+    Checks if:
+    1. For each target repository, a commit sha of each commit of the specified branch matches
+    the commit sha stored in the target file corresponding to that repository.
+    2. Versions of tuf metadata increase by one from one commit
+    to the next commit of a branch in the authentication repository
+    3. The last commit of the authentication repository's branch has capstone set (meaning
+    that a capstone file is one of the targets specified in targets.json)
+    4. If all commits of an authentication repository's branch have the same branch ID
+    """
 
     check_capstone(auth_repo, branch_name)
 
@@ -60,9 +60,9 @@ def validate_branch(auth_repo, target_repos, branch_name):
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
     """
-  Checks if branches of the given name have the same number
-  of commits in each of the provided repositories.
-  """
+    Checks if branches of the given name have the same number
+    of commits in each of the provided repositories.
+    """
 
     lengths = set(len(commits) for commits in targets_and_commits.values())
     if len(lengths) > 1:
@@ -88,11 +88,11 @@ def _check_branch_id(auth_repo, auth_commit, branch_id):
 
 def _check_targets_version(targets, tuf_commit, current_version):
     """
-  Checks version numbers specified in targets.json (compares it to the previous one)
-  There are no other metadata files to check (when building a speculative branch, we do
-  not generate snapshot and timestamp, just targets.json and we have no delegations)
-  Return the read version number
-  """
+    Checks version numbers specified in targets.json (compares it to the previous one)
+    There are no other metadata files to check (when building a speculative branch, we do
+    not generate snapshot and timestamp, just targets.json and we have no delegations)
+    Return the read version number
+    """
     new_version = targets["signed"]["version"]
     # substracting one because the commits are in the reverse order
     if current_version is not None and new_version != current_version - 1:
@@ -106,9 +106,10 @@ def _check_targets_version(targets, tuf_commit, current_version):
 
 def check_capstone(auth_repo, branch):
     """
-  Check if there is a capstone file (a target file called capstone) at the end of the specified branch.
-  Assumes that the branch is checked out.
-  """
+    Check if there is a capstone file (a target file called capstone)
+    at the end of the specified branch.
+    Assumes that the branch is checked out.
+    """
     capstone_path = Path(auth_repo.repo_path, TARGETS_DIRECTORY_NAME, CAPSTONE)
     if not capstone_path.is_file():
         raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
@@ -118,9 +119,9 @@ def _compare_commit_with_targets_metadata(
     tuf_repo, tuf_commit, target_repo, target_repo_commit
 ):
     """
-  Check if commit sha of a repository's speculative branch commit matches the
-  specified target value in targets.json.
-  """
+    Check if commit sha of a repository's speculative branch commit matches the
+    specified target value in targets.json.
+    """
     repo_name = f"targets/{target_repo.repo_name}"
     targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
     if target_repo_commit != targets_head_sha:

@@ -24,24 +24,24 @@ def update_repository(
     target_factory=None,
 ):
     """
-  <Arguments>
-   url:
-    URL of the remote authentication repository
-   clients_repo_path:
-    Client's authentication repository's full path
-   targets_dir:
-    Directory where the target repositories are located
-   update_from_filesystem:
-    A flag which indicates if the URL is actually a file system path
-   authenticate_test_repo:
-    A flag which indicates that the repository to be updated is a test repository
-   target_repo_classes:
-    A class or a dictionary used when instantiating target repositories.
-    See repositoriesdb load_repositories for more details.
-   target_factory:
-    A git repositories factory used when instantiating target repositories.
-    See repositoriesdb load_repositories for more details.
-  """
+    <Arguments>
+    url:
+        URL of the remote authentication repository
+    clients_repo_path:
+        Client's authentication repository's full path
+    targets_dir:
+        Directory where the target repositories are located
+    update_from_filesystem:
+        A flag which indicates if the URL is actually a file system path
+    authenticate_test_repo:
+        A flag which indicates that the repository to be updated is a test repository
+    target_repo_classes:
+        A class or a dictionary used when instantiating target repositories.
+        See repositoriesdb load_repositories for more details.
+    target_factory:
+        A git repositories factory used when instantiating target repositories.
+        See repositoriesdb load_repositories for more details.
+    """
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
@@ -70,52 +70,52 @@ def update_named_repository(
     target_factory=None,
 ):
     """
-   <Arguments>
-    url:
-      URL of the remote authentication repository
-    clients_directory:
-      Directory where the client's authentication repository is located
-    repo_name:
-      Name of the authentication repository. Can be namespace prefixed
-    targets_dir:
-      Directory where the target repositories are located
-    update_from_filesystem:
-      A flag which indicates if the URL is actually a file system path
-    authenticate_test_repo:
-      A flag which indicates that the repository to be updated is a test repository
-    target_repo_classes:
-      A class or a dictionary used when instantiating target repositories.
-      See repositoriesdb load_repositories for more details.
-    target_factory:
-      A git repositories factory used when instantiating target repositories.
-      See repositoriesdb load_repositories for more details.
+    <Arguments>
+        url:
+        URL of the remote authentication repository
+        clients_directory:
+        Directory where the client's authentication repository is located
+        repo_name:
+        Name of the authentication repository. Can be namespace prefixed
+        targets_dir:
+        Directory where the target repositories are located
+        update_from_filesystem:
+        A flag which indicates if the URL is actually a file system path
+        authenticate_test_repo:
+        A flag which indicates that the repository to be updated is a test repository
+        target_repo_classes:
+        A class or a dictionary used when instantiating target repositories.
+        See repositoriesdb load_repositories for more details.
+        target_factory:
+        A git repositories factory used when instantiating target repositories.
+        See repositoriesdb load_repositories for more details.
 
-  The general idea of the updater is the following:
-  - We have a git repository which contains the metadata files. These metadata files
-  are in the 'metadata' directory
-  - Clients have a clone of that repository on their local machine and want to update it
-  - We don't want to simply pull the updates. We want to verify that the new commits
-  (committed after the most recent one in the client's local repository)
-  - For each of the new commits, we want to check if all metadata is valid. The set of
-  metadata should be valid as a whole at that revision. Not only do we want to make sure
-  that a metadata which is supposed to be changed was indeed updated and is valid, but
-  also to make sure that if a metadata file should not be updated, it remained the same.
-  - We also want to make sure that all targets metadata is valid (including the delegated roles)
-  - We do not want to simply update the metadata to the latest version, without skipping
-  these checks. We want to check each commit, not just the last one.
-  - If we are checking a commit which is not the latest one, we do not want to report an error
-  if the metadata expired. We want to make sure that that was valid at the time when the
-  metadata was committed.
-  - We can rely on the TUF's way of handling metadata, by using the current and previous
-  directories. We just want to automatically create and update them. They should not
-  remain on the client's machine.
-  - We do not want to modify TUF's updater to much, but still need to get around the fact
-  that TUF skips mirrors which do not have valid and/or current metadata files. Also, we
-  do not simply want to find the latest metadata, we want to validate everything in-between.
-  That is why the idea is to call refresh multiple times, until the last commit is reached.
-  The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
-  loads data from a most recent commit.
-  """
+    The general idea of the updater is the following:
+    - We have a git repository which contains the metadata files. These metadata files
+    are in the 'metadata' directory
+    - Clients have a clone of that repository on their local machine and want to update it
+    - We don't want to simply pull the updates. We want to verify that the new commits
+    (committed after the most recent one in the client's local repository)
+    - For each of the new commits, we want to check if all metadata is valid. The set of
+    metadata should be valid as a whole at that revision. Not only do we want to make sure
+    that a metadata which is supposed to be changed was indeed updated and is valid, but
+    also to make sure that if a metadata file should not be updated, it remained the same.
+    - We also want to make sure that all targets metadata is valid (including the delegated roles)
+    - We do not want to simply update the metadata to the latest version, without skipping
+    these checks. We want to check each commit, not just the last one.
+    - If we are checking a commit which is not the latest one, we do not want to report an error
+    if the metadata expired. We want to make sure that that was valid at the time when the
+    metadata was committed.
+    - We can rely on the TUF's way of handling metadata, by using the current and previous
+    directories. We just want to automatically create and update them. They should not
+    remain on the client's machine.
+    - We do not want to modify TUF's updater to much, but still need to get around the fact
+    that TUF skips mirrors which do not have valid and/or current metadata files. Also, we
+    do not simply want to find the latest metadata, we want to validate everything in-between.
+    That is why the idea is to call refresh multiple times, until the last commit is reached.
+    The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
+    loads data from a most recent commit.
+    """
 
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
