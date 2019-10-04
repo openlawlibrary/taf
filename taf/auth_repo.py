@@ -17,34 +17,30 @@ class AuthRepoMixin(object):
     @property
     def conf_dir(self):
         """
-    Returns location of the directory which stores the authentication repository's
-    configuration files. That is, the last validated commit.
-    Create the directory if it does not exist.
-    """
+        Returns location of the directory which stores the authentication repository's
+        configuration files. That is, the last validated commit.
+        Create the directory if it does not exist.
+        """
         # the repository's name consists of the namespace and name (namespace/name)
         # the configuration directory should be _name
         last_dir = os.path.basename(os.path.normpath(self.repo_path))
-        conf_path = os.path.join(os.path.dirname(self.repo_path), f"_{last_dir}")
-        if not os.path.exists(conf_path):
-            os.makedirs(conf_path)
-        return conf_path
+        conf_path = Path(self.repo_path).parent / f"_{last_dir}"
+        conf_path.mkdir(parents=True, exist_ok=True)
+        return str(conf_path)
 
     @property
     def certs_dir(self):
-        certs_dir = os.path.join(self.repo_path, "certs")
-        if not os.path.exists(certs_dir):
-            os.makedirs(certs_dir)
-        return certs_dir
+        certs_dir = Path(self.repo_path, "certs")
+        certs_dir.mkdir(parents=True, exist_ok=True)
+        return str(certs_dir)
 
     @property
     def last_validated_commit(self):
         """
-    Return the last validated commit of the authentication repository
-    """
-        path = os.path.join(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+        Return the last validated commit of the authentication repository
+        """
         try:
-            with open(path) as f:
-                return f.read()
+            return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
         except FileNotFoundError:
             return None
 
@@ -59,7 +55,7 @@ class AuthRepoMixin(object):
 
     def is_commit_authenticated(self, target_name, commit):
         """Checks if passed commit is ever authenticated for given target name.
-    """
+        """
         for auth_commit in reversed(self.all_commits_since_commit()):
             target = self.get_target(target_name, auth_commit)
             try:
@@ -71,20 +67,18 @@ class AuthRepoMixin(object):
 
     def set_last_validated_commit(self, commit):
         """
-    Set the last validated commit of the authentication repository
-    """
-        path = os.path.join(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+        Set the last validated commit of the authentication repository
+        """
         logger.debug(
             "Auth repo %s: setting last validated commit to: %s", self.repo_name, commit
         )
-        with open(path, "w") as f:
-            f.write(commit)
+        Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
     def sorted_commits_per_repositories(self, commits):
         """Create a list of of subsequent commits per repository
-    keeping in mind that targets metadata file is not updated
-    everytime something is committed to the authentication repo
-    """
+        keeping in mind that targets metadata file is not updated
+        everytime something is committed to the authentication repo
+        """
         repositories_commits = defaultdict(list)
         targets = self.target_commits_at_revisions(commits)
         previous_commits = {}
