@@ -78,11 +78,10 @@ def update_target_repos_from_fs(repo_path, targets_directory, namespace=None):
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     if namespace:
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
-        if not auth_repo_targets_dir.exists():
-            os.makedirs(auth_repo_targets_dir)
+        auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
 
     for target_repo_path in targets_dir.glob("*"):
-        _update_target_repos(repo_path, targets_dir, target_repo_path)
+        _update_target_repos(repo_path, auth_repo_targets_dir, target_repo_path)
 
 
 def update_target_repos_from_repositories_json(repo_path):
@@ -99,6 +98,7 @@ def update_target_repos_from_repositories_json(repo_path):
 
     for repo in repositories_json.get("repositories"):
         target_repo_path = targets_dir / repo
+        target_repo_path.mkdir(parents=True, exist_ok=True)
         _update_target_repos(repo_path, targets_dir, target_repo_path)
 
 
@@ -213,16 +213,16 @@ def _register_key(keystore, passwords, role_obj, role_name, key_name, key_num, s
     # this is useful when generating tests
     if keystore is not None:
         public_key = import_rsa_publickey_from_file(
-            os.path.join(keystore, f"{key_name}.pub"), scheme
+            str(Path(keystore, f"{key_name}.pub")), scheme
         )
         password = passwords[key_num]
         if password:
             private_key = import_rsa_privatekey_from_file(
-                os.path.join(keystore, key_name), password, scheme=scheme
+                str(Path(keystore, key_name)), password, scheme=scheme
             )
         else:
             private_key = import_rsa_privatekey_from_file(
-                os.path.join(keystore, key_name), scheme=scheme
+                str(Path(keystore, key_name)), scheme=scheme
             )
 
     # if it does not, generate the keys and print the output
@@ -258,7 +258,7 @@ def create_repository(
     yubikeys = defaultdict(dict)
     roles_key_infos = _read_input_dict(roles_key_infos)
     repo = AuthenticationRepo(repo_path)
-    if os.path.isdir(repo_path):
+    if Path(repo_path).is_dir():
         if repo.is_git_repository:
             print(f"Repository {repo_path} already exists")
             return
@@ -329,7 +329,7 @@ def generate_keys(keystore, roles_key_infos):
                 key_name = _get_key_name(role_name, key_num, num_of_keys)
                 password = passwords[key_num]
                 generate_and_write_rsa_keypair(
-                    os.path.join(keystore, key_name), bits=bits, password=password
+                    str(Path(keystore, key_name)), bits=bits, password=password
                 )
 
 
