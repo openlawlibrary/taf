@@ -61,10 +61,12 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
     if key is None:
         if password is not None:
             key = import_rsa_privatekey_from_file(
-                Path(keystore, role), password, scheme=scheme
+                str(Path(keystore, role)), password, scheme=scheme
             )
         else:
-            key = import_rsa_privatekey_from_file(Path(keystore, role), scheme=scheme)
+            key = import_rsa_privatekey_from_file(
+                str(Path(keystore, role)), scheme=scheme
+            )
     if not DISABLE_KEYS_CACHING:
         role_keys_cache[role] = key
     return key
