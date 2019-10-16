@@ -212,6 +212,18 @@ class GitRepository(object):
             reraise_error=True,
         )
 
+    def create_branch(self, branch_name, commit=None):
+        if commit is None:
+            commit = ""
+        self._git(
+            "branch {} {}",
+            branch_name,
+            commit,
+            log_success_msg=f"created branch {branch_name}",
+            log_error=True,
+            reraise_error=True,
+        )
+
     def checkout_commit(self, commit):
         self._git("checkout {}", commit, log_success_msg=f"checked out commit {commit}")
 
@@ -222,6 +234,19 @@ class GitRepository(object):
             self._git("diff --cached --exit-code --shortstat")
         except subprocess.CalledProcessError:
             run("git", "-C", self.repo_path, "commit", "--quiet", "-m", message)
+        return self._git("rev-parse HEAD")
+
+    def commit_empty(self, message):
+        run(
+            "git",
+            "-C",
+            self.repo_path,
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            message,
+        )
         return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
@@ -284,10 +309,11 @@ class GitRepository(object):
         else:
             self._git("fetch")
 
-    def init_repo(self):
+    def init_repo(self, bare=False):
         if not os.path.isdir(self.repo_path):
             os.makedirs(self.repo_path, exist_ok=True)
-        self._git("init")
+        flag = "--bare" if bare else ""
+        self._git(f"init {flag}")
         if self.repo_urls is not None and len(self.repo_urls):
             self._git("remote add origin {}", self.repo_urls[0])
 
