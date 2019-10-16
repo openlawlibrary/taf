@@ -153,6 +153,10 @@ class GitRepository(object):
         )
         return commits
 
+    def branch_off_commit(self, branch_name, commit):
+        """Create a new branch by branching off of the specified commit"""
+        self._git(f"checkout -b {branch_name} {commit}")
+
     def branch_local_name(self, remote_branch_name):
         """Strip remote from the given remote branch"""
         for remote in self.remotes:
@@ -276,6 +280,11 @@ class GitRepository(object):
         )
         return commits
 
+    def delete_local_branch(self, branch_name, force=False):
+        """Deletes local branch."""
+        flag = "-D" if force else "-d"
+        self._git(f"branch {flag} {branch_name}")
+
     def get_commits_date(self, commit):
         date = self._git("show -s --format=%at {}", commit)
         return date.split(" ", 1)[0]
@@ -296,6 +305,9 @@ class GitRepository(object):
     def delete_branch(self, branch_name):
         self._git("branch -D {}", branch_name)
 
+    def has_remote(self):
+        return bool(self._git("remote"))
+
     def head_commit_sha(self):
         """Finds sha of the commit to which the current HEAD points"""
         try:
@@ -308,6 +320,15 @@ class GitRepository(object):
             self._git("fetch --all")
         else:
             self._git("fetch")
+
+    def get_tracking_branch(self, branch=""):
+        """Returns tracking branch name in format origin/branch-name or None if branch does not
+        track remote branch.
+        """
+        try:
+            return self._git(f"rev-parse --abbrev-ref {branch}@{{u}}")
+        except subprocess.CalledProcessError:
+            return None
 
     def init_repo(self, bare=False):
         if not os.path.isdir(self.repo_path):
@@ -368,6 +389,35 @@ class GitRepository(object):
 
     def set_upstream(self, branch_name):
         self._git("branch -u origin/{}", branch_name)
+
+    def something_to_commit(self):
+        """Checks if there are any uncommitted changes"""
+        uncommitted_changes = self._git("status --porcelain")
+        return bool(uncommitted_changes)
+
+    def synced_with_remote(self, branch="master"):
+        """Checks if local branch is synced with its remote branch"""
+        # check if the latest local commit matches
+        # the latest remote commit on the specified branch
+        tracking_branch = self.get_tracking_branch(branch)
+        if not tracking_branch:
+            return False
+
+        try:
+            local_commit = self._git(f"rev-parse {branch}")
+        except subprocess.CalledProcessError as e:
+            if "unknown revision or path not in the working tree" not in e.output:
+                raise e
+            local_commit = None
+
+        try:
+            remote_commit = self._git(f"rev-parse {tracking_branch}")
+        except subprocess.CalledProcessError as e:
+            if "unknown revision or path not in the working tree" not in e.output:
+                raise e
+            remote_commit = None
+
+        return local_commit == remote_commit
 
 
 class NamedGitRepository(GitRepository):
