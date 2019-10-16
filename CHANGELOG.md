@@ -15,12 +15,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Move tests to the main package ([72])
 - Updated _travis_ script ([69])
 - Remove python 3.6 support ([69])
 - Use _f-strings_ instead of _format_ ([69])
 
 ### Fixed
 
+[72]: https://github.com/openlawlibrary/taf/pull/72
 [69]: https://github.com/openlawlibrary/taf/pull/69
 
 ## [0.1.7] - 09/30/2019

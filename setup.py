@@ -69,7 +69,10 @@ setup(
         "yubikey": yubikey_require,
     },
     tests_require=tests_require,
-    entry_points={"console_scripts": ["taf = taf.cli:main"]},
+    entry_points={
+        "console_scripts": ["taf = taf.cli:main"],
+        "pytest11": ["taf_yubikey_utils = taf.tests.yubikey_utils"],
+    },
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
