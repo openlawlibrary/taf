@@ -1,5 +1,5 @@
 import pytest
-
+from taf.tests import TEST_WITH_REAL_YK
 from taf.yubikey import (
     DEFAULT_PIN,
     export_piv_pub_key,
@@ -8,8 +8,6 @@ from taf.yubikey import (
     is_inserted,
     sign_piv_rsa_pkcs1v15,
 )
-
-from . import TEST_WITH_REAL_YK
 
 
 @pytest.mark.skipif(not TEST_WITH_REAL_YK, reason="list_devices() is not mocked.")

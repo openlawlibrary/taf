@@ -3,12 +3,10 @@ from pathlib import Path
 
 import pytest
 import securesystemslib
-import tuf
-
 import taf.exceptions
+import tuf
+from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import to_tuf_datetime_format
-
-from . import TEST_WITH_REAL_YK
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")

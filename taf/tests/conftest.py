@@ -3,25 +3,23 @@ import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
+import taf.repository_tool as repository_tool
+import taf.yubikey
 from pytest import fixture, yield_fixture
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
-
-import taf.repository_tool as repository_tool
-import taf.yubikey
 from taf.repository_tool import Repository
-from taf.utils import on_rm_error
-
-from . import TEST_WITH_REAL_YK
-from .yubikey_utils import (
+from taf.tests import TEST_WITH_REAL_YK
+from taf.tests.yubikey_utils import (
     Root1YubiKey,
     Root2YubiKey,
     Root3YubiKey,
     TargetYubiKey,
     _yk_piv_ctrl_mock,
 )
+from taf.utils import on_rm_error
 
 TEST_DATA_PATH = Path(__file__).parent / "data"
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / "repos"
