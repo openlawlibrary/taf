@@ -4,7 +4,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-
+from collections import OrderedDict
 import taf.log
 import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
@@ -176,7 +176,7 @@ class GitRepository(object):
                     filtered_remote_branches.append(branch)
         branches = {branch: False for branch in local_branches}
         branches.update({branch: True for branch in filtered_remote_branches})
-        return branches
+        return OrderedDict(sorted(branches.items(), reverse=True))
 
     def branch_off_commit(self, branch_name, commit):
         """Create a new branch by branching off of the specified commit"""
