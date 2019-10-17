@@ -285,6 +285,11 @@ class GitRepository(object):
         flag = "-D" if force else "-d"
         self._git(f"branch {flag} {branch_name}")
 
+    def delete_remote_branch(self, branch_name, remote=None):
+        if remote is None:
+            remote = self.remotes[0]
+        self._git(f"push {remote} --delete {branch_name}")
+
     def get_commits_date(self, commit):
         date = self._git("show -s --format=%at {}", commit)
         return date.split(" ", 1)[0]
@@ -366,10 +371,11 @@ class GitRepository(object):
         """Pull current branch"""
         self._git("pull")
 
-    def push(self, branch=""):
+    def push(self, branch="", force=False):
         """Push all changes"""
         try:
-            self._git("push origin {}", branch).strip()
+            force_flag = "-f" if force else ""
+            self._git("push origin {} {}", branch, force_flag).strip()
         except subprocess.CalledProcessError:
             self._git("--set-upstream origin {}", branch).strip()
 
