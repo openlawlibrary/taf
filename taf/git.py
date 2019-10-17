@@ -355,6 +355,10 @@ class GitRepository(object):
         """Return current branch."""
         return self._git("rev-parse --abbrev-ref HEAD").strip()
 
+    def get_merge_base(self, branch1, branch2):
+        """Finds the best common ancestor between two branches"""
+        return self._git(f"merge-base {branch1} {branch2}")
+
     def get_tracking_branch(self, branch=""):
         """Returns tracking branch name in format origin/branch-name or None if branch does not
         track remote branch.
