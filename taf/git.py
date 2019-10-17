@@ -153,6 +153,31 @@ class GitRepository(object):
         )
         return commits
 
+    def branches_containing_commit(self, commit, strip_remote=False):
+        """Finds all branches that contain the given commit"""
+        local_branches = self._git(f"branch --contains {commit}").split("\n")
+        if local_branches:
+            local_branches = [
+                branch.replace("*", "").strip() for branch in local_branches
+            ]
+        remote_branches = self._git(f"branch -r --contains {commit}").split("\n")
+        filtered_remote_branches = []
+        if remote_branches:
+            for branch in remote_branches:
+                branch = branch.strip()
+                local_name = self.branch_local_name(branch)
+                if (
+                    local_name
+                    and "HEAD" not in local_name
+                    and local_name not in local_branches
+                ):
+                    if strip_remote:
+                        branch = self.branch_local_name(branch)
+                    filtered_remote_branches.append(branch)
+        branches = {branch: False for branch in local_branches}
+        branches.update({branch: True for branch in filtered_remote_branches})
+        return branches
+
     def branch_off_commit(self, branch_name, commit):
         """Create a new branch by branching off of the specified commit"""
         self._git(f"checkout -b {branch_name} {commit}")
@@ -321,6 +346,10 @@ class GitRepository(object):
         else:
             self._git("fetch")
 
+    def get_current_branch(self):
+        """Return current branch."""
+        return self._git("rev-parse --abbrev-ref HEAD").strip()
+
     def get_tracking_branch(self, branch=""):
         """Returns tracking branch name in format origin/branch-name or None if branch does not
         track remote branch.
@@ -359,6 +388,16 @@ class GitRepository(object):
 
         return self._git("log {}", " ".join(params)).split("\n")
 
+    def list_n_commits(self, number=10, skip=None):
+        """List all commits of the current branch"""
+        if skip:
+            commits = self._git(f"log --format=format:%H --skip={skip} -n {number}")
+        else:
+            commits = self._git(f"log --format=format:%H -n {number}")
+        if not commits:
+            return []
+        return commits.split("\n")
+
     def merge_commit(self, commit):
         self._git("merge {}", commit)
 
@@ -366,12 +405,12 @@ class GitRepository(object):
         """Pull current branch"""
         self._git("pull")
 
-    def push(self, branch=""):
+    def push(self, branch=None, set_upstream=False):
         """Push all changes"""
-        try:
-            self._git("push origin {}", branch).strip()
-        except subprocess.CalledProcessError:
-            self._git("--set-upstream origin {}", branch).strip()
+        if branch is None:
+            branch = self.get_current_branch()
+        upstream_flag = "-u" if set_upstream else ""
+        self._git("push {} origin {}", upstream_flag, branch)
 
     def rename_branch(self, old_name, new_name):
         self._git("branch -m {} {}", old_name, new_name)
