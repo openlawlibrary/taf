@@ -12,6 +12,8 @@ from taf.utils import run
 
 logger = taf.log.get_logger(__name__)
 
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 
 class GitRepository(object):
     def __init__(
@@ -113,30 +115,45 @@ class GitRepository(object):
                 logger.debug("Repo %s: " + log_success_msg, self.repo_name)
         return result
 
-    def all_commits_since_commit(self, since_commit=None):
-        if since_commit is not None:
-            commits = self._git("rev-list {}..HEAD", since_commit).strip()
-        else:
-            commits = self._git("log --format=format:%H").strip()
+    def all_commits_on_branch(self, branch=None, reverse=True):
+        """Returns a list of all commits on the specified branch. If branch is None,
+        all commits on the currently checked out branch will be returned
+        """
+        if branch is None:
+            branch = ""
+        commits = self._git("log {} --format=format:%H", branch).strip()
         if not commits:
             commits = []
         else:
             commits = commits.split("\n")
-            commits.reverse()
+            if reverse:
+                commits.reverse()
 
-        if since_commit is not None:
-            logger.debug(
-                "Repo %s: found the following commits after commit %s: %s",
-                self.repo_name,
-                since_commit,
-                ", ".join(commits),
-            )
+        logger.debug(
+            "Repo %s: found the following commits: %s",
+            self.repo_name,
+            ", ".join(commits),
+        )
+        return commits
+
+    def all_commits_since_commit(self, since_commit, reverse=True):
+        """Returns a list of all commits since the specified commit on the
+        currently checked out branch
+        """
+        commits = self._git("rev-list {}..HEAD", since_commit).strip()
+        if not commits:
+            commits = []
         else:
-            logger.debug(
-                "Repo %s: found the following commits: %s",
-                self.repo_name,
-                ", ".join(commits),
-            )
+            commits = commits.split("\n")
+            if reverse:
+                commits.reverse()
+
+        logger.debug(
+            "Repo %s: found the following commits after commit %s: %s",
+            self.repo_name,
+            since_commit,
+            ", ".join(commits),
+        )
         return commits
 
     def all_fetched_commits(self, branch="master"):
@@ -335,6 +352,9 @@ class GitRepository(object):
     def delete_branch(self, branch_name):
         self._git("branch -D {}", branch_name)
 
+    def diff_between_revisions(self, revision1=EMPTY_TREE, revision2="HEAD"):
+        return self._git("diff {} {}", revision1, revision2)
+
     def has_remote(self):
         return bool(self._git("remote"))
 
@@ -397,12 +417,17 @@ class GitRepository(object):
 
         return self._git("log {}", " ".join(params)).split("\n")
 
-    def list_n_commits(self, number=10, skip=None):
-        """List all commits of the current branch"""
+    def list_n_commits(self, number=10, skip=None, branch=None):
+        """List the specified number of top commits of the current branch
+        Optionally skip a number of commits from the top"""
+        if branch is None:
+            branch = ""
         if skip:
-            commits = self._git(f"log --format=format:%H --skip={skip} -n {number}")
+            commits = self._git(
+                f"log {branch} --format=format:%H --skip={skip} -n {number}"
+            )
         else:
-            commits = self._git(f"log --format=format:%H -n {number}")
+            commits = self._git(f"log {branch} --format=format:%H -n {number}")
         if not commits:
             return []
         return commits.split("\n")
