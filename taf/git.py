@@ -226,6 +226,10 @@ class GitRepository(object):
             else:
                 raise (e)
 
+    def checkout_paths(self, commit, *args):
+        for file_path in args:
+            self._git(f'checkout {commit} {file_path}')
+
     def clean(self):
         self._git("clean -fd")
 
@@ -337,6 +341,10 @@ class GitRepository(object):
     def get_commits_date(self, commit):
         date = self._git("show -s --format=%at {}", commit)
         return date.split(" ", 1)[0]
+
+    def get_commit_message(self, commit):
+        """Returns commit message of the given commit"""
+        return self._git('log --format=%B -n 1 {}', commit).strip()
 
     def get_json(self, commit, path):
         s = self.get_file(commit, path)

@@ -509,6 +509,9 @@ class Repository:
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
 
+    def get_expiration_date(self, role):
+        return self._role_obj(role).expiration
+
     def update_root(self, signature_dict):
         """Update root metadata.
 
