@@ -140,6 +140,8 @@ class GitRepository(object):
         """Returns a list of all commits since the specified commit on the
         currently checked out branch
         """
+        if since_commit is None:
+            return self.all_commits_on_branch(reverse=reverse)
         commits = self._git("rev-list {}..HEAD", since_commit).strip()
         if not commits:
             commits = []
