@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Updated validation of branches ([73])
 - Move tests to the main package ([72])
 - Updated _travis_ script ([69])
 - Remove python 3.6 support ([69])
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[73]: https://github.com/openlawlibrary/taf/pull/73
 [72]: https://github.com/openlawlibrary/taf/pull/72
 [69]: https://github.com/openlawlibrary/taf/pull/69
 
