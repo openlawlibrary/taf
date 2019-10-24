@@ -228,7 +228,7 @@ class GitRepository(object):
 
     def checkout_paths(self, commit, *args):
         for file_path in args:
-            self._git(f'checkout {commit} {file_path}')
+            self._git(f"checkout {commit} {file_path}")
 
     def clean(self):
         self._git("clean -fd")
@@ -344,7 +344,11 @@ class GitRepository(object):
 
     def get_commit_message(self, commit):
         """Returns commit message of the given commit"""
-        return self._git('log --format=%B -n 1 {}', commit).strip()
+        return self._git("log --format=%B -n 1 {}", commit).strip()
+
+    def get_commit_sha(self, behind_head):
+        """Get commit sha of HEAD~{behind_head}"""
+        return self._git("rev-parse HEAD~{}", behind_head)
 
     def get_json(self, commit, path):
         s = self.get_file(commit, path)
@@ -502,6 +506,9 @@ class GitRepository(object):
             remote_commit = None
 
         return local_commit == remote_commit
+
+    def top_commit_of_branch(self, branch):
+        return self._git(f"rev-parse {branch}")
 
 
 class NamedGitRepository(GitRepository):
