@@ -3,8 +3,9 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path
 from collections import OrderedDict
+from pathlib import Path
+
 import taf.log
 import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
@@ -172,6 +173,13 @@ class GitRepository(object):
         )
         return commits
 
+    def branches(self):
+        """Returns all branches."""
+        return [
+            branch.strip('"').strip("'").strip()
+            for branch in self._git("branch --format='%(refname:short)'").split("\n")
+        ]
+
     def branches_containing_commit(self, commit, strip_remote=False):
         """Finds all branches that contain the given commit"""
         local_branches = self._git(f"branch --contains {commit}").split("\n")
@@ -196,6 +204,10 @@ class GitRepository(object):
         branches = {branch: False for branch in local_branches}
         branches.update({branch: True for branch in filtered_remote_branches})
         return OrderedDict(sorted(branches.items(), reverse=True))
+
+    def branch_exists(self, branch_name):
+        """Checks if branch exists."""
+        return bool(self._git("rev-parse --verify --quiet {}", branch_name))
 
     def branch_off_commit(self, branch_name, commit):
         """Create a new branch by branching off of the specified commit"""
@@ -442,9 +454,7 @@ class GitRepository(object):
             )
         else:
             commits = self._git(f"log {branch} --format=format:%H -n {number}")
-        if not commits:
-            return []
-        return commits.split("\n")
+        return commits.split("\n") if commits else []
 
     def merge_commit(self, commit):
         self._git("merge {}", commit)
