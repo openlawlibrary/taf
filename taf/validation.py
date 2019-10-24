@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -6,7 +7,7 @@ from taf.constants import CAPSTONE
 from taf.exceptions import InvalidBranchError
 
 
-def validate_branch(auth_repo, target_repos, branch_name):
+def validate_branch(auth_repo, target_repos, branch_name, merge_branches):
     """
     Validates corresponding branches of the authentication repository
     and the target repositories. Assumes that:
@@ -24,12 +25,15 @@ def validate_branch(auth_repo, target_repos, branch_name):
     """
 
     check_capstone(auth_repo, branch_name)
-
     targets_and_commits = {
-        target_repo: target_repo.commits_on_branch_and_not_other(branch_name, "master")
+        target_repo: target_repo.commits_on_branch_and_not_other(
+            branch_name, merge_branches[target_repo]
+        )
         for target_repo in target_repos
     }
-    auth_commits = auth_repo.commits_on_branch_and_not_other(branch_name, "master")
+    auth_commits = auth_repo.commits_on_branch_and_not_other(
+        branch_name, merge_branches[auth_repo]
+    )
 
     _check_lengths_of_branches(targets_and_commits, branch_name)
 
@@ -37,10 +41,17 @@ def validate_branch(auth_repo, target_repos, branch_name):
     branch_id = None
     targets_path = "metadata/targets.json"
 
-    # fill the shorter lists with None values, so that their sizes match the size
-    # of authentication repository's commits list
-    for commits in targets_and_commits.values():
-        commits.extend([None] * (len(auth_commits) - len(commits)))
+    # Get the missing commits from the top of the merge branch
+    # and make sure that they belonged to the branch
+
+    for target_repo, commits in targets_and_commits.items():
+        num_of_merged_commits = len(auth_commits) - len(commits)
+        if num_of_merged_commits:
+            commits.extend(
+                target_repo.list_n_commits(
+                    num_of_merged_commits, branch=merge_branches[target_repo]
+                )
+            )
 
     for commit_index, auth_commit in enumerate(auth_commits):
         # load content of targets.json
@@ -52,10 +63,9 @@ def validate_branch(auth_repo, target_repos, branch_name):
             target_commit = target_commits[commit_index]
 
             # targets' commits match the target commits specified in the authentication repository
-            if target_commit is not None:
-                _compare_commit_with_targets_metadata(
-                    auth_repo, auth_commit, target, target_commit
-                )
+            _compare_commit_with_targets_metadata(
+                auth_repo, auth_commit, target, target_commit
+            )
 
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
@@ -77,7 +87,10 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
 
 def _check_branch_id(auth_repo, auth_commit, branch_id):
 
-    new_branch_id = auth_repo.get_file(auth_commit, "targets/branch")
+    try:
+        new_branch_id = auth_repo.get_file(auth_commit, "targets/branch")
+    except subprocess.CalledProcessError:
+        raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
     if branch_id is not None and new_branch_id != branch_id:
         raise InvalidBranchError(
             f"Branch ID at revision {auth_commit} is not the same as the "
