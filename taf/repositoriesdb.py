@@ -246,8 +246,10 @@ def get_repository(auth_repo, path, commit=None):
     return get_repositories(auth_repo, commit)[path]
 
 
-def get_repositories(auth_repo, commit):
+def get_repositories(auth_repo, commit=None):
     global _repositories_dict
+    if commit is None:
+        commit = auth_repo.head_commit_sha()
     logger.debug(
         "Auth repo %s: finding repositories defined at commit %s",
         auth_repo.repo_name,
@@ -263,9 +265,6 @@ def get_repositories(auth_repo, commit):
             "Repositories defined in authentication repository"
             f" {auth_repo.repo_name} have not been loaded"
         )
-
-    if commit is None:
-        commit = auth_repo.head_commit_sha()
 
     repositories = all_repositories.get(commit)
     if repositories is None:

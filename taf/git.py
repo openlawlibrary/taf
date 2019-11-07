@@ -267,9 +267,11 @@ class GitRepository(object):
             else:
                 break
 
-    def create_and_checkout_branch(self, branch_name):
+    def create_and_checkout_branch(self, branch_name, raise_error_if_exists=True):
+        flag = '-b' if raise_error_if_exists else '-B'
         self._git(
-            "checkout -b {}",
+            "checkout {} {}",
+            flag,
             branch_name,
             log_success_msg=f"created and checked out branch {branch_name}",
             log_error=True,
@@ -368,6 +370,14 @@ class GitRepository(object):
 
     def get_file(self, commit, path):
         return self._git("show {}:{}", commit, path)
+
+    def get_last_branch_by_commiter_date(self):
+        """Find the latest branch based on committer date. Should only be used for
+        testing purposes"""
+        branches = self._git('branch --sort=committerdate').strip().split('\n')
+        if not len(branches):
+            return None
+        return branches[-1]
 
     def get_remote_url(self):
         try:
