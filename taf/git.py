@@ -268,7 +268,7 @@ class GitRepository(object):
                 break
 
     def create_and_checkout_branch(self, branch_name, raise_error_if_exists=True):
-        flag = '-b' if raise_error_if_exists else '-B'
+        flag = "-b" if raise_error_if_exists else "-B"
         self._git(
             "checkout {} {}",
             flag,
@@ -374,7 +374,7 @@ class GitRepository(object):
     def get_last_branch_by_commiter_date(self):
         """Find the latest branch based on committer date. Should only be used for
         testing purposes"""
-        branches = self._git('branch --sort=committerdate').strip().split('\n')
+        branches = self._git("branch --sort=committerdate").strip().split("\n")
         if not len(branches):
             return None
         return branches[-1]
