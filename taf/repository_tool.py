@@ -242,7 +242,7 @@ class Repository:
         self._add_target(targets_obj, file_path, custom)
 
     def add_targets(self, data, targets_role="targets", files_to_keep=None):
-        """Creates a target .json file containing a repository's commit for each repository.
+        """Creates a target.json file containing a repository's commit for each repository.
         Adds those files to the tuf repository. Also removes all targets from the filesystem if their
         path is not among the provided ones. TUF does not delete targets automatically.
 
@@ -508,6 +508,9 @@ class Repository:
             interval = expiration_intervals.get(role, 1)
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
+
+    def get_expiration_date(self, role):
+        return self._role_obj(role).expiration
 
     def update_root(self, signature_dict):
         """Update root metadata.

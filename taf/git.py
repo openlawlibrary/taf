@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections import OrderedDict
 from pathlib import Path
 
 import taf.log
@@ -11,6 +12,8 @@ from taf.exceptions import InvalidRepositoryError
 from taf.utils import run
 
 logger = taf.log.get_logger(__name__)
+
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 class GitRepository(object):
@@ -113,30 +116,47 @@ class GitRepository(object):
                 logger.debug("Repo %s: " + log_success_msg, self.repo_name)
         return result
 
-    def all_commits_since_commit(self, since_commit=None):
-        if since_commit is not None:
-            commits = self._git("rev-list {}..HEAD", since_commit).strip()
-        else:
-            commits = self._git("log --format=format:%H").strip()
+    def all_commits_on_branch(self, branch=None, reverse=True):
+        """Returns a list of all commits on the specified branch. If branch is None,
+        all commits on the currently checked out branch will be returned
+        """
+        if branch is None:
+            branch = ""
+        commits = self._git("log {} --format=format:%H", branch).strip()
         if not commits:
             commits = []
         else:
             commits = commits.split("\n")
-            commits.reverse()
+            if reverse:
+                commits.reverse()
 
-        if since_commit is not None:
-            logger.debug(
-                "Repo %s: found the following commits after commit %s: %s",
-                self.repo_name,
-                since_commit,
-                ", ".join(commits),
-            )
+        logger.debug(
+            "Repo %s: found the following commits: %s",
+            self.repo_name,
+            ", ".join(commits),
+        )
+        return commits
+
+    def all_commits_since_commit(self, since_commit, reverse=True):
+        """Returns a list of all commits since the specified commit on the
+        currently checked out branch
+        """
+        if since_commit is None:
+            return self.all_commits_on_branch(reverse=reverse)
+        commits = self._git("rev-list {}..HEAD", since_commit).strip()
+        if not commits:
+            commits = []
         else:
-            logger.debug(
-                "Repo %s: found the following commits: %s",
-                self.repo_name,
-                ", ".join(commits),
-            )
+            commits = commits.split("\n")
+            if reverse:
+                commits.reverse()
+
+        logger.debug(
+            "Repo %s: found the following commits after commit %s: %s",
+            self.repo_name,
+            since_commit,
+            ", ".join(commits),
+        )
         return commits
 
     def all_fetched_commits(self, branch="master"):
@@ -152,6 +172,46 @@ class GitRepository(object):
             ", ".join(commits),
         )
         return commits
+
+    def branches(self):
+        """Returns all branches."""
+        return [
+            branch.strip('"').strip("'").strip()
+            for branch in self._git("branch --format='%(refname:short)'").split("\n")
+        ]
+
+    def branches_containing_commit(self, commit, strip_remote=False):
+        """Finds all branches that contain the given commit"""
+        local_branches = self._git(f"branch --contains {commit}").split("\n")
+        if local_branches:
+            local_branches = [
+                branch.replace("*", "").strip() for branch in local_branches
+            ]
+        remote_branches = self._git(f"branch -r --contains {commit}").split("\n")
+        filtered_remote_branches = []
+        if remote_branches:
+            for branch in remote_branches:
+                branch = branch.strip()
+                local_name = self.branch_local_name(branch)
+                if (
+                    local_name
+                    and "HEAD" not in local_name
+                    and local_name not in local_branches
+                ):
+                    if strip_remote:
+                        branch = self.branch_local_name(branch)
+                    filtered_remote_branches.append(branch)
+        branches = {branch: False for branch in local_branches}
+        branches.update({branch: True for branch in filtered_remote_branches})
+        return OrderedDict(sorted(branches.items(), reverse=True))
+
+    def branch_exists(self, branch_name):
+        """Checks if branch exists."""
+        return bool(self._git("rev-parse --verify --quiet {}", branch_name))
+
+    def branch_off_commit(self, branch_name, commit):
+        """Create a new branch by branching off of the specified commit"""
+        self._git(f"checkout -b {branch_name} {commit}")
 
     def branch_local_name(self, remote_branch_name):
         """Strip remote from the given remote branch"""
@@ -178,6 +238,10 @@ class GitRepository(object):
             else:
                 raise (e)
 
+    def checkout_paths(self, commit, *args):
+        for file_path in args:
+            self._git(f"checkout {commit} {file_path}")
+
     def clean(self):
         self._git("clean -fd")
 
@@ -203,11 +267,25 @@ class GitRepository(object):
             else:
                 break
 
-    def create_and_checkout_branch(self, branch_name):
+    def create_and_checkout_branch(self, branch_name, raise_error_if_exists=True):
+        flag = "-b" if raise_error_if_exists else "-B"
         self._git(
-            "checkout -b {}",
+            "checkout {} {}",
+            flag,
             branch_name,
             log_success_msg=f"created and checked out branch {branch_name}",
+            log_error=True,
+            reraise_error=True,
+        )
+
+    def create_branch(self, branch_name, commit=None):
+        if commit is None:
+            commit = ""
+        self._git(
+            "branch {} {}",
+            branch_name,
+            commit,
+            log_success_msg=f"created branch {branch_name}",
             log_error=True,
             reraise_error=True,
         )
@@ -222,6 +300,19 @@ class GitRepository(object):
             self._git("diff --cached --exit-code --shortstat")
         except subprocess.CalledProcessError:
             run("git", "-C", self.repo_path, "commit", "--quiet", "-m", message)
+        return self._git("rev-parse HEAD")
+
+    def commit_empty(self, message):
+        run(
+            "git",
+            "-C",
+            self.repo_path,
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            message,
+        )
         return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
@@ -251,9 +342,27 @@ class GitRepository(object):
         )
         return commits
 
+    def delete_local_branch(self, branch_name, force=False):
+        """Deletes local branch."""
+        flag = "-D" if force else "-d"
+        self._git(f"branch {flag} {branch_name}")
+
+    def delete_remote_branch(self, branch_name, remote=None):
+        if remote is None:
+            remote = self.remotes[0]
+        self._git(f"push {remote} --delete {branch_name}")
+
     def get_commits_date(self, commit):
         date = self._git("show -s --format=%at {}", commit)
         return date.split(" ", 1)[0]
+
+    def get_commit_message(self, commit):
+        """Returns commit message of the given commit"""
+        return self._git("log --format=%B -n 1 {}", commit).strip()
+
+    def get_commit_sha(self, behind_head):
+        """Get commit sha of HEAD~{behind_head}"""
+        return self._git("rev-parse HEAD~{}", behind_head)
 
     def get_json(self, commit, path):
         s = self.get_file(commit, path)
@@ -261,6 +370,14 @@ class GitRepository(object):
 
     def get_file(self, commit, path):
         return self._git("show {}:{}", commit, path)
+
+    def get_last_branch_by_committer_date(self):
+        """Find the latest branch based on committer date. Should only be used for
+        testing purposes"""
+        branches = self._git("branch --sort=committerdate").strip().split("\n")
+        if not len(branches):
+            return None
+        return branches[-1]
 
     def get_remote_url(self):
         try:
@@ -270,6 +387,12 @@ class GitRepository(object):
 
     def delete_branch(self, branch_name):
         self._git("branch -D {}", branch_name)
+
+    def diff_between_revisions(self, revision1=EMPTY_TREE, revision2="HEAD"):
+        return self._git("diff {} {}", revision1, revision2)
+
+    def has_remote(self):
+        return bool(self._git("remote"))
 
     def head_commit_sha(self):
         """Finds sha of the commit to which the current HEAD points"""
@@ -284,10 +407,28 @@ class GitRepository(object):
         else:
             self._git("fetch")
 
-    def init_repo(self):
+    def get_current_branch(self):
+        """Return current branch."""
+        return self._git("rev-parse --abbrev-ref HEAD").strip()
+
+    def get_merge_base(self, branch1, branch2):
+        """Finds the best common ancestor between two branches"""
+        return self._git(f"merge-base {branch1} {branch2}")
+
+    def get_tracking_branch(self, branch=""):
+        """Returns tracking branch name in format origin/branch-name or None if branch does not
+        track remote branch.
+        """
+        try:
+            return self._git(f"rev-parse --abbrev-ref {branch}@{{u}}")
+        except subprocess.CalledProcessError:
+            return None
+
+    def init_repo(self, bare=False):
         if not os.path.isdir(self.repo_path):
             os.makedirs(self.repo_path, exist_ok=True)
-        self._git("init")
+        flag = "--bare" if bare else ""
+        self._git(f"init {flag}")
         if self.repo_urls is not None and len(self.repo_urls):
             self._git("remote add origin {}", self.repo_urls[0])
 
@@ -312,6 +453,19 @@ class GitRepository(object):
 
         return self._git("log {}", " ".join(params)).split("\n")
 
+    def list_n_commits(self, number=10, skip=None, branch=None):
+        """List the specified number of top commits of the current branch
+        Optionally skip a number of commits from the top"""
+        if branch is None:
+            branch = ""
+        if skip:
+            commits = self._git(
+                f"log {branch} --format=format:%H --skip={skip} -n {number}"
+            )
+        else:
+            commits = self._git(f"log {branch} --format=format:%H -n {number}")
+        return commits.split("\n") if commits else []
+
     def merge_commit(self, commit):
         self._git("merge {}", commit)
 
@@ -319,12 +473,13 @@ class GitRepository(object):
         """Pull current branch"""
         self._git("pull")
 
-    def push(self, branch=""):
+    def push(self, branch=None, set_upstream=False, force=False):
         """Push all changes"""
-        try:
-            self._git("push origin {}", branch).strip()
-        except subprocess.CalledProcessError:
-            self._git("--set-upstream origin {}", branch).strip()
+        if branch is None:
+            branch = self.get_current_branch()
+        upstream_flag = "-u" if set_upstream else ""
+        force_flag = "-f" if force else ""
+        self._git("push {} {} origin {}", upstream_flag, force_flag, branch)
 
     def rename_branch(self, old_name, new_name):
         self._git("branch -m {} {}", old_name, new_name)
@@ -342,6 +497,38 @@ class GitRepository(object):
 
     def set_upstream(self, branch_name):
         self._git("branch -u origin/{}", branch_name)
+
+    def something_to_commit(self):
+        """Checks if there are any uncommitted changes"""
+        uncommitted_changes = self._git("status --porcelain")
+        return bool(uncommitted_changes)
+
+    def synced_with_remote(self, branch="master"):
+        """Checks if local branch is synced with its remote branch"""
+        # check if the latest local commit matches
+        # the latest remote commit on the specified branch
+        tracking_branch = self.get_tracking_branch(branch)
+        if not tracking_branch:
+            return False
+
+        try:
+            local_commit = self._git(f"rev-parse {branch}")
+        except subprocess.CalledProcessError as e:
+            if "unknown revision or path not in the working tree" not in e.output:
+                raise e
+            local_commit = None
+
+        try:
+            remote_commit = self._git(f"rev-parse {tracking_branch}")
+        except subprocess.CalledProcessError as e:
+            if "unknown revision or path not in the working tree" not in e.output:
+                raise e
+            remote_commit = None
+
+        return local_commit == remote_commit
+
+    def top_commit_of_branch(self, branch):
+        return self._git(f"rev-parse {branch}")
 
 
 class NamedGitRepository(GitRepository):

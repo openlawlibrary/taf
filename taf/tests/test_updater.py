@@ -234,7 +234,7 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
     client_repos = _clone_and_revert_client_repositories(
         repositories, origin_dir, client_dir, 3
     )
-    first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_since_commit(None)[0]
+    first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()[0]
     expected_error = (
         f"Saved last validated commit {first_commit} does not match the head commit"
     )
