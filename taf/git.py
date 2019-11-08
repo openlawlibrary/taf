@@ -371,7 +371,7 @@ class GitRepository(object):
     def get_file(self, commit, path):
         return self._git("show {}:{}", commit, path)
 
-    def get_last_branch_by_commiter_date(self):
+    def get_last_branch_by_committer_date(self):
         """Find the latest branch based on committer date. Should only be used for
         testing purposes"""
         branches = self._git("branch --sort=committerdate").strip().split("\n")
