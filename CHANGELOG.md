@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.1.8] - 11/12/2019
+
+### Added
+
 - Numerous new git methods ([74], [75])
 - Initial [pre-commit](https://pre-commit.com/) configuration (black + flake8 + bandit) ([69])
 - Add changelog ([69])
