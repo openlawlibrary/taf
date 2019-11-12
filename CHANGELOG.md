@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Numerous new git methods ([74])
+- Numerous new git methods ([74], [75])
 - Initial [pre-commit](https://pre-commit.com/) configuration (black + flake8 + bandit) ([69])
 - Add changelog ([69])
 - Add pull request template ([69])
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[75]: https://github.com/openlawlibrary/taf/pull/75
 [74]: https://github.com/openlawlibrary/taf/pull/74
 [73]: https://github.com/openlawlibrary/taf/pull/73
 [72]: https://github.com/openlawlibrary/taf/pull/72

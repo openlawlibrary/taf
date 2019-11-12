@@ -205,9 +205,21 @@ class GitRepository(object):
         branches.update({branch: True for branch in filtered_remote_branches})
         return OrderedDict(sorted(branches.items(), reverse=True))
 
-    def branch_exists(self, branch_name):
-        """Checks if branch exists."""
-        return bool(self._git("rev-parse --verify --quiet {}", branch_name))
+    def branch_exists(self, branch_name, include_remotes=True):
+        """
+        Checks if a branch with the given name exists.
+        If include_remotes is set to True, this checks if
+        a remote branch exists.
+        """
+        branch = self._git(f"branch --list {branch_name}")
+        if branch:
+            return True
+        if include_remotes:
+            for remote in self.remotes:
+                branch = self._git(f"branch -r --list origin/{branch_name}")
+                if branch:
+                    return True
+        return False
 
     def branch_off_commit(self, branch_name, commit):
         """Create a new branch by branching off of the specified commit"""
@@ -289,6 +301,15 @@ class GitRepository(object):
             log_error=True,
             reraise_error=True,
         )
+
+    def create_local_branch(self, branch_name):
+        """Create local branch by checking it if it does not exist out and making sure
+        to check out previously checked out branch
+        """
+        if not self.branch_exists(branch_name, include_remotes=False):
+            current_branch = self.get_current_branch()
+            self.checkout_branch(branch_name)
+            self.checkout_branch(current_branch)
 
     def checkout_commit(self, commit):
         self._git("checkout {}", commit, log_success_msg=f"checked out commit {commit}")
