@@ -215,7 +215,7 @@ This command does not update the metadata files.
 This command registers the target files. This assumes that the target files
 were previously updated. It traverses through all files found inside the
 `targets` directory and updates the `targets` metadata file based on their
-content. Once the `targets` file updated, so are `snapshot` and `timestamp`.
+content. Once the `targets` file is updated, so are `snapshot` and `timestamp`.
 
 ```
 taf sign_targets --repo-path E:\OLL\auth_rpeo --keystore E:\OLL\keystore --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json --commit-msg "Updated targets" --scheme signature_scheme
