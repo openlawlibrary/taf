@@ -170,16 +170,21 @@ def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
 
 
 @cli.command()
-def setup_test_yubikey():
+@click.option('--key-path', default=None, help='Path to the key which should be copied to a Yubikey')
+def setup_test_yubikey(key_path):
     import taf.yubikey as yk
 
-    targets_key_path = Path(__file__).parent.parent / "tests" / "data" / "keystore" / "targets"
-    targets_key_pem = targets_key_path.read_bytes()
+    if key_path is None:
+        key_path = Path(__file__).parent.parent / "tests" / "data" / "keystore" / "targets"
+    else:
+        key_path = Path(key_path)
 
-    click.echo("\nImporting RSA private key from {} to Yubikey...".format(targets_key_path))
+    key_pem = key_path.read_bytes()
+
+    click.echo("\nImporting RSA private key from {} to Yubikey...".format(key_path))
 
     pin = yk.DEFAULT_PIN
-    pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=targets_key_pem)
+    pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=key_pem)
 
     click.echo("\nPrivate key successfully imported.\n")
     click.echo("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
