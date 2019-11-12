@@ -132,7 +132,7 @@ Generates and write rsa keypairs. Number of keys to generate per a metadata role
 lengths and passwords of the keystore files are specified using the `keys-description` parameter.
 
 ```
-taf generate keys --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json
+taf generate_keys --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json
 ```
 The generated keys files will be saved to `E:\OLL\keystore`
 
@@ -146,8 +146,16 @@ taf create_repo --repo-path E:\OLL\auth_repo --keystore E:\OLL\keystore --keys-d
 ```
 
 will generate a new authentication repository at `E:\OLL\auth_repo` and sign it with the keys
-read from the specified keystore. Any of the keys are password protected, the password is read
+read from the specified keystore. If a key is password protected, its password is read
 from json specified using `--keys-description`.
+
+The generated files and folders will automatically be committed if `commit-msg` argument is provided. If the
+new repository is only be meant to be used for testing, use `--test` flag. This will create a special target file
+called `test-auth-repo`. For example:
+
+```
+taf create_repo --repo-path E:\OLL\auth_repo --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json --commit-msg "Initial commit" --test
+```
 
 ### `update_repos_from_fs`
 
@@ -207,4 +215,12 @@ This command does not update the metadata files.
 This command registers the target files. This assumes that the target files
 were previously updated. It traverses through all files found inside the
 `targets` directory and updates the `targets` metadata file based on their
-content. Once `targets` file updated, so are `snapshot` and `timestamp`
+content. Once the `targets` file is updated, so are `snapshot` and `timestamp`.
+
+```
+taf sign_targets --repo-path E:\OLL\auth_rpeo --keystore E:\OLL\keystore --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json --commit-msg "Updated targets" --scheme signature_scheme
+```
+
+If `commit-msg` is specified, changes will be automatically committed, with the commit message being this
+argument's value. `scheme` is another optional argument and represents the signature scheme. `rsa-pkcs1v15-sha256`
+is used by default.
