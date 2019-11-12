@@ -181,7 +181,7 @@ def setup_test_yubikey(key_path):
 
     key_pem = key_path.read_bytes()
 
-    click.echo("\nImporting RSA private key from {} to Yubikey...".format(key_pem))
+    click.echo("\nImporting RSA private key from {} to Yubikey...".format(key_path))
 
     pin = yk.DEFAULT_PIN
     pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=key_pem)
