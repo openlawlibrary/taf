@@ -45,6 +45,55 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 )
 
 
+def add_signing_key(repo_path, role, pub_key_path):
+    taf_repo = Repository(repo_path)
+    pub_key_pem = Path(pub_key_path).read_text()
+    taf_repo.add_metadata_key(role, pub_key_pem)
+
+    root_obj = taf_repo._repository.root
+    threshold = root_obj.threshold
+    root_obj.threshold = 2
+    threshold = 2
+    num_of_signatures = 0
+
+    def _provider(name, key_id, key, data):  # pylint: disable=W0613
+        from taf.yubikey import sign_piv_rsa_pkcs1v15
+        from binascii import hexlify
+
+        data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
+        input(f"Insert {name} and press enter")
+        pin = getpass("Enter PIN")
+        signature = sign_piv_rsa_pkcs1v15(data, pin)
+        return {"keyid": key_id, "sig": hexlify(signature).decode()}
+
+    while True:
+        input(f"Please insert {role} YubiKey and press enter")
+        role_public_key = yk.get_piv_public_key_tuf()
+        if not taf_repo.is_valid_metadata_yubikey(role, role_public_key):
+            print(f"The inserted YubiKey is not a valid {role} key")
+        else:
+            pub_key = yk.get_piv_public_key_tuf()
+            taf_repo._repository.root.add_external_signature_provider(
+                pub_key, partial(_provider, role, pub_key["keyid"])
+            )
+            break
+
+    while num_of_signatures < threshold:
+        name = f"root{num_of_signatures+1}"
+        input(f"Please insert {name} YubiKey and press enter")
+        root_public_key = yk.get_piv_public_key_tuf()
+        if not taf_repo.is_valid_metadata_yubikey("root", root_public_key):
+            print("The inserted YubiKey is not a valid root key")
+            continue
+        root_public_key = yk.get_piv_public_key_tuf()
+        taf_repo._repository.root.add_external_signature_provider(
+            root_public_key, partial(_provider, name, root_public_key["keyid"])
+        )
+        num_of_signatures += 1
+
+    taf_repo.writeall()
+
+
 def _update_target_repos(repo_path, targets_dir, target_repo_path):
     """Updates target repo's commit sha"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:
@@ -300,6 +349,19 @@ def create_repository(
         auth_repo.commit(commit_message)
 
 
+def export_yk_public_pem(path=None):
+    pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+    if path is None:
+        print(pub_key_pem)
+    else:
+        if not path.endswith(".pub"):
+            path = f"{path}.pub"
+        path = Path(path)
+        parent = path.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(pub_key_pem)
+
+
 def generate_keys(keystore, roles_key_infos):
     """
     <Purpose>
@@ -333,7 +395,7 @@ def generate_keys(keystore, roles_key_infos):
                 )
 
 
-def generate_repositories_json(
+def genrate_repositories_json(
     repo_path,
     targets_directory,
     namespace=None,
@@ -545,6 +607,25 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
     signature = yk.sign_piv_rsa_pkcs1v15(data, key_pin)
 
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
+
+
+def setup_signing_yubikey(cert_dir=None):
+    pin = get_pin_for("your YubiKey")
+    cert_cn = input("Enter key holder's name: ")
+    print("Generating key, please wait...")
+    pub_key_pem = yk.setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode(
+        "utf-8"
+    )
+    scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+    key = import_rsakey_from_pem(pub_key_pem, scheme)
+    if cert_dir is None:
+        cert_dir = Path.home()
+    else:
+        cert_dir = Path(cert_dir)
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = cert_dir / f"{key['keyid']}.cert"
+    with open(cert_path, "wb") as f:
+        f.write(yk.export_piv_x509())
 
 
 def update_metadata_expiration_date(

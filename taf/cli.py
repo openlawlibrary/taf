@@ -38,6 +38,14 @@ def add_target_file(repo_path, file_path, keystore, keys_description, scheme):
 
 
 @cli.command()
+@click.option('--repo-path')
+@click.option('--role')
+@click.option('--pub-key-path')
+def add_signing_key(repo_path, role, pub_key_path):
+    developer_tool.add_signing_key(repo_path, role, pub_key_path)
+
+
+@cli.command()
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
@@ -86,6 +94,13 @@ def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore
               'is a test authentication repository')
 def create_repo(repo_path, keystore, keys_description, commit_msg, test):
     developer_tool.create_repository(repo_path, keystore, keys_description, commit_msg, test)
+
+
+@cli.command()
+@click.option('--path', help='File where to write the exported public key. Result will be written '
+              'to console if path is not specified')
+def export_yk_pub_key(path):
+    developer_tool.export_yk_public_pem(path)
 
 
 @cli.command()
@@ -167,6 +182,12 @@ def update(url, clients_dir, targets_dir, from_fs):
               'repository from the filesystem')
 def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
     update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs)
+
+
+@cli.command()
+@click.option('--certs-dir', help='Path of the directory where the exported certificate will be saved')
+def setup_signing_yubikey(certs_dir):
+    developer_tool.setup_signing_yubikey(certs_dir)
 
 
 @cli.command()
