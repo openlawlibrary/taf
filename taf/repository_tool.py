@@ -2,6 +2,7 @@ import datetime
 import json
 from functools import partial
 from pathlib import Path
+from getpass import getpass
 
 import securesystemslib
 import tuf.repository_tool
@@ -114,6 +115,20 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
     from binascii import hexlify
 
     return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
+
+
+def yubikey_signature_provider(name, key_id, key, data): # pylint: disable=W0613
+    """
+    A signatures provider which asks the user to insert a yubikey
+    Useful if several yubikeys need to be used at the same time
+    """
+    from taf.yubikey import sign_piv_rsa_pkcs1v15
+    from binascii import hexlify
+    data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
+    input(f"Insert {name} and press enter")
+    pin = getpass("Enter PIN")
+    signature = sign_piv_rsa_pkcs1v15(data, pin)
+    return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
 class Repository:
@@ -335,6 +350,14 @@ class Repository:
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
 
+
+    def add_yubikey_external_signature_provider(self, role, name):
+        from taf.yubikey import get_piv_public_key_tuf
+        pub_key = get_piv_public_key_tuf()
+        self._role_obj(role).add_external_signature_provider(
+            pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"])
+        )
+
     def _get_target_repositories(self):
         repositories_path = self.targets_path / "repositories.json"
         if repositories_path.exists():
@@ -431,7 +454,7 @@ class Repository:
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def add_metadata_key(self, role, pub_key_pem):
+    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
 
         Args:
@@ -451,7 +474,7 @@ class Repository:
         if isinstance(pub_key_pem, bytes):
             pub_key_pem = pub_key_pem.decode("utf-8")
 
-        key = import_rsakey_from_pem(pub_key_pem)
+        key = import_rsakey_from_pem(pub_key_pem, scheme)
         self._role_obj(role).add_verification_key(key)
 
     def remove_metadata_key(self, role, key_id):

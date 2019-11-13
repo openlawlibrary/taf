@@ -46,25 +46,14 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 
 
 def add_signing_key(repo_path, role, pub_key_path):
+    from taf.repository_tool import yubikey_signature_provider
     taf_repo = Repository(repo_path)
     pub_key_pem = Path(pub_key_path).read_text()
-    taf_repo.add_metadata_key(role, pub_key_pem)
+    taf_repo.add_metadata_key(role, pub_key_pem, DEFAULT_RSA_SIGNATURE_SCHEME)
 
     root_obj = taf_repo._repository.root
     threshold = root_obj.threshold
-    root_obj.threshold = 2
-    threshold = 2
     num_of_signatures = 0
-
-    def _provider(name, key_id, key, data):  # pylint: disable=W0613
-        from taf.yubikey import sign_piv_rsa_pkcs1v15
-        from binascii import hexlify
-
-        data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
-        input(f"Insert {name} and press enter")
-        pin = getpass("Enter PIN")
-        signature = sign_piv_rsa_pkcs1v15(data, pin)
-        return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
     while True:
         input(f"Please insert {role} YubiKey and press enter")
@@ -72,10 +61,7 @@ def add_signing_key(repo_path, role, pub_key_path):
         if not taf_repo.is_valid_metadata_yubikey(role, role_public_key):
             print(f"The inserted YubiKey is not a valid {role} key")
         else:
-            pub_key = yk.get_piv_public_key_tuf()
-            taf_repo._repository.root.add_external_signature_provider(
-                pub_key, partial(_provider, role, pub_key["keyid"])
-            )
+            taf_repo.add_yubikey_external_signature_provider(role, role)
             break
 
     while num_of_signatures < threshold:
@@ -85,10 +71,7 @@ def add_signing_key(repo_path, role, pub_key_path):
         if not taf_repo.is_valid_metadata_yubikey("root", root_public_key):
             print("The inserted YubiKey is not a valid root key")
             continue
-        root_public_key = yk.get_piv_public_key_tuf()
-        taf_repo._repository.root.add_external_signature_provider(
-            root_public_key, partial(_provider, name, root_public_key["keyid"])
-        )
+        taf_repo.add_yubikey_external_signature_provider('root', name)
         num_of_signatures += 1
 
     taf_repo.writeall()
