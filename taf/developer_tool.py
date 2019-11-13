@@ -47,6 +47,7 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 
 def add_signing_key(repo_path, role, pub_key_path):
     from taf.repository_tool import yubikey_signature_provider
+
     taf_repo = Repository(repo_path)
     pub_key_pem = Path(pub_key_path).read_text()
     taf_repo.add_metadata_key(role, pub_key_pem, DEFAULT_RSA_SIGNATURE_SCHEME)
@@ -71,7 +72,7 @@ def add_signing_key(repo_path, role, pub_key_path):
         if not taf_repo.is_valid_metadata_yubikey("root", root_public_key):
             print("The inserted YubiKey is not a valid root key")
             continue
-        taf_repo.add_yubikey_external_signature_provider('root', name)
+        taf_repo.add_yubikey_external_signature_provider("root", name)
         num_of_signatures += 1
 
     taf_repo.writeall()
@@ -187,29 +188,17 @@ def build_auth_repo(
 
 
 def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir):
-    print(f"Generating keys for {key_name}")
-    use_existing = False
-    if len(yubikeys) > 1 or (len(yubikeys) == 1 and role_name not in yubikeys):
-        use_existing = input("Do you want to reuse already set up Yubikey? y/n ") == "y"
-        if use_existing:
-            existing_key = None
-            key_id_certs = {}
-            while existing_key is None:
-                for existing_role_name, role_keys in yubikeys.items():
-                    if existing_role_name == role_name:
-                        continue
-                    print(f"Existing keys for role {existing_role_name} are:\n")
-                    for key_and_cert in role_keys.values():
-                        key, cert_cn = key_and_cert
-                        key_id_certs[key["keyid"]] = cert_cn
-                        print(f"{cert_cn} id: {key['keyid']}")
-                existing_keyid = input("\nEnter existing Yubikey's id and press ENTER ")
-                try:
-                    existing_key = get_key(existing_keyid)
-                    cert_cn = key_id_certs[existing_keyid]
-                except UnknownKeyError:
-                    pass
-    if not use_existing:
+    from taf.repository_tool import yubikey_signature_provider
+    print(f"Registering keys for {key_name}")
+    use_existing = input("Do you want to reuse already set up Yubikey? y/n ") == "y"
+    if use_existing:
+            input("Please insert an already set up YubiKey and press ENTER")
+            key = yk.get_piv_public_key_tuf()
+            cert_cn = input("Enter key holder's name: ")
+            serial_num = yk.get_serial_num()
+
+    else:
+        print('WARNING - this will delete everything from the inserted key')
         input("Please insert a new YubiKey and press ENTER.")
         serial_num = yk.get_serial_num()
         while serial_num in yubikeys[role_name]:
@@ -233,9 +222,10 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
             f.write(yk.export_piv_x509())
 
     # set Yubikey expiration date
+    # add_yubikey_external_signature_provider
     role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
     role_obj.add_external_signature_provider(
-        key, partial(signature_provider, key["keyid"], cert_cn)
+        key, partial(yubikey_signature_provider, key_name, key["keyid"])
     )
     yubikeys[role_name][serial_num] = (key, cert_cn)
 
