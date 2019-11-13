@@ -117,13 +117,14 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
     return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
 
 
-def yubikey_signature_provider(name, key_id, key, data): # pylint: disable=W0613
+def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W0613
     """
     A signatures provider which asks the user to insert a yubikey
     Useful if several yubikeys need to be used at the same time
     """
     from taf.yubikey import sign_piv_rsa_pkcs1v15, get_piv_public_key_tuf
     from binascii import hexlify
+
     data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
 
     def _check_key_id(expected_key_id):
@@ -361,9 +362,9 @@ class Repository:
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
 
-
     def add_yubikey_external_signature_provider(self, role, name):
         from taf.yubikey import get_piv_public_key_tuf
+
         pub_key = get_piv_public_key_tuf()
         self._role_obj(role).add_external_signature_provider(
             pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"])

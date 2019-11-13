@@ -8,6 +8,7 @@ from getpass import getpass
 from pathlib import Path
 
 import securesystemslib
+import click
 import tuf.repository_tool
 from securesystemslib.exceptions import UnknownKeyError
 from securesystemslib.interface import (
@@ -56,24 +57,36 @@ def add_signing_key(repo_path, role, pub_key_path):
     threshold = root_obj.threshold
     num_of_signatures = 0
 
-    while True:
+    def _read_role_key(role):
         input(f"Please insert {role} YubiKey and press enter")
         role_public_key = yk.get_piv_public_key_tuf()
         if not taf_repo.is_valid_metadata_yubikey(role, role_public_key):
             print(f"The inserted YubiKey is not a valid {role} key")
-        else:
-            taf_repo.add_yubikey_external_signature_provider(role, role)
-            break
+            return False
+        taf_repo.add_yubikey_external_signature_provider(role, role)
+        return True
 
-    while num_of_signatures < threshold:
-        name = f"root{num_of_signatures+1}"
-        input(f"Please insert {name} YubiKey and press enter")
-        root_public_key = yk.get_piv_public_key_tuf()
-        if not taf_repo.is_valid_metadata_yubikey("root", root_public_key):
-            print("The inserted YubiKey is not a valid root key")
-            continue
-        taf_repo.add_yubikey_external_signature_provider("root", name)
-        num_of_signatures += 1
+    while not _read_role_key(role):
+        pass
+
+    all_loaded = False
+    while not all_loaded:
+        if num_of_signatures >= threshold:
+            all_loaded = not (
+                click.confirm(
+                    "Threshold of root keys reached. Do you want to load more root keys?"
+                )
+            )
+        # TODO check if key already loaded
+        if not all_loaded:
+            name = f"root{num_of_signatures+1}"
+            input(f"Please insert {name} YubiKey and press enter")
+            root_public_key = yk.get_piv_public_key_tuf()
+            if not taf_repo.is_valid_metadata_yubikey("root", root_public_key):
+                print("The inserted YubiKey is not a valid root key")
+                continue
+            taf_repo.add_yubikey_external_signature_provider("root", name)
+            num_of_signatures += 1
 
     taf_repo.writeall()
 
@@ -189,16 +202,17 @@ def build_auth_repo(
 
 def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir):
     from taf.repository_tool import yubikey_signature_provider
+
     print(f"Registering keys for {key_name}")
     use_existing = input("Do you want to reuse already set up Yubikey? y/n ") == "y"
     if use_existing:
-            input("Please insert an already set up YubiKey and press ENTER")
-            key = yk.get_piv_public_key_tuf()
-            cert_cn = input("Enter key holder's name: ")
-            serial_num = yk.get_serial_num()
+        input("Please insert an already set up YubiKey and press ENTER")
+        key = yk.get_piv_public_key_tuf()
+        cert_cn = input("Enter key holder's name: ")
+        serial_num = yk.get_serial_num()
 
     else:
-        print('WARNING - this will delete everything from the inserted key')
+        print("WARNING - this will delete everything from the inserted key")
         input("Please insert a new YubiKey and press ENTER.")
         serial_num = yk.get_serial_num()
         while serial_num in yubikeys[role_name]:
