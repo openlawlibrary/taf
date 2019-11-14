@@ -58,6 +58,8 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
         - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
         - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
     """
+    if password == "":
+        password = None
     key = role_keys_cache.get(role)
     if key is None:
         if password is not None:
@@ -394,6 +396,9 @@ class Repository:
         """
         role_obj = self._role_obj(role)
         return role_obj.keys
+
+    def get_role_threshold(self, role):
+        return self._role_obj(role).threshold
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.

@@ -91,6 +91,86 @@ def add_signing_key(repo_path, role, pub_key_path):
     taf_repo.writeall()
 
 
+def _load_signing_keys(
+    taf_repo,
+    role,
+    keystore=None,
+    role_key_infos=None,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+):
+    """
+    Load role's signing keys. Make sure that at least the threshold of keys was
+    loaded, but allowing loading more keys (so that a metadata file can be signed
+    by all of the role's keys if the user wants that)
+    """
+    print(f"Loading signing keys of role {role}")
+    threshold = taf_repo.get_role_threshold(role)
+    signing_keys_num = len(taf_repo.get_role_keys(role))
+    all_loaded = False
+    num_of_signatures = 0
+    keys = []
+    pins = []
+    # check if keystore exists and if there is a file corresponding to this role
+    load_from_keystore = False
+    if keystore is not None:
+        keystore = Path(keystore)
+        # names of keys are expected to be role or role + counter
+        counter = "" if signing_keys_num == 1 else "1"
+        if (keystore / f"{role}{counter}").is_file():
+            load_from_keystore = True
+
+    while not all_loaded and num_of_signatures < signing_keys_num:
+        if signing_keys_num == 1:
+            key_name = role
+        else:
+            key_name = f"{role}{num_of_signatures + 1}"
+        if load_from_keystore:
+            # if loading from keystore, load all keys
+            password = None
+            if role_key_infos is not None and role in role_key_infos:
+                passwords = role_key_infos[role].get("passwords")
+                if passwords is not None and len(passwords):
+                    password = password[num_of_signatures]
+            if password is None:
+                password = getpass(
+                    f"Enter {key_name} keystore file password and press ENTER"
+                )
+
+            key = load_role_key(keystore, role, password, scheme)
+            keys.append(key)
+        else:
+            if num_of_signatures >= threshold:
+                all_loaded = not (
+                    click.confirm(
+                        f"Threshold of {role} keys reached. Do you want to load more root keys?"
+                    )
+                )
+            # TODO check if key already loaded
+            if not all_loaded:
+                is_yubikey = None
+                if role_key_infos is not None and role in role_key_infos:
+                    is_yubikey = role_key_infos[role].get("yubikey")
+                if is_yubikey is None:
+                    is_yubikey = click.confirm(f"Load {key_name} from YubiKey?")
+                if is_yubikey:
+                    input(f"Please insert {key_name} YubiKey and press ENTER")
+                    public_key = yk.get_piv_public_key_tuf()
+                    if not taf_repo.is_valid_metadata_yubikey(role, public_key):
+                        print(f"The inserted YubiKey is not a valid {role} key")
+                        continue
+                    pin = getpass(f"Please input {key_name} PIN and press ENTER.")
+                    pins.append(pin)
+                else:
+                    pem = getpass(
+                        f"Enter {key_name} private key without its header and footer"
+                    )
+                    pem = _form_private_pem(pem)
+                    key = import_rsakey_from_pem(pem, scheme)
+                    keys.append(key)
+        num_of_signatures += 1
+    return keys, pins
+
+
 def _update_target_repos(repo_path, targets_dir, target_repo_path):
     """Updates target repo's commit sha"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:
@@ -640,29 +720,22 @@ def update_metadata_expiration_date(
 
 
 def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
-    if keystore is not None:
-        # load all keys from keystore files
-        # convenient when generating test repositories
-        # not recommended in production
-        targets_password = _load_role_key_from_keys_dict("targets", roles_key_infos)
-        targets_key = load_role_key(keystore, "targets", targets_password, scheme)
-        taf_repo.update_targets_from_keystore(targets_key, write=False)
-        snapshot_password = _load_role_key_from_keys_dict("snapshot", roles_key_infos)
-        timestamp_password = _load_role_key_from_keys_dict("timestamp", roles_key_infos)
-        timestamp_key = load_role_key(keystore, "timestamp", timestamp_password)
-        snapshot_key = load_role_key(keystore, "snapshot", snapshot_password)
-    else:
-        targets_key_pin = getpass(
-            "Please insert targets YubiKey, input PIN and press ENTER."
-        )
-        taf_repo.update_targets(targets_key_pin, write=False)
-        snapshot_pem = getpass("Enter snapshot key")
-        snapshot_pem = _form_private_pem(snapshot_pem)
-        snapshot_key = import_rsakey_from_pem(snapshot_pem, scheme)
 
-        timestamp_pem = getpass("Enter timestamp key")
-        timestamp_pem = _form_private_pem(timestamp_pem)
-        timestamp_key = import_rsakey_from_pem(timestamp_pem, scheme)
+    targets_keys, target_pins = _load_signing_keys(
+        taf_repo, "targets", keystore, roles_key_infos
+    )
+    if len(targets_keys):
+        taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
+    else:
+        taf_repo.update_targets(target_pins[0], write=False)
+    snapshot_keys, _ = _load_signing_keys(
+        taf_repo, "snapshot", keystore, roles_key_infos
+    )
+    timestamp_keys, _ = _load_signing_keys(
+        taf_repo, "timestamp", keystore, roles_key_infos
+    )
+    snapshot_key = snapshot_keys[0]
+    timestamp_key = timestamp_keys[0]
     taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key, write=False)
     taf_repo.writeall()
 
