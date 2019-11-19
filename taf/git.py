@@ -180,7 +180,7 @@ class GitRepository(object):
             for branch in self._git("branch --format='%(refname:short)'").split("\n")
         ]
 
-    def branches_containing_commit(self, commit, strip_remote=False):
+    def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
         local_branches = self._git(f"branch --contains {commit}").split("\n")
         if local_branches:
@@ -203,7 +203,7 @@ class GitRepository(object):
                     filtered_remote_branches.append(branch)
         branches = {branch: False for branch in local_branches}
         branches.update({branch: True for branch in filtered_remote_branches})
-        return OrderedDict(sorted(branches.items(), reverse=True))
+        return OrderedDict(sorted(branches.items(), key=sort_key, reverse=True))
 
     def branch_exists(self, branch_name, include_remotes=True):
         """
