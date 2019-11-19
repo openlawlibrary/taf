@@ -25,6 +25,10 @@ class InvalidRepositoryError(TAFError):
     pass
 
 
+class InvalidPINError(TAFError):
+    pass
+
+
 class MetadataUpdateError(TAFError):
     def __init__(self, metadata_role, message):
         super().__init__(

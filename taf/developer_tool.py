@@ -96,11 +96,12 @@ def _load_signing_keys(
     role,
     keystore=None,
     role_key_infos=None,
+    loaded_yubikeys=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
-    loaded, but allowing loading more keys (so that a metadata file can be signed
+    loaded, but allow loading more keys (so that a metadata file can be signed
     by all of the role's keys if the user wants that)
     """
     print(f"Loading signing keys of role {role}")
@@ -109,7 +110,6 @@ def _load_signing_keys(
     all_loaded = False
     num_of_signatures = 0
     keys = []
-    pins = []
     # check if keystore exists and if there is a file corresponding to this role
     load_from_keystore = False
     if keystore is not None:
@@ -130,7 +130,7 @@ def _load_signing_keys(
             if role_key_infos is not None and role in role_key_infos:
                 passwords = role_key_infos[role].get("passwords")
                 if passwords is not None and len(passwords):
-                    password = password[num_of_signatures]
+                    password = passwords[num_of_signatures]
             if password is None:
                 password = getpass(
                     f"Enter {key_name} keystore file password and press ENTER"
@@ -145,7 +145,6 @@ def _load_signing_keys(
                         f"Threshold of {role} keys reached. Do you want to load more root keys?"
                     )
                 )
-            # TODO check if key already loaded
             if not all_loaded:
                 is_yubikey = None
                 if role_key_infos is not None and role in role_key_infos:
@@ -153,22 +152,19 @@ def _load_signing_keys(
                 if is_yubikey is None:
                     is_yubikey = click.confirm(f"Load {key_name} from YubiKey?")
                 if is_yubikey:
-                    input(f"Please insert {key_name} YubiKey and press ENTER")
-                    public_key = yk.get_piv_public_key_tuf()
-                    if not taf_repo.is_valid_metadata_yubikey(role, public_key):
-                        print(f"The inserted YubiKey is not a valid {role} key")
-                        continue
-                    pin = getpass(f"Please input {key_name} PIN and press ENTER.")
-                    pins.append(pin)
+                    yk.yubikey_prompt(key_name, role, taf_repo, False, loaded_yubikeys)
                 else:
                     pem = getpass(
                         f"Enter {key_name} private key without its header and footer"
                     )
                     pem = _form_private_pem(pem)
                     key = import_rsakey_from_pem(pem, scheme)
+                    if key in keys:
+                        print('Key already loaded')
+                        continue
                     keys.append(key)
         num_of_signatures += 1
-    return keys, pins
+    return keys
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path):
@@ -285,6 +281,10 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
 
     print(f"Registering keys for {key_name}")
     use_existing = input("Do you want to reuse already set up Yubikey? y/n ") == "y"
+    (key_name, role, taf_repo, registering_new_key, creating_new_key,
+                                loaded_yubikeys, pin_confirm, pin_repeat):
+    key = yk.yubikey_prompt(key_name, role_name, taf_repo=None, registering_new_key=True, creating_new_key=use_existing,
+                           loaded_yubikeys=yubikeys, pin_confirm=True, pin_repeat=True)
     if use_existing:
         input("Please insert an already set up YubiKey and press ENTER")
         key = yk.get_piv_public_key_tuf()
@@ -462,7 +462,7 @@ def generate_keys(keystore, roles_key_infos):
                 )
 
 
-def genrate_repositories_json(
+def generate_repositories_json(
     repo_path,
     targets_directory,
     namespace=None,
@@ -721,17 +721,22 @@ def update_metadata_expiration_date(
 
 def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
 
-    targets_keys, target_pins = _load_signing_keys(
-        taf_repo, "targets", keystore, roles_key_infos
+    loaded_yubikeys = {}
+    targets_keys = _load_signing_keys(
+        taf_repo, "targets", keystore, roles_key_infos, loaded_yubikeys
     )
     if len(targets_keys):
         taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
     else:
-        taf_repo.update_targets(target_pins[0], write=False)
-    snapshot_keys, _ = _load_signing_keys(
+        for serial_num in loaded_yubikeys:
+            if 'targets' in loaded_yubikeys[serial_num]:
+                pin = yk.get_key_pin(serial_num)
+                taf_repo.update_targets(pin, write=False)
+                break
+    snapshot_keys = _load_signing_keys(
         taf_repo, "snapshot", keystore, roles_key_infos
     )
-    timestamp_keys, _ = _load_signing_keys(
+    timestamp_keys = _load_signing_keys(
         taf_repo, "timestamp", keystore, roles_key_infos
     )
     snapshot_key = snapshot_keys[0]
