@@ -49,27 +49,23 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 
 
 def add_signing_key(repo_path, role, pub_key_path):
+    """
+    Adds a new signing key. Currently assumes that all relevant keys are stored on yubikeys.
+    Allows us to add a new targets key for example
+    """
     from taf.repository_tool import yubikey_signature_provider
 
     taf_repo = Repository(repo_path)
     pub_key_pem = Path(pub_key_path).read_text()
     taf_repo.add_metadata_key(role, pub_key_pem, DEFAULT_RSA_SIGNATURE_SCHEME)
-
     root_obj = taf_repo._repository.root
     threshold = root_obj.threshold
+    keys_num = len(root_obj.keys)
     num_of_signatures = 0
-
-    def _read_role_key(role):
-        input(f"Please insert {role} YubiKey and press enter")
-        role_public_key = yk.get_piv_public_key_tuf()
-        if not taf_repo.is_valid_metadata_yubikey(role, role_public_key):
-            print(f"The inserted YubiKey is not a valid {role} key")
-            return False
-        taf_repo.add_yubikey_external_signature_provider(role, role)
-        return True
-
-    while not _read_role_key(role):
-        pass
+    loaded_yubikeys = {}
+    pub_key, _ = yk.yubikey_prompt(role, role, taf_repo, loaded_yubikeys=loaded_yubikeys)
+    role_obj = _role_obj(role, taf_repo._repository)
+    role_obj.add_external_signature_provider(pub_key, partial(yubikey_signature_provider, role, pub_key["keyid"]))
 
     all_loaded = False
     while not all_loaded:
@@ -79,17 +75,13 @@ def add_signing_key(repo_path, role, pub_key_path):
                     "Threshold of root keys reached. Do you want to load more root keys?"
                 )
             )
-        # TODO check if key already loaded
         if not all_loaded:
             name = f"root{num_of_signatures+1}"
-            input(f"Please insert {name} YubiKey and press enter")
-            root_public_key = yk.get_piv_public_key_tuf()
-            if not taf_repo.is_valid_metadata_yubikey("root", root_public_key):
-                print("The inserted YubiKey is not a valid root key")
-                continue
-            taf_repo.add_yubikey_external_signature_provider("root", name)
+            pub_key, _ = yk.yubikey_prompt(name, "root", taf_repo, loaded_yubikeys=loaded_yubikeys)
+            root_obj.add_external_signature_provider(pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"]))
             num_of_signatures += 1
-
+        if num_of_signatures == keys_num:
+            all_loaded = True
     taf_repo.writeall()
 
 
