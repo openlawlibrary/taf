@@ -43,6 +43,9 @@ class RootMetadataUpdateError(MetadataUpdateError):
         super().__init__("root", message)
 
 
+class KeystoreError(TAFError):
+    pass
+
 class PINMissmatchError(Exception):
     pass
 

@@ -124,24 +124,32 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     A signatures provider which asks the user to insert a yubikey
     Useful if several yubikeys need to be used at the same time
     """
-    from taf.yubikey import sign_piv_rsa_pkcs1v15, get_piv_public_key_tuf
+    import taf.yubikey as yk
+    from taf.yubikey import sign_piv_rsa_pkcs1v15, get_piv_public_key_tuf, get_key_pin
     from binascii import hexlify
 
     data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
 
-    def _check_key_id(expected_key_id):
+    def _check_key_and_get_pin(expected_key_id):
         try:
             input(f"Insert {name} and press enter")
-            inserted_key = get_piv_public_key_tuf()
-            return expected_key_id == inserted_key["keyid"]
+            inserted_key = yk.get_piv_public_key_tuf()
+            if expected_key_id != inserted_key["keyid"]:
+                return None
+            serial_num = yk.get_serial_num(inserted_key)
+            pin = yk.get_key_pin(serial_num)
+            if pin is None:
+                pin = yk.get_and_validate_pin(name)
+            return pin
         except Exception:
-            return False
+            return None
 
-    while not _check_key_id(key_id):
-        pass
+    while True:
+        pin = _check_key_and_get_pin(key_id)
+        if pin is not None:
+            break
 
-    pin = getpass("Enter PIN")
-    signature = sign_piv_rsa_pkcs1v15(data, pin)
+    signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 

@@ -10,6 +10,7 @@ from pathlib import Path
 import securesystemslib
 import click
 import tuf.repository_tool
+import securesystemslib.exceptions
 from securesystemslib.exceptions import UnknownKeyError
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
@@ -31,12 +32,13 @@ from taf.git import GitRepository
 from taf.log import get_logger
 from taf.repository_tool import Repository, load_role_key
 from taf.utils import get_pin_for
+from taf.exceptions import KeystoreError
 
 logger = get_logger(__name__)
 
 try:
     import taf.yubikey as yk
-except ImportError:
+except ImportError as e:
     logger.warning('"yubikey-manager" is not installed.')
 
 # Yubikey x509 certificate expiration interval
@@ -279,68 +281,37 @@ def build_auth_repo(
 def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir):
     from taf.repository_tool import yubikey_signature_provider
 
-    print(f"Registering keys for {key_name}")
-    use_existing = input("Do you want to reuse already set up Yubikey? y/n ") == "y"
-    (key_name, role, taf_repo, registering_new_key, creating_new_key,
-                                loaded_yubikeys, pin_confirm, pin_repeat):
-    key = yk.yubikey_prompt(key_name, role_name, taf_repo=None, registering_new_key=True, creating_new_key=use_existing,
-                           loaded_yubikeys=yubikeys, pin_confirm=True, pin_repeat=True)
-    if use_existing:
-        input("Please insert an already set up YubiKey and press ENTER")
-        key = yk.get_piv_public_key_tuf()
-        cert_cn = input("Enter key holder's name: ")
-        serial_num = yk.get_serial_num()
+    registered = False
+    while not registered:
+        print(f"Registering keys for {key_name}")
+        use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
 
-    else:
-        print("WARNING - this will delete everything from the inserted key")
-        input("Please insert a new YubiKey and press ENTER.")
-        serial_num = yk.get_serial_num()
-        while serial_num in yubikeys[role_name]:
-            print(f"Yubikey with serial number {serial_num} is already in use.\n")
-            input("Please insert new YubiKey and press ENTER.")
-            serial_num = yk.get_serial_num()
+        if not use_existing:
+            if not click.confirm("WARNING - this will delete everything from the inserted key. Proceed?"):
+                continue
 
-        pin = get_pin_for(key_name)
+        key, serial_num = yk.yubikey_prompt(key_name, role_name, taf_repo=None, registering_new_key=True,
+                                            creating_new_key=not use_existing, loaded_yubikeys=yubikeys,
+                                            pin_confirm=True, pin_repeat=True)
 
-        cert_cn = input("Enter key holder's name: ")
+        if not use_existing:
+            _setup_new_yubikey(serial_num, certs_dir, scheme)
 
-        print("Generating keys, please wait...")
-        pub_key_pem = yk.setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode(
-            "utf-8"
+        registered = True
+        # set Yubikey expiration date
+        # add_yubikey_external_signature_provider
+        role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
+        role_obj.add_external_signature_provider(
+            key, partial(yubikey_signature_provider, key_name, key["keyid"])
         )
 
-        key = import_rsakey_from_pem(pub_key_pem, scheme)
 
-        cert_path = Path(certs_dir, f"{key['keyid']}.cert")
-        with open(cert_path, "wb") as f:
-            f.write(yk.export_piv_x509())
-
-    # set Yubikey expiration date
-    # add_yubikey_external_signature_provider
-    role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-    role_obj.add_external_signature_provider(
-        key, partial(yubikey_signature_provider, key_name, key["keyid"])
-    )
-    yubikeys[role_name][serial_num] = (key, cert_cn)
-
-
-def _register_key(keystore, passwords, role_obj, role_name, key_name, key_num, scheme):
+def _register_key(keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme):
     # if keystore exists, load the keys
     # this is useful when generating tests
     if keystore is not None:
-        public_key = import_rsa_publickey_from_file(
-            str(Path(keystore, f"{key_name}.pub")), scheme
-        )
-        password = passwords[key_num]
-        if password:
-            private_key = import_rsa_privatekey_from_file(
-                str(Path(keystore, key_name)), password, scheme=scheme
-            )
-        else:
-            private_key = import_rsa_privatekey_from_file(
-                str(Path(keystore, key_name)), scheme=scheme
-            )
-
+        public_key = _read_public_key_from_keystore(keystore, key_name)
+        private_key = _read_private_key_from_keystore(keystore, key_name, roles_key_info, key_num)
     # if it does not, generate the keys and print the output
     else:
         key = generate_rsa_key()
@@ -381,9 +352,9 @@ def create_repository(
 
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
     repository = create_new_repository(repo_path)
-    for role_name, key_info in roles_key_infos.items():
+
+    def _register_roles_keys(role_name, key_info, repository):
         num_of_keys = key_info.get("number", 1)
-        passwords = key_info.get("passwords", [None] * num_of_keys)
         threshold = key_info.get("threshold", 1)
         is_yubikey = key_info.get("yubikey", False)
         scheme = key_info.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
@@ -398,8 +369,23 @@ def create_repository(
                 )
             else:
                 _register_key(
-                    keystore, passwords, role_obj, role_name, key_name, key_num, scheme
+                    keystore, key_info, role_obj, role_name, key_name, key_num, scheme
                 )
+
+    try:
+        # load keys not stored on YubiKeys first, to avoid entering pins
+        # if there is somethig wrong with keystore files
+        for role_name, key_info in roles_key_infos.items():
+            if not key_info.get("yubikey", False):
+                _register_roles_keys(role_name, key_info, repository)
+
+        for role_name, key_info in roles_key_infos.items():
+            if key_info.get("yubikey", False):
+                _register_roles_keys(role_name, key_info, repository)
+
+    except KeystoreError as e:
+        print(f"Creation of repository failed: {e}")
+        return
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
@@ -610,6 +596,52 @@ def _read_input_dict(value):
     return value
 
 
+def _read_private_key_from_keystore(keystore, key_name, roles_key_info=None, key_num=None,
+                                    scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    key_path =  Path(keystore, key_name)
+    if not key_path.is_file():
+        raise KeystoreError(f"{str(key_path)} does not exist")
+
+    password = None
+    if roles_key_info is not None:
+        passwords = roles_key_info.get("passwords")
+        if passwords is not None and len(passwords):
+            password = passwords[key_num]
+
+    def _read_key(path, password):
+        if password is None:
+            password = getpass(
+                f"Enter {key_name} keystore file password and press ENTER"
+            )
+        if not password:
+            password = None
+        try:
+            return import_rsa_privatekey_from_file(str(Path(keystore, key_name)), password, scheme=scheme)
+        except (securesystemslib.exceptions.FormatError, securesystemslib.exceptions.Error) as e:
+            if 'password' in str(e).lower():
+                return None
+            raise KeystoreError(e)
+        except Exception:
+            return None
+
+    while True:
+        key = _read_key(key_path, password)
+        if key is not None:
+           return key
+        if not click.confirm('Could not open keystore file. Trye again?'):
+            raise KeystoreError(f"Could not open keystore file {key_path}")
+
+
+def _read_public_key_from_keystore(keystore, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    pub_key_path = Path(keystore, f"{key_name}.pub")
+    if not pub_key_path.is_file():
+        raise KeystoreError(f"{str(pub_key_path)} does not exist")
+    try:
+        return import_rsa_publickey_from_file(str(pub_key_path), scheme)
+    except (securesystemslib.exceptions.FormatError, securesystemslib.exceptions.Error) as e:
+        raise KeystoreError(e)
+
+
 def register_target_files(
     repo_path,
     keystore,
@@ -676,8 +708,13 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
-def setup_signing_yubikey(cert_dir=None):
-    pin = get_pin_for("your YubiKey")
+def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    _, serial_num = yk.yubikey_prompt('your new', creating_new_key=True, pin_confirm=True, pin_repeat=True)
+    _setup_new_yubikey(serial_num, certs_dir)
+
+
+def _setup_new_yubikey(serial_num, certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    pin = yk.get_key_pin(serial_num)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = yk.setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode(
@@ -691,6 +728,7 @@ def setup_signing_yubikey(cert_dir=None):
         cert_dir = Path(cert_dir)
     cert_dir.mkdir(parents=True, exist_ok=True)
     cert_path = cert_dir / f"{key['keyid']}.cert"
+    print(f"Exporting certificate to {cert_path}")
     with open(cert_path, "wb") as f:
         f.write(yk.export_piv_x509())
 

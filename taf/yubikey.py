@@ -21,7 +21,7 @@ from ykman.util import TRANSPORT
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import YubikeyError, InvalidPINError
-from taf.utils import get_pin
+from taf.utils import get_pin_for
 
 DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
@@ -312,10 +312,10 @@ def setup(
     )
 
 
-def get_and_validate_pin(pin_confirm=True, pin_repeat=True):
+def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):
     valid_pin = False
     while not valid_pin:
-        pin = get_pin(pin_confirm, pin_repeat)
+        pin = get_pin_for(key_name, pin_confirm, pin_repeat)
         valid_pin, retries = is_valid_pin(pin)
         if not valid_pin and not retries:
             raise InvalidPINError('No retries left. YubiKey locked.')
@@ -325,7 +325,7 @@ def get_and_validate_pin(pin_confirm=True, pin_repeat=True):
     return pin
 
 
-def yubikey_prompt(key_name, role, taf_repo=None, registering_new_key=False, creating_new_key=False,
+def yubikey_prompt(key_name, role=None, taf_repo=None, registering_new_key=False, creating_new_key=False,
                    loaded_yubikeys=None, pin_confirm=True, pin_repeat=True):
 
     def _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
@@ -335,38 +335,40 @@ def yubikey_prompt(key_name, role, taf_repo=None, registering_new_key=False, cre
         try:
             serial_num = get_serial_num()
         except:
-            return None
+            return False, None, None
 
         # check if this key is already loaded as the provided role's key (we can use the same key
         # to sign different metadata)
-        if loaded_yubikeys is not None and serial_num in loaded_yubikeys and role in loaded_yubikeys[role]:
+        if loaded_yubikeys is not None and serial_num in loaded_yubikeys and role in loaded_yubikeys[serial_num]:
             print('Key already loaded')
-            return None
+            return False, None, None
 
-        public_key = get_piv_public_key_tuf()
+        # read the public key, unless a new key needs to be generated on the yubikey
+        public_key = get_piv_public_key_tuf() if not creating_new_key else None
         # check if this yubikey is can be used for signing the provided role's metadata
         # if the key was already registered as that role's key
-        if not registering_new_key and taf_repo is not None and not \
+        if not registering_new_key and role is not None and taf_repo is not None and not \
                 taf_repo.is_valid_metadata_yubikey(role, public_key):
             print(f"The inserted YubiKey is not a valid {role} key")
-            return None
+            return False, None, None
 
         if get_key_pin(serial_num) is None:
             if creating_new_key:
-                pin = get_pin(pin_confirm, pin_repeat)
+                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
             else:
-                pin = get_and_validate_pin(pin_confirm, pin_repeat)
+                pin = get_and_validate_pin(key_name, pin_confirm, pin_repeat)
             add_key_pin(serial_num, pin)
 
-        if loaded_yubikeys is None:
-            loaded_yubikeys = {serial_num: [role]}
-        else:
-            loaded_yubikeys.setdefault(serial_num, []).append(role)
+        if role is not None:
+            if loaded_yubikeys is None:
+                loaded_yubikeys = {serial_num: [role]}
+            else:
+                loaded_yubikeys.setdefault(serial_num, []).append(role)
 
-        return public_key
+        return True, public_key, serial_num
 
     while True:
-        key = _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
-                                      loaded_yubikeys, pin_confirm, pin_repeat)
-        if key is not None:
-            return key
+        success, key, serial_num = _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
+                                                           loaded_yubikeys, pin_confirm, pin_repeat)
+        if success:
+            return key, serial_num
