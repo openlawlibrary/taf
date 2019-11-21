@@ -9,10 +9,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added commands for setting up yubikeys, exporting public keys and adding new signing keys ([79])
+- Created standardized yubikey prompt ([79])
+
 ### Changed
 
 ### Fixed
 
+- Creation of new repositories made more robust ([79])
+
+
+[79]: https://github.com/openlawlibrary/taf/pull/79
 
 ## [0.1.8] - 11/12/2019
 
