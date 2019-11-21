@@ -160,5 +160,3 @@ def to_tuf_datetime_format(start_date, interval):
     datetime_object = start_date + datetime.timedelta(interval)
     datetime_object = datetime_object.replace(microsecond=0)
     return datetime_object.isoformat() + "Z"
-
-

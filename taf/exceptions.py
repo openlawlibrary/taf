@@ -46,6 +46,7 @@ class RootMetadataUpdateError(MetadataUpdateError):
 class KeystoreError(TAFError):
     pass
 
+
 class PINMissmatchError(Exception):
     pass
 

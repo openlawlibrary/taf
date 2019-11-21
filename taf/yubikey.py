@@ -318,18 +318,37 @@ def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):
         pin = get_pin_for(key_name, pin_confirm, pin_repeat)
         valid_pin, retries = is_valid_pin(pin)
         if not valid_pin and not retries:
-            raise InvalidPINError('No retries left. YubiKey locked.')
+            raise InvalidPINError("No retries left. YubiKey locked.")
         if not valid_pin:
-            if not click.confirm(f'Incorrect PIN. Do you want to try again? {retries} retires left.'):
-                raise InvalidPINError('PIN input cancelled')
+            if not click.confirm(
+                f"Incorrect PIN. Do you want to try again? {retries} retires left."
+            ):
+                raise InvalidPINError("PIN input cancelled")
     return pin
 
 
-def yubikey_prompt(key_name, role=None, taf_repo=None, registering_new_key=False, creating_new_key=False,
-                   loaded_yubikeys=None, pin_confirm=True, pin_repeat=True, prompt_message=None):
-
-    def _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
-                                loaded_yubikeys, pin_confirm, pin_repeat, prompt_message):
+def yubikey_prompt(
+    key_name,
+    role=None,
+    taf_repo=None,
+    registering_new_key=False,
+    creating_new_key=False,
+    loaded_yubikeys=None,
+    pin_confirm=True,
+    pin_repeat=True,
+    prompt_message=None,
+):
+    def _read_and_check_yubikey(
+        key_name,
+        role,
+        taf_repo,
+        registering_new_key,
+        creating_new_key,
+        loaded_yubikeys,
+        pin_confirm,
+        pin_repeat,
+        prompt_message,
+    ):
 
         if prompt_message is None:
             prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
@@ -343,8 +362,12 @@ def yubikey_prompt(key_name, role=None, taf_repo=None, registering_new_key=False
 
         # check if this key is already loaded as the provided role's key (we can use the same key
         # to sign different metadata)
-        if loaded_yubikeys is not None and serial_num in loaded_yubikeys and role in loaded_yubikeys[serial_num]:
-            print('Key already loaded')
+        if (
+            loaded_yubikeys is not None
+            and serial_num in loaded_yubikeys
+            and role in loaded_yubikeys[serial_num]
+        ):
+            print("Key already loaded")
             return False, None, None
 
         # read the public key, unless a new key needs to be generated on the yubikey
@@ -372,7 +395,16 @@ def yubikey_prompt(key_name, role=None, taf_repo=None, registering_new_key=False
         return True, public_key, serial_num
 
     while True:
-        success, key, serial_num = _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
-                                                           loaded_yubikeys, pin_confirm, pin_repeat, prompt_message)
+        success, key, serial_num = _read_and_check_yubikey(
+            key_name,
+            role,
+            taf_repo,
+            registering_new_key,
+            creating_new_key,
+            loaded_yubikeys,
+            pin_confirm,
+            pin_repeat,
+            prompt_message,
+        )
         if success:
             return key, serial_num

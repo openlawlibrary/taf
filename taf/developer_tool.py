@@ -63,9 +63,13 @@ def add_signing_key(repo_path, role, pub_key_path):
     keys_num = len(root_obj.keys)
     num_of_signatures = 0
     loaded_yubikeys = {}
-    pub_key, _ = yk.yubikey_prompt(role, role, taf_repo, loaded_yubikeys=loaded_yubikeys)
+    pub_key, _ = yk.yubikey_prompt(
+        role, role, taf_repo, loaded_yubikeys=loaded_yubikeys
+    )
     role_obj = _role_obj(role, taf_repo._repository)
-    role_obj.add_external_signature_provider(pub_key, partial(yubikey_signature_provider, role, pub_key["keyid"]))
+    role_obj.add_external_signature_provider(
+        pub_key, partial(yubikey_signature_provider, role, pub_key["keyid"])
+    )
 
     all_loaded = False
     while not all_loaded:
@@ -77,8 +81,12 @@ def add_signing_key(repo_path, role, pub_key_path):
             )
         if not all_loaded:
             name = f"root{num_of_signatures+1}"
-            pub_key, _ = yk.yubikey_prompt(name, "root", taf_repo, loaded_yubikeys=loaded_yubikeys)
-            root_obj.add_external_signature_provider(pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"]))
+            pub_key, _ = yk.yubikey_prompt(
+                name, "root", taf_repo, loaded_yubikeys=loaded_yubikeys
+            )
+            root_obj.add_external_signature_provider(
+                pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"])
+            )
             num_of_signatures += 1
         if num_of_signatures == keys_num:
             all_loaded = True
@@ -154,7 +162,7 @@ def _load_signing_keys(
                     pem = _form_private_pem(pem)
                     key = import_rsakey_from_pem(pem, scheme)
                     if key in keys:
-                        print('Key already loaded')
+                        print("Key already loaded")
                         continue
                     keys.append(key)
         num_of_signatures += 1
@@ -279,12 +287,21 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
         use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
 
         if not use_existing:
-            if not click.confirm("WARNING - this will delete everything from the inserted key. Proceed?"):
+            if not click.confirm(
+                "WARNING - this will delete everything from the inserted key. Proceed?"
+            ):
                 continue
 
-        key, serial_num = yk.yubikey_prompt(key_name, role_name, taf_repo=None, registering_new_key=True,
-                                            creating_new_key=not use_existing, loaded_yubikeys=yubikeys,
-                                            pin_confirm=True, pin_repeat=True)
+        key, serial_num = yk.yubikey_prompt(
+            key_name,
+            role_name,
+            taf_repo=None,
+            registering_new_key=True,
+            creating_new_key=not use_existing,
+            loaded_yubikeys=yubikeys,
+            pin_confirm=True,
+            pin_repeat=True,
+        )
 
         if not use_existing:
             _setup_new_yubikey(serial_num, certs_dir, scheme)
@@ -298,12 +315,16 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
         )
 
 
-def _register_key(keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme):
+def _register_key(
+    keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme
+):
     # if keystore exists, load the keys
     # this is useful when generating tests
     if keystore is not None:
         public_key = _read_public_key_from_keystore(keystore, key_name)
-        private_key = _read_private_key_from_keystore(keystore, key_name, roles_key_info, key_num)
+        private_key = _read_private_key_from_keystore(
+            keystore, key_name, roles_key_info, key_num
+        )
     # if it does not, generate the keys and print the output
     else:
         key = generate_rsa_key()
@@ -588,9 +609,14 @@ def _read_input_dict(value):
     return value
 
 
-def _read_private_key_from_keystore(keystore, key_name, roles_key_info=None, key_num=None,
-                                    scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-    key_path =  Path(keystore, key_name)
+def _read_private_key_from_keystore(
+    keystore,
+    key_name,
+    roles_key_info=None,
+    key_num=None,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+):
+    key_path = Path(keystore, key_name)
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
 
@@ -608,9 +634,14 @@ def _read_private_key_from_keystore(keystore, key_name, roles_key_info=None, key
         if not password:
             password = None
         try:
-            return import_rsa_privatekey_from_file(str(Path(keystore, key_name)), password, scheme=scheme)
-        except (securesystemslib.exceptions.FormatError, securesystemslib.exceptions.Error) as e:
-            if 'password' in str(e).lower():
+            return import_rsa_privatekey_from_file(
+                str(Path(keystore, key_name)), password, scheme=scheme
+            )
+        except (
+            securesystemslib.exceptions.FormatError,
+            securesystemslib.exceptions.Error,
+        ) as e:
+            if "password" in str(e).lower():
                 return None
             raise KeystoreError(e)
         except Exception:
@@ -619,18 +650,23 @@ def _read_private_key_from_keystore(keystore, key_name, roles_key_info=None, key
     while True:
         key = _read_key(key_path, password)
         if key is not None:
-           return key
-        if not click.confirm('Could not open keystore file. Trye again?'):
+            return key
+        if not click.confirm("Could not open keystore file. Trye again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
 
 
-def _read_public_key_from_keystore(keystore, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def _read_public_key_from_keystore(
+    keystore, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+):
     pub_key_path = Path(keystore, f"{key_name}.pub")
     if not pub_key_path.is_file():
         raise KeystoreError(f"{str(pub_key_path)} does not exist")
     try:
         return import_rsa_publickey_from_file(str(pub_key_path), scheme)
-    except (securesystemslib.exceptions.FormatError, securesystemslib.exceptions.Error) as e:
+    except (
+        securesystemslib.exceptions.FormatError,
+        securesystemslib.exceptions.Error,
+    ) as e:
         raise KeystoreError(e)
 
 
@@ -701,8 +737,13 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
 
 
 def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-    _, serial_num = yk.yubikey_prompt('new Yubikey', creating_new_key=True, pin_confirm=True, pin_repeat=True,
-                                      prompt_message="Please insert the new Yubikey and press ENTER")
+    _, serial_num = yk.yubikey_prompt(
+        "new Yubikey",
+        creating_new_key=True,
+        pin_confirm=True,
+        pin_repeat=True,
+        prompt_message="Please insert the new Yubikey and press ENTER",
+    )
     _setup_new_yubikey(serial_num, certs_dir)
 
 
@@ -760,13 +801,11 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
         taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
     else:
         for serial_num in loaded_yubikeys:
-            if 'targets' in loaded_yubikeys[serial_num]:
+            if "targets" in loaded_yubikeys[serial_num]:
                 pin = yk.get_key_pin(serial_num)
                 taf_repo.update_targets(pin, write=False)
                 break
-    snapshot_keys = _load_signing_keys(
-        taf_repo, "snapshot", keystore, roles_key_infos
-    )
+    snapshot_keys = _load_signing_keys(taf_repo, "snapshot", keystore, roles_key_infos)
     timestamp_keys = _load_signing_keys(
         taf_repo, "timestamp", keystore, roles_key_infos
     )
