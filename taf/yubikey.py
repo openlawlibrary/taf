@@ -326,11 +326,14 @@ def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):
 
 
 def yubikey_prompt(key_name, role=None, taf_repo=None, registering_new_key=False, creating_new_key=False,
-                   loaded_yubikeys=None, pin_confirm=True, pin_repeat=True):
+                   loaded_yubikeys=None, pin_confirm=True, pin_repeat=True, prompt_message=None):
 
     def _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
-                                loaded_yubikeys, pin_confirm, pin_repeat):
-        input(f"Please insert {key_name} YubiKey and press ENTER")
+                                loaded_yubikeys, pin_confirm, pin_repeat, prompt_message):
+
+        if prompt_message is None:
+            prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
+        input(prompt_message)
         # make sure that YubiKey is inserted
         try:
             serial_num = get_serial_num()
@@ -370,6 +373,6 @@ def yubikey_prompt(key_name, role=None, taf_repo=None, registering_new_key=False
 
     while True:
         success, key, serial_num = _read_and_check_yubikey(key_name, role, taf_repo, registering_new_key, creating_new_key,
-                                                           loaded_yubikeys, pin_confirm, pin_repeat)
+                                                           loaded_yubikeys, pin_confirm, pin_repeat, prompt_message)
         if success:
             return key, serial_num

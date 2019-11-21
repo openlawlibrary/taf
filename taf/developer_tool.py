@@ -701,7 +701,8 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
 
 
 def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-    _, serial_num = yk.yubikey_prompt('your new', creating_new_key=True, pin_confirm=True, pin_repeat=True)
+    _, serial_num = yk.yubikey_prompt('new Yubikey', creating_new_key=True, pin_confirm=True, pin_repeat=True,
+                                      prompt_message="Please insert the new Yubikey and press ENTER")
     _setup_new_yubikey(serial_num, certs_dir)
 
 
@@ -714,12 +715,12 @@ def _setup_new_yubikey(serial_num, certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_
     )
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)
-    if cert_dir is None:
-        cert_dir = Path.home()
+    if certs_dir is None:
+        certs_dir = Path.home()
     else:
-        cert_dir = Path(cert_dir)
-    cert_dir.mkdir(parents=True, exist_ok=True)
-    cert_path = cert_dir / f"{key['keyid']}.cert"
+        certs_dir = Path(certs_dir)
+    certs_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = certs_dir / f"{key['keyid']}.cert"
     print(f"Exporting certificate to {cert_path}")
     with open(cert_path, "wb") as f:
         f.write(yk.export_piv_x509())
