@@ -11,12 +11,10 @@ import securesystemslib
 import click
 import tuf.repository_tool
 import securesystemslib.exceptions
-from securesystemslib.exceptions import UnknownKeyError
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
-from tuf.keydb import get_key
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
@@ -31,14 +29,13 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.git import GitRepository
 from taf.log import get_logger
 from taf.repository_tool import Repository, load_role_key
-from taf.utils import get_pin_for
 from taf.exceptions import KeystoreError
 
 logger = get_logger(__name__)
 
 try:
     import taf.yubikey as yk
-except ImportError as e:
+except ImportError:
     logger.warning('"yubikey-manager" is not installed.')
 
 # Yubikey x509 certificate expiration interval

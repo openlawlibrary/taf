@@ -356,7 +356,7 @@ def yubikey_prompt(
         # make sure that YubiKey is inserted
         try:
             serial_num = get_serial_num()
-        except:
+        except Exception:
             print("YubiKey not inserted")
             return False, None, None
 

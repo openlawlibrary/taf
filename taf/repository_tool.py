@@ -2,7 +2,6 @@ import datetime
 import json
 from functools import partial
 from pathlib import Path
-from getpass import getpass
 
 import securesystemslib
 import tuf.repository_tool
@@ -58,7 +57,7 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
         - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
         - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
     """
-    if password == "":
+    if not password:
         password = None
     key = role_keys_cache.get(role)
     if key is None:
@@ -125,7 +124,6 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     Useful if several yubikeys need to be used at the same time
     """
     import taf.yubikey as yk
-    from taf.yubikey import sign_piv_rsa_pkcs1v15, get_piv_public_key_tuf, get_key_pin
     from binascii import hexlify
 
     data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
