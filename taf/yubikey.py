@@ -312,7 +312,7 @@ def setup(
     )
 
 
-def setup_new_yubikey(serial_num, certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     pin = get_key_pin(serial_num)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
@@ -321,15 +321,6 @@ def setup_new_yubikey(serial_num, certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_S
     )
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)
-    if certs_dir is None:
-        certs_dir = Path.home()
-    else:
-        certs_dir = Path(certs_dir)
-    certs_dir.mkdir(parents=True, exist_ok=True)
-    cert_path = certs_dir / f"{key['keyid']}.cert"
-    print(f"Exporting certificate to {cert_path}")
-    with open(cert_path, "wb") as f:
-        f.write(export_piv_x509())
     return key
 
 

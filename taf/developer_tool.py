@@ -285,7 +285,8 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
         )
 
         if not use_existing:
-           key = yk.setup_new_yubikey(serial_num, certs_dir, scheme)
+           key = yk.setup_new_yubikey(serial_num, scheme)
+        export_yk_certificate(certs_dir, key)
 
         registered = True
         # set Yubikey expiration date
@@ -406,6 +407,18 @@ def export_yk_public_pem(path=None):
         parent = path.parent
         parent.mkdir(parents=True, exist_ok=True)
         path.write_text(pub_key_pem)
+
+
+def export_yk_certificate(certs_dir, key):
+    if certs_dir is None:
+        certs_dir = Path.home()
+    else:
+        certs_dir = Path(certs_dir)
+    certs_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = certs_dir / f"{key['keyid']}.cert"
+    print(f"Exporting certificate to {cert_path}")
+    with open(cert_path, "wb") as f:
+        f.write(yk.export_piv_x509())
 
 
 def generate_keys(keystore, roles_key_infos):
@@ -663,7 +676,8 @@ def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         pin_repeat=True,
         prompt_message="Please insert the new Yubikey and press ENTER",
     )
-    yk.setup_new_yubikey(serial_num, certs_dir)
+    key = yk.setup_new_yubikey(serial_num)
+    export_yk_certificate(certs_dir, key)
 
 
 def update_metadata_expiration_date(
