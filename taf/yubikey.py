@@ -6,6 +6,7 @@ from functools import wraps
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from pathlib import Path
 from tuf.repository_tool import import_rsakey_from_pem
 from ykman.descriptor import list_devices, open_device
 from ykman.piv import (
@@ -25,13 +26,12 @@ from taf.utils import get_pin_for
 
 DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
-
+EXPIRATION_INTERVAL = 36500
 
 _pins_dict = {}
 
 
 def add_key_pin(serial_num, pin):
-    global _pins_dict
     _pins_dict[serial_num] = pin
 
 
@@ -310,6 +310,27 @@ def setup(
     return pub_key.public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
     )
+
+
+def setup_new_yubikey(serial_num, certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    pin = get_key_pin(serial_num)
+    cert_cn = input("Enter key holder's name: ")
+    print("Generating key, please wait...")
+    pub_key_pem = setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode(
+        "utf-8"
+    )
+    scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+    key = import_rsakey_from_pem(pub_key_pem, scheme)
+    if certs_dir is None:
+        certs_dir = Path.home()
+    else:
+        certs_dir = Path(certs_dir)
+    certs_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = certs_dir / f"{key['keyid']}.cert"
+    print(f"Exporting certificate to {cert_path}")
+    with open(cert_path, "wb") as f:
+        f.write(export_piv_x509())
+    return key
 
 
 def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):

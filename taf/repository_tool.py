@@ -370,13 +370,6 @@ class Repository:
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
 
-    def add_yubikey_external_signature_provider(self, role, name):
-        from taf.yubikey import get_piv_public_key_tuf
-
-        pub_key = get_piv_public_key_tuf()
-        self._role_obj(role).add_external_signature_provider(
-            pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"])
-        )
 
     def _get_target_repositories(self):
         repositories_path = self.targets_path / "repositories.json"
