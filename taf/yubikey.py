@@ -6,7 +6,6 @@ from functools import wraps
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from pathlib import Path
 from tuf.repository_tool import import_rsakey_from_pem
 from ykman.descriptor import list_devices, open_device
 from ykman.piv import (
@@ -316,9 +315,7 @@ def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     pin = get_key_pin(serial_num)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
-    pub_key_pem = setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode(
-        "utf-8"
-    )
+    pub_key_pem = setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)
     return key

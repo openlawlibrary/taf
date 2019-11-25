@@ -17,19 +17,18 @@ from tuf.repository_tool import (
     create_new_repository,
     generate_and_write_rsa_keypair,
     generate_rsa_key,
-    import_rsakey_from_pem,
 )
 
 from taf.auth_repo import AuthenticationRepo
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.git import GitRepository
 from taf.log import get_logger
-from taf.repository_tool import Repository, load_role_key
+from taf.repository_tool import Repository
 from taf.exceptions import KeystoreError
 from taf.keystore import (
     read_private_key_from_keystore,
     read_public_key_from_keystore,
-    key_cmd_prompt
+    key_cmd_prompt,
 )
 
 logger = get_logger(__name__)
@@ -126,7 +125,9 @@ def _load_signing_keys(
             key_name = f"{role}{num_of_signatures + 1}"
         if load_from_keystore:
             # if loading from keystore, load all keys
-            key = read_private_key_from_keystore(keystore, key_name, role_key_infos, num_of_signatures, scheme)
+            key = read_private_key_from_keystore(
+                keystore, key_name, role_key_infos, num_of_signatures, scheme
+            )
             keys.append(key)
         else:
             if num_of_signatures >= threshold:
@@ -142,7 +143,9 @@ def _load_signing_keys(
                 if is_yubikey is None:
                     is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
                 if is_yubikey:
-                    yk.yubikey_prompt(key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys)
+                    yk.yubikey_prompt(
+                        key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
+                    )
                 else:
                     key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
                     keys.append(key)
@@ -285,7 +288,7 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
         )
 
         if not use_existing:
-           key = yk.setup_new_yubikey(serial_num, scheme)
+            key = yk.setup_new_yubikey(serial_num, scheme)
         export_yk_certificate(certs_dir, key)
 
         registered = True

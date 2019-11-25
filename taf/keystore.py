@@ -15,27 +15,28 @@ def _form_private_pem(pem):
     return f"-----BEGIN RSA PRIVATE KEY-----\n{pem}\n-----END RSA PRIVATE KEY-----"
 
 
-def key_cmd_prompt(key_name, role, taf_repo, loaded_keys=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-
+def key_cmd_prompt(
+    key_name, role, taf_repo, loaded_keys=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+):
     def _enter_and_check_key(key_name, role, loaded_keys, scheme):
         pem = getpass(f"Enter {key_name} private key without its header and footer\n")
         pem = _form_private_pem(pem)
         try:
             key = import_rsakey_from_pem(pem, scheme)
         except Exception:
-            print('Invalid key')
+            print("Invalid key")
             return None
-        public_key = import_rsakey_from_pem(key['keyval']['public'], scheme)
+        public_key = import_rsakey_from_pem(key["keyval"]["public"], scheme)
         if not taf_repo.is_valid_metadata_yubikey(role, public_key):
             print(f"The entered key is not a valid {role} key")
             return None
         if loaded_keys is not None and key in loaded_keys:
-            print('Key already entered')
+            print("Key already entered")
             return None
         return key
 
     while True:
-        key =_enter_and_check_key(key_name, role, loaded_keys, scheme)
+        key = _enter_and_check_key(key_name, role, loaded_keys, scheme)
         if key is not None:
             return key
 

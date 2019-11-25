@@ -370,7 +370,6 @@ class Repository:
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
 
-
     def _get_target_repositories(self):
         repositories_path = self.targets_path / "repositories.json"
         if repositories_path.exists():
