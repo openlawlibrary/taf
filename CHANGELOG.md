@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+## [0.2.0] - 11/30/2019
+
 ### Added
 
 - Added commands for setting up yubikeys, exporting public keys and adding new signing keys ([79])
@@ -85,7 +87,9 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/openlawlibrary/taf/compare/v0.1.8...v0.2.0
+[0.1.8]: https://github.com/openlawlibrary/taf/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/openlawlibrary/taf/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/openlawlibrary/taf/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/openlawlibrary/taf/compare/7795682e5358f365c140aebde31230602a5d8f0b...v0.1.5
