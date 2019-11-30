@@ -57,6 +57,8 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
         - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
         - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
     """
+    if not password:
+        password = None
     key = role_keys_cache.get(role)
     if key is None:
         if password is not None:
@@ -114,6 +116,39 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
     from binascii import hexlify
 
     return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
+
+
+def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W0613
+    """
+    A signatures provider which asks the user to insert a yubikey
+    Useful if several yubikeys need to be used at the same time
+    """
+    import taf.yubikey as yk
+    from binascii import hexlify
+
+    data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
+
+    def _check_key_and_get_pin(expected_key_id):
+        try:
+            input(f"Insert {name} and press enter")
+            inserted_key = yk.get_piv_public_key_tuf()
+            if expected_key_id != inserted_key["keyid"]:
+                return None
+            serial_num = yk.get_serial_num(inserted_key)
+            pin = yk.get_key_pin(serial_num)
+            if pin is None:
+                pin = yk.get_and_validate_pin(name)
+            return pin
+        except Exception:
+            return None
+
+    while True:
+        pin = _check_key_and_get_pin(key_id)
+        if pin is not None:
+            break
+
+    signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
+    return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
 class Repository:
@@ -360,6 +395,9 @@ class Repository:
         role_obj = self._role_obj(role)
         return role_obj.keys
 
+    def get_role_threshold(self, role):
+        return self._role_obj(role).threshold
+
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
 
@@ -431,7 +469,7 @@ class Repository:
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def add_metadata_key(self, role, pub_key_pem):
+    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
 
         Args:
@@ -451,7 +489,7 @@ class Repository:
         if isinstance(pub_key_pem, bytes):
             pub_key_pem = pub_key_pem.decode("utf-8")
 
-        key = import_rsakey_from_pem(pub_key_pem)
+        key = import_rsakey_from_pem(pub_key_pem, scheme)
         self._role_obj(role).add_verification_key(key)
 
     def remove_metadata_key(self, role, key_id):

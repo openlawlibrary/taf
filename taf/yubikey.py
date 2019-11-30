@@ -1,3 +1,4 @@
+import click
 import datetime
 from contextlib import contextmanager
 from functools import wraps
@@ -19,10 +20,22 @@ from ykman.piv import (
 from ykman.util import TRANSPORT
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import YubikeyError
+from taf.exceptions import YubikeyError, InvalidPINError
+from taf.utils import get_pin_for
 
 DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
+EXPIRATION_INTERVAL = 36500
+
+_pins_dict = {}
+
+
+def add_key_pin(serial_num, pin):
+    _pins_dict[serial_num] = pin
+
+
+def get_key_pin(serial_num):
+    return _pins_dict.get(serial_num)
 
 
 def raise_yubikey_err(msg=None):
@@ -296,3 +309,111 @@ def setup(
     return pub_key.public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
     )
+
+
+def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    pin = get_key_pin(serial_num)
+    cert_cn = input("Enter key holder's name: ")
+    print("Generating key, please wait...")
+    pub_key_pem = setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode("utf-8")
+    scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+    key = import_rsakey_from_pem(pub_key_pem, scheme)
+    return key
+
+
+def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):
+    valid_pin = False
+    while not valid_pin:
+        pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        valid_pin, retries = is_valid_pin(pin)
+        if not valid_pin and not retries:
+            raise InvalidPINError("No retries left. YubiKey locked.")
+        if not valid_pin:
+            if not click.confirm(
+                f"Incorrect PIN. Do you want to try again? {retries} retires left."
+            ):
+                raise InvalidPINError("PIN input cancelled")
+    return pin
+
+
+def yubikey_prompt(
+    key_name,
+    role=None,
+    taf_repo=None,
+    registering_new_key=False,
+    creating_new_key=False,
+    loaded_yubikeys=None,
+    pin_confirm=True,
+    pin_repeat=True,
+    prompt_message=None,
+):
+    def _read_and_check_yubikey(
+        key_name,
+        role,
+        taf_repo,
+        registering_new_key,
+        creating_new_key,
+        loaded_yubikeys,
+        pin_confirm,
+        pin_repeat,
+        prompt_message,
+    ):
+
+        if prompt_message is None:
+            prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
+        input(prompt_message)
+        # make sure that YubiKey is inserted
+        try:
+            serial_num = get_serial_num()
+        except Exception:
+            print("YubiKey not inserted")
+            return False, None, None
+
+        # check if this key is already loaded as the provided role's key (we can use the same key
+        # to sign different metadata)
+        if (
+            loaded_yubikeys is not None
+            and serial_num in loaded_yubikeys
+            and role in loaded_yubikeys[serial_num]
+        ):
+            print("Key already loaded")
+            return False, None, None
+
+        # read the public key, unless a new key needs to be generated on the yubikey
+        public_key = get_piv_public_key_tuf() if not creating_new_key else None
+        # check if this yubikey is can be used for signing the provided role's metadata
+        # if the key was already registered as that role's key
+        if not registering_new_key and role is not None and taf_repo is not None:
+            if not taf_repo.is_valid_metadata_yubikey(role, public_key):
+                print(f"The inserted YubiKey is not a valid {role} key")
+                return False, None, None
+
+        if get_key_pin(serial_num) is None:
+            if creating_new_key:
+                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+            else:
+                pin = get_and_validate_pin(key_name, pin_confirm, pin_repeat)
+            add_key_pin(serial_num, pin)
+
+        if role is not None:
+            if loaded_yubikeys is None:
+                loaded_yubikeys = {serial_num: [role]}
+            else:
+                loaded_yubikeys.setdefault(serial_num, []).append(role)
+
+        return True, public_key, serial_num
+
+    while True:
+        success, key, serial_num = _read_and_check_yubikey(
+            key_name,
+            role,
+            taf_repo,
+            registering_new_key,
+            creating_new_key,
+            loaded_yubikeys,
+            pin_confirm,
+            pin_repeat,
+            prompt_message,
+        )
+        if success:
+            return key, serial_num
