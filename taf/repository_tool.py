@@ -7,14 +7,6 @@ import securesystemslib
 import tuf.repository_tool
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
-from tuf.exceptions import Error as TUFError
-from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME,
-    TARGETS_DIRECTORY_NAME,
-    import_rsakey_from_pem,
-    load_repository,
-)
-
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     InvalidKeyError,
@@ -27,6 +19,13 @@ from taf.exceptions import (
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
+from tuf.exceptions import Error as TUFError
+from tuf.repository_tool import (
+    METADATA_DIRECTORY_NAME,
+    TARGETS_DIRECTORY_NAME,
+    import_rsakey_from_pem,
+    load_repository,
+)
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -171,6 +170,12 @@ class Repository:
     @property
     def repo_id(self):
         return GitRepository(self.repository_path).initial_commit
+
+    @property
+    def certs_dir(self):
+        certs_dir = Path(self.repository_path, "certs")
+        certs_dir.mkdir(parents=True, exist_ok=True)
+        return str(certs_dir)
 
     def _add_target(self, targets_obj, file_path, custom=None):
         """
@@ -418,7 +423,7 @@ class Repository:
             role_obj = self._role_obj(role)
             key = get_key(role_obj.keys[0])
 
-            def _provider(data):
+            def _provider(key, data):
                 nonlocal signable
                 signable = securesystemslib.formats.encode_canonical(data)
 
