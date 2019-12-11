@@ -524,8 +524,8 @@ class GitRepository(object):
     def reset_to_head(self):
         self._git("reset --hard HEAD")
 
-    def set_remote_url(self, new_url):
-        self._git(f"remote set-url origin {new_url}")
+    def set_remote_url(self, new_url, remote="origin"):
+        self._git(f"remote set-url {remote} {new_url}")
 
     def set_upstream(self, branch_name):
         self._git("branch -u origin/{}", branch_name)
