@@ -22,7 +22,7 @@ from tuf.repository_tool import (
 from taf.auth_repo import AuthenticationRepo
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.git import GitRepository
-from taf.log import get_logger
+from taf.log import taf_logger
 from taf.repository_tool import Repository
 from taf.exceptions import KeystoreError
 from taf.keystore import (
@@ -31,12 +31,10 @@ from taf.keystore import (
     key_cmd_prompt,
 )
 
-logger = get_logger(__name__)
-
 try:
     import taf.yubikey as yk
 except ImportError:
-    logger.warning('"yubikey-manager" is not installed.')
+    taf_logger.warning('"yubikey-manager" is not installed.')
 
 # Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500

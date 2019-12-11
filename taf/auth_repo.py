@@ -3,11 +3,8 @@ import os
 from collections import defaultdict
 from pathlib import Path
 from subprocess import CalledProcessError
-
-import taf.log
+from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
-
-logger = taf.log.get_logger(__name__)
 
 
 class AuthRepoMixin(object):
@@ -69,8 +66,8 @@ class AuthRepoMixin(object):
         """
         Set the last validated commit of the authentication repository
         """
-        logger.debug(
-            "Auth repo %s: setting last validated commit to: %s", self.repo_name, commit
+        taf_logger.debug(
+            "Auth repo {}: setting last validated commit to: {}", self.repo_name, commit
         )
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
@@ -88,8 +85,8 @@ class AuthRepoMixin(object):
                 if previous_commit is None or target_commit != previous_commit:
                     repositories_commits[target_path].append(target_commit)
                 previous_commits[target_path] = target_commit
-        logger.debug(
-            "Auth repo %s: new commits per repositories according to targets.json: %s",
+        taf_logger.debug(
+            "Auth repo {}: new commits per repositories according to targets.json: {}",
             self.repo_name,
             repositories_commits,
         )
@@ -122,8 +119,8 @@ class AuthRepoMixin(object):
                     ).get("commit")
                     targets[commit][target_path] = target_commit
                 except json.decoder.JSONDecodeError:
-                    logger.debug(
-                        "Auth repo %s: target file %s is not a valid json at revision %s",
+                    taf_logger.debug(
+                        "Auth repo {}: target file {} is not a valid json at revision {}",
                         self.repo_name,
                         target_path,
                         commit,
@@ -135,15 +132,15 @@ class AuthRepoMixin(object):
         try:
             return self.get_json(commit, path)
         except CalledProcessError:
-            logger.info(
-                "Auth repo %s: %s not available at revision %s",
+            taf_logger.info(
+                "Auth repo {}: {} not available at revision {}",
                 self.repo_name,
                 os.path.basename(path),
                 commit,
             )
         except json.decoder.JSONDecodeError:
-            logger.info(
-                "Auth repo %s: %s not a valid json at revision %s",
+            taf_logger.info(
+                "Auth repo {}: {} not a valid json at revision {}",
                 self.repo_name,
                 os.path.basename(path),
                 commit,

@@ -13,9 +13,7 @@ validate_repo_name = True
 # The 'log.py' module manages TUF's logging system.  Users have the option to
 # enable/disable logging to a file via 'ENABLE_FILE_LOGGING', or
 # tuf.log.enable_file_logging() and tuf.log.disable_file_logging().
-ENABLE_FILE_LOGGING = False
 
-LOG_LEVEL = logging.DEBUG
 
 # whether to log to the console, which does not mean that file logging cannot be enabled as well
 ENABLE_CONSOLE_LOGGING = True
@@ -23,7 +21,7 @@ ENABLE_CONSOLE_LOGGING = True
 # whether to log to a file, which does not mean that console logging cannot be enabled as well
 ENABLE_FILE_LOGGING = True
 
-# should errors be logged to a separate file if logging to file is enabled,
+# should errors be logged to a separate file if logging to file is enabled
 SEPARATE_ERRORS = True
 
 CONSOLE_LOGGING_LEVEL = logging.INFO

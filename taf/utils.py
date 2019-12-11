@@ -1,5 +1,4 @@
 import datetime
-import logging
 import os
 import stat
 import subprocess
@@ -7,11 +6,9 @@ from getpass import getpass
 from pathlib import Path
 
 import click
-
+from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
-
-logger = logging.getLogger(__name__)
 
 
 def _iso_parse(date):
@@ -91,7 +88,7 @@ def run(*command, **kwargs):
     if len(command) == 1 and isinstance(command[0], str):
         command = command[0].split()
     if taf.settings.LOG_COMMAND_OUTPUT:
-        logger.debug("About to run command %s", " ".join(command))
+        taf_logger.debug("About to run command {}", " ".join(command))
 
     def _format_word(word, **env):
         """To support word such as @{u} needed for git commands."""
@@ -112,18 +109,18 @@ def run(*command, **kwargs):
         completed = subprocess.run(command, **options)
     except subprocess.CalledProcessError as err:
         if err.stdout:
-            logger.debug(err.stdout)
+            taf_logger.debug(err.stdout)
         if err.stderr:
-            logger.debug(err.stderr)
-        logger.info(
-            "Command %s returned non-zero exit status %s",
+            taf_logger.debug(err.stderr)
+        taf_logger.info(
+            "Command {} returned non-zero exit status {}",
             " ".join(command),
             err.returncode,
         )
         raise err
     if completed.stdout:
         if taf.settings.LOG_COMMAND_OUTPUT:
-            logger.debug(completed.stdout)
+            taf_logger.debug(completed.stdout)
     return completed.stdout.rstrip() if completed.returncode == 0 else None
 
 

@@ -1,17 +1,11 @@
-import logging
 import os
+import sys
+from loguru import logger as taf_logger
 from pathlib import Path
 
 import taf.settings
 
-_FORMAT_STRING = (
-    "[%(asctime)s] [%(levelname)s] "
-    + "[%(funcName)s:%(lineno)s@%(filename)s]\n%(message)s\n"
-)
-formatter = logging.Formatter(_FORMAT_STRING)
-
-logger = logging.getLogger("taf")
-logger.setLevel(taf.settings.LOG_LEVEL)
+_FORMAT_STRING = "[{time}] [{level}] [{module} {function}@{line}]\n{message}\n"
 
 
 def _get_log_location():
@@ -24,28 +18,28 @@ def _get_log_location():
     return location
 
 
+taf_logger.remove()
+
 if taf.settings.ENABLE_CONSOLE_LOGGING:
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(taf.settings.CONSOLE_LOGGING_LEVEL)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    taf_logger.add(
+        sys.stdout, format=_FORMAT_STRING, level=taf.settings.CONSOLE_LOGGING_LEVEL
+    )
+    taf_logger.add(
+        sys.stderr, format=_FORMAT_STRING, level=taf.settings.ERROR_LOGGING_LEVEL
+    )
 
 
 if taf.settings.ENABLE_FILE_LOGGING:
     logs_location = _get_log_location()
-    file_handler = logging.FileHandler(str(logs_location / taf.settings.LOG_FILENAME))
-    file_handler.setLevel(taf.settings.FILE_LOGGING_LEVEL)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    log_path = str(logs_location / taf.settings.LOG_FILENAME)
+    taf_logger.add(
+        log_path, format=_FORMAT_STRING, level=taf.settings.FILE_LOGGING_LEVEL
+    )
 
     if taf.settings.SEPARATE_ERRORS:
-        error_handler = logging.FileHandler(
-            str(logs_location / taf.settings.ERROR_LOG_FILENAME)
+        error_log_path = str(logs_location / taf.settings.ERROR_LOG_FILENAME)
+        taf_logger.add(
+            error_log_path,
+            format=_FORMAT_STRING,
+            level=taf.settings.ERROR_LOGGING_LEVEL,
         )
-        error_handler.setLevel(taf.settings.ERROR_LOGGING_LEVEL)
-        error_handler.setFormatter(formatter)
-        logger.addHandler(error_handler)
-
-
-def get_logger(name):
-    return logging.getLogger(name)

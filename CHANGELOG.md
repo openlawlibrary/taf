@@ -14,12 +14,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Logging rework - use loguru library ([83])
+
 ### Fixed
 
 - Fix branch exists git function ([82])
 
+
 [84]: https://github.com/openlawlibrary/taf/pull/84
+[83]: https://github.com/openlawlibrary/taf/pull/83
 [82]: https://github.com/openlawlibrary/taf/pull/82
+
 
 ## [0.2.0] - 11/30/2019
 

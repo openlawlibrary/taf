@@ -4,14 +4,12 @@ import shutil
 import tuf
 import tuf.client.updater as tuf_updater
 
-import taf.log
+from taf.log import taf_logger
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-
-logger = taf.log.get_logger(__name__)
 
 
 def update_repository(
@@ -183,7 +181,9 @@ def update_named_repository(
         )
 
         last_commit = commits[-1]
-        logger.info("Merging commit %s into %s", last_commit, users_auth_repo.repo_name)
+        taf_logger.info(
+            "Merging commit {} into {}", last_commit, users_auth_repo.repo_name
+        )
         # if there were no errors, merge the last validated authentication repository commit
         users_auth_repo.checkout_branch(users_auth_repo.default_branch)
         users_auth_repo.merge_commit(last_commit)
@@ -201,7 +201,9 @@ def update_named_repository(
 def _update_authentication_repository(repository_updater):
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
-    logger.info("Validating authentication repository %s", users_auth_repo.repo_name)
+    taf_logger.info(
+        "Validating authentication repository {}", users_auth_repo.repo_name
+    )
     try:
         while not repository_updater.update_handler.update_done():
             current_commit = repository_updater.update_handler.current_commit
@@ -210,7 +212,7 @@ def _update_authentication_repository(repository_updater):
             # we still need to update the delegated roles (if there are any)
             # that is handled by get_current_targets
             current_targets = repository_updater.update_handler.get_current_targets()
-            logger.debug("Validated metadata files at revision %s", current_commit)
+            taf_logger.debug("Validated metadata files at revision {}", current_commit)
             for target_path in current_targets:
                 target = repository_updater.get_one_valid_targetinfo(target_path)
                 target_filepath = target["filepath"]
@@ -221,17 +223,17 @@ def _update_authentication_repository(repository_updater):
                         target_filepath, trusted_length, trusted_hashes
                     )  # pylint: disable=W0212 # noqa
                 except tuf.exceptions.NoWorkingMirrorError as e:
-                    logger.error("Could not validate file %s", target_filepath)
+                    taf_logger.error("Could not validate file {}", target_filepath)
                     raise e
-                logger.debug(
-                    "Successfully validated target file %s at %s",
+                taf_logger.debug(
+                    "Successfully validated target file {} at {}",
                     target_filepath,
                     current_commit,
                 )
     except Exception as e:
         # for now, useful for debugging
-        logger.error(
-            "Validation of authentication repository %s failed due to error %s",
+        taf_logger.error(
+            "Validation of authentication repository {} failed due to error {}",
             users_auth_repo.repo_name,
             e,
         )
@@ -242,8 +244,8 @@ def _update_authentication_repository(repository_updater):
     finally:
         repository_updater.update_handler.cleanup()
 
-    logger.info(
-        "Successfully validated authentication repository %s", users_auth_repo.repo_name
+    taf_logger.info(
+        "Successfully validated authentication repository {}", users_auth_repo.repo_name
     )
     # fetch the latest commit or clone the repository without checkout
     # do not merge before targets are validated as well
@@ -256,7 +258,7 @@ def _update_authentication_repository(repository_updater):
 def _update_target_repositories(
     repositories, repositories_json, repositories_commits, last_validated_commit
 ):
-    logger.info("Validating target repositories")
+    taf_logger.info("Validating target repositories")
 
     # keep track of the repositories which were cloned
     # so that they can be removed if the update fails
@@ -312,18 +314,18 @@ def _update_target_repositories(
         except UpdateFailedError as e:
             # delete all repositories that were cloned
             for repo in cloned_repositories:
-                logger.debug("Removing cloned repository %s", repo.repo_path)
+                taf_logger.debug("Removing cloned repository {}", repo.repo_path)
                 shutil.rmtree(repo.repo_path, onerror=on_rm_error)
             # TODO is it important to undo a fetch if the repository was not cloned?
             raise e
 
-    logger.info("Successfully validated all target repositories.")
+    taf_logger.info("Successfully validated all target repositories.")
     # if update is successful, merge the commits
     for path, repository in repositories.items():
         repository.checkout_branch(repository.default_branch)
         if len(repositories_commits[path]):
-            logger.info(
-                "Merging %s into %s",
+            taf_logger.info(
+                "Merging {} into {}",
                 repositories_commits[path][-1],
                 repository.repo_name,
             )
@@ -344,7 +346,7 @@ def _update_target_repository(
     repository, new_commits, target_commits, allow_unauthenticated
 ):
 
-    logger.info("Validating target repository %s", repository.repo_name)
+    taf_logger.info("Validating target repository {}", repository.repo_name)
     # A new commit might have been pushed after the update process
     # started and before fetch was called
     # So, the number of new commits, pushed to the target repository, could
@@ -362,16 +364,16 @@ def _update_target_repository(
                     break
         if len(new_commits) > len(target_commits):
             additional_commits = new_commits[len(target_commits) :]
-            logger.warning(
-                "Found commits %s in repository %s that are not accounted for in the authentication repo."
-                "Repository will be updated up to commit %s",
+            taf_logger.warning(
+                "Found commits {} in repository {} that are not accounted for in the authentication repo."
+                "Repository will be updated up to commit {}",
                 additional_commits,
                 repository.repo_name,
                 target_commits[-1],
             )
     else:
-        logger.info(
-            "Unauthenticated commits allowed in repository %s", repository.repo_name
+        taf_logger.info(
+            "Unauthenticated commits allowed in repository {}", repository.repo_name
         )
         update_successful = True
         target_commits_index = 0
@@ -386,13 +388,13 @@ def _update_target_repository(
         update_successful = target_commits_index == len(target_commits)
 
     if not update_successful:
-        logger.error(
+        taf_logger.error(
             "Mismatch between target commits specified in authentication repository and the "
-            "target repository %s",
+            "target repository {}",
             repository.repo_name,
         )
         raise UpdateFailedError(
             "Mismatch between target commits specified in authentication repository"
             f" and target repository {repository.repo_name}"
         )
-    logger.info("Successfully validated %s", repository.repo_name)
+    taf_logger.info("Successfully validated {}", repository.repo_name)
