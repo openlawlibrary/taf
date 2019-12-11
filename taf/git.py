@@ -471,12 +471,15 @@ class GitRepository(object):
             list_of_files.append(file_in_repo)
         return list_of_files
 
-    def list_commits(self, **kwargs):
+    def list_commits(self, branch="", **kwargs):
         params = []
         for name, value in kwargs.items():
             params.append(f"--{name}={value}")
 
-        return self._git("log {}", " ".join(params)).split("\n")
+        return self._git("log {} {}", branch, " ".join(params)).split("\n")
+
+    def list_commit_shas(self, branch="master"):
+        return self.list_commits(branch, format="format:%H")
 
     def list_n_commits(self, number=10, skip=None, branch=None):
         """List the specified number of top commits of the current branch
@@ -519,6 +522,9 @@ class GitRepository(object):
 
     def reset_to_head(self):
         self._git("reset --hard HEAD")
+
+    def set_remote_url(self, new_url, remote="origin"):
+        self._git(f"remote set-url {remote} {new_url}")
 
     def set_upstream(self, branch_name):
         self._git("branch -u origin/{}", branch_name)

@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+
 ### Added
+
+- Add `set_remote_url` git method and branch as the input parameter of `list_commits` ([84])
 
 ### Changed
 
@@ -18,6 +21,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix branch exists git function ([82])
 
 
+[84]: https://github.com/openlawlibrary/taf/pull/84
 [83]: https://github.com/openlawlibrary/taf/pull/83
 [82]: https://github.com/openlawlibrary/taf/pull/82
 
