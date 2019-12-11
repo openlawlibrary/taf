@@ -209,12 +209,17 @@ class GitRepository(object):
         a remote branch exists.
         """
         branch = self._git(f"branch --list {branch_name}")
+        # this git command should return the branch's name if it exists
+        # empty string otherwise
         if branch:
             return True
         if include_remotes:
             for remote in self.remotes:
-                branch = self._git(f"branch -r --list origin/{branch_name}")
-                if branch:
+                remote_branch = self._git(f"branch -r --list {remote}/{branch_name}")
+                # this command should return the branch's name if the remote branch
+                # exists
+                # it will also return some warnings if there are problems with some refs
+                if branch_name in remote_branch:
                     return True
         return False
 
