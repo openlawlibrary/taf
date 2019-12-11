@@ -12,7 +12,6 @@ import taf.settings
 from taf.exceptions import PINMissmatchError
 
 
-
 def _iso_parse(date):
     return datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S.%f")
 

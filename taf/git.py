@@ -272,7 +272,9 @@ class GitRepository(object):
                     "clone {} . {}", url, params, log_success_msg="successfully cloned"
                 )
             except subprocess.CalledProcessError:
-                taf_logger.error("Repo {}: cannot clone from url {}", self.repo_name, url)
+                taf_logger.error(
+                    "Repo {}: cannot clone from url {}", self.repo_name, url
+                )
             else:
                 break
 

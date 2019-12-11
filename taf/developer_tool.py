@@ -51,7 +51,6 @@ def add_signing_key(repo_path, role, pub_key_path):
     from taf.repository_tool import yubikey_signature_provider
 
     taf_repo = Repository(repo_path)
-    import pdb; pdb.set_trace()
     pub_key_pem = Path(pub_key_path).read_text()
     taf_repo.add_metadata_key(role, pub_key_pem, DEFAULT_RSA_SIGNATURE_SCHEME)
     root_obj = taf_repo._repository.root

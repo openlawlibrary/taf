@@ -7,7 +7,6 @@ from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
 
 
-
 class AuthRepoMixin(object):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
