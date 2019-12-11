@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+- Logging rework - use loguru library ([83])
+
+### Fixed
+
+- Fix branch exists git function ([82])
+
+
+[83]: https://github.com/openlawlibrary/taf/pull/83
+[82]: https://github.com/openlawlibrary/taf/pull/82
+
+
 ## [0.2.0] - 11/30/2019
 
 ### Added
@@ -18,11 +33,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix branch exists git function ([82])
 - Creation of new repositories made more robust ([79])
 
 
-[82]: https://github.com/openlawlibrary/taf/pull/82
 [79]: https://github.com/openlawlibrary/taf/pull/79
 
 
