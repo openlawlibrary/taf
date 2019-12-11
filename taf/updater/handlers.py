@@ -7,14 +7,12 @@ from subprocess import CalledProcessError
 import securesystemslib
 import tuf.client.handlers as handlers
 
-import taf.log
+from taf.log import taf_logger
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.utils import on_rm_error
-
-logger = taf.log.get_logger(__name__)
 
 
 class GitUpdater(handlers.MetadataUpdater):
@@ -149,8 +147,8 @@ class GitUpdater(handlers.MetadataUpdater):
             )
         except CalledProcessError as e:
             if "Invalid revision range" in e.output:
-                logger.error(
-                    "Commit %s is not contained by the remote repository %s.",
+                taf_logger.error(
+                    "Commit {} is not contained by the remote repository {}.",
                     last_validated_commit,
                     self.validation_auth_repo.repo_name,
                 )
@@ -191,7 +189,7 @@ class GitUpdater(handlers.MetadataUpdater):
                 f"Saved last validated commit {last_validated_commit} does not match the head"
                 f" commit of the authentication repository {users_head_sha}"
             )
-            logger.error(msg)
+            taf_logger.error(msg)
             raise UpdateFailedError(msg)
 
         # insert the current one at the beginning of the list
@@ -312,10 +310,10 @@ class GitUpdater(handlers.MetadataUpdater):
     def on_successful_update(self, filename, mirror):
         # after the is successfully completed, set the
         # next commit as current for the given file
-        logger.debug("%s updated from commit %s", filename, mirror)
+        taf_logger.debug("{} updated from commit {}", filename, mirror)
 
     def on_unsuccessful_update(self, filename):
-        logger.error("Failed to update %s", filename)
+        taf_logger.error("Failed to update {}", filename)
 
     def update_done(self):
         # the only metadata file that is always updated

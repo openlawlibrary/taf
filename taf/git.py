@@ -5,13 +5,10 @@ import shutil
 import subprocess
 from collections import OrderedDict
 from pathlib import Path
-
-import taf.log
+from taf.log import taf_logger
 import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from taf.utils import run
-
-logger = taf.log.get_logger(__name__)
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -97,13 +94,13 @@ class GitRepository(object):
             try:
                 result = run(command)
                 if log_success_msg:
-                    logger.debug("Repo %s:" + log_success_msg, self.repo_name)
+                    taf_logger.debug("Repo {}:" + log_success_msg, self.repo_name)
             except subprocess.CalledProcessError as e:
                 if log_error_msg:
-                    logger.error(log_error_msg)
+                    taf_logger.error(log_error_msg)
                 else:
-                    logger.error(
-                        "Repo %s: error occurred while executing %s:\n%s",
+                    taf_logger.error(
+                        "Repo {}: error occurred while executing {}:\n{}",
                         self.repo_name,
                         command,
                         e.output,
@@ -113,7 +110,7 @@ class GitRepository(object):
         else:
             result = run(command)
             if log_success_msg:
-                logger.debug("Repo %s: " + log_success_msg, self.repo_name)
+                taf_logger.debug("Repo {}: " + log_success_msg, self.repo_name)
         return result
 
     def all_commits_on_branch(self, branch=None, reverse=True):
@@ -130,8 +127,8 @@ class GitRepository(object):
             if reverse:
                 commits.reverse()
 
-        logger.debug(
-            "Repo %s: found the following commits: %s",
+        taf_logger.debug(
+            "Repo {}: found the following commits: {}",
             self.repo_name,
             ", ".join(commits),
         )
@@ -151,8 +148,8 @@ class GitRepository(object):
             if reverse:
                 commits.reverse()
 
-        logger.debug(
-            "Repo %s: found the following commits after commit %s: %s",
+        taf_logger.debug(
+            "Repo {}: found the following commits after commit {}: {}",
             self.repo_name,
             since_commit,
             ", ".join(commits),
@@ -166,8 +163,8 @@ class GitRepository(object):
         else:
             commits = commits.split("\n")
             commits.reverse()
-        logger.debug(
-            "Repo %s: fetched the following commits %s",
+        taf_logger.debug(
+            "Repo {}: fetched the following commits {}",
             self.repo_name,
             ", ".join(commits),
         )
@@ -259,7 +256,7 @@ class GitRepository(object):
 
     def clone(self, no_checkout=False, bare=False):
 
-        logger.info("Repo %s: cloning repository", self.repo_name)
+        taf_logger.info("Repo {}: cloning repository", self.repo_name)
         shutil.rmtree(self.repo_path, True)
         os.makedirs(self.repo_path, exist_ok=True)
         if self.repo_urls is None:
@@ -275,7 +272,7 @@ class GitRepository(object):
                     "clone {} . {}", url, params, log_success_msg="successfully cloned"
                 )
             except subprocess.CalledProcessError:
-                logger.error("Repo %s: cannot clone from url %s", self.repo_name, url)
+                taf_logger.error("Repo {}: cannot clone from url {}", self.repo_name, url)
             else:
                 break
 
@@ -345,8 +342,8 @@ class GitRepository(object):
         on a speculative branch and not on the master branch.
         """
 
-        logger.debug(
-            "Repo %s: finding commits which are on branch %s, but not on branch %s",
+        taf_logger.debug(
+            "Repo {}: finding commits which are on branch {}, but not on branch {}",
             self.repo_name,
             branch1,
             branch2,
@@ -358,8 +355,8 @@ class GitRepository(object):
         if include_branching_commit:
             branching_commit = self._git("rev-list -n 1 {}~1", commits[-1])
             commits.append(branching_commit)
-        logger.debug(
-            "Repo %s: found the following commits: %s", self.repo_name, commits
+        taf_logger.debug(
+            "Repo {}: found the following commits: {}", self.repo_name, commits
         )
         return commits
 
@@ -584,7 +581,7 @@ def _get_repo_path(root_dir, repo_name):
     _validate_repo_name(repo_name)
     repo_dir = str((Path(root_dir) / (repo_name or "")))
     if not repo_dir.startswith(repo_dir):
-        logger.error("Repo %s: repository name is not valid", repo_name)
+        taf_logger.error("Repo {}: repository name is not valid", repo_name)
         raise InvalidRepositoryError(f"Invalid repository name: {repo_name}")
     return repo_dir
 
@@ -596,7 +593,7 @@ def _validate_repo_name(repo_name):
     """ Ensure the repo name is not malicious """
     match = _repo_name_re.match(repo_name)
     if not match:
-        logger.error("Repo %s: repository name is not valid", repo_name)
+        taf_logger.error("Repo {}: repository name is not valid", repo_name)
         raise InvalidRepositoryError(
             "Repository name must be in format namespace/repository "
             "and can only contain letters, numbers, underscores and "
@@ -626,7 +623,7 @@ def _validate_url(url):
         match = _url_re.match(url)
         if match:
             return
-    logger.error("Repository URL (%s) is not valid", url)
+    taf_logger.error("Repository URL ({}) is not valid", url)
     raise InvalidRepositoryError(
         f'Repository URL must be a valid URL, but got "{url}".'
     )
