@@ -42,8 +42,13 @@ def key_cmd_prompt(
             return key
 
 
-def load_tuf_private_key(key_str, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def load_tuf_private_key(key_str, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    if not key_str:
+        key_str = getpass(
+            f"Enter {key_name} private key without its header and footer\n"
+        )
     key_pem = _form_private_pem(key_str)
+
     return import_rsakey_from_pem(key_pem, scheme)
 
 
