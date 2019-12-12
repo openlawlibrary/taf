@@ -2,11 +2,12 @@ import datetime
 from pathlib import Path
 
 import click
-
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.keystore import read_private_key_from_keystore, load_tuf_private_key
 from taf.updater.updater import update_named_repository, update_repository
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
+from taf.utils import read_input_dict
 
 
 @click.group()
@@ -142,8 +143,21 @@ def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
 @click.option('--custom', default=None, help='A dictionary containing custom '
               'targets info which will be included in repositories.json')
 def generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir, custom):
-    developer_tool.generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir,
-                                              custom)
+    developer_tool.generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir, custom)
+
+
+@cli.command()
+@click.option('--repo-path', default='repository', help='Location of the repository')
+@click.option('--role', default='timestamp', help='Metadata role whose expiration date should be updated')
+@click.option('--key', help='Metadata key (without PEM header and footer')
+@click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
+@click.option('--start-date', default=datetime.datetime.now(), help='Date to which the intercal is added', type=ISO_DATE)
+@click.option('--interval', default=None, help='Time interval added to the start date', type=int)
+@click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
+              'should be automatically committed')
+def update_expiration_date(repo_path, role, key, scheme, start_date, interval, commit_msg):
+    key = load_tuf_private_key(key, scheme)
+    developer_tool.update_metadata_expiration_date(repo_path, role, key, start_date, interval, commit_msg)
 
 
 @cli.command()
@@ -151,16 +165,16 @@ def generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_di
 @click.option('--keystore', default='keystore', help='Location of the keystore file')
 @click.option('--keys-description', help='A dictionary containing information about the keys or a path'
               ' to a json file which which stores the needed information')
-@click.option('--role', default='timestamp', help='Metadata role whose expiration date should be '
-              'updated')
+@click.option('--role', default='timestamp', help='Metadata role whose expiration date should be updated')
 @click.option('--start-date', default=datetime.datetime.now(), help='Date to which the intercal is added', type=ISO_DATE)
 @click.option('--interval', default=None, help='Time interval added to the start date', type=int)
 @click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
               'should be automatically committed')
-def update_expiration_date(repo_path, keystore, keys_description, role, start_date, interval,
-                           commit_msg):
-    developer_tool.update_metadata_expiration_date(repo_path, keystore, keys_description, role,
-                                                   start_date, interval, commit_msg)
+def update_expiration_date_keystore(repo_path, keystore, keys_description, role,
+                                    start_date, interval, commit_msg):
+    roles_key_info = read_input_dict(keys_description)
+    key = read_private_key_from_keystore(keystore, role, roles_key_info)
+    developer_tool.update_metadata_expiration_date(repo_path, role, key, start_date, interval, commit_msg)
 
 
 @cli.command()

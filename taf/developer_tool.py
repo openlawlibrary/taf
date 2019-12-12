@@ -7,28 +7,28 @@ from functools import partial
 from getpass import getpass
 from pathlib import Path
 
-import securesystemslib
 import click
-import tuf.repository_tool
+import securesystemslib
 import securesystemslib.exceptions
+import tuf.repository_tool
+from taf.auth_repo import AuthenticationRepo
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import KeystoreError
+from taf.git import GitRepository
+from taf.keystore import (
+    key_cmd_prompt,
+    read_private_key_from_keystore,
+    read_public_key_from_keystore,
+)
+from taf.log import taf_logger
+from taf.repository_tool import Repository
+from taf.utils import read_input_dict
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
     generate_and_write_rsa_keypair,
     generate_rsa_key,
-)
-
-from taf.auth_repo import AuthenticationRepo
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.git import GitRepository
-from taf.log import taf_logger
-from taf.repository_tool import Repository
-from taf.exceptions import KeystoreError
-from taf.keystore import (
-    read_private_key_from_keystore,
-    read_public_key_from_keystore,
-    key_cmd_prompt,
 )
 
 try:
@@ -218,7 +218,7 @@ def build_auth_repo(
     repos_custom,
 ):
     # read the key infos here, no need to read the file multiple times
-    roles_key_infos = _read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)
     create_repository(repo_path, keystore, roles_key_infos)
     generate_repositories_json(
         repo_path, targets_directory, namespace, targets_relative_dir, repos_custom
@@ -338,7 +338,7 @@ def create_repository(
         Indicates if the created repository is a test authentication repository
     """
     yubikeys = defaultdict(dict)
-    roles_key_infos = _read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)
     repo = AuthenticationRepo(repo_path)
     if Path(repo_path).is_dir():
         if repo.is_git_repository:
@@ -440,7 +440,7 @@ def generate_keys(keystore, roles_key_infos):
         Names of the keys are set to names of the roles plus a counter, if more than one key
         should be generated.
     """
-    roles_key_infos = _read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)
     for role_name, key_info in roles_key_infos.items():
         num_of_keys = key_info.get("number", 1)
         bits = key_info.get("length", 3072)
@@ -476,7 +476,7 @@ def generate_repositories_json(
         Directory relative to which urls of the target repositories are set, if they do not have remote set
     """
 
-    custom_data = _read_input_dict(custom_data)
+    custom_data = read_input_dict(custom_data)
     repositories = {}
 
     repo_path = Path(repo_path).resolve()
@@ -565,7 +565,7 @@ def init_repo(
         Indicates if the created repository is a test authentication repository
     """
     # read the key infos here, no need to read the file multiple times
-    roles_key_infos = _read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)
     commit_msg = "Initial commit" if commit else None
     create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace)
@@ -575,32 +575,12 @@ def init_repo(
     register_target_files(repo_path, keystore, roles_key_infos, commit_msg=commit)
 
 
-def _load_role_key_from_keys_dict(role, roles_key_infos):
-    password = None
-    if roles_key_infos is not None and len(roles_key_infos):
-        if role in roles_key_infos:
-            password = roles_key_infos[role].get("passwords", [None])[0] or None
-    return password
-
-
 def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme):
-    roles_key_infos = _read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)
     taf_repo = Repository(repo_path)
     taf_repo.add_existing_target(file_path)
 
     _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
-
-
-def _read_input_dict(value):
-    if value is None:
-        return {}
-    if type(value) is str:
-        if Path(value).is_file():
-            with open(value) as f:
-                value = json.loads(f.read())
-        else:
-            value = json.loads(value)
-    return value
 
 
 def register_target_files(
@@ -627,7 +607,7 @@ def register_target_files(
         scheme:
         A signature scheme used for signing.
     """
-    roles_key_infos = _read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
     taf_repo = Repository(str(repo_path))
@@ -683,22 +663,19 @@ def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
 
 def update_metadata_expiration_date(
     repo_path,
-    keystore,
-    roles_key_infos,
     role,
+    key,
     start_date=datetime.datetime.now(),
     interval=None,
     commit_msg=None,
 ):
-    roles_key_infos = _read_input_dict(roles_key_infos)
     taf_repo = Repository(repo_path)
     update_methods = {
         "timestamp": taf_repo.update_timestamp,
         "snapshot": taf_repo.update_snapshot,
         "targets": taf_repo.update_targets_from_keystore,
     }
-    password = _load_role_key_from_keys_dict(role, roles_key_infos)
-    update_methods[role](keystore, password, start_date, interval)
+    update_methods[role](key, start_date, interval)
 
     if commit_msg is not None:
         auth_repo = GitRepository(repo_path)

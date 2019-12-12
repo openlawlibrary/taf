@@ -1,13 +1,14 @@
+from getpass import getpass
+from pathlib import Path
+
 import click
 import securesystemslib
-from pathlib import Path
-from taf.exceptions import KeystoreError
-from getpass import getpass
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import KeystoreError
 from tuf.repository_tool import import_rsakey_from_pem
 
 
@@ -39,6 +40,11 @@ def key_cmd_prompt(
         key = _enter_and_check_key(key_name, role, loaded_keys, scheme)
         if key is not None:
             return key
+
+
+def load_tuf_private_key(key_str, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    key_pem = _form_private_pem(key_str)
+    return import_rsakey_from_pem(key_pem, scheme)
 
 
 def read_private_key_from_keystore(
