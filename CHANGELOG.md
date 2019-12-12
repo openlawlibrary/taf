@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `update_expiration_date` CLI command ([86])
 - Add `set_remote_url` git method and branch as the input parameter of `list_commits` ([84])
 
 ### Changed
@@ -18,9 +19,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `update_expiration_date_keystore` and `get_signable_metadata` ([86])
 - Fix branch exists git function ([82])
 
-
+[86]: https://github.com/openlawlibrary/taf/pull/86
 [84]: https://github.com/openlawlibrary/taf/pull/84
 [83]: https://github.com/openlawlibrary/taf/pull/83
 [82]: https://github.com/openlawlibrary/taf/pull/82
