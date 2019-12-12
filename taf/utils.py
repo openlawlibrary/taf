@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import stat
 import subprocess
@@ -6,9 +7,9 @@ from getpass import getpass
 from pathlib import Path
 
 import click
-from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
+from taf.log import taf_logger
 
 
 def _iso_parse(date):
@@ -80,6 +81,18 @@ def get_pin_for(name, confirm=True, repeat=True):
             else:
                 raise PINMissmatchError(err_msg)
     return pin
+
+
+def read_input_dict(value):
+    if value is None:
+        return {}
+    if type(value) is str:
+        if Path(value).is_file():
+            with open(value) as f:
+                value = json.loads(f.read())
+        else:
+            value = json.loads(value)
+    return value
 
 
 def run(*command, **kwargs):
