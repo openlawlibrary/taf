@@ -227,7 +227,7 @@ is used by default.
 
 ### `update_expiration_date`
 
-This command updates an expiration date of a given target file. It is used when a private key (without PEM header and footer) is kept in an environment variable.
+This command updates an expiration date of a given role's metadata file. It is used when a private key (without PEM header and footer) is kept in an environment variable.
 
 ```bash
 taf update_expiration_date --repo-path ./law --role snapshot --key $SNAPSHOT_KEY --interval 5
@@ -235,10 +235,10 @@ taf update_expiration_date --repo-path ./law --role snapshot --key $SNAPSHOT_KEY
 
 ### `update_expiration_date_keystore`
 
-This command updates an expiration date of a given target file. It is used when a private key (without PEM header and footer) is kept in a file on a disk (keystore).
+This command updates an expiration date of a given role's metadata file. It is used when a private key (without PEM header and footer) is kept in a file on a disk (keystore).
 
 ```bash
 taf update_expiration_date_keystore --repo-path ./law --role timestamp --interval 5
 ```
 
-After the command is called, user is prompt to enter a password to decrypt a private key.
+After the command is called, user is prompted to enter password used to decrypt the keystore file.
