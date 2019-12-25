@@ -71,19 +71,33 @@ class AuthRepoMixin(object):
         )
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-    def sorted_commits_per_repositories(self, commits):
-        """Create a list of of subsequent commits per repository
-        keeping in mind that targets metadata file is not updated
-        everytime something is committed to the authentication repo
+    def sorted_commits_and_branches_per_repositories(self, commits):
+        """Return a dictionary consisting of branches and commits belonging
+        to it for every target repository:
+        {
+            target_repo1: {
+                branch1: [commit1, commit2, commit3],
+                branch2: [commit4, commit5]
+            },
+            target_repo2: {
+                branch1: [commit6, commit7, commit8],
+                branch2: [commit9, commit10]
+            }
+        }
+        Keep in mind that targets metadata
+        file is not updated everytime something is committed to the authentication repo.
         """
-        repositories_commits = defaultdict(list)
+        repositories_commits = defaultdict(dict)
         targets = self.target_commits_at_revisions(commits)
         previous_commits = {}
         for commit in commits:
-            for target_path, target_commit in targets[commit].items():
+            for target_path, target_branch_and_commit in targets[commit].items():
+                target_branch, target_commit = target_branch_and_commit
                 previous_commit = previous_commits.get(target_path)
                 if previous_commit is None or target_commit != previous_commit:
-                    repositories_commits[target_path].append(target_commit)
+                    repositories_commits[target_path].setdefault(
+                        target_branch, []
+                    ).append(target_commit)
                 previous_commits[target_path] = target_commit
         taf_logger.debug(
             "Auth repo {}: new commits per repositories according to targets.json: {}",
@@ -114,10 +128,13 @@ class AuthRepoMixin(object):
                     # we only care about repositories
                     continue
                 try:
-                    target_commit = self.get_json(
+                    # TODO get branch here as well
+                    target_content = self.get_json(
                         commit, self.targets_path + "/" + target_path
-                    ).get("commit")
-                    targets[commit][target_path] = target_commit
+                    )
+                    target_commit = target_content.get("commit")
+                    target_branch = target_content.get("branch", "master")
+                    targets[commit][target_path] = (target_branch, target_commit)
                 except json.decoder.JSONDecodeError:
                     taf_logger.debug(
                         "Auth repo {}: target file {} is not a valid json at revision {}",

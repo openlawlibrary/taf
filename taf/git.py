@@ -426,11 +426,13 @@ class GitRepository(object):
         except subprocess.CalledProcessError:
             return None
 
-    def fetch(self, fetch_all=False):
+    def fetch(self, fetch_all=False, branch=None):
         if fetch_all:
             self._git("fetch --all")
         else:
-            self._git("fetch")
+            if branch is None:
+                branch = ""
+            self._git("fetch {}", branch)
 
     def get_current_branch(self):
         """Return current branch."""

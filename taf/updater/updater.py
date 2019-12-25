@@ -4,6 +4,7 @@ import shutil
 import tuf
 import tuf.client.updater as tuf_updater
 
+from collections import defaultdict
 from taf.log import taf_logger
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
@@ -169,7 +170,11 @@ def update_named_repository(
         repositories = repositoriesdb.get_deduplicated_repositories(
             users_auth_repo, commits
         )
-        repositories_commits = users_auth_repo.sorted_commits_per_repositories(commits)
+        # TODO
+        # return both commit and branch here
+        repositories_branches_and_commits = users_auth_repo.sorted_commits_and_branches_per_repositories(
+            commits
+        )
 
         # update target repositories
         repositories_json = users_auth_repo.get_json(
@@ -177,7 +182,10 @@ def update_named_repository(
         )
         last_validated_commit = users_auth_repo.last_validated_commit
         _update_target_repositories(
-            repositories, repositories_json, repositories_commits, last_validated_commit
+            repositories,
+            repositories_json,
+            repositories_branches_and_commits,
+            last_validated_commit,
         )
 
         last_commit = commits[-1]
@@ -250,13 +258,16 @@ def _update_authentication_repository(repository_updater):
     # fetch the latest commit or clone the repository without checkout
     # do not merge before targets are validated as well
     if users_auth_repo.is_git_repository_root:
-        users_auth_repo.fetch(True)
+        users_auth_repo.fetch(fetch_all=True)
     else:
         users_auth_repo.clone(no_checkout=True)
 
 
 def _update_target_repositories(
-    repositories, repositories_json, repositories_commits, last_validated_commit
+    repositories,
+    repositories_json,
+    repositories_branches_and_commits,
+    last_validated_commit,
 ):
     taf_logger.info("Validating target repositories")
 
@@ -264,7 +275,7 @@ def _update_target_repositories(
     # so that they can be removed if the update fails
     cloned_repositories = []
     allow_unauthenticated = {}
-    new_commits = {}
+    new_commits = defaultdict(dict)
 
     for path, repository in repositories.items():
 
@@ -274,79 +285,94 @@ def _update_target_repositories(
             .get("allow-unauthenticated-commits", False)
         )
         allow_unauthenticated[path] = allow_unauthenticated_for_repo
-
-        # if last_validated_commit is None, start the update from the beginning
-
         is_git_repository = repository.is_git_repository_root
-        if last_validated_commit is None or not is_git_repository:
-            old_head = None
-        else:
-            old_head = repository.head_commit_sha()
 
-        if old_head is None and not is_git_repository:
-            repository.clone(no_checkout=True)
-            cloned_repositories.append(repository)
-        else:
-            repository.fetch(True)
+        for branch in repositories_branches_and_commits[path]:
+            # if last_validated_commit is None or if the target repository didn't exist prior
+            # to calling update, start the update from the beggining
+            # otherwise, for each branch, start with the last validated commit of the local
+            # branch
+            repo_branch_commits = repositories_branches_and_commits[path][branch]
+            if last_validated_commit is None or not is_git_repository:
+                old_head = None
+            else:
+                # TODO what if a local target repository is missing some commits,
+                # but all existing commits are valid?
+                # top commit of any branch should be identical to commit sha
+                # defined for that branch in commit which was the top commit
+                # of the authentication repository's master branch at the time
+                # of update's invocation
+                old_head = repo_branch_commits[0]
 
-        if old_head is not None:
-            if allow_unauthenticated:
-                old_head = repositories_commits[path][0]
-            new_commits_for_repo = repository.all_fetched_commits()
-            new_commits_for_repo.insert(0, old_head)
-        else:
-            new_commits_for_repo = repository.all_commits_since_commit(old_head)
-            if is_git_repository:
-                # this happens in the case when last_validated_commit does not exist
-                # we want to validate all commits, so combine existing commits and
-                # fetched commits
-                fetched_commits = repository.all_fetched_commits()
-                new_commits_for_repo.extend(fetched_commits)
-        new_commits[path] = new_commits_for_repo
+            if old_head is None and not is_git_repository:
+                repository.clone(no_checkout=True)
+                cloned_repositories.append(repository)
+            else:
+                repository.fetch(branch=branch, fetch_all=True)
 
-        try:
-            _update_target_repository(
-                repository,
-                new_commits_for_repo,
-                repositories_commits[path],
-                allow_unauthenticated_for_repo,
-            )
-        except UpdateFailedError as e:
-            # delete all repositories that were cloned
-            for repo in cloned_repositories:
-                taf_logger.debug("Removing cloned repository {}", repo.repo_path)
-                shutil.rmtree(repo.repo_path, onerror=on_rm_error)
-            # TODO is it important to undo a fetch if the repository was not cloned?
-            raise e
+            if old_head is not None:
+                new_commits_on_repo_branch = repository.all_fetched_commits(
+                    branch=branch
+                )
+                new_commits_on_repo_branch.insert(0, old_head)
+            else:
+                new_commits_on_repo_branch = repository.all_commits_on_branch(
+                    branch=branch, reverse=True
+                )
+                if is_git_repository:
+                    # this happens in the case when last_validated_commit does not exist
+                    # we want to validate all commits, so combine existing commits and
+                    # fetched commits
+                    fetched_commits = repository.all_fetched_commits()
+                    new_commits_on_repo_branch.extend(fetched_commits)
+            new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
+
+            try:
+                _update_target_repository(
+                    repository,
+                    new_commits_on_repo_branch,
+                    repo_branch_commits,
+                    allow_unauthenticated_for_repo,
+                    branch,
+                )
+            except UpdateFailedError as e:
+                # delete all repositories that were cloned
+                for repo in cloned_repositories:
+                    taf_logger.debug("Removing cloned repository {}", repo.repo_path)
+                    shutil.rmtree(repo.repo_path, onerror=on_rm_error)
+                # TODO is it important to undo a fetch if the repository was not cloned?
+                raise e
 
     taf_logger.info("Successfully validated all target repositories.")
     # if update is successful, merge the commits
     for path, repository in repositories.items():
-        repository.checkout_branch(repository.default_branch)
-        if len(repositories_commits[path]):
-            taf_logger.info(
-                "Merging {} into {}",
-                repositories_commits[path][-1],
-                repository.repo_name,
-            )
-            last_validated_commit = repositories_commits[path][-1]
-            commit_to_merge = (
-                last_validated_commit
-                if not allow_unauthenticated[path]
-                else new_commits[path][-1]
-            )
-            repository.merge_commit(commit_to_merge)
-            if not allow_unauthenticated[path]:
-                repository.checkout_commit(commit_to_merge)
-            else:
-                repository.checkout_branch(repository.default_branch)
+        for branch in repositories_branches_and_commits[path]:
+            repository.checkout_branch(branch)
+            repo_branch_commits = repositories_branches_and_commits[path][branch]
+            if len(repo_branch_commits):
+                taf_logger.info(
+                    "Merging {} into {}", repo_branch_commits[-1], repository.repo_name
+                )
+                last_validated_commit = repo_branch_commits[-1]
+                commit_to_merge = (
+                    last_validated_commit
+                    if not allow_unauthenticated[path]
+                    else new_commits[path][branch][-1]
+                )
+                repository.merge_commit(commit_to_merge)
+                if not allow_unauthenticated[path]:
+                    repository.checkout_commit(commit_to_merge)
+                else:
+                    repository.checkout_branch(repository.default_branch)
 
 
 def _update_target_repository(
-    repository, new_commits, target_commits, allow_unauthenticated
+    repository, new_commits, target_commits, allow_unauthenticated, branch
 ):
 
-    taf_logger.info("Validating target repository {}", repository.repo_name)
+    taf_logger.info(
+        "Validating target repository {} {} branch", repository.repo_name, branch
+    )
     # A new commit might have been pushed after the update process
     # started and before fetch was called
     # So, the number of new commits, pushed to the target repository, could
