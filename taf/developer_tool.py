@@ -193,7 +193,7 @@ def update_target_repos_from_fs(repo_path, targets_directory, namespace=None):
 def update_target_repos_from_repositories_json(repo_path):
     """
     <Purpose>
-        Create or update target files by reading the latest commits repositories.json
+        Create or update target files by reading the latest commit's repositories.json
     <Arguments>
         repo_path:
         Authentication repository's location
@@ -478,7 +478,6 @@ def generate_repositories_json(
 
     custom_data = read_input_dict(custom_data)
     repositories = {}
-
     repo_path = Path(repo_path).resolve()
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     targets_directory = Path(targets_directory).resolve()
@@ -503,7 +502,7 @@ def generate_repositories_json(
         url = target_repo.get_remote_url()
         if url is None:
             if targets_relative_dir is not None:
-                url = Path(target_repo.repo_path).relative_to(targets_relative_dir)
+                url = Path(os.path.relpath(target_repo.repo_path, targets_relative_dir))
             else:
                 url = Path(target_repo.repo_path).resolve()
             # convert to posix path
