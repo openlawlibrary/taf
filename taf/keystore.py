@@ -69,7 +69,7 @@ def read_private_key_from_keystore(
         if passwords is not None and len(passwords):
             password = passwords[key_num]
 
-    def _read_key(path, password):
+    def _read_key(path, password, scheme):
         if password is None:
             password = getpass(
                 f"Enter {key_name} keystore file password and press ENTER"
@@ -91,7 +91,7 @@ def read_private_key_from_keystore(
             return None
 
     while True:
-        key = _read_key(key_path, password)
+        key = _read_key(key_path, password, scheme)
         if key is not None:
             return key
         if not click.confirm("Could not open keystore file. Try again?"):

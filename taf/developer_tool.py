@@ -159,14 +159,14 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
     if target_repo.is_git_repository:
         data = {"commit": target_repo.head_commit_sha()}
         if add_branch:
-            data['branch'] = target_repo.get_current_branch()
+            data["branch"] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name
-        (targets_dir / target_repo_name).write_text(
-            json.dumps(data, indent=4)
-        )
+        (targets_dir / target_repo_name).write_text(json.dumps(data, indent=4))
 
 
-def update_target_repos_from_fs(repo_path, targets_directory, namespace=None, add_branch=True):
+def update_target_repos_from_fs(
+    repo_path, targets_directory, namespace=None, add_branch=True
+):
     """
     <Purpose>
         Create or update target files by reading the latest commits of the provided target repositories
@@ -187,10 +187,14 @@ def update_target_repos_from_fs(repo_path, targets_directory, namespace=None, ad
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
         auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
     for target_repo_path in targets_dir.glob("*"):
-        _update_target_repos(repo_path, auth_repo_targets_dir, target_repo_path, add_branch)
+        _update_target_repos(
+            repo_path, auth_repo_targets_dir, target_repo_path, add_branch
+        )
 
 
-def update_target_repos_from_repositories_json(repo_path, targets_directory, add_branch=True):
+def update_target_repos_from_repositories_json(
+    repo_path, targets_directory, add_branch=True
+):
     """
     <Purpose>
         Create or update target files by reading the latest commit's repositories.json
@@ -202,11 +206,13 @@ def update_target_repos_from_repositories_json(repo_path, targets_directory, add
     """
     auth_repo_path = Path(repo_path).resolve()
     auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
-    repositories_json = json.loads(Path(auth_repo_targets_dir / 'repositories.json').read_text())
+    repositories_json = json.loads(
+        Path(auth_repo_targets_dir / "repositories.json").read_text()
+    )
     targets_directory = Path(targets_directory).resolve()
     for repo_name in repositories_json.get("repositories"):
         target_repo_path = targets_directory / repo_name
-        namespeace_and_name = repo_name.rsplit('/', 1)
+        namespeace_and_name = repo_name.rsplit("/", 1)
         if len(namespeace_and_name) > 1:
             namespace, _ = namespeace_and_name
             targets_dir = auth_repo_targets_dir / namespace
@@ -691,7 +697,7 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
 
     loaded_yubikeys = {}
     targets_keys = _load_signing_keys(
-        taf_repo, "targets", keystore, roles_key_infos, loaded_yubikeys
+        taf_repo, "targets", keystore, roles_key_infos, loaded_yubikeys, scheme=scheme
     )
     if len(targets_keys):
         taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
@@ -701,9 +707,9 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
                 pin = yk.get_key_pin(serial_num)
                 taf_repo.update_targets(pin, write=False)
                 break
-    snapshot_keys = _load_signing_keys(taf_repo, "snapshot", keystore, roles_key_infos)
+    snapshot_keys = _load_signing_keys(taf_repo, "snapshot", keystore, roles_key_infos, scheme=scheme)
     timestamp_keys = _load_signing_keys(
-        taf_repo, "timestamp", keystore, roles_key_infos
+        taf_repo, "timestamp", keystore, roles_key_infos, scheme=scheme
     )
     snapshot_key = snapshot_keys[0]
     timestamp_key = timestamp_keys[0]
