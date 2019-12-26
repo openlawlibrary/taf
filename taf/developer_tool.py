@@ -151,21 +151,22 @@ def _load_signing_keys(
     return keys
 
 
-def _update_target_repos(repo_path, targets_dir, target_repo_path):
-    """Updates target repo's commit sha"""
+def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
+    """Updates target repo's commit sha and branch"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:
         return
-
     target_repo = GitRepository(str(target_repo_path))
     if target_repo.is_git_repository:
-        commit = target_repo.head_commit_sha()
+        data = {"commit": target_repo.head_commit_sha()}
+        if add_branch:
+            data['branch'] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name
         (targets_dir / target_repo_name).write_text(
-            json.dumps({"commit": commit}, indent=4)
+            json.dumps(data, indent=4)
         )
 
 
-def update_target_repos_from_fs(repo_path, targets_directory, namespace=None):
+def update_target_repos_from_fs(repo_path, targets_directory, namespace=None, add_branch=True):
     """
     <Purpose>
         Create or update target files by reading the latest commits of the provided target repositories
@@ -185,27 +186,32 @@ def update_target_repos_from_fs(repo_path, targets_directory, namespace=None):
     if namespace:
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
         auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
-
     for target_repo_path in targets_dir.glob("*"):
-        _update_target_repos(repo_path, auth_repo_targets_dir, target_repo_path)
+        _update_target_repos(repo_path, auth_repo_targets_dir, target_repo_path, add_branch)
 
 
-def update_target_repos_from_repositories_json(repo_path):
+def update_target_repos_from_repositories_json(repo_path, targets_directory, add_branch=True):
     """
     <Purpose>
         Create or update target files by reading the latest commit's repositories.json
     <Arguments>
         repo_path:
         Authentication repository's location
+        targets_directory:
+        Directory containing target repositories
     """
-    repo_path = Path(repo_path).resolve()
-    targets_dir = repo_path / TARGETS_DIRECTORY_NAME
-    repositories_json = json.loads(Path(targets_dir).read_text())
-
-    for repo in repositories_json.get("repositories"):
-        target_repo_path = targets_dir / repo
-        target_repo_path.mkdir(parents=True, exist_ok=True)
-        _update_target_repos(repo_path, targets_dir, target_repo_path)
+    auth_repo_path = Path(repo_path).resolve()
+    auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
+    repositories_json = json.loads(Path(auth_repo_targets_dir / 'repositories.json').read_text())
+    targets_directory = Path(targets_directory).resolve()
+    for repo_name in repositories_json.get("repositories"):
+        target_repo_path = targets_directory / repo_name
+        namespeace_and_name = repo_name.rsplit('/', 1)
+        if len(namespeace_and_name) > 1:
+            namespace, _ = namespeace_and_name
+            targets_dir = auth_repo_targets_dir / namespace
+        targets_dir.mkdir(parents=True, exist_ok=True)
+        _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
 
 
 def build_auth_repo(
