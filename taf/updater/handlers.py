@@ -262,7 +262,8 @@ class GitUpdater(handlers.MetadataUpdater):
         # time it was committed. It can be expected that the metadata files
         # at older commits will be expired and that should not be considered
         # to be an error
-        return int(self.validation_auth_repo.get_commits_date(self.current_commit))
+        return 0
+      #  return int(self.validation_auth_repo.get_commits_date(self.current_commit))
 
     def ensure_not_changed(self, metadata_filename):
         """

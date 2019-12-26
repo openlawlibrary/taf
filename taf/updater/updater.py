@@ -286,7 +286,9 @@ def _update_target_repositories(
         )
         allow_unauthenticated[path] = allow_unauthenticated_for_repo
         is_git_repository = repository.is_git_repository_root
-
+        if not is_git_repository:
+            repository.clone(no_checkout=True)
+            cloned_repositories.append(repository)
         for branch in repositories_branches_and_commits[path]:
             # if last_validated_commit is None or if the target repository didn't exist prior
             # to calling update, start the update from the beggining
@@ -304,10 +306,7 @@ def _update_target_repositories(
                 # of update's invocation
                 old_head = repo_branch_commits[0]
 
-            if old_head is None and not is_git_repository:
-                repository.clone(no_checkout=True)
-                cloned_repositories.append(repository)
-            else:
+            if is_git_repository:
                 repository.fetch(branch=branch, fetch_all=True)
 
             if old_head is not None:
@@ -316,15 +315,17 @@ def _update_target_repositories(
                 )
                 new_commits_on_repo_branch.insert(0, old_head)
             else:
-                new_commits_on_repo_branch = repository.all_commits_on_branch(
-                    branch=branch, reverse=True
-                )
-                if is_git_repository:
+                if repository.branch_exists(branch, include_remotes=False):
                     # this happens in the case when last_validated_commit does not exist
                     # we want to validate all commits, so combine existing commits and
                     # fetched commits
-                    fetched_commits = repository.all_fetched_commits()
-                    new_commits_on_repo_branch.extend(fetched_commits)
+                    new_commits_on_repo_branch = repository.all_commits_on_branch(
+                        branch=branch, reverse=True
+                    )
+                else:
+                    new_commits_on_repo_branch = []
+                fetched_commits = repository.all_fetched_commits(branch=branch)
+                new_commits_on_repo_branch.extend(fetched_commits)
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
 
             try:

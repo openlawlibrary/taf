@@ -1,0 +1,12 @@
+0000000000000000000000000000000000000000 5ff2deb5fed6e63daa05164f92baaa8170371e08 Renata <vrenata8@gmail.com> 1563224343 +0200	commit (initial): Initial commit
+5ff2deb5fed6e63daa05164f92baaa8170371e08 568e6da705f1de27ee7b79350d5487db101ca070 Renata <vrenata8@gmail.com> 1563224344 +0200	commit: Added targets
+568e6da705f1de27ee7b79350d5487db101ca070 5ff2deb5fed6e63daa05164f92baaa8170371e08 Renata <vrenata8@gmail.com> 1577298613 +0100	reset: moving to HEAD~1
+5ff2deb5fed6e63daa05164f92baaa8170371e08 b500cead27b49f298f0e0e597a1145d79e1fb0bf Renata <vrenata8@gmail.com> 1577369748 +0100	commit: Initial metadata
+b500cead27b49f298f0e0e597a1145d79e1fb0bf 7be6060021d0ed1416b2130e145534c767737a56 Renata <vrenata8@gmail.com> 1577371766 +0100	commit: Targets 1 branch 1
+7be6060021d0ed1416b2130e145534c767737a56 45f177447c728339d7aad7b1fa98ef3dd97fc20d Renata <vrenata8@gmail.com> 1577372457 +0100	commit: Branch 1 updated targets
+45f177447c728339d7aad7b1fa98ef3dd97fc20d 6814cd178113814b6ce103489ba163e3eac00484 Renata <vrenata8@gmail.com> 1577372852 +0100	commit: Updated branch 1 targets 2
+6814cd178113814b6ce103489ba163e3eac00484 d76046a00908e6b9280db4389efc9b8c2050f950 Renata <vrenata8@gmail.com> 1577373884 +0100	commit: Targets 1 branch 2
+d76046a00908e6b9280db4389efc9b8c2050f950 a50b08e1632d6876309ad4903d583d915c1bcacc Renata <vrenata8@gmail.com> 1577374854 +0100	commit: Targets 2 branch 2
+a50b08e1632d6876309ad4903d583d915c1bcacc fe91479253ced113d47a9c3c308cac1b65322aad Renata <vrenata8@gmail.com> 1577378267 +0100	rebase -i (finish): refs/heads/master onto 53d9a7b2d2efabb4150f43cc183293c361413a1d
+fe91479253ced113d47a9c3c308cac1b65322aad cbea27f002aff06d637b074140033efd659bc21c Renata <vrenata8@gmail.com> 1577378343 +0100	rebase -i (finish): refs/heads/master onto 81fcac213de23d8a5ddff8a250932b75cc707a69
+cbea27f002aff06d637b074140033efd659bc21c 04d0debefea53ae065cf9c1f332adbb45261db5f Renata <vrenata8@gmail.com> 1577379707 +0100	commit: Updated repositories.json

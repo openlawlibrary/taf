@@ -707,7 +707,9 @@ def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
                 pin = yk.get_key_pin(serial_num)
                 taf_repo.update_targets(pin, write=False)
                 break
-    snapshot_keys = _load_signing_keys(taf_repo, "snapshot", keystore, roles_key_infos, scheme=scheme)
+    snapshot_keys = _load_signing_keys(
+        taf_repo, "snapshot", keystore, roles_key_infos, scheme=scheme
+    )
     timestamp_keys = _load_signing_keys(
         taf_repo, "timestamp", keystore, roles_key_infos, scheme=scheme
     )

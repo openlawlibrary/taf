@@ -1,0 +1,10 @@
+0000000000000000000000000000000000000000 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1559986692 +0200	commit (initial): Initial test files
+c1ecc553f4318637b40fa04032d94a64d3080ea4 bbd3170a8b88b8e454bf3722343bb4a2835a6cce Renata <vrenata8@gmail.com> 1560358832 +0200	commit: Updated file 1
+bbd3170a8b88b8e454bf3722343bb4a2835a6cce f724551bff06e7eedc432f4fc7e07ca3b3fe4203 Renata <vrenata8@gmail.com> 1560359301 +0200	commit: Updated file1
+f724551bff06e7eedc432f4fc7e07ca3b3fe4203 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1560433371 +0200	reset: moving to HEAD~2
+c1ecc553f4318637b40fa04032d94a64d3080ea4 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1577298842 +0100	checkout: moving from master to branch1
+c1ecc553f4318637b40fa04032d94a64d3080ea4 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1577298864 +0100	checkout: moving from branch1 to master
+0000000000000000000000000000000000000000 f87f016657ab173f2c58e4d00a35f97a1b57ebd9 Renata <vrenata8@gmail.com> 1577298911 +0100	commit (initial): commit 1
+f87f016657ab173f2c58e4d00a35f97a1b57ebd9 ec49bd0a071fa332dc2536f4329f8044e09e6ec4 Renata <vrenata8@gmail.com> 1577371811 +0100	commit: Updated file 1
+0000000000000000000000000000000000000000 d43acc555a73a5321b1e7677a5a3c4b1d9dc942f Renata <vrenata8@gmail.com> 1577373092 +0100	commit (initial): branch 2 initial commit
+d43acc555a73a5321b1e7677a5a3c4b1d9dc942f eb9263672d74f8f41777ad9989989cb3a977f600 Renata <vrenata8@gmail.com> 1577373975 +0100	commit: Updated branch 2 targets
