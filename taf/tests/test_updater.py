@@ -54,6 +54,7 @@ import taf.settings as settings
 from taf.auth_repo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
+from taf.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 
@@ -103,29 +104,30 @@ def test_valid_update_no_client_repo(
     _update_and_check_commit_shas(None, repositories, origin_dir, client_dir, test_repo)
 
 
-# @pytest.mark.parametrize(
-#     "test_name, num_of_commits_to_revert",
-#     [
-#         ("test-updater-valid", 3),
-#         ("test-updater-additional-target-commit", 1),
-#         ("test-updater-allow-unauthenticated-commits", 1),
-#     ],
-# )
-# def test_valid_update_existing_client_repos(
-#     test_name, num_of_commits_to_revert, updater_repositories, origin_dir, client_dir
-# ):
-#     # clone the origin repositories
-#     # revert them to an older commit
-#     repositories = updater_repositories[test_name]
-#     origin_dir = origin_dir / test_name
-#     client_repos = _clone_and_revert_client_repositories(
-#         repositories, origin_dir, client_dir, num_of_commits_to_revert
-#     )
-#     # create valid last validated commit file
-#     _create_last_validated_commit(
-#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-#     )
-#     _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
+@pytest.mark.parametrize(
+    "test_name, num_of_commits_to_revert",
+    [
+        ("test-updater-valid", 3),
+        ("test-updater-additional-target-commit", 1),
+        ("test-updater-allow-unauthenticated-commits", 1),
+        ("test-updater-multiple-branches", 5),
+    ],
+)
+def test_valid_update_existing_client_repos(
+    test_name, num_of_commits_to_revert, updater_repositories, origin_dir, client_dir
+):
+    # clone the origin repositories
+    # revert them to an older commit
+    repositories = updater_repositories[test_name]
+    origin_dir = origin_dir / test_name
+    client_repos = _clone_and_revert_client_repositories(
+        repositories, origin_dir, client_dir, num_of_commits_to_revert
+    )
+    # create valid last validated commit file
+    _create_last_validated_commit(
+        client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
+    )
+    _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
 # @pytest.mark.parametrize(
@@ -293,8 +295,12 @@ def _check_if_commits_match(repositories, origin_dir, client_dir, start_head_sha
                 start_commit = start_head_shas.get(repository_rel_path)
             else:
                 start_commit = None
-            origin_auth_repo_commits = origin_repo.all_commits_since_commit(start_commit, branch=branch)
-            client_auth_repo_commits = client_repo.all_commits_since_commit(start_commit, branch=branch)
+            origin_auth_repo_commits = origin_repo.all_commits_since_commit(
+                start_commit, branch=branch
+            )
+            client_auth_repo_commits = client_repo.all_commits_since_commit(
+                start_commit, branch=branch
+            )
             for origin_commit, client_commit in zip(
                 origin_auth_repo_commits, client_auth_repo_commits
             ):
@@ -313,33 +319,50 @@ def _clone_and_revert_client_repositories(
     repositories, origin_dir, client_dir, num_of_commits
 ):
     client_repos = {}
-
-    client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
+    client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir,
+                                          repo_class=AuthenticationRepo)
     client_auth_repo.reset_num_of_commits(num_of_commits, True)
     client_auth_repo_head_sha = client_auth_repo.head_commit_sha()
     client_repos[AUTH_REPO_REL_PATH] = client_auth_repo
+    client_auth_commits = client_auth_repo.all_commits_on_branch()
+
+    def _get_commit_and_branch(target_name, auth_repo_commit):
+        data = client_auth_repo.get_target(
+            target_name,
+            auth_repo_commit
+        )
+        if data is None:
+            return None, None
+        return data.get("commit"), data.get("branch", "master")
 
     for repository_rel_path in repositories:
         if repository_rel_path == AUTH_REPO_REL_PATH:
             continue
 
         client_repo = _clone_client_repo(repository_rel_path, origin_dir, client_dir)
-        # read the commit sha stored in target files
-        commit = client_auth_repo.get_json(
-            client_auth_repo_head_sha,
-            str((Path("targets") / repository_rel_path).as_posix()),
-        )
-        commit_sha = commit["commit"]
-        client_repo.reset_to_commit(commit_sha, True)
+        branches_commits = {}
+        for auth_commit in client_auth_commits:
+            commit, branch = _get_commit_and_branch(repository_rel_path, auth_commit)
+            if branch is not None and commit is not None:
+                branches_commits[branch] = commit
+
+        if branch in branches_commits:
+            client_repo.checkout_branch(branch)
+            client_repo.reset_to_commit(commit, True)
+
+        for branch in client_repo.branches():
+            if branch not in branches_commits:
+                client_repo.delete_local_branch(branch)
+
         client_repos[repository_rel_path] = client_repo
 
     return client_repos
 
 
-def _clone_client_repo(repository_rel_path, origin_dir, client_dir):
+def _clone_client_repo(repository_rel_path, origin_dir, client_dir, repo_class=GitRepository):
     origin_repo_path = str(origin_dir / repository_rel_path)
     client_repo_path = str(client_dir / repository_rel_path)
-    client_repo = GitRepository(client_repo_path, [origin_repo_path])
+    client_repo = repo_class(client_repo_path, repo_urls=[origin_repo_path])
     client_repo.clone()
     return client_repo
 

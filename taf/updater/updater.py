@@ -294,8 +294,9 @@ def _update_target_repositories(
             # to calling update, start the update from the beggining
             # otherwise, for each branch, start with the last validated commit of the local
             # branch
+            branch_exists = repository.branch_exists(branch, include_remotes=False)
             repo_branch_commits = repositories_branches_and_commits[path][branch]
-            if last_validated_commit is None or not is_git_repository:
+            if last_validated_commit is None or not is_git_repository or not branch_exists:
                 old_head = None
             else:
                 # TODO what if a local target repository is missing some commits,
@@ -306,6 +307,8 @@ def _update_target_repositories(
                 # of update's invocation
                 old_head = repo_branch_commits[0]
 
+            # the repository was cloned if it didn't exist
+            # if it wasn't cloned, fetch the current branch
             if is_git_repository:
                 repository.fetch(branch=branch, fetch_all=True)
 
@@ -315,7 +318,7 @@ def _update_target_repositories(
                 )
                 new_commits_on_repo_branch.insert(0, old_head)
             else:
-                if repository.branch_exists(branch, include_remotes=False):
+                if branch_exists:
                     # this happens in the case when last_validated_commit does not exist
                     # we want to validate all commits, so combine existing commits and
                     # fetched commits
@@ -326,6 +329,7 @@ def _update_target_repositories(
                     new_commits_on_repo_branch = []
                 fetched_commits = repository.all_fetched_commits(branch=branch)
                 new_commits_on_repo_branch.extend(fetched_commits)
+
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
 
             try:
@@ -370,7 +374,6 @@ def _update_target_repositories(
 def _update_target_repository(
     repository, new_commits, target_commits, allow_unauthenticated, branch
 ):
-
     taf_logger.info(
         "Validating target repository {} {} branch", repository.repo_name, branch
     )
@@ -390,7 +393,7 @@ def _update_target_repository(
                     update_successful = False
                     break
         if len(new_commits) > len(target_commits):
-            additional_commits = new_commits[len(target_commits) :]
+            additional_commits = new_commits[len(target_commits):]
             taf_logger.warning(
                 "Found commits {} in repository {} that are not accounted for in the authentication repo."
                 "Repository will be updated up to commit {}",
