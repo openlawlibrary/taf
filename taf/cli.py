@@ -184,8 +184,11 @@ def update_expiration_date_keystore(repo_path, keystore, keys_description, role,
 @click.option('--targets-dir', help="Directory containing the target repositories")
 @click.option('--from-fs', is_flag=True, default=False, help='Indicates if the we want to clone a '
               'repository from the filesystem')
-def update(url, clients_dir, targets_dir, from_fs):
-    update_repository(url, clients_dir, targets_dir, from_fs)
+@click.option('--authenticate-test-repo', is_flag=True, help="Indicates that the authentication "
+              "repository is a test repository")
+def update(url, clients_dir, targets_dir, from_fs, authenticate_test_repo):
+    update_repository(url, clients_dir, targets_dir, from_fs,
+                      authenticate_test_repo=authenticate_test_repo)
 
 
 @cli.command()
@@ -195,8 +198,11 @@ def update(url, clients_dir, targets_dir, from_fs):
 @click.option('--targets-dir', help="Directory containing the target repositories")
 @click.option('--from-fs', is_flag=True, default=False, help='Indicates if the we want to clone a '
               'repository from the filesystem')
-def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
-    update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs)
+@click.option('--authenticate-test-repo', is_flag=True, help="Indicates that the authentication "
+              "repository is a test repository")
+def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs, authenticate_test_repo):
+    update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs,
+                            authenticate_test_repo=authenticate_test_repo)
 
 
 @cli.command()
