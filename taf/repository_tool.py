@@ -376,6 +376,9 @@ class Repository:
                 self._add_target(targets_obj, str(target_path), previous_custom)
 
     def delete_unregistered_target_files(self, targets_role="targets"):
+        """
+        Delete all target files not specified in targets.json
+        """
         targets_obj = self._role_obj(targets_role)
         for filepath in self.targets_path.rglob("*"):
             if filepath.is_file():
