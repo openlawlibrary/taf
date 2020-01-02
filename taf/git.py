@@ -172,11 +172,12 @@ class GitRepository(object):
         )
         return commits
 
-    def branches(self):
+    def branches(self, remote=False):
         """Returns all branches."""
+        remote_flag = "-r" if remote else ""
         return [
             branch.strip('"').strip("'").strip()
-            for branch in self._git("branch --format='%(refname:short)'").split("\n")
+            for branch in self._git("branch {} --format='%(refname:short)'", remote_flag).split("\n")
         ]
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
@@ -428,13 +429,13 @@ class GitRepository(object):
         except subprocess.CalledProcessError:
             return None
 
-    def fetch(self, fetch_all=False, branch=None):
+    def fetch(self, fetch_all=False, branch=None, remote="origin"):
         if fetch_all:
             self._git("fetch --all")
         else:
             if branch is None:
                 branch = ""
-            self._git("fetch {}", branch)
+            self._git("fetch {} {}", remote, branch)
 
     def get_current_branch(self):
         """Return current branch."""
