@@ -51,7 +51,7 @@ def add_signing_key(repo_path, role, pub_key_path):
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
 @click.option('--namespace', default=None, help='Namespace of the target repositories')
-@click.option('--add-branch', default=True, is_flag=True, help="Whether to add name of current branch to target file")
+@click.option('--add-branch', default=False, is_flag=True, help="Whether to add name of current branch to target file")
 def update_repos_from_fs(repo_path, targets_dir, namespace, add_branch):
     "Updates target repositories by traversing given targets directory "
     developer_tool.update_target_repos_from_fs(repo_path, targets_dir, namespace, add_branch)
@@ -61,7 +61,7 @@ def update_repos_from_fs(repo_path, targets_dir, namespace, add_branch):
 @click.option("--repo-path", default="repository", help="Location of the repository")
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
-@click.option('--add-branch', default=True, is_flag=True, help="Whether to add name of current branch to target file")
+@click.option('--add-branch', default=False, is_flag=True, help="Whether to add name of current branch to target file")
 def update_repos_from_repositories_json(repo_path, targets_dir, add_branch):
     "Updates target repositories by traversing repositories.json "
     developer_tool.update_target_repos_from_repositories_json(repo_path, targets_dir, add_branch)

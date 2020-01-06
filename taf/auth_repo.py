@@ -128,7 +128,6 @@ class AuthRepoMixin(object):
                     # we only care about repositories
                     continue
                 try:
-                    # TODO get branch here as well
                     target_content = self.get_json(
                         commit, self.targets_path + "/" + target_path
                     )

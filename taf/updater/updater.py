@@ -170,8 +170,6 @@ def update_named_repository(
         repositories = repositoriesdb.get_deduplicated_repositories(
             users_auth_repo, commits
         )
-        # TODO
-        # return both commit and branch here
         repositories_branches_and_commits = users_auth_repo.sorted_commits_and_branches_per_repositories(
             commits
         )

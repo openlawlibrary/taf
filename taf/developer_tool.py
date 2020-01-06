@@ -212,9 +212,9 @@ def update_target_repos_from_repositories_json(
     targets_directory = Path(targets_directory).resolve()
     for repo_name in repositories_json.get("repositories"):
         target_repo_path = targets_directory / repo_name
-        namespeace_and_name = repo_name.rsplit("/", 1)
-        if len(namespeace_and_name) > 1:
-            namespace, _ = namespeace_and_name
+        namespace_and_name = repo_name.rsplit("/", 1)
+        if len(namespace_and_name) > 1:
+            namespace, _ = namespace_and_name
             targets_dir = auth_repo_targets_dir / namespace
         targets_dir.mkdir(parents=True, exist_ok=True)
         _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
