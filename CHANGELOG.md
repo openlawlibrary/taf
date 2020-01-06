@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.2.2] - 01/06/2020
+
+### Added
+
 - Updater: support validation of multiple branches of target repositories ([91])
 - Add a method which deletes all target files which are not specified in targets.json ([90])
 
@@ -124,7 +132,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/openlawlibrary/taf/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/openlawlibrary/taf/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/openlawlibrary/taf/compare/v0.1.8...v0.2.0
 [0.1.8]: https://github.com/openlawlibrary/taf/compare/v0.1.7...v0.1.8
