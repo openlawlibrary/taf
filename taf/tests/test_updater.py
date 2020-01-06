@@ -46,6 +46,7 @@ does and if it does exist, but the stored commit does not match the client repos
 import os
 import shutil
 from pathlib import Path
+from collections import defaultdict
 
 import pytest
 from pytest import fixture
@@ -92,6 +93,7 @@ def run_around_tests(client_dir):
         ("test-updater-valid-with-updated-expiration-dates", False),
         ("test-updater-allow-unauthenticated-commits", False),
         ("test-updater-test-repo", True),
+        ("test-updater-multiple-branches", False),
     ],
 )
 def test_valid_update_no_client_repo(
@@ -108,6 +110,7 @@ def test_valid_update_no_client_repo(
         ("test-updater-valid", 3),
         ("test-updater-additional-target-commit", 1),
         ("test-updater-allow-unauthenticated-commits", 1),
+        ("test-updater-multiple-branches", 5),
     ],
 )
 def test_valid_update_existing_client_repos(
@@ -133,6 +136,7 @@ def test_valid_update_existing_client_repos(
         ("test-updater-valid", False),
         ("test-updater-allow-unauthenticated-commits", False),
         ("test-updater-test-repo", True),
+        ("test-updater-multiple-branches", False),
     ],
 )
 def test_no_update_necessary(
@@ -287,16 +291,22 @@ def _check_if_commits_match(repositories, origin_dir, client_dir, start_head_sha
     for repository_rel_path in repositories:
         origin_repo = GitRepository(origin_dir / repository_rel_path)
         client_repo = GitRepository(client_dir / repository_rel_path)
-        if start_head_shas is not None:
-            start_commit = start_head_shas.get(repository_rel_path)
-        else:
+        for branch in origin_repo.branches():
+            # ensures that git log will work
+            client_repo.checkout_branch(branch)
             start_commit = None
-        origin_auth_repo_commits = origin_repo.all_commits_since_commit(start_commit)
-        client_auth_repo_commits = client_repo.all_commits_since_commit(start_commit)
-        for origin_commit, client_commit in zip(
-            origin_auth_repo_commits, client_auth_repo_commits
-        ):
-            assert origin_commit == client_commit
+            if start_head_shas is not None:
+                start_commit = start_head_shas[repository_rel_path].get(branch)
+            origin_auth_repo_commits = origin_repo.all_commits_since_commit(
+                start_commit, branch=branch
+            )
+            client_auth_repo_commits = client_repo.all_commits_since_commit(
+                start_commit, branch=branch
+            )
+            for origin_commit, client_commit in zip(
+                origin_auth_repo_commits, client_auth_repo_commits
+            ):
+                assert origin_commit == client_commit
 
 
 def _clone_client_repositories(repositories, origin_dir, client_dir):
@@ -311,33 +321,49 @@ def _clone_and_revert_client_repositories(
     repositories, origin_dir, client_dir, num_of_commits
 ):
     client_repos = {}
-
-    client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
+    client_auth_repo = _clone_client_repo(
+        AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepo
+    )
     client_auth_repo.reset_num_of_commits(num_of_commits, True)
-    client_auth_repo_head_sha = client_auth_repo.head_commit_sha()
     client_repos[AUTH_REPO_REL_PATH] = client_auth_repo
+    client_auth_commits = client_auth_repo.all_commits_on_branch()
+
+    def _get_commit_and_branch(target_name, auth_repo_commit):
+        data = client_auth_repo.get_target(target_name, auth_repo_commit)
+        if data is None:
+            return None, None
+        return data.get("commit"), data.get("branch", "master")
 
     for repository_rel_path in repositories:
         if repository_rel_path == AUTH_REPO_REL_PATH:
             continue
 
         client_repo = _clone_client_repo(repository_rel_path, origin_dir, client_dir)
-        # read the commit sha stored in target files
-        commit = client_auth_repo.get_json(
-            client_auth_repo_head_sha,
-            str((Path("targets") / repository_rel_path).as_posix()),
-        )
-        commit_sha = commit["commit"]
-        client_repo.reset_to_commit(commit_sha, True)
+        branches_commits = {}
+        for auth_commit in client_auth_commits:
+            commit, branch = _get_commit_and_branch(repository_rel_path, auth_commit)
+            if branch is not None and commit is not None:
+                branches_commits[branch] = commit
+
+        if branch in branches_commits:
+            client_repo.checkout_branch(branch)
+            client_repo.reset_to_commit(commit, True)
+
+        for branch in client_repo.branches():
+            if branch not in branches_commits:
+                client_repo.delete_local_branch(branch)
+
         client_repos[repository_rel_path] = client_repo
 
     return client_repos
 
 
-def _clone_client_repo(repository_rel_path, origin_dir, client_dir):
+def _clone_client_repo(
+    repository_rel_path, origin_dir, client_dir, repo_class=GitRepository
+):
     origin_repo_path = str(origin_dir / repository_rel_path)
     client_repo_path = str(client_dir / repository_rel_path)
-    client_repo = GitRepository(client_repo_path, [origin_repo_path])
+    client_repo = repo_class(client_repo_path, repo_urls=[origin_repo_path])
     client_repo.clone()
     return client_repo
 
@@ -349,17 +375,21 @@ def _create_last_validated_commit(client_dir, client_auth_repo_head_sha):
         f.write(client_auth_repo_head_sha)
 
 
+def _get_head_commit_shas(client_repos):
+    start_head_shas = defaultdict(dict)
+    if client_repos is not None:
+        for repo_rel_path, repo in client_repos.items():
+            for branch in repo.branches():
+                start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
+                    branch
+                )
+    return start_head_shas
+
+
 def _update_and_check_commit_shas(
     client_repos, repositories, origin_dir, client_dir, authetnicate_test_repo=False
 ):
-    if client_repos is not None:
-        start_head_shas = {
-            repo_rel_path: repo.head_commit_sha()
-            for repo_rel_path, repo in client_repos.items()
-        }
-    else:
-        start_head_shas = {repo_rel_path: None for repo_rel_path in repositories}
-
+    start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
     update_repository(
@@ -377,10 +407,7 @@ def _update_invalid_repos_and_check_if_remained_same(
     client_repos, client_dir, repositories, expected_error, authenticate_test_repo=False
 ):
 
-    start_head_shas = {
-        repo_rel_path: repo.head_commit_sha()
-        for repo_rel_path, repo in client_repos.items()
-    }
+    start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
 
@@ -395,8 +422,10 @@ def _update_invalid_repos_and_check_if_remained_same(
 
     # all repositories should still have the same head commit
     for repo_path, repo in client_repos.items():
-        current_head = repo.head_commit_sha()
-        assert current_head == start_head_shas[repo_path]
+        for branch in repo.branches():
+            start_commit = start_head_shas[repo_path].get(branch)
+            current_head = repo.top_commit_of_branch(branch)
+            assert current_head == start_commit
 
 
 def _update_invalid_repos_and_check_if_repos_exist(

@@ -9,12 +9,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Updater: support validation of multiple branches of target repositories ([91])
 - Add a method which deletes all target files which are not specified in targets.json ([90])
 
 ### Changed
 
 ### Fixed
 
+- Fix `update_target_repos_from_repositories_json` ([91])
+
+[91]: https://github.com/openlawlibrary/taf/pull/91
 [90]: https://github.com/openlawlibrary/taf/pull/90
 
 ## [0.2.1] - 12/19/2019

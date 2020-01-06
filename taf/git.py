@@ -134,13 +134,15 @@ class GitRepository(object):
         )
         return commits
 
-    def all_commits_since_commit(self, since_commit, reverse=True):
+    def all_commits_since_commit(self, since_commit, branch=None, reverse=True):
         """Returns a list of all commits since the specified commit on the
         currently checked out branch
         """
         if since_commit is None:
-            return self.all_commits_on_branch(reverse=reverse)
-        commits = self._git("rev-list {}..HEAD", since_commit).strip()
+            return self.all_commits_on_branch(branch=branch, reverse=reverse)
+        if branch is None:
+            branch = "HEAD"
+        commits = self._git("rev-list {}..{}", since_commit, branch).strip()
         if not commits:
             commits = []
         else:
@@ -170,11 +172,14 @@ class GitRepository(object):
         )
         return commits
 
-    def branches(self):
+    def branches(self, remote=False):
         """Returns all branches."""
+        remote_flag = "-r" if remote else ""
         return [
             branch.strip('"').strip("'").strip()
-            for branch in self._git("branch --format='%(refname:short)'").split("\n")
+            for branch in self._git(
+                "branch {} --format='%(refname:short)'", remote_flag
+            ).split("\n")
         ]
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
@@ -426,11 +431,13 @@ class GitRepository(object):
         except subprocess.CalledProcessError:
             return None
 
-    def fetch(self, fetch_all=False):
+    def fetch(self, fetch_all=False, branch=None, remote="origin"):
         if fetch_all:
             self._git("fetch --all")
         else:
-            self._git("fetch")
+            if branch is None:
+                branch = ""
+            self._git("fetch {} {}", remote, branch)
 
     def get_current_branch(self):
         """Return current branch."""

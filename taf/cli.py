@@ -51,19 +51,20 @@ def add_signing_key(repo_path, role, pub_key_path):
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
 @click.option('--namespace', default=None, help='Namespace of the target repositories')
-def update_repos_from_fs(repo_path, targets_dir, namespace):
+@click.option('--add-branch', default=False, is_flag=True, help="Whether to add name of current branch to target file")
+def update_repos_from_fs(repo_path, targets_dir, namespace, add_branch):
     "Updates target repositories by traversing given targets directory "
-    developer_tool.update_target_repos_from_fs(repo_path, targets_dir, namespace)
+    developer_tool.update_target_repos_from_fs(repo_path, targets_dir, namespace, add_branch)
 
 
 @cli.command()
 @click.option("--repo-path", default="repository", help="Location of the repository")
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
-@click.option('--namespace', default=None, help='Namespace of the target repositories')
-def update_repos_from_repositories_json(repo_path, targets_dir, namespace):
+@click.option('--add-branch', default=False, is_flag=True, help="Whether to add name of current branch to target file")
+def update_repos_from_repositories_json(repo_path, targets_dir, add_branch):
     "Updates target repositories by traversing repositories.json "
-    developer_tool.update_target_repos_from_repositories_json(repo_path)
+    developer_tool.update_target_repos_from_repositories_json(repo_path, targets_dir, add_branch)
 
 
 @cli.command()
@@ -183,8 +184,11 @@ def update_expiration_date_keystore(repo_path, keystore, keys_description, role,
 @click.option('--targets-dir', help="Directory containing the target repositories")
 @click.option('--from-fs', is_flag=True, default=False, help='Indicates if the we want to clone a '
               'repository from the filesystem')
-def update(url, clients_dir, targets_dir, from_fs):
-    update_repository(url, clients_dir, targets_dir, from_fs)
+@click.option('--authenticate-test-repo', is_flag=True, help="Indicates that the authentication "
+              "repository is a test repository")
+def update(url, clients_dir, targets_dir, from_fs, authenticate_test_repo):
+    update_repository(url, clients_dir, targets_dir, from_fs,
+                      authenticate_test_repo=authenticate_test_repo)
 
 
 @cli.command()
@@ -194,8 +198,11 @@ def update(url, clients_dir, targets_dir, from_fs):
 @click.option('--targets-dir', help="Directory containing the target repositories")
 @click.option('--from-fs', is_flag=True, default=False, help='Indicates if the we want to clone a '
               'repository from the filesystem')
-def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs):
-    update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs)
+@click.option('--authenticate-test-repo', is_flag=True, help="Indicates that the authentication "
+              "repository is a test repository")
+def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs, authenticate_test_repo):
+    update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs,
+                            authenticate_test_repo=authenticate_test_repo)
 
 
 @cli.command()

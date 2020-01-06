@@ -258,10 +258,12 @@ class GitUpdater(handlers.MetadataUpdater):
         shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):
-        # metadata at a certain revision should not expire before the
-        # time it was committed. It can be expected that the metadata files
-        # at older commits will be expired and that should not be considered
-        # to be an error
+        # the last commit's metadata should have expiration dates which
+        # are greater or equal than the commit's creation date
+        if self.current_commit_index < len(self.commits) - 1:
+            return 0
+        # TODO we should not rely on git commit date
+        # target metadata date should always be added and read here
         return int(self.validation_auth_repo.get_commits_date(self.current_commit))
 
     def ensure_not_changed(self, metadata_filename):
