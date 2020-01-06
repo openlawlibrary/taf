@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a method which deletes all target files which are not specified in targets.json ([90])
+
 ### Changed
 
 ### Fixed
+
+[90]: https://github.com/openlawlibrary/taf/pull/90
 
 ## [0.2.1] - 12/19/2019
 
