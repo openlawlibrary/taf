@@ -55,7 +55,6 @@ import taf.settings as settings
 from taf.auth_repo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
-from taf.auth_repo import AuthenticationRepo
 from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 
@@ -137,7 +136,7 @@ def test_valid_update_existing_client_repos(
         ("test-updater-valid", False),
         ("test-updater-allow-unauthenticated-commits", False),
         ("test-updater-test-repo", True),
-        ("test-updater-multiple-branches", False)
+        ("test-updater-multiple-branches", False),
     ],
 )
 def test_no_update_necessary(
@@ -381,7 +380,9 @@ def _get_head_commit_shas(client_repos):
     if client_repos is not None:
         for repo_rel_path, repo in client_repos.items():
             for branch in repo.branches():
-                start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(branch)
+                start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
+                    branch
+                )
     return start_head_shas
 
 

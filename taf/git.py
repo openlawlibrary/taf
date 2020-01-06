@@ -177,7 +177,9 @@ class GitRepository(object):
         remote_flag = "-r" if remote else ""
         return [
             branch.strip('"').strip("'").strip()
-            for branch in self._git("branch {} --format='%(refname:short)'", remote_flag).split("\n")
+            for branch in self._git(
+                "branch {} --format='%(refname:short)'", remote_flag
+            ).split("\n")
         ]
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
