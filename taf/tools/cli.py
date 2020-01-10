@@ -12,7 +12,7 @@ def taf():
 
 
 keystore_cli.attach_to_group(taf)
-#repo_cli.attach_to_group(taf)
+repo_cli.attach_to_group(taf)
 # targets_cli.attach_to_group(taf)
 # update_cli.attach_to_group(taf)
 yubikey_cli.attach_to_group(taf)

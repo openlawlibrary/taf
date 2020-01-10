@@ -17,10 +17,20 @@ def attach_to_group(group):
         It is necessary to either directly specify this dictionary when calling this command or
         to provide a path to a `.json` file which contains the needed information.
 
-        Keys description example:
-        { "root": { "number": 3, "length": 2048, "passwords": ["password1", "password2", "password3"]},
-        "targets": { "length": 2048 }, "snapshot": {}, "timestamp": {}
-        }
+        Keys description example: \n
+        {\n
+            "root": {\n
+                "number": 3,\n
+                "length": 2048,\n
+                "passwords": ["password1", "password2", "password3"]\n
+                "threshold": 2,\n
+            },\n
+            "targets": {\n
+                "length": 2048\n
+            },\n
+            "snapshot": {},\n
+            "timestamp": {}\n
+            }\n
 
         Default number of keys is 1, length 3072 and password is an emtpy string
         """
