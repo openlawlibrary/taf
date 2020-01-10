@@ -99,21 +99,6 @@ def create_repo(repo_path, keystore, keys_description, commit_msg, test):
 
 
 @cli.command()
-@click.option('--path', help='File where to write the exported public key. Result will be written '
-              'to console if path is not specified')
-def export_yk_pub_key(path):
-    developer_tool.export_yk_public_pem(path)
-
-
-@cli.command()
-@click.option('--keystore', default='keystore', help='Location of the keystore file')
-@click.option('--keys-description', help='A dictionary containing information about the keys or a path'
-              ' to a json file which which stores the needed information')
-def generate_keys(keystore, keys_description):
-    developer_tool.generate_keys(keystore, keys_description)
-
-
-@cli.command()
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--targets-dir', default='targets', help='Directory where the target '
               'repositories are located')
@@ -204,33 +189,6 @@ def update_named_repo(url, clients_dir, repo_name, targets_dir, from_fs, authent
     update_named_repository(url, clients_dir, repo_name, targets_dir, from_fs,
                             authenticate_test_repo=authenticate_test_repo)
 
-
-@cli.command()
-@click.option('--certs-dir', help='Path of the directory where the exported certificate will be saved')
-def setup_signing_yubikey(certs_dir):
-    developer_tool.setup_signing_yubikey(certs_dir)
-
-
-@cli.command()
-@click.option('--key-path', default=None, help='Path to the key which should be copied to a Yubikey')
-def setup_test_yubikey(key_path):
-    import taf.yubikey as yk
-
-    if key_path is None:
-        key_path = Path(__file__).parent.parent / "tests" / "data" / "keystore" / "targets"
-    else:
-        key_path = Path(key_path)
-
-    key_pem = key_path.read_bytes()
-
-    click.echo("\nImporting RSA private key from {} to Yubikey...".format(key_path))
-
-    pin = yk.DEFAULT_PIN
-    pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=key_pem)
-
-    click.echo("\nPrivate key successfully imported.\n")
-    click.echo("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
-    click.echo("Pin: {}\n".format(pin))
 
 
 cli()

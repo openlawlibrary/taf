@@ -410,7 +410,11 @@ def create_repository(
 
 
 def export_yk_public_pem(path=None):
-    pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+    try:
+        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+    except Exception:
+        print('Could not export the public key. Check if a YubiKey is inserted')
+        return
     if path is None:
         print(pub_key_pem)
     else:
@@ -462,8 +466,10 @@ def generate_keys(keystore, roles_key_infos):
             if not is_yubikey:
                 key_name = _get_key_name(role_name, key_num, num_of_keys)
                 password = passwords[key_num]
+                path =  str(Path(keystore, key_name))
+                print(f'Generating {path}')
                 generate_and_write_rsa_keypair(
-                    str(Path(keystore, key_name)), bits=bits, password=password
+                    path, bits=bits, password=password
                 )
 
 
@@ -661,6 +667,10 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
 
 
 def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    if not click.confirm(
+        "WARNING - this will delete everything from the inserted key. Proceed?"
+    ):
+        return
     _, serial_num = yk.yubikey_prompt(
         "new Yubikey",
         creating_new_key=True,
@@ -671,6 +681,26 @@ def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     key = yk.setup_new_yubikey(serial_num)
     export_yk_certificate(certs_dir, key)
 
+
+def setup_test_yubikey(key_path=None):
+    """
+    Resets the inserted yubikey, sets default pin and copies the specified key
+    onto it. 
+    """
+    if not click.confirm(
+        "WARNING - this will reset the inserted key. Proceed?"
+    ):
+        return
+    key_path = Path(key_path)
+    key_pem = key_path.read_bytes()
+
+    print(f"Importing RSA private key from {key_path} to Yubikey...")
+    pin = yk.DEFAULT_PIN
+    
+    pub_key = yk.setup(pin, 'Test Yubikey', private_key_pem=key_pem)
+    print("\nPrivate key successfully imported.\n")
+    print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
+    print("Pin: {}\n".format(pin))
 
 def update_metadata_expiration_date(
     repo_path,
