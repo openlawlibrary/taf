@@ -85,18 +85,6 @@ def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore
                                    keys_description, custom)
 
 
-@cli.command()
-@click.option('--repo-path', default='repository', help='Location of the repository')
-@click.option('--keystore', default=None, help='Location of the keystore file')
-@click.option('--keys-description', help='A dictionary containing information about the '
-              'keys or a path to a json file which which stores the needed information')
-@click.option('--commit-msg', default=None, help='Commit message. If provided, the '
-              'changes will be committed automatically')
-@click.option('--test', is_flag=True, default=False, help='Indicates if the created repository '
-              'is a test authentication repository')
-def create_repo(repo_path, keystore, keys_description, commit_msg, test):
-    developer_tool.create_repository(repo_path, keystore, keys_description, commit_msg, test)
-
 
 @cli.command()
 @click.option('--repo-path', default='repository', help='Location of the repository')
@@ -117,19 +105,6 @@ def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
               keys_description, custom, commit, test):
     developer_tool.init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
                              keys_description, repos_custom=custom, commit=commit, test=test)
-
-
-@cli.command()
-@click.option('--repo-path', default='repository', help='Location of the repository')
-@click.option('--targets-dir', default='targets', help='Directory where the target '
-              'repositories are located')
-@click.option('--namespace', default=None, help='Namespace of the target repositories')
-@click.option('--targets-rel-dir', default=None, help=' Directory relative to which urls '
-              'of the target repositories are set, if they do not have remote set')
-@click.option('--custom', default=None, help='A dictionary containing custom '
-              'targets info which will be included in repositories.json')
-def generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir, custom):
-    developer_tool.generate_repositories_json(repo_path, targets_dir, namespace, targets_rel_dir, custom)
 
 
 @cli.command()
