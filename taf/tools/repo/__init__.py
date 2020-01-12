@@ -1,5 +1,6 @@
 import click
 import taf.developer_tool as developer_tool
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
 def attach_to_group(group):
@@ -11,7 +12,7 @@ def attach_to_group(group):
     @repo.command()
     @click.argument("path")
     @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which which stores the needed information")
+                  "keys or a path to a json file which stores the needed information")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--commit-msg", default=None, help="Commit message. If provided, the "
                   "changes will be committed automatically")
@@ -27,6 +28,7 @@ def attach_to_group(group):
             - total number of keys per role
             - threshold of signatures per role
             - should keys of a role be on Yubikeys or should keystore files be used
+            - scheme (the default scheme is rsa-pkcs1v15-sha256)
 
         If this dictionary is not specified, it will be assumed that there should only
         be one signing key and that all keys are stored in keystore files.
@@ -61,7 +63,7 @@ def attach_to_group(group):
     @click.option("--targets-dir", default=None, help="Directory where the target "
                   "repositories are located. If omitted, it will be assumed that target repositories "
                   "are inside the same repository as the authentication repository")
-    @click.option("--namespace", default=None, help="Namespace of the target repositories "
+    @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the target repositories")
     @click.option("--targets-rel-dir", default=None, help="Directory relative to which "
@@ -88,15 +90,55 @@ def attach_to_group(group):
         custom data dictionaries. For example:
 
         {\n
-	        "test/html-repo": {\n
-		        "type": "html"\n
-	        },
-	        "test/xml-repo": {\n
-		        "type": "xml"\n
-	        }\n
+            "test/html-repo": {\n
+                "type": "html"\n
+            },
+            "test/xml-repo": {\n
+                "type": "xml"\n
+            }\n
         }\n
 
         Note: this command does not automatically register repositories.json as a target file.
         It is recommended that the content of the file is reviewed before doing so manually.
         """
         developer_tool.generate_repositories_json(path, targets_dir, namespace, targets_rel_dir, custom)
+
+    @repo.command()
+    @click.argument('path')
+    @click.option("--targets-dir", default=None, help="Directory where the target "
+                  "repositories are located. If omitted, it will be assumed that target repositories "
+                  "are inside the same repository as the authentication repository")
+    @click.option("--namespace", default=None, help="Namespace of the target repositories. "
+                  "If omitted, it will be assumed that namespace matches the name of the "
+                  "directory which contains the target repositories")
+    @click.option('--targets-rel-dir', default=None, help=' Directory relative to which urls '
+                  'of the target repositories are set, if they do not have remote set')
+    @click.option("--targets-rel-dir", default=None, help="Directory relative to which "
+                  "urls of the target repositories are calculated. Only useful when "
+                  "the target repositories do not have remotes set")
+    @click.option("--custom", default=None, help="A dictionary containing custom "
+                  "targets info which will be added to repositories.json")
+    @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
+                  "the current branch to target files")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores the needed information")
+    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
+                  "is a test authentication repository")
+    @click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
+    def initialize(path, targets_dir, namespace, targets_rel_dir, custom, add_branch, keystore,
+                   keys_description, test, scheme):
+        """
+        Create and initialize a new authentication repository:
+            1. Crete a authentication repository (generate initial metadata files)
+            2. Commit initial metadata files if commit == True
+            3. Add target files corresponding to target repositories
+            4. Generate repositories.json
+            5. Update metadata files
+            6. Commit the changes if commit == True
+        Combines create, generate_repositories_json, update_repos and sign_targets commands.
+        In order to have greater control over individual steps and be able to review files created
+        in the initialization process, execute the mentioned commands separately.
+        """
+        developer_tool.init_repo(path, targets_dir, namespace, targets_rel_dir, custom, add_branch,
+                                 keystore, keys_description, test, scheme)

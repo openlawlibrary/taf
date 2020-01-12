@@ -85,28 +85,6 @@ def build_auth_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore
                                    keys_description, custom)
 
 
-
-@cli.command()
-@click.option('--repo-path', default='repository', help='Location of the repository')
-@click.option('--targets-dir', default='targets', help='Directory where the target '
-              'repositories are located')
-@click.option('--namespace', default='', help='Namespace of the target repositories')
-@click.option('--targets-rel-dir', default=None, help=' Directory relative to which urls '
-              'of the target repositories are set, if they do not have remote set')
-@click.option('--keystore', default='keystore', help='Location of the keystore file')
-@click.option('--keys-description', help='A dictionary containing information about the '
-              'keys or a path to a json file which which stores the needed information')
-@click.option('--custom', default=None, help='A dictionary containing custom '
-              'targets info which will be included in repositories.json')
-@click.option('--commit', is_flag=True, default=True, help='Indicates if changes should be committed')
-@click.option('--test', is_flag=True, default=False, help='Indicates if the created repository '
-              'is a test authentication repository')
-def init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-              keys_description, custom, commit, test):
-    developer_tool.init_repo(repo_path, targets_dir, namespace, targets_rel_dir, keystore,
-                             keys_description, repos_custom=custom, commit=commit, test=test)
-
-
 @cli.command()
 @click.option('--repo-path', default='repository', help='Location of the repository')
 @click.option('--role', default='timestamp', help='Metadata role whose expiration date should be updated')

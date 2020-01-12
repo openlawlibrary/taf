@@ -165,7 +165,7 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
 
 
 def update_target_repos_from_fs(
-    repo_path, targets_directory, namespace=None, add_branch=True
+    repo_path, targets_directory=None, namespace=None, add_branch=True
 ):
     """
     <Purpose>
@@ -177,16 +177,21 @@ def update_target_repos_from_fs(
         Directory which contains target repositories
         namespace:
         Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+        add_branch:
+        Indicates whether to add the current branch's name to the target file
     """
     repo_path = Path(repo_path).resolve()
-    targets_dir = Path(targets_directory).resolve()
+    if targets_directory is None:
+        targets_directory = repo_path.parent
+    else:
+        targets_directory = Path(targets_directory).resolve()
     if namespace is None:
-        namespace = targets_dir.name
+        namespace = targets_directory.name
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     if namespace:
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
         auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
-    for target_repo_path in targets_dir.glob("*"):
+    for target_repo_path in targets_directory.glob("*"):
         _update_target_repos(
             repo_path, auth_repo_targets_dir, target_repo_path, add_branch
         )
@@ -329,7 +334,7 @@ def _register_key(
 
 
 def create_repository(
-    repo_path, keystore, roles_key_infos, commit_message=None, test=False
+    repo_path, keystore=None, roles_key_infos=None, commit_message=None, test=False
 ):
     """
     <Purpose>
@@ -492,6 +497,9 @@ def generate_repositories_json(
         Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
+        custom_date:
+        Dictionary or path to a json file containing additional information about the repositories that
+        should be added to repositories.json
     """
 
     custom_data = read_input_dict(custom_data)
@@ -552,14 +560,15 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 def init_repo(
     repo_path,
-    targets_directory,
-    namespace,
-    targets_relative_dir,
-    keystore,
-    roles_key_infos,
-    repos_custom=None,
-    commit=None,
+    targets_directory=None,
+    namespace=None,
+    targets_relative_dir=None,
+    custom_data=None,
+    add_branch=None,
+    keystore=None,
+    roles_key_infos=None,
     test=False,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
     """
     <Purpose>
@@ -579,24 +588,35 @@ def init_repo(
         Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
+        custom_date:
+        Dictionary or path to a json file containing additional information about the repositories that
+        should be added to repositories.json
+        add_branch:
+        Indicates whether to add the current branch's name to the target file
         keystore:
         Location of the keystore files
         roles_key_infos:
         A dictionary whose keys are role names, while values contain information about the keys.
-        commit_message:
-        If provided, the changes will be committed automatically using the specified message
         test:
         Indicates if the created repository is a test authentication repository
+        scheme:
+        A signature scheme used for signing.
     """
     # read the key infos here, no need to read the file multiple times
     roles_key_infos = read_input_dict(roles_key_infos)
-    commit_msg = "Initial commit" if commit else None
+    commit_msg = "Initial commit"
+    # TODO when creating a repository have an option to save keys to keystore files
+    # and not just write them to console
+    # use keys generated here for signing in register target files
+    # when c
     create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
-    update_target_repos_from_fs(repo_path, targets_directory, namespace)
+    update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, targets_directory, namespace, targets_relative_dir, repos_custom
+        repo_path, targets_directory, namespace, targets_relative_dir, custom_data
     )
-    register_target_files(repo_path, keystore, roles_key_infos, commit_msg=commit)
+    commit_msg = "Initial targets"
+    register_target_files(repo_path, keystore, roles_key_infos, commit_msg=commit_msg,
+                          scheme=scheme)
 
 
 def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme):
