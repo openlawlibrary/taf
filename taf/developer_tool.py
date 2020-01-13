@@ -316,19 +316,33 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
 
 
 def _register_key(
-    keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme
+    keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme, length
 ):
     # if keystore exists, load the keys
+    generate_new_keys = keystore is None
     if keystore is not None:
-        public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-        private_key = read_private_key_from_keystore(
-            keystore, key_name, roles_key_info, key_num, scheme
-        )
-    # if it does not, generate the keys and print the output
-    else:
-        key = generate_rsa_key(scheme=scheme)
-        print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-        public_key = private_key = key
+        try:
+            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            private_key = read_private_key_from_keystore(
+                keystore, key_name, roles_key_info, key_num, scheme
+            )
+        except KeystoreError as e:
+            generate_new_keys = click.confirm(f"Could not load {key_name}. Generate new keys?")
+            if not generate_new_keys:
+                raise e
+    if generate_new_keys:
+        if keystore is not None and click.confirm("Write keys to keystore files?"):
+            generate_and_write_rsa_keypair(
+                str(Path(keystore) / key_name), bits=length, password=""
+            )
+            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            private_key = read_private_key_from_keystore(
+                keystore, key_name, roles_key_info, key_num, scheme
+            )
+        else:
+            key = generate_rsa_key(bits=length, scheme=scheme)
+            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
+            public_key = private_key = key
     role_obj.add_verification_key(public_key)
     role_obj.load_signing_key(private_key)
 
@@ -356,6 +370,10 @@ def create_repository(
     """
     yubikeys = defaultdict(dict)
     roles_key_infos = read_input_dict(roles_key_infos)
+    if not len(roles_key_infos):
+        # ask the user to enter roles, number of keys etc.
+        roles_key_infos = _enter_roles_infos()
+
     repo = AuthenticationRepo(repo_path)
     if Path(repo_path).is_dir():
         if repo.is_git_repository:
@@ -370,7 +388,7 @@ def create_repository(
         threshold = key_info.get("threshold", 1)
         is_yubikey = key_info.get("yubikey", False)
         scheme = key_info.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-
+        length = key_info.get("length", 3072)
         role_obj = _role_obj(role_name, repository)
         role_obj.threshold = threshold
         for key_num in range(num_of_keys):
@@ -381,7 +399,7 @@ def create_repository(
                 )
             else:
                 _register_key(
-                    keystore, key_info, role_obj, role_name, key_name, key_num, scheme
+                    keystore, key_info, role_obj, role_name, key_name, key_num, scheme, length
                 )
 
     try:
@@ -412,6 +430,39 @@ def create_repository(
         auth_repo = GitRepository(repo_path)
         auth_repo.init_repo()
         auth_repo.commit(commit_message)
+
+
+def _enter_roles_infos():
+    mandatory_roles = ['root', 'targets', 'snapshot', 'timestamp']
+    role_key_infos = defaultdict(dict)
+
+    def _read_val(input_type, name):
+        while True:
+            try:
+                val = input(f'Enter {name} and press ENTER. Leave empty to use the default value. ')
+                if not val:
+                    return val
+                return int(val)
+            except ValueError:
+                pass
+
+    def _enter_role_info(role):
+        role_key_infos[role]["number"] = _read_val(int, f"number of {role} keys")
+        role_key_infos[role]["length"] = _read_val(int, f"{role} key length")
+        role_key_infos[role]["threshold"] = _read_val(int, f"{role} signature threshold")
+        role_key_infos[role]["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
+        role_key_infos[role]["scheme"] = _read_val(str, f"{role} signature scheme")
+
+    for role in mandatory_roles:
+        _enter_role_info(role)
+
+    # delegated targets role
+    while click.confirm("Add a delegated targets role?"):
+        role_name = input("Enter role name and press ENTER")
+        if role_name:
+            _enter_role_info(role_name)
+
+    return role_key_infos
 
 
 def export_yk_public_pem(path=None):
@@ -471,7 +522,7 @@ def generate_keys(keystore, roles_key_infos):
             if not is_yubikey:
                 key_name = _get_key_name(role_name, key_num, num_of_keys)
                 password = passwords[key_num]
-                path =  str(Path(keystore, key_name))
+                path = str(Path(keystore, key_name))
                 print(f'Generating {path}')
                 generate_and_write_rsa_keypair(
                     path, bits=bits, password=password
@@ -608,7 +659,6 @@ def init_repo(
     # TODO when creating a repository have an option to save keys to keystore files
     # and not just write them to console
     # use keys generated here for signing in register target files
-    # when c
     create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(

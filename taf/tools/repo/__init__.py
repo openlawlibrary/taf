@@ -30,9 +30,6 @@ def attach_to_group(group):
             - should keys of a role be on Yubikeys or should keystore files be used
             - scheme (the default scheme is rsa-pkcs1v15-sha256)
 
-        If this dictionary is not specified, it will be assumed that there should only
-        be one signing key and that all keys are stored in keystore files.
-
         For example:\n
         {\n
             "root": {\n
@@ -49,6 +46,8 @@ def attach_to_group(group):
             "timestamp": {}\n
             }\n
 
+        In cases when this dictionary is not specified, it is necessary to enter the needed
+        information when asked to do so, or confirm that default values should be used.
         If keys should be stored in keystore files, it is possible to either use already generated
         keys (stored in keystore files located at the path specified using the keystore option),
         or to generate new one.
