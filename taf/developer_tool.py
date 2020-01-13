@@ -348,7 +348,7 @@ def _register_key(
 
 
 def create_repository(
-    repo_path, keystore=None, roles_key_infos=None, commit_message=None, test=False
+    repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
     """
     <Purpose>
@@ -363,8 +363,8 @@ def create_repository(
         Location of the keystore files
         roles_key_infos:
         A dictionary whose keys are role names, while values contain information about the keys.
-        commit_message:
-        If provided, the changes will be committed automatically using the specified message
+        commit:
+        Indicates if the changes should be automatically comitted
         test:
         Indicates if the created repository is a test authentication repository
     """
@@ -426,9 +426,11 @@ def create_repository(
         targets_obj.add_target(str(test_auth_file))
 
     repository.writeall()
-    if commit_message is not None and len(commit_message):
+    print('Created new authentication repository')
+    if commit:
         auth_repo = GitRepository(repo_path)
         auth_repo.init_repo()
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
 
@@ -618,6 +620,7 @@ def init_repo(
     add_branch=None,
     keystore=None,
     roles_key_infos=None,
+    commit=False,
     test=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
@@ -655,17 +658,12 @@ def init_repo(
     """
     # read the key infos here, no need to read the file multiple times
     roles_key_infos = read_input_dict(roles_key_infos)
-    commit_msg = "Initial commit"
-    # TODO when creating a repository have an option to save keys to keystore files
-    # and not just write them to console
-    # use keys generated here for signing in register target files
-    create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
+    create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
         repo_path, targets_directory, namespace, targets_relative_dir, custom_data
     )
-    commit_msg = "Initial targets"
-    register_target_files(repo_path, keystore, roles_key_infos, commit_msg=commit_msg,
+    register_target_files(repo_path, keystore, roles_key_infos, commit,
                           scheme=scheme)
 
 
@@ -681,7 +679,7 @@ def register_target_files(
     repo_path,
     keystore,
     roles_key_infos,
-    commit_msg=None,
+    commit=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
@@ -701,6 +699,7 @@ def register_target_files(
         scheme:
         A signature scheme used for signing.
     """
+    print('Signing target files')
     roles_key_infos = read_input_dict(roles_key_infos)
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
@@ -709,9 +708,10 @@ def register_target_files(
         for filename in filenames:
             taf_repo.add_existing_target(str(Path(root) / filename))
     _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
-    if commit_msg is not None:
+    if commit:
         auth_repo = GitRepository(repo_path)
-        auth_repo.commit(commit_msg)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
 
 
 def _role_obj(role, repository):

@@ -14,11 +14,11 @@ def attach_to_group(group):
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--commit-msg", default=None, help="Commit message. If provided, the "
-                  "changes will be committed automatically")
+    @click.option("--commit", is_flag=True, help="Indicates if the changes should be "
+                  "committed automatically")
     @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
                   "is a test authentication repository")
-    def create(path, keys_description, keystore, commit_msg, test):
+    def create(path, keys_description, keystore, commit, test):
         """
         Create a new authentication repository at the specified location by registering
         signing keys and generating initial metadata files. Information about the roles
@@ -55,7 +55,7 @@ def attach_to_group(group):
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """
-        developer_tool.create_repository(path, keystore, keys_description, commit_msg, test)
+        developer_tool.create_repository(path, keystore, keys_description, commit, test)
 
     @repo.command()
     @click.argument("path")
@@ -122,11 +122,13 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
+    @click.option("--commit", is_flag=True, help="Indicates if the changes should be "
+                  "committed automatically")
     @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
                   "is a test authentication repository")
     @click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
     def initialize(path, targets_dir, namespace, targets_rel_dir, custom, add_branch, keystore,
-                   keys_description, test, scheme):
+                   keys_description, commit, test, scheme):
         """
         Create and initialize a new authentication repository:
             1. Crete a authentication repository (generate initial metadata files)
@@ -140,4 +142,4 @@ def attach_to_group(group):
         in the initialization process, execute the mentioned commands separately.
         """
         developer_tool.init_repo(path, targets_dir, namespace, targets_rel_dir, custom, add_branch,
-                                 keystore, keys_description, test, scheme)
+                                 keystore, keys_description, commit, test, scheme)
