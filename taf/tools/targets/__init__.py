@@ -11,15 +11,16 @@ def attach_to_group(group):
 
     @targets.command()
     @click.argument("path")
-    @click.option("--targets-dir", default=None, help="Directory where the target "
-                  "repositories are located. If omitted, it will be assumed that target repositories "
-                  "are inside the same repository as the authentication repository")
+    @click.option("--root-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is persumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
-                  "directory which contains the target repositories")
+                  "directory which contains the authentication repository")
     @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
                   "the current branch to target files")
-    def update_repos_from_fs(path, targets_dir, namespace, add_branch):
+    def update_repos_from_fs(path, root_dir, namespace, add_branch):
         """
         Update target files corresonding to target repositories by traversing through the specified
         targets directory without signing the metadata files.
@@ -33,17 +34,21 @@ def attach_to_group(group):
         a target repository namespace1/target1, a file called target1 is created inside
         the target/namespace1 authentication repo direcotry.
         """
-        developer_tool.update_target_repos_from_fs(path, targets_dir, namespace, add_branch)
+        developer_tool.update_target_repos_from_fs(path, root_dir, namespace, add_branch)
 
 
     @targets.command()
     @click.argument("path")
-    @click.option("--targets-dir", default=None, help="Directory where the target "
-                  "repositories are located. If omitted, it will be assumed that target repositories "
-                  "are inside the same repository as the authentication repository")
+    @click.option("--root-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is persumed to be at root-dir/namespace/auth-repo-name")
+    @click.option("--namespace", default=None, help="Namespace of the target repositories. "
+                  "If omitted, it will be assumed that namespace matches the name of the "
+                  "directory which contains the authentication repository")
     @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
                   "the current branch to target files")
-    def update_repos_from_repositories_json(path, targets_dir, add_branch):
+    def update_repos_from_repositories_json(path, root_dir, namespace, add_branch):
         """
         Update target files corresonding to target repositories by traversing through repositories
         specified in repositories.json which are located inside the specified targets directory without
@@ -57,6 +62,4 @@ def attach_to_group(group):
         namespace1/target1, a file called target1 is created inside the target/namespace1
         authentication repo direcotry.
         """
-        developer_tool.update_target_repos_from_repositories_json(path, targets_dir, add_branch)
-
-# TODO need to standardize target_dirs
+        developer_tool.update_target_repos_from_repositories_json(path, root_dir, namespace, add_branch)

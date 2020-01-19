@@ -5,6 +5,7 @@ import taf.tools.targets as targets_cli
 import taf.tools.update as update_cli
 import taf.tools.yubikey as yubikey_cli
 
+
 @click.group()
 def taf():
     """TAF Command Line Interface"""
