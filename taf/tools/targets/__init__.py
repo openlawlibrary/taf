@@ -11,6 +11,23 @@ def attach_to_group(group):
 
     @targets.command()
     @click.argument("path")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
+                  "used for signing")
+    def sign_targets(path, keystore, scheme):
+        """
+        Register and sign target files. This means that the targets metadata file
+        is updated by adding or editing information about all target files located
+        inside the targets directory of the authenticatino repository. Once the targets
+        file is updated, so are snapshot and timestamp. All files are signed. If the
+        keystore parameter is provided, keys stored in that directory will be used for
+        signing. If a needed key is not in that directory, the file can either be signed
+        sy manually entering the key or by using a yubikey.
+        """
+        developer_tool.register_target_files(path, keystore=keystore, scheme=scheme)
+
+    @targets.command()
+    @click.argument("path")
     @click.option("--root-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "

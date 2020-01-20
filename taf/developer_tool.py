@@ -107,46 +107,46 @@ def _load_signing_keys(
     all_loaded = False
     num_of_signatures = 0
     keys = []
-    # check if keystore exists and if there is a file corresponding to this role
-    load_from_keystore = False
     if keystore is not None:
+        # try loading files from the keystore first
+        # does not assume that all keys of a role are stored in keystore files just
+        # because one of them is
         keystore = Path(keystore)
         # names of keys are expected to be role or role + counter
-        counter = "" if signing_keys_num == 1 else "1"
-        if (keystore / f"{role}{counter}").is_file():
-            load_from_keystore = True
+        key_names = [f"{role}{counter}"for counter in range(1, signing_keys_num + 1)]
+        key_names.insert(0, role)
+        for key_name in key_names:
+            if (keystore / key_name).is_file():
+                key = read_private_key_from_keystore(
+                    keystore, key_name, role_key_infos, num_of_signatures, scheme
+                )
+                keys.append(key)
+                num_of_signatures += 1
 
     while not all_loaded and num_of_signatures < signing_keys_num:
         if signing_keys_num == 1:
             key_name = role
         else:
             key_name = f"{role}{num_of_signatures + 1}"
-        if load_from_keystore:
-            # if loading from keystore, load all keys
-            key = read_private_key_from_keystore(
-                keystore, key_name, role_key_infos, num_of_signatures, scheme
-            )
-            keys.append(key)
-        else:
-            if num_of_signatures >= threshold:
-                all_loaded = not (
-                    click.confirm(
-                        f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
-                    )
+        if num_of_signatures >= threshold:
+            all_loaded = not (
+                click.confirm(
+                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
                 )
-            if not all_loaded:
-                is_yubikey = None
-                if role_key_infos is not None and role in role_key_infos:
-                    is_yubikey = role_key_infos[role].get("yubikey")
-                if is_yubikey is None:
-                    is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
-                if is_yubikey:
-                    yk.yubikey_prompt(
-                        key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
-                    )
-                else:
-                    key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
-                    keys.append(key)
+            )
+        if not all_loaded:
+            is_yubikey = None
+            if role_key_infos is not None and role in role_key_infos:
+                is_yubikey = role_key_infos[role].get("yubikey")
+            if is_yubikey is None:
+                is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
+            if is_yubikey:
+                yk.yubikey_prompt(
+                    key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
+                )
+            else:
+                key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+                keys.append(key)
         num_of_signatures += 1
     return keys
 
@@ -636,7 +636,7 @@ def init_repo(
     generate_repositories_json(
         repo_path, root_dir, namespace, targets_relative_dir, custom_data
     )
-    register_target_files(repo_path, keystore, roles_key_infos, commitq, scheme=scheme)
+    register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 
 
 def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme):
@@ -649,8 +649,8 @@ def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme
 
 def register_target_files(
     repo_path,
-    keystore,
-    roles_key_infos,
+    keystore=None,
+    roles_key_infos=None,
     commit=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):

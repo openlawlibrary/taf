@@ -15,17 +15,6 @@ def cli():
     pass
 
 
-@cli.command()
-@click.option('--repo-path', default='repository', help='Authentication repository\'s path')
-@click.option('--keystore', default=None, help='Path of the keystore file')
-@click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
-              ' to a json file which which stores the needed information')
-@click.option('--commit-msg', default=None, help='Commit message to be used in case the changes'
-              'should be automatically committed')
-@click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
-def sign_targets(repo_path, keystore, keys_description, commit_msg, scheme):
-    developer_tool.register_target_files(repo_path, keystore, keys_description, commit_msg, scheme)
-
 
 @cli.command()
 @click.option('--repo-path', default='repository', help='Authentication repository\'s path')
