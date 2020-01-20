@@ -764,7 +764,7 @@ def update_metadata_expiration_date(
         "timestamp_keystore": taf_repo.update_timestamp,
         "snapshot_keystore": taf_repo.update_snapshot,
         "targets_keystore": taf_repo.update_targets_from_keystore,
-        "targets_yubikey": taf_repo.update_targets_from_yubikey,
+        "targets_yubikey": taf_repo.update_targets,
     }
     loaded_yubikeys = {}
     keys = _load_signing_keys(taf_repo, role, loaded_yubikeys=loaded_yubikeys,

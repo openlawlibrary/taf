@@ -13,7 +13,7 @@ def attach_to_group(group):
 
     @metadata.command()
     @click.argument("path")
-    @click.argument("role", help="Metadata role whose expiration date should be updated")
+    @click.argument("role")
     @click.option("--interval", default=None, help="Number of days added to the start date",
                   type=int)
     @click.option("--keystore", default=None, help="Location of the keystore files")
