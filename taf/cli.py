@@ -15,29 +15,6 @@ def cli():
     pass
 
 
-
-@cli.command()
-@click.option('--repo-path', default='repository', help='Authentication repository\'s path')
-@click.option('--file-path', help="Target file's path, relative to the targets directory")
-@click.option('--keystore', default='keystore', help='Path of the keystore file')
-@click.option('--keys-description', default=None, help='A dictionary containing information about the keys or a path'
-              ' to a json file which which stores the needed information')
-@click.option('--scheme', default=DEFAULT_RSA_SIGNATURE_SCHEME, help='A signature scheme used for signing.')
-def add_target_file(repo_path, file_path, keystore, keys_description, scheme):
-    developer_tool.register_target_file(repo_path, file_path, keystore, keys_description, scheme)
-
-
-@cli.command()
-@click.option('--repo-path')
-@click.option('--role')
-@click.option('--pub-key-path')
-def add_signing_key(repo_path, role, pub_key_path):
-    developer_tool.add_signing_key(repo_path, role, pub_key_path)
-
-
-
-
-
 @cli.command()
 @click.option('--url', help="Authentication repository's url")
 @click.option('--clients-dir', help="Directory containing the client's authentication repository")

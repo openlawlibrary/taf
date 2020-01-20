@@ -19,6 +19,7 @@ from taf.keystore import (
     key_cmd_prompt,
     read_private_key_from_keystore,
     read_public_key_from_keystore,
+    new_public_key_cmd_prompt,
 )
 from taf.log import taf_logger
 from taf.repository_tool import Repository
@@ -43,7 +44,7 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 )
 
 
-def add_signing_key(repo_path, role, pub_key_path):
+def add_signing_key(repo_path, role, pub_key_path=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """
     Adds a new signing key. Currently assumes that all relevant keys are stored on yubikeys.
     Allows us to add a new targets key for example
@@ -51,8 +52,16 @@ def add_signing_key(repo_path, role, pub_key_path):
     from taf.repository_tool import yubikey_signature_provider
 
     taf_repo = Repository(repo_path)
-    pub_key_pem = Path(pub_key_path).read_text()
-    taf_repo.add_metadata_key(role, pub_key_pem, DEFAULT_RSA_SIGNATURE_SCHEME)
+    pub_key_pem = None
+    if pub_key_path is not None:
+        pub_key_path = Path(pub_key_path)
+        if pub_key_path.is_file():
+            pub_key_pem = Path(pub_key_path).read_text()
+
+    if pub_key_pem is None:
+        pub_key_pem = new_public_key_cmd_prompt(scheme)['keyval']['public']
+
+    taf_repo.add_metadata_key(role, pub_key_pem, scheme)
     root_obj = taf_repo._repository.root
     threshold = root_obj.threshold
     keys_num = len(root_obj.keys)
@@ -637,14 +646,6 @@ def init_repo(
         repo_path, root_dir, namespace, targets_relative_dir, custom_data
     )
     register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
-
-
-def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme):
-    roles_key_infos = read_input_dict(roles_key_infos)
-    taf_repo = Repository(repo_path)
-    taf_repo.add_existing_target(file_path)
-
-    _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
 
 
 def register_target_files(

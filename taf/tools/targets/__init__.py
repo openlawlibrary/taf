@@ -14,7 +14,7 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
-    def sign_targets(path, keystore, scheme):
+    def sign(path, keystore, scheme):
         """
         Register and sign target files. This means that the targets metadata file
         is updated by adding or editing information about all target files located
