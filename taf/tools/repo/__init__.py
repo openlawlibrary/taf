@@ -1,6 +1,7 @@
 import click
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.updater.updater import update_repository
 
 
 def attach_to_group(group):
@@ -148,3 +149,38 @@ def attach_to_group(group):
         """
         developer_tool.init_repo(path, root_dir, namespace, targets_rel_dir, custom, add_branch,
                                  keystore, keys_description, commit, test, scheme)
+
+    @repo.command()
+    @click.argument("url")
+    @click.argument("clients-auth-path")
+    @click.option("--clients-root-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path.. "
+                  "Authentication repo is persumed to be at root-dir/namespace/auth-repo-name")
+    @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
+                  "repository from the filesystem")
+    @click.option("--authenticate-test-repo", is_flag=True, help="Indicates that the authentication "
+                  "repository is a test repository")
+    def update(url, clients_auth_path, clients_root_dir, from_fs, authenticate_test_repo):
+        """
+        Update and validate local authentication repository and target repositories. Remote
+        authentication's repository (base on which the local repository is updated) url needs
+        to be specified when calling this command. If the authentication repository and the
+        target repositories are in the same root repository, locations of the target repositories
+        are calculated based on the authentication repository's path. If that is not the case,
+        it is necessary to redefine this default value using the clients-root-dir option.
+        This means that if authentication repository's path is E:\\root\\namespace\\auth-repo,
+        it will be assumed that  E:\\root is the root direcotry if clients-root-dir is not specified.
+        Names of target repositories (as defined in repositories.json) are appened to the root repository's
+        path thus defining the location of each target repository. If names of target repositories
+        are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of target
+        repositories will be calculated as E:\\root\\namespace\\repo1, E:\\root\\namespace\\root2 etc.
+
+        If remote repository's url is a file system path, it is necessary call this command with from-fs
+        flag so that url validation is skipped. When updating a test repository (one that has test target
+        file), use authenticate-test-repo flag. An error will be raised if this flag is omitted in the
+        mentioned case. Do not use this flag when validating a non-test repository as that will also
+        result in an error.
+        """
+        update_repository(url, clients_auth_path, clients_root_dir, from_fs,
+                          authenticate_test_repo)
