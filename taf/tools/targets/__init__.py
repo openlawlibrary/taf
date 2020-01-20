@@ -36,7 +36,6 @@ def attach_to_group(group):
         """
         developer_tool.update_target_repos_from_fs(path, root_dir, namespace, add_branch)
 
-
     @targets.command()
     @click.argument("path")
     @click.option("--root-dir", default=None, help="Directory where target repositories and, "
