@@ -1,12 +1,12 @@
 import click
 import taf.developer_tool as developer_tool
 
+
 def attach_to_group(group):
 
     @group.group()
     def yubikey():
         pass
-
 
     @yubikey.command()
     @click.option("--path", help="File to which the exported public key will be written. "
@@ -17,7 +17,6 @@ def attach_to_group(group):
         """
         developer_tool.export_yk_public_pem(path)
 
-
     @yubikey.command()
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved."
                   "Set to the user home directory by default")
@@ -27,7 +26,6 @@ def attach_to_group(group):
         WARNING - this will delete everything from the inserted key.
         """
         developer_tool.setup_signing_yubikey(certs_dir)
-
 
     @yubikey.command()
     @click.argument("key-path")

@@ -11,7 +11,7 @@ def attach_to_group(group):
     @keystore.command()
     @click.argument("path")
     @click.argument("keys-description")
-    def generate_keys(path, keys_description):
+    def generate(path, keys_description):
         """Generate keystore files and save them to the specified location given a dictionary containing
         information about each role - total number of keys, their lengths and keystore files' passwords.
         It is necessary to either directly specify this dictionary when calling this command or

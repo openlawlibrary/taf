@@ -25,11 +25,11 @@ def attach_to_group(group):
         signing keys and generating initial metadata files. Information about the roles
         can be provided through a dictionary - either specified directly or contained
         by a .json file whose path is specified when calling this command. This allows
-        definition of:
-            - total number of keys per role
-            - threshold of signatures per role
-            - should keys of a role be on Yubikeys or should keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
+        definition of: \n
+            - total number of keys per role \n
+            - threshold of signatures per role \n
+            - should keys of a role be on Yubikeys or should keystore files be used \n
+            - scheme (the default scheme is rsa-pkcs1v15-sha256) \n
 
         For example:\n
         {\n
@@ -148,13 +148,13 @@ def attach_to_group(group):
     def initialize(path, root_dir, namespace, targets_rel_dir, custom, add_branch, keystore,
                    keys_description, commit, test, scheme):
         """
-        Create and initialize a new authentication repository:
-            1. Crete an authentication repository (generate initial metadata files)
-            2. Commit initial metadata files if commit == True
-            3. Add target files corresponding to target repositories
-            4. Generate repositories.json
-            5. Update metadata files
-            6. Commit the changes if commit == True
+        Create and initialize a new authentication repository:\n
+            1. Crete an authentication repository (generate initial metadata files)\n
+            2. Commit initial metadata files if commit == True\n
+            3. Add target files corresponding to target repositories\n
+            4. Generate repositories.json\n
+            5. Update metadata files\n
+            6. Commit the changes if commit == True\n
         Combines create, generate_repositories_json, update_repos and targets sign commands.
         In order to have greater control over individual steps and be able to review files created
         in the initialization process, execute the mentioned commands separately.
