@@ -553,12 +553,13 @@ def generate_repositories_json(
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     # if targets directory is not specified, assume that target repositories
     # and the authentication repository are in the same parent direcotry
-    namespace, root_dir = print(f"Adding all repositories from {targets_directory}")(
+    namespace, root_dir = _get_namespace_and_root(
         repo_path, namespace, root_dir
     )
     targets_directory = root_dir / namespace
     if targets_relative_dir is not None:
         targets_relative_dir = Path(targets_relative_dir).resolve()
+
     print(f"Adding all repositories from {targets_directory}")
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
@@ -647,6 +648,10 @@ def init_repo(
         A signature scheme used for signing.
     """
     # read the key infos here, no need to read the file multiple times
+    namespace, root_dir = _get_namespace_and_root(
+        repo_path, namespace, root_dir
+    )
+    targets_directory = root_dir / namespace
     roles_key_infos = read_input_dict(roles_key_infos)
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)

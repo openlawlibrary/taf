@@ -47,12 +47,12 @@ def update_repository(
     clients_auth_path = Path(clients_auth_path)
 
     if clients_root_dir is None:
-        clients_auth_root_dir = clients_auth_path.parent.parent
+        clients_root_dir = clients_auth_path.parent.parent
     else:
-        clients_auth_root_dir = Path(clients_auth_root_dir).resolve()
+        clients_root_dir = Path(clients_root_dir).resolve()
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_root_dir = clients_auth_path.parent.parent
+    clients_auth_root_dir = clients_auth_path.parent.parent
     _update_named_repository(
         url,
         clients_auth_root_dir,
