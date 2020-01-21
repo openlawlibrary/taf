@@ -136,9 +136,10 @@ def _update_named_repository(
         }
     }
 
-
     tuf.settings.repositories_directory = clients_auth_root_dir
-    repository_updater = tuf_updater.Updater(auth_repo_name, repository_mirrors, GitUpdater)
+    repository_updater = tuf_updater.Updater(
+        auth_repo_name, repository_mirrors, GitUpdater
+    )
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     existing_repo = users_auth_repo.is_git_repository_root
     try:

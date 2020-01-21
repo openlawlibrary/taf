@@ -44,7 +44,9 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 )
 
 
-def add_signing_key(repo_path, role, pub_key_path=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def add_signing_key(
+    repo_path, role, pub_key_path=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+):
     """
     Adds a new signing key. Currently assumes that all relevant keys are stored on yubikeys.
     Allows us to add a new targets key for example
@@ -59,7 +61,7 @@ def add_signing_key(repo_path, role, pub_key_path=None, scheme=DEFAULT_RSA_SIGNA
             pub_key_pem = Path(pub_key_path).read_text()
 
     if pub_key_pem is None:
-        pub_key_pem = new_public_key_cmd_prompt(scheme)['keyval']['public']
+        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
 
     taf_repo.add_metadata_key(role, pub_key_pem, scheme)
     root_obj = taf_repo._repository.root
@@ -122,7 +124,7 @@ def _load_signing_keys(
         # because one of them is
         keystore = Path(keystore)
         # names of keys are expected to be role or role + counter
-        key_names = [f"{role}{counter}"for counter in range(1, signing_keys_num + 1)]
+        key_names = [f"{role}{counter}" for counter in range(1, signing_keys_num + 1)]
         key_names.insert(0, role)
         for key_name in key_names:
             if (keystore / key_name).is_file():
@@ -172,7 +174,7 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
         target_repo_name = target_repo_path.name
         path = targets_dir / target_repo_name
         path.write_text(json.dumps(data, indent=4))
-        print(f'Updated {path}')
+        print(f"Updated {path}")
 
 
 def update_target_repos_from_fs(
@@ -194,7 +196,9 @@ def update_target_repos_from_fs(
     repo_path = Path(repo_path).resolve()
     namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
     targets_directory = root_dir / namespace
-    print(f'Updating target files corresponding to repos located at {targets_directory}')
+    print(
+        f"Updating target files corresponding to repos located at {targets_directory}"
+    )
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     if namespace:
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
@@ -227,8 +231,10 @@ def update_target_repos_from_repositories_json(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
     namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    print(f'Updating target files corresponding to repos located at {(root_dir / namespace)}'
-          'and specified in repositories.json')
+    print(
+        f"Updating target files corresponding to repos located at {(root_dir / namespace)}"
+        "and specified in repositories.json"
+    )
     for repo_name in repositories_json.get("repositories"):
         target_repo_path = root_dir / repo_name
         namespace_and_name = repo_name.rsplit("/", 1)
@@ -547,11 +553,13 @@ def generate_repositories_json(
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     # if targets directory is not specified, assume that target repositories
     # and the authentication repository are in the same parent direcotry
-    namespace, root_dir = print(f'Adding all repositories from {targets_directory}')(repo_path, namespace, root_dir)
+    namespace, root_dir = print(f"Adding all repositories from {targets_directory}")(
+        repo_path, namespace, root_dir
+    )
     targets_directory = root_dir / namespace
     if targets_relative_dir is not None:
         targets_relative_dir = Path(targets_relative_dir).resolve()
-    print(f'Adding all repositories from {targets_directory}')
+    print(f"Adding all repositories from {targets_directory}")
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
             continue
@@ -768,23 +776,28 @@ def update_metadata_expiration_date(
         "targets_yubikey": taf_repo.update_targets,
     }
     loaded_yubikeys = {}
-    keys = _load_signing_keys(taf_repo, role, loaded_yubikeys=loaded_yubikeys,
-                              keystore=keystore, scheme=scheme)
+    keys = _load_signing_keys(
+        taf_repo,
+        role,
+        loaded_yubikeys=loaded_yubikeys,
+        keystore=keystore,
+        scheme=scheme,
+    )
     if len(keys):
         try:
-            update_methods[f'{role}_keystore'](keys[0], start_date, interval)
+            update_methods[f"{role}_keystore"](keys[0], start_date, interval)
         except KeyError:
-            print(f'Cannot update {role} from keystore')
+            print(f"Cannot update {role} from keystore")
     else:
         for serial_num in loaded_yubikeys:
             if "targets" in loaded_yubikeys[serial_num]:
                 pin = yk.get_key_pin(serial_num)
                 try:
-                    update_methods[f'{role}_yubikey'](pin, None, start_date, interval)
+                    update_methods[f"{role}_yubikey"](pin, None, start_date, interval)
                 except KeyError:
-                    print(f'Cannot update {role} using yubikeys')
+                    print(f"Cannot update {role} using yubikeys")
                 break
-    print(f'Updated expiration date of {role}')
+    print(f"Updated expiration date of {role}")
 
     if commit:
         auth_repo = GitRepository(repo_path)

@@ -3,7 +3,6 @@ import taf.developer_tool as developer_tool
 
 
 def attach_to_group(group):
-
     @group.group()
     def keystore():
         pass

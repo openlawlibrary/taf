@@ -19,6 +19,7 @@ def _form_private_pem(pem):
 def _from_public_pem(pem):
     return f"-----BEGIN PUBLIC KEY-----\n{pem}\n-----END PUBLIC KEY-----"
 
+
 def key_cmd_prompt(
     key_name, role, taf_repo, loaded_keys=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
@@ -70,6 +71,7 @@ def new_public_key_cmd_prompt(scheme):
         key = _enter_and_check_key(scheme)
         if key is not None:
             return key
+
 
 def read_private_key_from_keystore(
     keystore,

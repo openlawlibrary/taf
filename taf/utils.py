@@ -92,14 +92,14 @@ def read_input_dict(value):
                 try:
                     value = json.loads(f.read())
                 except json.decoder.JSONDecodeError:
-                    print(f'\nWARNING: {value} is not a valid json!\n')
+                    print(f"\nWARNING: {value} is not a valid json!\n")
                     return {}
 
         else:
             try:
                 value = json.loads(value)
             except json.decoder.JSONDecodeError:
-                print(f'\nWARNING: {value} is not a valid json!\n')
+                print(f"\nWARNING: {value} is not a valid json!\n")
                 return {}
 
     return value

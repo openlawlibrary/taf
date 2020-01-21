@@ -152,7 +152,9 @@ def _get_json_file(auth_repo, path, commit):
     try:
         return auth_repo.get_json(commit, path)
     except CalledProcessError:
-        raise InvalidOrMissingMetadataError(f"{path} not available at revision {commit}")
+        raise InvalidOrMissingMetadataError(
+            f"{path} not available at revision {commit}"
+        )
     except json.decoder.JSONDecodeError:
         raise InvalidOrMissingMetadataError(
             f"{path} not a valid json at revision {commit}"
