@@ -266,7 +266,7 @@ signed with keys stored on disk, it's necessary to provide the keystore path usi
 option.
 
 ```bash
-taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --keystore E:\\OLL\\keystore --commit
+taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --commit
 ```
 
 If the changes should be committed automatically, use the `commit` flag.
