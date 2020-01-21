@@ -61,11 +61,16 @@ from taf.utils import on_rm_error
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET1_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1"
 TARGETS_MISMATCH_ANY = "Mismatch between target commits specified in authentication repository and target repository"
-NO_WORKING_MIRRORS = "Validation of authentication repository auth_repo failed due to error: No working mirror was found"
+NO_WORKING_MIRRORS = f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed due to error: No working mirror was found"
 TIMESTAMP_EXPIRED = "Metadata 'timestamp' expired"
 REPLAYED_METADATA = "ReplayedMetadataError"
+IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
+NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
 METADATA_CHANGED_BUT_SHOULDNT = (
     "Metadata file targets.json should be the same at revisions"
+)
+LAST_VALIDATED_COMMIT_MISMATCH = (
+    "Saved last validated commit {} does not match the head commit"
 )
 
 
@@ -239,9 +244,7 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
         repositories, origin_dir, client_dir, 3
     )
     first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()[0]
-    expected_error = (
-        f"Saved last validated commit {first_commit} does not match the head commit"
-    )
+    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(first_commit)
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_remained_same(
@@ -252,20 +255,18 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-test-repo"]
     origin_dir = origin_dir / "test-updater-test-repo"
-    expected_error = "Repository auth_repo is a test repository."
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, expected_error
+        client_dir, repositories, IS_A_TEST_REPO
     )
 
 
 def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-valid"]
     origin_dir = origin_dir / "test-updater-valid"
-    expected_error = "Repository auth_repo is not a test repository."
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, expected_error, True
+        client_dir, repositories, NOT_A_TEST_REPO, True
     )
 
 

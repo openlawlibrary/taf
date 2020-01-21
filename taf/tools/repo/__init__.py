@@ -167,7 +167,7 @@ def attach_to_group(group):
     @click.argument("clients-auth-path")
     @click.option("--clients-root-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
-                  "calculated based on authentication repository's path.. "
+                  "calculated based on authentication repository's path. "
                   "Authentication repo is persumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
                   "repository from the filesystem")
