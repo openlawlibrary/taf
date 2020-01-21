@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Separated commands into subcommands
+- Use `root-dir` and `namespace` instead of `target-dir` ([96])
+
 ### Fixed
+
+- Fixed init and create repo commands ([96])
+
+
+[96]: https://github.com/openlawlibrary/taf/pull/96
 
 ## [0.2.2] - 01/06/2020
 
