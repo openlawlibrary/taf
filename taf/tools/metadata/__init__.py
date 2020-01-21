@@ -22,8 +22,8 @@ def attach_to_group(group):
         """
         Add a new signing key. This will make it possible to a sign the metadata file
         corresponding to the specified role with another key. Although private keys are
-        used for signing, key indentifiers are calculated based on the public keys. This
-        means that it's necessary to enter the appropriate public in order to register
+        used for signing, key identifiers are calculated based on the public keys. This
+        means that it's necessary to enter the public key in order to register
         a new signing key. Public key can be loaded from a file, in which case it is
         necessary to specify its path as the pub_key parameter's value. If this option
         is not used when calling this command, the key can be directly entered later.
@@ -54,7 +54,7 @@ def attach_to_group(group):
             - 1 in case of timestamp and all other roles
         The updated metadata file is then signed. If the signing key should be loaded from
         the keystore file, it's necessary to specify its path when calling this command. If
-        it is not specified, it will be needed to either enter the signing key directly or
+        that is not the case, it will be needed to either enter the signing key directly or
         sign the file using a yubikey.
         """
         developer_tool.update_metadata_expiration_date(path, role, interval, keystore,

@@ -12,8 +12,8 @@ def attach_to_group(group):
     @click.argument("path")
     @click.argument("keys-description")
     def generate_keys(path, keys_description):
-        """Generate keystore files at save them to the specified location given a dictionary containing
-        information about each role - total number of keys, their lengths and keysore files' passwords. 
+        """Generate keystore files and save them to the specified location given a dictionary containing
+        information about each role - total number of keys, their lengths and keystore files' passwords.
         It is necessary to either directly specify this dictionary when calling this command or
         to provide a path to a `.json` file which contains the needed information.
 
@@ -32,6 +32,6 @@ def attach_to_group(group):
             "timestamp": {}\n
             }\n
 
-        Default number of keys is 1, length 3072 and password is an emtpy string
+        Default number of keys and threshold are 1, length 3072 and password is an emtpy string
         """
         developer_tool.generate_keys(path, keys_description)

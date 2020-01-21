@@ -23,7 +23,7 @@ def attach_to_group(group):
                   "Set to the user home directory by default")
     def setup_signing_key(certs_dir):
         """Generate a new key on the yubikey and set the pin. Export the generated certificate
-        to the specified directory. \n
+        to the specified directory.
         WARNING - this will delete everything from the inserted key.
         """
         developer_tool.setup_signing_yubikey(certs_dir)
@@ -32,6 +32,6 @@ def attach_to_group(group):
     @yubikey.command()
     @click.argument("key-path")
     def setup_test_yubikey(key_path):
-        """Copies the specified key onto the inserted YubiKey \n
+        """Copies the specified key onto the inserted YubiKey
         WARNING - this will reset the inserted key."""
         developer_tool.setup_test_yubikey(key_path)

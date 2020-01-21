@@ -39,17 +39,31 @@ def attach_to_group(group):
                   "the current branch to target files")
     def update_repos_from_fs(path, root_dir, namespace, add_branch):
         """
-        Update target files corresonding to target repositories by traversing through the specified
-        targets directory without signing the metadata files.
+        Update target files corresonding to target repositories by traversing through the root
+        directory. Does not automatically sign the metadata files.
         Note: if repositories.json exists, it is better to call update_repos_from_repositories_json
 
-        Traverses through all git repositories in the targets directory, apart from the authentication
-        repository if it is also in that directory, and creates or updates target files. This means
-        that for each found repository the current top commit and branch (if called with the
-        --add-branch flag) are written to the target corresponding target files. Target files
-        are files inside the authentication repository's target directory. For example, for
-        a target repository namespace1/target1, a file called target1 is created inside
-        the target/namespace1 authentication repo direcotry.
+        Target repositories are expected to be inside a directory whose name is equal to the specified
+        namespace and which is located inside the root directory. If root directory is E:\\examples\\root
+        and namespace is namespace1, target repositories should be in E:\\examples\\root\\namespace1.
+        If the authentication repository and the target repositories are in the same root directory and
+        the authentication repository is also directly inside a namespace directory, then the common root
+        directory is calculated as two repositories up from the authetication repository's directory.
+        Authentication repository's namespace can, but does not have to be equal to the namespace of target,
+        repositories. If the authentication repository's path is E:\\root\\namespace\\auth-repo, root
+        directory will be determined as E:\\root. If this default value is not correct, it can be redefined
+        through the --root-dir option. If the --namespace option's value is not provided, it is assumed
+        that the namespace of target repositories is equal to the authentication repository's namespace,
+        determined based on the repository's path. E.g. Namespace of E:\\root\\namespace2\\auth-repo
+        is namespace2.
+
+        Once the directory containing all target directories is determined, it is traversed through all
+        git repositories in that directory, apart from the authentication repository if it is found.
+        For each found repository the current top commit and branch (if called with the
+        --add-branch flag) are written to the corresponding target files. Target files are files
+        inside the authentication repository's target directory. For example, for a target repository
+        namespace1/target1, a file called target1 is created inside the targets/namespace1 authentication
+        repository's direcotry.
         """
         developer_tool.update_target_repos_from_fs(path, root_dir, namespace, add_branch)
 
@@ -70,12 +84,26 @@ def attach_to_group(group):
         specified in repositories.json which are located inside the specified targets directory without
         signing the metadata files.
 
-        Traverses through all git repositories in the targets directory which are specified
-        in repositories.json and creates or updates target files. This means that for each found
-        repository the current top commit and branch (if called with the --add-branch flag)
-        are written to the target corresponding target files. Target files are files inside the
-        authentication repository's target directory. For example, for a target repository
-        namespace1/target1, a file called target1 is created inside the target/namespace1
+        Target repositories are expected to be inside a directory whose name is equal to the specified
+        namespace and which is located inside the root directory. If root directory is E:\\examples\\root
+        and namespace is namespace1, target repositories should be in E:\\examples\\root\\namespace1.
+        If the authentication repository and the target repositories are in the same root directory and
+        the authentication repository is also directly inside a namespace directory, then the common root
+        directory is calculated as two repositories up from the authetication repository's directory.
+        Authentication repository's namespace can, but does not have to be equal to the namespace of target,
+        repositories. If the authentication repository's path is E:\\root\\namespace\\auth-repo, root
+        directory will be determined as E:\\root. If this default value is not correct, it can be redefined
+        through the --root-dir option. If the --namespace option's value is not provided, it is assumed
+        that the namespace of target repositories is equal to the authentication repository's namespace,
+        determined based on the repository's path. E.g. Namespace of E:\\root\\namespace2\\auth-repo
+        is namespace2.
+
+        Once the directory containing all target directories is determined, it is traversed through all
+        git repositories in that directory which are listed in repositories.json.
+        This means that for each found repository the current top commit and branch (if called with the
+        --add-branch flag) are written to the target corresponding target files. Target files are files
+        inside the authentication repository's target directory. For example, for a target repository
+        namespace1/target1, a file called target1 is created inside the targets/namespace1
         authentication repo direcotry.
         """
         developer_tool.update_target_repos_from_repositories_json(path, root_dir, namespace, add_branch)
