@@ -21,6 +21,7 @@ from taf.keystore import (
     read_public_key_from_keystore,
     new_public_key_cmd_prompt,
 )
+from taf.repository_tool import yubikey_signature_provider
 from taf.log import taf_logger
 from taf.repository_tool import Repository
 from taf.utils import read_input_dict
@@ -245,78 +246,6 @@ def update_target_repos_from_repositories_json(
         _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
 
 
-def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir):
-    from taf.repository_tool import yubikey_signature_provider
-
-    registered = False
-    while not registered:
-        print(f"Registering keys for {key_name}")
-        use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
-
-        if not use_existing:
-            if not click.confirm(
-                "WARNING - this will delete everything from the inserted key. Proceed?"
-            ):
-                continue
-
-        key, serial_num = yk.yubikey_prompt(
-            key_name,
-            role_name,
-            taf_repo=None,
-            registering_new_key=True,
-            creating_new_key=not use_existing,
-            loaded_yubikeys=yubikeys,
-            pin_confirm=True,
-            pin_repeat=True,
-        )
-
-        if not use_existing:
-            key = yk.setup_new_yubikey(serial_num, scheme)
-        export_yk_certificate(certs_dir, key)
-
-        registered = True
-        # set Yubikey expiration date
-        # add_yubikey_external_signature_provider
-        role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-        role_obj.add_external_signature_provider(
-            key, partial(yubikey_signature_provider, key_name, key["keyid"])
-        )
-
-
-def _register_key(
-    keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme, length
-):
-    # if keystore exists, load the keys
-    generate_new_keys = keystore is None
-    if keystore is not None:
-        try:
-            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-            private_key = read_private_key_from_keystore(
-                keystore, key_name, roles_key_info, key_num, scheme
-            )
-        except KeystoreError as e:
-            generate_new_keys = click.confirm(
-                f"Could not load {key_name}. Generate new keys?"
-            )
-            if not generate_new_keys:
-                raise e
-    if generate_new_keys:
-        if keystore is not None and click.confirm("Write keys to keystore files?"):
-            generate_and_write_rsa_keypair(
-                str(Path(keystore) / key_name), bits=length, password=""
-            )
-            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-            private_key = read_private_key_from_keystore(
-                keystore, key_name, roles_key_info, key_num, scheme
-            )
-        else:
-            key = generate_rsa_key(bits=length, scheme=scheme)
-            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-            public_key = private_key = key
-    role_obj.add_verification_key(public_key)
-    role_obj.load_signing_key(private_key)
-
-
 def create_repository(
     repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
@@ -353,46 +282,69 @@ def create_repository(
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
     repository = create_new_repository(repo_path)
 
-    def _register_roles_keys(role_name, key_info, repository):
-        num_of_keys = key_info.get("number", 1)
-        threshold = key_info.get("threshold", 1)
-        is_yubikey = key_info.get("yubikey", False)
-        scheme = key_info.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-        length = key_info.get("length", 3072)
-        role_obj = _role_obj(role_name, repository)
-        role_obj.threshold = threshold
-        for key_num in range(num_of_keys):
-            key_name = _get_key_name(role_name, key_num, num_of_keys)
-            if is_yubikey:
-                _register_yubikey(
-                    yubikeys, role_obj, role_name, key_name, scheme, repo.certs_dir
-                )
+
+    def _sort_roles(key_info, repository):
+        # load keys not stored on YubiKeys first, to avoid entering pins
+        # if there is somethig wrong with keystore files
+        keystore_roles = []
+        yubikey_roles = []
+        for role_name, role_key_info in key_info.items():
+            if not key_info.get("yubikey", False):
+                keystore_roles.append((role_name, role_key_info))
             else:
-                _register_key(
-                    keystore,
-                    key_info,
-                    role_obj,
-                    role_name,
-                    key_name,
-                    key_num,
-                    scheme,
-                    length,
+                yubikey_roles.append((role_name, role_key_info))
+            if 'delegations' in role_key_info:
+                delegated_keystore_role, delegated_yubikey_roles = \
+                    _sort_roles(role_key_info['delegations'], repository)
+                keystore_roles.extend(delegated_keystore_role)
+                yubikey_roles.extend(yubikey_roles)
+        return keystore_roles, yubikey_roles
+
+
+    def _setup_role(role_name, role_keys):
+        role_obj = _role_obj(role_name, repository)
+        threshold = key_info.get("threshold", 1)
+        role_obj.threshold = threshold
+        if not key_info.get("yubikey", False):
+            for public_key, private_key in zip(role_keys[role_name]["verification"], role_keys[role_name]["signing"]):
+                role_obj.add_verification_key(public_key)
+                role_obj.load_signing_key(private_key)
+        else:
+            for key_num, key in enumerate(role_keys[role_name]["verification"]):
+                key_name = _get_key_name(role_name, key_num, len(role_keys))
+                role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
+                role_obj.add_external_signature_provider(
+                    key, partial(yubikey_signature_provider, key_name, key["keyid"])
                 )
 
+    # repository.targets.delegate('role1', [role1_pubkey], [os.path.basename(target3)])
+
+    # load and/or generate all keys first
     try:
         # load keys not stored on YubiKeys first, to avoid entering pins
         # if there is somethig wrong with keystore files
-        for role_name, key_info in roles_key_infos.items():
-            if not key_info.get("yubikey", False):
-                _register_roles_keys(role_name, key_info, repository)
+        keystore_roles, yubikey_roles = _sort_roles(roles_key_infos, repository)
+        role_keys = defaultdict(dict)
 
-        for role_name, key_info in roles_key_infos.items():
-            if key_info.get("yubikey", False):
-                _register_roles_keys(role_name, key_info, repository)
+        for role_name, key_info in keystore_roles:
+            pub_priv_keys = setup_roles_keys(role_name, key_info, repository, keystore=keystore)
+            for public_key, private_key in pub_priv_keys:
+                role_keys[role_name].setdefault("signing", []).append(public_key)
+                role_keys[role_name].setdefault("verification", []).append(public_key)
+
+        for role_name, key_info in yubikey_roles:
+            pub_keys = setup_roles_keys(role_name, key_info, repository, yubikeys=yubikeys)
+            role_keys[role_name]["verification"] = pub_keys
 
     except KeystoreError as e:
         print(f"Creation of repository failed: {e}")
         return
+
+    # set threshold, register keys and create delegations
+    for role_name, role_key_info in roles_key_infos.items():
+        _setup_role(role_name, role_keys)
+
+    _create_delegations(roles_key_infos, role_keys["verification"], repository)
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
@@ -409,6 +361,113 @@ def create_repository(
         auth_repo.init_repo()
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
+
+
+def _create_delegations(roles_key_infos, role_pub_keys, repository):
+    for role_name, role_key_info in roles_key_infos.items():
+        if 'delegations' in role_key_info:
+            parent_role_obj = _role_obj(role_name, repository)
+            delegations_info = role_key_info["delegations"]
+            for delegated_role_name, delegated_role_info in delegations_info.items():
+                path = delegated_role_info.get("path", "")
+                parent_role_obj.delegate(delegated_role_name, role_pub_keys[delegated_role_name], path)
+            _create_delegations(delegations_info, role_pub_keys, repository)
+
+
+def setup_roles_keys(role_name, key_info, repository, keystore=None, yubikeys=None):
+
+    yubikeys_pub_keys = []
+    keystores_pub_keys = []
+
+    num_of_keys = key_info.get("number", 1)
+    is_yubikey = key_info.get("yubikey", False)
+    scheme = key_info.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
+    length = key_info.get("length", 3072)
+    passwords = key_info.get("passwords", None)
+
+    def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
+        while True:
+            print(f"Registering keys for {key_name}")
+            use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
+
+            if not use_existing:
+                if not click.confirm(
+                    "WARNING - this will delete everything from the inserted key. Proceed?"
+                ):
+                    continue
+
+            key, serial_num = yk.yubikey_prompt(
+                key_name,
+                role_name,
+                taf_repo=None,
+                registering_new_key=True,
+                creating_new_key=not use_existing,
+                loaded_yubikeys=yubikeys,
+                pin_confirm=True,
+                pin_repeat=True,
+            )
+
+            if not use_existing:
+                key = yk.setup_new_yubikey(serial_num, scheme)
+            export_yk_certificate(certs_dir, key)
+            return key
+
+    def _setup_keystore_key(
+        keystore, role_name, key_name, key_num, scheme, length, password
+    ):
+        # if keystore exists, load the keys
+        generate_new_keys = keystore is None
+        if keystore is not None:
+            try:
+                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+                private_key = read_private_key_from_keystore(
+                    keystore, key_name, key_num=key_num, scheme=scheme, password=password
+                )
+            except KeystoreError as e:
+                generate_new_keys = click.confirm(
+                    f"Could not load {key_name}. Generate new keys?"
+                )
+                if not generate_new_keys:
+                    raise e
+        if generate_new_keys:
+            if keystore is not None and click.confirm("Write keys to keystore files?"):
+                if password is None:
+                    password = input("Enter keystore password and press ENTER (can be left empty)")
+                generate_and_write_rsa_keypair(
+                    str(Path(keystore) / key_name), bits=length, password=""
+                )
+                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+                private_key = read_private_key_from_keystore(
+                    keystore, key_name, key_num=key_num, scheme=scheme, password=password
+                )
+            else:
+                key = generate_rsa_key(bits=length, scheme=scheme)
+                print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
+                public_key = private_key = key
+
+        return public_key, private_key
+
+    for key_num in range(num_of_keys):
+        key_name = _get_key_name(role_name, key_num, num_of_keys)
+        if is_yubikey:
+            public_key = _setup_yubikey(
+                yubikeys, role_name, key_name, scheme, repository.certs_dir
+            )
+            yubikeys_pub_keys.append(public_key)
+        else:
+            if passwords is not None and len(passwords) > key_num:
+                password = passwords[key_num]
+            public_key, private_key = _setup_keystore_key(
+                keystore,
+                role_name,
+                key_name,
+                key_num,
+                scheme,
+                length,
+                password,
+            )
+            keystores_pub_keys.append((public_key, private_key))
+    return keystores_pub_keys, yubikeys_pub_keys
 
 
 def _enter_roles_infos():
@@ -428,24 +487,31 @@ def _enter_roles_infos():
                 pass
 
     def _enter_role_info(role):
-        role_key_infos[role]["number"] = _read_val(int, f"number of {role} keys")
-        role_key_infos[role]["length"] = _read_val(int, f"{role} key length")
-        role_key_infos[role]["threshold"] = _read_val(
+        info = {}
+        info["number"] = _read_val(int, f"number of {role} keys")
+        info["length"] = _read_val(int, f"{role} key length")
+        info["threshold"] = _read_val(
             int, f"{role} signature threshold"
         )
-        role_key_infos[role]["yubikey"] = click.confirm(
+        info["yubikey"] = click.confirm(
             f"Store {role} keys on Yubikeys?"
         )
-        role_key_infos[role]["scheme"] = _read_val(str, f"{role} signature scheme")
+        info["scheme"] = _read_val(str, f"{role} signature scheme")
+        return info
 
     for role in mandatory_roles:
-        _enter_role_info(role)
+        role_key_infos[role] = _enter_role_info(role)
 
     # delegated targets role
+    delegated_roles = {}
     while click.confirm("Add a delegated targets role?"):
         role_name = input("Enter role name and press ENTER")
         if role_name:
-            _enter_role_info(role_name)
+            delegation_path = input(f"Enter path or glob pattern delegated to {role_name} press ENTER")
+            delegated_roles[role_name] = _enter_role_info(role_name)
+            delegated_roles[role_name]["path"] = delegation_path
+    if len(delegated_roles):
+        role_key_infos["targets"]["delegations"] = delegated_roles
 
     return role_key_infos
 
@@ -705,6 +771,9 @@ def _role_obj(role, repository):
         return repository.timestamp
     elif role == "root":
         return repository.root
+    else:
+        # return delegated role
+        return repository.targets(role)
 
 
 def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
