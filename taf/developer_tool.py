@@ -421,21 +421,27 @@ def _enter_roles_infos():
                     f"Enter {name} and press ENTER. Leave empty to use the default value. "
                 )
                 if not val:
-                    return val
-                return int(val)
+                    return None
+                return input_type(val)
             except ValueError:
                 pass
 
     def _enter_role_info(role):
-        role_key_infos[role]["number"] = _read_val(int, f"number of {role} keys")
-        role_key_infos[role]["length"] = _read_val(int, f"{role} key length")
-        role_key_infos[role]["threshold"] = _read_val(
-            int, f"{role} signature threshold"
-        )
+        keys_num = _read_val(int, f"number of {role} keys")
+        if keys_num is not None:
+            role_key_infos[role]["number"] = keys_num
+        key_length = _read_val(int, f"{role} key length")
+        if key_length is not None:
+            role_key_infos[role]["length"] = key_length
+        threshold = _read_val(int, f"{role} signature threshold")
+        if threshold is not None:
+            role_key_infos[role]["threshold"] = threshold
         role_key_infos[role]["yubikey"] = click.confirm(
             f"Store {role} keys on Yubikeys?"
         )
-        role_key_infos[role]["scheme"] = _read_val(str, f"{role} signature scheme")
+        scheme = _read_val(str, f"{role} signature scheme")
+        if scheme is not None:
+            role_key_infos[role]["scheme"] = scheme
 
     for role in mandatory_roles:
         _enter_role_info(role)
