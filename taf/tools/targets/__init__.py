@@ -18,7 +18,7 @@ def attach_to_group(group):
         """
         Register and sign target files. This means that the targets metadata file
         is updated by adding or editing information about all target files located
-        inside the targets directory of the authenticatino repository. Once the targets
+        inside the targets directory of the authentication repository. Once the targets
         file is updated, so are snapshot and timestamp. All files are signed. If the
         keystore parameter is provided, keys stored in that directory will be used for
         signing. If a needed key is not in that directory, the file can either be signed
@@ -31,7 +31,7 @@ def attach_to_group(group):
     @click.option("--root-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
-                  "Authentication repo is persumed to be at root-dir/namespace/auth-repo-name")
+                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")
@@ -39,7 +39,7 @@ def attach_to_group(group):
                   "the current branch to target files")
     def update_repos_from_fs(path, root_dir, namespace, add_branch):
         """
-        Update target files corresonding to target repositories by traversing through the root
+        Update target files corresponding to target repositories by traversing through the root
         directory. Does not automatically sign the metadata files.
         Note: if repositories.json exists, it is better to call update_repos_from_repositories_json
 
@@ -48,7 +48,7 @@ def attach_to_group(group):
         and namespace is namespace1, target repositories should be in E:\\examples\\root\\namespace1.
         If the authentication repository and the target repositories are in the same root directory and
         the authentication repository is also directly inside a namespace directory, then the common root
-        directory is calculated as two repositories up from the authetication repository's directory.
+        directory is calculated as two repositories up from the authentication repository's directory.
         Authentication repository's namespace can, but does not have to be equal to the namespace of target,
         repositories. If the authentication repository's path is E:\\root\\namespace\\auth-repo, root
         directory will be determined as E:\\root. If this default value is not correct, it can be redefined
@@ -72,7 +72,7 @@ def attach_to_group(group):
     @click.option("--root-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
-                  "Authentication repo is persumed to be at root-dir/namespace/auth-repo-name")
+                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")
@@ -80,7 +80,7 @@ def attach_to_group(group):
                   "the current branch to target files")
     def update_repos_from_repositories_json(path, root_dir, namespace, add_branch):
         """
-        Update target files corresonding to target repositories by traversing through repositories
+        Update target files corresponding to target repositories by traversing through repositories
         specified in repositories.json which are located inside the specified targets directory without
         signing the metadata files.
 
@@ -89,7 +89,7 @@ def attach_to_group(group):
         and namespace is namespace1, target repositories should be in E:\\examples\\root\\namespace1.
         If the authentication repository and the target repositories are in the same root directory and
         the authentication repository is also directly inside a namespace directory, then the common root
-        directory is calculated as two repositories up from the authetication repository's directory.
+        directory is calculated as two repositories up from the authentication repository's directory.
         Authentication repository's namespace can, but does not have to be equal to the namespace of target,
         repositories. If the authentication repository's path is E:\\root\\namespace\\auth-repo, root
         directory will be determined as E:\\root. If this default value is not correct, it can be redefined

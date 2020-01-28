@@ -10,6 +10,7 @@ from taf.git import GitRepository, NamedGitRepository
 class AuthRepoMixin(object):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
+    TEST_REPO_FLAG_FILE = "test-auth-repo"
 
     @property
     def conf_dir(self):

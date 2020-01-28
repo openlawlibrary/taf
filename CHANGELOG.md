@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Separated commands into subcommands
+- Separated commands into sub-commands ([96])
 - Use `root-dir` and `namespace` instead of `target-dir` ([96])
 
 ### Fixed

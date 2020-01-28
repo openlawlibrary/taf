@@ -280,7 +280,7 @@ def create_repository(
             return
 
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-    repository = create_new_repository(repo_path)
+    repository = create_new_repository(repo.repo_path)
 
 
     def _sort_roles(key_info, repository):
@@ -334,11 +334,12 @@ def create_repository(
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
-        target_paths = Path(repo_path) / "targets"
-        test_auth_file = target_paths / "test-auth-repo"
+        test_auth_file = (
+            Path(repo.repo_path, repo.targets_path) / repo.TEST_REPO_FLAG_FILE
+        )
         test_auth_file.touch()
         targets_obj = _role_obj("targets", repository)
-        targets_obj.add_target(str(test_auth_file))
+        targets_obj.add_target(repo.TEST_REPO_FLAG_FILE)
 
     repository.writeall()
     print("Created new authentication repository")
@@ -474,23 +475,27 @@ def _enter_roles_infos():
                     f"Enter {name} and press ENTER. Leave empty to use the default value. "
                 )
                 if not val:
-                    return val
-                return int(val)
+                    return None
+                return input_type(val)
             except ValueError:
                 pass
 
     def _enter_role_info(role):
-        info = {}
-        info["number"] = _read_val(int, f"number of {role} keys")
-        info["length"] = _read_val(int, f"{role} key length")
-        info["threshold"] = _read_val(
-            int, f"{role} signature threshold"
-        )
-        info["yubikey"] = click.confirm(
+        keys_num = _read_val(int, f"number of {role} keys")
+        if keys_num is not None:
+            role_key_infos[role]["number"] = keys_num
+        key_length = _read_val(int, f"{role} key length")
+        if key_length is not None:
+            role_key_infos[role]["length"] = key_length
+        threshold = _read_val(int, f"{role} signature threshold")
+        if threshold is not None:
+            role_key_infos[role]["threshold"] = threshold
+        role_key_infos[role]["yubikey"] = click.confirm(
             f"Store {role} keys on Yubikeys?"
         )
-        info["scheme"] = _read_val(str, f"{role} signature scheme")
-        return info
+        scheme = _read_val(str, f"{role} signature scheme")
+        if scheme is not None:
+            role_key_infos[role]["scheme"] = scheme
 
     for role in mandatory_roles:
         role_key_infos[role] = _enter_role_info(role)
@@ -539,6 +544,7 @@ def export_yk_certificate(certs_dir, key):
 
 
 def _get_namespace_and_root(repo_path, namespace, root_dir):
+    repo_path = Path(repo_path)
     if namespace is None:
         namespace = repo_path.parent.name
     if root_dir is None:
