@@ -358,8 +358,10 @@ def _create_delegations(roles_key_infos, repository, verification_keys, signing_
                 path = delegated_role_info.get("path", "")
                 roles_verification_keys = verification_keys[delegated_role_name]
                 roles_signing_keys = signing_keys[delegated_role_name]
-                parent_role_obj.delegate(delegated_role_name, roles_verification_keys, [path])
                 threshold = delegated_role_info.get("threshold", 1)
+                terminating = delegated_role_info.get("terminating", False)
+                parent_role_obj.delegate(delegated_role_name, roles_verification_keys, [path],
+                                         threshold=threshold, terminating=terminating)
                 is_yubikey = delegated_role_info.get("yubikey", False)
                 _setup_role(delegated_role_name, threshold, is_yubikey, repository,
                             roles_verification_keys, roles_signing_keys)
@@ -505,10 +507,11 @@ def _enter_roles_infos():
             delegated_roles = defaultdict(dict)
             while click.confirm(f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"):
                 role_name = _read_val(str, "role name", True)
-                if role_name:
-                    delegation_path = _read_val(str, f"path or glob pattern delegated to {role_name}", True)
-                    delegated_roles[role_name]["path"] = delegation_path
-                    delegated_roles[role_name].update(_enter_role_info(role_name, True))
+                delegation_path = _read_val(str, f"path or glob pattern delegated to {role_name}", True)
+                delegated_roles[role_name]["path"] = delegation_path
+                is_terminating = click.confirm(f"Is {role_name} terminating?")
+                delegated_roles[role_name]["terminating"] = is_terminating
+                delegated_roles[role_name].update(_enter_role_info(role_name, True))
             role_info["delegations"] = delegated_roles
         return role_info
 
