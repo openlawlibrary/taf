@@ -355,12 +355,12 @@ def _create_delegations(roles_key_infos, repository, verification_keys, signing_
             parent_role_obj = _role_obj(role_name, repository)
             delegations_info = role_key_info["delegations"]
             for delegated_role_name, delegated_role_info in delegations_info.items():
-                path = delegated_role_info.get("path", "")
+                paths = delegated_role_info.get("paths", [])
                 roles_verification_keys = verification_keys[delegated_role_name]
                 roles_signing_keys = signing_keys[delegated_role_name]
                 threshold = delegated_role_info.get("threshold", 1)
                 terminating = delegated_role_info.get("terminating", False)
-                parent_role_obj.delegate(delegated_role_name, roles_verification_keys, [path],
+                parent_role_obj.delegate(delegated_role_name, roles_verification_keys, paths,
                                          threshold=threshold, terminating=terminating)
                 is_yubikey = delegated_role_info.get("yubikey", False)
                 _setup_role(delegated_role_name, threshold, is_yubikey, repository,
@@ -507,8 +507,10 @@ def _enter_roles_infos():
             delegated_roles = defaultdict(dict)
             while click.confirm(f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"):
                 role_name = _read_val(str, "role name", True)
-                delegation_path = _read_val(str, f"path or glob pattern delegated to {role_name}", True)
-                delegated_roles[role_name]["path"] = delegation_path
+                delegated_paths = []
+                while not len(delegated_paths) or click.confirm("Enter another path?"):
+                    delegated_paths.append(_read_val(str, f"path or glob pattern delegated to {role_name}", True))
+                delegated_roles[role_name]["paths"] = delegated_paths
                 is_terminating = click.confirm(f"Is {role_name} terminating?")
                 delegated_roles[role_name]["terminating"] = is_terminating
                 delegated_roles[role_name].update(_enter_role_info(role_name, True))
