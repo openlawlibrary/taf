@@ -282,7 +282,6 @@ def create_repository(
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
     repository = create_new_repository(repo.repo_path)
 
-
     def _sort_roles(key_info, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
         # if there is somethig wrong with keystore files
@@ -468,48 +467,53 @@ def _enter_roles_infos():
     mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
     role_key_infos = defaultdict(dict)
 
-    def _read_val(input_type, name):
+    def _read_val(input_type, name, required=False):
+        default_value_msg = "Leave empty to use the default value. " if not required else ""
         while True:
             try:
                 val = input(
-                    f"Enter {name} and press ENTER. Leave empty to use the default value. "
+                    f"Enter {name} and press ENTER. {default_value_msg}"
                 )
                 if not val:
-                    return None
+                    if not required:
+                        return None
+                    else:
+                        continue
                 return input_type(val)
             except ValueError:
                 pass
 
-    def _enter_role_info(role):
+    def _enter_role_info(role, is_targets_role):
+        role_info = {}
         keys_num = _read_val(int, f"number of {role} keys")
         if keys_num is not None:
-            role_key_infos[role]["number"] = keys_num
+            role_info["number"] = keys_num
         key_length = _read_val(int, f"{role} key length")
         if key_length is not None:
-            role_key_infos[role]["length"] = key_length
+            role_info["length"] = key_length
         threshold = _read_val(int, f"{role} signature threshold")
         if threshold is not None:
-            role_key_infos[role]["threshold"] = threshold
-        role_key_infos[role]["yubikey"] = click.confirm(
+            role_info["threshold"] = threshold
+        role_info["yubikey"] = click.confirm(
             f"Store {role} keys on Yubikeys?"
         )
         scheme = _read_val(str, f"{role} signature scheme")
         if scheme is not None:
-            role_key_infos[role]["scheme"] = scheme
+            role_info["scheme"] = scheme
+
+        if is_targets_role:
+            delegated_roles = defaultdict(dict)
+            while click.confirm(f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"):
+                role_name = _read_val(str, "role name", True)
+                if role_name:
+                    delegation_path = _read_val(str, f"path or glob pattern delegated to {role_name}", True)
+                    delegated_roles[role_name]["path"] = delegation_path
+                    delegated_roles[role_name].update(_enter_role_info(role_name, True))
+            role_info["delegations"] = delegated_roles
+        return role_info
 
     for role in mandatory_roles:
-        role_key_infos[role] = _enter_role_info(role)
-
-    # delegated targets role
-    delegated_roles = {}
-    while click.confirm("Add a delegated targets role?"):
-        role_name = input("Enter role name and press ENTER")
-        if role_name:
-            delegation_path = input(f"Enter path or glob pattern delegated to {role_name} press ENTER")
-            delegated_roles[role_name] = _enter_role_info(role_name)
-            delegated_roles[role_name]["path"] = delegation_path
-    if len(delegated_roles):
-        role_key_infos["targets"]["delegations"] = delegated_roles
+        role_key_infos[role] = _enter_role_info(role, role=="targets")
 
     return role_key_infos
 
