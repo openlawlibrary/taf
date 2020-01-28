@@ -351,7 +351,7 @@ def create_repository(
             return
 
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-    repository = create_new_repository(repo_path)
+    repository = create_new_repository(repo.repo_path)
 
     def _register_roles_keys(role_name, key_info, repository):
         num_of_keys = key_info.get("number", 1)
@@ -396,8 +396,7 @@ def create_repository(
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
-        target_paths = Path(repo_path) / "targets"
-        test_auth_file = target_paths / "test-auth-repo"
+        test_auth_file = Path(repo.targets_path) / "test-auth-repo"
         test_auth_file.touch()
         targets_obj = _role_obj("targets", repository)
         targets_obj.add_target(str(test_auth_file))
@@ -480,6 +479,7 @@ def export_yk_certificate(certs_dir, key):
 
 
 def _get_namespace_and_root(repo_path, namespace, root_dir):
+    repo_path = Path(repo_path)
     if namespace is None:
         namespace = repo_path.parent.name
     if root_dir is None:

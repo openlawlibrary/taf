@@ -29,7 +29,7 @@ def attach_to_group(group):
 
     @yubikey.command()
     @click.argument("key-path")
-    def setup_test_yubikey(key_path):
+    def setup_test_key(key_path):
         """Copies the specified key onto the inserted YubiKey
         WARNING - this will reset the inserted key."""
         developer_tool.setup_test_yubikey(key_path)

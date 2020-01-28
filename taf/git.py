@@ -24,7 +24,7 @@ class GitRepository(object):
       additional_info: a dictionary containing other data (optional)
       default_branch: repository's default branch
     """
-        self.repo_path = str(repo_path)
+        self.repo_path = str(Path(repo_path).resolve())
         self.default_branch = default_branch
         if repo_urls is not None:
             if settings.update_from_filesystem is False:
