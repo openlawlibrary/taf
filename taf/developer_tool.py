@@ -396,10 +396,10 @@ def create_repository(
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
-        test_auth_file = Path(repo.targets_path) / "test-auth-repo"
+        test_auth_file = Path(repo.repo_path, repo.targets_path) / repo.TEST_REPO_FLAG_FILE
         test_auth_file.touch()
         targets_obj = _role_obj("targets", repository)
-        targets_obj.add_target(str(test_auth_file))
+        targets_obj.add_target(repo.TEST_REPO_FLAG_FILE)
 
     repository.writeall()
     print("Created new authentication repository")

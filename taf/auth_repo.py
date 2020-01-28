@@ -10,6 +10,7 @@ from taf.git import GitRepository, NamedGitRepository
 class AuthRepoMixin(object):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
+    TEST_REPO_FLAG_FILE = "test-auth-repo"
 
     @property
     def conf_dir(self):
@@ -174,8 +175,8 @@ class AuthenticationRepo(AuthRepoMixin, GitRepository):
         default_branch="master",
     ):
         super().__init__(repo_path, repo_urls, additional_info, default_branch)
-        self.targets_path = str(Path(self.repo_path, targets_path))
-        self.metadata_path = str(Path(self.repo_path, metadata_path))
+        self.targets_path = targets_path
+        self.metadata_path = metadata_path
 
 
 class NamedAuthenticationRepo(AuthRepoMixin, NamedGitRepository):
@@ -193,5 +194,5 @@ class NamedAuthenticationRepo(AuthRepoMixin, NamedGitRepository):
         super().__init__(
             root_dir, repo_name, repo_urls, additional_info, default_branch
         )
-        self.targets_path = str(Path(self.repo_path, targets_path))
-        self.metadata_path = str(Path(self.repo_path, metadata_path))
+        self.targets_path = targets_path
+        self.metadata_path = metadata_path
