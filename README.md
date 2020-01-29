@@ -44,6 +44,12 @@ Install extra dependencies when using _Yubikey_:
 pip install taf[yubikey]
 ```
 
+Add bash completion:
+
+1. copy `taf-complete.sh` to user's directory
+1. add `source ./taf-complete.sh` to `~/.bash_profile` or `~/.bashrc`
+1. source `~/.bash_profile`
+
 ## Development Setup
 
 We are using [pre-commit](https://pre-commit.com/) to run _black_ code formatter, _flake8_ and _bandit_ code quality checks.
@@ -70,7 +76,7 @@ pytest
 To run tests with real Yubikey:
 
 1. Insert **test** Yubikey
-2. Run `taf setup_test_yubikey`
+2. Run `taf setup_test_key`
    WARNING: This command will import targets private key to signature slot of your Yubikey, as well as new self-signed x509 certificate!
 3. Run `REAL_YK=True pytest` or `set REAL_YK=True pytest` depending on platform.
 

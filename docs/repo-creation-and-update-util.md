@@ -4,48 +4,47 @@ TAF provides a number of commands for creating and updating the authentication r
 Some of them focus on creation and initial setup of the repositories, while the others
 provide an easy way of updating information about target repositories.
 
+## Arguments
+
+Most commands have just one required argument, and that is authentication repository's path.
+All other input parameters have default values or can be calculated based on this path, like
+root directory and namespace.
 
 ## Options
 
 The commands have similar options, most complex of which will be described in more detail
 in the following sections.
 
-### `repo-path`
+### `root-dir` and `namespace`
 
-Location on disk of the authentication repository. If the command creates the repository, the
-specified directory should not already exist.
+Root directory. All target repositories are expected to be inside this repository, either directly
+or inside a directory which is directly inside the root directory. That is, if names of targets
+are not namespace prefixed, they are expected to be directly inside the root directory. Otherwise,
+it is assumed that they are in a directory whose name corresponds to their namespace. For example,
+if root directory is `E:\example` and namespace of the target repositories is `namespace1`,
+these repositories are expected to be in `E:\example\namespace1` directory.
+Unless these two parameters are explicitly set, they are determined based on authentication
+repository's path, which is a required argument of all commands that have `root-dir` and `namespace`
+options. It is assumed that the authentication repository is also inside a namespace directory.
+By default, namespace is set to the authentication repository's namespace and `root-dir` to
+the namespace directory's parent directory. If authentication repository's path is
+`E:\example\namespace2\auth-repo`, `namespace` is set to `namespace2` and `root-dir` to
+`E:\example`. If any of these assumentions is not correct (authentication and target repositoris
+do not have the same namespace authentication repository is at a completely different location),
+it is necessary to set root directory and namespace manually throug h`root-dir` and `namespace`
+options.
 
-### `targets-dir`
-
-A local directory where the target repositories are located. All target repositories are expected
-to be in the same directory and that directory should not contain any additional content. Below
-is an example of a valid `targets-dir` path.
-
-```
-E:\OLL\repos\target_repos
-|-- TargetRepository1
-|-- TargetRepository2
-|-- TargetRepository3
-```
-
-In this example, `TargetRepository1`, `TargetRepository2` and `TargetRepository3` are expected to be
-git repositories. All of them will be threated as target repositories. A future improvement of the tool
-could make this more flexible.
-
-### `namespace`
-
-Namespace of the target repositories. Names of the repositories are determined based on their paths
-are equal to names of the last directories on those paths. The provided namespace is combined with the
-determined repository name to form a name which is used to identify that repository in `repositories.json` and
-to create a target file inside `targets` directory corresponding to the target repository. If a repository's
-namespaced name is `namespace/TargetRepository`, a the target file will be called `TargetRepository` and
-placed inside a `namespace` directory inside `targets`. Namespace can be left empty. In that case the
+Full names of target repositories combine their namespace and name. These names
+are used as keys in `repositories.json` and to create a target files inside `targets` directory
+corresponding to the targets repository. If a repository's namespaced name is
+`namespace/TargetRepository`, a the target file will be called `TargetRepository` and
+placed inside `namespace` directory inside `targets`. Namespace can be left empty. In that case the
 target file will be directly inside `targets`.
 
 ### `targets-rel-dir`
 
-This option is used when generating `repositories.json`. More precisely, for determining the repository's
-url. If a repository does not have a remote set, the url
+This option is used when generating `repositories.json`. More precisely, for determining the
+repository's url. If a repository does not have a remote set, the url
 which is to be saved in `repositories.json` is set based on the target repository's path on the filesystem.
 If `targets-rel-dir` is specified, the url is calculated as the repository's path relative to this path.
 It is useful when creating test repositories, when we do not want to use absolute paths. Since
@@ -70,10 +69,6 @@ belongs to. With that in mind, here is an example of this option's value.
 In this example it is specified that target repository `namespace/TargetRepo2` should have a custom property
 called `allow-unauthenticated-commits` which is set to `true`.
 
-
-### `keystore`
-
-Location of the keystore files.
 
 ### `keys-description`
 
@@ -119,68 +114,101 @@ If a property is omitted from the specification, it will have the default value.
 The `keys-description` option can either directly contain the described json, or be a path to a file
 which contains it.
 
-### `targets-key`
+### `scheme`
 
-None of the commands require usage of YubiKeys, but if the `keystore` option is not used, a user
-is expected to either directly enter keys and/or use YubiKeys for signing.
+Many commands have the `scheme` optional parameter. It represents the signature scheme.
+`rsa-pkcs1v15-sha256` is used by default.
 
 ## Commands
 
-### `generate_keys`
+Commands are separated into several subcomands:
+- `keystore`, containing commands for generating keystore files.
+- `metadata`, containing commands for adding a new signing key and updating a metadata file's expiration date.
+- `repo`, containing commands for creating and updating new authentication repositories.
+- `targets`, containing commands for updating target files (files in the `targets` directory of the authentication repository), as well for signing `targets.json` metadata file.
+- `yubikey`, containing commands for setting up a new Yubikey and exporting public keys from Yubikeys
+
+Here are some of the most important commands. Use the `--help` flag to see more information
+about the commands. E.g. `taf repo create --help`.
+
+### `keystore generate_keys`
 
 Generates and write rsa keypairs. Number of keys to generate per a metadata role, as well as their
 lengths and passwords of the keystore files are specified using the `keys-description` parameter.
 
+```bash
+taf keystore generate E:\\OLL\\keystore_path  E:\\OLL\\data\\keys_description.json
 ```
-taf generate_keys --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json
-```
-The generated keys files will be saved to `E:\OLL\keystore`
 
-### `create_repo`
+The generated keys files will be saved to `E:\OLL\keystore_path`
+
+### `repo create`
 
 This command can be used to generate the initial authentication repository. The initial version
 of all metadata files are created, but no targets are added.
 
-```
-taf create_repo --repo-path E:\OLL\auth_repo --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json
-```
-
-will generate a new authentication repository at `E:\OLL\auth_repo` and sign it with the keys
-read from the specified keystore. If a key is password protected, its password is read
-from json specified using `--keys-description`.
-
-The generated files and folders will automatically be committed if `commit-msg` argument is provided. If the
-new repository is only be meant to be used for testing, use `--test` flag. This will create a special target file
-called `test-auth-repo`. For example:
-
-```
-taf create_repo --repo-path E:\OLL\auth_repo --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json --commit-msg "Initial commit" --test
+```bash
+taf repo create E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --commit --test
 ```
 
-### `update_repos_from_fs`
+will generate a new authentication repository at `E:\OLL\auth_repo_path`. There are several options
+for signing metadata files - from keystore, by directly entering the key when prompted and by using
+Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
+when calling this command.
 
-Creates or updates target files. Given a directory where the target repositories are located,
-traverses though all directories in that root directory, assuming that each child directory is
-a target repository, and determines the current HEAD SHA. The found SHAs are saved to target files.
+The generated files and folders will automatically be committed if `--commit` flag is present. If the
+new repository is only be meant to be used for testing, use `--test` flag. This will create a special
+target file called `test-auth-repo`. For example:
 
-If the targets directory has the following content
+### `targets update_repos_from_fs`
+
+Update target files corresonding to target repositories by traversing through the root
+directory. Does not automatically sign the metadata files.
+Note: if repositories.json exists, it is better to call update_repos_from_repositories_json
+
+Target repositories are expected to be inside a directory whose name is equal to the specified
+namespace and which is located inside the root directory. If root directory is `E:\examples\\root`
+and namespace is namespace1, target repositories should be in `E:\examples\root\namespace1`.
+If the authentication repository and the target repositories are in the same root directory and
+the authentication repository is also directly inside a namespace directory, then the commoroot
+directory is calculated as two repositories up from the authetication repository's directory.
+Authentication repository's namespace can, but does not have to be equal to the namespace otarget,
+repositories. If the authentication repository's path is `E:\root\namespace\auth-repo`, root
+directory will be determined as `E:\root`. If this default value is not correct, it can bredefined
+through the --root-dir option. If the --namespace option's value is not provided, it is assumed
+that the namespace of target repositories is equal to the authentication repository's namespace,
+determined based on the repository's path. E.g. Namespace of `E:\root\namespace2\auth-repo`
+is `namespace2`.
+
+Once the directory containing all target directories is determined, it is traversed through all
+git repositories in that directory, apart from the authentication repository if it is found.
+For each found repository the current top commit and branch (if called with the
+--add-branch flag) are written to the corresponding target files. Target files are files
+inside the authentication repository's target directory. For example, for a target repository
+namespace1/target1, a file called target1 is created inside the targets/namespaceauthentication
+repository's direcotry.
+
+For example, let's say that we have the following repositories:
 
  ```
-E:\OLL\repos\target_repos\namespace
+E:\OLL\example\namespace
 |-- TargetRepository1
 |-- TargetRepository2
 |-- TargetRepository3
-```
-and if the command is called as follows
-
-```
-taf update_repos_from_fs  --repo-path E:\OLL\auth_repo --targets-dir E:\OLL\repos\target_repos\namespace --namespace namespace
+|-- AuthenticationRepository
 ```
 
-three target files will be created or updated. The resulting directory structure will be as seen below:
+If we call the command as follows
+
+```bash
+taf targets update_repos_from_fs E:\\OLL\\examples\\auth_repo --add-branch
+```
+
+there is no need to directly set `namespace` and `root-dir` and  three target files will be created or
+updated. The resulting directory structure will be as seen below:
 
 ```
-E:\OLL\auth_repo
+E:\OLL\example\namespace\AuthenticationRepository
 |-- targets
      |-- namespace
          |-- TargetsRepository1
@@ -188,57 +216,82 @@ E:\OLL\auth_repo
          |-- TargetsRepository3
 ```
 
-Since namespace is specified, a directory of that name will be created inside the `targets` directory.
-For each target repository, a target file of the same name is created and populated with the repository's
-current head SHA. For example,
+A directory named after the repositories' namespace will be created inside the `targets` directory.
+For each target repository, a target file of the same name is created and populated with the
+repository's current head SHA. For example,
 
 ```
 {
-    "commit": "248f82dbd2a2ba3555d0803b0377c1065d5b03d9"
+    "commit": "248f82dbd2a2ba3555d0803b0377c1065d5b03d9",
+    "branch": "branch1"
 }
 ```
 
-This command does not update the metadata files.
+On the other hand, if we have a directory structure like this:
 
-### `update_repos_from_repositories_json`
-
-Creates or updates target files by iterating repositories from `repositories.json`. Saves the target repository's HEAD SHA to the corresponding file under targets directory.
-
-```
-taf update_repos_from_repositories_json  --repo-path E:\OLL\auth_repo
-```
-
-This command does not update the metadata files.
-
-### `sign_targets`
-
-This command registers the target files. This assumes that the target files
-were previously updated. It traverses through all files found inside the
-`targets` directory and updates the `targets` metadata file based on their
-content. Once the `targets` file is updated, so are `snapshot` and `timestamp`.
-
-```
-taf sign_targets --repo-path E:\OLL\auth_rpeo --keystore E:\OLL\keystore --keystore E:\OLL\keystore --keys-description E:\OLL\data\keys.json --commit-msg "Updated targets" --scheme signature_scheme
+ ```
+E:\OLL\example
+    |--namespace1
+        |-- TargetRepository1
+        |-- TargetRepository2
+        |-- TargetRepository3
+    |--namespace2
+        |-- AuthenticationRepository
 ```
 
-If `commit-msg` is specified, changes will be automatically committed, with the commit message being this
-argument's value. `scheme` is another optional argument and represents the signature scheme. `rsa-pkcs1v15-sha256`
-is used by default.
-
-### `update_expiration_date`
-
-This command updates an expiration date of a given role's metadata file. It is used when a private key (without PEM header and footer) is kept in an environment variable.
+to get the same end result as in the previous case, the command would be called like this:
 
 ```bash
-taf update_expiration_date --repo-path ./law --role snapshot --key $SNAPSHOT_KEY --interval 5
+taf targets update_repos_from_fs E:\\OLL\\examples\\auth_repo --namespace namespace1 --add-branch
 ```
 
-### `update_expiration_date_keystore`
+That is because the authentication repository and the target repositories share are in the same
+root directory, but do not have the same namespace.
 
-This command updates an expiration date of a given role's metadata file. It is used when a private key (without PEM header and footer) is kept in a file on a disk (keystore).
+### `targets update_repos_from_repositories_json`
+
+This command is very similar to the previous command, but it will only update target files
+corresponding to repositories which are listed in `repositories.json`.
+
+It is recommended to use this command if `repositories.json` exists.
+
+### `targets sign`
+
+This command registers the target files and signs updated metadata files. This assumes that
+the target files were previously updated. It traverses through all files found inside the `targets`
+directory and updates the `targets` metadata file based on their content. Once the `targets` file
+is updated, so are `snapshot` and `timestamp`. Metada files can be signed using the keystore files,
+Yubikeys or by directly entering keys. If one or more of the mentioned metadata files should be
+signed with keys stored on disk, it's necessary to provide the keystore path using the `keystore`
+option.
 
 ```bash
-taf update_expiration_date_keystore --repo-path ./law --role timestamp --interval 5
+taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --commit
 ```
 
-After the command is called, user is prompted to enter password used to decrypt the keystore file.
+If the changes should be committed automatically, use the `commit` flag.
+
+
+### `metadata update_expiration_date`
+
+This command updates expiration date of the given role's metadata file. The metadata file
+can be signed by directly entering the key when prompted to do so, by loading the key
+from disk or from a Yubikey. If key shoudl be loaded from disk, it is necessary to specify
+the keystore path using the `keystore` option. The new expiration date is calculated by
+adding interval to the start date, both of which can be specified when calling this command.
+By default, start date is today's date, while interval depends on the role and is:
+
+- 365 in case of root
+- 90  in case of targets
+- 7 in case of shapshot
+- 1 in case of timestamp and all other roles
+
+If the changes should be automatically committed, use the `commit` flag.
+
+For example:
+
+```bash
+taf metadata update_expiration_date E:\\OLL\\auth_rpeo snapshot --interval 5 --commit
+```
+This will set the new expiration date of the snapshot role to 5 days after the current date
+and automatically commit the changes.

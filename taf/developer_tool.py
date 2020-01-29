@@ -11,18 +11,6 @@ import click
 import securesystemslib
 import securesystemslib.exceptions
 import tuf.repository_tool
-from taf.auth_repo import AuthenticationRepo
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError
-from taf.git import GitRepository
-from taf.keystore import (
-    key_cmd_prompt,
-    read_private_key_from_keystore,
-    read_public_key_from_keystore,
-)
-from taf.log import taf_logger
-from taf.repository_tool import Repository
-from taf.utils import read_input_dict
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
@@ -30,6 +18,20 @@ from tuf.repository_tool import (
     generate_and_write_rsa_keypair,
     generate_rsa_key,
 )
+
+from taf.auth_repo import AuthenticationRepo
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import KeystoreError
+from taf.git import GitRepository
+from taf.keystore import (
+    key_cmd_prompt,
+    new_public_key_cmd_prompt,
+    read_private_key_from_keystore,
+    read_public_key_from_keystore,
+)
+from taf.log import taf_logger
+from taf.repository_tool import Repository
+from taf.utils import read_input_dict
 
 try:
     import taf.yubikey as yk
@@ -43,7 +45,9 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 )
 
 
-def add_signing_key(repo_path, role, pub_key_path):
+def add_signing_key(
+    repo_path, role, pub_key_path=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+):
     """
     Adds a new signing key. Currently assumes that all relevant keys are stored on yubikeys.
     Allows us to add a new targets key for example
@@ -51,8 +55,16 @@ def add_signing_key(repo_path, role, pub_key_path):
     from taf.repository_tool import yubikey_signature_provider
 
     taf_repo = Repository(repo_path)
-    pub_key_pem = Path(pub_key_path).read_text()
-    taf_repo.add_metadata_key(role, pub_key_pem, DEFAULT_RSA_SIGNATURE_SCHEME)
+    pub_key_pem = None
+    if pub_key_path is not None:
+        pub_key_path = Path(pub_key_path)
+        if pub_key_path.is_file():
+            pub_key_pem = Path(pub_key_path).read_text()
+
+    if pub_key_pem is None:
+        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+
+    taf_repo.add_metadata_key(role, pub_key_pem, scheme)
     root_obj = taf_repo._repository.root
     threshold = root_obj.threshold
     keys_num = len(root_obj.keys)
@@ -107,46 +119,46 @@ def _load_signing_keys(
     all_loaded = False
     num_of_signatures = 0
     keys = []
-    # check if keystore exists and if there is a file corresponding to this role
-    load_from_keystore = False
     if keystore is not None:
+        # try loading files from the keystore first
+        # does not assume that all keys of a role are stored in keystore files just
+        # because one of them is
         keystore = Path(keystore)
         # names of keys are expected to be role or role + counter
-        counter = "" if signing_keys_num == 1 else "1"
-        if (keystore / f"{role}{counter}").is_file():
-            load_from_keystore = True
+        key_names = [f"{role}{counter}" for counter in range(1, signing_keys_num + 1)]
+        key_names.insert(0, role)
+        for key_name in key_names:
+            if (keystore / key_name).is_file():
+                key = read_private_key_from_keystore(
+                    keystore, key_name, role_key_infos, num_of_signatures, scheme
+                )
+                keys.append(key)
+                num_of_signatures += 1
 
     while not all_loaded and num_of_signatures < signing_keys_num:
         if signing_keys_num == 1:
             key_name = role
         else:
             key_name = f"{role}{num_of_signatures + 1}"
-        if load_from_keystore:
-            # if loading from keystore, load all keys
-            key = read_private_key_from_keystore(
-                keystore, key_name, role_key_infos, num_of_signatures, scheme
-            )
-            keys.append(key)
-        else:
-            if num_of_signatures >= threshold:
-                all_loaded = not (
-                    click.confirm(
-                        f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
-                    )
+        if num_of_signatures >= threshold:
+            all_loaded = not (
+                click.confirm(
+                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
                 )
-            if not all_loaded:
-                is_yubikey = None
-                if role_key_infos is not None and role in role_key_infos:
-                    is_yubikey = role_key_infos[role].get("yubikey")
-                if is_yubikey is None:
-                    is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
-                if is_yubikey:
-                    yk.yubikey_prompt(
-                        key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
-                    )
-                else:
-                    key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
-                    keys.append(key)
+            )
+        if not all_loaded:
+            is_yubikey = None
+            if role_key_infos is not None and role in role_key_infos:
+                is_yubikey = role_key_infos[role].get("yubikey")
+            if is_yubikey is None:
+                is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
+            if is_yubikey:
+                yk.yubikey_prompt(
+                    key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
+                )
+            else:
+                key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+                keys.append(key)
         num_of_signatures += 1
     return keys
 
@@ -161,11 +173,13 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
         if add_branch:
             data["branch"] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name
-        (targets_dir / target_repo_name).write_text(json.dumps(data, indent=4))
+        path = targets_dir / target_repo_name
+        path.write_text(json.dumps(data, indent=4))
+        print(f"Updated {path}")
 
 
 def update_target_repos_from_fs(
-    repo_path, targets_directory, namespace=None, add_branch=True
+    repo_path, root_dir=None, namespace=None, add_branch=True
 ):
     """
     <Purpose>
@@ -173,27 +187,31 @@ def update_target_repos_from_fs(
     <Arguments>
         repo_path:
         Authentication repository's location
-        targets_directory:
-        Directory which contains target repositories
+        root_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
         namespace:
-        Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+        Namespace used to form the full name of the target repositories. Each target repository
+        add_branch:
+        Indicates whether to add the current branch's name to the target file
     """
     repo_path = Path(repo_path).resolve()
-    targets_dir = Path(targets_directory).resolve()
-    if namespace is None:
-        namespace = targets_dir.name
+    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
+    targets_directory = root_dir / namespace
+    print(
+        f"Updating target files corresponding to repos located at {targets_directory}"
+    )
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     if namespace:
         auth_repo_targets_dir = auth_repo_targets_dir / namespace
         auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
-    for target_repo_path in targets_dir.glob("*"):
+    for target_repo_path in targets_directory.glob("*"):
         _update_target_repos(
             repo_path, auth_repo_targets_dir, target_repo_path, add_branch
         )
 
 
 def update_target_repos_from_repositories_json(
-    repo_path, targets_directory, add_branch=True
+    repo_path, root_dir, namespace, add_branch=True
 ):
     """
     <Purpose>
@@ -201,75 +219,31 @@ def update_target_repos_from_repositories_json(
     <Arguments>
         repo_path:
         Authentication repository's location
-        targets_directory:
-        Directory containing target repositories
+        root_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
+        namespace:
+        Namespace used to form the full name of the target repositories. Each target repository
+        add_branch:
+        Indicates whether to add the current branch's name to the target file
     """
-    auth_repo_path = Path(repo_path).resolve()
-    auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
+    repo_path = Path(repo_path).resolve()
+    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     repositories_json = json.loads(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
-    targets_directory = Path(targets_directory).resolve()
+    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
+    print(
+        f"Updating target files corresponding to repos located at {(root_dir / namespace)}"
+        "and specified in repositories.json"
+    )
     for repo_name in repositories_json.get("repositories"):
-        target_repo_path = targets_directory / repo_name
+        target_repo_path = root_dir / repo_name
         namespace_and_name = repo_name.rsplit("/", 1)
         if len(namespace_and_name) > 1:
             namespace, _ = namespace_and_name
             targets_dir = auth_repo_targets_dir / namespace
         targets_dir.mkdir(parents=True, exist_ok=True)
         _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
-
-
-def build_auth_repo(
-    repo_path,
-    targets_directory,
-    namespace,
-    targets_relative_dir,
-    keystore,
-    roles_key_infos,
-    repos_custom,
-):
-    # read the key infos here, no need to read the file multiple times
-    roles_key_infos = read_input_dict(roles_key_infos)
-    create_repository(repo_path, keystore, roles_key_infos)
-    generate_repositories_json(
-        repo_path, targets_directory, namespace, targets_relative_dir, repos_custom
-    )
-    register_target_files(
-        repo_path, keystore, roles_key_infos, commit_msg="Added repositories.json"
-    )
-    auth_repo_targets_dir = Path(repo_path, TARGETS_DIRECTORY_NAME)
-    if namespace:
-        auth_repo_targets_dir = auth_repo_targets_dir / namespace
-        auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
-    # group commits by dates
-    # first add first repos at a date, then second repost at that date
-    commits_by_date = defaultdict(dict)
-    target_repositories = []
-    for target_repo_dir in os.listdir(targets_directory):
-        target_repo = GitRepository(Path(targets_directory, target_repo_dir))
-        target_repo.checkout_branch("master")
-        target_repo_name = str(Path(target_repo_dir).parent)
-        target_repositories.append(target_repo_name)
-        commits = target_repo.list_commits(format="format:%H|%cd", date="short")
-        for commit in commits[::-1]:
-            sha, date = commit.split("|")
-            commits_by_date[date].setdefault(target_repo_name, []).append(sha)
-
-    for date in sorted(commits_by_date.keys()):
-        repos_and_commits = commits_by_date[date]
-        for target_repo_name in target_repositories:
-            if target_repo_name in repos_and_commits:
-                for sha in commits_by_date[date][target_repo_name]:
-                    Path(auth_repo_targets_dir, target_repo_name).write_text(
-                        json.dumps({"commit": sha}, indent=4)
-                    )
-                    register_target_files(
-                        repo_path,
-                        keystore,
-                        roles_key_infos,
-                        commit_msg=f"Updated {target_repo_name}",
-                    )
 
 
 def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir):
@@ -311,25 +285,41 @@ def _register_yubikey(yubikeys, role_obj, role_name, key_name, scheme, certs_dir
 
 
 def _register_key(
-    keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme
+    keystore, roles_key_info, role_obj, role_name, key_name, key_num, scheme, length
 ):
     # if keystore exists, load the keys
+    generate_new_keys = keystore is None
     if keystore is not None:
-        public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-        private_key = read_private_key_from_keystore(
-            keystore, key_name, roles_key_info, key_num, scheme
-        )
-    # if it does not, generate the keys and print the output
-    else:
-        key = generate_rsa_key(scheme=scheme)
-        print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-        public_key = private_key = key
+        try:
+            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            private_key = read_private_key_from_keystore(
+                keystore, key_name, roles_key_info, key_num, scheme
+            )
+        except KeystoreError as e:
+            generate_new_keys = click.confirm(
+                f"Could not load {key_name}. Generate new keys?"
+            )
+            if not generate_new_keys:
+                raise e
+    if generate_new_keys:
+        if keystore is not None and click.confirm("Write keys to keystore files?"):
+            generate_and_write_rsa_keypair(
+                str(Path(keystore) / key_name), bits=length, password=""
+            )
+            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            private_key = read_private_key_from_keystore(
+                keystore, key_name, roles_key_info, key_num, scheme
+            )
+        else:
+            key = generate_rsa_key(bits=length, scheme=scheme)
+            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
+            public_key = private_key = key
     role_obj.add_verification_key(public_key)
     role_obj.load_signing_key(private_key)
 
 
 def create_repository(
-    repo_path, keystore, roles_key_infos, commit_message=None, test=False
+    repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
     """
     <Purpose>
@@ -344,13 +334,17 @@ def create_repository(
         Location of the keystore files
         roles_key_infos:
         A dictionary whose keys are role names, while values contain information about the keys.
-        commit_message:
-        If provided, the changes will be committed automatically using the specified message
+        commit:
+        Indicates if the changes should be automatically committed
         test:
         Indicates if the created repository is a test authentication repository
     """
     yubikeys = defaultdict(dict)
     roles_key_infos = read_input_dict(roles_key_infos)
+    if not len(roles_key_infos):
+        # ask the user to enter roles, number of keys etc.
+        roles_key_infos = _enter_roles_infos()
+
     repo = AuthenticationRepo(repo_path)
     if Path(repo_path).is_dir():
         if repo.is_git_repository:
@@ -358,14 +352,14 @@ def create_repository(
             return
 
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-    repository = create_new_repository(repo_path)
+    repository = create_new_repository(repo.repo_path)
 
     def _register_roles_keys(role_name, key_info, repository):
         num_of_keys = key_info.get("number", 1)
         threshold = key_info.get("threshold", 1)
         is_yubikey = key_info.get("yubikey", False)
         scheme = key_info.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-
+        length = key_info.get("length", 3072)
         role_obj = _role_obj(role_name, repository)
         role_obj.threshold = threshold
         for key_num in range(num_of_keys):
@@ -376,12 +370,19 @@ def create_repository(
                 )
             else:
                 _register_key(
-                    keystore, key_info, role_obj, role_name, key_name, key_num, scheme
+                    keystore,
+                    key_info,
+                    role_obj,
+                    role_name,
+                    key_name,
+                    key_num,
+                    scheme,
+                    length,
                 )
 
     try:
         # load keys not stored on YubiKeys first, to avoid entering pins
-        # if there is somethig wrong with keystore files
+        # if there is something wrong with keystore files
         for role_name, key_info in roles_key_infos.items():
             if not key_info.get("yubikey", False):
                 _register_roles_keys(role_name, key_info, repository)
@@ -396,21 +397,73 @@ def create_repository(
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
-        target_paths = Path(repo_path) / "targets"
-        test_auth_file = target_paths / "test-auth-repo"
+        test_auth_file = (
+            Path(repo.repo_path, repo.targets_path) / repo.TEST_REPO_FLAG_FILE
+        )
         test_auth_file.touch()
         targets_obj = _role_obj("targets", repository)
-        targets_obj.add_target(str(test_auth_file))
+        targets_obj.add_target(repo.TEST_REPO_FLAG_FILE)
 
     repository.writeall()
-    if commit_message is not None and len(commit_message):
+    print("Created new authentication repository")
+    if commit:
         auth_repo = GitRepository(repo_path)
         auth_repo.init_repo()
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
 
+def _enter_roles_infos():
+    mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
+    role_key_infos = defaultdict(dict)
+
+    def _read_val(input_type, name):
+        while True:
+            try:
+                val = input(
+                    f"Enter {name} and press ENTER. Leave empty to use the default value. "
+                )
+                if not val:
+                    return None
+                return input_type(val)
+            except ValueError:
+                pass
+
+    def _enter_role_info(role):
+        keys_num = _read_val(int, f"number of {role} keys")
+        if keys_num is not None:
+            role_key_infos[role]["number"] = keys_num
+        key_length = _read_val(int, f"{role} key length")
+        if key_length is not None:
+            role_key_infos[role]["length"] = key_length
+        threshold = _read_val(int, f"{role} signature threshold")
+        if threshold is not None:
+            role_key_infos[role]["threshold"] = threshold
+        role_key_infos[role]["yubikey"] = click.confirm(
+            f"Store {role} keys on Yubikeys?"
+        )
+        scheme = _read_val(str, f"{role} signature scheme")
+        if scheme is not None:
+            role_key_infos[role]["scheme"] = scheme
+
+    for role in mandatory_roles:
+        _enter_role_info(role)
+
+    # delegated targets role
+    while click.confirm("Add a delegated targets role?"):
+        role_name = input("Enter role name and press ENTER")
+        if role_name:
+            _enter_role_info(role_name)
+
+    return role_key_infos
+
+
 def export_yk_public_pem(path=None):
-    pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+    try:
+        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+    except Exception:
+        print("Could not export the public key. Check if a YubiKey is inserted")
+        return
     if path is None:
         print(pub_key_pem)
     else:
@@ -432,6 +485,17 @@ def export_yk_certificate(certs_dir, key):
     print(f"Exporting certificate to {cert_path}")
     with open(cert_path, "wb") as f:
         f.write(yk.export_piv_x509())
+
+
+def _get_namespace_and_root(repo_path, namespace, root_dir):
+    repo_path = Path(repo_path).resolve()
+    if namespace is None:
+        namespace = repo_path.parent.name
+    if root_dir is None:
+        root_dir = repo_path.parent.parent
+    else:
+        root_dir = Path(root_dir).resolve()
+    return namespace, root_dir
 
 
 def generate_keys(keystore, roles_key_infos):
@@ -462,14 +526,14 @@ def generate_keys(keystore, roles_key_infos):
             if not is_yubikey:
                 key_name = _get_key_name(role_name, key_num, num_of_keys)
                 password = passwords[key_num]
-                generate_and_write_rsa_keypair(
-                    str(Path(keystore, key_name)), bits=bits, password=password
-                )
+                path = str(Path(keystore, key_name))
+                print(f"Generating {path}")
+                generate_and_write_rsa_keypair(path, bits=bits, password=password)
 
 
 def generate_repositories_json(
     repo_path,
-    targets_directory,
+    root_dir=None,
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
@@ -480,23 +544,30 @@ def generate_repositories_json(
     <Arguments>
         repo_path:
         Authentication repository's location
-        targets_directory:
-        Directory which contains target repositories
+        root_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
         namespace:
-        Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+        Namespace used to form the full name of the target repositories. Each target repository
+        is expected to be root_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
+        custom_date:
+        Dictionary or path to a json file containing additional information about the repositories that
+        should be added to repositories.json
     """
 
     custom_data = read_input_dict(custom_data)
     repositories = {}
     repo_path = Path(repo_path).resolve()
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
-    targets_directory = Path(targets_directory).resolve()
+    # if targets directory is not specified, assume that target repositories
+    # and the authentication repository are in the same parent direcotry
+    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
+    targets_directory = root_dir / namespace
     if targets_relative_dir is not None:
         targets_relative_dir = Path(targets_relative_dir).resolve()
-    if namespace is None:
-        namespace = targets_directory.name
+
+    print(f"Adding all repositories from {targets_directory}")
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
             continue
@@ -525,9 +596,9 @@ def generate_repositories_json(
                 target_repo_namespaced_name
             ]
 
-    (auth_repo_targets_dir / "repositories.json").write_text(
-        json.dumps({"repositories": repositories}, indent=4)
-    )
+    file_path = auth_repo_targets_dir / "repositories.json"
+    file_path.write_text(json.dumps({"repositories": repositories}, indent=4))
+    print(f"Generated {file_path}")
 
 
 def _get_key_name(role_name, key_num, num_of_keys):
@@ -539,14 +610,16 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 def init_repo(
     repo_path,
-    targets_directory,
-    namespace,
-    targets_relative_dir,
-    keystore,
-    roles_key_infos,
-    repos_custom=None,
-    commit=None,
+    root_dir=None,
+    namespace=None,
+    targets_relative_dir=None,
+    custom_data=None,
+    add_branch=None,
+    keystore=None,
+    roles_key_infos=None,
+    commit=False,
     test=False,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
     <Purpose>
@@ -560,45 +633,44 @@ def init_repo(
     <Arguments>
         repo_path:
         Authentication repository's location
-        targets_directory:
-        Directory which contains target repositories
+        root_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
         namespace:
-        Namespace used to form the full name of the target repositories. E.g. some_namespace/law-xml
+        Namespace used to form the full name of the target repositories. Each target repository
+        is expected to be root_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
+        custom_date:
+        Dictionary or path to a json file containing additional information about the repositories that
+        should be added to repositories.json
+        add_branch:
+        Indicates whether to add the current branch's name to the target file
         keystore:
         Location of the keystore files
         roles_key_infos:
         A dictionary whose keys are role names, while values contain information about the keys.
-        commit_message:
-        If provided, the changes will be committed automatically using the specified message
         test:
         Indicates if the created repository is a test authentication repository
+        scheme:
+        A signature scheme used for signing.
     """
     # read the key infos here, no need to read the file multiple times
+    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
+    targets_directory = root_dir / namespace
     roles_key_infos = read_input_dict(roles_key_infos)
-    commit_msg = "Initial commit" if commit else None
-    create_repository(repo_path, keystore, roles_key_infos, commit_msg, test)
-    update_target_repos_from_fs(repo_path, targets_directory, namespace)
+    create_repository(repo_path, keystore, roles_key_infos, commit, test)
+    update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, targets_directory, namespace, targets_relative_dir, repos_custom
+        repo_path, root_dir, namespace, targets_relative_dir, custom_data
     )
-    register_target_files(repo_path, keystore, roles_key_infos, commit_msg=commit)
-
-
-def register_target_file(repo_path, file_path, keystore, roles_key_infos, scheme):
-    roles_key_infos = read_input_dict(roles_key_infos)
-    taf_repo = Repository(repo_path)
-    taf_repo.add_existing_target(file_path)
-
-    _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
+    register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 
 
 def register_target_files(
     repo_path,
-    keystore,
-    roles_key_infos,
-    commit_msg=None,
+    keystore=None,
+    roles_key_infos=None,
+    commit=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
@@ -618,6 +690,7 @@ def register_target_files(
         scheme:
         A signature scheme used for signing.
     """
+    print("Signing target files")
     roles_key_infos = read_input_dict(roles_key_infos)
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
@@ -626,9 +699,10 @@ def register_target_files(
         for filename in filenames:
             taf_repo.add_existing_target(str(Path(root) / filename))
     _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
-    if commit_msg is not None:
+    if commit:
         auth_repo = GitRepository(repo_path)
-        auth_repo.commit(commit_msg)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
 
 
 def _role_obj(role, repository):
@@ -661,6 +735,10 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
 
 
 def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    if not click.confirm(
+        "WARNING - this will delete everything from the inserted key. Proceed?"
+    ):
+        return
     _, serial_num = yk.yubikey_prompt(
         "new Yubikey",
         creating_new_key=True,
@@ -672,25 +750,69 @@ def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     export_yk_certificate(certs_dir, key)
 
 
+def setup_test_yubikey(key_path=None):
+    """
+    Resets the inserted yubikey, sets default pin and copies the specified key
+    onto it.
+    """
+    if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
+        return
+    key_path = Path(key_path)
+    key_pem = key_path.read_bytes()
+
+    print(f"Importing RSA private key from {key_path} to Yubikey...")
+    pin = yk.DEFAULT_PIN
+
+    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem)
+    print("\nPrivate key successfully imported.\n")
+    print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
+    print("Pin: {}\n".format(pin))
+
+
 def update_metadata_expiration_date(
     repo_path,
     role,
-    key,
+    interval,
+    keystore=None,
+    scheme=None,
     start_date=datetime.datetime.now(),
-    interval=None,
-    commit_msg=None,
+    commit=False,
 ):
     taf_repo = Repository(repo_path)
     update_methods = {
-        "timestamp": taf_repo.update_timestamp,
-        "snapshot": taf_repo.update_snapshot,
-        "targets": taf_repo.update_targets_from_keystore,
+        "timestamp_keystore": taf_repo.update_timestamp,
+        "snapshot_keystore": taf_repo.update_snapshot,
+        "targets_keystore": taf_repo.update_targets_from_keystore,
+        "targets_yubikey": taf_repo.update_targets,
     }
-    update_methods[role](key, start_date, interval)
+    loaded_yubikeys = {}
+    keys = _load_signing_keys(
+        taf_repo,
+        role,
+        loaded_yubikeys=loaded_yubikeys,
+        keystore=keystore,
+        scheme=scheme,
+    )
+    if len(keys):
+        try:
+            update_methods[f"{role}_keystore"](keys[0], start_date, interval)
+        except KeyError:
+            print(f"Cannot update {role} from keystore")
+    else:
+        for serial_num in loaded_yubikeys:
+            if "targets" in loaded_yubikeys[serial_num]:
+                pin = yk.get_key_pin(serial_num)
+                try:
+                    update_methods[f"{role}_yubikey"](pin, None, start_date, interval)
+                except KeyError:
+                    print(f"Cannot update {role} using yubikeys")
+                break
+    print(f"Updated expiration date of {role}")
 
-    if commit_msg is not None:
+    if commit:
         auth_repo = GitRepository(repo_path)
-        auth_repo.commit(commit_msg)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
 
 
 def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):

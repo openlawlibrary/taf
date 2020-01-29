@@ -16,6 +16,10 @@ def _form_private_pem(pem):
     return f"-----BEGIN RSA PRIVATE KEY-----\n{pem}\n-----END RSA PRIVATE KEY-----"
 
 
+def _from_public_pem(pem):
+    return f"-----BEGIN PUBLIC KEY-----\n{pem}\n-----END PUBLIC KEY-----"
+
+
 def key_cmd_prompt(
     key_name, role, taf_repo, loaded_keys=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
@@ -50,6 +54,23 @@ def load_tuf_private_key(key_str, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME)
     key_pem = _form_private_pem(key_str)
 
     return import_rsakey_from_pem(key_pem, scheme)
+
+
+def new_public_key_cmd_prompt(scheme):
+    def _enter_and_check_key(scheme):
+        pem = getpass(f"Enter public key without its header and footer\n")
+        pem = _from_public_pem(pem)
+        try:
+            key = import_rsakey_from_pem(pem, scheme)
+        except Exception:
+            print("Invalid key")
+            return None
+        return import_rsakey_from_pem(key["keyval"]["public"], scheme)
+
+    while True:
+        key = _enter_and_check_key(scheme)
+        if key is not None:
+            return key
 
 
 def read_private_key_from_keystore(

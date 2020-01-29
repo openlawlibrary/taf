@@ -89,9 +89,19 @@ def read_input_dict(value):
     if type(value) is str:
         if Path(value).is_file():
             with open(value) as f:
-                value = json.loads(f.read())
+                try:
+                    value = json.loads(f.read())
+                except json.decoder.JSONDecodeError:
+                    print(f"\nWARNING: {value} is not a valid json!\n")
+                    return {}
+
         else:
-            value = json.loads(value)
+            try:
+                value = json.loads(value)
+            except json.decoder.JSONDecodeError:
+                print(f"\nWARNING: {value} is not a valid json!\n")
+                return {}
+
     return value
 
 

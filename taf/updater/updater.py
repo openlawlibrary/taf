@@ -1,10 +1,10 @@
-import os
 import shutil
 
 import tuf
 import tuf.client.updater as tuf_updater
 
 from collections import defaultdict
+from pathlib import Path
 from taf.log import taf_logger
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
@@ -15,9 +15,9 @@ from taf.utils import on_rm_error
 
 def update_repository(
     url,
-    clients_repo_path,
-    targets_dir,
-    update_from_filesystem,
+    clients_auth_path,
+    clients_root_dir=None,
+    update_from_filesystem=False,
     authenticate_test_repo=False,
     target_repo_classes=None,
     target_factory=None,
@@ -26,10 +26,10 @@ def update_repository(
     <Arguments>
     url:
         URL of the remote authentication repository
-    clients_repo_path:
+    clients_auth_path:
         Client's authentication repository's full path
-    targets_dir:
-        Directory where the target repositories are located
+    clients_root_dir:
+        Directory where client's target repositories are located.
     update_from_filesystem:
         A flag which indicates if the URL is actually a file system path
     authenticate_test_repo:
@@ -44,13 +44,20 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
-    clients_dir, repo_name = os.path.split(os.path.normpath(clients_repo_path))
-    settings.validate_repo_name = False
-    update_named_repository(
+    clients_auth_path = Path(clients_auth_path)
+
+    if clients_root_dir is None:
+        clients_root_dir = clients_auth_path.parent.parent
+    else:
+        clients_root_dir = Path(clients_root_dir).resolve()
+
+    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
+    clients_auth_root_dir = clients_auth_path.parent.parent
+    _update_named_repository(
         url,
-        clients_dir,
-        repo_name,
-        targets_dir,
+        clients_auth_root_dir,
+        clients_root_dir,
+        auth_repo_name,
         update_from_filesystem,
         authenticate_test_repo,
         target_repo_classes,
@@ -58,11 +65,11 @@ def update_repository(
     )
 
 
-def update_named_repository(
+def _update_named_repository(
     url,
-    clients_directory,
-    repo_name,
-    targets_dir,
+    clients_auth_root_dir,
+    targets_root_dir,
+    auth_repo_name,
     update_from_filesystem,
     authenticate_test_repo=False,
     target_repo_classes=None,
@@ -129,8 +136,10 @@ def update_named_repository(
         }
     }
 
-    tuf.settings.repositories_directory = clients_directory
-    repository_updater = tuf_updater.Updater(repo_name, repository_mirrors, GitUpdater)
+    tuf.settings.repositories_directory = clients_auth_root_dir
+    repository_updater = tuf_updater.Updater(
+        auth_repo_name, repository_mirrors, GitUpdater
+    )
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     existing_repo = users_auth_repo.is_git_repository_root
     try:
@@ -164,7 +173,7 @@ def update_named_repository(
             users_auth_repo,
             repo_classes=target_repo_classes,
             factory=target_factory,
-            root_dir=targets_dir,
+            root_dir=targets_root_dir,
             commits=commits,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
@@ -268,7 +277,6 @@ def _update_target_repositories(
     last_validated_commit,
 ):
     taf_logger.info("Validating target repositories")
-
     # keep track of the repositories which were cloned
     # so that they can be removed if the update fails
     cloned_repositories = []
