@@ -761,15 +761,34 @@ def register_target_files(
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
     taf_repo = Repository(str(repo_path))
-
+    auth_git_repo = GitRepository(repo_path)
     target_filenames = []
-    for root, _, filenames in os.walk(str(targets_path)):
-        for filename in filenames:
-            filepath = Path(root) / filename
-            if filepath.is_file():
-                target_filenames.append(os.path.relpath(str(filepath), str(targets_path)))
+    # find only modified targets
+    if auth_git_repo.is_git_repository:
+        modified_auth_repo_files = auth_git_repo.list_modified_files()
+        for modified_auth_repo_file in modified_auth_repo_files:
+            modified_file_path = repo_path / modified_auth_repo_file
+            target_filenames.append(os.path.relpath(str(modified_file_path), str(targets_path)))
+    else:
+        for root, _, filenames in os.walk(str(targets_path)):
+            for filename in filenames:
+                filepath = Path(root) / filename
+                if filepath.is_file():
+                    target_filenames.append(os.path.relpath(str(filepath), str(targets_path)))
 
-    targets_roles = map_signing_roles(target_filenames)
+    targets_roles_mapping = map_signing_roles(target_filenames)
+    for target_rel_path, target_role in targets_roles_mapping.items():
+        taf_repo.add_existing_target(str(targets_path / target_rel_path), target_role)
+
+    updated_targets_roles = set(targets_roles_mapping.values())
+    for role in updated_targets_roles:
+        print(taf_repo.get_role_threshold(role))
+
+    _write_targets_metadata(taf_repo, updated_targets_roles, keystore, roles_key_infos, scheme)
+
+    if commit:
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_git_repo.commit(commit_message)
 
 
 def map_signing_roles(target_filenames):
@@ -934,20 +953,21 @@ def update_metadata_expiration_date(
         auth_repo.commit(commit_message)
 
 
-def _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme):
+def _write_targets_metadata(taf_repo, targets_roles, keystore, roles_key_infos, scheme):
 
     loaded_yubikeys = {}
-    targets_keys = _load_signing_keys(
-        taf_repo, "targets", keystore, roles_key_infos, loaded_yubikeys, scheme=scheme
-    )
-    if len(targets_keys):
-        taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
-    else:
-        for serial_num in loaded_yubikeys:
-            if "targets" in loaded_yubikeys[serial_num]:
-                pin = yk.get_key_pin(serial_num)
-                taf_repo.update_targets(pin, write=False)
-                break
+    for targets_role in targets_roles:
+        targets_keys = _load_signing_keys(
+            taf_repo, targets_role, keystore, roles_key_infos, loaded_yubikeys, scheme=scheme
+        )
+        if len(targets_keys):
+            taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
+        else:
+            for serial_num in loaded_yubikeys:
+                if "targets" in loaded_yubikeys[serial_num]:
+                    pin = yk.get_key_pin(serial_num)
+                    taf_repo.update_targets(pin, write=False)
+                    break
     snapshot_keys = _load_signing_keys(
         taf_repo, "snapshot", keystore, roles_key_infos, scheme=scheme
     )

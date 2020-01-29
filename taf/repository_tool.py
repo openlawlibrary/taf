@@ -37,6 +37,44 @@ role_keys_cache = {}
 DISABLE_KEYS_CACHING = False
 
 
+def get_delegated_role_property(property_name, role_name, parent_role=None):
+    # TUF raises an error when asking for properties like threshold and signing keys
+    # of a delegated role (see https://github.com/theupdateframework/tuf/issues/574)
+    # The following workaround presumes that one every delegated role is a deegation
+    # of exactly one delegated role
+    if parent_role is None:
+        parent_role = find_delegated_roles_parent(role)
+    parents_role_info = tuf.roledb.get_roleinfo(parent_role)
+    delegations = parents_role_info.get('delegations')
+    for delegated_role in delegations['roles']:
+        if delegated_role['name'] == role:
+            return delegated_role[property_name]
+    return None
+
+
+def find_delegated_roles_parent(role_name):
+    """
+    A simple implementation of finding a delegated targets role's parent
+    assuming that every delegated role is delegated by just one role
+    and that there won't be many delegations.
+    """
+    def _find_delegated_role(parent_role_name, role_name):
+        targets_role_info = tuf.roledb.get_roleinfo(parent_role_name)
+        delegations = targets_role_info.get('delegations')
+        if len(delegations):
+            for role_info in delegations.get('roles'):
+                # check if this role can sign target_path
+                delegated_role_name = role_info['name']
+                if delegated_role_name == role_name:
+                    return parent_role_name
+                parent = _find_delegated_role(delegated_role_name, role_name)
+                if parent is not None:
+                    return parent
+        return None
+
+    return _find_delegated_role("targets", role_name)
+
+
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Loads the specified role's key from a keystore file.
     The keystore file can, but doesn't have to be password protected.
@@ -411,10 +449,20 @@ class Repository:
                                                         targets object.
         """
         role_obj = self._role_obj(role)
-        return role_obj.keys
+        try:
+            return role_obj.keys
+        except KeyError:
+            pass
+        return get_delegated_role_property('keyids', role, parent_role)
 
-    def get_role_threshold(self, role):
-        return self._role_obj(role).threshold
+    def get_role_threshold(self, role, parent_role=None):
+        try:
+            return self._role_obj(role).threshold
+        except KeyError:
+            pass
+        return get_delegated_role_property('threshold', role, parent_role)
+
+
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.

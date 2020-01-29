@@ -501,6 +501,15 @@ class GitRepository(object):
             commits = self._git(f"log {branch} --format=format:%H -n {number}")
         return commits.split("\n") if commits else []
 
+    def list_modified_files(self):
+        modified_files = self._git("diff --name-status").split('\n')
+        file_names = []
+        for modified_file in modified_files:
+            # ignore warning lines
+            if modified_file[0] in ['A', 'M', 'D']:
+                file_names.append(modified_file.split(maxsplit=1)[1])
+        return file_names
+
     def merge_commit(self, commit):
         self._git("merge {}", commit)
 
