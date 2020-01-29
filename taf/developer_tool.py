@@ -11,19 +11,6 @@ import click
 import securesystemslib
 import securesystemslib.exceptions
 import tuf.repository_tool
-from taf.auth_repo import AuthenticationRepo
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError
-from taf.git import GitRepository
-from taf.keystore import (
-    key_cmd_prompt,
-    read_private_key_from_keystore,
-    read_public_key_from_keystore,
-    new_public_key_cmd_prompt,
-)
-from taf.log import taf_logger
-from taf.repository_tool import Repository
-from taf.utils import read_input_dict
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
@@ -31,6 +18,20 @@ from tuf.repository_tool import (
     generate_and_write_rsa_keypair,
     generate_rsa_key,
 )
+
+from taf.auth_repo import AuthenticationRepo
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import KeystoreError
+from taf.git import GitRepository
+from taf.keystore import (
+    key_cmd_prompt,
+    new_public_key_cmd_prompt,
+    read_private_key_from_keystore,
+    read_public_key_from_keystore,
+)
+from taf.log import taf_logger
+from taf.repository_tool import Repository
+from taf.utils import read_input_dict
 
 try:
     import taf.yubikey as yk
@@ -334,7 +335,7 @@ def create_repository(
         roles_key_infos:
         A dictionary whose keys are role names, while values contain information about the keys.
         commit:
-        Indicates if the changes should be automatically comitted
+        Indicates if the changes should be automatically committed
         test:
         Indicates if the created repository is a test authentication repository
     """
@@ -381,7 +382,7 @@ def create_repository(
 
     try:
         # load keys not stored on YubiKeys first, to avoid entering pins
-        # if there is somethig wrong with keystore files
+        # if there is something wrong with keystore files
         for role_name, key_info in roles_key_infos.items():
             if not key_info.get("yubikey", False):
                 _register_roles_keys(role_name, key_info, repository)
