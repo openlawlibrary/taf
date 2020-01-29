@@ -6,6 +6,7 @@ from collections import defaultdict
 from functools import partial
 from getpass import getpass
 from pathlib import Path
+from fnmatch import fnmatch
 
 import click
 import securesystemslib
@@ -760,14 +761,46 @@ def register_target_files(
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
     taf_repo = Repository(str(repo_path))
+
+    target_filenames = []
     for root, _, filenames in os.walk(str(targets_path)):
         for filename in filenames:
-            taf_repo.add_existing_target(str(Path(root) / filename))
-    _write_targets_metadata(taf_repo, keystore, roles_key_infos, scheme)
-    if commit:
-        auth_repo = GitRepository(repo_path)
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_repo.commit(commit_message)
+            filepath = Path(root) / filename
+            if filepath.is_file():
+                target_filenames.append(os.path.relpath(str(filepath), str(targets_path)))
+
+    targets_roles = map_signing_roles(target_filenames)
+
+
+def map_signing_roles(target_filenames):
+    """
+    For each target file, find delegated role responsible for that target file based
+    on the delegated paths. The most specific role (meaning most deepy nested) whose
+    delegation path matches the target's path is returned as that file's matching role.
+    If there are no delegated roles with a path that matches the target file's path,
+    'targets' role will be returned as that file's matching role. Delegation path
+    is expected to be relative to the targets directory. It can be defined as a glob
+    pattern.
+    """
+    roles_targets = {target_filename: "targets" for target_filename in target_filenames}
+    roles_targets.update(_delegated_roles_traversal("targets", target_filenames))
+    return roles_targets
+
+
+def _delegated_roles_traversal(role_name, target_filenames):
+    roles_targets = {}
+    targets_role_info = tuf.roledb.get_roleinfo(role_name)
+    delegations = targets_role_info.get('delegations')
+    if len(delegations):
+        for role_info in delegations.get('roles'):
+            # check if this role can sign target_path
+            delegated_role_name = role_info['name']
+            for path_pattern in role_info['paths']:
+                for target_filename in target_filenames:
+                    if fnmatch(target_filename.lstrip(os.sep), path_pattern.lstrip(os.sep)):
+                        roles_targets[target_filename] = delegated_role_name
+            roles_targets.update(_delegated_roles_traversal(delegated_role_name, target_filenames))
+    return roles_targets
 
 
 def _role_obj(role, repository):
