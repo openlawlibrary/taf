@@ -487,7 +487,7 @@ def export_yk_certificate(certs_dir, key):
 
 
 def _get_namespace_and_root(repo_path, namespace, root_dir):
-    repo_path = Path(repo_path)
+    repo_path = Path(repo_path).resolve()
     if namespace is None:
         namespace = repo_path.parent.name
     if root_dir is None:
