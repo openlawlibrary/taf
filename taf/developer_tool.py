@@ -120,6 +120,7 @@ def _load_signing_keys(
     all_loaded = False
     num_of_signatures = 0
     keys = []
+    yubikeys = []
     if keystore is not None:
         # try loading files from the keystore first
         # does not assume that all keys of a role are stored in keystore files just
@@ -154,14 +155,15 @@ def _load_signing_keys(
             if is_yubikey is None:
                 is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
             if is_yubikey:
-                yk.yubikey_prompt(
+                public_key, _ = yk.yubikey_prompt(
                     key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
                 )
+                yubikeys.append(public_key)
             else:
                 key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
                 keys.append(key)
         num_of_signatures += 1
-    return keys
+    return keys, yubikeys
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
@@ -765,7 +767,7 @@ def register_target_files(
     target_filenames = []
     # find only modified targets
     if auth_git_repo.is_git_repository:
-        modified_auth_repo_files = auth_git_repo.list_modified_files()
+        modified_auth_repo_files = auth_git_repo.list_modified_files(path="targets")
         for modified_auth_repo_file in modified_auth_repo_files:
             modified_file_path = repo_path / modified_auth_repo_file
             target_filenames.append(os.path.relpath(str(modified_file_path), str(targets_path)))
@@ -924,7 +926,7 @@ def update_metadata_expiration_date(
         "targets_yubikey": taf_repo.update_targets,
     }
     loaded_yubikeys = {}
-    keys = _load_signing_keys(
+    keys, yubikeys = _load_signing_keys(
         taf_repo,
         role,
         loaded_yubikeys=loaded_yubikeys,
@@ -956,27 +958,18 @@ def update_metadata_expiration_date(
 def _write_targets_metadata(taf_repo, targets_roles, keystore, roles_key_infos, scheme):
 
     loaded_yubikeys = {}
-    for targets_role in targets_roles:
-        targets_keys = _load_signing_keys(
-            taf_repo, targets_role, keystore, roles_key_infos, loaded_yubikeys, scheme=scheme
+    roles = list(targets_roles) + ["snapshot", "timestamp"]
+    for role_name in roles:
+        keystore_keys, yubikeys = _load_signing_keys(
+            taf_repo, role_name, keystore, roles_key_infos, loaded_yubikeys, scheme=scheme
         )
-        if len(targets_keys):
-            taf_repo.update_targets_from_keystore(targets_keys[0], write=False)
+        if len(yubikeys):
+            update_method = taf_repo.roles_yubikeys_update_method(role_name)
+            update_method(yubikeys, write=False)
         else:
-            for serial_num in loaded_yubikeys:
-                if "targets" in loaded_yubikeys[serial_num]:
-                    pin = yk.get_key_pin(serial_num)
-                    taf_repo.update_targets(pin, write=False)
-                    break
-    snapshot_keys = _load_signing_keys(
-        taf_repo, "snapshot", keystore, roles_key_infos, scheme=scheme
-    )
-    timestamp_keys = _load_signing_keys(
-        taf_repo, "timestamp", keystore, roles_key_infos, scheme=scheme
-    )
-    snapshot_key = snapshot_keys[0]
-    timestamp_key = timestamp_keys[0]
-    taf_repo.update_snapshot_and_timestmap(snapshot_key, timestamp_key, write=False)
+            update_method = taf_repo.roles_keystore_update_method(role_name)
+            update_method(keystore_keys, write=False)
+
     taf_repo.writeall()
 
 

@@ -501,8 +501,11 @@ class GitRepository(object):
             commits = self._git(f"log {branch} --format=format:%H -n {number}")
         return commits.split("\n") if commits else []
 
-    def list_modified_files(self):
-        modified_files = self._git("diff --name-status").split('\n')
+    def list_modified_files(self, path=None):
+        diff_command = "diff --name-status"
+        if path is not None:
+            diff_command = f"{diff_command} {path}"
+        modified_files = self._git(diff_command).split('\n')
         file_names = []
         for modified_file in modified_files:
             # ignore warning lines

@@ -2,6 +2,7 @@ import click
 import datetime
 from contextlib import contextmanager
 from functools import wraps
+from collections import defaultdict
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -27,15 +28,27 @@ DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
 EXPIRATION_INTERVAL = 36500
 
-_pins_dict = {}
+_yks_data_dict = defaultdict(dict)
 
 
 def add_key_pin(serial_num, pin):
-    _pins_dict[serial_num] = pin
+    _yks_data_dict[serial_num]["pin"] = pin
+
+
+def add_key_public_key(serial_num, public_key):
+    _yks_data_dict[serial_num]["public_key"] = public_key
 
 
 def get_key_pin(serial_num):
-    return _pins_dict.get(serial_num)
+    if serial_num in _yks_data_dict:
+        return _yks_data_dict.get(serial_num).get("pin")
+    return None
+
+
+def get_key_public_key(serial_num):
+    if serial_num in _yks_data_dict:
+        return _yks_data_dict.get(serial_num).get("public_key")
+    return None
 
 
 def raise_yubikey_err(msg=None):
@@ -394,6 +407,9 @@ def yubikey_prompt(
             else:
                 pin = get_and_validate_pin(key_name, pin_confirm, pin_repeat)
             add_key_pin(serial_num, pin)
+
+        if get_key_public_key(serial_num) is None and public_key is not None:
+            add_key_public_key(serial_num, public_key)
 
         if role is not None:
             if loaded_yubikeys is None:

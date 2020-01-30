@@ -56,6 +56,10 @@ class SnapshotMetadataUpdateError(MetadataUpdateError):
         super().__init__("snapshot", message)
 
 
+class SigningError(TAFError):
+    pass
+
+
 class TargetsMetadataUpdateError(MetadataUpdateError):
     def __init__(self, message):
         super().__init__("targets", message)
