@@ -765,11 +765,12 @@ def register_target_files(
     taf_repo = Repository(str(repo_path))
     auth_git_repo = GitRepository(repo_path)
     target_filenames = []
-    # find only modified targets
+    # find only untracked and modified targets
     if auth_git_repo.is_git_repository:
-        modified_auth_repo_files = auth_git_repo.list_modified_files(path="targets")
-        for modified_auth_repo_file in modified_auth_repo_files:
-            modified_file_path = repo_path / modified_auth_repo_file
+        target_files = auth_git_repo.list_modified_files(path="targets") + \
+            auth_git_repo.list_untracked_files(path="targets")
+        for target_file in target_files:
+            modified_file_path = repo_path / target_file
             target_filenames.append(os.path.relpath(str(modified_file_path), str(targets_path)))
     else:
         for root, _, filenames in os.walk(str(targets_path)):
