@@ -505,11 +505,11 @@ class GitRepository(object):
         diff_command = "diff --name-status"
         if path is not None:
             diff_command = f"{diff_command} {path}"
-        modified_files = self._git(diff_command).split('\n')
+        modified_files = self._git(diff_command).split("\n")
         file_names = []
         for modified_file in modified_files:
             # ignore warning lines
-            if len(modified_file) and modified_file[0] in ['A', 'M', 'D']:
+            if len(modified_file) and modified_file[0] in ["A", "M", "D"]:
                 file_names.append(modified_file.split(maxsplit=1)[1])
         return file_names
 
@@ -517,8 +517,10 @@ class GitRepository(object):
         ls_command = "ls-files --others"
         if path is not None:
             ls_command = f"{ls_command} {path}"
-        untracked_files = self._git(ls_command).split('\n')
-        return [untracked_file for untracked_file in untracked_files if len(untracked_file)]
+        untracked_files = self._git(ls_command).split("\n")
+        return [
+            untracked_file for untracked_file in untracked_files if len(untracked_file)
+        ]
 
     def merge_commit(self, commit):
         self._git("merge {}", commit)

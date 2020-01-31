@@ -16,7 +16,7 @@ from taf.exceptions import (
     TargetsMetadataUpdateError,
     TimestampMetadataUpdateError,
     YubikeyError,
-    SigningError
+    SigningError,
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
@@ -39,6 +39,17 @@ DISABLE_KEYS_CACHING = False
 
 
 def get_delegated_role_property(property_name, role_name, parent_role=None):
+    """
+    Extract value of the specified property of the provided delegated role from
+    its parent's role info.
+    Args:
+        - property_name: Name of the property (like threshold)
+        - role_name: Role
+        - parent_role: Parent role
+
+    Returns:
+        The specified property's value
+    """
     # TUF raises an error when asking for properties like threshold and signing keys
     # of a delegated role (see https://github.com/theupdateframework/tuf/issues/574)
     # The following workaround presumes that one every delegated role is a deegation
@@ -46,9 +57,9 @@ def get_delegated_role_property(property_name, role_name, parent_role=None):
     if parent_role is None:
         parent_role = find_delegated_roles_parent(role_name)
     parents_role_info = tuf.roledb.get_roleinfo(parent_role)
-    delegations = parents_role_info.get('delegations')
-    for delegated_role in delegations['roles']:
-        if delegated_role['name'] == role_name:
+    delegations = parents_role_info.get("delegations")
+    for delegated_role in delegations["roles"]:
+        if delegated_role["name"] == role_name:
             return delegated_role[property_name]
     return None
 
@@ -58,14 +69,20 @@ def find_delegated_roles_parent(role_name):
     A simple implementation of finding a delegated targets role's parent
     assuming that every delegated role is delegated by just one role
     and that there won't be many delegations.
+    Args:
+        - role_name: Role
+
+    Returns:
+        Parent role's name
     """
+
     def _find_delegated_role(parent_role_name, role_name):
         targets_role_info = tuf.roledb.get_roleinfo(parent_role_name)
-        delegations = targets_role_info.get('delegations')
+        delegations = targets_role_info.get("delegations")
         if len(delegations):
-            for role_info in delegations.get('roles'):
+            for role_info in delegations.get("roles"):
                 # check if this role can sign target_path
-                delegated_role_name = role_info['name']
+                delegated_role_name = role_info["name"]
                 if delegated_role_name == role_name:
                     return parent_role_name
                 parent = _find_delegated_role(delegated_role_name, role_name)
@@ -388,7 +405,7 @@ class Repository:
             repositories = json.loads(repositories)["repositories"]
             return [str(Path(target_path).as_posix()) for target_path in repositories]
 
-    def get_role_keys(self, role,  parent_role=None):
+    def get_role_keys(self, role, parent_role=None):
         """Registers new target files with TUF.
         The files are expected to be inside the targets directory.
 
@@ -408,14 +425,14 @@ class Repository:
             return role_obj.keys
         except KeyError:
             pass
-        return get_delegated_role_property('keyids', role, parent_role)
+        return get_delegated_role_property("keyids", role, parent_role)
 
     def get_role_threshold(self, role, parent_role=None):
         try:
             return self._role_obj(role).threshold
         except KeyError:
             pass
-        return get_delegated_role_property('threshold', role, parent_role)
+        return get_delegated_role_property("threshold", role, parent_role)
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
@@ -537,14 +554,14 @@ class Repository:
         return {
             "timestamp": self.update_timestamp_keystores,
             "snapshot": self.update_snapshot_keystores,
-            "targets": self.update_targets_keystores
+            "targets": self.update_targets_keystores,
         }.get(role_name, partial(self.update_targets_keystores, targets_role=role_name))
 
     def roles_yubikeys_update_method(self, role_name):
         return {
             "timestamp": self.update_timestamp_yubikeys,
             "snapshot": self.update_snapshot_yubikeys,
-            "targets": self.update_targets_yubikeys
+            "targets": self.update_targets_yubikeys,
         }.get(role_name, partial(self.update_targets_yubikeys, targets_role=role_name))
 
     def set_metadata_expiration_date(
@@ -609,15 +626,11 @@ class Repository:
             raise RootMetadataUpdateError(str(e))
 
     def sign_role_keystores(self, role_name, signing_keys, write=True):
-        """Update specified role's metadata. Sign it with keys not loaded from YubiKeys.
+        """Load signing keys of the specified role and sign the metadata file
+        if write is True. Should be used when the keys are not stored on Yubikeys.
         Args:
         - role_name(str): Name of the role which is to be updated
         - signing_keys(list[securesystemslib.formats.RSAKEY_SCHEMA]): A list of signing keys
-        - start_date(datetime): Date to which the specified interval is added when
-                                calculating expiration date. If a value is not
-                                provided, it is set to the current time
-        - interval(int): Number of days added to the start date. If not provided,
-                        the default value is used
         - write(bool): If True timestmap metadata will be signed and written
 
         Returns:
@@ -626,12 +639,14 @@ class Repository:
         Raises:
         - InvalidKeyError: If at least one of the provided keys cannot be used to sign the
                           role's metadata
-        - MetadataUpdateError: If the number of signing keys is insufficient or if
-                               an error occurs while updating the metadata
+        - SigningError: If the number of signing keys is insufficient
         """
         threshold = self.get_role_threshold(role_name)
         if len(signing_keys) < threshold:
-            raise SigningError(role_name, f"Insufficient number of signing keys. Signing threshold is {threshold}.")
+            raise SigningError(
+                role_name,
+                f"Insufficient number of signing keys. Signing threshold is {threshold}.",
+            )
         for key in signing_keys:
             self._try_load_metadata_key(role_name, key)
         if write:
@@ -642,91 +657,351 @@ class Repository:
         role_name,
         public_keys,
         signature_provider=yubikey_signature_provider,
-        write=True
+        write=True,
     ):
+        """Register signature providers of the specified role and sign the metadata file
+        if write is True.
+
+        Args:
+        - role_name(str): Name of the role which is to be updated
+        - public_keys(list[securesystemslib.formats.RSAKEY_SCHEMA]): A list of public keys
+        - signature_provider: Signature provider used for signing
+        - write(bool): If True timestmap metadata will be signed and written
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If at least one of the provided keys cannot be used to sign the
+                          role's metadata
+        - SigningError: If the number of signing keys is insufficient
+        """
         role_obj = self._role_obj(role_name)
         threshold = self.get_role_threshold(role_name)
         if len(public_keys) < threshold:
-            raise SigningError(role_name, f"Insufficient number of signing keys. Signing threshold is {threshold}.")
+            raise SigningError(
+                role_name,
+                f"Insufficient number of signing keys. Signing threshold is {threshold}.",
+            )
         for index, public_key in enumerate(public_keys):
             if public_key is None:
                 from taf.yubikey import get_piv_public_key_tuf
+
                 public_key = get_piv_public_key_tuf()
 
             if not self.is_valid_metadata_yubikey(role_name, public_key):
                 raise InvalidKeyError(role_name)
 
-            key_name = f'{role_name}{index + 1}'
+            key_name = f"{role_name}{index + 1}"
 
             role_obj.add_external_signature_provider(
-                public_key,
-                partial(
-                    signature_provider, key_name, public_key["keyid"]
-                ),
+                public_key, partial(signature_provider, key_name, public_key["keyid"])
             )
 
         if write:
             self._repository.write(role_name)
 
-    def _update_role_keystores(self, role_name, signing_keys, start_date=datetime.datetime.now(),
-                               interval=None, write=True):
+    def _update_role_keystores(
+        self,
+        role_name,
+        signing_keys,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update the specified role's metadata's expiration date by setting it to a date calculated by
+        adding the specified interval to start date. Load the signing keys and sign the file if
+        write is set to True.
+        Should be used when the keys are not stored on Yubikeys.
+
+        Args:
+        - role_name: Name of the role whose metadata is to be updated
+        - signing_keys: list of signing keys of the specified role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default expiration interval of the specified role is used
+        - write(bool): If True metadata will be signed and written
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - MetadataUpdateError: If any other error happened while updating and signing
+                               the metadata file
+        """
         try:
             self.set_metadata_expiration_date(role_name, start_date, interval)
             self.sign_role_keystores(role_name, signing_keys)
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
-    def _update_role_yubikeys(self, role_name, public_keys, start_date=datetime.datetime.now(),
-                              interval=None, write=True, signature_provider=yubikey_signature_provider):
+    def _update_role_yubikeys(
+        self,
+        role_name,
+        public_keys,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+        signature_provider=yubikey_signature_provider,
+    ):
+        """Update the specified role's metadata expiration date by setting it to a date calculated by
+        adding the specified interval to start date. Register Yubikey signature providers and
+        sign the metadata file if write is set to True.
+
+        Args:
+        - role_name: Name of the role whose metadata is to be updated
+        - public_keys: list of public keys of the specified role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default expiration interval of the specified role is used
+        - write(bool): If True timestamp metadata will be signed and written
+        - signature_provider: Signature provider used for signing
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - MetadataUpdateError: If any other error happened while updating and signing
+                               the metadata file
+        """
         try:
             self.set_metadata_expiration_date(role_name, start_date, interval)
             self.sign_role_yubikeys(role_name, public_keys)
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
-    def update_timestamp_keystores(self, timestamp_signing_keys, start_date=datetime.datetime.now(),
-                                   interval=None, write=True):
+    def update_timestamp_keystores(
+        self,
+        timestamp_signing_keys,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update timestamp metadata's expiration date by setting it to a date calculated by
+        adding the specified interval to start date. Load the signing keys and sign the file if
+        write is set to True.
+        Should be used when the keys are not stored on Yubikeys.
+
+        Args:
+        - timestamp_signing_keys: list of signing keys of the timestamp role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default timestamp expiration interval is used (1 day)
+        - write(bool): If True timestamp metadata will be signed and written
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - TimestampMetadataUpdateError: If any other error happened while updating and signing
+                                        the metadata file
+        """
         try:
-            self._update_role_keystores("timestamp", timestamp_signing_keys, start_date, interval, write)
+            self._update_role_keystores(
+                "timestamp", timestamp_signing_keys, start_date, interval, write
+            )
         except MetadataUpdateError as e:
             raise TimestampMetadataUpdateError(e.message)
 
-    def update_timestamp_yubikeys(self, timestamp_public_keys, start_date=datetime.datetime.now(),
-                                  interval=None, write=True):
+    def update_timestamp_yubikeys(
+        self,
+        timestamp_public_keys,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update timestamp metadata's expiration date by setting it to a date calculated by
+        adding the specified interval to start date. Register Yubikey signature providers and
+        sign the metadata file if write is set to True.
+
+        Args:
+        - timestamp_public_keys: list of public keys of the timestamp role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default timestamp expiration interval is used (1 day)
+        - write(bool): If True timestamp metadata will be signed and written
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - TimestampMetadataUpdateError: If any other error happened while updating and signing
+                                        the metadata file
+        """
         try:
-            self._update_role_yubikeys("timestamp", timestamp_public_keys, start_date, interval, write)
+            self._update_role_yubikeys(
+                "timestamp", timestamp_public_keys, start_date, interval, write
+            )
         except MetadataUpdateError as e:
             raise TimestampMetadataUpdateError(e.message)
 
-    def update_snapshot_keystores(self, snapshot_signing_keys, start_date=datetime.datetime.now(),
-                                  interval=None, write=True):
+    def update_snapshot_keystores(
+        self,
+        snapshot_signing_keys,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update snapshot metadata's expiration date by setting it to a date calculated by
+        adding the specified interval to start date. Load the signing keys and sign the file if
+        write is set to True.
+        Should be used when the keys are not stored on Yubikeys.
+
+        Args:
+        - snapshot_signing_keys: list of signing keys of the snapshot role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default snapshot expiration interval is used (7 days)
+        - write(bool): If True snapshot metadata will be signed and written
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - SnapshotMetadataUpdateError: If any other error happened while updating and signing
+                                       the metadata file
+        """
         try:
-            self._update_role_keystores("snapshot", snapshot_signing_keys, start_date, interval, write)
+            self._update_role_keystores(
+                "snapshot", snapshot_signing_keys, start_date, interval, write
+            )
         except MetadataUpdateError as e:
             raise SnapshotMetadataUpdateError(e.message)
 
-    def update_snapshot_yubikeys(self, snapshot_public_keys, start_date=datetime.datetime.now(),
-                                 interval=None, write=True):
+    def update_snapshot_yubikeys(
+        self,
+        snapshot_public_keys,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+    ):
+        """Update snapshot metadata's expiration date by setting it to a date calculated by
+        adding the specified interval to start date. Register Yubikey signature providers and
+        sign the metadata file if write is set to True
+
+        Args:
+        - snapshot_public_keys: list of public keys of the snapshot role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default snapshot expiration interval is used (7 days)
+        - write(bool): If True snapshot metadata will be signed and written
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - SnapshotMetadataUpdateError: If any other error happened while updating and signing
+                                       the metadata file
+        """
         try:
-            self._update_role_yubikeys("snapshot", snapshot_public_keys, start_date, interval, write)
+            self._update_role_yubikeys(
+                "snapshot", snapshot_public_keys, start_date, interval, write
+            )
         except MetadataUpdateError as e:
             raise SnapshotMetadataUpdateError(e.message)
 
-    def update_targets_keystores(self, targets_signing_keys, targets_data=None, start_date=datetime.datetime.now(),
-                                 interval=None, write=True, targets_role="targets"):
+    def update_targets_keystores(
+        self,
+        targets_signing_keys,
+        targets_data=None,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+        targets_role="targets",
+    ):
+        """Update a targets role's metadata. The role can be either be main targets role or a delegated
+        one. If targets_data is specified, updates metadata corresponding to target files contained
+        if that dictionary. Set the new expiration date by to a value calculated by adding the
+        specified interval to start date. Load the signing keys and sign the file if write is set to True.
+        Should be used when the keys are not stored on Yubikeys.
+
+        Args:
+        - targets_signing_keys: list of signing keys of the targets role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - targets_data(dict): (Optional) Dictionary containing targets data
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default targets expiration interval is used (90 days)
+        - write(bool): If True targets metadata will be signed and written
+        - targets_role(str): Name of the targets role. Set to "targets" by default
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - TargetsMetadataUpdateError: If any other error happened while updating and signing
+                                      the metadata file
+        """
         try:
             if targets_data:
                 self.add_targets(targets_data)
-            self._update_role_keystores(targets_role, targets_signing_keys, start_date, interval, write)
+            self._update_role_keystores(
+                targets_role, targets_signing_keys, start_date, interval, write
+            )
         except MetadataUpdateError as e:
             raise TargetsMetadataUpdateError(e.message)
 
-    def update_targets_yubikeys(self, targets_public_keys, targets_data=None, start_date=datetime.datetime.now(),
-                                interval=None, write=True, targets_role="targets"):
+    def update_targets_yubikeys(
+        self,
+        targets_public_keys,
+        targets_data=None,
+        start_date=datetime.datetime.now(),
+        interval=None,
+        write=True,
+        targets_role="targets",
+    ):
+        """Update a targets role's metadata. The role can be either be main targets role or a delegated
+        one. If targets_data is specified, updates metadata corresponding to target files contained
+        if that dictionary. Set the new expiration date by to a value calculated by adding the
+        specified interval to start date. Register Yubikey signature providers and
+        sign the metadata file if write is set to True.
+
+        Args:
+        - targets_signing_keys: list of signing keys of the targets role
+        - start_date(datetime): Date to which the specified interval is added when
+                                calculating expiration date. If no value is provided,
+                                it is set to the current time
+        - targets_data(dict): (Optional) Dictionary containing targets data
+        - interval(int): Number of days added to the start date. If not provided,
+                         the default targets expiration interval is used (90 days in case of
+                         "targets", 1 in case of delegated roles)
+        - write(bool): If True targets metadata will be signed and written
+        - targets_role(str): Name of the targets role. Set to "targets" by default
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If a wrong key is used to sign metadata
+        - TargetsMetadataUpdateError: If any other error happened while updating and signing
+                                      the metadata file
+        """
         try:
             if targets_data:
                 self.add_targets(targets_data)
-            self._update_role_yubikeys(targets_role, targets_public_keys, start_date, interval, write)
+            self._update_role_yubikeys(
+                targets_role, targets_public_keys, start_date, interval, write
+            )
         except MetadataUpdateError as e:
             raise TargetsMetadataUpdateError(e.message)
 

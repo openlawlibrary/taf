@@ -79,7 +79,7 @@ def read_private_key_from_keystore(
     roles_key_info=None,
     key_num=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    password=None
+    password=None,
 ):
     key_path = Path(keystore, key_name)
     if not key_path.is_file():
