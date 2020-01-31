@@ -1,9 +1,10 @@
-import click
 import datetime
 from contextlib import contextmanager
 from functools import wraps
 from collections import defaultdict
+from getpass import getpass
 
+import click
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -21,7 +22,7 @@ from ykman.piv import (
 from ykman.util import TRANSPORT
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import YubikeyError, InvalidPINError
+from taf.exceptions import InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
 
 DEFAULT_PIN = "123456"
@@ -301,7 +302,18 @@ def setup(
         if private_key_pem is None:
             pub_key = ctrl.generate_key(SLOT.SIGNATURE, ALGO.RSA2048, PIN_POLICY.ALWAYS)
         else:
-            private_key = load_pem_private_key(private_key_pem, None, default_backend())
+            try:
+                private_key = load_pem_private_key(
+                    private_key_pem, None, default_backend()
+                )
+            except TypeError:
+                pem_pwd = getpass("Enter pem file password:\n")
+                if pem_pwd:
+                    pem_pwd = pem_pwd.encode()
+                private_key = load_pem_private_key(
+                    private_key_pem, pem_pwd, default_backend()
+                )
+
             ctrl.import_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
             pub_key = private_key.public_key()
 

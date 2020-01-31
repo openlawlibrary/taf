@@ -12,20 +12,6 @@ import click
 import securesystemslib
 import securesystemslib.exceptions
 import tuf.repository_tool
-from taf.auth_repo import AuthenticationRepo
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError
-from taf.git import GitRepository
-from taf.keystore import (
-    key_cmd_prompt,
-    read_private_key_from_keystore,
-    read_public_key_from_keystore,
-    new_public_key_cmd_prompt,
-)
-from taf.repository_tool import yubikey_signature_provider
-from taf.log import taf_logger
-from taf.repository_tool import Repository
-from taf.utils import read_input_dict
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
@@ -33,6 +19,21 @@ from tuf.repository_tool import (
     generate_and_write_rsa_keypair,
     generate_rsa_key,
 )
+
+from taf.auth_repo import AuthenticationRepo
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import KeystoreError
+from taf.git import GitRepository
+from taf.keystore import (
+    key_cmd_prompt,
+    new_public_key_cmd_prompt,
+    read_private_key_from_keystore,
+    read_public_key_from_keystore,
+)
+from taf.repository_tool import yubikey_signature_provider
+from taf.log import taf_logger
+from taf.repository_tool import Repository
+from taf.utils import read_input_dict
 
 try:
     import taf.yubikey as yk
@@ -266,7 +267,7 @@ def create_repository(
         roles_key_infos:
         A dictionary whose keys are role names, while values contain information about the keys.
         commit:
-        Indicates if the changes should be automatically comitted
+        Indicates if the changes should be automatically committed
         test:
         Indicates if the created repository is a test authentication repository
     """
@@ -594,7 +595,7 @@ def export_yk_certificate(certs_dir, key):
 
 
 def _get_namespace_and_root(repo_path, namespace, root_dir):
-    repo_path = Path(repo_path)
+    repo_path = Path(repo_path).resolve()
     if namespace is None:
         namespace = repo_path.parent.name
     if root_dir is None:
