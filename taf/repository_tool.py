@@ -153,13 +153,16 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
                 pin = yk.get_and_validate_pin(name)
             return pin
         except Exception:
-            input(f"Insert {name} and press enter")
             return None
 
     while True:
+        # check if the needed YubiKey is inserted before asking the user to do so
+        # this allows us to use this signature provider inside an automated process
+        # assuming that all YubiKeys needed for signing are inserted
         pin = _check_key_and_get_pin(key_id)
         if pin is not None:
             break
+        input(f"Insert {name} and press enter")
 
     signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
