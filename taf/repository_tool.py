@@ -658,6 +658,7 @@ class Repository:
         public_keys,
         signature_provider=yubikey_signature_provider,
         write=True,
+        pins=None,
     ):
         """Register signature providers of the specified role and sign the metadata file
         if write is True.
@@ -667,7 +668,10 @@ class Repository:
         - public_keys(list[securesystemslib.formats.RSAKEY_SCHEMA]): A list of public keys
         - signature_provider: Signature provider used for signing
         - write(bool): If True timestmap metadata will be signed and written
-
+        - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
+                      provided, pins will either be loaded from the global pins dictionary
+                      (if it was previously populated) or the user will have to manually enter
+                      it.
         Returns:
         None
 
@@ -676,6 +680,8 @@ class Repository:
                           role's metadata
         - SigningError: If the number of signing keys is insufficient
         """
+        import taf.yubikey as yk
+
         role_obj = self._role_obj(role_name)
         threshold = self.get_role_threshold(role_name)
         if len(public_keys) < threshold:
@@ -683,6 +689,11 @@ class Repository:
                 role_name,
                 f"Insufficient number of signing keys. Signing threshold is {threshold}.",
             )
+
+        if pins is not None:
+            for serial_num, pin in pins.items():
+                yk.add_key_pin(serial_num, pin)
+
         for index, public_key in enumerate(public_keys):
             if public_key is None:
                 from taf.yubikey import get_piv_public_key_tuf
@@ -746,6 +757,7 @@ class Repository:
         interval=None,
         write=True,
         signature_provider=yubikey_signature_provider,
+        pins=None,
     ):
         """Update the specified role's metadata expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -761,7 +773,10 @@ class Repository:
                          the default expiration interval of the specified role is used
         - write(bool): If True timestamp metadata will be signed and written
         - signature_provider: Signature provider used for signing
-
+        - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
+                      provided, pins will either be loaded from the global pins dictionary
+                      (if it was previously populated) or the user will have to manually enter
+                      it.
         Returns:
         None
 
@@ -772,7 +787,13 @@ class Repository:
         """
         try:
             self.set_metadata_expiration_date(role_name, start_date, interval)
-            self.sign_role_yubikeys(role_name, public_keys)
+            self.sign_role_yubikeys(
+                role_name,
+                public_keys,
+                signature_provider=signature_provider,
+                write=write,
+                pins=pins,
+            )
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
@@ -818,6 +839,7 @@ class Repository:
         start_date=datetime.datetime.now(),
         interval=None,
         write=True,
+        pins=None,
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -831,6 +853,10 @@ class Repository:
         - interval(int): Number of days added to the start date. If not provided,
                          the default timestamp expiration interval is used (1 day)
         - write(bool): If True timestamp metadata will be signed and written
+        - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
+                      provided, pins will either be loaded from the global pins dictionary
+                      (if it was previously populated) or the user will have to manually enter
+                      it.
 
         Returns:
         None
@@ -842,7 +868,12 @@ class Repository:
         """
         try:
             self._update_role_yubikeys(
-                "timestamp", timestamp_public_keys, start_date, interval, write
+                "timestamp",
+                timestamp_public_keys,
+                start_date,
+                interval,
+                write=write,
+                pins=pins,
             )
         except MetadataUpdateError as e:
             raise TimestampMetadataUpdateError(e.message)
@@ -889,6 +920,7 @@ class Repository:
         start_date=datetime.datetime.now(),
         interval=None,
         write=True,
+        pins=None,
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -902,6 +934,10 @@ class Repository:
         - interval(int): Number of days added to the start date. If not provided,
                          the default snapshot expiration interval is used (7 days)
         - write(bool): If True snapshot metadata will be signed and written
+        - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
+                      provided, pins will either be loaded from the global pins dictionary
+                      (if it was previously populated) or the user will have to manually enter
+                      it.
 
         Returns:
         None
@@ -913,7 +949,12 @@ class Repository:
         """
         try:
             self._update_role_yubikeys(
-                "snapshot", snapshot_public_keys, start_date, interval, write
+                "snapshot",
+                snapshot_public_keys,
+                start_date,
+                interval,
+                write=write,
+                pins=pins,
             )
         except MetadataUpdateError as e:
             raise SnapshotMetadataUpdateError(e.message)
@@ -969,6 +1010,7 @@ class Repository:
         interval=None,
         write=True,
         targets_role="targets",
+        pins=None,
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
         one. If targets_data is specified, updates metadata corresponding to target files contained
@@ -987,7 +1029,10 @@ class Repository:
                          "targets", 1 in case of delegated roles)
         - write(bool): If True targets metadata will be signed and written
         - targets_role(str): Name of the targets role. Set to "targets" by default
-
+        - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
+                      provided, pins will either be loaded from the global pins dictionary
+                      (if it was previously populated) or the user will have to manually enter
+                      it.
         Returns:
         None
 
@@ -1000,7 +1045,12 @@ class Repository:
             if targets_data:
                 self.add_targets(targets_data)
             self._update_role_yubikeys(
-                targets_role, targets_public_keys, start_date, interval, write
+                targets_role,
+                targets_public_keys,
+                start_date,
+                interval,
+                write=write,
+                pins=pins,
             )
         except MetadataUpdateError as e:
             raise TargetsMetadataUpdateError(e.message)
