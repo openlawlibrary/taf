@@ -828,8 +828,6 @@ def register_target_files(
         taf_repo.add_existing_target(str(targets_path / target_rel_path), target_role)
 
     updated_targets_roles = set(targets_roles_mapping.values())
-    for role in updated_targets_roles:
-        print(taf_repo.get_role_threshold(role))
 
     _write_targets_metadata(
         taf_repo, updated_targets_roles, keystore, roles_key_infos, scheme
