@@ -306,8 +306,6 @@ def create_repository(
 
     # load and/or generate all keys first
     try:
-        # load keys not stored on YubiKeys first, to avoid entering pins
-        # if there is somethig wrong with keystore files
         keystore_roles, yubikey_roles = _sort_roles(roles_key_infos, repository)
         signing_keys = {}
         verification_keys = {}

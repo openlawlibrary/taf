@@ -9,6 +9,7 @@ from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import to_tuf_datetime_format
 import taf.yubikey as yk
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.tests.yubikey_utils import VALID_PIN
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
@@ -120,7 +121,7 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
         "dummy/target_dummy_repo": {"target": {"commit": target_commit_sha}},
         "capstone": {},
     }
-    yk.add_key_pin(targets_yk.serial, "123456")
+    yk.add_key_pin(targets_yk.serial, VALID_PIN)
     targets_yk.insert()
     public_key = targets_yk.tuf_key
     taf_happy_path.update_targets_yubikeys(
@@ -137,5 +138,5 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
 def test_update_targets_wrong_key(taf_happy_path, root1_yk):
     with pytest.raises(taf.exceptions.InvalidKeyError):
         root1_yk.insert()
-        yk.add_key_pin(root1_yk.serial, "123456")
+        yk.add_key_pin(root1_yk.serial, VALID_PIN)
         taf_happy_path.update_targets_yubikeys([root1_yk.tuf_key])

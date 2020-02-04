@@ -406,11 +406,13 @@ class Repository:
             return [str(Path(target_path).as_posix()) for target_path in repositories]
 
     def get_role_keys(self, role, parent_role=None):
-        """Registers new target files with TUF.
-        The files are expected to be inside the targets directory.
+        """Get keyids of the given role
 
         Args:
         - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
 
         Returns:
         List of the role's keyids (i.e., keyids of the keys).
@@ -421,6 +423,8 @@ class Repository:
                                                         targets object.
         """
         role_obj = self._role_obj(role)
+        if role_obj is None:
+            return None
         try:
             return role_obj.keys
         except KeyError:
@@ -428,8 +432,26 @@ class Repository:
         return get_delegated_role_property("keyids", role, parent_role)
 
     def get_role_threshold(self, role, parent_role=None):
+        """Get threshold of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Role's signatures threshold
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        role_obj = self._role_obj(role)
+        if role_obj is None:
+            return None
         try:
-            return self._role_obj(role).threshold
+            return role_obj.threshold
         except KeyError:
             pass
         return get_delegated_role_property("threshold", role, parent_role)
@@ -681,6 +703,7 @@ class Repository:
         - SigningError: If the number of signing keys is insufficient
         """
         import taf.yubikey as yk
+        from taf.yubikey import get_piv_public_key_tuf
 
         role_obj = self._role_obj(role_name)
         threshold = self.get_role_threshold(role_name)
@@ -696,8 +719,6 @@ class Repository:
 
         for index, public_key in enumerate(public_keys):
             if public_key is None:
-                from taf.yubikey import get_piv_public_key_tuf
-
                 public_key = get_piv_public_key_tuf()
 
             if not self.is_valid_metadata_yubikey(role_name, public_key):
