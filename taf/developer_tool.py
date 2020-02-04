@@ -6,7 +6,6 @@ from collections import defaultdict
 from functools import partial
 from getpass import getpass
 from pathlib import Path
-from fnmatch import fnmatch
 
 import click
 import securesystemslib

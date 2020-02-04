@@ -24,8 +24,10 @@ from taf.utils import on_rm_error
 TEST_DATA_PATH = Path(__file__).parent / "data"
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / "repos"
 TEST_DATA_ORIGIN_PATH = TEST_DATA_REPOS_PATH / "origin"
-KEYSTORE_PATH = TEST_DATA_PATH / "keystore"
-WRONG_KEYSTORE_PATH = TEST_DATA_PATH / "wrong_keystore"
+KEYSTORES_PATH = TEST_DATA_PATH / "keystores"
+KEYSTORE_PATH = KEYSTORES_PATH / "keystore"
+WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
+DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 
 
@@ -97,7 +99,7 @@ def taf_happy_path(request, pytestconfig):
     def _create_origin(test_dir, taf_repo_name="taf"):
         with origin_repos(test_dir) as origins:
             taf_repo_origin_path = origins[taf_repo_name]
-            yield Repository(taf_repo_origin_path)
+            yield Repository(taf_repo_origin_path, repository_name=test_dir)
 
     scheme = request.param
     pytestconfig.option.signature_scheme = scheme
@@ -108,6 +110,13 @@ def taf_happy_path(request, pytestconfig):
         yield from _create_origin("test-happy-path-pkcs1v15")
     else:
         raise ValueError(f"Invalid test config. Invalid scheme: {scheme}")
+
+
+@yield_fixture(scope="session", autouse=True)
+def taf_delegated_roles():
+    with origin_repos("test-delegated-roles") as origins:
+        taf_repo_origin_path = origins["taf"]
+        yield Repository(taf_repo_origin_path, repository_name="test-delegated-roles")
 
 
 @yield_fixture(scope="session", autouse=True)
@@ -137,6 +146,11 @@ def keystore():
 def wrong_keystore():
     """Path of the wrong keystore"""
     return str(WRONG_KEYSTORE_PATH)
+
+@fixture
+def delegated_roles_keystore():
+    """Path of the keystore with keys of delegated roles"""
+    return str(DELEGATED_ROLES_KEYSTORE_PATH)
 
 
 @fixture
