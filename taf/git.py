@@ -252,6 +252,10 @@ class GitRepository(object):
                 log_success_msg=f"checked out branch {branch_name}",
             )
         except subprocess.CalledProcessError as e:
+            # skip worktree errors
+            if "is already checked out at" in e.output:
+                return
+
             if create:
                 self.create_and_checkout_branch(branch_name)
             else:
