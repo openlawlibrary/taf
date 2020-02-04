@@ -30,9 +30,8 @@ from taf.keystore import (
     read_private_key_from_keystore,
     read_public_key_from_keystore,
 )
-from taf.repository_tool import yubikey_signature_provider
 from taf.log import taf_logger
-from taf.repository_tool import Repository
+from taf.repository_tool import Repository, map_signing_roles, yubikey_signature_provider
 from taf.utils import read_input_dict
 
 try:
@@ -834,41 +833,6 @@ def register_target_files(
     if commit:
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_git_repo.commit(commit_message)
-
-
-def map_signing_roles(target_filenames):
-    """
-    For each target file, find delegated role responsible for that target file based
-    on the delegated paths. The most specific role (meaning most deepy nested) whose
-    delegation path matches the target's path is returned as that file's matching role.
-    If there are no delegated roles with a path that matches the target file's path,
-    'targets' role will be returned as that file's matching role. Delegation path
-    is expected to be relative to the targets directory. It can be defined as a glob
-    pattern.
-    """
-    roles_targets = {target_filename: "targets" for target_filename in target_filenames}
-    roles_targets.update(_delegated_roles_traversal("targets", target_filenames))
-    return roles_targets
-
-
-def _delegated_roles_traversal(role_name, target_filenames):
-    roles_targets = {}
-    targets_role_info = tuf.roledb.get_roleinfo(role_name)
-    delegations = targets_role_info.get("delegations")
-    if len(delegations):
-        for role_info in delegations.get("roles"):
-            # check if this role can sign target_path
-            delegated_role_name = role_info["name"]
-            for path_pattern in role_info["paths"]:
-                for target_filename in target_filenames:
-                    if fnmatch(
-                        target_filename.lstrip(os.sep), path_pattern.lstrip(os.sep)
-                    ):
-                        roles_targets[target_filename] = delegated_role_name
-            roles_targets.update(
-                _delegated_roles_traversal(delegated_role_name, target_filenames)
-            )
-    return roles_targets
 
 
 def _role_obj(role, repository):

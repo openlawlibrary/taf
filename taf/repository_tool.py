@@ -38,6 +38,7 @@ role_keys_cache = {}
 DISABLE_KEYS_CACHING = False
 
 
+
 def get_delegated_role_property(property_name, role_name, parent_role=None):
     """
     Extract value of the specified property of the provided delegated role from
@@ -93,6 +94,34 @@ def find_delegated_roles_parent(role_name):
     return _find_delegated_role("targets", role_name)
 
 
+def find_keys_roles(public_keys):
+    """Find all roles that can be signed by the provided keys.
+    A role can be signed by the list of keys if at least the number
+    of keys that can sign that file is equal to or greater than the role's
+    threshold
+    """
+    def _map_keys_to_roles(role_name, key_ids):
+        keys_roles = []
+        targets_role_info = tuf.roledb.get_roleinfo(role_name)
+        delegations = targets_role_info.get("delegations")
+        if len(delegations):
+            for role_info in delegations.get("roles"):
+                # check if this role can sign target_path
+                delegated_role_name = role_info["name"]
+                delegated_roles_keyids = role_info["keyids"]
+                delegated_roles_threshold = role_info["threshold"]
+                num_of_signing_keys = set(delegated_roles_keyids).intersection(key_ids)
+                if num_of_signing_keys:
+                    keys_roles.append(delegated_role_name)
+                keys_roles.extend(
+                    _map_keys_to_roles(delegated_role_name, key_ids)
+                )
+        return keys_roles
+
+    keyids = [key["keyid"] for key in public_keys]
+    return _map_keys_to_roles("targets", keyids)
+
+
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Loads the specified role's key from a keystore file.
     The keystore file can, but doesn't have to be password protected.
@@ -127,6 +156,40 @@ def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SC
     if not DISABLE_KEYS_CACHING:
         role_keys_cache[role] = key
     return key
+
+
+def map_signing_roles(target_filenames):
+    """
+    For each target file, find delegated role responsible for that target file based
+    on the delegated paths. The most specific role (meaning most deepy nested) whose
+    delegation path matches the target's path is returned as that file's matching role.
+    If there are no delegated roles with a path that matches the target file's path,
+    'targets' role will be returned as that file's matching role. Delegation path
+    is expected to be relative to the targets directory. It can be defined as a glob
+    pattern.
+    """
+    def _map_targets_to_roles(role_name, target_filenames):
+        roles_targets = {}
+        targets_role_info = tuf.roledb.get_roleinfo(role_name)
+        delegations = targets_role_info.get("delegations")
+        if len(delegations):
+            for role_info in delegations.get("roles"):
+                # check if this role can sign target_path
+                delegated_role_name = role_info["name"]
+                for path_pattern in role_info["paths"]:
+                    for target_filename in target_filenames:
+                        if fnmatch(
+                            target_filename.lstrip(os.sep), path_pattern.lstrip(os.sep)
+                        ):
+                            roles_targets[target_filename] = delegated_role_name
+                roles_targets.update(
+                    _map_targets_to_roles(delegated_role_name, target_filenames)
+                )
+        return roles_targets
+
+    roles_targets = {target_filename: "targets" for target_filename in target_filenames}
+    roles_targets.update(_map_targets_to_roles("targets", target_filenames))
+    return roles_targets
 
 
 def root_signature_provider(signature_dict, key_id, _key, _data):
