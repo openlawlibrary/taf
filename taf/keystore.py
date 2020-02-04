@@ -79,13 +79,13 @@ def read_private_key_from_keystore(
     roles_key_info=None,
     key_num=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    password=None,
 ):
     key_path = Path(keystore, key_name)
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
 
-    password = None
-    if roles_key_info is not None:
+    if password is not None and roles_key_info is not None:
         passwords = roles_key_info.get("passwords")
         if passwords is not None and len(passwords):
             password = passwords[key_num]

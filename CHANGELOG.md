@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add support for delegated targets roles ([97])
 ### Changed
 
 - Separated commands into sub-commands ([96])
@@ -18,7 +19,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fixed init and create repo commands ([96])
 
-
+[97]: https://github.com/openlawlibrary/taf/pull/97
 [96]: https://github.com/openlawlibrary/taf/pull/96
 
 ## [0.2.2] - 01/06/2020

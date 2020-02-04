@@ -252,6 +252,10 @@ class GitRepository(object):
                 log_success_msg=f"checked out branch {branch_name}",
             )
         except subprocess.CalledProcessError as e:
+            # skip worktree errors
+            if "is already checked out at" in e.output:
+                return
+
             if create:
                 self.create_and_checkout_branch(branch_name)
             else:
@@ -500,6 +504,27 @@ class GitRepository(object):
         else:
             commits = self._git(f"log {branch} --format=format:%H -n {number}")
         return commits.split("\n") if commits else []
+
+    def list_modified_files(self, path=None):
+        diff_command = "diff --name-status"
+        if path is not None:
+            diff_command = f"{diff_command} {path}"
+        modified_files = self._git(diff_command).split("\n")
+        file_names = []
+        for modified_file in modified_files:
+            # ignore warning lines
+            if len(modified_file) and modified_file[0] in ["A", "M", "D"]:
+                file_names.append(modified_file.split(maxsplit=1)[1])
+        return file_names
+
+    def list_untracked_files(self, path=None):
+        ls_command = "ls-files --others"
+        if path is not None:
+            ls_command = f"{ls_command} {path}"
+        untracked_files = self._git(ls_command).split("\n")
+        return [
+            untracked_file for untracked_file in untracked_files if len(untracked_file)
+        ]
 
     def merge_commit(self, commit):
         self._git("merge {}", commit)
