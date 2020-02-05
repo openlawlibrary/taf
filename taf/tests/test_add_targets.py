@@ -1,6 +1,8 @@
 import json
 import os
 from pathlib import Path
+import pytest
+from taf.exceptions import TargetsError
 
 from pytest import fixture
 
@@ -8,53 +10,63 @@ from taf.git import GitRepository
 
 
 @fixture(autouse=True)
-def run_around_tests(taf_happy_path):
+def run_around_tests(repositories):
     yield
-    repo = GitRepository(taf_happy_path.repository_path)
-    repo.reset_to_head()
-    repo.clean()
-    taf_happy_path._repository.targets.clear_targets()
-    files_to_keep = []
-    for root, _, filenames in os.walk(str(taf_happy_path.targets_path)):
-        for filename in filenames:
-            relpath = Path(root, filename).relative_to(taf_happy_path.targets_path)
-            files_to_keep.append(relpath.as_posix())
-    taf_happy_path.add_targets({}, files_to_keep=files_to_keep)
+    for taf_repository in repositories.values():
+        repo = GitRepository(taf_repository.repository_path)
+        repo.reset_to_head()
+        repo.clean()
+        taf_repository._repository.targets.clear_targets()
+        files_to_keep = []
+        for root, _, filenames in os.walk(str(taf_repository.targets_path)):
+            for filename in filenames:
+                relpath = Path(root, filename).relative_to(taf_repository.targets_path)
+                files_to_keep.append(relpath.as_posix())
+        taf_repository.add_targets({}, files_to_keep=files_to_keep)
 
 
-def test_add_targets_new_files(taf_happy_path):
+# def test_add_targets_new_files(taf_happy_path):
 
-    old_targets = _get_old_targets(taf_happy_path)
+#     old_targets = _get_old_targets(taf_happy_path)
 
-    json_file_content = {"attr1": "value1", "attr2": "value2"}
-    regular_file_content = "this file is not empty"
-    data = {
-        "new_json_file": {"target": json_file_content},
-        "new_file": {"target": regular_file_content},
-        "empty_file": {"target": None},
-    }
-    taf_happy_path.add_targets(data)
-    _check_target_files(taf_happy_path, data, old_targets)
-
-
-def test_add_targets_nested_files(taf_happy_path):
-
-    old_targets = _get_old_targets(taf_happy_path)
-
-    data = {
-        "inner_folder1/new_file_1": {"target": "file 1 content"},
-        "inner_folder2/new_file_2": {"target": "file 2 content"},
-    }
-    taf_happy_path.add_targets(data)
-    _check_target_files(taf_happy_path, data, old_targets)
+#     json_file_content = {"attr1": "value1", "attr2": "value2"}
+#     regular_file_content = "this file is not empty"
+#     data = {
+#         "new_json_file": {"target": json_file_content},
+#         "new_file": {"target": regular_file_content},
+#         "empty_file": {"target": None},
+#     }
+#     taf_happy_path.add_targets(data)
+#     _check_target_files(taf_happy_path, data, old_targets)
 
 
-def test_add_targets_files_to_keep(taf_happy_path):
-    old_targets = _get_old_targets(taf_happy_path)
-    data = {"a_new_file": {"target": "new file content"}}
-    files_to_keep = ["branch"]
-    taf_happy_path.add_targets(data, files_to_keep=files_to_keep)
-    _check_target_files(taf_happy_path, data, old_targets, files_to_keep)
+# def test_add_targets_nested_files(taf_happy_path):
+
+#     old_targets = _get_old_targets(taf_happy_path)
+
+#     data = {
+#         "inner_folder1/new_file_1": {"target": "file 1 content"},
+#         "inner_folder2/new_file_2": {"target": "file 2 content"},
+#     }
+#     taf_happy_path.add_targets(data)
+#     _check_target_files(taf_happy_path, data, old_targets)
+
+
+# def test_add_targets_files_to_keep(taf_happy_path):
+#     old_targets = _get_old_targets(taf_happy_path)
+#     data = {"a_new_file": {"target": "new file content"}}
+#     files_to_keep = ["branch"]
+#     taf_happy_path.add_targets(data, files_to_keep=files_to_keep)
+#     _check_target_files(taf_happy_path, data, old_targets, files_to_keep)
+
+
+def test_add_targets_delegated_roles(repositories):
+    taf_delegated_roles = repositories["test-delegated-roles"]
+    old_targets = _get_old_targets(taf_delegated_roles)
+    data = {"dir1/a_new_file": {"target": "new file content"}}
+    with pytest.raises(TargetsError):
+        taf_delegated_roles.add_targets(data, targets_role="delegated_role2")
+    # _check_target_files(taf_delegated_roles, data, old_targets, files_to_keep)
 
 
 def _check_target_files(repo, data, old_targets, files_to_keep=None):

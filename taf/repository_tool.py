@@ -19,6 +19,7 @@ from taf.exceptions import (
     TimestampMetadataUpdateError,
     YubikeyError,
     SigningError,
+    TargetsError,
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
@@ -298,24 +299,41 @@ class Repository:
                                     that should remain targets. Files required by the framework will
                                     also remain targets.
         """
+        if len(data):
+            target_roles_mapping = self.map_signing_roles(data.keys())
+            roles = list(target_roles_mapping.values())
+            target_files = list(data.keys())
+            if len(roles) > 1 or targets_role not in roles:
+                raise TargetsError(f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} and not just {targets_role}")
+
         if files_to_keep is None:
             files_to_keep = []
         # leave all files required by the framework and additional files specified by the user
         files_to_keep.extend(self._framework_files)
         # add all repositories defined in repositories.json to files_to_keep
-        files_to_keep.extend(self._get_target_repositories())
+        target_repositories = self._get_target_repositories()
+        if target_repositories is not None:
+            files_to_keep.extend(target_repositories)
         # delete files if they no longer correspond to a target defined
         # in targets metadata and are not specified in files_to_keep
+
+        target_roles_paths = self.get_role_paths(targets_role)
         targets_obj = self._role_obj(targets_role)
-        for filepath in self.targets_path.rglob("*"):
-            if filepath.is_file():
-                file_rel_path = str(
-                    Path(filepath).relative_to(self.targets_path).as_posix()
-                )
-                if file_rel_path not in data and file_rel_path not in files_to_keep:
-                    if file_rel_path in targets_obj.target_files:
-                        targets_obj.remove_target(file_rel_path)
-                    filepath.unlink()
+        for target_role_path in target_roles_paths:
+            try:
+                if (Path(self.targets_path) / target_role_path).is_file():
+                    continue
+            except OSError:
+                pass
+            for filepath in self.targets_path.rglob(target_role_path):
+                if filepath.is_file():
+                    file_rel_path = str(
+                        Path(filepath).relative_to(self.targets_path).as_posix()
+                    )
+                    if file_rel_path not in data and file_rel_path not in files_to_keep:
+                        if file_rel_path in targets_obj.target_files:
+                            targets_obj.remove_target(file_rel_path)
+                        filepath.unlink()
 
         for path, target_data in data.items():
             # if the target's parent directory should not be "targets", create
@@ -484,6 +502,34 @@ class Repository:
         except KeyError:
             pass
         return self.get_delegated_role_property("keyids", role, parent_role)
+
+    def get_role_paths(self, role, parent_role=None):
+        """Get paths of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Defined delegated paths of delegate target role or * in case of targets
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        if role == "targets":
+            return "*"
+
+        role_obj = self._role_obj(role)
+        if role_obj is None:
+            return None
+        try:
+            return role_obj.paths
+        except KeyError:
+            pass
+        return self.get_delegated_role_property("paths", role, parent_role)
 
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role
