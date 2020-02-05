@@ -30,7 +30,7 @@ from taf.keystore import (
     read_public_key_from_keystore,
 )
 from taf.log import taf_logger
-from taf.repository_tool import Repository, map_signing_roles, yubikey_signature_provider
+from taf.repository_tool import Repository, yubikey_signature_provider
 from taf.utils import read_input_dict
 
 try:
@@ -819,7 +819,7 @@ def register_target_files(
                         os.path.relpath(str(filepath), str(targets_path))
                     )
 
-    targets_roles_mapping = map_signing_roles(target_filenames)
+    targets_roles_mapping = taf_repo.map_signing_roles(target_filenames)
     for target_rel_path, target_role in targets_roles_mapping.items():
         taf_repo.add_existing_target(str(targets_path / target_rel_path), target_role)
 

@@ -40,7 +40,6 @@ role_keys_cache = {}
 DISABLE_KEYS_CACHING = False
 
 
-
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Loads the specified role's key from a keystore file.
     The keystore file can, but doesn't have to be password protected.
@@ -240,7 +239,6 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
-
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
 
@@ -384,7 +382,9 @@ class Repository:
         """
 
         def _find_delegated_role(parent_role_name, role_name):
-            targets_role_info = tuf.roledb.get_roleinfo(parent_role_name, self.repository_name)
+            targets_role_info = tuf.roledb.get_roleinfo(
+                parent_role_name, self.repository_name
+            )
             delegations = targets_role_info.get("delegations")
             if len(delegations):
                 for role_info in delegations.get("roles"):
@@ -405,6 +405,7 @@ class Repository:
         of keys that can sign that file is equal to or greater than the role's
         threshold
         """
+
         def _map_keys_to_roles(role_name, key_ids):
             keys_roles = []
             targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
@@ -415,12 +416,12 @@ class Repository:
                     delegated_role_name = role_info["name"]
                     delegated_roles_keyids = role_info["keyids"]
                     delegated_roles_threshold = role_info["threshold"]
-                    num_of_signing_keys = set(delegated_roles_keyids).intersection(key_ids)
-                    if num_of_signing_keys >= threshold:
-                        keys_roles.append(delegated_role_name)
-                    keys_roles.extend(
-                        _map_keys_to_roles(delegated_role_name, key_ids)
+                    num_of_signing_keys = len(
+                        set(delegated_roles_keyids).intersection(key_ids)
                     )
+                    if num_of_signing_keys >= delegated_roles_threshold:
+                        keys_roles.append(delegated_role_name)
+                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
             return keys_roles
 
         keyids = [key["keyid"] for key in public_keys]
@@ -482,7 +483,7 @@ class Repository:
             return role_obj.keys
         except KeyError:
             pass
-        return get_delegated_role_property("keyids", role, parent_role)
+        return self.get_delegated_role_property("keyids", role, parent_role)
 
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role
@@ -507,7 +508,7 @@ class Repository:
             return role_obj.threshold
         except KeyError:
             pass
-        return get_delegated_role_property("threshold", role, parent_role)
+        return self.get_delegated_role_property("threshold", role, parent_role)
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
@@ -580,7 +581,6 @@ class Repository:
 
         return self.is_valid_metadata_key(role, public_key)
 
-
     def map_signing_roles(self, target_filenames):
         """
         For each target file, find delegated role responsible for that target file based
@@ -591,6 +591,7 @@ class Repository:
         is expected to be relative to the targets directory. It can be defined as a glob
         pattern.
         """
+
         def _map_targets_to_roles(role_name, target_filenames):
             roles_targets = {}
             targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
@@ -602,7 +603,8 @@ class Repository:
                     for path_pattern in role_info["paths"]:
                         for target_filename in target_filenames:
                             if fnmatch(
-                                target_filename.lstrip(os.sep), path_pattern.lstrip(os.sep)
+                                target_filename.lstrip(os.sep),
+                                path_pattern.lstrip(os.sep),
                             ):
                                 roles_targets[target_filename] = delegated_role_name
                     roles_targets.update(
@@ -610,7 +612,9 @@ class Repository:
                     )
             return roles_targets
 
-        roles_targets = {target_filename: "targets" for target_filename in target_filenames}
+        roles_targets = {
+            target_filename: "targets" for target_filename in target_filenames
+        }
         roles_targets.update(_map_targets_to_roles("targets", target_filenames))
         return roles_targets
 

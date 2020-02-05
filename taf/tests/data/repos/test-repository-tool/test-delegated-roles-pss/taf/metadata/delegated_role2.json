@@ -1,0 +1,58 @@
+{
+ "signatures": [
+  {
+   "keyid": "f38aa831c6bbb2a676917724a2407034ef27ad4d953232c2d2ec6d6abe4672d3",
+   "sig": "aa10bb65c1bcf15b87446740870ad5ff0232d64950bf083038df0c9af11cda62b09ed1121fca1efc1a5eab92be12f44d2d8504cfd28d4f71493dd182e6617ac5b411059ad4909d800fe5ec098ad0f4a90cd86293b9001f0602dcdfa3f25899709910a70828eec0b6fca3e6248b41475a57ef6c4e68d1991019258ad94df3ac7ffe797efde01249161b9f3889a5a5260f063c5f7022b7084b0b7ddafd95e12573619c03773257d3181be66d7ea44583b085a1c23ae0c1997580034308e77b650c83e4e3eb8fa3938d01b974d197d909f72b9385c92b5426aef0e15dd43c3f0ab0a4df79bb1bd9692f4bbb0c980d26c8002c10ffe699ac8c713befee4360f7fb27fb7ba7a2f087d3e33e0ae887797413c42c9196e8a3e7e6e0507b74dac5ff4f123dcef4496e39d5910ff5fd7d3346bb1059de50042739fd93b9f5a12e12f86ebe6111903af4ac30602826882a195cf20bc0c0233448a4d4e80883da94e10247c29844d2017934f794bbb12abaca59b642c3e637a3a1f8a56f432e69309cf73826"
+  }
+ ],
+ "signed": {
+  "_type": "targets",
+  "delegations": {
+   "keys": {
+    "7898a7e4654f79f9ffcc49c7dcd3350944f138c1bdc3c0bcb2572bddb4963dc1": {
+     "keyid_hash_algorithms": [
+      "sha256",
+      "sha512"
+     ],
+     "keytype": "rsa",
+     "keyval": {
+      "public": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAuOoH2wIn1ThP8zYJ0JEA\nqS0vjNo8mjidSDgRpWTcXLWoipI7tqvVADnbi0rnMdeccsMliQnpcdqH4L1FBJKK\nLtKsfAUttZw+fGlYSJNATJoFOXzJwoDCV5o/0YEragvTz1xZJgSXcSd44VOrkk+0\nMqGgatSgIlTXU4TMl7VnCUg2j6cjiARstePKKfFSVE30nFNW5PnTmZuTzvYAMM5e\n2fvfPmoFvTaNE/vJQazUiRY1ugnR3uTEvIbAlJ6ZK7K6AYYS1A9/UmF+ai6BySGo\nc7BTuudOsLveeK/WAtOCEjb7x/Sp2s4LFJiRh+T40Bd1SiVT0ZWe9Kp1uVKw1ljB\nWGXUqPPGfa0ya/eAhhqLXOclO1QtpTSdRzHhWjxTqiIyc5RuPN+oNn0mur9LgcA/\nBf2kfNCDhKnqEBwF1EfAgQTZcKcz9zaPJz+8vd2NaPgY+BXvz7E0Sz9qymf8BrhD\nGJoHO8K9PgS0Ijbbe+230HSHTXaCTLK6PHdjCWILsSQDAgMBAAE=\n-----END PUBLIC KEY-----"
+     },
+     "scheme": "rsassa-pss-sha256"
+    }
+   },
+   "roles": [
+    {
+     "keyids": [
+      "7898a7e4654f79f9ffcc49c7dcd3350944f138c1bdc3c0bcb2572bddb4963dc1"
+     ],
+     "name": "inner_delegated_role",
+     "paths": [
+      "dir2/inner_delegated_role.txt"
+     ],
+     "terminating": false,
+     "threshold": 1
+    }
+   ]
+  },
+  "expires": "2020-02-06T14:19:06Z",
+  "spec_version": "1.0",
+  "targets": {
+   "dir2/delegated_role2_1.txt": {
+    "hashes": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "sha512": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+    },
+    "length": 0
+   },
+   "dir2/delegated_role2_2.txt": {
+    "hashes": {
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "sha512": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+    },
+    "length": 0
+   }
+  },
+  "version": 2
+ }
+}
