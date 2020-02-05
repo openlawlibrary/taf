@@ -316,20 +316,8 @@ class Repository:
 
         target_roles_paths = self.get_role_paths(targets_role)
 
-        all_target_relpaths = []
-        for target_role_path in target_roles_paths:
-            try:
-                if (Path(self.targets_path) / target_role_path).is_file():
-                    all_target_relpaths.append(target_role_path)
-                    continue
-            except OSError:
-                pass
-            for filepath in self.targets_path.rglob(target_role_path):
-                if filepath.is_file():
-                    file_rel_path = str(
-                        Path(filepath).relative_to(self.targets_path).as_posix()
-                    )
-                    all_target_relpaths.append(file_rel_path)
+        all_target_relpaths = self._collect_target_paths_of_role(target_roles_paths)
+
         # delete all files which are not in data, files to keep or delegated to a child role
         all_targets_mapping = self.map_signing_roles(all_target_relpaths)
         for target_rel_path, files_role in all_targets_mapping.items():
@@ -370,6 +358,23 @@ class Repository:
                 f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} "
                 "and not just {targets_role}"
             )
+
+    def _collect_target_paths_of_role(self, target_roles_paths):
+        all_target_relpaths = []
+        for target_role_path in target_roles_paths:
+            try:
+                if (Path(self.targets_path) / target_role_path).is_file():
+                    all_target_relpaths.append(target_role_path)
+                    continue
+            except OSError:
+                pass
+            for filepath in self.targets_path.rglob(target_role_path):
+                if filepath.is_file():
+                    file_rel_path = str(
+                        Path(filepath).relative_to(self.targets_path).as_posix()
+                    )
+                    all_target_relpaths.append(file_rel_path)
+        return all_target_relpaths
 
     def _create_target_file(self, target_path, target_data):
         # if the target's parent directory should not be "targets", create
