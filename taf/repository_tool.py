@@ -300,11 +300,7 @@ class Repository:
                                     also remain targets.
         """
         if len(data):
-            target_roles_mapping = self.map_signing_roles(data.keys())
-            roles = set(target_roles_mapping.values())
-            target_files = list(data.keys())
-            if len(roles) > 1 or targets_role not in roles:
-                raise TargetsError(f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} and not just {targets_role}")
+            self._check_if_files_delegated_to_role(targets_role, list(data.keys()))
 
         if files_to_keep is None:
             files_to_keep = []
@@ -344,24 +340,8 @@ class Repository:
                     (Path(self.targets_path) / target_rel_path).unlink()
 
         for path, target_data in data.items():
-            # if the target's parent directory should not be "targets", create
-            # its parent directories if they do not exist
             target_path = (self.targets_path / path).absolute()
-            target_dir = target_path.parents[0]
-            target_dir.mkdir(parents=True, exist_ok=True)
-
-            # create the target file
-            content = target_data.get("target", None)
-            if content is None:
-                if not target_path.is_file():
-                    target_path.touch()
-            else:
-                with open(str(target_path), "w") as f:
-                    if isinstance(content, dict):
-                        json.dump(content, f, indent=4)
-                    else:
-                        f.write(content)
-
+            self._create_target_file(target_path, target_data)
             custom = target_data.get("custom", None)
             self._add_target(targets_obj, str(target_path), custom)
 
@@ -381,6 +361,33 @@ class Repository:
                 previous_custom = previous_targets[path].get("custom")
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
+
+    def _check_if_files_delegated_to_role(self, targets_role, target_files):
+        target_roles_mapping = self.map_signing_roles(target_files)
+        roles = set(target_roles_mapping.values())
+        if len(roles) > 1 or targets_role not in roles:
+            raise TargetsError(
+                f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} "
+                "and not just {targets_role}"
+            )
+
+    def _create_target_file(self, target_path, target_data):
+        # if the target's parent directory should not be "targets", create
+        # its parent directories if they do not exist
+        target_dir = target_path.parents[0]
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # create the target file
+        content = target_data.get("target", None)
+        if content is None:
+            if not target_path.is_file():
+                target_path.touch()
+        else:
+            with open(str(target_path), "w") as f:
+                if isinstance(content, dict):
+                    json.dump(content, f, indent=4)
+                else:
+                    f.write(content)
 
     def delete_unregistered_target_files(self, targets_role="targets"):
         """

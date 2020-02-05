@@ -68,6 +68,7 @@ class TargetsMetadataUpdateError(MetadataUpdateError):
     def __init__(self, message):
         super().__init__("targets", message)
 
+
 class TimestampMetadataUpdateError(MetadataUpdateError):
     def __init__(self, message):
         super().__init__("timestamp", message)

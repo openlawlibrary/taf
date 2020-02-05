@@ -53,7 +53,9 @@ def origin_repos_group(test_group_dir, scheme_suffix=None):
     test_group_dir = str(TEST_DATA_REPOS_PATH / test_group_dir)
     for test_dir in os.scandir(test_group_dir):
         if test_dir.is_dir():
-            if scheme_suffix is not None and test_dir.name.endswith(scheme_suffix):
+            if (
+                scheme_suffix is not None and test_dir.name.endswith(scheme_suffix)
+            ) or scheme_suffix is None:
                 all_paths[test_dir.name] = _copy_repos(test_dir.path, test_dir.name)
 
     yield all_paths

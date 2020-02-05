@@ -1,8 +1,3 @@
-import pytest
-from pathlib import Path
-from securesystemslib.interface import import_rsa_publickey_from_file
-
-
 def test_find_roles_parent(repositories):
     taf_delegated_roles = repositories["test-delegated-roles"]
     assert (

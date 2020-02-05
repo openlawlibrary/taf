@@ -66,7 +66,7 @@ def test_add_targets_delegated_roles_no_child_roles(repositories):
     old_targets = {
         "delegated_role1": ["dir1/delegated_role1_1.txt", "dir1/delegated_role1_2.txt"],
         "delegated_role2": ["dir2/delegated_role2_1.txt", "dir2/delegated_role2_2.txt"],
-        "inner_delegated_role": ["dir2/inner_delegated_role.txt"]
+        "inner_delegated_role": ["dir2/inner_delegated_role.txt"],
     }
 
     data = {"dir1/a_new_file": {"target": "new file content"}}
@@ -82,7 +82,7 @@ def test_add_targets_delegated_roles_child_roles(repositories):
     old_targets = {
         "delegated_role1": ["dir1/delegated_role1_1.txt", "dir1/delegated_role1_2.txt"],
         "delegated_role2": ["dir2/delegated_role2_1.txt", "dir2/delegated_role2_2.txt"],
-        "inner_delegated_role": ["dir2/inner_delegated_role.txt"]
+        "inner_delegated_role": ["dir2/inner_delegated_role.txt"],
     }
 
     data = {"dir2/a_new_file": {"target": "new file content"}}
@@ -93,7 +93,9 @@ def test_add_targets_delegated_roles_child_roles(repositories):
     _check_target_files(taf_delegated_roles, data, old_targets, role)
 
 
-def _check_target_files(repo, data, old_targets, targets_role="targets", files_to_keep=None):
+def _check_target_files(
+    repo, data, old_targets, targets_role="targets", files_to_keep=None
+):
     if files_to_keep is None:
         files_to_keep = []
 
