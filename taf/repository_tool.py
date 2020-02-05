@@ -301,7 +301,7 @@ class Repository:
         """
         if len(data):
             target_roles_mapping = self.map_signing_roles(data.keys())
-            roles = list(target_roles_mapping.values())
+            roles = set(target_roles_mapping.values())
             target_files = list(data.keys())
             if len(roles) > 1 or targets_role not in roles:
                 raise TargetsError(f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} and not just {targets_role}")
@@ -316,12 +316,15 @@ class Repository:
             files_to_keep.extend(target_repositories)
         # delete files if they no longer correspond to a target defined
         # in targets metadata and are not specified in files_to_keep
+        targets_obj = self._role_obj(targets_role)
 
         target_roles_paths = self.get_role_paths(targets_role)
-        targets_obj = self._role_obj(targets_role)
+
+        all_target_relpaths = []
         for target_role_path in target_roles_paths:
             try:
                 if (Path(self.targets_path) / target_role_path).is_file():
+                    all_target_relpaths.append(target_role_path)
                     continue
             except OSError:
                 pass
@@ -330,10 +333,15 @@ class Repository:
                     file_rel_path = str(
                         Path(filepath).relative_to(self.targets_path).as_posix()
                     )
-                    if file_rel_path not in data and file_rel_path not in files_to_keep:
-                        if file_rel_path in targets_obj.target_files:
-                            targets_obj.remove_target(file_rel_path)
-                        filepath.unlink()
+                    all_target_relpaths.append(file_rel_path)
+        # delete all files which are not in data, files to keep or delegated to a child role
+        all_targets_mapping = self.map_signing_roles(all_target_relpaths)
+        for target_rel_path, files_role in all_targets_mapping.items():
+            if files_role == targets_role:
+                if target_rel_path not in data and target_rel_path not in files_to_keep:
+                    if target_rel_path in targets_obj.target_files:
+                        targets_obj.remove_target(target_rel_path)
+                    (Path(self.targets_path) / target_rel_path).unlink()
 
         for path, target_data in data.items():
             # if the target's parent directory should not be "targets", create
@@ -521,14 +529,6 @@ class Repository:
         """
         if role == "targets":
             return "*"
-
-        role_obj = self._role_obj(role)
-        if role_obj is None:
-            return None
-        try:
-            return role_obj.paths
-        except KeyError:
-            pass
         return self.get_delegated_role_property("paths", role, parent_role)
 
     def get_role_threshold(self, role, parent_role=None):
