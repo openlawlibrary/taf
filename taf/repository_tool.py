@@ -1,28 +1,14 @@
 import datetime
 import json
 import os
+from fnmatch import fnmatch
 from functools import partial
 from pathlib import Path
-from fnmatch import fnmatch
 
 import securesystemslib
 import tuf.repository_tool
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import (
-    InvalidKeyError,
-    MetadataUpdateError,
-    RootMetadataUpdateError,
-    SnapshotMetadataUpdateError,
-    TargetsMetadataUpdateError,
-    TimestampMetadataUpdateError,
-    YubikeyError,
-    SigningError,
-    TargetsError,
-)
-from taf.git import GitRepository
-from taf.utils import normalize_file_line_endings
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
@@ -30,6 +16,21 @@ from tuf.repository_tool import (
     import_rsakey_from_pem,
     load_repository,
 )
+
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import (
+    InvalidKeyError,
+    MetadataUpdateError,
+    RootMetadataUpdateError,
+    SigningError,
+    SnapshotMetadataUpdateError,
+    TargetsError,
+    TargetsMetadataUpdateError,
+    TimestampMetadataUpdateError,
+    YubikeyError,
+)
+from taf.git import GitRepository
+from taf.utils import normalize_file_line_endings
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -712,9 +713,7 @@ class Repository:
             "targets": self.update_targets_yubikeys,
         }.get(role_name, partial(self.update_targets_yubikeys, targets_role=role_name))
 
-    def set_metadata_expiration_date(
-        self, role, start_date=datetime.datetime.now(), interval=None
-    ):
+    def set_metadata_expiration_date(self, role, start_date=None, interval=None):
         """Set expiration date of the provided role.
 
         Args:
@@ -740,6 +739,8 @@ class Repository:
                                                         targets object.
         """
         role_obj = self._role_obj(role)
+        if start_date is None:
+            start_date = datetime.datetime.now()
         if interval is None:
             interval = expiration_intervals.get(role, 1)
         expiration_date = start_date + datetime.timedelta(interval)
@@ -860,12 +861,7 @@ class Repository:
             self._repository.write(role_name)
 
     def _update_role_keystores(
-        self,
-        role_name,
-        signing_keys,
-        start_date=datetime.datetime.now(),
-        interval=None,
-        write=True,
+        self, role_name, signing_keys, start_date=None, interval=None, write=True
     ):
         """Update the specified role's metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -900,7 +896,7 @@ class Repository:
         self,
         role_name,
         public_keys,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         signature_provider=yubikey_signature_provider,
@@ -945,11 +941,7 @@ class Repository:
             raise MetadataUpdateError(role_name, str(e))
 
     def update_timestamp_keystores(
-        self,
-        timestamp_signing_keys,
-        start_date=datetime.datetime.now(),
-        interval=None,
-        write=True,
+        self, timestamp_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -983,7 +975,7 @@ class Repository:
     def update_timestamp_yubikeys(
         self,
         timestamp_public_keys,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         pins=None,
@@ -1026,11 +1018,7 @@ class Repository:
             raise TimestampMetadataUpdateError(e.message)
 
     def update_snapshot_keystores(
-        self,
-        snapshot_signing_keys,
-        start_date=datetime.datetime.now(),
-        interval=None,
-        write=True,
+        self, snapshot_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -1064,7 +1052,7 @@ class Repository:
     def update_snapshot_yubikeys(
         self,
         snapshot_public_keys,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         pins=None,
@@ -1110,7 +1098,7 @@ class Repository:
         self,
         targets_signing_keys,
         targets_data=None,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         targets_role="targets",
@@ -1153,7 +1141,7 @@ class Repository:
         self,
         targets_public_keys,
         targets_data=None,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         targets_role="targets",
@@ -1166,7 +1154,7 @@ class Repository:
         sign the metadata file if write is set to True.
 
         Args:
-        - targets_signing_keys: list of signing keys of the targets role
+        - targets_public_keys: list of signing keys of the targets role
         - start_date(datetime): Date to which the specified interval is added when
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
