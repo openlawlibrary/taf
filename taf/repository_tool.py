@@ -356,7 +356,7 @@ class Repository:
         if len(roles) > 1 or targets_role not in roles:
             raise TargetsError(
                 f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} "
-                "and not just {targets_role}"
+                f"and not just {targets_role}"
             )
 
     def _collect_target_paths_of_role(self, target_roles_paths):
@@ -1190,7 +1190,7 @@ class Repository:
         """
         try:
             if targets_data:
-                self.add_targets(targets_data)
+                self.add_targets(targets_data, targets_role=targets_role)
             self._update_role_yubikeys(
                 targets_role,
                 targets_public_keys,

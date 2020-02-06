@@ -821,7 +821,6 @@ def register_target_files(
                     target_filenames.append(
                         os.path.relpath(str(filepath), str(targets_path))
                     )
-
     targets_roles_mapping = taf_repo.map_signing_roles(target_filenames)
     for target_rel_path, target_role in targets_roles_mapping.items():
         taf_repo.add_existing_target(str(targets_path / target_rel_path), target_role)
