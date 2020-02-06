@@ -409,78 +409,6 @@ def _setup_roles_keys(
     length = key_info.get("length", 3072)
     passwords = key_info.get("passwords", None)
 
-    def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
-        while True:
-            print(f"Registering keys for {key_name}")
-            use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
-
-            if not use_existing:
-                if not click.confirm(
-                    "WARNING - this will delete everything from the inserted key. Proceed?"
-                ):
-                    continue
-
-            key, serial_num = yk.yubikey_prompt(
-                key_name,
-                role_name,
-                taf_repo=None,
-                registering_new_key=True,
-                creating_new_key=not use_existing,
-                loaded_yubikeys=yubikeys,
-                pin_confirm=True,
-                pin_repeat=True,
-            )
-
-            if not use_existing:
-                key = yk.setup_new_yubikey(serial_num, scheme)
-            export_yk_certificate(certs_dir, key)
-            return key
-
-    def _setup_keystore_key(
-        keystore, role_name, key_name, key_num, scheme, length, password
-    ):
-        # if keystore exists, load the keys
-        generate_new_keys = keystore is None
-        if keystore is not None:
-            try:
-                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-                private_key = read_private_key_from_keystore(
-                    keystore,
-                    key_name,
-                    key_num=key_num,
-                    scheme=scheme,
-                    password=password,
-                )
-            except KeystoreError as e:
-                generate_new_keys = click.confirm(
-                    f"Could not load {key_name}. Generate new keys?"
-                )
-                if not generate_new_keys:
-                    raise e
-        if generate_new_keys:
-            if keystore is not None and click.confirm("Write keys to keystore files?"):
-                if password is None:
-                    password = input(
-                        "Enter keystore password and press ENTER (can be left empty)"
-                    )
-                generate_and_write_rsa_keypair(
-                    str(Path(keystore) / key_name), bits=length, password=""
-                )
-                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-                private_key = read_private_key_from_keystore(
-                    keystore,
-                    key_name,
-                    key_num=key_num,
-                    scheme=scheme,
-                    password=password,
-                )
-            else:
-                key = generate_rsa_key(bits=length, scheme=scheme)
-                print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-                public_key = private_key = key
-
-        return public_key, private_key
-
     for key_num in range(num_of_keys):
         key_name = _get_key_name(role_name, key_num, num_of_keys)
         if is_yubikey:
@@ -497,6 +425,81 @@ def _setup_roles_keys(
             )
             keystore_keys.append((public_key, private_key))
     return keystore_keys, yubikey_keys
+
+
+def _setup_keystore_key(
+    keystore, role_name, key_name, key_num, scheme, length, password
+):
+    # if keystore exists, load the keys
+    generate_new_keys = keystore is None
+    public_key = private_key = None
+    if keystore is not None:
+        while public_key is None and private_key is None:
+            try:
+                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+                private_key = read_private_key_from_keystore(
+                    keystore,
+                    key_name,
+                    key_num=key_num,
+                    scheme=scheme,
+                    password=password,
+                )
+            except KeystoreError as e:
+                generate_new_keys = click.confirm(
+                    f"Could not load {key_name}. Generate new keys?"
+                )
+                if not generate_new_keys:
+                    if click.confirm("Reuse existing key?"):
+                        key_name = input("Enter name of an existing keystore file: ")
+                    else:
+                        raise e
+                else:
+                    break
+    if generate_new_keys:
+        if keystore is not None and click.confirm("Write keys to keystore files?"):
+            if password is None:
+                password = input(
+                    "Enter keystore password and press ENTER (can be left empty)"
+                )
+            generate_and_write_rsa_keypair(
+                str(Path(keystore) / key_name), bits=length, password=""
+            )
+            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            private_key = read_private_key_from_keystore(
+                keystore, key_name, key_num=key_num, scheme=scheme, password=password
+            )
+        else:
+            key = generate_rsa_key(bits=length, scheme=scheme)
+            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
+            public_key = private_key = key
+
+    return public_key, private_key
+
+
+def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
+    while True:
+        print(f"Registering keys for {key_name}")
+        use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
+        if not use_existing:
+            if not click.confirm(
+                "WARNING - this will delete everything from the inserted key. Proceed?"
+            ):
+                continue
+        key, serial_num = yk.yubikey_prompt(
+            key_name,
+            role_name,
+            taf_repo=None,
+            registering_new_key=True,
+            creating_new_key=not use_existing,
+            loaded_yubikeys=yubikeys,
+            pin_confirm=True,
+            pin_repeat=True,
+        )
+
+        if not use_existing:
+            key = yk.setup_new_yubikey(serial_num, scheme)
+        export_yk_certificate(certs_dir, key)
+        return key
 
 
 def _enter_roles_infos():
