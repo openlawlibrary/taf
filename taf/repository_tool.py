@@ -406,7 +406,7 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         target_files_by_roles = self.sort_target_files_by_roles()
         if targets_role in target_files_by_roles:
-            for file_rel_path in self.sort_target_files_by_roles()[targets_role]:
+            for file_rel_path in target_files_by_roles[targets_role]:
                 if file_rel_path not in targets_obj.target_files:
                     (self.targets_path / file_rel_path).unlink()
 
