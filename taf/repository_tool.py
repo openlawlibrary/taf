@@ -404,13 +404,11 @@ class Repository:
         Delete all target files not specified in targets.json
         """
         targets_obj = self._role_obj(targets_role)
-        for filepath in self.targets_path.rglob("*"):
-            if filepath.is_file():
-                file_rel_path = str(
-                    Path(filepath).relative_to(self.targets_path).as_posix()
-                )
+        target_files_by_roles = self.sort_target_files_by_roles()
+        if targets_role in target_files_by_roles:
+            for file_rel_path in self.sort_target_files_by_roles()[targets_role]:
                 if file_rel_path not in targets_obj.target_files:
-                    filepath.unlink()
+                    (self.targets_path / file_rel_path).unlink()
 
     def find_delegated_roles_parent(self, role_name):
         """
@@ -512,6 +510,9 @@ class Repository:
             if delegated_role["name"] == role_name:
                 return delegated_role[property_name]
         return None
+
+    def get_expiration_date(self, role):
+        return self._role_obj(role).expiration
 
     def _get_target_repositories(self):
         repositories_path = self.targets_path / "repositories.json"
@@ -768,8 +769,20 @@ class Repository:
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
 
-    def get_expiration_date(self, role):
-        return self._role_obj(role).expiration
+    def sort_target_files_by_roles(self):
+        rel_paths = []
+        for filepath in self.targets_path.rglob("*"):
+            if filepath.is_file():
+                file_rel_path = str(
+                    Path(filepath).relative_to(self.targets_path).as_posix()
+                )
+                rel_paths.append(file_rel_path)
+
+        files_to_roles = self.map_signing_roles(rel_paths)
+        roles_targets = {}
+        for target_file, role in files_to_roles.items():
+            roles_targets.setdefault(role, []).append(target_file)
+        return roles_targets
 
     def update_root(self, signature_dict):
         """Update root metadata.

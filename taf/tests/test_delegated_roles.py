@@ -61,3 +61,22 @@ def test_find_keys_roles(
     assert taf_delegated_roles.find_keys_roles([inner_delegated_role_key]) == [
         "inner_delegated_role"
     ]
+
+
+def test_sort_target_files_by_roles(repositories):
+    taf_delegated_roles = repositories["test-delegated-roles"]
+    targets_files_by_roles = taf_delegated_roles.sort_target_files_by_roles()
+    assert "delegated_role1" in targets_files_by_roles
+    assert targets_files_by_roles["delegated_role1"] == [
+        "dir1/delegated_role1_1.txt",
+        "dir1/delegated_role1_2.txt",
+    ]
+    assert "delegated_role2" in targets_files_by_roles
+    assert targets_files_by_roles["delegated_role2"] == [
+        "dir2/delegated_role2_1.txt",
+        "dir2/delegated_role2_2.txt",
+    ]
+    assert "inner_delegated_role" in targets_files_by_roles
+    assert targets_files_by_roles["inner_delegated_role"] == [
+        "dir2/inner_delegated_role.txt"
+    ]
