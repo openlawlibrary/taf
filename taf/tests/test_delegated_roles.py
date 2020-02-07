@@ -1,3 +1,13 @@
+def test_get_all_targets_roles(repositories):
+    taf_delegated_roles = repositories["test-delegated-roles"]
+    assert taf_delegated_roles.get_all_targets_roles() == [
+        "targets",
+        "delegated_role1",
+        "delegated_role2",
+        "inner_delegated_role",
+    ]
+
+
 def test_find_roles_parent(repositories):
     taf_delegated_roles = repositories["test-delegated-roles"]
     assert (

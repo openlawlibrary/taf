@@ -470,6 +470,24 @@ class Repository:
         keyids = [key["keyid"] for key in public_keys]
         return _map_keys_to_roles("targets", keyids)
 
+    def get_all_targets_roles(self):
+        """
+        Return a list containing names of all target roles
+        """
+
+        def _traverse_targets_roles(role_name):
+            roles = [role_name]
+            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
+            delegations = targets_role_info.get("delegations")
+            if len(delegations):
+                for role_info in delegations.get("roles"):
+                    # check if this role can sign target_path
+                    delegated_role_name = role_info["name"]
+                    roles.extend(_traverse_targets_roles(delegated_role_name))
+            return roles
+
+        return _traverse_targets_roles("targets")
+
     def get_delegated_role_property(self, property_name, role_name, parent_role=None):
         """
         Extract value of the specified property of the provided delegated role from
