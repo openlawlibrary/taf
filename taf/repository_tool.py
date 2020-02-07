@@ -855,7 +855,10 @@ class Repository:
             if not self.is_valid_metadata_yubikey(role_name, public_key):
                 raise InvalidKeyError(role_name)
 
-            key_name = f"{role_name}{index + 1}"
+            if len(public_keys) == 1:
+                key_name = role_name
+            else:
+                key_name = f"{role_name}{index + 1}"
 
             role_obj.add_external_signature_provider(
                 public_key, partial(signature_provider, key_name, public_key["keyid"])
