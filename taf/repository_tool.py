@@ -338,7 +338,11 @@ class Repository:
             Path(self.metadata_path, f"{targets_role}.json").read_text()
         )["signed"]["targets"]
 
+        # add all files in files_to_keep delegated to that role
+        files_to_keep_mapping = self.map_signing_roles(files_to_keep)
         for path in files_to_keep:
+            if not files_to_keep_mapping[path] == targets_role:
+                continue
             # if path if both in data and files_to_keep, skip it
             # e.g. repositories.json will always be in files_to_keep,
             # but it might also be specified in data, if it needs to be updated
