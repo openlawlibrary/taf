@@ -20,7 +20,7 @@ def validate_branch(auth_repo, target_repos, branch_name, merge_branches, update
     2. Versions of tuf metadata increase by one from one commit
     to the next commit of a branch in the authentication repository
     3. The last commit of the authentication repository's branch has capstone set (meaning
-    that a capstone file is one of the targets specified in targets.json)
+    that a capstone file is one of the targets specified in targets metadata)
     4. If all commits of an authentication repository's branch have the same branch ID
     """
 
@@ -57,7 +57,7 @@ def validate_branch(auth_repo, target_repos, branch_name, merge_branches, update
             )
 
     for commit_index, auth_commit in enumerate(auth_commits):
-        # load content of targets.json
+        # load content of the updated role's targets metadata
         updated_targets = auth_repo.get_json(
             auth_commit, f"{METADATA_DIRECTORY_NAME}/{updated_role}.json"
         )
@@ -173,14 +173,14 @@ def _compare_commit_with_targets_metadata(
 ):
     """
     Check if commit sha of a repository's speculative branch commit matches the
-    specified target value in targets.json.
+    specified target value in its target file.
     """
     repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.repo_name}"
     targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
     if target_repo_commit != targets_head_sha:
         raise InvalidBranchError(
             f"Commit {target_repo_commit} of repository {target_repo.repo_name} does "
-            "not match the commit sha specified in targets.json!"
+            "not match the commit sha specified in its target file!"
         )
 
 
