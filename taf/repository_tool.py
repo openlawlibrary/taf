@@ -567,6 +567,31 @@ class Repository:
             return "*"
         return self.get_delegated_role_property("paths", role, parent_role)
 
+    def get_role_repositories(self, role, parent_role=None):
+        """Get repositories of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Repositories' path from repositories.json that matches given role paths
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        role_paths = self.get_role_paths(role, parent_role=parent_role)
+
+        target_repositories = self._get_target_repositories()
+        return [
+            repo
+            for repo in target_repositories
+            if all([fnmatch(repo, path) for path in role_paths])
+        ]
+
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role
 
@@ -666,7 +691,7 @@ class Repository:
     def map_signing_roles(self, target_filenames):
         """
         For each target file, find delegated role responsible for that target file based
-        on the delegated paths. The most specific role (meaning most deepy nested) whose
+        on the delegated paths. The most specific role (meaning most deeply nested) whose
         delegation path matches the target's path is returned as that file's matching role.
         If there are no delegated roles with a path that matches the target file's path,
         'targets' role will be returned as that file's matching role. Delegation path

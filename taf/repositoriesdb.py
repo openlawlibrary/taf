@@ -75,7 +75,7 @@ def load_repositories(
     )
 
     if root_dir is None:
-        root_dir = Path(auth_repo.repo_path).parent
+        root_dir = Path(auth_repo.repo_path).parent.parent
 
     for commit in commits:
         repositories_dict = {}
