@@ -416,6 +416,7 @@ class GitRepository(object):
         return json.loads(s)
 
     def get_file(self, commit, path):
+        path = Path(path).as_posix()
         return self._git("show {}:{}", commit, path)
 
     def get_last_branch_by_committer_date(self):
