@@ -5,18 +5,6 @@ from fnmatch import fnmatch
 from functools import partial
 from pathlib import Path
 
-import securesystemslib
-import tuf.repository_tool
-from securesystemslib.exceptions import Error as SSLibError
-from securesystemslib.interface import import_rsa_privatekey_from_file
-from tuf.exceptions import Error as TUFError
-from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME,
-    TARGETS_DIRECTORY_NAME,
-    import_rsakey_from_pem,
-    load_repository,
-)
-
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     InvalidKeyError,
@@ -31,6 +19,18 @@ from taf.exceptions import (
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
+
+import securesystemslib
+import tuf.repository_tool
+from securesystemslib.exceptions import Error as SSLibError
+from securesystemslib.interface import import_rsa_privatekey_from_file
+from tuf.exceptions import Error as TUFError
+from tuf.repository_tool import (
+    METADATA_DIRECTORY_NAME,
+    TARGETS_DIRECTORY_NAME,
+    import_rsakey_from_pem,
+    load_repository,
+)
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -776,21 +776,25 @@ class Repository:
                             targets - 90 days
                             snapshot - 7 days
                             timestamp - 1 day
-                            all other roles - 1 day
+                            all other roles (delegations) - same as targets
 
         Returns:
         None
 
         Raises:
         - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by
+                                                        this targets object.
         """
         role_obj = self._role_obj(role)
         if start_date is None:
             start_date = datetime.datetime.now()
         if interval is None:
-            interval = expiration_intervals.get(role, 1)
+            try:
+                interval = expiration_intervals[role]
+            except KeyError:
+                interval = expiration_intervals["targets"]
+
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
 
