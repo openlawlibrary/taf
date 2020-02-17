@@ -1,13 +1,13 @@
 import subprocess
 from pathlib import Path
 
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
+from taf.repository_tool import Repository
 from taf.constants import CAPSTONE
 from taf.exceptions import InvalidBranchError
 
 
-def validate_branch(auth_repo, target_repos, branch_name, merge_branches):
+def validate_branch(auth_repo, target_repos, branch_name, merge_branches, updated_role):
     """
     Validates corresponding branches of the authentication repository
     and the target repositories. Assumes that:
@@ -20,7 +20,7 @@ def validate_branch(auth_repo, target_repos, branch_name, merge_branches):
     2. Versions of tuf metadata increase by one from one commit
     to the next commit of a branch in the authentication repository
     3. The last commit of the authentication repository's branch has capstone set (meaning
-    that a capstone file is one of the targets specified in targets.json)
+    that a capstone file is one of the targets specified in targets metadata)
     4. If all commits of an authentication repository's branch have the same branch ID
     """
 
@@ -39,7 +39,10 @@ def validate_branch(auth_repo, target_repos, branch_name, merge_branches):
 
     targets_version = None
     branch_id = None
-    targets_path = "metadata/targets.json"
+    unmodified_roles_and_versions = {
+        role_name: None
+        for role_name in _get_unchanged_targets_metadata(auth_repo, updated_role)
+    }
 
     # Get the missing commits from the top of the merge branch
     # and make sure that they belonged to the branch
@@ -54,9 +57,29 @@ def validate_branch(auth_repo, target_repos, branch_name, merge_branches):
             )
 
     for commit_index, auth_commit in enumerate(auth_commits):
-        # load content of targets.json
-        targets = auth_repo.get_json(auth_commit, targets_path)
-        targets_version = _check_targets_version(targets, auth_commit, targets_version)
+        # load content of the updated role's targets metadata
+        updated_targets = auth_repo.get_json(
+            auth_commit, f"{METADATA_DIRECTORY_NAME}/{updated_role}.json"
+        )
+        targets_version = _check_updated_targets_version(
+            updated_targets, updated_role, auth_commit, targets_version
+        )
+        for (
+            role_name,
+            unmodified_roles_version,
+        ) in unmodified_roles_and_versions.items():
+            unmodified_target_metadata = auth_repo.get_json(
+                auth_commit, f"{METADATA_DIRECTORY_NAME}/{role_name}.json"
+            )
+            version = _check_if_version_unmodified(
+                unmodified_target_metadata,
+                role_name,
+                auth_commit,
+                unmodified_roles_version,
+            )
+            if unmodified_roles_version is None:
+                unmodified_roles_and_versions[role_name] = version
+
         branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
 
         for target, target_commits in targets_and_commits.items():
@@ -88,7 +111,9 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
 def _check_branch_id(auth_repo, auth_commit, branch_id):
 
     try:
-        new_branch_id = auth_repo.get_file(auth_commit, "targets/branch")
+        new_branch_id = auth_repo.get_file(
+            auth_commit, f"{TARGETS_DIRECTORY_NAME}/branch"
+        )
     except subprocess.CalledProcessError:
         raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
     if branch_id is not None and new_branch_id != branch_id:
@@ -99,20 +124,35 @@ def _check_branch_id(auth_repo, auth_commit, branch_id):
     return new_branch_id
 
 
-def _check_targets_version(targets, tuf_commit, current_version):
+def _check_updated_targets_version(targets, role_name, auth_commit, current_version):
     """
-    Checks version numbers specified in targets.json (compares it to the previous one)
-    There are no other metadata files to check (when building a speculative branch, we do
-    not generate snapshot and timestamp, just targets.json and we have no delegations)
-    Return the read version number
+    Checks version numbers specified in target role's metadata file (compares it to the previous one)
+    There are no other metadata files to check. Expects the version to be eual to
+    current_version - 1. Returns the read version number.
     """
     new_version = targets["signed"]["version"]
     # substracting one because the commits are in the reverse order
     if current_version is not None and new_version != current_version - 1:
         raise InvalidBranchError(
-            "Version of metadata file targets.json at revision "
-            f"{tuf_commit} is not equal to previous version incremented "
+            f"Version of metadata file {role_name}.json at revision "
+            f"{auth_commit} is not equal to previous version incremented "
             "by one!"
+        )
+    return new_version
+
+
+def _check_if_version_unmodified(targets, role_name, auth_commit, current_version):
+    """
+    Checks version numbers specified in target role's metadata file.json
+    (compares it to the previous one). Expects the version number to be the same
+    as current_version (if current_version is not None). Returns the version
+    """
+    new_version = targets["signed"]["version"]
+    # substracting one because the commits are in the reverse order
+    if current_version is not None and new_version != current_version:
+        raise InvalidBranchError(
+            f"Version of metadata file {role_name}.json at revision "
+            f"{auth_commit} is not equal to previous version!"
         )
     return new_version
 
@@ -133,12 +173,19 @@ def _compare_commit_with_targets_metadata(
 ):
     """
     Check if commit sha of a repository's speculative branch commit matches the
-    specified target value in targets.json.
+    specified target value in its target file.
     """
-    repo_name = f"targets/{target_repo.repo_name}"
+    repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.repo_name}"
     targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
     if target_repo_commit != targets_head_sha:
         raise InvalidBranchError(
             f"Commit {target_repo_commit} of repository {target_repo.repo_name} does "
-            "not match the commit sha specified in targets.json!"
+            "not match the commit sha specified in its target file!"
         )
+
+
+def _get_unchanged_targets_metadata(auth_repo, updated_role):
+    taf_repo = Repository(auth_repo.repo_path)
+    all_roles = taf_repo.get_all_targets_roles()
+    all_roles.remove(updated_role)
+    return all_roles

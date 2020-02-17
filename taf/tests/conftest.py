@@ -24,8 +24,10 @@ from taf.utils import on_rm_error
 TEST_DATA_PATH = Path(__file__).parent / "data"
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / "repos"
 TEST_DATA_ORIGIN_PATH = TEST_DATA_REPOS_PATH / "origin"
-KEYSTORE_PATH = TEST_DATA_PATH / "keystore"
-WRONG_KEYSTORE_PATH = TEST_DATA_PATH / "wrong_keystore"
+KEYSTORES_PATH = TEST_DATA_PATH / "keystores"
+KEYSTORE_PATH = KEYSTORES_PATH / "keystore"
+WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
+DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 
 
@@ -35,43 +37,32 @@ def pytest_configure(config):
 
 
 def pytest_generate_tests(metafunc):
-    if "taf_happy_path" in metafunc.fixturenames:
+    if "repositories" in metafunc.fixturenames:
         # When running tests with real yubikey, use just rsa-pkcs1v15-sha256 scheme
         schemes = (
             ["rsa-pkcs1v15-sha256"]
             if TEST_WITH_REAL_YK
             else ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"]
         )
-        metafunc.parametrize("taf_happy_path", schemes, indirect=True)
+        metafunc.parametrize("repositories", schemes, indirect=True)
 
 
 @contextmanager
-def origin_repos_group(test_group_dir):
+def origin_repos_group(test_group_dir, scheme_suffix=None):
     all_paths = {}
     test_group_dir = str(TEST_DATA_REPOS_PATH / test_group_dir)
     for test_dir in os.scandir(test_group_dir):
         if test_dir.is_dir():
-            all_paths[test_dir.name] = _copy_repos(test_dir.path, test_dir.name)
+            if (
+                scheme_suffix is not None and test_dir.name.endswith(scheme_suffix)
+            ) or scheme_suffix is None:
+                all_paths[test_dir.name] = _copy_repos(test_dir.path, test_dir.name)
 
     yield all_paths
 
     for test_name in all_paths:
         test_dst_path = str(TEST_DATA_ORIGIN_PATH / test_name)
         shutil.rmtree(test_dst_path, onerror=on_rm_error)
-
-
-@contextmanager
-def origin_repos(test_name):
-    """Coppies git repository from `data/repos/test-XYZ` to data/repos/origin/test-XYZ
-  path and renames `git` to `.git` for each repository.
-  """
-    test_dir_path = str(TEST_DATA_REPOS_PATH / test_name)
-    temp_paths = _copy_repos(test_dir_path, test_name)
-
-    yield temp_paths
-
-    test_dst_path = str(TEST_DATA_ORIGIN_PATH / test_name)
-    shutil.rmtree(test_dst_path, onerror=on_rm_error)
 
 
 def _copy_repos(test_dir_path, test_name):
@@ -89,25 +80,37 @@ def _copy_repos(test_dir_path, test_name):
     return paths
 
 
-@yield_fixture(scope="session", autouse=True)
-def taf_happy_path(request, pytestconfig):
-    """TAF repository for testing."""
-    repository_tool.DISABLE_KEYS_CACHING = True
+def _load_key(keystore_path, key_name, scheme):
+    """Load private and public keys of the given name"""
+    key = import_rsa_publickey_from_file(
+        str(keystore_path / f"{key_name}.pub"), scheme=scheme
+    )
+    priv_key = import_rsa_privatekey_from_file(
+        str(keystore_path / key_name), scheme=scheme
+    )
+    key["keyval"]["private"] = priv_key["keyval"]["private"]
+    return key
 
-    def _create_origin(test_dir, taf_repo_name="taf"):
-        with origin_repos(test_dir) as origins:
-            taf_repo_origin_path = origins[taf_repo_name]
-            yield Repository(taf_repo_origin_path)
+
+@yield_fixture(scope="session", autouse=True)
+def repositories(request, pytestconfig):
+    """TAF repositories for testing."""
+    repository_tool.DISABLE_KEYS_CACHING = True
 
     scheme = request.param
     pytestconfig.option.signature_scheme = scheme
-
-    if scheme == "rsassa-pss-sha256":
-        yield from _create_origin("test-happy-path")
-    elif scheme == "rsa-pkcs1v15-sha256":
-        yield from _create_origin("test-happy-path-pkcs1v15")
-    else:
+    if scheme not in ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"]:
         raise ValueError(f"Invalid test config. Invalid scheme: {scheme}")
+
+    scheme_suffix = scheme.split("-")[1]
+    test_dir = "test-repository-tool"
+    with origin_repos_group(test_dir, scheme_suffix) as origins:
+        yield {
+            repo_name.rsplit("-", 1)[0]: Repository(
+                repos_origin_paths["taf"], repository_name=repo_name
+            )
+            for repo_name, repos_origin_paths in origins.items()
+        }
 
 
 @yield_fixture(scope="session", autouse=True)
@@ -140,6 +143,12 @@ def wrong_keystore():
 
 
 @fixture
+def delegated_roles_keystore():
+    """Path of the keystore with keys of delegated roles"""
+    return str(DELEGATED_ROLES_KEYSTORE_PATH)
+
+
+@fixture
 def targets_yk(pytestconfig):
     """Targets YubiKey."""
     return TargetYubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
@@ -166,38 +175,61 @@ def root3_yk(pytestconfig):
 @fixture
 def snapshot_key(pytestconfig):
     """Snapshot key."""
-    key = import_rsa_publickey_from_file(
-        str(KEYSTORE_PATH / "snapshot.pub"), scheme=pytestconfig.option.signature_scheme
-    )
-    priv_key = import_rsa_privatekey_from_file(
-        str(KEYSTORE_PATH / "snapshot"), scheme=pytestconfig.option.signature_scheme
-    )
-    key["keyval"]["private"] = priv_key["keyval"]["private"]
-    return key
+    return _load_key(KEYSTORE_PATH, "snapshot", pytestconfig.option.signature_scheme)
 
 
 @fixture
 def timestamp_key(pytestconfig):
     """Timestamp key."""
-    key = import_rsa_publickey_from_file(
-        str(KEYSTORE_PATH / "timestamp.pub"),
-        scheme=pytestconfig.option.signature_scheme,
-    )
-    priv_key = import_rsa_privatekey_from_file(
-        str(KEYSTORE_PATH / "timestamp"), scheme=pytestconfig.option.signature_scheme
-    )
-    key["keyval"]["private"] = priv_key["keyval"]["private"]
-    return key
+    return _load_key(KEYSTORE_PATH, "timestamp", pytestconfig.option.signature_scheme)
 
 
 @yield_fixture
 def targets_key(pytestconfig):
     """Targets key."""
-    key = import_rsa_publickey_from_file(
-        str(KEYSTORE_PATH / "targets.pub"), scheme=pytestconfig.option.signature_scheme
+    return _load_key(KEYSTORE_PATH, "targets", pytestconfig.option.signature_scheme)
+
+
+@yield_fixture
+def delegated_role11_key(pytestconfig):
+    return _load_key(
+        DELEGATED_ROLES_KEYSTORE_PATH,
+        "delegated_role11",
+        pytestconfig.option.signature_scheme,
     )
-    priv_key = import_rsa_privatekey_from_file(
-        str(KEYSTORE_PATH / "targets"), scheme=pytestconfig.option.signature_scheme
+
+
+@yield_fixture
+def delegated_role12_key(pytestconfig):
+    return _load_key(
+        DELEGATED_ROLES_KEYSTORE_PATH,
+        "delegated_role12",
+        pytestconfig.option.signature_scheme,
     )
-    key["keyval"]["private"] = priv_key["keyval"]["private"]
-    return key
+
+
+@yield_fixture
+def delegated_role13_key(pytestconfig):
+    return _load_key(
+        DELEGATED_ROLES_KEYSTORE_PATH,
+        "delegated_role13",
+        pytestconfig.option.signature_scheme,
+    )
+
+
+@yield_fixture
+def delegated_role2_key(pytestconfig):
+    return _load_key(
+        DELEGATED_ROLES_KEYSTORE_PATH,
+        "delegated_role2",
+        pytestconfig.option.signature_scheme,
+    )
+
+
+@yield_fixture
+def inner_delegated_role_key(pytestconfig):
+    return _load_key(
+        DELEGATED_ROLES_KEYSTORE_PATH,
+        "inner_delegated_role",
+        pytestconfig.option.signature_scheme,
+    )

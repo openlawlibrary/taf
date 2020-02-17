@@ -6,7 +6,6 @@ from collections import defaultdict
 from functools import partial
 from getpass import getpass
 from pathlib import Path
-from fnmatch import fnmatch
 
 import click
 import securesystemslib
@@ -30,9 +29,8 @@ from taf.keystore import (
     read_private_key_from_keystore,
     read_public_key_from_keystore,
 )
-from taf.repository_tool import yubikey_signature_provider
 from taf.log import taf_logger
-from taf.repository_tool import Repository
+from taf.repository_tool import Repository, yubikey_signature_provider
 from taf.utils import read_input_dict
 
 try:
@@ -411,78 +409,6 @@ def _setup_roles_keys(
     length = key_info.get("length", 3072)
     passwords = key_info.get("passwords", None)
 
-    def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
-        while True:
-            print(f"Registering keys for {key_name}")
-            use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
-
-            if not use_existing:
-                if not click.confirm(
-                    "WARNING - this will delete everything from the inserted key. Proceed?"
-                ):
-                    continue
-
-            key, serial_num = yk.yubikey_prompt(
-                key_name,
-                role_name,
-                taf_repo=None,
-                registering_new_key=True,
-                creating_new_key=not use_existing,
-                loaded_yubikeys=yubikeys,
-                pin_confirm=True,
-                pin_repeat=True,
-            )
-
-            if not use_existing:
-                key = yk.setup_new_yubikey(serial_num, scheme)
-            export_yk_certificate(certs_dir, key)
-            return key
-
-    def _setup_keystore_key(
-        keystore, role_name, key_name, key_num, scheme, length, password
-    ):
-        # if keystore exists, load the keys
-        generate_new_keys = keystore is None
-        if keystore is not None:
-            try:
-                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-                private_key = read_private_key_from_keystore(
-                    keystore,
-                    key_name,
-                    key_num=key_num,
-                    scheme=scheme,
-                    password=password,
-                )
-            except KeystoreError as e:
-                generate_new_keys = click.confirm(
-                    f"Could not load {key_name}. Generate new keys?"
-                )
-                if not generate_new_keys:
-                    raise e
-        if generate_new_keys:
-            if keystore is not None and click.confirm("Write keys to keystore files?"):
-                if password is None:
-                    password = input(
-                        "Enter keystore password and press ENTER (can be left empty)"
-                    )
-                generate_and_write_rsa_keypair(
-                    str(Path(keystore) / key_name), bits=length, password=""
-                )
-                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-                private_key = read_private_key_from_keystore(
-                    keystore,
-                    key_name,
-                    key_num=key_num,
-                    scheme=scheme,
-                    password=password,
-                )
-            else:
-                key = generate_rsa_key(bits=length, scheme=scheme)
-                print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-                public_key = private_key = key
-
-        return public_key, private_key
-
     for key_num in range(num_of_keys):
         key_name = _get_key_name(role_name, key_num, num_of_keys)
         if is_yubikey:
@@ -499,6 +425,81 @@ def _setup_roles_keys(
             )
             keystore_keys.append((public_key, private_key))
     return keystore_keys, yubikey_keys
+
+
+def _setup_keystore_key(
+    keystore, role_name, key_name, key_num, scheme, length, password
+):
+    # if keystore exists, load the keys
+    generate_new_keys = keystore is None
+    public_key = private_key = None
+    if keystore is not None:
+        while public_key is None and private_key is None:
+            try:
+                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+                private_key = read_private_key_from_keystore(
+                    keystore,
+                    key_name,
+                    key_num=key_num,
+                    scheme=scheme,
+                    password=password,
+                )
+            except KeystoreError as e:
+                generate_new_keys = click.confirm(
+                    f"Could not load {key_name}. Generate new keys?"
+                )
+                if not generate_new_keys:
+                    if click.confirm("Reuse existing key?"):
+                        key_name = input("Enter name of an existing keystore file: ")
+                    else:
+                        raise e
+                else:
+                    break
+    if generate_new_keys:
+        if keystore is not None and click.confirm("Write keys to keystore files?"):
+            if password is None:
+                password = input(
+                    "Enter keystore password and press ENTER (can be left empty)"
+                )
+            generate_and_write_rsa_keypair(
+                str(Path(keystore) / key_name), bits=length, password=""
+            )
+            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            private_key = read_private_key_from_keystore(
+                keystore, key_name, key_num=key_num, scheme=scheme, password=password
+            )
+        else:
+            key = generate_rsa_key(bits=length, scheme=scheme)
+            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
+            public_key = private_key = key
+
+    return public_key, private_key
+
+
+def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
+    while True:
+        print(f"Registering keys for {key_name}")
+        use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
+        if not use_existing:
+            if not click.confirm(
+                "WARNING - this will delete everything from the inserted key. Proceed?"
+            ):
+                continue
+        key, serial_num = yk.yubikey_prompt(
+            key_name,
+            role_name,
+            taf_repo=None,
+            registering_new_key=True,
+            creating_new_key=not use_existing,
+            loaded_yubikeys=yubikeys,
+            pin_confirm=True,
+            pin_repeat=True,
+        )
+
+        if not use_existing:
+            key = yk.setup_new_yubikey(serial_num, scheme)
+        export_yk_certificate(certs_dir, key)
+        return key
 
 
 def _enter_roles_infos():
@@ -820,8 +821,7 @@ def register_target_files(
                     target_filenames.append(
                         os.path.relpath(str(filepath), str(targets_path))
                     )
-
-    targets_roles_mapping = map_signing_roles(target_filenames)
+    targets_roles_mapping = taf_repo.map_signing_roles(target_filenames)
     for target_rel_path, target_role in targets_roles_mapping.items():
         taf_repo.add_existing_target(str(targets_path / target_rel_path), target_role)
 
@@ -834,41 +834,6 @@ def register_target_files(
     if commit:
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_git_repo.commit(commit_message)
-
-
-def map_signing_roles(target_filenames):
-    """
-    For each target file, find delegated role responsible for that target file based
-    on the delegated paths. The most specific role (meaning most deepy nested) whose
-    delegation path matches the target's path is returned as that file's matching role.
-    If there are no delegated roles with a path that matches the target file's path,
-    'targets' role will be returned as that file's matching role. Delegation path
-    is expected to be relative to the targets directory. It can be defined as a glob
-    pattern.
-    """
-    roles_targets = {target_filename: "targets" for target_filename in target_filenames}
-    roles_targets.update(_delegated_roles_traversal("targets", target_filenames))
-    return roles_targets
-
-
-def _delegated_roles_traversal(role_name, target_filenames):
-    roles_targets = {}
-    targets_role_info = tuf.roledb.get_roleinfo(role_name)
-    delegations = targets_role_info.get("delegations")
-    if len(delegations):
-        for role_info in delegations.get("roles"):
-            # check if this role can sign target_path
-            delegated_role_name = role_info["name"]
-            for path_pattern in role_info["paths"]:
-                for target_filename in target_filenames:
-                    if fnmatch(
-                        target_filename.lstrip(os.sep), path_pattern.lstrip(os.sep)
-                    ):
-                        roles_targets[target_filename] = delegated_role_name
-            roles_targets.update(
-                _delegated_roles_traversal(delegated_role_name, target_filenames)
-            )
-    return roles_targets
 
 
 def _role_obj(role, repository):

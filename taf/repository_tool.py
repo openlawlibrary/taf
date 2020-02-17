@@ -1,25 +1,29 @@
 import datetime
 import json
+import os
+from fnmatch import fnmatch
 from functools import partial
 from pathlib import Path
 
-import securesystemslib
-import tuf.repository_tool
-from securesystemslib.exceptions import Error as SSLibError
-from securesystemslib.interface import import_rsa_privatekey_from_file
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     InvalidKeyError,
     MetadataUpdateError,
     RootMetadataUpdateError,
+    SigningError,
     SnapshotMetadataUpdateError,
+    TargetsError,
     TargetsMetadataUpdateError,
     TimestampMetadataUpdateError,
     YubikeyError,
-    SigningError,
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
+
+import securesystemslib
+import tuf.repository_tool
+from securesystemslib.exceptions import Error as SSLibError
+from securesystemslib.interface import import_rsa_privatekey_from_file
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
@@ -36,61 +40,6 @@ role_keys_cache = {}
 
 
 DISABLE_KEYS_CACHING = False
-
-
-def get_delegated_role_property(property_name, role_name, parent_role=None):
-    """
-    Extract value of the specified property of the provided delegated role from
-    its parent's role info.
-    Args:
-        - property_name: Name of the property (like threshold)
-        - role_name: Role
-        - parent_role: Parent role
-
-    Returns:
-        The specified property's value
-    """
-    # TUF raises an error when asking for properties like threshold and signing keys
-    # of a delegated role (see https://github.com/theupdateframework/tuf/issues/574)
-    # The following workaround presumes that one every delegated role is a deegation
-    # of exactly one delegated role
-    if parent_role is None:
-        parent_role = find_delegated_roles_parent(role_name)
-    parents_role_info = tuf.roledb.get_roleinfo(parent_role)
-    delegations = parents_role_info.get("delegations")
-    for delegated_role in delegations["roles"]:
-        if delegated_role["name"] == role_name:
-            return delegated_role[property_name]
-    return None
-
-
-def find_delegated_roles_parent(role_name):
-    """
-    A simple implementation of finding a delegated targets role's parent
-    assuming that every delegated role is delegated by just one role
-    and that there won't be many delegations.
-    Args:
-        - role_name: Role
-
-    Returns:
-        Parent role's name
-    """
-
-    def _find_delegated_role(parent_role_name, role_name):
-        targets_role_info = tuf.roledb.get_roleinfo(parent_role_name)
-        delegations = targets_role_info.get("delegations")
-        if len(delegations):
-            for role_info in delegations.get("roles"):
-                # check if this role can sign target_path
-                delegated_role_name = role_info["name"]
-                if delegated_role_name == role_name:
-                    return parent_role_name
-                parent = _find_delegated_role(delegated_role_name, role_name)
-                if parent is not None:
-                    return parent
-        return None
-
-    return _find_delegated_role("targets", role_name)
 
 
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
@@ -186,10 +135,11 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
 
 class Repository:
-    def __init__(self, repository_path):
+    def __init__(self, repository_path, repository_name="default"):
         self.repository_path = repository_path
         tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-        tuf_repository = load_repository(repository_path)
+        self.repository_name = repository_name
+        tuf_repository = load_repository(repository_path, repository_name)
         self._repository = tuf_repository
 
     _framework_files = ["repositories.json", "test-auth-repo"]
@@ -291,6 +241,29 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
+    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+        """Add metadata key of the provided role.
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - pub_key_pem(str|bytes): Public key in PEM format
+
+        Returns:
+        None
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+
+        """
+        if isinstance(pub_key_pem, bytes):
+            pub_key_pem = pub_key_pem.decode("utf-8")
+
+        key = import_rsakey_from_pem(pub_key_pem, scheme)
+        self._role_obj(role).add_verification_key(key)
+
     def add_targets(self, data, targets_role="targets", files_to_keep=None):
         """Creates a target.json file containing a repository's commit for each repository.
         Adds those files to the tuf repository. Also removes all targets from the filesystem if their
@@ -327,44 +300,37 @@ class Repository:
                                     that should remain targets. Files required by the framework will
                                     also remain targets.
         """
+        if len(data):
+            self._check_if_files_delegated_to_role(targets_role, list(data.keys()))
+
         if files_to_keep is None:
             files_to_keep = []
         # leave all files required by the framework and additional files specified by the user
         files_to_keep.extend(self._framework_files)
         # add all repositories defined in repositories.json to files_to_keep
-        files_to_keep.extend(self._get_target_repositories())
+        target_repositories = self._get_target_repositories()
+        if target_repositories is not None:
+            files_to_keep.extend(target_repositories)
         # delete files if they no longer correspond to a target defined
         # in targets metadata and are not specified in files_to_keep
         targets_obj = self._role_obj(targets_role)
-        for filepath in self.targets_path.rglob("*"):
-            if filepath.is_file():
-                file_rel_path = str(
-                    Path(filepath).relative_to(self.targets_path).as_posix()
-                )
-                if file_rel_path not in data and file_rel_path not in files_to_keep:
-                    if file_rel_path in targets_obj.target_files:
-                        targets_obj.remove_target(file_rel_path)
-                    filepath.unlink()
+
+        target_roles_paths = self.get_role_paths(targets_role)
+
+        all_target_relpaths = self._collect_target_paths_of_role(target_roles_paths)
+
+        # delete all files which are not in data, files to keep or delegated to a child role
+        all_targets_mapping = self.map_signing_roles(all_target_relpaths)
+        for target_rel_path, files_role in all_targets_mapping.items():
+            if files_role == targets_role:
+                if target_rel_path not in data and target_rel_path not in files_to_keep:
+                    if target_rel_path in targets_obj.target_files:
+                        targets_obj.remove_target(target_rel_path)
+                    (Path(self.targets_path) / target_rel_path).unlink()
 
         for path, target_data in data.items():
-            # if the target's parent directory should not be "targets", create
-            # its parent directories if they do not exist
             target_path = (self.targets_path / path).absolute()
-            target_dir = target_path.parents[0]
-            target_dir.mkdir(parents=True, exist_ok=True)
-
-            # create the target file
-            content = target_data.get("target", None)
-            if content is None:
-                if not target_path.is_file():
-                    target_path.touch()
-            else:
-                with open(str(target_path), "w") as f:
-                    if isinstance(content, dict):
-                        json.dump(content, f, indent=4)
-                    else:
-                        f.write(content)
-
+            self._create_target_file(target_path, target_data)
             custom = target_data.get("custom", None)
             self._add_target(targets_obj, str(target_path), custom)
 
@@ -372,7 +338,11 @@ class Repository:
             Path(self.metadata_path, f"{targets_role}.json").read_text()
         )["signed"]["targets"]
 
+        # add all files in files_to_keep delegated to that role
+        files_to_keep_mapping = self.map_signing_roles(files_to_keep)
         for path in files_to_keep:
+            if not files_to_keep_mapping[path] == targets_role:
+                continue
             # if path if both in data and files_to_keep, skip it
             # e.g. repositories.json will always be in files_to_keep,
             # but it might also be specified in data, if it needs to be updated
@@ -385,18 +355,164 @@ class Repository:
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
 
+    def _check_if_files_delegated_to_role(self, targets_role, target_files):
+        target_roles_mapping = self.map_signing_roles(target_files)
+        roles = set(target_roles_mapping.values())
+        if len(roles) > 1 or targets_role not in roles:
+            raise TargetsError(
+                f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} "
+                f"and not just {targets_role}"
+            )
+
+    def _collect_target_paths_of_role(self, target_roles_paths):
+        all_target_relpaths = []
+        for target_role_path in target_roles_paths:
+            try:
+                if (Path(self.targets_path) / target_role_path).is_file():
+                    all_target_relpaths.append(target_role_path)
+                    continue
+            except OSError:
+                pass
+            for filepath in self.targets_path.rglob(target_role_path):
+                if filepath.is_file():
+                    file_rel_path = str(
+                        Path(filepath).relative_to(self.targets_path).as_posix()
+                    )
+                    all_target_relpaths.append(file_rel_path)
+        return all_target_relpaths
+
+    def _create_target_file(self, target_path, target_data):
+        # if the target's parent directory should not be "targets", create
+        # its parent directories if they do not exist
+        target_dir = target_path.parents[0]
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # create the target file
+        content = target_data.get("target", None)
+        if content is None:
+            if not target_path.is_file():
+                target_path.touch()
+        else:
+            with open(str(target_path), "w") as f:
+                if isinstance(content, dict):
+                    json.dump(content, f, indent=4)
+                else:
+                    f.write(content)
+
     def delete_unregistered_target_files(self, targets_role="targets"):
         """
         Delete all target files not specified in targets.json
         """
         targets_obj = self._role_obj(targets_role)
-        for filepath in self.targets_path.rglob("*"):
-            if filepath.is_file():
-                file_rel_path = str(
-                    Path(filepath).relative_to(self.targets_path).as_posix()
-                )
+        target_files_by_roles = self.sort_target_files_by_roles()
+        if targets_role in target_files_by_roles:
+            for file_rel_path in target_files_by_roles[targets_role]:
                 if file_rel_path not in targets_obj.target_files:
-                    filepath.unlink()
+                    (self.targets_path / file_rel_path).unlink()
+
+    def find_delegated_roles_parent(self, role_name):
+        """
+        A simple implementation of finding a delegated targets role's parent
+        assuming that every delegated role is delegated by just one role
+        and that there won't be many delegations.
+        Args:
+            - role_name: Role
+
+        Returns:
+            Parent role's name
+        """
+
+        def _find_delegated_role(parent_role_name, role_name):
+            targets_role_info = tuf.roledb.get_roleinfo(
+                parent_role_name, self.repository_name
+            )
+            delegations = targets_role_info.get("delegations")
+            if len(delegations):
+                for role_info in delegations.get("roles"):
+                    # check if this role can sign target_path
+                    delegated_role_name = role_info["name"]
+                    if delegated_role_name == role_name:
+                        return parent_role_name
+                    parent = _find_delegated_role(delegated_role_name, role_name)
+                    if parent is not None:
+                        return parent
+            return None
+
+        return _find_delegated_role("targets", role_name)
+
+    def find_keys_roles(self, public_keys):
+        """Find all roles that can be signed by the provided keys.
+        A role can be signed by the list of keys if at least the number
+        of keys that can sign that file is equal to or greater than the role's
+        threshold
+        """
+
+        def _map_keys_to_roles(role_name, key_ids):
+            keys_roles = []
+            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
+            delegations = targets_role_info.get("delegations")
+            if len(delegations):
+                for role_info in delegations.get("roles"):
+                    # check if this role can sign target_path
+                    delegated_role_name = role_info["name"]
+                    delegated_roles_keyids = role_info["keyids"]
+                    delegated_roles_threshold = role_info["threshold"]
+                    num_of_signing_keys = len(
+                        set(delegated_roles_keyids).intersection(key_ids)
+                    )
+                    if num_of_signing_keys >= delegated_roles_threshold:
+                        keys_roles.append(delegated_role_name)
+                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
+            return keys_roles
+
+        keyids = [key["keyid"] for key in public_keys]
+        return _map_keys_to_roles("targets", keyids)
+
+    def get_all_targets_roles(self):
+        """
+        Return a list containing names of all target roles
+        """
+
+        def _traverse_targets_roles(role_name):
+            roles = [role_name]
+            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
+            delegations = targets_role_info.get("delegations")
+            if len(delegations):
+                for role_info in delegations.get("roles"):
+                    # check if this role can sign target_path
+                    delegated_role_name = role_info["name"]
+                    roles.extend(_traverse_targets_roles(delegated_role_name))
+            return roles
+
+        return _traverse_targets_roles("targets")
+
+    def get_delegated_role_property(self, property_name, role_name, parent_role=None):
+        """
+        Extract value of the specified property of the provided delegated role from
+        its parent's role info.
+        Args:
+            - property_name: Name of the property (like threshold)
+            - role_name: Role
+            - parent_role: Parent role
+
+        Returns:
+            The specified property's value
+        """
+        # TUF raises an error when asking for properties like threshold and signing keys
+        # of a delegated role (see https://github.com/theupdateframework/tuf/issues/574)
+        # The following workaround presumes that one every delegated role is a deegation
+        # of exactly one delegated role
+        if parent_role is None:
+            parent_role = self.find_delegated_roles_parent(role_name)
+        parents_role_info = tuf.roledb.get_roleinfo(parent_role, self.repository_name)
+        delegations = parents_role_info.get("delegations")
+        for delegated_role in delegations["roles"]:
+            if delegated_role["name"] == role_name:
+                return delegated_role[property_name]
+        return None
+
+    def get_expiration_date(self, role):
+        return self._role_obj(role).expiration
 
     def _get_target_repositories(self):
         repositories_path = self.targets_path / "repositories.json"
@@ -429,7 +545,52 @@ class Repository:
             return role_obj.keys
         except KeyError:
             pass
-        return get_delegated_role_property("keyids", role, parent_role)
+        return self.get_delegated_role_property("keyids", role, parent_role)
+
+    def get_role_paths(self, role, parent_role=None):
+        """Get paths of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Defined delegated paths of delegate target role or * in case of targets
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        if role == "targets":
+            return "*"
+        return self.get_delegated_role_property("paths", role, parent_role)
+
+    def get_role_repositories(self, role, parent_role=None):
+        """Get repositories of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Repositories' path from repositories.json that matches given role paths
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        role_paths = self.get_role_paths(role, parent_role=parent_role)
+
+        target_repositories = self._get_target_repositories()
+        return [
+            repo
+            for repo in target_repositories
+            if all([fnmatch(repo, path) for path in role_paths])
+        ]
 
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role
@@ -454,7 +615,7 @@ class Repository:
             return role_obj.threshold
         except KeyError:
             pass
-        return get_delegated_role_property("threshold", role, parent_role)
+        return self.get_delegated_role_property("threshold", role, parent_role)
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
@@ -527,28 +688,42 @@ class Repository:
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-        """Add metadata key of the provided role.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - pub_key_pem(str|bytes): Public key in PEM format
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
-        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
-
+    def map_signing_roles(self, target_filenames):
         """
-        if isinstance(pub_key_pem, bytes):
-            pub_key_pem = pub_key_pem.decode("utf-8")
+        For each target file, find delegated role responsible for that target file based
+        on the delegated paths. The most specific role (meaning most deeply nested) whose
+        delegation path matches the target's path is returned as that file's matching role.
+        If there are no delegated roles with a path that matches the target file's path,
+        'targets' role will be returned as that file's matching role. Delegation path
+        is expected to be relative to the targets directory. It can be defined as a glob
+        pattern.
+        """
 
-        key = import_rsakey_from_pem(pub_key_pem, scheme)
-        self._role_obj(role).add_verification_key(key)
+        def _map_targets_to_roles(role_name, target_filenames):
+            roles_targets = {}
+            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
+            delegations = targets_role_info.get("delegations")
+            if len(delegations):
+                for role_info in delegations.get("roles"):
+                    # check if this role can sign target_path
+                    delegated_role_name = role_info["name"]
+                    for path_pattern in role_info["paths"]:
+                        for target_filename in target_filenames:
+                            if fnmatch(
+                                target_filename.lstrip(os.sep),
+                                path_pattern.lstrip(os.sep),
+                            ):
+                                roles_targets[target_filename] = delegated_role_name
+                    roles_targets.update(
+                        _map_targets_to_roles(delegated_role_name, target_filenames)
+                    )
+            return roles_targets
+
+        roles_targets = {
+            target_filename: "targets" for target_filename in target_filenames
+        }
+        roles_targets.update(_map_targets_to_roles("targets", target_filenames))
+        return roles_targets
 
     def remove_metadata_key(self, role, key_id):
         """Remove metadata key of the provided role.
@@ -586,9 +761,7 @@ class Repository:
             "targets": self.update_targets_yubikeys,
         }.get(role_name, partial(self.update_targets_yubikeys, targets_role=role_name))
 
-    def set_metadata_expiration_date(
-        self, role, start_date=datetime.datetime.now(), interval=None
-    ):
+    def set_metadata_expiration_date(self, role, start_date=None, interval=None):
         """Set expiration date of the provided role.
 
         Args:
@@ -603,24 +776,42 @@ class Repository:
                             targets - 90 days
                             snapshot - 7 days
                             timestamp - 1 day
-                            all other roles - 1 day
+                            all other roles (delegations) - same as targets
 
         Returns:
         None
 
         Raises:
         - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by
+                                                        this targets object.
         """
         role_obj = self._role_obj(role)
+        if start_date is None:
+            start_date = datetime.datetime.now()
         if interval is None:
-            interval = expiration_intervals.get(role, 1)
+            try:
+                interval = expiration_intervals[role]
+            except KeyError:
+                interval = expiration_intervals["targets"]
+
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
 
-    def get_expiration_date(self, role):
-        return self._role_obj(role).expiration
+    def sort_target_files_by_roles(self):
+        rel_paths = []
+        for filepath in self.targets_path.rglob("*"):
+            if filepath.is_file():
+                file_rel_path = str(
+                    Path(filepath).relative_to(self.targets_path).as_posix()
+                )
+                rel_paths.append(file_rel_path)
+
+        files_to_roles = self.map_signing_roles(rel_paths)
+        roles_targets = {}
+        for target_file, role in files_to_roles.items():
+            roles_targets.setdefault(role, []).append(target_file)
+        return roles_targets
 
     def update_root(self, signature_dict):
         """Update root metadata.
@@ -724,7 +915,10 @@ class Repository:
             if not self.is_valid_metadata_yubikey(role_name, public_key):
                 raise InvalidKeyError(role_name)
 
-            key_name = f"{role_name}{index + 1}"
+            if len(public_keys) == 1:
+                key_name = role_name
+            else:
+                key_name = f"{role_name}{index + 1}"
 
             role_obj.add_external_signature_provider(
                 public_key, partial(signature_provider, key_name, public_key["keyid"])
@@ -734,12 +928,7 @@ class Repository:
             self._repository.write(role_name)
 
     def _update_role_keystores(
-        self,
-        role_name,
-        signing_keys,
-        start_date=datetime.datetime.now(),
-        interval=None,
-        write=True,
+        self, role_name, signing_keys, start_date=None, interval=None, write=True
     ):
         """Update the specified role's metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -774,7 +963,7 @@ class Repository:
         self,
         role_name,
         public_keys,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         signature_provider=yubikey_signature_provider,
@@ -819,11 +1008,7 @@ class Repository:
             raise MetadataUpdateError(role_name, str(e))
 
     def update_timestamp_keystores(
-        self,
-        timestamp_signing_keys,
-        start_date=datetime.datetime.now(),
-        interval=None,
-        write=True,
+        self, timestamp_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -857,7 +1042,7 @@ class Repository:
     def update_timestamp_yubikeys(
         self,
         timestamp_public_keys,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         pins=None,
@@ -900,11 +1085,7 @@ class Repository:
             raise TimestampMetadataUpdateError(e.message)
 
     def update_snapshot_keystores(
-        self,
-        snapshot_signing_keys,
-        start_date=datetime.datetime.now(),
-        interval=None,
-        write=True,
+        self, snapshot_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -938,7 +1119,7 @@ class Repository:
     def update_snapshot_yubikeys(
         self,
         snapshot_public_keys,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         pins=None,
@@ -984,7 +1165,7 @@ class Repository:
         self,
         targets_signing_keys,
         targets_data=None,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         targets_role="targets",
@@ -1027,7 +1208,7 @@ class Repository:
         self,
         targets_public_keys,
         targets_data=None,
-        start_date=datetime.datetime.now(),
+        start_date=None,
         interval=None,
         write=True,
         targets_role="targets",
@@ -1040,7 +1221,7 @@ class Repository:
         sign the metadata file if write is set to True.
 
         Args:
-        - targets_signing_keys: list of signing keys of the targets role
+        - targets_public_keys: list of signing keys of the targets role
         - start_date(datetime): Date to which the specified interval is added when
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
@@ -1064,7 +1245,7 @@ class Repository:
         """
         try:
             if targets_data:
-                self.add_targets(targets_data)
+                self.add_targets(targets_data, targets_role=targets_role)
             self._update_role_yubikeys(
                 targets_role,
                 targets_public_keys,

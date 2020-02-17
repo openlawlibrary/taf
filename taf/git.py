@@ -4,10 +4,12 @@ import re
 import shutil
 import subprocess
 from collections import OrderedDict
+from functools import reduce
 from pathlib import Path
-from taf.log import taf_logger
+
 import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
+from taf.log import taf_logger
 from taf.utils import run
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -172,15 +174,26 @@ class GitRepository(object):
         )
         return commits
 
-    def branches(self, remote=False):
+    def branches(self, remote=False, all=False, strip_remote=False):
         """Returns all branches."""
-        remote_flag = "-r" if remote else ""
-        return [
+        flag = "-r" if remote else "-a" if all else ""
+        branches = [
             branch.strip('"').strip("'").strip()
             for branch in self._git(
-                "branch {} --format='%(refname:short)'", remote_flag
+                "branch {} --format='%(refname:short)'", flag
             ).split("\n")
         ]
+
+        if all and strip_remote:
+            remotes = self.remotes
+            branches = set(
+                [
+                    reduce(lambda b, r: b.replace(f"{r}/", ""), remotes, branch)
+                    for branch in branches
+                ]
+            )
+
+        return branches
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
@@ -403,6 +416,7 @@ class GitRepository(object):
         return json.loads(s)
 
     def get_file(self, commit, path):
+        path = Path(path).as_posix()
         return self._git("show {}:{}", commit, path)
 
     def get_last_branch_by_committer_date(self):
@@ -423,7 +437,7 @@ class GitRepository(object):
         self._git("branch -D {}", branch_name)
 
     def diff_between_revisions(self, revision1=EMPTY_TREE, revision2="HEAD"):
-        return self._git("diff {} {}", revision1, revision2)
+        return self._git("diff --name-status {} {}", revision1, revision2)
 
     def has_remote(self):
         return bool(self._git("remote"))

@@ -13,28 +13,28 @@ from taf.tests.yubikey_utils import VALID_PIN
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
-def test_check_no_key_inserted_for_targets_should_raise_error(
-    taf_happy_path, targets_yk
-):
+def test_check_no_key_inserted_for_targets_should_raise_error(repositories, targets_yk):
+    taf_happy_path = repositories["test-happy-path"]
     targets_yk.insert()
     targets_yk.remove()
     with pytest.raises(taf.exceptions.YubikeyError):
         taf_happy_path.is_valid_metadata_yubikey("targets")
 
 
-def test_check_targets_key_id_for_targets_should_return_true(
-    taf_happy_path, targets_yk
-):
+def test_check_targets_key_id_for_targets_should_return_true(repositories, targets_yk):
+    taf_happy_path = repositories["test-happy-path"]
     targets_yk.insert()
     assert taf_happy_path.is_valid_metadata_yubikey("targets", targets_yk.tuf_key)
 
 
-def test_check_root_key_id_for_targets_should_return_false(taf_happy_path, root1_yk):
+def test_check_root_key_id_for_targets_should_return_false(repositories, root1_yk):
+    taf_happy_path = repositories["test-happy-path"]
     root1_yk.insert()
     assert not taf_happy_path.is_valid_metadata_yubikey("targets", root1_yk.tuf_key)
 
 
-def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
+def test_update_snapshot_valid_key(repositories, snapshot_key):
+    taf_happy_path = repositories["test-happy-path"]
     start_date = datetime.datetime.now()
     interval = 1
     expected_expiration_date = to_tuf_datetime_format(start_date, interval)
@@ -53,12 +53,14 @@ def test_update_snapshot_valid_key(taf_happy_path, snapshot_key):
     assert actual_expiration_date == expected_expiration_date
 
 
-def test_update_snapshot_wrong_key(taf_happy_path, timestamp_key):
+def test_update_snapshot_wrong_key(repositories, timestamp_key):
+    taf_happy_path = repositories["test-happy-path"]
     with pytest.raises(taf.exceptions.InvalidKeyError):
         taf_happy_path.update_snapshot_keystores([timestamp_key])
 
 
-def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
+def test_update_timestamp_valid_key(repositories, timestamp_key):
+    taf_happy_path = repositories["test-happy-path"]
     start_date = datetime.datetime.now()
     interval = 1
     expected_expiration_date = to_tuf_datetime_format(start_date, interval)
@@ -80,12 +82,14 @@ def test_update_timestamp_valid_key(taf_happy_path, timestamp_key):
     assert old_snapshot_metadata == snapshot_metadata_path.read_bytes()
 
 
-def test_update_timestamp_wrong_key(taf_happy_path, snapshot_key):
+def test_update_timestamp_wrong_key(repositories, snapshot_key):
+    taf_happy_path = repositories["test-happy-path"]
     with pytest.raises(taf.exceptions.InvalidKeyError):
         taf_happy_path.update_timestamp_keystores([snapshot_key])
 
 
-def test_update_targets_from_keystore_valid_key(taf_happy_path, targets_key):
+def test_update_targets_from_keystore_valid_key(repositories, targets_key):
+    taf_happy_path = repositories["test-happy-path"]
     start_date = datetime.datetime.now()
     interval = 1
     expected_expiration_date = to_tuf_datetime_format(start_date, interval)
@@ -101,12 +105,14 @@ def test_update_targets_from_keystore_valid_key(taf_happy_path, targets_key):
     assert actual_expiration_date == expected_expiration_date
 
 
-def test_update_targets_from_keystore_wrong_key(taf_happy_path, snapshot_key):
+def test_update_targets_from_keystore_wrong_key(repositories, snapshot_key):
+    taf_happy_path = repositories["test-happy-path"]
     with pytest.raises(taf.exceptions.InvalidKeyError):
         taf_happy_path.update_targets_keystores([snapshot_key])
 
 
-def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
+def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
+    taf_happy_path = repositories["test-happy-path"]
     if targets_yk.scheme != DEFAULT_RSA_SIGNATURE_SCHEME:
         pytest.skip()
     targets_path = Path(taf_happy_path.targets_path)
@@ -135,7 +141,8 @@ def test_update_targets_valid_key_valid_pin(taf_happy_path, targets_yk):
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
-def test_update_targets_wrong_key(taf_happy_path, root1_yk):
+def test_update_targets_wrong_key(repositories, root1_yk):
+    taf_happy_path = repositories["test-happy-path"]
     with pytest.raises(taf.exceptions.InvalidKeyError):
         root1_yk.insert()
         yk.add_key_pin(root1_yk.serial, VALID_PIN)

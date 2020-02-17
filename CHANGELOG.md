@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Add support for delegated targets roles ([97])
+- Add delegations tests ([98])
+- Add support for delegated targets roles ([97], [98])
+
 ### Changed
 
+- Updated `add_targets` so that it fully supports delegated roles ([98])
+- Refactored tests so that it is possible to create and use more than one taf repository ([98])
 - Separated commands into sub-commands ([96])
 - Use `root-dir` and `namespace` instead of `target-dir` ([96])
 
@@ -19,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fixed init and create repo commands ([96])
 
+[98]: https://github.com/openlawlibrary/taf/pull/98
 [97]: https://github.com/openlawlibrary/taf/pull/97
 [96]: https://github.com/openlawlibrary/taf/pull/96
 
