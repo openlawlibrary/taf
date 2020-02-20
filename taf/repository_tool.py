@@ -241,6 +241,37 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
+    def add_existing_targets(self, update_target_filenames):
+        """Register a list of files as TUF targets. Ensures that all targets
+        roles affected by update of these target files are normalized.
+        The files are expected to be inside the targets directory.
+
+        Args:
+        - update_target_filenames(str): Relative paths of the updated targets
+        Returns:
+        None
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If 'filepath' is improperly formatted.
+        - securesystemslib.exceptions.Error: If 'filepath' is not located in the repository's targets
+        """
+
+        # find all files of roles if just one file delegated to that role
+        # was modified
+        # this is because we need to normalize the all target files before
+        # tuf calculates their legth and shas
+        # we do not want to register all files as changed as that would
+        # mean that we would update and have to sign all targets metadata files
+        # which might not even be possible if the user does not have all of the keys
+        all_target_files = self.all_target_files()
+
+        roles_and_targets = self.target_files_by_roles(all_target_files)
+        for role_name, target_filenames in roles_and_targets.items():
+            if any(item in update_target_filenames for item in target_filenames):
+                targets_role_obj = self._role_obj(role_name)
+                for target_filename in target_filenames:
+                    self._add_target(targets_role_obj, str(self.targets_path / target_filename))
+
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
 
@@ -354,6 +385,21 @@ class Repository:
                 previous_custom = previous_targets[path].get("custom")
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
+
+    def all_target_files(self):
+        """
+        Return a list of relative paths of all files inside the targets
+        directory
+        """
+        targets = []
+        for root, _, filenames in os.walk(str(self.targets_path)):
+            for filename in filenames:
+                filepath = Path(root) / filename
+                if filepath.is_file():
+                    targets.append(
+                        os.path.relpath(str(filepath), str(self.targets_path))
+                    )
+        return targets
 
     def _check_if_files_delegated_to_role(self, targets_role, target_files):
         target_roles_mapping = self.map_signing_roles(target_files)
@@ -926,6 +972,20 @@ class Repository:
 
         if write:
             self._repository.write(role_name)
+
+    def target_files_by_roles(self, target_filenames):
+        """Sort target files by roles
+        Args:
+        - target_filenames: List of relativate paths of target files
+        Returns:
+        A dictionary mapping roles to a list of target files belonging
+        to the provided target_filenames list delegated to the role
+        """
+        targets_roles_mapping = self.map_signing_roles(target_filenames)
+        roles_targets_mapping = {}
+        for target_filename, role_name in targets_roles_mapping.items():
+            roles_targets_mapping.setdefault(role_name, []).append(target_filename)
+        return roles_targets_mapping
 
     def _update_role_keystores(
         self, role_name, signing_keys, start_date=None, interval=None, write=True

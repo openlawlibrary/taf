@@ -802,9 +802,10 @@ def register_target_files(
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
     taf_repo = Repository(str(repo_path))
     auth_git_repo = GitRepository(repo_path)
-    target_filenames = []
+
     # find only untracked and modified targets
     if auth_git_repo.is_git_repository:
+        target_filenames = []
         target_files = auth_git_repo.list_modified_files(
             path="targets"
         ) + auth_git_repo.list_untracked_files(path="targets")
@@ -814,18 +815,10 @@ def register_target_files(
                 os.path.relpath(str(modified_file_path), str(targets_path))
             )
     else:
-        for root, _, filenames in os.walk(str(targets_path)):
-            for filename in filenames:
-                filepath = Path(root) / filename
-                if filepath.is_file():
-                    target_filenames.append(
-                        os.path.relpath(str(filepath), str(targets_path))
-                    )
-    targets_roles_mapping = taf_repo.map_signing_roles(target_filenames)
-    for target_rel_path, target_role in targets_roles_mapping.items():
-        taf_repo.add_existing_target(str(targets_path / target_rel_path), target_role)
+        target_filenames = taf_repo.all_target_files()
 
-    updated_targets_roles = set(targets_roles_mapping.values())
+    taf_repo.add_existing_targets(target_filenames)
+    updated_targets_roles = set(taf_repo.map_signing_roles(target_filenames).values())
 
     _write_targets_metadata(
         taf_repo, updated_targets_roles, keystore, roles_key_infos, scheme
