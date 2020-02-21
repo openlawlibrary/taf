@@ -959,7 +959,7 @@ class Repository:
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
-    def _update_role_yubikeys(
+    def update_role_yubikeys(
         self,
         role_name,
         public_keys,
@@ -1073,7 +1073,7 @@ class Repository:
                                         the metadata file
         """
         try:
-            self._update_role_yubikeys(
+            self.update_role_yubikeys(
                 "timestamp",
                 timestamp_public_keys,
                 start_date,
@@ -1150,7 +1150,7 @@ class Repository:
                                        the metadata file
         """
         try:
-            self._update_role_yubikeys(
+            self.update_role_yubikeys(
                 "snapshot",
                 snapshot_public_keys,
                 start_date,
@@ -1246,7 +1246,7 @@ class Repository:
         try:
             if targets_data:
                 self.add_targets(targets_data, targets_role=targets_role)
-            self._update_role_yubikeys(
+            self.update_role_yubikeys(
                 targets_role,
                 targets_public_keys,
                 start_date,

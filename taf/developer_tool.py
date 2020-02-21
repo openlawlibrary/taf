@@ -945,7 +945,7 @@ def update_metadata_expiration_date(
                 role, keys, start_date=start_date, interval=interval
             )
         else:  # sign with yubikey
-            taf_repo._update_role_yubikeys(
+            taf_repo.update_role_yubikeys(
                 role, yubikeys, start_date=start_date, interval=interval
             )
     except Exception as e:
