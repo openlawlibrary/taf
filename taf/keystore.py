@@ -7,9 +7,10 @@ from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
+from tuf.repository_tool import import_rsakey_from_pem
+
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
-from tuf.repository_tool import import_rsakey_from_pem
 
 
 def _form_private_pem(pem):
@@ -91,23 +92,27 @@ def read_private_key_from_keystore(
             password = passwords[key_num]
 
     def _read_key(path, password, scheme):
-        if password is None:
+        def _read_key_or_keystore_error(path, password, scheme):
+            try:
+                return import_rsa_privatekey_from_file(
+                    str(Path(keystore, key_name)), password or None, scheme=scheme
+                )
+            except (
+                securesystemslib.exceptions.FormatError,
+                securesystemslib.exceptions.Error,
+            ) as e:
+                if "password" in str(e).lower():
+                    return None
+                raise KeystoreError(e)
+
+        try:
+            # try to load with a given password or None
+            return _read_key_or_keystore_error(path, password, scheme)
+        except securesystemslib.exceptions.CryptoError:
             password = getpass(
                 f"Enter {key_name} keystore file password and press ENTER"
             )
-        if not password:
-            password = None
-        try:
-            return import_rsa_privatekey_from_file(
-                str(Path(keystore, key_name)), password, scheme=scheme
-            )
-        except (
-            securesystemslib.exceptions.FormatError,
-            securesystemslib.exceptions.Error,
-        ) as e:
-            if "password" in str(e).lower():
-                return None
-            raise KeystoreError(e)
+            return _read_key_or_keystore_error(path, password, scheme)
         except Exception:
             return None
 

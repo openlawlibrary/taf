@@ -922,44 +922,37 @@ def setup_test_yubikey(key_path=None):
 
 
 def update_metadata_expiration_date(
-    repo_path,
-    role,
-    interval,
-    keystore=None,
-    scheme=None,
-    start_date=datetime.datetime.now(),
-    commit=False,
+    repo_path, role, interval, keystore=None, scheme=None, start_date=None, commit=False
 ):
+    if start_date is None:
+        start_date = datetime.datetime.now()
+
     taf_repo = Repository(repo_path)
-    update_methods = {
-        "timestamp_keystore": taf_repo.update_timestamp,
-        "snapshot_keystore": taf_repo.update_snapshot,
-        "targets_keystore": taf_repo.update_targets_from_keystore,
-        "targets_yubikey": taf_repo.update_targets,
-    }
     loaded_yubikeys = {}
-    keys, yubikeys = _load_signing_keys(
-        taf_repo,
-        role,
-        loaded_yubikeys=loaded_yubikeys,
-        keystore=keystore,
-        scheme=scheme,
-    )
-    if len(keys):
-        try:
-            update_methods[f"{role}_keystore"](keys[0], start_date, interval)
-        except KeyError:
-            print(f"Cannot update {role} from keystore")
+
+    try:
+        keys, yubikeys = _load_signing_keys(
+            taf_repo,
+            role,
+            loaded_yubikeys=loaded_yubikeys,
+            keystore=keystore,
+            scheme=scheme,
+        )
+
+        # sign with keystore
+        if len(keys):
+            taf_repo.update_role_keystores(
+                role, keys, start_date=start_date, interval=interval
+            )
+        else:  # sign with yubikey
+            taf_repo.update_role_yubikeys(
+                role, yubikeys, start_date=start_date, interval=interval
+            )
+    except Exception as e:
+        print(f"Could not update expiration date of {role}. {str(e)}")
+        return
     else:
-        for serial_num in loaded_yubikeys:
-            if "targets" in loaded_yubikeys[serial_num]:
-                pin = yk.get_key_pin(serial_num)
-                try:
-                    update_methods[f"{role}_yubikey"](pin, None, start_date, interval)
-                except KeyError:
-                    print(f"Cannot update {role} using yubikeys")
-                break
-    print(f"Updated expiration date of {role}")
+        print(f"Updated expiration date of {role}")
 
     if commit:
         auth_repo = GitRepository(repo_path)
