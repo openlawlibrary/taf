@@ -1028,7 +1028,7 @@ class Repository(BaseRepository):
             roles_targets_mapping.setdefault(role_name, []).append(target_filename)
         return roles_targets_mapping
 
-    def _update_role_keystores(
+    def update_role_keystores(
         self, role_name, signing_keys, start_date=None, interval=None, write=True
     ):
         """Update the specified role's metadata's expiration date by setting it to a date calculated by
@@ -1060,7 +1060,7 @@ class Repository(BaseRepository):
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
-    def _update_role_yubikeys(
+    def update_role_yubikeys(
         self,
         role_name,
         public_keys,
@@ -1134,7 +1134,7 @@ class Repository(BaseRepository):
                                         the metadata file
         """
         try:
-            self._update_role_keystores(
+            self.update_role_keystores(
                 "timestamp", timestamp_signing_keys, start_date, interval, write
             )
         except MetadataUpdateError as e:
@@ -1174,7 +1174,7 @@ class Repository(BaseRepository):
                                         the metadata file
         """
         try:
-            self._update_role_yubikeys(
+            self.update_role_yubikeys(
                 "timestamp",
                 timestamp_public_keys,
                 start_date,
@@ -1211,7 +1211,7 @@ class Repository(BaseRepository):
                                        the metadata file
         """
         try:
-            self._update_role_keystores(
+            self.update_role_keystores(
                 "snapshot", snapshot_signing_keys, start_date, interval, write
             )
         except MetadataUpdateError as e:
@@ -1251,7 +1251,7 @@ class Repository(BaseRepository):
                                        the metadata file
         """
         try:
-            self._update_role_yubikeys(
+            self.update_role_yubikeys(
                 "snapshot",
                 snapshot_public_keys,
                 start_date,
@@ -1299,7 +1299,7 @@ class Repository(BaseRepository):
         try:
             if targets_data:
                 self.add_targets(targets_data)
-            self._update_role_keystores(
+            self.update_role_keystores(
                 targets_role, targets_signing_keys, start_date, interval, write
             )
         except MetadataUpdateError as e:
@@ -1347,7 +1347,7 @@ class Repository(BaseRepository):
         try:
             if targets_data:
                 self.add_targets(targets_data, targets_role=targets_role)
-            self._update_role_yubikeys(
+            self.update_role_yubikeys(
                 targets_role,
                 targets_public_keys,
                 start_date,
