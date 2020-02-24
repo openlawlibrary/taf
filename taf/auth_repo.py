@@ -1,13 +1,15 @@
 import json
 import os
 from collections import defaultdict
+from functools import partial
 from pathlib import Path
 from subprocess import CalledProcessError
 from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
+from taf.repository_tool import Repository as TAFRepository, get_role_metadata_path, get_target_path
 
 
-class AuthRepoMixin(object):
+class AuthRepoMixin(TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
@@ -42,10 +44,14 @@ class AuthRepoMixin(object):
         except FileNotFoundError:
             return None
 
+    def get_delegations_info(self, commit, role):
+        roles_metadata = self.get_json(commit, get_role_metadata_path(role))
+        return roles_metadata['signed']['delegations']
+
     def get_target(self, target_name, commit=None, safely=True):
         if commit is None:
             commit = self.head_commit_sha()
-        target_path = (Path(self.targets_path) / target_name).as_posix()
+        target_path = (self.targets_path / target_name).as_posix()
         if safely:
             return self._safely_get_json(commit, target_path)
         else:
@@ -109,40 +115,45 @@ class AuthRepoMixin(object):
 
     def target_commits_at_revisions(self, commits):
         targets = defaultdict(dict)
-        for commit in commits:
-            targets_at_revision = self._safely_get_json(
-                commit, self.metadata_path + "/targets.json"
-            )
-            if targets_at_revision is None:
-                continue
-            targets_at_revision = targets_at_revision["signed"]["targets"]
 
+        for commit in commits:
+            # repositories.json might not exit, if the current commit is
+            # the initial commit
             repositories_at_revision = self._safely_get_json(
-                commit, self.targets_path + "/repositories.json"
+                commit, get_target_path("repositories.json")
             )
             if repositories_at_revision is None:
                 continue
             repositories_at_revision = repositories_at_revision["repositories"]
 
-            for target_path in targets_at_revision:
-                if target_path not in repositories_at_revision:
-                    # we only care about repositories
-                    continue
-                try:
-                    target_content = self.get_json(
-                        commit, self.targets_path + "/" + target_path
-                    )
-                    target_commit = target_content.get("commit")
-                    target_branch = target_content.get("branch", "master")
-                    targets[commit][target_path] = (target_branch, target_commit)
-                except json.decoder.JSONDecodeError:
-                    taf_logger.debug(
-                        "Auth repo {}: target file {} is not a valid json at revision {}",
-                        self.repo_name,
-                        target_path,
-                        commit,
-                    )
-                    continue
+            # get names of all targets roles defined in the current revision
+            roles_at_revision = self.get_all_targets_roles(partial(self.get_delegations_info, commit))
+            for role_name in roles_at_revision:
+                # targets metadata files corresponding to the found roles must exist
+                targets_at_revision = self.get_json(
+                    commit, get_role_metadata_path(role_name)
+                )
+                targets_at_revision = targets_at_revision["signed"]["targets"]
+
+                for target_path in targets_at_revision:
+                    if target_path not in repositories_at_revision:
+                        # we only care about repositories
+                        continue
+                    try:
+                        target_content = self.get_json(
+                            commit, get_target_path(target_path)
+                        )
+                        target_commit = target_content.get("commit")
+                        target_branch = target_content.get("branch", "master")
+                        targets[commit][target_path] = (target_branch, target_commit)
+                    except json.decoder.JSONDecodeError:
+                        taf_logger.debug(
+                            "Auth repo {}: target file {} is not a valid json at revision {}",
+                            self.repo_name,
+                            target_path,
+                            commit,
+                        )
+                        continue
         return targets
 
     def _safely_get_json(self, commit, path):
@@ -164,35 +175,26 @@ class AuthRepoMixin(object):
             )
 
 
-class AuthenticationRepo(AuthRepoMixin, GitRepository):
+class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
-        self,
-        repo_path,
-        metadata_path="metadata",
-        targets_path="targets",
-        repo_urls=None,
-        additional_info=None,
-        default_branch="master",
+        self, repo_path, repo_urls=None, additional_info=None, default_branch="master"
     ):
         super().__init__(repo_path, repo_urls, additional_info, default_branch)
-        self.targets_path = targets_path
-        self.metadata_path = metadata_path
 
 
-class NamedAuthenticationRepo(AuthRepoMixin, NamedGitRepository):
+class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
     def __init__(
         self,
         root_dir,
         repo_name,
-        metadata_path="metadata",
-        targets_path="targets",
         repo_urls=None,
         additional_info=None,
         default_branch="master",
     ):
-
         super().__init__(
-            root_dir, repo_name, repo_urls, additional_info, default_branch
+            root_dir=root_dir,
+            repo_name=repo_name,
+            repo_urls=repo_urls,
+            additional_info=additional_info,
+            default_branch=default_branch,
         )
-        self.targets_path = targets_path
-        self.metadata_path = metadata_path

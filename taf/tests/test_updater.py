@@ -99,7 +99,7 @@ def run_around_tests(client_dir):
         # ("test-updater-allow-unauthenticated-commits", False),
         # ("test-updater-test-repo", True),
         # ("test-updater-multiple-branches", False),
-        ("test-updater-delegated-roles", False),
+        ("test-updater-delegated-roles", False)
     ],
 )
 def test_valid_update_no_client_repo(
@@ -107,7 +107,6 @@ def test_valid_update_no_client_repo(
 ):
     repositories = updater_repositories[test_name]
     origin_dir = origin_dir / test_name
-    import pdb; pdb.set_trace()
     _update_and_check_commit_shas(None, repositories, origin_dir, client_dir, test_repo)
 
 

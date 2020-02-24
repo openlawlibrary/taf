@@ -11,13 +11,19 @@ import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from taf.log import taf_logger
 from taf.utils import run
+from taf.repository import BaseRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
-class GitRepository(object):
+class GitRepository(BaseRepository):
     def __init__(
-        self, repo_path, repo_urls=None, additional_info=None, default_branch="master"
+        self,
+        repo_path,
+        repo_urls=None,
+        additional_info=None,
+        default_branch="master",
+        repo_name=None,
     ):
         """
     Args:
@@ -27,6 +33,10 @@ class GitRepository(object):
       default_branch: repository's default branch
     """
         self.repo_path = str(Path(repo_path).resolve())
+        if repo_name is None:
+            repo_name = os.path.basename(self.repo_path)
+        super().__init__(repo_path=repo_path, repo_name=repo_name)
+
         self.default_branch = default_branch
         if repo_urls is not None:
             if settings.update_from_filesystem is False:
@@ -41,7 +51,6 @@ class GitRepository(object):
                 ]
         self.repo_urls = repo_urls
         self.additional_info = additional_info
-        self.repo_name = os.path.basename(self.repo_path)
 
     _remotes = None
 
@@ -628,8 +637,13 @@ class NamedGitRepository(GitRepository):
     root_dir and repo_name.
     """
         repo_path = _get_repo_path(root_dir, repo_name)
-        super().__init__(repo_path, repo_urls, additional_info, default_branch)
-        self.repo_name = repo_name
+        super().__init__(
+            repo_path,
+            repo_name=repo_name,
+            repo_urls=repo_urls,
+            additional_info=additional_info,
+            default_branch=default_branch,
+        )
 
 
 def _get_repo_path(root_dir, repo_name):

@@ -18,6 +18,7 @@ from taf.exceptions import (
     YubikeyError,
 )
 from taf.git import GitRepository
+from taf.repository import BaseRepository
 from taf.utils import normalize_file_line_endings
 
 import securesystemslib
@@ -40,6 +41,14 @@ role_keys_cache = {}
 
 
 DISABLE_KEYS_CACHING = False
+
+
+def get_role_metadata_path(role):
+    return f'{METADATA_DIRECTORY_NAME}/{role}.json'
+
+
+def get_target_path(target_name):
+    return f'{TARGETS_DIRECTORY_NAME}/{target_name}'
 
 
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
@@ -134,31 +143,36 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
-class Repository:
-    def __init__(self, repository_path, repository_name="default"):
-        self.repository_path = repository_path
+class Repository(BaseRepository):
+    def __init__(self, repo_path, repo_name="default"):
+        super().__init__(repo_path=repo_path, repo_name=repo_name)
         tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-        self.repository_name = repository_name
-        tuf_repository = load_repository(repository_path, repository_name)
-        self._repository = tuf_repository
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
     @property
     def targets_path(self):
-        return Path(self.repository_path, TARGETS_DIRECTORY_NAME)
+        return Path(self.repo_path, TARGETS_DIRECTORY_NAME)
 
     @property
     def metadata_path(self):
-        return Path(self.repository_path, METADATA_DIRECTORY_NAME)
+        return Path(self.repo_path, METADATA_DIRECTORY_NAME)
+
+    _tuf_repository = None
+
+    @property
+    def _repository(self):
+        if self._tuf_repository is None:
+            self._tuf_repository = load_repository(self.repo_path, self.repo_name)
+        return self._tuf_repository
 
     @property
     def repo_id(self):
-        return GitRepository(self.repository_path).initial_commit
+        return GitRepository(self.repo_path).initial_commit
 
     @property
     def certs_dir(self):
-        certs_dir = Path(self.repository_path, "certs")
+        certs_dir = Path(self.repo_path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
@@ -270,7 +284,9 @@ class Repository:
             if any(item in update_target_filenames for item in target_filenames):
                 targets_role_obj = self._role_obj(role_name)
                 for target_filename in target_filenames:
-                    self._add_target(targets_role_obj, str(self.targets_path / target_filename))
+                    self._add_target(
+                        targets_role_obj, str(self.targets_path / target_filename)
+                    )
 
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
@@ -456,7 +472,7 @@ class Repository:
                 if file_rel_path not in targets_obj.target_files:
                     (self.targets_path / file_rel_path).unlink()
 
-    def find_delegated_roles_parent(self, role_name):
+    def find_delegated_roles_parent(self, role_name, delegations_info_fn=None):
         """
         A simple implementation of finding a delegated targets role's parent
         assuming that every delegated role is delegated by just one role
@@ -468,35 +484,36 @@ class Repository:
             Parent role's name
         """
 
-        def _find_delegated_role(parent_role_name, role_name):
-            targets_role_info = tuf.roledb.get_roleinfo(
-                parent_role_name, self.repository_name
-            )
-            delegations = targets_role_info.get("delegations")
+        if delegations_info_fn is None:
+            delegations_info_fn = self.get_delefations_info
+
+        def _find_delegated_role(parent_role_name, role_name, delegations_info_fn):
+            delegations = delegations_info_fn(parent_role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
                     delegated_role_name = role_info["name"]
                     if delegated_role_name == role_name:
                         return parent_role_name
-                    parent = _find_delegated_role(delegated_role_name, role_name)
+                    parent = _find_delegated_role(delegated_role_name, role_name, delegations_info_fn)
                     if parent is not None:
                         return parent
             return None
 
-        return _find_delegated_role("targets", role_name)
+        return _find_delegated_role("targets", role_name, delegations_info_fn)
 
-    def find_keys_roles(self, public_keys):
+    def find_keys_roles(self, public_keys, delegations_info_fn=None):
         """Find all roles that can be signed by the provided keys.
         A role can be signed by the list of keys if at least the number
         of keys that can sign that file is equal to or greater than the role's
         threshold
         """
+        if delegations_info_fn is None:
+            delegations_info_fn = self.get_delefations_info
 
-        def _map_keys_to_roles(role_name, key_ids):
+        def _map_keys_to_roles(role_name, key_ids, delegations_info_fn):
             keys_roles = []
-            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
-            delegations = targets_role_info.get("delegations")
+            delegations = delegations_info_fn(role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
@@ -508,31 +525,33 @@ class Repository:
                     )
                     if num_of_signing_keys >= delegated_roles_threshold:
                         keys_roles.append(delegated_role_name)
-                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
+                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids, delegations_info_fn))
             return keys_roles
 
         keyids = [key["keyid"] for key in public_keys]
-        return _map_keys_to_roles("targets", keyids)
+        return _map_keys_to_roles("targets", keyids, delegations_info_fn)
 
-    def get_all_targets_roles(self):
+    def get_all_targets_roles(self, delegations_info_fn=None):
         """
         Return a list containing names of all target roles
         """
+        if delegations_info_fn is None:
+            delegations_info_fn = self.get_delefations_info
 
-        def _traverse_targets_roles(role_name):
+        def _traverse_targets_roles(role_name, delegations_info_fn):
             roles = [role_name]
-            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
-            delegations = targets_role_info.get("delegations")
+            delegations = delegations_info_fn(role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
                     delegated_role_name = role_info["name"]
-                    roles.extend(_traverse_targets_roles(delegated_role_name))
+                    roles.extend(_traverse_targets_roles(delegated_role_name, delegations_info_fn))
             return roles
 
-        return _traverse_targets_roles("targets")
+        return _traverse_targets_roles("targets", delegations_info_fn)
 
-    def get_delegated_role_property(self, property_name, role_name, parent_role=None):
+    def get_delegated_role_property(self, property_name, role_name, parent_role=None,
+                                    delegations_info_fn=None):
         """
         Extract value of the specified property of the provided delegated role from
         its parent's role info.
@@ -544,14 +563,15 @@ class Repository:
         Returns:
             The specified property's value
         """
+        if delegations_info_fn is None:
+            delegations_info_fn = self.get_delefations_info
         # TUF raises an error when asking for properties like threshold and signing keys
         # of a delegated role (see https://github.com/theupdateframework/tuf/issues/574)
         # The following workaround presumes that one every delegated role is a deegation
         # of exactly one delegated role
         if parent_role is None:
             parent_role = self.find_delegated_roles_parent(role_name)
-        parents_role_info = tuf.roledb.get_roleinfo(parent_role, self.repository_name)
-        delegations = parents_role_info.get("delegations")
+        delegations = delegations_info_fn(parent_role_name)
         for delegated_role in delegations["roles"]:
             if delegated_role["name"] == role_name:
                 return delegated_role[property_name]
@@ -559,13 +579,6 @@ class Repository:
 
     def get_expiration_date(self, role):
         return self._role_obj(role).expiration
-
-    def _get_target_repositories(self):
-        repositories_path = self.targets_path / "repositories.json"
-        if repositories_path.exists():
-            repositories = repositories_path.read_text()
-            repositories = json.loads(repositories)["repositories"]
-            return [str(Path(target_path).as_posix()) for target_path in repositories]
 
     def get_role_keys(self, role, parent_role=None):
         """Get keyids of the given role
@@ -638,6 +651,11 @@ class Repository:
             if all([fnmatch(repo, path) for path in role_paths])
         ]
 
+    def get_delefations_info(self, role_name):
+        # load repository is not already loaded
+        self._repository
+        return tuf.roledb.get_delefations_info(role_name, self.repo_name).get('delegations')
+
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role
 
@@ -692,6 +710,13 @@ class Repository:
         except (IndexError, TUFError, SSLibError):
             return signable
 
+    def _get_target_repositories(self):
+        repositories_path = self.targets_path / "repositories.json"
+        if repositories_path.exists():
+            repositories = repositories_path.read_text()
+            repositories = json.loads(repositories)["repositories"]
+            return [str(Path(target_path).as_posix()) for target_path in repositories]
+
     def is_valid_metadata_key(self, role, key):
         """Checks if metadata role contains key id of provided key.
 
@@ -734,7 +759,7 @@ class Repository:
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def map_signing_roles(self, target_filenames):
+    def map_signing_roles(self, target_filenames, delegations_info_fn=None):
         """
         For each target file, find delegated role responsible for that target file based
         on the delegated paths. The most specific role (meaning most deeply nested) whose
@@ -744,11 +769,12 @@ class Repository:
         is expected to be relative to the targets directory. It can be defined as a glob
         pattern.
         """
+        if delegations_info_fn is None:
+            delegations_info_fn = self.get_delefations_info
 
-        def _map_targets_to_roles(role_name, target_filenames):
+        def _map_targets_to_roles(role_name, target_filenames, delegations_info_fn):
             roles_targets = {}
-            targets_role_info = tuf.roledb.get_roleinfo(role_name, self.repository_name)
-            delegations = targets_role_info.get("delegations")
+            delegations = delegations_info_fn(role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
@@ -761,14 +787,14 @@ class Repository:
                             ):
                                 roles_targets[target_filename] = delegated_role_name
                     roles_targets.update(
-                        _map_targets_to_roles(delegated_role_name, target_filenames)
+                        _map_targets_to_roles(delegated_role_name, target_filenames, delegations_info_fn)
                     )
             return roles_targets
 
         roles_targets = {
             target_filename: "targets" for target_filename in target_filenames
         }
-        roles_targets.update(_map_targets_to_roles("targets", target_filenames))
+        roles_targets.update(_map_targets_to_roles("targets", target_filenames, delegations_info_fn))
         return roles_targets
 
     def remove_metadata_key(self, role, key_id):
