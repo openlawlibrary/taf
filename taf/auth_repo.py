@@ -51,7 +51,7 @@ class AuthRepoMixin(TAFRepository):
     def get_target(self, target_name, commit=None, safely=True):
         if commit is None:
             commit = self.head_commit_sha()
-        target_path = (self.targets_path / target_name).as_posix()
+        target_path = get_target_path(target_name)
         if safely:
             return self._safely_get_json(commit, target_path)
         else:

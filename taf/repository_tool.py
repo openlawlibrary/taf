@@ -571,7 +571,7 @@ class Repository(BaseRepository):
         # of exactly one delegated role
         if parent_role is None:
             parent_role = self.find_delegated_roles_parent(role_name)
-        delegations = delegations_info_fn(parent_role_name)
+        delegations = delegations_info_fn(parent_role)
         for delegated_role in delegations["roles"]:
             if delegated_role["name"] == role_name:
                 return delegated_role[property_name]
@@ -654,7 +654,7 @@ class Repository(BaseRepository):
     def get_delefations_info(self, role_name):
         # load repository is not already loaded
         self._repository
-        return tuf.roledb.get_delefations_info(role_name, self.repo_name).get('delegations')
+        return tuf.roledb.get_roleinfo(role_name, self.repo_name).get('delegations')
 
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role

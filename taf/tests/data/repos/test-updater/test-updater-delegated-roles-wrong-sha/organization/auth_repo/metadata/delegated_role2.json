@@ -1,0 +1,27 @@
+{
+ "signatures": [
+  {
+   "keyid": "034e60bab6cd9e0e5a9f8bf8061b0dcb19f9c87cf0dd7583b72e3bef9e8f1816",
+   "sig": "b4cb197c7a1fe1cb3109e5b06c6f1c06c3dfefa34cd75d7a811424ef461fb4eceef0c424ca6607c871258ba045cd8acffb9e85554feefc8d17d2a03c21b0cf32542fc7fd1f3b8576e5488de7e935d4b2dc81a30401244fcf9eaf836930c09271f4caf09c3b09a2d7fe6239e6d62da77c48f382b0a1b8b826d76e621efc888a5b61933d53f1fbc5f146f5fe70056e882ccc8ab69569a500cff4a184320addb4baf86746502d09d18aa8be4dcebb70e6a18910a9ca0cb069570e56825e221612acd4c1b18da119c9cd23db0cfb70aad5a30709035ad287db3a99bfbe0531370ad1d45a4baa3acfecfcfadc4b5353e7741225aae8df7319b5a932df773a6369ed9c350d2ca1a6dd34f56fd76448e9fd11027d6f906a453e98c7ef584ccabff01c9aa724f8b41673cd6df5c5f08e63a74d914adf7940a93e4bc71a15132515f366a78174e916a0fe4d573b71a5c602ebc32bec5b781e4bce55c84747b8127b5a13208bcdb03b131dcbc13685d582aa7d1be4355acda874ca0824291346364e99b06c"
+  }
+ ],
+ "signed": {
+  "_type": "targets",
+  "delegations": {
+   "keys": {},
+   "roles": []
+  },
+  "expires": "2020-05-24T19:21:05Z",
+  "spec_version": "1.0",
+  "targets": {
+   "namespace/TargetRepo3": {
+    "hashes": {
+     "sha256": "b7980b6857af5b3b4fe022a12250105eccdb96c5e5a7b9abda0b61f5b368109f",
+     "sha512": "708d75c9dfe5d2ef5684d9436a92f6defad21a24b903224cdb0320282e4231732c6ee745eca796dedcf7445bc86effb890fc99c74cfad4dc489d7a9f90b50bb5"
+    },
+    "length": 60
+   }
+  },
+  "version": 4
+ }
+}

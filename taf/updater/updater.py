@@ -322,7 +322,6 @@ def _update_target_repositories(
             # if it wasn't cloned, fetch the current branch
             if is_git_repository:
                 repository.fetch(branch=branch)
-
             if old_head is not None:
                 new_commits_on_repo_branch = repository.all_fetched_commits(
                     branch=branch
