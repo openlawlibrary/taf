@@ -6,7 +6,11 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
-from taf.repository_tool import Repository as TAFRepository, get_role_metadata_path, get_target_path
+from taf.repository_tool import (
+    Repository as TAFRepository,
+    get_role_metadata_path,
+    get_target_path,
+)
 
 
 class AuthRepoMixin(TAFRepository):
@@ -46,7 +50,7 @@ class AuthRepoMixin(TAFRepository):
 
     def get_delegations_info(self, commit, role):
         roles_metadata = self.get_json(commit, get_role_metadata_path(role))
-        return roles_metadata['signed']['delegations']
+        return roles_metadata["signed"]["delegations"]
 
     def get_target(self, target_name, commit=None, safely=True):
         if commit is None:
@@ -127,7 +131,9 @@ class AuthRepoMixin(TAFRepository):
             repositories_at_revision = repositories_at_revision["repositories"]
 
             # get names of all targets roles defined in the current revision
-            roles_at_revision = self.get_all_targets_roles(partial(self.get_delegations_info, commit))
+            roles_at_revision = self.get_all_targets_roles(
+                partial(self.get_delegations_info, commit)
+            )
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
                 targets_at_revision = self.get_json(

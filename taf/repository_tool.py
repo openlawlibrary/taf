@@ -44,11 +44,11 @@ DISABLE_KEYS_CACHING = False
 
 
 def get_role_metadata_path(role):
-    return f'{METADATA_DIRECTORY_NAME}/{role}.json'
+    return f"{METADATA_DIRECTORY_NAME}/{role}.json"
 
 
 def get_target_path(target_name):
-    return f'{TARGETS_DIRECTORY_NAME}/{target_name}'
+    return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
 
 
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
@@ -495,7 +495,9 @@ class Repository(BaseRepository):
                     delegated_role_name = role_info["name"]
                     if delegated_role_name == role_name:
                         return parent_role_name
-                    parent = _find_delegated_role(delegated_role_name, role_name, delegations_info_fn)
+                    parent = _find_delegated_role(
+                        delegated_role_name, role_name, delegations_info_fn
+                    )
                     if parent is not None:
                         return parent
             return None
@@ -525,7 +527,11 @@ class Repository(BaseRepository):
                     )
                     if num_of_signing_keys >= delegated_roles_threshold:
                         keys_roles.append(delegated_role_name)
-                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids, delegations_info_fn))
+                    keys_roles.extend(
+                        _map_keys_to_roles(
+                            delegated_role_name, key_ids, delegations_info_fn
+                        )
+                    )
             return keys_roles
 
         keyids = [key["keyid"] for key in public_keys]
@@ -545,13 +551,18 @@ class Repository(BaseRepository):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
                     delegated_role_name = role_info["name"]
-                    roles.extend(_traverse_targets_roles(delegated_role_name, delegations_info_fn))
+                    roles.extend(
+                        _traverse_targets_roles(
+                            delegated_role_name, delegations_info_fn
+                        )
+                    )
             return roles
 
         return _traverse_targets_roles("targets", delegations_info_fn)
 
-    def get_delegated_role_property(self, property_name, role_name, parent_role=None,
-                                    delegations_info_fn=None):
+    def get_delegated_role_property(
+        self, property_name, role_name, parent_role=None, delegations_info_fn=None
+    ):
         """
         Extract value of the specified property of the provided delegated role from
         its parent's role info.
@@ -654,7 +665,7 @@ class Repository(BaseRepository):
     def get_delefations_info(self, role_name):
         # load repository is not already loaded
         self._repository
-        return tuf.roledb.get_roleinfo(role_name, self.repo_name).get('delegations')
+        return tuf.roledb.get_roleinfo(role_name, self.repo_name).get("delegations")
 
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role
@@ -787,14 +798,18 @@ class Repository(BaseRepository):
                             ):
                                 roles_targets[target_filename] = delegated_role_name
                     roles_targets.update(
-                        _map_targets_to_roles(delegated_role_name, target_filenames, delegations_info_fn)
+                        _map_targets_to_roles(
+                            delegated_role_name, target_filenames, delegations_info_fn
+                        )
                     )
             return roles_targets
 
         roles_targets = {
             target_filename: "targets" for target_filename in target_filenames
         }
-        roles_targets.update(_map_targets_to_roles("targets", target_filenames, delegations_info_fn))
+        roles_targets.update(
+            _map_targets_to_roles("targets", target_filenames, delegations_info_fn)
+        )
         return roles_targets
 
     def remove_metadata_key(self, role, key_id):
