@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Add support for validating delegated target repositories to the updater ([99]) 
+- Add support for validating delegated target repositories to the updater ([101]) 
 - Add delegations tests ([98])
 - Add support for delegated targets roles ([97], [98], [99], [100])
 
