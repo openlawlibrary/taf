@@ -8,7 +8,7 @@ from functools import reduce
 from pathlib import Path
 
 import taf.settings as settings
-from taf.exceptions import InvalidRepositoryError
+from taf.exceptions import InvalidRepositoryError, CloneRepoException, FetchException
 from taf.log import taf_logger
 from taf.utils import run
 from taf.repository import BaseRepository
@@ -24,6 +24,8 @@ class GitRepository(BaseRepository):
         additional_info=None,
         default_branch="master",
         repo_name=None,
+        *args,
+        **kwargs
     ):
         """
     Args:
@@ -313,6 +315,41 @@ class GitRepository(BaseRepository):
                 )
             else:
                 break
+
+    def clone_or_pull(self, branches=None, only_fetch=False):
+        """
+        Clone or fetch the specified branch for the given repo.
+        Return old and new HEAD.
+        """
+        if branches is None:
+            branches = ['master']
+        taf_logger.debug('Repo {}: cloning or pulling branches {}',
+                         self.repo_name, ', '.join(branches))
+
+        old_head = self.head_commit_sha()
+        if old_head is None:
+            taf_logger.debug('Repo {}: old head sha is {}', self.repo_name, old_head)
+            try:
+                self.clone()
+            except subprocess.CalledProcessError:
+                taf_logger.error('Repo {}: could not clone repo', self.repo_name)
+                raise CloneRepoException(self.url)
+        else:
+            try:
+                for branch in branches:
+                    if only_fetch:
+                        self._git('fetch', 'origin', branch)
+                    else:
+                        self._git('pull', 'origin', branch)
+                    taf_logger.info('Repo {}: successfully fetched branch {}', self.repo_name, branch)
+            except subprocess.CalledProcessError as e:
+                if 'fatal' in e.stdout:
+                    raise FetchException(self.repo_path)
+                pass
+
+        new_head = self.head_commit_sha()
+
+        return old_head, new_head
 
     def create_and_checkout_branch(self, branch_name, raise_error_if_exists=True):
         flag = "-b" if raise_error_if_exists else "-B"
@@ -625,6 +662,8 @@ class NamedGitRepository(GitRepository):
         repo_urls=None,
         additional_info=None,
         default_branch="master",
+        *args,
+        **kwargs
     ):
         """
     Args:

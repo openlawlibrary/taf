@@ -117,9 +117,12 @@ class AuthRepoMixin(TAFRepository):
         )
         return repositories_commits
 
-    def target_commits_at_revisions(self, commits):
+    def targets_at_revisions(self, *commits):
         targets = defaultdict(dict)
-
+        # TODO
+        # if we need to deduplicate targets
+        #if not targets or target != targets[-1]:
+        #        targets.append(target)
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
@@ -151,7 +154,10 @@ class AuthRepoMixin(TAFRepository):
                         )
                         target_commit = target_content.get("commit")
                         target_branch = target_content.get("branch", "master")
-                        targets[commit][target_path] = (target_branch, target_commit)
+                        targets[commit][target_path] = {
+                            "branch": target_branch,
+                            "commit": target_commit
+                        }
                     except json.decoder.JSONDecodeError:
                         taf_logger.debug(
                             "Auth repo {}: target file {} is not a valid json at revision {}",
@@ -183,7 +189,7 @@ class AuthRepoMixin(TAFRepository):
 
 class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
-        self, repo_path, repo_urls=None, additional_info=None, default_branch="master"
+        self, repo_path, repo_urls=None, additional_info=None, default_branch="master", *args, **kwargs
     ):
         super().__init__(repo_path, repo_urls, additional_info, default_branch)
 
@@ -196,6 +202,8 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         repo_urls=None,
         additional_info=None,
         default_branch="master",
+        *args,
+        **kwargs
     ):
         super().__init__(
             root_dir=root_dir,
