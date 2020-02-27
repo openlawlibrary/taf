@@ -18,7 +18,7 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 class GitRepository:
     def __init__(
         self,
-        repo_path,
+        path,
         repo_urls=None,
         additional_info=None,
         default_branch="master",
@@ -26,14 +26,14 @@ class GitRepository:
     ):
         """
     Args:
-      repo_path: repository's path
+      path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
       default_branch: repository's default branch
     """
-        self.path = str(Path(repo_path).resolve())
+        self._path = Path(path).resolve()
         if repo_name is None:
-            repo_name = os.path.basename(self.path)
+            repo_name = self._path.name
         self.name = repo_name
         self.default_branch = default_branch
         if repo_urls is not None:
@@ -53,6 +53,10 @@ class GitRepository:
     _remotes = None
 
     @property
+    def path(self):
+        return str(self._path)
+
+    @property
     def remotes(self):
         if self._remotes is None:
             self._remotes = self._git("remote").split("\n")
@@ -61,7 +65,7 @@ class GitRepository:
     @property
     def is_git_repository_root(self):
         """Check if path is git repository."""
-        git_path = Path(self.path) / ".git"
+        git_path = self._path / ".git"
         return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
 
     @property
@@ -288,7 +292,7 @@ class GitRepository:
 
         taf_logger.info("Repo {}: cloning repository", self.name)
         shutil.rmtree(self.path, True)
-        os.makedirs(self.path, exist_ok=True)
+        self._path.mkdir(exist_ok=True, parents=True)
         if self.repo_urls is None:
             raise Exception("Cannot clone repository. No urls were specified")
         params = ""
@@ -465,8 +469,8 @@ class GitRepository:
             return None
 
     def init_repo(self, bare=False):
-        if not os.path.isdir(self.path):
-            os.makedirs(self.path, exist_ok=True)
+        if self._path.is_dir():
+            self._path.mkdir(exist_ok=True, parents=True)
         flag = "--bare" if bare else ""
         self._git(f"init {flag}")
         if self.repo_urls is not None and len(self.repo_urls):
@@ -614,12 +618,12 @@ class NamedGitRepository(GitRepository):
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
       default_branch: repository's default branch
-    repo_path is the absolute path to this repository. It is set by joining
+    path is the absolute path to this repository. It is set by joining
     root_dir and repo_name.
     """
-        repo_path = _get_repo_path(root_dir, repo_name)
+        path = _get_repo_path(root_dir, repo_name)
         super().__init__(
-            repo_path,
+            path,
             repo_name=repo_name,
             repo_urls=repo_urls,
             additional_info=additional_info,

@@ -143,20 +143,24 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
 
 class Repository:
-    def __init__(self, repo_path, repo_name="default"):
-        self.path = repo_path
+    def __init__(self, path, repo_name="default"):
+        self._path = Path(path)
         self.name = repo_name
         tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
     @property
+    def path(self):
+        return str(self._path)
+
+    @property
     def targets_path(self):
-        return Path(self.path, TARGETS_DIRECTORY_NAME)
+        return self._path / TARGETS_DIRECTORY_NAME
 
     @property
     def metadata_path(self):
-        return Path(self.path, METADATA_DIRECTORY_NAME)
+        return self._path / METADATA_DIRECTORY_NAME
 
     _tuf_repository = None
 
@@ -172,7 +176,7 @@ class Repository:
 
     @property
     def certs_dir(self):
-        certs_dir = Path(self.path, "certs")
+        certs_dir = self._path / "certs"
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
@@ -380,7 +384,7 @@ class Repository:
                 if target_rel_path not in data and target_rel_path not in files_to_keep:
                     if target_rel_path in targets_obj.target_files:
                         targets_obj.remove_target(target_rel_path)
-                    (Path(self.targets_path) / target_rel_path).unlink()
+                    (self.targets_path / target_rel_path).unlink()
 
         for path, target_data in data.items():
             target_path = (self.targets_path / path).absolute()
@@ -437,7 +441,7 @@ class Repository:
         all_target_relpaths = []
         for target_role_path in target_roles_paths:
             try:
-                if (Path(self.targets_path) / target_role_path).is_file():
+                if (self.targets_path / target_role_path).is_file():
                     all_target_relpaths.append(target_role_path)
                     continue
             except OSError:

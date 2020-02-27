@@ -84,9 +84,9 @@ class AuthRepoMixin(TAFRepository):
             metadata_files = self.list_files_at_revision(
                 commit, METADATA_DIRECTORY_NAME
             )
-            (Path(temp_dir) / METADATA_DIRECTORY_NAME).mkdir(parents=True)
+            Path(temp_dir, METADATA_DIRECTORY_NAME).mkdir(parents=True)
             for file_name in metadata_files:
-                path = Path(temp_dir) / METADATA_DIRECTORY_NAME / file_name
+                path = Path(temp_dir, METADATA_DIRECTORY_NAME, file_name)
                 with open(path, "w") as f:
                     data = self.get_json(
                         commit, f"{METADATA_DIRECTORY_NAME}/{file_name}"
@@ -206,9 +206,9 @@ class AuthRepoMixin(TAFRepository):
 
 class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
-        self, repo_path, repo_urls=None, additional_info=None, default_branch="master"
+        self, path, repo_urls=None, additional_info=None, default_branch="master"
     ):
-        super().__init__(repo_path, repo_urls, additional_info, default_branch)
+        super().__init__(path, repo_urls, additional_info, default_branch)
 
 
 class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):

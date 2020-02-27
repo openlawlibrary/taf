@@ -237,8 +237,8 @@ class GitUpdater(handlers.MetadataUpdater):
         to a the temp directory and will be deleted one the update is done.
         """
         temp_dir = tempfile.mkdtemp()
-        repo_path = Path(temp_dir, self.users_auth_repo.name).absolute()
-        self.validation_auth_repo = GitRepository(repo_path=repo_path, repo_urls=[url])
+        path = Path(temp_dir, self.users_auth_repo.name).absolute()
+        self.validation_auth_repo = GitRepository(path=path, repo_urls=[url])
         self.validation_auth_repo.clone(bare=True)
         self.validation_auth_repo.fetch(fetch_all=True)
 
