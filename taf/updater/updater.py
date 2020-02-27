@@ -197,9 +197,7 @@ def _update_named_repository(
         )
 
         last_commit = commits[-1]
-        taf_logger.info(
-            "Merging commit {} into {}", last_commit, users_auth_repo.name
-        )
+        taf_logger.info("Merging commit {} into {}", last_commit, users_auth_repo.name)
         # if there were no errors, merge the last validated authentication repository commit
         users_auth_repo.checkout_branch(users_auth_repo.default_branch)
         users_auth_repo.merge_commit(last_commit)
@@ -217,9 +215,7 @@ def _update_named_repository(
 def _update_authentication_repository(repository_updater):
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
-    taf_logger.info(
-        "Validating authentication repository {}", users_auth_repo.name
-    )
+    taf_logger.info("Validating authentication repository {}", users_auth_repo.name)
     try:
         while not repository_updater.update_handler.update_done():
             current_commit = repository_updater.update_handler.current_commit

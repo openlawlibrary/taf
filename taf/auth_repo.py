@@ -16,7 +16,6 @@ from taf.repository_tool import (
 )
 
 
-
 class AuthRepoMixin(TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
@@ -83,12 +82,16 @@ class AuthRepoMixin(TAFRepository):
         """
         tuf_repository = self._tuf_repository
         with tempfile.TemporaryDirectory() as temp_dir:
-            metadata_files = self.list_files_at_revision(commit, METADATA_DIRECTORY_NAME)
+            metadata_files = self.list_files_at_revision(
+                commit, METADATA_DIRECTORY_NAME
+            )
             (Path(temp_dir) / METADATA_DIRECTORY_NAME).mkdir(parents=True)
             for file_name in metadata_files:
                 path = Path(temp_dir) / METADATA_DIRECTORY_NAME / file_name
-                with open(path, 'w') as f:
-                    data = self.get_json(commit, f'{METADATA_DIRECTORY_NAME}/{file_name}')
+                with open(path, "w") as f:
+                    data = self.get_json(
+                        commit, f"{METADATA_DIRECTORY_NAME}/{file_name}"
+                    )
                     json.dump(data, f)
             self._load_tuf_repository(temp_dir)
             yield

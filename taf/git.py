@@ -137,9 +137,7 @@ class GitRepository:
                 commits.reverse()
 
         taf_logger.debug(
-            "Repo {}: found the following commits: {}",
-            self.name,
-            ", ".join(commits),
+            "Repo {}: found the following commits: {}", self.name, ", ".join(commits)
         )
         return commits
 
@@ -175,9 +173,7 @@ class GitRepository:
             commits = commits.split("\n")
             commits.reverse()
         taf_logger.debug(
-            "Repo {}: fetched the following commits {}",
-            self.name,
-            ", ".join(commits),
+            "Repo {}: fetched the following commits {}", self.name, ", ".join(commits)
         )
         return commits
 
@@ -306,9 +302,7 @@ class GitRepository:
                     "clone {} . {}", url, params, log_success_msg="successfully cloned"
                 )
             except subprocess.CalledProcessError:
-                taf_logger.error(
-                    "Repo {}: cannot clone from url {}", self.name, url
-                )
+                taf_logger.error("Repo {}: cannot clone from url {}", self.name, url)
             else:
                 break
 
@@ -357,16 +351,7 @@ class GitRepository:
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
-        run(
-            "git",
-            "-C",
-            self.path,
-            "commit",
-            "--quiet",
-            "--allow-empty",
-            "-m",
-            message,
-        )
+        run("git", "-C", self.path, "commit", "--quiet", "--allow-empty", "-m", message)
         return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
@@ -391,9 +376,7 @@ class GitRepository:
         if include_branching_commit:
             branching_commit = self._git("rev-list -n 1 {}~1", commits[-1])
             commits.append(branching_commit)
-        taf_logger.debug(
-            "Repo {}: found the following commits: {}", self.name, commits
-        )
+        taf_logger.debug("Repo {}: found the following commits: {}", self.name, commits)
         return commits
 
     def delete_local_branch(self, branch_name, force=False):

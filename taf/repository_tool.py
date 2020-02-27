@@ -499,9 +499,7 @@ class Repository:
                     delegated_role_name = role_info["name"]
                     if delegated_role_name == role_name:
                         return parent_role_name
-                    parent = _find_delegated_role(
-                        delegated_role_name, role_name
-                    )
+                    parent = _find_delegated_role(delegated_role_name, role_name)
                     if parent is not None:
                         return parent
             return None
@@ -529,11 +527,7 @@ class Repository:
                     )
                     if num_of_signing_keys >= delegated_roles_threshold:
                         keys_roles.append(delegated_role_name)
-                    keys_roles.extend(
-                        _map_keys_to_roles(
-                            delegated_role_name, key_ids
-                        )
-                    )
+                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
             return keys_roles
 
         keyids = [key["keyid"] for key in public_keys]
@@ -551,18 +545,12 @@ class Repository:
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
                     delegated_role_name = role_info["name"]
-                    roles.extend(
-                        _traverse_targets_roles(
-                            delegated_role_name
-                        )
-                    )
+                    roles.extend(_traverse_targets_roles(delegated_role_name))
             return roles
 
         return _traverse_targets_roles("targets")
 
-    def get_delegated_role_property(
-        self, property_name, role_name, parent_role=None
-    ):
+    def get_delegated_role_property(self, property_name, role_name, parent_role=None):
         """
         Extract value of the specified property of the provided delegated role from
         its parent's role info.
@@ -794,18 +782,14 @@ class Repository:
                             ):
                                 roles_targets[target_filename] = delegated_role_name
                     roles_targets.update(
-                        _map_targets_to_roles(
-                            delegated_role_name, target_filenames
-                        )
+                        _map_targets_to_roles(delegated_role_name, target_filenames)
                     )
             return roles_targets
 
         roles_targets = {
             target_filename: "targets" for target_filename in target_filenames
         }
-        roles_targets.update(
-            _map_targets_to_roles("targets", target_filenames)
-        )
+        roles_targets.update(_map_targets_to_roles("targets", target_filenames))
         return roles_targets
 
     def remove_metadata_key(self, role, key_id):
