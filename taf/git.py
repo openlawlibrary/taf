@@ -31,10 +31,10 @@ class GitRepository:
       additional_info: a dictionary containing other data (optional)
       default_branch: repository's default branch
     """
-        self.repo_path = str(Path(repo_path).resolve())
+        self.path = str(Path(repo_path).resolve())
         if repo_name is None:
-            repo_name = os.path.basename(self.repo_path)
-        self.repo_name = repo_name
+            repo_name = os.path.basename(self.path)
+        self.name = repo_name
         self.default_branch = default_branch
         if repo_urls is not None:
             if settings.update_from_filesystem is False:
@@ -42,7 +42,7 @@ class GitRepository:
                     _validate_url(url)
             else:
                 repo_urls = [
-                    os.path.normpath(os.path.join(self.repo_path, url))
+                    os.path.normpath(os.path.join(self.path, url))
                     if not os.path.isabs(url)
                     else url
                     for url in repo_urls
@@ -61,7 +61,7 @@ class GitRepository:
     @property
     def is_git_repository_root(self):
         """Check if path is git repository."""
-        git_path = Path(self.repo_path) / ".git"
+        git_path = Path(self.path) / ".git"
         return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
 
     @property
@@ -98,19 +98,19 @@ class GitRepository:
 
         if len(args):
             cmd = cmd.format(*args)
-        command = f"git -C {self.repo_path} {cmd}"
+        command = f"git -C {self.path} {cmd}"
         if log_error or log_error_msg:
             try:
                 result = run(command)
                 if log_success_msg:
-                    taf_logger.debug("Repo {}:" + log_success_msg, self.repo_name)
+                    taf_logger.debug("Repo {}:" + log_success_msg, self.name)
             except subprocess.CalledProcessError as e:
                 if log_error_msg:
                     taf_logger.error(log_error_msg)
                 else:
                     taf_logger.error(
                         "Repo {}: error occurred while executing {}:\n{}",
-                        self.repo_name,
+                        self.name,
                         command,
                         e.output,
                     )
@@ -119,7 +119,7 @@ class GitRepository:
         else:
             result = run(command)
             if log_success_msg:
-                taf_logger.debug("Repo {}: " + log_success_msg, self.repo_name)
+                taf_logger.debug("Repo {}: " + log_success_msg, self.name)
         return result
 
     def all_commits_on_branch(self, branch=None, reverse=True):
@@ -138,7 +138,7 @@ class GitRepository:
 
         taf_logger.debug(
             "Repo {}: found the following commits: {}",
-            self.repo_name,
+            self.name,
             ", ".join(commits),
         )
         return commits
@@ -161,7 +161,7 @@ class GitRepository:
 
         taf_logger.debug(
             "Repo {}: found the following commits after commit {}: {}",
-            self.repo_name,
+            self.name,
             since_commit,
             ", ".join(commits),
         )
@@ -176,7 +176,7 @@ class GitRepository:
             commits.reverse()
         taf_logger.debug(
             "Repo {}: fetched the following commits {}",
-            self.repo_name,
+            self.name,
             ", ".join(commits),
         )
         return commits
@@ -290,9 +290,9 @@ class GitRepository:
 
     def clone(self, no_checkout=False, bare=False):
 
-        taf_logger.info("Repo {}: cloning repository", self.repo_name)
-        shutil.rmtree(self.repo_path, True)
-        os.makedirs(self.repo_path, exist_ok=True)
+        taf_logger.info("Repo {}: cloning repository", self.name)
+        shutil.rmtree(self.path, True)
+        os.makedirs(self.path, exist_ok=True)
         if self.repo_urls is None:
             raise Exception("Cannot clone repository. No urls were specified")
         params = ""
@@ -307,7 +307,7 @@ class GitRepository:
                 )
             except subprocess.CalledProcessError:
                 taf_logger.error(
-                    "Repo {}: cannot clone from url {}", self.repo_name, url
+                    "Repo {}: cannot clone from url {}", self.name, url
                 )
             else:
                 break
@@ -353,14 +353,14 @@ class GitRepository:
         try:
             self._git("diff --cached --exit-code --shortstat")
         except subprocess.CalledProcessError:
-            run("git", "-C", self.repo_path, "commit", "--quiet", "-m", message)
+            run("git", "-C", self.path, "commit", "--quiet", "-m", message)
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
         run(
             "git",
             "-C",
-            self.repo_path,
+            self.path,
             "commit",
             "--quiet",
             "--allow-empty",
@@ -380,7 +380,7 @@ class GitRepository:
 
         taf_logger.debug(
             "Repo {}: finding commits which are on branch {}, but not on branch {}",
-            self.repo_name,
+            self.name,
             branch1,
             branch2,
         )
@@ -392,7 +392,7 @@ class GitRepository:
             branching_commit = self._git("rev-list -n 1 {}~1", commits[-1])
             commits.append(branching_commit)
         taf_logger.debug(
-            "Repo {}: found the following commits: {}", self.repo_name, commits
+            "Repo {}: found the following commits: {}", self.name, commits
         )
         return commits
 
@@ -482,8 +482,8 @@ class GitRepository:
             return None
 
     def init_repo(self, bare=False):
-        if not os.path.isdir(self.repo_path):
-            os.makedirs(self.repo_path, exist_ok=True)
+        if not os.path.isdir(self.path):
+            os.makedirs(self.path, exist_ok=True)
         flag = "--bare" if bare else ""
         self._git(f"init {flag}")
         if self.repo_urls is not None and len(self.repo_urls):

@@ -144,35 +144,35 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
 class Repository:
     def __init__(self, repo_path, repo_name="default"):
-        self.repo_path = repo_path
-        self.repo_name = repo_name
+        self.path = repo_path
+        self.name = repo_name
         tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
     @property
     def targets_path(self):
-        return Path(self.repo_path, TARGETS_DIRECTORY_NAME)
+        return Path(self.path, TARGETS_DIRECTORY_NAME)
 
     @property
     def metadata_path(self):
-        return Path(self.repo_path, METADATA_DIRECTORY_NAME)
+        return Path(self.path, METADATA_DIRECTORY_NAME)
 
     _tuf_repository = None
 
     @property
     def _repository(self):
         if self._tuf_repository is None:
-            self._load_tuf_repository(self.repo_path)
+            self._load_tuf_repository(self.path)
         return self._tuf_repository
 
     @property
     def repo_id(self):
-        return GitRepository(self.repo_path).initial_commit
+        return GitRepository(self.path).initial_commit
 
     @property
     def certs_dir(self):
-        certs_dir = Path(self.repo_path, "certs")
+        certs_dir = Path(self.path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
@@ -194,7 +194,7 @@ class Repository:
         Load tuf repository. Should only be called directly if a different set of metadata files
         should be loaded (and not the one located at repo path/metadata)
         """
-        self._tuf_repository = load_repository(path, self.repo_name)
+        self._tuf_repository = load_repository(path, self.name)
 
     def _role_obj(self, role):
         """Helper function for getting TUF's role object, given the role's name
@@ -663,7 +663,7 @@ class Repository:
     def get_delefations_info(self, role_name):
         # load repository is not already loaded
         self._repository
-        return tuf.roledb.get_roleinfo(role_name, self.repo_name).get("delegations")
+        return tuf.roledb.get_roleinfo(role_name, self.name).get("delegations")
 
     def get_role_threshold(self, role, parent_role=None):
         """Get threshold of the given role

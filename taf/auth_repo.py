@@ -31,14 +31,14 @@ class AuthRepoMixin(TAFRepository):
         """
         # the repository's name consists of the namespace and name (namespace/name)
         # the configuration directory should be _name
-        last_dir = os.path.basename(os.path.normpath(self.repo_path))
-        conf_path = Path(self.repo_path).parent / f"_{last_dir}"
+        last_dir = os.path.basename(os.path.normpath(self.path))
+        conf_path = Path(self.path).parent / f"_{last_dir}"
         conf_path.mkdir(parents=True, exist_ok=True)
         return str(conf_path)
 
     @property
     def certs_dir(self):
-        certs_dir = Path(self.repo_path, "certs")
+        certs_dir = Path(self.path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
@@ -99,7 +99,7 @@ class AuthRepoMixin(TAFRepository):
         Set the last validated commit of the authentication repository
         """
         taf_logger.debug(
-            "Auth repo {}: setting last validated commit to: {}", self.repo_name, commit
+            "Auth repo {}: setting last validated commit to: {}", self.name, commit
         )
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
@@ -133,7 +133,7 @@ class AuthRepoMixin(TAFRepository):
                 previous_commits[target_path] = target_commit
         taf_logger.debug(
             "Auth repo {}: new commits per repositories according to targets.json: {}",
-            self.repo_name,
+            self.name,
             repositories_commits,
         )
         return repositories_commits
@@ -176,7 +176,7 @@ class AuthRepoMixin(TAFRepository):
                     except json.decoder.JSONDecodeError:
                         taf_logger.debug(
                             "Auth repo {}: target file {} is not a valid json at revision {}",
-                            self.repo_name,
+                            self.name,
                             target_path,
                             commit,
                         )
@@ -189,14 +189,14 @@ class AuthRepoMixin(TAFRepository):
         except CalledProcessError:
             taf_logger.info(
                 "Auth repo {}: {} not available at revision {}",
-                self.repo_name,
+                self.name,
                 os.path.basename(path),
                 commit,
             )
         except json.decoder.JSONDecodeError:
             taf_logger.info(
                 "Auth repo {}: {} not a valid json at revision {}",
-                self.repo_name,
+                self.name,
                 os.path.basename(path),
                 commit,
             )

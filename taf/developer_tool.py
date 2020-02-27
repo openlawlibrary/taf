@@ -282,7 +282,7 @@ def create_repository(
             return
 
     tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
-    repository = create_new_repository(auth_repo.repo_path)
+    repository = create_new_repository(auth_repo.path)
 
     def _sort_roles(key_info, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
@@ -348,7 +348,7 @@ def create_repository(
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
         test_auth_file = (
-            Path(auth_repo.repo_path, auth_repo.targets_path)
+            Path(auth_repo.path, auth_repo.targets_path)
             / auth_repo.TEST_REPO_FLAG_FILE
         )
         test_auth_file.touch()
@@ -691,9 +691,9 @@ def generate_repositories_json(
         url = target_repo.get_remote_url()
         if url is None:
             if targets_relative_dir is not None:
-                url = Path(os.path.relpath(target_repo.repo_path, targets_relative_dir))
+                url = Path(os.path.relpath(target_repo.path, targets_relative_dir))
             else:
-                url = Path(target_repo.repo_path).resolve()
+                url = Path(target_repo.path).resolve()
             # convert to posix path
             url = str(url.as_posix())
         repositories[target_repo_namespaced_name] = {"urls": [url]}

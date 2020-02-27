@@ -154,13 +154,13 @@ def _update_named_repository(
             test_repo = "test-auth-repo" in targets["signed"]["targets"]
             if test_repo and not authenticate_test_repo:
                 raise UpdateFailedError(
-                    f"Repository {users_auth_repo.repo_name} is a test repository."
+                    f"Repository {users_auth_repo.name} is a test repository."
                     'Call update with "--authenticate-test-repo to update a test "'
                     "repository"
                 )
             elif not test_repo and authenticate_test_repo:
                 raise UpdateFailedError(
-                    f"Repository {users_auth_repo.repo_name} is not a test repository,"
+                    f"Repository {users_auth_repo.name} is not a test repository,"
                     ' but update was called with the "--authenticate-test-repo" flag'
                 )
 
@@ -198,7 +198,7 @@ def _update_named_repository(
 
         last_commit = commits[-1]
         taf_logger.info(
-            "Merging commit {} into {}", last_commit, users_auth_repo.repo_name
+            "Merging commit {} into {}", last_commit, users_auth_repo.name
         )
         # if there were no errors, merge the last validated authentication repository commit
         users_auth_repo.checkout_branch(users_auth_repo.default_branch)
@@ -207,7 +207,7 @@ def _update_named_repository(
         users_auth_repo.set_last_validated_commit(last_commit)
     except Exception as e:
         if not existing_repo:
-            shutil.rmtree(users_auth_repo.repo_path, onerror=on_rm_error)
+            shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
         raise e
     finally:
@@ -218,7 +218,7 @@ def _update_authentication_repository(repository_updater):
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     taf_logger.info(
-        "Validating authentication repository {}", users_auth_repo.repo_name
+        "Validating authentication repository {}", users_auth_repo.name
     )
     try:
         while not repository_updater.update_handler.update_done():
@@ -250,18 +250,18 @@ def _update_authentication_repository(repository_updater):
         # for now, useful for debugging
         taf_logger.error(
             "Validation of authentication repository {} failed due to error {}",
-            users_auth_repo.repo_name,
+            users_auth_repo.name,
             e,
         )
         raise UpdateFailedError(
-            f"Validation of authentication repository {users_auth_repo.repo_name}"
+            f"Validation of authentication repository {users_auth_repo.name}"
             f" failed due to error: {e}"
         )
     finally:
         repository_updater.update_handler.cleanup()
 
     taf_logger.info(
-        "Successfully validated authentication repository {}", users_auth_repo.repo_name
+        "Successfully validated authentication repository {}", users_auth_repo.name
     )
     # fetch the latest commit or clone the repository without checkout
     # do not merge before targets are validated as well
@@ -287,7 +287,7 @@ def _update_target_repositories(
     for path, repository in repositories.items():
 
         allow_unauthenticated_for_repo = (
-            repositories_json["repositories"][repository.repo_name]
+            repositories_json["repositories"][repository.name]
             .get("custom", {})
             .get("allow-unauthenticated-commits", False)
         )
@@ -353,8 +353,8 @@ def _update_target_repositories(
             except UpdateFailedError as e:
                 # delete all repositories that were cloned
                 for repo in cloned_repositories:
-                    taf_logger.debug("Removing cloned repository {}", repo.repo_path)
-                    shutil.rmtree(repo.repo_path, onerror=on_rm_error)
+                    taf_logger.debug("Removing cloned repository {}", repo.path)
+                    shutil.rmtree(repo.path, onerror=on_rm_error)
                 # TODO is it important to undo a fetch if the repository was not cloned?
                 raise e
 
@@ -366,7 +366,7 @@ def _update_target_repositories(
             repo_branch_commits = repositories_branches_and_commits[path][branch]
             if len(repo_branch_commits):
                 taf_logger.info(
-                    "Merging {} into {}", repo_branch_commits[-1], repository.repo_name
+                    "Merging {} into {}", repo_branch_commits[-1], repository.name
                 )
                 last_validated_commit = repo_branch_commits[-1]
                 commit_to_merge = (
@@ -385,7 +385,7 @@ def _update_target_repository(
     repository, new_commits, target_commits, allow_unauthenticated, branch
 ):
     taf_logger.info(
-        "Validating target repository {} {} branch", repository.repo_name, branch
+        "Validating target repository {} {} branch", repository.name, branch
     )
     # A new commit might have been pushed after the update process
     # started and before fetch was called
@@ -408,12 +408,12 @@ def _update_target_repository(
                 "Found commits {} in repository {} that are not accounted for in the authentication repo."
                 "Repository will be updated up to commit {}",
                 additional_commits,
-                repository.repo_name,
+                repository.name,
                 target_commits[-1],
             )
     else:
         taf_logger.info(
-            "Unauthenticated commits allowed in repository {}", repository.repo_name
+            "Unauthenticated commits allowed in repository {}", repository.name
         )
         update_successful = True
         target_commits_index = 0
@@ -431,10 +431,10 @@ def _update_target_repository(
         taf_logger.error(
             "Mismatch between target commits specified in authentication repository and the "
             "target repository {}",
-            repository.repo_name,
+            repository.name,
         )
         raise UpdateFailedError(
             "Mismatch between target commits specified in authentication repository"
-            f" and target repository {repository.repo_name}"
+            f" and target repository {repository.name}"
         )
-    taf_logger.info("Successfully validated {}", repository.repo_name)
+    taf_logger.info("Successfully validated {}", repository.name)
