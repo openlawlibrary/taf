@@ -1,9 +1,12 @@
 import json
 import os
+import tempfile
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
 from subprocess import CalledProcessError
+from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
 from taf.repository_tool import (
@@ -11,6 +14,7 @@ from taf.repository_tool import (
     get_role_metadata_path,
     get_target_path,
 )
+
 
 
 class AuthRepoMixin(TAFRepository):
@@ -48,10 +52,6 @@ class AuthRepoMixin(TAFRepository):
         except FileNotFoundError:
             return None
 
-    def get_delegations_info(self, commit, role):
-        roles_metadata = self.get_json(commit, get_role_metadata_path(role))
-        return roles_metadata["signed"]["delegations"]
-
     def get_target(self, target_name, commit=None, safely=True):
         if commit is None:
             commit = self.head_commit_sha()
@@ -72,6 +72,27 @@ class AuthRepoMixin(TAFRepository):
             except TypeError:
                 continue
         return False
+
+    @contextmanager
+    def repository_at_revision(self, commit):
+        """
+        Context manager which makes sure that TUF repository is instantiated
+        using metadata files at the specified revision. Creates a temp directory
+        and metadata files inside it. Deleted the temp directory when no longer
+        needed.
+        """
+        tuf_repository = self._tuf_repository
+        with tempfile.TemporaryDirectory() as temp_dir:
+            metadata_files = self.list_files_at_revision(commit, METADATA_DIRECTORY_NAME)
+            (Path(temp_dir) / METADATA_DIRECTORY_NAME).mkdir(parents=True)
+            for file_name in metadata_files:
+                path = Path(temp_dir) / METADATA_DIRECTORY_NAME / file_name
+                with open(path, 'w') as f:
+                    data = self.get_json(commit, f'{METADATA_DIRECTORY_NAME}/{file_name}')
+                    json.dump(data, f)
+            self._load_tuf_repository(temp_dir)
+            yield
+            self._tuf_repository = tuf_repository
 
     def set_last_validated_commit(self, commit):
         """
@@ -131,9 +152,9 @@ class AuthRepoMixin(TAFRepository):
             repositories_at_revision = repositories_at_revision["repositories"]
 
             # get names of all targets roles defined in the current revision
-            roles_at_revision = self.get_all_targets_roles(
-                partial(self.get_delegations_info, commit)
-            )
+            with self.repository_at_revision(commit):
+                roles_at_revision = self.get_all_targets_roles()
+
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
                 targets_at_revision = self.get_json(

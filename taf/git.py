@@ -11,12 +11,11 @@ import taf.settings as settings
 from taf.exceptions import InvalidRepositoryError
 from taf.log import taf_logger
 from taf.utils import run
-from taf.repository import BaseRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
-class GitRepository(BaseRepository):
+class GitRepository:
     def __init__(
         self,
         repo_path,
@@ -35,8 +34,7 @@ class GitRepository(BaseRepository):
         self.repo_path = str(Path(repo_path).resolve())
         if repo_name is None:
             repo_name = os.path.basename(self.repo_path)
-        super().__init__(repo_path=repo_path, repo_name=repo_name)
-
+        self.repo_name = repo_name
         self.default_branch = default_branch
         if repo_urls is not None:
             if settings.update_from_filesystem is False:
