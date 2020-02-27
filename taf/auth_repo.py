@@ -3,7 +3,6 @@ import os
 import tempfile
 from collections import defaultdict
 from contextlib import contextmanager
-from functools import partial
 from pathlib import Path
 from subprocess import CalledProcessError
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
