@@ -124,11 +124,12 @@ class AuthRepoMixin(TAFRepository):
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits = defaultdict(dict)
-        targets = self.targets_at_revisions(commits)
+        targets = self.targets_at_revisions(*commits)
         previous_commits = {}
         for commit in commits:
-            for target_path, target_branch_and_commit in targets[commit].items():
-                target_branch, target_commit = target_branch_and_commit
+            for target_path, target_data in targets[commit].items():
+                target_branch = target_data.get("branch")
+                target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
                 if previous_commit is None or target_commit != previous_commit:
                     repositories_commits[target_path].setdefault(
@@ -146,7 +147,7 @@ class AuthRepoMixin(TAFRepository):
         targets = defaultdict(dict)
         # TODO
         # if we need to deduplicate targets
-        #if not targets or target != targets[-1]:
+        # if not targets or target != targets[-1]:
         #        targets.append(target)
         for commit in commits:
             # repositories.json might not exit, if the current commit is
@@ -181,7 +182,7 @@ class AuthRepoMixin(TAFRepository):
                         target_branch = target_content.get("branch", "master")
                         targets[commit][target_path] = {
                             "branch": target_branch,
-                            "commit": target_commit
+                            "commit": target_commit,
                         }
                     except json.decoder.JSONDecodeError:
                         taf_logger.debug(
@@ -214,7 +215,13 @@ class AuthRepoMixin(TAFRepository):
 
 class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
-        self, path, repo_urls=None, additional_info=None, default_branch="master", *args, **kwargs
+        self,
+        path,
+        repo_urls=None,
+        additional_info=None,
+        default_branch="master",
+        *args,
+        **kwargs,
     ):
         super().__init__(path, repo_urls, additional_info, default_branch)
 
@@ -228,7 +235,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         additional_info=None,
         default_branch="master",
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             root_dir=root_dir,

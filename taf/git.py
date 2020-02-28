@@ -24,7 +24,7 @@ class GitRepository:
         default_branch="master",
         repo_name=None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """
     Args:
@@ -318,28 +318,31 @@ class GitRepository:
         Return old and new HEAD.
         """
         if branches is None:
-            branches = ['master']
-        taf_logger.debug('Repo {}: cloning or pulling branches {}',
-                         self.name, ', '.join(branches))
+            branches = ["master"]
+        taf_logger.debug(
+            "Repo {}: cloning or pulling branches {}", self.name, ", ".join(branches)
+        )
 
         old_head = self.head_commit_sha()
         if old_head is None:
-            taf_logger.debug('Repo {}: old head sha is {}', self.name, old_head)
+            taf_logger.debug("Repo {}: old head sha is {}", self.name, old_head)
             try:
                 self.clone()
             except subprocess.CalledProcessError:
-                taf_logger.error('Repo {}: could not clone repo', self.name)
+                taf_logger.error("Repo {}: could not clone repo", self.name)
                 raise CloneRepoException(self.url)
         else:
             try:
                 for branch in branches:
                     if only_fetch:
-                        self._git('fetch', 'origin', branch)
+                        self._git("fetch", "origin", branch)
                     else:
-                        self._git('pull', 'origin', branch)
-                    taf_logger.info('Repo {}: successfully fetched branch {}', self.name, branch)
+                        self._git("pull", "origin", branch)
+                    taf_logger.info(
+                        "Repo {}: successfully fetched branch {}", self.name, branch
+                    )
             except subprocess.CalledProcessError as e:
-                if 'fatal' in e.stdout:
+                if "fatal" in e.stdout:
                     raise FetchException(self.path)
                 pass
 
@@ -380,8 +383,13 @@ class GitRepository:
             self.checkout_branch(current_branch)
 
     def checkout_commit(self, commit):
-        self._git("checkout {}", commit, log_success_msg=f"checked out commit {commit}",
-                  log_error=True, reraise_error=True)
+        self._git(
+            "checkout {}",
+            commit,
+            log_success_msg=f"checked out commit {commit}",
+            log_error=True,
+            reraise_error=True,
+        )
 
     def commit(self, message):
         """Create a commit with the provided message on the currently checked out branch"""
@@ -649,7 +657,7 @@ class NamedGitRepository(GitRepository):
         additional_info=None,
         default_branch="master",
         *args,
-        **kwargs
+        **kwargs,
     ):
         """
     Args:

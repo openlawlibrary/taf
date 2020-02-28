@@ -4,12 +4,12 @@ class TAFError(Exception):
 
 class CloneRepoException(TAFError):
     def __init__(self, url):
-        self.message = f'Cannot clone from {url}'
+        self.message = f"Cannot clone from {url}"
 
 
 class FetchException(TAFError):
     def __init__(self, path):
-        self.message = f'Cannot fetch changes. Repo: {path}'
+        self.message = f"Cannot fetch changes. Repo: {path}"
 
 
 class InvalidBranchError(TAFError):
