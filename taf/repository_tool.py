@@ -5,6 +5,19 @@ from fnmatch import fnmatch
 from functools import partial
 from pathlib import Path
 
+import securesystemslib
+import tuf.repository_tool
+import tuf.roledb
+from securesystemslib.exceptions import Error as SSLibError
+from securesystemslib.interface import import_rsa_privatekey_from_file
+from tuf.exceptions import Error as TUFError
+from tuf.repository_tool import (
+    METADATA_DIRECTORY_NAME,
+    TARGETS_DIRECTORY_NAME,
+    import_rsakey_from_pem,
+    load_repository,
+)
+
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     InvalidKeyError,
@@ -19,18 +32,6 @@ from taf.exceptions import (
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings
-
-import securesystemslib
-import tuf.repository_tool
-from securesystemslib.exceptions import Error as SSLibError
-from securesystemslib.interface import import_rsa_privatekey_from_file
-from tuf.exceptions import Error as TUFError
-from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME,
-    TARGETS_DIRECTORY_NAME,
-    import_rsakey_from_pem,
-    load_repository,
-)
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -412,6 +413,15 @@ class Repository:
                 previous_custom = previous_targets[path].get("custom")
             if target_path.is_file():
                 self._add_target(targets_obj, str(target_path), previous_custom)
+
+        if previous_targets:
+            role_info = tuf.roledb.get_roleinfo(targets_role, repository_name=self.name)
+            role_info["paths"] = {
+                role: {} for role in role_info["paths"] if role in data
+            }
+            tuf.roledb.update_roleinfo(
+                targets_role, role_info, repository_name=self.name
+            )
 
     def all_target_files(self):
         """
