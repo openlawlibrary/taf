@@ -145,10 +145,6 @@ class AuthRepoMixin(TAFRepository):
 
     def targets_at_revisions(self, *commits):
         targets = defaultdict(dict)
-        # TODO
-        # if we need to deduplicate targets
-        # if not targets or target != targets[-1]:
-        #        targets.append(target)
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit

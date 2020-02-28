@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a check if at least one rpeository was loaded ([102])
+- Add `*args` and `**kwargs` arguments to repository classes ([102])
 - Add a method for instantiating TUF repository at a given revision ([101])
 - Add support for validating delegated target repositories to the updater ([101]) 
 - Add delegations tests ([98])
 - Add support for delegated targets roles ([97], [98], [99], [100])
 
 ### Changed
+
 
 - Renamed `repo_name` to `name` and `repo_path` to `path` ([101])
 - Updated `add_targets` so that it fully supports delegated roles ([98])
@@ -26,6 +29,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix init and create repo commands ([96])
 
+[102]: https://github.com/openlawlibrary/taf/pull/102
 [101]: https://github.com/openlawlibrary/taf/pull/101
 [100]: https://github.com/openlawlibrary/taf/pull/100
 [98]: https://github.com/openlawlibrary/taf/pull/98
