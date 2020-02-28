@@ -13,7 +13,7 @@ from taf.git import GitRepository
 def run_around_tests(repositories):
     yield
     for taf_repository in repositories.values():
-        repo = GitRepository(taf_repository.repo_path)
+        repo = GitRepository(taf_repository.path)
         repo.reset_to_head()
         repo.clean()
         taf_repository._repository.targets.clear_targets()

@@ -9,13 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Add support for validating delegated target repositories to the updater ([99]) 
+- Add a method for instantiating TUF repository at a given revision ([101])
+- Add support for validating delegated target repositories to the updater ([101]) 
 - Add delegations tests ([98])
 - Add support for delegated targets roles ([97], [98], [99], [100])
 
 ### Changed
 
-
+- Renamed `repo_name` to `name` and `repo_path` to `path` ([101])
 - Updated `add_targets` so that it fully supports delegated roles ([98])
 - Refactored tests so that it is possible to create and use more than one taf repository ([98])
 - Separated commands into sub-commands ([96])

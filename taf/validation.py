@@ -104,7 +104,7 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
             " same number of commits"
         )
         for target, commits in targets_and_commits.items():
-            msg += f"\n{target.repo_name} has {len(commits)} commits."
+            msg += f"\n{target.name} has {len(commits)} commits."
         raise InvalidBranchError(msg)
 
 
@@ -163,7 +163,7 @@ def check_capstone(auth_repo, branch):
     at the end of the specified branch.
     Assumes that the branch is checked out.
     """
-    capstone_path = Path(auth_repo.repo_path, TARGETS_DIRECTORY_NAME, CAPSTONE)
+    capstone_path = Path(auth_repo.path, TARGETS_DIRECTORY_NAME, CAPSTONE)
     if not capstone_path.is_file():
         raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
 
@@ -175,17 +175,17 @@ def _compare_commit_with_targets_metadata(
     Check if commit sha of a repository's speculative branch commit matches the
     specified target value in its target file.
     """
-    repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.repo_name}"
+    repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.name}"
     targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
     if target_repo_commit != targets_head_sha:
         raise InvalidBranchError(
-            f"Commit {target_repo_commit} of repository {target_repo.repo_name} does "
+            f"Commit {target_repo_commit} of repository {target_repo.name} does "
             "not match the commit sha specified in its target file!"
         )
 
 
 def _get_unchanged_targets_metadata(auth_repo, updated_role):
-    taf_repo = Repository(auth_repo.repo_path)
+    taf_repo = Repository(auth_repo.path)
     all_roles = taf_repo.get_all_targets_roles()
     all_roles.remove(updated_role)
     return all_roles

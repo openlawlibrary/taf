@@ -104,7 +104,7 @@ class GitUpdater(handlers.MetadataUpdater):
             )
 
         self._clone_validation_repo(auth_url)
-        repository_directory = Path(self.users_auth_repo.repo_path)
+        repository_directory = Path(self.users_auth_repo.path)
         if repository_directory.exists():
             if not self.users_auth_repo.is_git_repository_root:
                 if repository_directory.glob("*"):
@@ -146,11 +146,11 @@ class GitUpdater(handlers.MetadataUpdater):
                 taf_logger.error(
                     "Commit {} is not contained by the remote repository {}.",
                     last_validated_commit,
-                    self.validation_auth_repo.repo_name,
+                    self.validation_auth_repo.name,
                 )
                 raise UpdateFailedError(
                     f"Commit {last_validated_commit} is no longer contained by repository"
-                    f" {self.validation_auth_repo.repo_name}. This could "
+                    f" {self.validation_auth_repo.name}. This could "
                     "either mean that there was an unauthorized push tot the remote "
                     "repository, or that last_validated_commit file was modified."
                 )
@@ -237,8 +237,8 @@ class GitUpdater(handlers.MetadataUpdater):
         to a the temp directory and will be deleted one the update is done.
         """
         temp_dir = tempfile.mkdtemp()
-        repo_path = Path(temp_dir, self.users_auth_repo.repo_name).absolute()
-        self.validation_auth_repo = GitRepository(repo_path=repo_path, repo_urls=[url])
+        path = Path(temp_dir, self.users_auth_repo.name).absolute()
+        self.validation_auth_repo = GitRepository(path=path, repo_urls=[url])
         self.validation_auth_repo.clone(bare=True)
         self.validation_auth_repo.fetch(fetch_all=True)
 
@@ -250,7 +250,7 @@ class GitUpdater(handlers.MetadataUpdater):
         """
         shutil.rmtree(self.current_path)
         shutil.rmtree(self.previous_path)
-        temp_dir = Path(self.validation_auth_repo.repo_path, os.pardir).parent
+        temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
         shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):

@@ -1,9 +1,11 @@
 import json
 import os
+import tempfile
 from collections import defaultdict
-from functools import partial
+from contextlib import contextmanager
 from pathlib import Path
 from subprocess import CalledProcessError
+from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
 from taf.repository_tool import (
@@ -27,14 +29,14 @@ class AuthRepoMixin(TAFRepository):
         """
         # the repository's name consists of the namespace and name (namespace/name)
         # the configuration directory should be _name
-        last_dir = os.path.basename(os.path.normpath(self.repo_path))
-        conf_path = Path(self.repo_path).parent / f"_{last_dir}"
+        last_dir = os.path.basename(os.path.normpath(self.path))
+        conf_path = Path(self.path).parent / f"_{last_dir}"
         conf_path.mkdir(parents=True, exist_ok=True)
         return str(conf_path)
 
     @property
     def certs_dir(self):
-        certs_dir = Path(self.repo_path, "certs")
+        certs_dir = Path(self.path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
@@ -47,10 +49,6 @@ class AuthRepoMixin(TAFRepository):
             return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
         except FileNotFoundError:
             return None
-
-    def get_delegations_info(self, commit, role):
-        roles_metadata = self.get_json(commit, get_role_metadata_path(role))
-        return roles_metadata["signed"]["delegations"]
 
     def get_target(self, target_name, commit=None, safely=True):
         if commit is None:
@@ -73,12 +71,37 @@ class AuthRepoMixin(TAFRepository):
                 continue
         return False
 
+    @contextmanager
+    def repository_at_revision(self, commit):
+        """
+        Context manager which makes sure that TUF repository is instantiated
+        using metadata files at the specified revision. Creates a temp directory
+        and metadata files inside it. Deleted the temp directory when no longer
+        needed.
+        """
+        tuf_repository = self._tuf_repository
+        with tempfile.TemporaryDirectory() as temp_dir:
+            metadata_files = self.list_files_at_revision(
+                commit, METADATA_DIRECTORY_NAME
+            )
+            Path(temp_dir, METADATA_DIRECTORY_NAME).mkdir(parents=True)
+            for file_name in metadata_files:
+                path = Path(temp_dir, METADATA_DIRECTORY_NAME, file_name)
+                with open(path, "w") as f:
+                    data = self.get_json(
+                        commit, f"{METADATA_DIRECTORY_NAME}/{file_name}"
+                    )
+                    json.dump(data, f)
+            self._load_tuf_repository(temp_dir)
+            yield
+            self._tuf_repository = tuf_repository
+
     def set_last_validated_commit(self, commit):
         """
         Set the last validated commit of the authentication repository
         """
         taf_logger.debug(
-            "Auth repo {}: setting last validated commit to: {}", self.repo_name, commit
+            "Auth repo {}: setting last validated commit to: {}", self.name, commit
         )
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
@@ -112,7 +135,7 @@ class AuthRepoMixin(TAFRepository):
                 previous_commits[target_path] = target_commit
         taf_logger.debug(
             "Auth repo {}: new commits per repositories according to targets.json: {}",
-            self.repo_name,
+            self.name,
             repositories_commits,
         )
         return repositories_commits
@@ -134,9 +157,9 @@ class AuthRepoMixin(TAFRepository):
             repositories_at_revision = repositories_at_revision["repositories"]
 
             # get names of all targets roles defined in the current revision
-            roles_at_revision = self.get_all_targets_roles(
-                partial(self.get_delegations_info, commit)
-            )
+            with self.repository_at_revision(commit):
+                roles_at_revision = self.get_all_targets_roles()
+
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
                 targets_at_revision = self.get_json(
@@ -161,7 +184,7 @@ class AuthRepoMixin(TAFRepository):
                     except json.decoder.JSONDecodeError:
                         taf_logger.debug(
                             "Auth repo {}: target file {} is not a valid json at revision {}",
-                            self.repo_name,
+                            self.name,
                             target_path,
                             commit,
                         )
@@ -174,14 +197,14 @@ class AuthRepoMixin(TAFRepository):
         except CalledProcessError:
             taf_logger.info(
                 "Auth repo {}: {} not available at revision {}",
-                self.repo_name,
+                self.name,
                 os.path.basename(path),
                 commit,
             )
         except json.decoder.JSONDecodeError:
             taf_logger.info(
                 "Auth repo {}: {} not a valid json at revision {}",
-                self.repo_name,
+                self.name,
                 os.path.basename(path),
                 commit,
             )
@@ -189,9 +212,9 @@ class AuthRepoMixin(TAFRepository):
 
 class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
-        self, repo_path, repo_urls=None, additional_info=None, default_branch="master", *args, **kwargs
+        self, path, repo_urls=None, additional_info=None, default_branch="master", *args, **kwargs
     ):
-        super().__init__(repo_path, repo_urls, additional_info, default_branch)
+        super().__init__(path, repo_urls, additional_info, default_branch)
 
 
 class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
