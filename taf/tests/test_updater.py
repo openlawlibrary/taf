@@ -60,6 +60,7 @@ from taf.utils import on_rm_error
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET1_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1"
+TARGET2_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo2"
 TARGETS_MISMATCH_ANY = "Mismatch between target commits specified in authentication repository and target repository"
 NO_WORKING_MIRRORS = f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed due to error: No working mirror was found"
 TIMESTAMP_EXPIRED = "Metadata 'timestamp' expired"
@@ -99,6 +100,7 @@ def run_around_tests(client_dir):
         ("test-updater-allow-unauthenticated-commits", False),
         ("test-updater-test-repo", True),
         ("test-updater-multiple-branches", False),
+        ("test-updater-delegated-roles", False),
     ],
 )
 def test_valid_update_no_client_repo(
@@ -116,6 +118,7 @@ def test_valid_update_no_client_repo(
         ("test-updater-additional-target-commit", 1),
         ("test-updater-allow-unauthenticated-commits", 1),
         ("test-updater-multiple-branches", 5),
+        ("test-updater-delegated-roles", 1),
     ],
 )
 def test_valid_update_existing_client_repos(
@@ -142,6 +145,7 @@ def test_valid_update_existing_client_repos(
         ("test-updater-allow-unauthenticated-commits", False),
         ("test-updater-test-repo", True),
         ("test-updater-multiple-branches", False),
+        ("test-updater-delegated-roles", False),
     ],
 )
 def test_no_update_necessary(
@@ -170,6 +174,7 @@ def test_no_update_necessary(
         ("test-updater-invalid-expiration-date", TIMESTAMP_EXPIRED),
         ("test-updater-invalid-version-number", REPLAYED_METADATA),
         ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT),
+        ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH),
     ],
 )
 def test_updater_invalid_update(
@@ -185,17 +190,25 @@ def test_updater_invalid_update(
 
 
 @pytest.mark.parametrize(
-    "test_name, expected_error",
-    [("test-updater-invalid-target-sha", TARGET1_SHA_MISMATCH)],
+    "test_name, num_of_commits_to_revert, expected_error",
+    [
+        ("test-updater-invalid-target-sha", 1, TARGET1_SHA_MISMATCH),
+        ("test-updater-delegated-roles-wrong-sha", 4, TARGET2_SHA_MISMATCH),
+    ],
 )
 def test_updater_invalid_target_sha_existing_client_repos(
-    test_name, expected_error, updater_repositories, origin_dir, client_dir
+    test_name,
+    num_of_commits_to_revert,
+    expected_error,
+    updater_repositories,
+    origin_dir,
+    client_dir,
 ):
     repositories = updater_repositories[test_name]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_dir = origin_dir / test_name
     client_repos = _clone_and_revert_client_repositories(
-        repositories, origin_dir, client_dir, 1
+        repositories, origin_dir, client_dir, num_of_commits_to_revert
     )
     _create_last_validated_commit(
         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()

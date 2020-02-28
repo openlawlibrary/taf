@@ -15,18 +15,26 @@ from taf.utils import run
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
-class GitRepository(object):
+class GitRepository:
     def __init__(
-        self, repo_path, repo_urls=None, additional_info=None, default_branch="master"
+        self,
+        path,
+        repo_urls=None,
+        additional_info=None,
+        default_branch="master",
+        repo_name=None,
     ):
         """
     Args:
-      repo_path: repository's path
+      path: repository's path
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
       default_branch: repository's default branch
     """
-        self.repo_path = str(Path(repo_path).resolve())
+        self._path = Path(path).resolve()
+        if repo_name is None:
+            repo_name = self._path.name
+        self.name = repo_name
         self.default_branch = default_branch
         if repo_urls is not None:
             if settings.update_from_filesystem is False:
@@ -34,16 +42,19 @@ class GitRepository(object):
                     _validate_url(url)
             else:
                 repo_urls = [
-                    os.path.normpath(os.path.join(self.repo_path, url))
+                    os.path.normpath(os.path.join(self.path, url))
                     if not os.path.isabs(url)
                     else url
                     for url in repo_urls
                 ]
         self.repo_urls = repo_urls
         self.additional_info = additional_info
-        self.repo_name = os.path.basename(self.repo_path)
 
     _remotes = None
+
+    @property
+    def path(self):
+        return str(self._path)
 
     @property
     def remotes(self):
@@ -54,7 +65,7 @@ class GitRepository(object):
     @property
     def is_git_repository_root(self):
         """Check if path is git repository."""
-        git_path = Path(self.repo_path) / ".git"
+        git_path = self._path / ".git"
         return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
 
     @property
@@ -91,19 +102,19 @@ class GitRepository(object):
 
         if len(args):
             cmd = cmd.format(*args)
-        command = f"git -C {self.repo_path} {cmd}"
+        command = f"git -C {self.path} {cmd}"
         if log_error or log_error_msg:
             try:
                 result = run(command)
                 if log_success_msg:
-                    taf_logger.debug("Repo {}:" + log_success_msg, self.repo_name)
+                    taf_logger.debug("Repo {}:" + log_success_msg, self.name)
             except subprocess.CalledProcessError as e:
                 if log_error_msg:
                     taf_logger.error(log_error_msg)
                 else:
                     taf_logger.error(
                         "Repo {}: error occurred while executing {}:\n{}",
-                        self.repo_name,
+                        self.name,
                         command,
                         e.output,
                     )
@@ -112,7 +123,7 @@ class GitRepository(object):
         else:
             result = run(command)
             if log_success_msg:
-                taf_logger.debug("Repo {}: " + log_success_msg, self.repo_name)
+                taf_logger.debug("Repo {}: " + log_success_msg, self.name)
         return result
 
     def all_commits_on_branch(self, branch=None, reverse=True):
@@ -130,9 +141,7 @@ class GitRepository(object):
                 commits.reverse()
 
         taf_logger.debug(
-            "Repo {}: found the following commits: {}",
-            self.repo_name,
-            ", ".join(commits),
+            "Repo {}: found the following commits: {}", self.name, ", ".join(commits)
         )
         return commits
 
@@ -154,7 +163,7 @@ class GitRepository(object):
 
         taf_logger.debug(
             "Repo {}: found the following commits after commit {}: {}",
-            self.repo_name,
+            self.name,
             since_commit,
             ", ".join(commits),
         )
@@ -168,9 +177,7 @@ class GitRepository(object):
             commits = commits.split("\n")
             commits.reverse()
         taf_logger.debug(
-            "Repo {}: fetched the following commits {}",
-            self.repo_name,
-            ", ".join(commits),
+            "Repo {}: fetched the following commits {}", self.name, ", ".join(commits)
         )
         return commits
 
@@ -283,9 +290,9 @@ class GitRepository(object):
 
     def clone(self, no_checkout=False, bare=False):
 
-        taf_logger.info("Repo {}: cloning repository", self.repo_name)
-        shutil.rmtree(self.repo_path, True)
-        os.makedirs(self.repo_path, exist_ok=True)
+        taf_logger.info("Repo {}: cloning repository", self.name)
+        shutil.rmtree(self.path, True)
+        self._path.mkdir(exist_ok=True, parents=True)
         if self.repo_urls is None:
             raise Exception("Cannot clone repository. No urls were specified")
         params = ""
@@ -299,9 +306,7 @@ class GitRepository(object):
                     "clone {} . {}", url, params, log_success_msg="successfully cloned"
                 )
             except subprocess.CalledProcessError:
-                taf_logger.error(
-                    "Repo {}: cannot clone from url {}", self.repo_name, url
-                )
+                taf_logger.error("Repo {}: cannot clone from url {}", self.name, url)
             else:
                 break
 
@@ -346,20 +351,11 @@ class GitRepository(object):
         try:
             self._git("diff --cached --exit-code --shortstat")
         except subprocess.CalledProcessError:
-            run("git", "-C", self.repo_path, "commit", "--quiet", "-m", message)
+            run("git", "-C", self.path, "commit", "--quiet", "-m", message)
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
-        run(
-            "git",
-            "-C",
-            self.repo_path,
-            "commit",
-            "--quiet",
-            "--allow-empty",
-            "-m",
-            message,
-        )
+        run("git", "-C", self.path, "commit", "--quiet", "--allow-empty", "-m", message)
         return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
@@ -373,7 +369,7 @@ class GitRepository(object):
 
         taf_logger.debug(
             "Repo {}: finding commits which are on branch {}, but not on branch {}",
-            self.repo_name,
+            self.name,
             branch1,
             branch2,
         )
@@ -384,9 +380,7 @@ class GitRepository(object):
         if include_branching_commit:
             branching_commit = self._git("rev-list -n 1 {}~1", commits[-1])
             commits.append(branching_commit)
-        taf_logger.debug(
-            "Repo {}: found the following commits: {}", self.repo_name, commits
-        )
+        taf_logger.debug("Repo {}: found the following commits: {}", self.name, commits)
         return commits
 
     def delete_local_branch(self, branch_name, force=False):
@@ -475,8 +469,8 @@ class GitRepository(object):
             return None
 
     def init_repo(self, bare=False):
-        if not os.path.isdir(self.repo_path):
-            os.makedirs(self.repo_path, exist_ok=True)
+        if self._path.is_dir():
+            self._path.mkdir(exist_ok=True, parents=True)
         flag = "--bare" if bare else ""
         self._git(f"init {flag}")
         if self.repo_urls is not None and len(self.repo_urls):
@@ -624,12 +618,17 @@ class NamedGitRepository(GitRepository):
       repo_urls: repository's urls (optional)
       additional_info: a dictionary containing other data (optional)
       default_branch: repository's default branch
-    repo_path is the absolute path to this repository. It is set by joining
+    path is the absolute path to this repository. It is set by joining
     root_dir and repo_name.
     """
-        repo_path = _get_repo_path(root_dir, repo_name)
-        super().__init__(repo_path, repo_urls, additional_info, default_branch)
-        self.repo_name = repo_name
+        path = _get_repo_path(root_dir, repo_name)
+        super().__init__(
+            path,
+            repo_name=repo_name,
+            repo_urls=repo_urls,
+            additional_info=additional_info,
+            default_branch=default_branch,
+        )
 
 
 def _get_repo_path(root_dir, repo_name):

@@ -1,0 +1,16 @@
+0000000000000000000000000000000000000000 75af4f5b0d795d93599bfce074959dfe52de5013 Renata <vrenata8@gmail.com> 1582208683 +0100	commit (initial): Initial metadata
+75af4f5b0d795d93599bfce074959dfe52de5013 49f469f4fbc0e93537f2ffa002169a21fa0acfd8 Renata <vrenata8@gmail.com> 1582209508 +0100	commit: Added initial targets
+49f469f4fbc0e93537f2ffa002169a21fa0acfd8 9358aac36eaa67d241c4a5ae4bbe6fbf13b588f5 Renata <vrenata8@gmail.com> 1582209766 +0100	commit: Updated target repos
+9358aac36eaa67d241c4a5ae4bbe6fbf13b588f5 3a45bee1ef44b61672104f390d4fda9182ec4b3e Renata <vrenata8@gmail.com> 1582209940 +0100	commit: Updated target of delegated role 1
+3a45bee1ef44b61672104f390d4fda9182ec4b3e b3bc7a6110915bb39139242769f19014b78d4f0d Renata <vrenata8@gmail.com> 1582210067 +0100	commit: Updated target of delegated role 2
+b3bc7a6110915bb39139242769f19014b78d4f0d 9358aac36eaa67d241c4a5ae4bbe6fbf13b588f5 Renata <vrenata8@gmail.com> 1582210883 +0100	reset: moving to HEAD~2
+9358aac36eaa67d241c4a5ae4bbe6fbf13b588f5 675a11576c9d04d0133a9310bacc17dce5b57820 Renata <vrenata8@gmail.com> 1582219322 +0100	commit: Updated delegated role 1 target
+675a11576c9d04d0133a9310bacc17dce5b57820 065861eb323c2dc984d2b02a0d748e3985ed2181 Renata <vrenata8@gmail.com> 1582219587 +0100	commit: Updated delegated role 2 target
+065861eb323c2dc984d2b02a0d748e3985ed2181 675a11576c9d04d0133a9310bacc17dce5b57820 Renata <vrenata8@gmail.com> 1582559474 +0100	reset: moving to HEAD~1
+675a11576c9d04d0133a9310bacc17dce5b57820 75af4f5b0d795d93599bfce074959dfe52de5013 Renata <vrenata8@gmail.com> 1582559599 +0100	reset: moving to HEAD~3
+75af4f5b0d795d93599bfce074959dfe52de5013 ef6b2a3bd2384bc1cf90ae4a757d5951fca523b2 Renata <vrenata8@gmail.com> 1582560135 +0100	commit: Initial targets
+ef6b2a3bd2384bc1cf90ae4a757d5951fca523b2 8f2cd500403131e30b7eb19329a85ef4760ff8e1 Renata <vrenata8@gmail.com> 1582562024 +0100	commit: Updated delegated role 1 targets
+8f2cd500403131e30b7eb19329a85ef4760ff8e1 7c813f36148f92c4314288e56168c4d51db82a64 Renata <vrenata8@gmail.com> 1582562158 +0100	commit: Commit with wrong target 2 sha
+7c813f36148f92c4314288e56168c4d51db82a64 3596269be44b406bdb758cee4513e1f223234471 Renata <vrenata8@gmail.com> 1582562611 +0100	commit: Updated role 2 target repo
+3596269be44b406bdb758cee4513e1f223234471 4a87c0b07bd3e29d741c7012a7f8dfc1a0fa17f2 Renata <vrenata8@gmail.com> 1582568056 +0100	commit: Correct update
+4a87c0b07bd3e29d741c7012a7f8dfc1a0fa17f2 e185ff2e16064eccc1bad35f7fb477241783e0fb Renata <vrenata8@gmail.com> 1582568599 +0100	commit: Another valid update

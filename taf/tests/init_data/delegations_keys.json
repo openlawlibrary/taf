@@ -1,0 +1,29 @@
+{
+  "root": {
+    "number": 1,
+	"threshold": 1
+  },
+  "targets": {
+	"number": 1,
+	"threshold": 1,
+	"delegations": {
+		"delegated_role1": {
+			"number": 3,
+			"threshold": 1, 
+			"paths": [
+				"namespace/TargetRepo1",
+				"namespace/TargetRepo2"
+				]
+		},
+		"delegated_role2":{
+			"paths": [
+				"namespace/TargetRepo3"
+			]
+		}
+	}	
+  },
+  "snapshot": {
+	},
+  "timestamp": {
+  }
+}

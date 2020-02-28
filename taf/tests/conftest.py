@@ -107,7 +107,7 @@ def repositories(request, pytestconfig):
     with origin_repos_group(test_dir, scheme_suffix) as origins:
         yield {
             repo_name.rsplit("-", 1)[0]: Repository(
-                repos_origin_paths["taf"], repository_name=repo_name
+                repos_origin_paths["taf"], repo_name=repo_name
             )
             for repo_name, repos_origin_paths in origins.items()
         }

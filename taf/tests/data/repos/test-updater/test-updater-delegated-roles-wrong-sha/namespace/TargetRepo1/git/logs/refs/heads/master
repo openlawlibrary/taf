@@ -1,0 +1,7 @@
+0000000000000000000000000000000000000000 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1559986692 +0200	commit (initial): Initial test files
+c1ecc553f4318637b40fa04032d94a64d3080ea4 bbd3170a8b88b8e454bf3722343bb4a2835a6cce Renata <vrenata8@gmail.com> 1560358832 +0200	commit: Updated file 1
+bbd3170a8b88b8e454bf3722343bb4a2835a6cce f724551bff06e7eedc432f4fc7e07ca3b3fe4203 Renata <vrenata8@gmail.com> 1560359301 +0200	commit: Updated file1
+f724551bff06e7eedc432f4fc7e07ca3b3fe4203 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1560433371 +0200	reset: moving to HEAD~2
+c1ecc553f4318637b40fa04032d94a64d3080ea4 467a6482e3d43a53b629f8b152af31a6ad4cd0f5 Renata <vrenata8@gmail.com> 1582209605 +0100	commit: Updated file 3
+467a6482e3d43a53b629f8b152af31a6ad4cd0f5 c1ecc553f4318637b40fa04032d94a64d3080ea4 Renata <vrenata8@gmail.com> 1582559803 +0100	reset: moving to HEAD~1
+c1ecc553f4318637b40fa04032d94a64d3080ea4 88e80afacfafa7de39d4e24d3cd4c552146ced68 Renata <vrenata8@gmail.com> 1582561559 +0100	commit: Updated file 1
