@@ -320,15 +320,15 @@ class GitRepository:
         if branches is None:
             branches = ['master']
         taf_logger.debug('Repo {}: cloning or pulling branches {}',
-                         self.repo_name, ', '.join(branches))
+                         self.name, ', '.join(branches))
 
         old_head = self.head_commit_sha()
         if old_head is None:
-            taf_logger.debug('Repo {}: old head sha is {}', self.repo_name, old_head)
+            taf_logger.debug('Repo {}: old head sha is {}', self.name, old_head)
             try:
                 self.clone()
             except subprocess.CalledProcessError:
-                taf_logger.error('Repo {}: could not clone repo', self.repo_name)
+                taf_logger.error('Repo {}: could not clone repo', self.name)
                 raise CloneRepoException(self.url)
         else:
             try:
@@ -337,10 +337,10 @@ class GitRepository:
                         self._git('fetch', 'origin', branch)
                     else:
                         self._git('pull', 'origin', branch)
-                    taf_logger.info('Repo {}: successfully fetched branch {}', self.repo_name, branch)
+                    taf_logger.info('Repo {}: successfully fetched branch {}', self.name, branch)
             except subprocess.CalledProcessError as e:
                 if 'fatal' in e.stdout:
-                    raise FetchException(self.repo_path)
+                    raise FetchException(self.path)
                 pass
 
         new_head = self.head_commit_sha()
@@ -380,7 +380,8 @@ class GitRepository:
             self.checkout_branch(current_branch)
 
     def checkout_commit(self, commit):
-        self._git("checkout {}", commit, log_success_msg=f"checked out commit {commit}")
+        self._git("checkout {}", commit, log_success_msg=f"checked out commit {commit}",
+                  log_error=True, reraise_error=True)
 
     def commit(self, message):
         """Create a commit with the provided message on the currently checked out branch"""

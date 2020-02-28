@@ -320,3 +320,10 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom_data} not found"
     )
+
+
+def repositories_loaded(auth_repo):
+    all_repositories = _repositories_dict.get(auth_repo.name)
+    if all_repositories is None or not len(all_repositories):
+        return False
+    return any(len(repositories_at_commit) for repositories_at_commit in all_repositories.values())
