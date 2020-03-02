@@ -114,7 +114,7 @@ def run(*command, **kwargs):
         taf_logger.debug("About to run command {}", " ".join(command))
 
     def _format_word(word, **env):
-        """To support word such as @{u} needed for git commands."""
+        """To support words such as @{u} needed for git commands."""
         try:
             return word.format(env)
         except KeyError:
@@ -135,7 +135,7 @@ def run(*command, **kwargs):
             taf_logger.debug(err.stdout)
         if err.stderr:
             taf_logger.debug(err.stderr)
-        taf_logger.info(
+        taf_logger.debug(
             "Command {} returned non-zero exit status {}",
             " ".join(command),
             err.returncode,

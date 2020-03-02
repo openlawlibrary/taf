@@ -669,6 +669,7 @@ class NamedGitRepository(GitRepository):
     path is the absolute path to this repository. It is set by joining
     root_dir and repo_name.
     """
+        self.root_dir = root_dir
         path = _get_repo_path(root_dir, repo_name)
         super().__init__(
             path,
