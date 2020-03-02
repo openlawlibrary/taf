@@ -6,7 +6,6 @@ from functools import partial
 from pathlib import Path
 
 import securesystemslib
-import tuf.repository_tool
 import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
@@ -147,7 +146,6 @@ class Repository:
     def __init__(self, path, repo_name="default"):
         self._path = Path(path)
         self.name = repo_name
-        tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
