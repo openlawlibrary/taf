@@ -10,9 +10,7 @@ from pathlib import Path
 import click
 import securesystemslib
 import securesystemslib.exceptions
-import tuf.repository_tool
 from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
     generate_and_write_rsa_keypair,
@@ -281,7 +279,6 @@ def create_repository(
             print(f"Repository {repo_path} already exists")
             return
 
-    tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
     repository = create_new_repository(auth_repo.path)
 
     def _sort_roles(key_info, repository):

@@ -4,6 +4,13 @@ import os
 import sys
 from pathlib import Path
 
+import tuf.repository_tool
+
+tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = (
+    tuf.repository_tool.METADATA_DIRECTORY_NAME
+)
+
+
 _PLATFORM = sys.platform
 
 _PLATFORM_LIBS = str((Path(__file__).parent / "libs").resolve())
