@@ -201,6 +201,13 @@ class Repository:
         """
         self._tuf_repository = load_repository(path, self.name)
 
+    def reload_tuf_repository(self):
+        """
+        Reload tuf repository. Should be called after content on the disk is called.
+        """
+        tuf.roledb.remove_roledb(self.name)
+        self._load_tuf_repository(self.path)
+
     def _role_obj(self, role):
         """Helper function for getting TUF's role object, given the role's name
 
