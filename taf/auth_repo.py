@@ -122,11 +122,12 @@ class AuthRepoMixin(TAFRepository):
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits = defaultdict(dict)
-        targets = self.target_commits_at_revisions(commits)
+        targets = self.targets_at_revisions(*commits)
         previous_commits = {}
         for commit in commits:
-            for target_path, target_branch_and_commit in targets[commit].items():
-                target_branch, target_commit = target_branch_and_commit
+            for target_path, target_data in targets[commit].items():
+                target_branch = target_data.get("branch")
+                target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
                 if previous_commit is None or target_commit != previous_commit:
                     repositories_commits[target_path].setdefault(
@@ -140,9 +141,8 @@ class AuthRepoMixin(TAFRepository):
         )
         return repositories_commits
 
-    def target_commits_at_revisions(self, commits):
+    def targets_at_revisions(self, *commits):
         targets = defaultdict(dict)
-
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
@@ -174,7 +174,10 @@ class AuthRepoMixin(TAFRepository):
                         )
                         target_commit = target_content.get("commit")
                         target_branch = target_content.get("branch", "master")
-                        targets[commit][target_path] = (target_branch, target_commit)
+                        targets[commit][target_path] = {
+                            "branch": target_branch,
+                            "commit": target_commit,
+                        }
                     except json.decoder.JSONDecodeError:
                         taf_logger.debug(
                             "Auth repo {}: target file {} is not a valid json at revision {}",
@@ -206,7 +209,13 @@ class AuthRepoMixin(TAFRepository):
 
 class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
-        self, path, repo_urls=None, additional_info=None, default_branch="master"
+        self,
+        path,
+        repo_urls=None,
+        additional_info=None,
+        default_branch="master",
+        *args,
+        **kwargs,
     ):
         super().__init__(path, repo_urls, additional_info, default_branch)
 
@@ -219,6 +228,8 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         repo_urls=None,
         additional_info=None,
         default_branch="master",
+        *args,
+        **kwargs,
     ):
         super().__init__(
             root_dir=root_dir,
