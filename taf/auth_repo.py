@@ -1,7 +1,6 @@
 import json
 import os
 import tempfile
-import tuf
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -80,7 +79,6 @@ class AuthRepoMixin(TAFRepository):
         and metadata files inside it. Deleted the temp directory when no longer
         needed.
         """
-        tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = METADATA_DIRECTORY_NAME
         tuf_repository = self._tuf_repository
         with tempfile.TemporaryDirectory() as temp_dir:
             metadata_files = self.list_files_at_revision(
