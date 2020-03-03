@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.3.0] - 03/03/2020
+
+### Added
+
 - Add a check if at least one rpeository was loaded ([102])
 - Add `*args` and `**kwargs` arguments to repository classes ([102])
 - Add a method for instantiating TUF repository at a given revision ([101])
@@ -155,7 +164,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.3.0...HEAD
+[0.2.2]: https://github.com/openlawlibrary/taf/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/openlawlibrary/taf/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/openlawlibrary/taf/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/openlawlibrary/taf/compare/v0.1.8...v0.2.0
