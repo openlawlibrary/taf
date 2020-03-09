@@ -11,8 +11,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Move safely_get_json to base git repository class ([105])
+
 ### Fixed
 
+- Fix `clone_or_pull` ([105])
+
+[105]: https://github.com/openlawlibrary/taf/pull/105
 
 ## [0.3.0] - 03/03/2020
 
