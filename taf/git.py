@@ -335,7 +335,7 @@ class GitRepository:
             try:
                 for branch in branches:
                     if only_fetch:
-                        self._git("fetch", "origin", branch)
+                        self.git('fetch', 'origin', f'{branch}:{branch}')
                     else:
                         self._git("pull", "origin", branch)
                     taf_logger.info(
