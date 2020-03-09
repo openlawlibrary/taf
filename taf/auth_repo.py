@@ -55,7 +55,7 @@ class AuthRepoMixin(TAFRepository):
             commit = self.head_commit_sha()
         target_path = get_target_path(target_name)
         if safely:
-            return self._safely_get_json(commit, target_path)
+            return self.safely_get_json(commit, target_path)
         else:
             return self.get_json(commit, target_path)
 
@@ -146,7 +146,7 @@ class AuthRepoMixin(TAFRepository):
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
-            repositories_at_revision = self._safely_get_json(
+            repositories_at_revision = self.safely_get_json(
                 commit, get_target_path("repositories.json")
             )
             if repositories_at_revision is None:
@@ -187,24 +187,6 @@ class AuthRepoMixin(TAFRepository):
                         )
                         continue
         return targets
-
-    def _safely_get_json(self, commit, path):
-        try:
-            return self.get_json(commit, path)
-        except CalledProcessError:
-            taf_logger.info(
-                "Auth repo {}: {} not available at revision {}",
-                self.name,
-                os.path.basename(path),
-                commit,
-            )
-        except json.decoder.JSONDecodeError:
-            taf_logger.info(
-                "Auth repo {}: {} not a valid json at revision {}",
-                self.name,
-                os.path.basename(path),
-                commit,
-            )
 
 
 class AuthenticationRepo(GitRepository, AuthRepoMixin):

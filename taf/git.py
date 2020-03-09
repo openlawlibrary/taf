@@ -609,6 +609,24 @@ class GitRepository:
     def reset_to_head(self):
         self._git("reset --hard HEAD")
 
+    def safely_get_json(self, commit, path):
+        try:
+            return self.get_json(commit, path)
+        except subprocess.CalledProcessError:
+            taf_logger.info(
+                "Auth repo {}: {} not available at revision {}",
+                self.name,
+                os.path.basename(path),
+                commit,
+            )
+        except json.decoder.JSONDecodeError:
+            taf_logger.info(
+                "Auth repo {}: {} not a valid json at revision {}",
+                self.name,
+                os.path.basename(path),
+                commit,
+            )
+
     def set_remote_url(self, new_url, remote="origin"):
         self._git(f"remote set-url {remote} {new_url}")
 
