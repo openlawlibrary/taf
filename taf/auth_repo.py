@@ -4,7 +4,6 @@ import tempfile
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from subprocess import CalledProcessError
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
