@@ -66,7 +66,13 @@ def load_repositories(
         _repositories_dict[auth_repo.name] = {}
 
     if commits is None:
-        commits = [auth_repo.head_commit_sha()]
+        auth_repo_head_commit = auth_repo.head_commit_sha()
+        if auth_repo_head_commit is None:
+            taf_logger.info(
+                "Authentication repository does not exist - cannot load target repositories"
+            )
+            return
+        commits = [auth_repo_head_commit]
 
     taf_logger.debug(
         "Loading {}'s target repositories at revisions {}",
