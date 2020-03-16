@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Load repositories exits early if the authentication repo has not commits ([106])
 - Fix `clone_or_pull` ([105])
 
+[106]: https://github.com/openlawlibrary/taf/pull/106
 [105]: https://github.com/openlawlibrary/taf/pull/105
 
 ## [0.3.0] - 03/03/2020
@@ -26,7 +28,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Add a check if at least one rpeository was loaded ([102])
 - Add `*args` and `**kwargs` arguments to repository classes ([102])
 - Add a method for instantiating TUF repository at a given revision ([101])
-- Add support for validating delegated target repositories to the updater ([101]) 
+- Add support for validating delegated target repositories to the updater ([101])
 - Add delegations tests ([98])
 - Add support for delegated targets roles ([97], [98], [99], [100])
 
