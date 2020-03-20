@@ -337,7 +337,7 @@ def create_repository(
             is_yubikey,
             repository,
             verification_keys[role_name],
-            signing_keys[role_name],
+            signing_keys.get(role_name),
         )
 
     _create_delegations(roles_key_infos, repository, verification_keys, signing_keys)
