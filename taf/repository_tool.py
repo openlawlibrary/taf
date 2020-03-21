@@ -1055,7 +1055,7 @@ class Repository:
         """
         try:
             self.set_metadata_expiration_date(role_name, start_date, interval)
-            self.sign_role_keystores(role_name, signing_keys)
+            self.sign_role_keystores(role_name, signing_keys, write)
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
