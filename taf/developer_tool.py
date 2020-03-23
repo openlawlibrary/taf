@@ -30,7 +30,6 @@ from taf.keystore import (
 from taf.log import taf_logger
 from taf.repository_tool import Repository, yubikey_signature_provider
 from taf.utils import read_input_dict
-from tuf.repository_tool import METADATA_DIRECTORY_NAME
 
 
 try:
@@ -248,10 +247,11 @@ def update_target_repos_from_repositories_json(
         _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
 
 
-def _check_if_can_create_repository(auth_repo, repo_path):
+def _check_if_can_create_repository(auth_repo):
+    repo_path = Path(auth_repo.path)
     if repo_path.is_dir():
         # check if there are metadata and targets directories
-        if (repo_path / METADATA_DIRECTORY_NAME).is_dir():
+        if (auth_repo.metadata_path).is_dir():
             if auth_repo.is_git_repository:
                 print(
                     f'"{repo_path}" is a git repository containing the metadata directory. Generating neew metadata files could make the repository invalid. Aborting.'
@@ -289,7 +289,8 @@ def create_repository(
     auth_repo = AuthenticationRepo(repo_path)
     repo_path = Path(repo_path)
 
-    _check_if_can_create_repository(auth_repo, repo_path)
+    if not _check_if_can_create_repository(auth_repo):
+        return
 
     roles_key_infos = read_input_dict(roles_key_infos)
 
@@ -371,11 +372,20 @@ def create_repository(
             Path(auth_repo.path, auth_repo.targets_path) / auth_repo.TEST_REPO_FLAG_FILE
         )
         test_auth_file.touch()
-        targets_obj = _role_obj("targets", repository)
-        targets_obj.add_target(auth_repo.TEST_REPO_FLAG_FILE)
+
+    # check if there are any targets files and add them to the corresponding targets metadata
+    taf_repository = Repository(repo_path)
+    taf_repository._tuf_repository = repository
+    target_files = taf_repository.all_target_files()
+    if len(target_files):
+        targets_roles_map = taf_repository.map_signing_roles(target_files)
+        for file_name, role_name in targets_roles_map.items():
+            target_role_obj = taf_repository._role_obj(role_name)
+            target_role_obj.add_target(file_name)
 
     repository.writeall()
     print("Created new authentication repository")
+
     if commit:
         auth_repo.init_repo()
         commit_message = input("\nEnter commit message and press ENTER\n\n")
@@ -828,7 +838,7 @@ def init_repo(
     # read the key infos here, no need to read the file multiple times
     namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
     targets_directory = root_dir / namespace
-    roles_key_infos = read_input_dict(roles_key_infos)
+    roles_key_infos = read_input_dict(roles_key_infos)["roles"]
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
