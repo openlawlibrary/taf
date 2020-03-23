@@ -197,6 +197,10 @@ class Repository:
         Load tuf repository. Should only be called directly if a different set of metadata files
         should be loaded (and not the one located at repo path/metadata)
         """
+        # before attempting to tuf repository, create empty targets directory if it does not exist
+        # to avoid errors raised by tuf
+        if not self.targets_path.is_dir():
+            self.targets_path.mkdir(parents=True, exist_ok=True)
         self._tuf_repository = load_repository(path, self.name)
 
     def reload_tuf_repository(self):

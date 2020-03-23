@@ -45,9 +45,12 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 
 
 def add_signing_key(
-    repo_path, role, pub_key_path=None,
-    keystore=None, roles_key_infos=None,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    repo_path,
+    role,
+    pub_key_path=None,
+    keystore=None,
+    roles_key_infos=None,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
     Adds a new signing key. Currently assumes that all relevant keys are stored on yubikeys.
@@ -58,7 +61,7 @@ def add_signing_key(
     taf_repo = Repository(repo_path)
 
     roles_key_infos = read_input_dict(roles_key_infos)
-    role_infos = roles_key_infos["roles"]
+    role_infos = roles_key_infos.get("roles")
     if keystore is None:
         keystore = roles_key_infos.get("keystore")
 
@@ -104,7 +107,7 @@ def add_signing_key(
             num_of_signatures += 1
         if num_of_signatures == keys_num:
             all_loaded = True
-    update_roles(['snapshot', 'timestamp'], taf_repo, keystore, role_infos)
+    update_roles(["snapshot", "timestamp"], taf_repo, keystore, role_infos)
     taf_repo.writeall()
 
 
@@ -1040,7 +1043,9 @@ def update_metadata_expiration_date(
         auth_repo.commit(commit_message)
 
 
-def update_roles(roles, taf_repo, keystore, roles_key_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def update_roles(
+    roles, taf_repo, keystore, roles_key_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+):
     loaded_yubikeys = {}
     for role_name in roles:
         keystore_keys, yubikeys = _load_signing_keys(
@@ -1061,7 +1066,7 @@ def update_roles(roles, taf_repo, keystore, roles_key_infos, scheme=DEFAULT_RSA_
 
 def _write_targets_metadata(taf_repo, targets_roles, keystore, roles_key_infos, scheme):
     roles = list(targets_roles)
-    roles.extend(['snapshot', 'timestamp'])
+    roles.extend(["snapshot", "timestamp"])
     update_roles(roles, taf_repo, keystore, roles_key_infos, scheme)
     taf_repo.writeall()
 
