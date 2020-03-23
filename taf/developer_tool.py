@@ -248,6 +248,22 @@ def update_target_repos_from_repositories_json(
         _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
 
 
+def _check_if_can_create_repository(auth_repo, repo_path):
+    if repo_path.is_dir():
+        # check if there are metadata and targets directories
+        if (repo_path / METADATA_DIRECTORY_NAME).is_dir():
+            if auth_repo.is_git_repository:
+                print(
+                    f'"{repo_path}" is a git repository containing the metadata directory. Generating neew metadata files could make the repository invalid. Aborting.'
+                )
+                return False
+            if not click.confirm(
+                f'Metadata directory found inside "{repo_path}". Recreate metadata files?'
+            ):
+                return False
+    return True
+
+
 def create_repository(
     repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
@@ -272,18 +288,8 @@ def create_repository(
     yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepo(repo_path)
     repo_path = Path(repo_path)
-    if repo_path.is_dir():
-        # check if there are metadata and targets directories
-        if (repo_path / METADATA_DIRECTORY_NAME).is_dir():
-            if auth_repo.is_git_repository:
-                print(
-                    f'"{repo_path}" is a git repository containing the metadata directory. Generating neew metadata files could make the repository invalid. Aborting.'
-                )
-                return
-            if not click.confirm(
-                f'Metadata directory found inside "{repo_path}". Recreate metadata files?'
-            ):
-                return
+
+    _check_if_can_create_repository(auth_repo, repo_path)
 
     roles_key_infos = read_input_dict(roles_key_infos)
 
