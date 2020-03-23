@@ -30,6 +30,8 @@ from taf.keystore import (
 from taf.log import taf_logger
 from taf.repository_tool import Repository, yubikey_signature_provider
 from taf.utils import read_input_dict
+from tuf.repository_tool import METADATA_DIRECTORY_NAME
+
 
 try:
     import taf.yubikey as yk
@@ -268,16 +270,29 @@ def create_repository(
         Indicates if the created repository is a test authentication repository
     """
     yubikeys = defaultdict(dict)
+    auth_repo = AuthenticationRepo(repo_path)
+    repo_path = Path(repo_path)
+    if repo_path.is_dir():
+        # check if there are metadata and targets directories
+        if (repo_path / METADATA_DIRECTORY_NAME).is_dir():
+            if auth_repo.is_git_repository:
+                print(
+                    f'"{repo_path}" is a git repository containing the metadata directory. Generating neew metadata files could make the repository invalid. Aborting.'
+                )
+                return
+            if not click.confirm(
+                f'Metadata directory found inside "{repo_path}". Recreate metadata files?'
+            ):
+                return
+
     roles_key_infos = read_input_dict(roles_key_infos)
+
     if not len(roles_key_infos):
         # ask the user to enter roles, number of keys etc.
-        roles_key_infos = _enter_roles_infos()
+        roles_key_infos = _enter_roles_infos(keystore)
 
-    auth_repo = AuthenticationRepo(repo_path)
-    if Path(repo_path).is_dir():
-        if auth_repo.is_git_repository:
-            print(f"Repository {repo_path} already exists")
-            return
+    if keystore is None:
+        keystore = roles_key_infos.get("keystore")
 
     repository = create_new_repository(auth_repo.path)
 
@@ -301,7 +316,9 @@ def create_repository(
 
     # load and/or generate all keys first
     try:
-        keystore_roles, yubikey_roles = _sort_roles(roles_key_infos, repository)
+        keystore_roles, yubikey_roles = _sort_roles(
+            roles_key_infos["roles"], repository
+        )
         signing_keys = {}
         verification_keys = {}
         for role_name, key_info in keystore_roles:
@@ -328,7 +345,7 @@ def create_repository(
 
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
-    for role_name, role_key_info in roles_key_infos.items():
+    for role_name, role_key_info in roles_key_infos["roles"].items():
         threshold = role_key_info.get("threshold", 1)
         is_yubikey = role_key_info.get("yubikey", False)
         _setup_role(
@@ -429,10 +446,25 @@ def _setup_keystore_key(
     # if keystore exists, load the keys
     generate_new_keys = keystore is None
     public_key = private_key = None
+
+    def _invalid_key_message(key_name, keystore, is_public):
+        extension = ".pub" if is_public else ""
+        key_path = Path(keystore, f"{key_name}{extension}")
+        if key_path.is_file():
+            print(f"{key_path} is not valid!")
+        else:
+            if is_public:
+                print(f"Could not load public key {key_path}")
+            else:
+                print(f"Could not load private key {key_path}")
+
     if keystore is not None:
         while public_key is None and private_key is None:
             try:
                 public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+            except KeystoreError:
+                _invalid_key_message(key_name, keystore, True)
+            try:
                 private_key = read_private_key_from_keystore(
                     keystore,
                     key_name,
@@ -440,15 +472,16 @@ def _setup_keystore_key(
                     scheme=scheme,
                     password=password,
                 )
-            except KeystoreError as e:
-                generate_new_keys = click.confirm(
-                    f"Could not load {key_name}. Generate new keys?"
-                )
+            except KeystoreError:
+                _invalid_key_message(key_name, keystore, False)
+
+            if public_key is None or private_key is None:
+                generate_new_keys = click.confirm("Generate new keys?")
                 if not generate_new_keys:
                     if click.confirm("Reuse existing key?"):
                         key_name = input("Enter name of an existing keystore file: ")
                     else:
-                        raise e
+                        raise KeystoreError(f"Could not load {key_name}")
                 else:
                     break
     if generate_new_keys:
@@ -498,10 +531,41 @@ def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
         return key
 
 
-def _enter_roles_infos():
+def _enter_roles_infos(keystore):
+    """
+    Ask the user to enter information taf roles and keys, including the location
+    of keystore direcotry if not entered through an input parameter
+    """
     mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
     role_key_infos = defaultdict(dict)
+    infos_json = {}
 
+    for role in mandatory_roles:
+        role_key_infos[role] = _enter_role_info(role, role == "targets")
+    infos_json["roles"] = role_key_infos
+
+    while keystore is None:
+        keystore = input(
+            "Enter keystore location if keys should be loaded from or generated to keystore files (leave empty otherwise): "
+        )
+        if len(keystore):
+            if not Path(keystore).is_dir():
+                print(f"{keystore} does not exist")
+                keystore = None
+
+    if keystore:
+        infos_json["keystore"] = keystore
+
+    print("------------------")
+    print(
+        "Configuration json - save it in order to make creation of repositories quicker"
+    )
+    print(json.dumps(role_key_infos, indent=4))
+    print("------------------")
+    return role_key_infos
+
+
+def _enter_role_info(role, is_targets_role):
     def _read_val(input_type, name, required=False):
         default_value_msg = (
             "Leave empty to use the default value. " if not required else ""
@@ -518,46 +582,45 @@ def _enter_roles_infos():
             except ValueError:
                 pass
 
-    def _enter_role_info(role, is_targets_role):
-        role_info = {}
-        keys_num = _read_val(int, f"number of {role} keys")
-        if keys_num is not None:
-            role_info["number"] = keys_num
-        key_length = _read_val(int, f"{role} key length")
-        if key_length is not None:
-            role_info["length"] = key_length
-        threshold = _read_val(int, f"{role} signature threshold")
-        if threshold is not None:
-            role_info["threshold"] = threshold
-        role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
-        scheme = _read_val(str, f"{role} signature scheme")
-        if scheme is not None:
-            role_info["scheme"] = scheme
+    role_info = {}
+    keys_num = _read_val(int, f"number of {role} keys")
+    if keys_num is not None:
+        role_info["number"] = keys_num
 
-        if is_targets_role:
-            delegated_roles = defaultdict(dict)
-            while click.confirm(
-                f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
-            ):
-                role_name = _read_val(str, "role name", True)
-                delegated_paths = []
-                while not len(delegated_paths) or click.confirm("Enter another path?"):
-                    delegated_paths.append(
-                        _read_val(
-                            str, f"path or glob pattern delegated to {role_name}", True
-                        )
+    key_length = _read_val(int, f"{role} key length")
+    if key_length is not None:
+        role_info["length"] = key_length
+
+    threshold = _read_val(int, f"{role} signature threshold")
+    if threshold is not None:
+        role_info["threshold"] = threshold
+
+    role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
+
+    scheme = _read_val(str, f"{role} signature scheme")
+    if scheme is not None:
+        role_info["scheme"] = scheme
+
+    if is_targets_role:
+        delegated_roles = defaultdict(dict)
+        while click.confirm(
+            f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
+        ):
+            role_name = _read_val(str, "role name", True)
+            delegated_paths = []
+            while not len(delegated_paths) or click.confirm("Enter another path?"):
+                delegated_paths.append(
+                    _read_val(
+                        str, f"path or glob pattern delegated to {role_name}", True
                     )
-                delegated_roles[role_name]["paths"] = delegated_paths
-                is_terminating = click.confirm(f"Is {role_name} terminating?")
-                delegated_roles[role_name]["terminating"] = is_terminating
-                delegated_roles[role_name].update(_enter_role_info(role_name, True))
-            role_info["delegations"] = delegated_roles
-        return role_info
+                )
+            delegated_roles[role_name]["paths"] = delegated_paths
+            is_terminating = click.confirm(f"Is {role_name} terminating?")
+            delegated_roles[role_name]["terminating"] = is_terminating
+            delegated_roles[role_name].update(_enter_role_info(role_name, True))
+        role_info["delegations"] = delegated_roles
 
-    for role in mandatory_roles:
-        role_key_infos[role] = _enter_role_info(role, role == "targets")
-
-    return role_key_infos
+    return role_info
 
 
 def export_yk_public_pem(path=None):
