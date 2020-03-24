@@ -60,10 +60,8 @@ def add_signing_key(
 
     taf_repo = Repository(repo_path)
 
-    roles_key_infos = read_input_dict(roles_key_infos)
-    role_infos = roles_key_infos.get("roles")
-    if keystore is None:
-        keystore = roles_key_infos.get("keystore")
+    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=False)
+    roles_infos = roles_key_infos.get("role")
 
     pub_key_pem = None
     if pub_key_path is not None:
@@ -73,6 +71,10 @@ def add_signing_key(
 
     if pub_key_pem is None:
         pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+
+    if taf_repo.is_valid_metadata_key(role, pub_key_pem):
+        print(f"Key already registered as signing key of role {role}")
+        return
 
     taf_repo.add_metadata_key(role, pub_key_pem, scheme)
     root_obj = taf_repo._repository.root
@@ -107,7 +109,7 @@ def add_signing_key(
             num_of_signatures += 1
         if num_of_signatures == keys_num:
             all_loaded = True
-    update_roles(["snapshot", "timestamp"], taf_repo, keystore, role_infos)
+    update_roles(["snapshot", "timestamp"], taf_repo, keystore, roles_infos)
     taf_repo.writeall()
 
 
@@ -304,16 +306,10 @@ def create_repository(
     if not _check_if_can_create_repository(auth_repo):
         return
 
-    roles_key_infos = read_input_dict(roles_key_infos)
-
-    if not len(roles_key_infos):
-        # ask the user to enter roles, number of keys etc.
-        roles_key_infos = _enter_roles_infos(keystore)
-
-    if keystore is None:
-        keystore = roles_key_infos.get("keystore")
+    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore)
 
     repository = create_new_repository(auth_repo.path)
+    roles_infos = roles_key_infos.get("roles")
 
     def _sort_roles(key_info, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
@@ -336,7 +332,7 @@ def create_repository(
     # load and/or generate all keys first
     try:
         keystore_roles, yubikey_roles = _sort_roles(
-            roles_key_infos["roles"], repository
+            roles_infos, repository
         )
         signing_keys = {}
         verification_keys = {}
@@ -364,7 +360,7 @@ def create_repository(
 
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
-    for role_name, role_key_info in roles_key_infos["roles"].items():
+    for role_name, role_key_info in roles_infos.items():
         threshold = role_key_info.get("threshold", 1)
         is_yubikey = role_key_info.get("yubikey", False)
         _setup_role(
@@ -376,7 +372,7 @@ def create_repository(
             signing_keys.get(role_name),
         )
 
-    _create_delegations(roles_key_infos, repository, verification_keys, signing_keys)
+    _create_delegations(roles_infos, repository, verification_keys, signing_keys)
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
@@ -404,11 +400,11 @@ def create_repository(
         auth_repo.commit(commit_message)
 
 
-def _create_delegations(roles_key_infos, repository, verification_keys, signing_keys):
-    for role_name, role_key_info in roles_key_infos.items():
-        if "delegations" in role_key_info:
+def _create_delegations(roles_infos, repository, verification_keys, signing_keys):
+    for role_name, role_info in roles_infos.items():
+        if "delegations" in role_info:
             parent_role_obj = _role_obj(role_name, repository)
-            delegations_info = role_key_info["delegations"]
+            delegations_info = role_info["delegations"]
             for delegated_role_name, delegated_role_info in delegations_info.items():
                 paths = delegated_role_info.get("paths", [])
                 roles_verification_keys = verification_keys[delegated_role_name]
@@ -435,6 +431,20 @@ def _create_delegations(roles_key_infos, repository, verification_keys, signing_
             _create_delegations(
                 delegations_info, repository, verification_keys, signing_keys
             )
+
+
+def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
+    """
+    Read or enter roles information and try to extract keystore path from
+    that json
+    """
+    roles_key_infos = read_input_dict(roles_key_infos)
+    if enter_info and not len(roles_key_infos):
+        # ask the user to enter roles, number of keys etc.
+        roles_key_infos = _enter_roles_infos(keystore)
+    if keystore is None:
+        keystore = roles_key_infos.get("keystore")
+    return roles_key_infos, keystore
 
 
 def _setup_roles_keys(
@@ -590,7 +600,7 @@ def _enter_roles_infos(keystore):
     )
     print(json.dumps(role_key_infos, indent=4))
     print("------------------")
-    return role_key_infos
+    return infos_json
 
 
 def _enter_role_info(role, is_targets_role):
@@ -709,8 +719,9 @@ def generate_keys(keystore, roles_key_infos):
         Names of the keys are set to names of the roles plus a counter, if more than one key
         should be generated.
     """
-    roles_key_infos = read_input_dict(roles_key_infos)
-    for role_name, key_info in roles_key_infos.items():
+    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore)
+
+    for role_name, key_info in roles_key_infos["roles"].items():
         num_of_keys = key_info.get("number", 1)
         bits = key_info.get("length", 3072)
         passwords = key_info.get("passwords", [""] * num_of_keys)
@@ -850,7 +861,8 @@ def init_repo(
     # read the key infos here, no need to read the file multiple times
     namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
     targets_directory = root_dir / namespace
-    roles_key_infos = read_input_dict(roles_key_infos)["roles"]
+    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore)
+
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
@@ -884,10 +896,9 @@ def register_target_files(
         A signature scheme used for signing.
     """
     print("Signing target files")
-    roles_key_infos = read_input_dict(roles_key_infos)
-    role_infos = roles_key_infos.get("roles")
-    if keystore is None:
-        keystore = roles_key_infos.get("keystore")
+    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=False)
+    roles_infos = roles_key_infos.get("roles")
+
     repo_path = Path(repo_path).resolve()
     targets_path = repo_path / TARGETS_DIRECTORY_NAME
     taf_repo = Repository(str(repo_path))
@@ -911,7 +922,7 @@ def register_target_files(
     updated_targets_roles = set(taf_repo.map_signing_roles(target_filenames).values())
 
     _write_targets_metadata(
-        taf_repo, updated_targets_roles, keystore, role_infos, scheme
+        taf_repo, updated_targets_roles, keystore, roles_infos, scheme
     )
 
     if commit:
@@ -1044,7 +1055,7 @@ def update_metadata_expiration_date(
 
 
 def update_roles(
-    roles, taf_repo, keystore, roles_key_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    roles, taf_repo, keystore, roles_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
     loaded_yubikeys = {}
     for role_name in roles:
@@ -1052,7 +1063,7 @@ def update_roles(
             taf_repo,
             role_name,
             keystore,
-            roles_key_infos,
+            roles_infos,
             loaded_yubikeys,
             scheme=scheme,
         )
@@ -1064,10 +1075,10 @@ def update_roles(
             update_method(keystore_keys, write=False)
 
 
-def _write_targets_metadata(taf_repo, targets_roles, keystore, roles_key_infos, scheme):
+def _write_targets_metadata(taf_repo, targets_roles, keystore, roles_infos, scheme):
     roles = list(targets_roles)
     roles.extend(["snapshot", "timestamp"])
-    update_roles(roles, taf_repo, keystore, roles_key_infos, scheme)
+    update_roles(roles, taf_repo, keystore, roles_infos, scheme)
     taf_repo.writeall()
 
 

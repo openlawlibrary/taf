@@ -9,10 +9,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Create empty targets directory before instantiating tuf repository if it does not exist ([114])
+- When creating a new repository, print user's answers to setup question as json ([114])
+- Sign all target files which are found inside the targets directory when creating a new repository ([114])
+
 ### Changed
+
+- Changed format of keys description json, as it can now contain roles' desciription under "roles" key and keystore path under "keystore" key ([114])
 
 ### Fixed
 
+[114]: https://github.com/openlawlibrary/taf/pull/114
 
 ## [0.3.1] - 03/21/2020
 
