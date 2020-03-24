@@ -53,8 +53,11 @@ def add_signing_key(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
-    Adds a new signing key. Currently assumes that all relevant keys are stored on yubikeys.
-    Allows us to add a new targets key for example
+    Adds a new signing key. Currently assumes that root keys, as well as signing key of the role
+    whose signing key is being added are stored on yubikeys. Automatically updates timestamp and
+    snapshot. Timestamp and snapshot keys can be loaded from the filesystem if located inside
+    the keystore whose location is specified via either the keystore argument, or role_key_infos
+    json.
     """
     from taf.repository_tool import yubikey_signature_provider
 
@@ -489,7 +492,7 @@ def _setup_keystore_key(
         extension = ".pub" if is_public else ""
         key_path = Path(keystore, f"{key_name}{extension}")
         if key_path.is_file():
-            print(f"{key_path} is not valid!")
+            print(f"{key_path} is not a file!")
         else:
             if is_public:
                 print(f"Could not load public key {key_path}")

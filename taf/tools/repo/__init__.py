@@ -31,23 +31,27 @@ def attach_to_group(group):
             - threshold of signatures per role
             - should keys of a role be on Yubikeys or should keystore files be used
             - scheme (the default scheme is rsa-pkcs1v15-sha256)
+            - keystore path, if not specified via keystore option
 
         \b
         For example:
         {
-            "root": {
-                "number": 3,
-                "length": 2048,
-                "passwords": ["password1", "password2", "password3"],
-                "threshold": 2,
-                "yubikey": true
+            "roles": {
+                "root": {
+                    "number": 3,
+                    "length": 2048,
+                    "passwords": ["password1", "password2", "password3"],
+                    "threshold": 2,
+                    "yubikey": true
+                },
+                "targets": {
+                    "length": 2048
+                },
+                "snapshot": {},
+                "timestamp": {}
             },
-            "targets": {
-                "length": 2048
-            },
-            "snapshot": {},
-            "timestamp": {}
-        }
+            "keystore": "keystore_path"
+        }   
 
         In cases when this dictionary is not specified, it is necessary to enter the needed
         information when asked to do so, or confirm that default values should be used.
