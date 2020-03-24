@@ -63,7 +63,9 @@ def add_signing_key(
 
     taf_repo = Repository(repo_path)
 
-    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=False)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore, enter_info=False
+    )
     roles_infos = roles_key_infos.get("role")
 
     pub_key_pem = None
@@ -309,7 +311,9 @@ def create_repository(
     if not _check_if_can_create_repository(auth_repo):
         return
 
-    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore
+    )
 
     repository = create_new_repository(auth_repo.path)
     roles_infos = roles_key_infos.get("roles")
@@ -334,9 +338,7 @@ def create_repository(
 
     # load and/or generate all keys first
     try:
-        keystore_roles, yubikey_roles = _sort_roles(
-            roles_infos, repository
-        )
+        keystore_roles, yubikey_roles = _sort_roles(roles_infos, repository)
         signing_keys = {}
         verification_keys = {}
         for role_name, key_info in keystore_roles:
@@ -722,7 +724,9 @@ def generate_keys(keystore, roles_key_infos):
         Names of the keys are set to names of the roles plus a counter, if more than one key
         should be generated.
     """
-    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore
+    )
 
     for role_name, key_info in roles_key_infos["roles"].items():
         num_of_keys = key_info.get("number", 1)
@@ -864,7 +868,9 @@ def init_repo(
     # read the key infos here, no need to read the file multiple times
     namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
     targets_directory = root_dir / namespace
-    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore
+    )
 
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
@@ -899,7 +905,9 @@ def register_target_files(
         A signature scheme used for signing.
     """
     print("Signing target files")
-    roles_key_infos, keystore = _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=False)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore, enter_info=False
+    )
     roles_infos = roles_key_infos.get("roles")
 
     repo_path = Path(repo_path).resolve()
@@ -1063,12 +1071,7 @@ def update_roles(
     loaded_yubikeys = {}
     for role_name in roles:
         keystore_keys, yubikeys = _load_signing_keys(
-            taf_repo,
-            role_name,
-            keystore,
-            roles_infos,
-            loaded_yubikeys,
-            scheme=scheme,
+            taf_repo, role_name, keystore, roles_infos, loaded_yubikeys, scheme=scheme
         )
         if len(yubikeys):
             update_method = taf_repo.roles_yubikeys_update_method(role_name)
