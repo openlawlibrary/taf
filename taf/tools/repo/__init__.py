@@ -51,7 +51,7 @@ def attach_to_group(group):
                 "timestamp": {}
             },
             "keystore": "keystore_path"
-        }   
+        }
 
         In cases when this dictionary is not specified, it is necessary to enter the needed
         information when asked to do so, or confirm that default values should be used.
