@@ -29,7 +29,7 @@ from taf.keystore import (
 )
 from taf.log import taf_logger
 from taf.repository_tool import Repository, yubikey_signature_provider
-from taf.utils import read_input_dict
+from taf.utils import read_input_dict, get_key_size
 
 
 try:
@@ -448,6 +448,12 @@ def _create_delegations(roles_infos, repository, verification_keys, signing_keys
             )
 
 
+def _get_roles_key_size(role, keystore, keys_num):
+    pub_key_name = f"{_get_key_name(role, 1, keys_num)}.pub"
+    key_path = str(Path(keystore, pub_key_name))
+    return get_key_size(key_path)
+
+
 def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     """
     Read or enter roles information and try to extract keystore path from
@@ -645,7 +651,7 @@ def _enter_role_info(role, is_targets_role, keystore):
                 val = input(f"Enter {name} and press ENTER {default_value_msg}")
                 if not val:
                     if not required:
-                        return None
+                        return DEFAULT_ROLE_SETUP_PARAMS.get(param)
                     else:
                         continue
                 return input_type(val)
@@ -663,9 +669,15 @@ def _enter_role_info(role, is_targets_role, keystore):
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
     else:
-        key_length = _read_val(int, f"{role} key length", "length")
-        if key_length is not None:
-            role_info["length"] = key_length
+        # if keystore is specified and contain keys corresponding to this role
+        # get key size based on the public key
+        keystore_length = _get_roles_key_size(role, keystore, keys_num)
+        if keystore_length == 0:
+            key_length = _read_val(int, f"{role} key length", "length")
+            if key_length is not None:
+                role_info["length"] = key_length
+        else:
+            role_info["length"] = keystore_length
         scheme = _read_val(str, f"{role} signature scheme", "scheme")
         if scheme is not None:
             role_info["scheme"] = scheme
