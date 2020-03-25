@@ -1,6 +1,12 @@
 class TAFError(Exception):
     pass
 
+    def __str__(self):
+        try:
+            return self.message
+        except AttributeError:
+            return super().__str__()
+
 
 class CloneRepoException(TAFError):
     def __init__(self, url):
@@ -71,7 +77,8 @@ class SigningError(TAFError):
 
 
 class TargetsError(TAFError):
-    pass
+    def __init__(self, message):
+        self.message = message
 
 
 class TargetsMetadataUpdateError(MetadataUpdateError):

@@ -1,8 +1,9 @@
 import datetime
 import json
 import os
+import shutil
 from fnmatch import fnmatch
-from functools import partial
+from functools import partial, reduce
 from pathlib import Path
 
 import securesystemslib
@@ -30,7 +31,7 @@ from taf.exceptions import (
     YubikeyError,
 )
 from taf.git import GitRepository
-from taf.utils import normalize_file_line_endings
+from taf.utils import normalize_file_line_endings, on_rm_error
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -333,105 +334,67 @@ class Repository:
         key = import_rsakey_from_pem(pub_key_pem, scheme)
         self._role_obj(role).add_verification_key(key)
 
-    def add_targets(self, data, targets_role="targets", files_to_keep=None):
+    def modify_targets(self, added_data=None, removed_data=None):
         """Creates a target.json file containing a repository's commit for each repository.
-        Adds those files to the tuf repository. Also removes all targets from the filesystem if their
-        path is not among the provided ones. TUF does not delete targets automatically.
+        Adds those files to the tuf repository.
 
         Args:
-        - data(dict): Dictionary whose keys are target paths of repositories
-                        (as specified in targets.json, relative to the targets dictionary).
-                        The values are of form:
-                        {
-                        target: content of the target file
-                        custom: {
-                            custom_field1: custom_value1,
-                            custom_field2: custom_value2
-                        }
-                        }
+        - added_data(dict): Dictionary of new data whose keys are target paths of repositories
+                            (as specified in targets.json, relative to the targets dictionary).
+                            The values are of form:
+                            {
+                                target: content of the target file
+                                custom: {
+                                    custom_field1: custom_value1,
+                                    custom_field2: custom_value2
+                                }
+                            }
+        - removed_data(dict): Dictionary of the old data whose keys are target paths of
+                              repositories
+                              (as specified in targets.json, relative to the targets dictionary).
+                              The values are not needed. This is just for consistency.
 
-        Content of the target file can be a dictionary, in which case a jason file will be created.
+        Content of the target file can be a dictionary, in which case a json file will be created.
         If that is not the case, an ordinary textual file will be created.
         If content is not specified and the file already exists, it will not be modified.
         If it does not exist, an empty file will be created. To replace an existing file with an
         empty file, specify empty content (target: '')
 
-        If a target exists on disk, but is not specified in the provided targets data dictionary,
-        it will be:
-        - removed, if the target does not correspond to a repository defined in repositories.json
-        - left as is,  if the target does correspondw to a repository defined in repositories.json
-
         Custom is an optional property which, if present, will be used to specify a TUF target's
-
-        - targets_role(str): Targets or delegated role: a targets role (the root targets role
-                            or one of the delegated ones)
-        - files_to_keep(list|tuple): List of files defined in the previous version of targets.json
-                                    that should remain targets. Files required by the framework will
-                                    also remain targets.
         """
-        if len(data):
-            self._check_if_files_delegated_to_role(targets_role, list(data.keys()))
+        added_data = {} if added_data is None else added_data
+        removed_data = {} if removed_data is None else removed_data
+        data = dict(added_data, **removed_data)
+        if not data:
+            raise TargetsError("Nothing to be modified!")
 
-        if files_to_keep is None:
-            files_to_keep = []
-        # leave all files required by the framework and additional files specified by the user
-        files_to_keep.extend(self._framework_files)
-        # add all repositories defined in repositories.json to files_to_keep
-        target_repositories = self._get_target_repositories()
-        if target_repositories is not None:
-            files_to_keep.extend(target_repositories)
-        # delete files if they no longer correspond to a target defined
-        # in targets metadata and are not specified in files_to_keep
+        target_paths = list(data.keys())
+        targets_role = self._get_common_role_from_target_paths(data)
+        if targets_role is None:
+            raise TargetsError(
+                f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
+            )
+
         targets_obj = self._role_obj(targets_role)
 
-        target_roles_paths = self.get_role_paths(targets_role)
-
-        all_target_relpaths = self._collect_target_paths_of_role(target_roles_paths)
-
-        # delete all files which are not in data, files to keep or delegated to a child role
-        all_targets_mapping = self.map_signing_roles(all_target_relpaths)
-        for target_rel_path, files_role in all_targets_mapping.items():
-            if files_role == targets_role:
-                if target_rel_path not in data and target_rel_path not in files_to_keep:
-                    if target_rel_path in targets_obj.target_files:
-                        targets_obj.remove_target(target_rel_path)
-                    (self.targets_path / target_rel_path).unlink()
-
-        for path, target_data in data.items():
+        # add new target files
+        for path, target_data in added_data.items():
             target_path = (self.targets_path / path).absolute()
             self._create_target_file(target_path, target_data)
             custom = target_data.get("custom", None)
             self._add_target(targets_obj, str(target_path), custom)
 
-        previous_targets = json.loads(
-            Path(self.metadata_path, f"{targets_role}.json").read_text()
-        )["signed"]["targets"]
-
-        # add all files in files_to_keep delegated to that role
-        files_to_keep_mapping = self.map_signing_roles(files_to_keep)
-        for path in files_to_keep:
-            if not files_to_keep_mapping[path] == targets_role:
-                continue
-            # if path if both in data and files_to_keep, skip it
-            # e.g. repositories.json will always be in files_to_keep,
-            # but it might also be specified in data, if it needs to be updated
-            if path in data:
-                continue
+        # remove existing target files
+        for path in removed_data.keys():
             target_path = (self.targets_path / path).absolute()
-            previous_custom = None
-            if path in previous_targets:
-                previous_custom = previous_targets[path].get("custom")
             if target_path.is_file():
-                self._add_target(targets_obj, str(target_path), previous_custom)
+                target_path.unlink()
+            elif target_path.is_dir():
+                shutil.rmtree(target_path, onerror=on_rm_error)
 
-        if previous_targets:
-            role_info = tuf.roledb.get_roleinfo(targets_role, repository_name=self.name)
-            role_info["paths"] = {
-                role: {} for role in role_info["paths"] if role in data
-            }
-            tuf.roledb.update_roleinfo(
-                targets_role, role_info, repository_name=self.name
-            )
+            targets_obj.remove_target(path)
+
+        return targets_role
 
     def all_target_files(self):
         """
@@ -448,14 +411,22 @@ class Repository:
                     )
         return targets
 
-    def _check_if_files_delegated_to_role(self, targets_role, target_files):
-        target_roles_mapping = self.map_signing_roles(target_files)
-        roles = set(target_roles_mapping.values())
-        if len(roles) > 1 or targets_role not in roles:
-            raise TargetsError(
-                f"Target files {', '.join(target_files)} delegated to {', '.join(roles)} "
-                f"and not just {targets_role}"
-            )
+    def _get_common_role_from_target_paths(self, target_paths):
+        """
+        Find a common role that could be used to sign given target paths.
+        """
+        targets_roles = self.map_signing_roles(target_paths)
+        roles = list(targets_roles.values())
+
+        # all target files should have at least one common role
+        common_role = reduce(
+            set.intersection,
+            [set([r]) if isinstance(r, str) else set(r) for r in roles],
+        )
+        if not common_role:
+            return None
+
+        return common_role.pop()
 
     def _collect_target_paths_of_role(self, target_roles_paths):
         all_target_relpaths = []
@@ -847,14 +818,14 @@ class Repository:
             "timestamp": self.update_timestamp_keystores,
             "snapshot": self.update_snapshot_keystores,
             "targets": self.update_targets_keystores,
-        }.get(role_name, partial(self.update_targets_keystores, targets_role=role_name))
+        }.get(role_name, self.update_targets_keystores)
 
     def roles_yubikeys_update_method(self, role_name):
         return {
             "timestamp": self.update_timestamp_yubikeys,
             "snapshot": self.update_snapshot_yubikeys,
             "targets": self.update_targets_yubikeys,
-        }.get(role_name, partial(self.update_targets_yubikeys, targets_role=role_name))
+        }.get(role_name, self.update_targets_yubikeys)
 
     def set_metadata_expiration_date(self, role, start_date=None, interval=None):
         """Set expiration date of the provided role.
@@ -1146,7 +1117,7 @@ class Repository:
                 "timestamp", timestamp_signing_keys, start_date, interval, write
             )
         except MetadataUpdateError as e:
-            raise TimestampMetadataUpdateError(e.message)
+            raise TimestampMetadataUpdateError(str(e))
 
     def update_timestamp_yubikeys(
         self,
@@ -1191,7 +1162,7 @@ class Repository:
                 pins=pins,
             )
         except MetadataUpdateError as e:
-            raise TimestampMetadataUpdateError(e.message)
+            raise TimestampMetadataUpdateError(str(e))
 
     def update_snapshot_keystores(
         self, snapshot_signing_keys, start_date=None, interval=None, write=True
@@ -1223,7 +1194,7 @@ class Repository:
                 "snapshot", snapshot_signing_keys, start_date, interval, write
             )
         except MetadataUpdateError as e:
-            raise SnapshotMetadataUpdateError(e.message)
+            raise SnapshotMetadataUpdateError(str(e))
 
     def update_snapshot_yubikeys(
         self,
@@ -1268,16 +1239,16 @@ class Repository:
                 pins=pins,
             )
         except MetadataUpdateError as e:
-            raise SnapshotMetadataUpdateError(e.message)
+            raise SnapshotMetadataUpdateError(str(e))
 
     def update_targets_keystores(
         self,
         targets_signing_keys,
-        targets_data=None,
+        added_targets_data=None,
+        removed_targets_data=None,
         start_date=None,
         interval=None,
         write=True,
-        targets_role="targets",
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
         one. If targets_data is specified, updates metadata corresponding to target files contained
@@ -1290,37 +1261,35 @@ class Repository:
         - start_date(datetime): Date to which the specified interval is added when
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
-        - targets_data(dict): (Optional) Dictionary containing targets data
+        - added_targets_data(dict): Dictionary containing targets data that should be added
+        - removed_targets_data(dict): Dictionary containing targets data that should be removed
         - interval(int): Number of days added to the start date. If not provided,
                          the default targets expiration interval is used (90 days)
         - write(bool): If True targets metadata will be signed and written
-        - targets_role(str): Name of the targets role. Set to "targets" by default
 
         Returns:
         None
 
         Raises:
-        - InvalidKeyError: If a wrong key is used to sign metadata
         - TargetsMetadataUpdateError: If any other error happened while updating and signing
                                       the metadata file
         """
         try:
-            if targets_data:
-                self.add_targets(targets_data)
+            targets_role = self.modify_targets(added_targets_data, removed_targets_data)
             self.update_role_keystores(
                 targets_role, targets_signing_keys, start_date, interval, write
             )
-        except MetadataUpdateError as e:
-            raise TargetsMetadataUpdateError(e.message)
+        except Exception as e:
+            raise TargetsMetadataUpdateError(str(e))
 
     def update_targets_yubikeys(
         self,
         targets_public_keys,
-        targets_data=None,
+        added_targets_data=None,
+        removed_targets_data=None,
         start_date=None,
         interval=None,
         write=True,
-        targets_role="targets",
         pins=None,
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
@@ -1334,12 +1303,12 @@ class Repository:
         - start_date(datetime): Date to which the specified interval is added when
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
-        - targets_data(dict): (Optional) Dictionary containing targets data
+        - added_targets_data(dict): Dictionary containing targets data that should be added
+        - removed_targets_data(dict): Dictionary containing targets data that should be removed
         - interval(int): Number of days added to the start date. If not provided,
                          the default targets expiration interval is used (90 days in case of
                          "targets", 1 in case of delegated roles)
         - write(bool): If True targets metadata will be signed and written
-        - targets_role(str): Name of the targets role. Set to "targets" by default
         - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
                       provided, pins will either be loaded from the global pins dictionary
                       (if it was previously populated) or the user will have to manually enter
@@ -1348,13 +1317,11 @@ class Repository:
         None
 
         Raises:
-        - InvalidKeyError: If a wrong key is used to sign metadata
-        - TargetsMetadataUpdateError: If any other error happened while updating and signing
+        - TargetsMetadataUpdateError: If error happened while updating and signing
                                       the metadata file
         """
         try:
-            if targets_data:
-                self.add_targets(targets_data, targets_role=targets_role)
+            targets_role = self.modify_targets(added_targets_data, removed_targets_data)
             self.update_role_yubikeys(
                 targets_role,
                 targets_public_keys,
@@ -1363,8 +1330,8 @@ class Repository:
                 write=write,
                 pins=pins,
             )
-        except MetadataUpdateError as e:
-            raise TargetsMetadataUpdateError(e.message)
+        except Exception as e:
+            raise TargetsMetadataUpdateError(str(e))
 
     def writeall(self):
         """Write all dirty metadata files.
