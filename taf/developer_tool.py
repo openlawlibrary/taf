@@ -443,13 +443,13 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     Read or enter roles information and try to extract keystore path from
     that json
     """
-    roles_key_infos = read_input_dict(roles_key_infos)
-    if enter_info and not len(roles_key_infos):
+    roles_key_infos_dict = read_input_dict(roles_key_infos)
+    if enter_info and not len(roles_key_infos_dict):
         # ask the user to enter roles, number of keys etc.
-        roles_key_infos = _enter_roles_infos(keystore)
+        roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
     if keystore is None:
-        keystore = roles_key_infos.get("keystore")
-    return roles_key_infos, keystore
+        keystore = roles_key_infos_dict.get("keystore")
+    return roles_key_infos_dict, keystore
 
 
 def _setup_roles_keys(
@@ -574,7 +574,7 @@ def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
         return key
 
 
-def _enter_roles_infos(keystore):
+def _enter_roles_infos(keystore, roles_key_infos):
     """
     Ask the user to enter information taf roles and keys, including the location
     of keystore direcotry if not entered through an input parameter
@@ -584,7 +584,7 @@ def _enter_roles_infos(keystore):
     infos_json = {}
 
     for role in mandatory_roles:
-        role_key_infos[role] = _enter_role_info(role, role == "targets")
+        role_key_infos[role] = _enter_role_info(role, role == "targets", keystore)
     infos_json["roles"] = role_key_infos
 
     while keystore is None:
@@ -599,16 +599,30 @@ def _enter_roles_infos(keystore):
     if keystore:
         infos_json["keystore"] = keystore
 
-    print("------------------")
-    print(
-        "Configuration json - save it in order to make creation of repositories quicker"
-    )
-    print(json.dumps(role_key_infos, indent=4))
-    print("------------------")
+    def _print_roles_key_infos(infos_json_str):
+        print("------------------")
+        print(
+            "Configuration json - save it in order to make creation of repositories quicker"
+        )
+        print(json.dumps(infos_json, indent=4))
+        print("------------------")
+
+    infos_json_str = json.dumps(infos_json, indent=4)
+    if isinstance(roles_key_infos, str):
+        try:
+            path = Path(roles_key_infos)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            Path(roles_key_infos).write_text(infos_json_str)
+            print(f"Configuration json written to {Path(roles_key_infos).absolute()}")
+        except Exception as e:
+            print(e)
+            _print_roles_key_infos(infos_json_str)
+    else:
+        print(infos_json_str)
     return infos_json
 
 
-def _enter_role_info(role, is_targets_role):
+def _enter_role_info(role, is_targets_role, keystore):
     def _read_val(input_type, name, required=False):
         default_value_msg = (
             "Leave empty to use the default value. " if not required else ""
@@ -630,19 +644,22 @@ def _enter_role_info(role, is_targets_role):
     if keys_num is not None:
         role_info["number"] = keys_num
 
-    key_length = _read_val(int, f"{role} key length")
-    if key_length is not None:
-        role_info["length"] = key_length
+    role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
+    if role_info["yubikey"]:
+        # in case of yubikeys, length and shceme have to have specific values
+        role_info["length"] = 2048
+        role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
+    else:
+        key_length = _read_val(int, f"{role} key length")
+        if key_length is not None:
+            role_info["length"] = key_length
+        scheme = _read_val(str, f"{role} signature scheme")
+        if scheme is not None:
+            role_info["scheme"] = scheme
 
     threshold = _read_val(int, f"{role} signature threshold")
     if threshold is not None:
         role_info["threshold"] = threshold
-
-    role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
-
-    scheme = _read_val(str, f"{role} signature scheme")
-    if scheme is not None:
-        role_info["scheme"] = scheme
 
     if is_targets_role:
         delegated_roles = defaultdict(dict)
