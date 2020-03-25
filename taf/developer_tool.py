@@ -44,6 +44,16 @@ YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
 )
 
 
+DEFAULT_ROLE_SETUP_PARAMS = {
+    "number": 1,
+    "threshold": 1,
+    "yubikey": False,
+    "scheme": DEFAULT_RSA_SIGNATURE_SCHEME,
+    "length": 3072,
+    "passwords": None,
+}
+
+
 def add_signing_key(
     repo_path,
     role,
@@ -459,11 +469,11 @@ def _setup_roles_keys(
     yubikey_keys = []
     keystore_keys = []
 
-    num_of_keys = key_info.get("number", 1)
-    is_yubikey = key_info.get("yubikey", False)
-    scheme = key_info.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-    length = key_info.get("length", 3072)
-    passwords = key_info.get("passwords", None)
+    num_of_keys = key_info.get("number", DEFAULT_ROLE_SETUP_PARAMS["number"])
+    is_yubikey = key_info.get("yubikey", DEFAULT_ROLE_SETUP_PARAMS["yubikey"])
+    scheme = key_info.get("scheme", DEFAULT_ROLE_SETUP_PARAMS["scheme"])
+    length = key_info.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"])
+    passwords = key_info.get("passwords", DEFAULT_ROLE_SETUP_PARAMS["passwords"])
 
     for key_num in range(num_of_keys):
         key_name = _get_key_name(role_name, key_num, num_of_keys)
@@ -623,13 +633,16 @@ def _enter_roles_infos(keystore, roles_key_infos):
 
 
 def _enter_role_info(role, is_targets_role, keystore):
-    def _read_val(input_type, name, required=False):
-        default_value_msg = (
-            "Leave empty to use the default value. " if not required else ""
-        )
+    def _read_val(input_type, name, param=None, required=False):
+        default_value_msg = ""
+        if param is not None:
+            default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
+            if default is not None:
+                default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
+
         while True:
             try:
-                val = input(f"Enter {name} and press ENTER. {default_value_msg}")
+                val = input(f"Enter {name} and press ENTER {default_value_msg}")
                 if not val:
                     if not required:
                         return None
@@ -640,7 +653,7 @@ def _enter_role_info(role, is_targets_role, keystore):
                 pass
 
     role_info = {}
-    keys_num = _read_val(int, f"number of {role} keys")
+    keys_num = _read_val(int, f"number of {role} keys", "number")
     if keys_num is not None:
         role_info["number"] = keys_num
 
@@ -650,14 +663,14 @@ def _enter_role_info(role, is_targets_role, keystore):
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
     else:
-        key_length = _read_val(int, f"{role} key length")
+        key_length = _read_val(int, f"{role} key length", "length")
         if key_length is not None:
             role_info["length"] = key_length
-        scheme = _read_val(str, f"{role} signature scheme")
+        scheme = _read_val(str, f"{role} signature scheme", "scheme")
         if scheme is not None:
             role_info["scheme"] = scheme
 
-    threshold = _read_val(int, f"{role} signature threshold")
+    threshold = _read_val(int, f"{role} signature threshold", "threshold")
     if threshold is not None:
         role_info["threshold"] = threshold
 
@@ -746,10 +759,10 @@ def generate_keys(keystore, roles_key_infos):
     )
 
     for role_name, key_info in roles_key_infos["roles"].items():
-        num_of_keys = key_info.get("number", 1)
-        bits = key_info.get("length", 3072)
+        num_of_keys = key_info.get("number", DEFAULT_ROLE_SETUP_PARAMS["number"])
+        bits = key_info.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"])
         passwords = key_info.get("passwords", [""] * num_of_keys)
-        is_yubikey = key_info.get("yubikey", False)
+        is_yubikey = key_info.get("yubikey", DEFAULT_ROLE_SETUP_PARAMS["yubikey"])
         for key_num in range(num_of_keys):
             if not is_yubikey:
                 key_name = _get_key_name(role_name, key_num, num_of_keys)
