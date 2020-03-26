@@ -10,21 +10,25 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Updater tests which validate updated root metadata ([118])
+- New test cases for updating targets/delegations metadata [116]
 - Create empty targets directory before instantiating tuf repository if it does not exist ([114])
 - When creating a new repository, print user's answers to setup question as json ([114])
 - Sign all target files which are found inside the targets directory when creating a new repository ([114])
 
 ### Changed
 
-- Changed format of keys description json, as it can now contain roles' desciription under "roles" key and keystore path under "keystore" key ([114])
+- Use common role of given targets during update of targets/delegations metadata [116]
+- Changed format of keys description json, as it can now contain roles' description under "roles" key and keystore path under "keystore" key ([114])
 
 ### Fixed
 
 - Load signing keys minor fixes ([117])
 - Normalize target files when creating a new repository ([117])
 
+
 [118]: https://github.com/openlawlibrary/taf/pull/118
 [117]: https://github.com/openlawlibrary/taf/pull/117
+[116]: https://github.com/openlawlibrary/taf/pull/116
 [114]: https://github.com/openlawlibrary/taf/pull/114
 
 ## [0.3.1] - 03/21/2020
@@ -59,7 +63,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Add support for delegated targets roles ([97], [98], [99], [100])
 
 ### Changed
-
 
 - Renamed `repo_name` to `name` and `repo_path` to `path` ([101])
 - Updated `add_targets` so that it fully supports delegated roles ([98])
@@ -115,7 +118,6 @@ and this project adheres to [Semantic Versioning][semver].
 [83]: https://github.com/openlawlibrary/taf/pull/83
 [82]: https://github.com/openlawlibrary/taf/pull/82
 
-
 ## [0.2.0] - 11/30/2019
 
 ### Added
@@ -129,9 +131,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Creation of new repositories made more robust ([79])
 
-
 [79]: https://github.com/openlawlibrary/taf/pull/79
-
 
 ## [0.1.8] - 11/12/2019
 
