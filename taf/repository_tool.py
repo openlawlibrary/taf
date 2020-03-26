@@ -369,7 +369,7 @@ class Repository:
             raise TargetsError("Nothing to be modified!")
 
         target_paths = list(data.keys())
-        targets_role = self._get_common_role_from_target_paths(data)
+        targets_role = self.get_role_from_target_paths(data)
         if targets_role is None:
             raise TargetsError(
                 f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
@@ -387,12 +387,13 @@ class Repository:
         # remove existing target files
         for path in removed_data.keys():
             target_path = (self.targets_path / path).absolute()
-            if target_path.is_file():
-                target_path.unlink()
-            elif target_path.is_dir():
-                shutil.rmtree(target_path, onerror=on_rm_error)
+            if target_path.exists():
+                targets_obj.remove_target(path)
 
-            targets_obj.remove_target(path)
+                if target_path.is_file():
+                    target_path.unlink()
+                elif target_path.is_dir():
+                    shutil.rmtree(target_path, onerror=on_rm_error)
 
         return targets_role
 
@@ -411,7 +412,7 @@ class Repository:
                     )
         return targets
 
-    def _get_common_role_from_target_paths(self, target_paths):
+    def get_role_from_target_paths(self, target_paths):
         """
         Find a common role that could be used to sign given target paths.
         """
