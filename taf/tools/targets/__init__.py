@@ -12,9 +12,11 @@ def attach_to_group(group):
     @targets.command()
     @click.argument("path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores the needed information")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
-    def sign(path, keystore, scheme):
+    def sign(path, keystore, keys_description, scheme):
         """
         Register and sign target files. This means that the targets metadata file
         is updated by adding or editing information about all target files located
@@ -24,7 +26,9 @@ def attach_to_group(group):
         signing. If a needed key is not in that directory, the file can either be signed
         sy manually entering the key or by using a yubikey.
         """
-        developer_tool.register_target_files(path, keystore=keystore, scheme=scheme)
+        developer_tool.register_target_files(path, keystore=keystore,
+                                             roles_key_infos=keys_description,
+                                             scheme=scheme)
 
     @targets.command()
     @click.argument("path")

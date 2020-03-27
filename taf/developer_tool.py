@@ -132,7 +132,7 @@ def _load_signing_keys(
     taf_repo,
     role,
     keystore=None,
-    role_key_infos=None,
+    role_infos=None,
     loaded_yubikeys=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
@@ -148,7 +148,14 @@ def _load_signing_keys(
     num_of_signatures = 0
     keys = []
     yubikeys = []
-    if keystore is not None:
+
+    # check if it is specified in role key infos that key is stored on yubikey
+    # in such a case, do not attempt to load the key from keystore
+    is_yubikey = None
+    if role_infos is not None and role in role_infos:
+        is_yubikey = role_infos[role].get("yubikey")
+
+    if not is_yubikey and keystore is not None:
         # try loading files from the keystore first
         # does not assume that all keys of a role are stored in keystore files just
         # because one of them is
@@ -158,11 +165,14 @@ def _load_signing_keys(
         key_names.insert(0, role)
         for key_name in key_names:
             if (keystore / key_name).is_file():
-                key = read_private_key_from_keystore(
-                    keystore, key_name, role_key_infos, num_of_signatures, scheme
-                )
-                keys.append(key)
-                num_of_signatures += 1
+                try:
+                    key = read_private_key_from_keystore(
+                        keystore, key_name, role_infos, num_of_signatures, scheme
+                    )
+                    keys.append(key)
+                    num_of_signatures += 1
+                except KeystoreError:
+                    pass
 
     while not all_loaded and num_of_signatures < signing_keys_num:
         if signing_keys_num == 1:
@@ -176,9 +186,6 @@ def _load_signing_keys(
                 )
             )
         if not all_loaded:
-            is_yubikey = None
-            if role_key_infos is not None and role in role_key_infos:
-                is_yubikey = role_key_infos[role].get("yubikey")
             if is_yubikey is None:
                 is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
             if is_yubikey:
@@ -401,10 +408,7 @@ def create_repository(
     taf_repository._tuf_repository = repository
     target_files = taf_repository.all_target_files()
     if len(target_files):
-        targets_roles_map = taf_repository.map_signing_roles(target_files)
-        for file_name, role_name in targets_roles_map.items():
-            target_role_obj = taf_repository._role_obj(role_name)
-            target_role_obj.add_target(file_name)
+        taf_repository.add_existing_targets(target_files)
 
     repository.writeall()
     print("Created new authentication repository")
