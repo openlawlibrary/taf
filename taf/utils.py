@@ -5,6 +5,12 @@ import stat
 import subprocess
 from getpass import getpass
 from pathlib import Path
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import (
+    load_pem_public_key,
+    load_pem_private_key,
+)
 
 import click
 import taf.settings
@@ -35,9 +41,6 @@ ISO_DATE_PARAM_TYPE = IsoDateParamType()
 
 
 def extract_x509(cert_pem):
-    from cryptography import x509
-    from cryptography.hazmat.backends import default_backend
-
     cert = x509.load_pem_x509_certificate(cert_pem, default_backend())
 
     def _get_attr(oid):
@@ -68,6 +71,19 @@ def get_cert_names_from_keyids(certs_dir, keyids):
         except FileNotFoundError:
             print(f"Certificate does not exist ({keyid}).")
     return cert_names
+
+
+def get_key_size(key_pem_path, decrypt_pwd=None):
+    try:
+        key = load_pem_public_key(Path(key_pem_path).read_bytes(), default_backend())
+    except ValueError:
+        key = load_pem_private_key(
+            Path(key_pem_path).read_bytes(), decrypt_pwd, default_backend()
+        )
+    except Exception:
+        return 0
+
+    return key.key_size
 
 
 def get_pin_for(name, confirm=True, repeat=True):
