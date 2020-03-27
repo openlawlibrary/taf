@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Load signing keys minor fixes ([117])
+- Normalize target files when creating a new repository ([117])
+
+[117]: https://github.com/openlawlibrary/taf/pull/117
 [114]: https://github.com/openlawlibrary/taf/pull/114
 
 ## [0.3.1] - 03/21/2020
