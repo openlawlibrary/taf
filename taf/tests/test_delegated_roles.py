@@ -83,3 +83,23 @@ def test_sort_target_files_by_roles(repositories):
     assert targets_files_by_roles["inner_delegated_role"] == [
         "dir2/inner_delegated_role.txt"
     ]
+
+
+def test_get_role_from_target_paths(repositories):
+    taf_delegated_roles = repositories["test-delegated-roles"]
+
+    target_paths_with_same_role = [
+        "dir1/delegated_role1_1.txt",
+        "dir1/delegated_role1_2.txt",
+    ]
+    role = taf_delegated_roles.get_role_from_target_paths(target_paths_with_same_role)
+    assert role == "delegated_role1"
+
+    target_paths_with_different_role = [
+        "dir2/delegated_role2_1.txt",
+        "dir2/inner_delegated_role.txt",
+    ]
+    role = taf_delegated_roles.get_role_from_target_paths(
+        target_paths_with_different_role
+    )
+    assert role is None
