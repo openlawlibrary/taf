@@ -8,7 +8,7 @@ from functools import reduce
 from pathlib import Path
 
 import taf.settings as settings
-from taf.exceptions import InvalidRepositoryError, CloneRepoException, FetchException
+from taf.exceptions import CloneRepoException, FetchException, InvalidRepositoryError
 from taf.log import taf_logger
 from taf.utils import run
 
@@ -559,17 +559,20 @@ class GitRepository:
             commits = self._git(f"log {branch} --format=format:%H -n {number}")
         return commits.split("\n") if commits else []
 
-    def list_modified_files(self, path=None):
+    def list_modified_files(self, path=None, with_status=False):
         diff_command = "diff --name-status"
         if path is not None:
             diff_command = f"{diff_command} {path}"
         modified_files = self._git(diff_command).split("\n")
-        file_names = []
+        files = []
         for modified_file in modified_files:
             # ignore warning lines
             if len(modified_file) and modified_file[0] in ["A", "M", "D"]:
-                file_names.append(modified_file.split(maxsplit=1)[1])
-        return file_names
+                if with_status:
+                    files.append(tuple(modified_file.split(maxsplit=1)))
+                else:
+                    files.append(modified_file.split(maxsplit=1)[1])
+        return files
 
     def list_untracked_files(self, path=None):
         ls_command = "ls-files --others"
