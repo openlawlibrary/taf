@@ -189,6 +189,7 @@ class Repository:
         file_path: full path of the target file
         custom: custom target data
         """
+        file_path = str(Path(file_path).absolute())
         normalize_file_line_endings(file_path)
         targets_obj.add_target(file_path, custom)
 
