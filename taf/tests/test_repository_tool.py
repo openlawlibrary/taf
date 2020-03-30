@@ -101,7 +101,7 @@ def test_update_targets_from_keystore_valid_key(repositories, targets_key):
     targets_data = {
         "branch": {"target": branch_id},
         "dummy/target_dummy_repo": {"target": {"commit": target_commit_sha}},
-        "capstone": {},
+        "test_file": {},
     }
 
     taf_happy_path.update_targets_keystores(
@@ -112,13 +112,13 @@ def test_update_targets_from_keystore_valid_key(repositories, targets_key):
 
     assert (targets_path / "branch").read_text() == branch_id
     assert target_commit_sha in (targets_path / "dummy/target_dummy_repo").read_text()
-    assert (targets_path / "capstone").is_file()
+    assert (targets_path / "test_file").is_file()
     assert repositories_json_old == repositories_json_path.read_text()
 
 
 def test_update_targets_from_keystore_wrong_key(repositories, snapshot_key):
     taf_happy_path = repositories["test-happy-path"]
-    targets_data = {"capstone": {}}
+    targets_data = {"test_file": {}}
 
     with pytest.raises(taf.exceptions.TargetsMetadataUpdateError):
         taf_happy_path.update_targets_keystores([snapshot_key], targets_data)
@@ -138,7 +138,7 @@ def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
     targets_data = {
         "branch": {"target": branch_id},
         "dummy/target_dummy_repo": {"target": {"commit": target_commit_sha}},
-        "capstone": {},
+        "test_file": {},
     }
     yk.add_key_pin(targets_yk.serial, VALID_PIN)
     targets_yk.insert()
@@ -151,7 +151,7 @@ def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
 
     assert (targets_path / "branch").read_text() == branch_id
     assert target_commit_sha in (targets_path / "dummy/target_dummy_repo").read_text()
-    assert (targets_path / "capstone").is_file()
+    assert (targets_path / "test_file").is_file()
     assert repositories_json_old == repositories_json_path.read_text()
 
 
@@ -165,34 +165,34 @@ def test_delete_target_file_valid_key_valid_pin(repositories, targets_yk):
     targets_yk.insert()
     public_key = targets_yk.tuf_key
 
-    # add capstone
-    targets_data = {"capstone": {}}
+    # add test_file
+    targets_data = {"test_file": {}}
     taf_happy_path.update_targets_yubikeys(
         [public_key],
         added_targets_data=targets_data,
         start_date=datetime.datetime.now(),
     )
 
-    assert (targets_path / "capstone").is_file()
+    assert (targets_path / "test_file").is_file()
     targets_obj = taf_happy_path._role_obj("targets")
-    assert "capstone" in targets_obj.target_files
+    assert "test_file" in targets_obj.target_files
 
-    # remove capstone
+    # remove test_file
     taf_happy_path.update_targets_yubikeys(
         [public_key],
         removed_targets_data=targets_data,
         start_date=datetime.datetime.now(),
     )
 
-    assert not (targets_path / "capstone").is_file()
+    assert not (targets_path / "test_file").is_file()
     targets_obj = taf_happy_path._role_obj("targets")
-    assert "capstone" not in targets_obj.target_files
+    assert "test_file" not in targets_obj.target_files
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
 def test_update_targets_wrong_key(repositories, root1_yk):
     taf_happy_path = repositories["test-happy-path"]
-    targets_data = {"capstone": {}}
+    targets_data = {"test_file": {}}
 
     with pytest.raises(taf.exceptions.TargetsMetadataUpdateError):
         root1_yk.insert()
