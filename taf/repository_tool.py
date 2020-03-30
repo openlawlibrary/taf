@@ -361,6 +361,9 @@ class Repository:
         empty file, specify empty content (target: '')
 
         Custom is an optional property which, if present, will be used to specify a TUF target's
+
+        Returns:
+        - Role name used to update given targets
         """
         added_data = {} if added_data is None else added_data
         removed_data = {} if removed_data is None else removed_data
@@ -415,6 +418,8 @@ class Repository:
     def get_role_from_target_paths(self, target_paths):
         """
         Find a common role that could be used to sign given target paths.
+
+        NOTE: Currently each target has only one mapped role.
         """
         targets_roles = self.map_signing_roles(target_paths)
         roles = list(targets_roles.values())
