@@ -964,7 +964,7 @@ def register_target_files(
     added_targets_data = {}  # modified included; re-added
     removed_targets_data = {}
     # find added (untracked + modified) and removed targets
-    if not auth_git_repo.is_git_repository:
+    if auth_git_repo.is_git_repository:
         # untracked files (doesn't have custom)
         for file_name in auth_git_repo.list_untracked_files(path="targets"):
             file_name = os.path.relpath(str(file_name), str(targets_path))
