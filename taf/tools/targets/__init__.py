@@ -1,6 +1,7 @@
 import click
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
 
 
 def attach_to_group(group):
@@ -26,9 +27,14 @@ def attach_to_group(group):
         signing. If a needed key is not in that directory, the file can either be signed
         sy manually entering the key or by using a yubikey.
         """
-        developer_tool.register_target_files(path, keystore=keystore,
-                                             roles_key_infos=keys_description,
-                                             scheme=scheme)
+        try:
+            developer_tool.register_target_files(path, keystore=keystore,
+                                                 roles_key_infos=keys_description,
+                                                 scheme=scheme)
+        except TAFError as e:
+            click.echo()
+            click.echo(str(e))
+            click.echo()
 
     @targets.command()
     @click.argument("path")

@@ -1,5 +1,6 @@
 import datetime
 import json
+import operator
 import os
 import shutil
 from fnmatch import fnmatch
@@ -17,6 +18,7 @@ from tuf.repository_tool import (
     import_rsakey_from_pem,
     load_repository,
 )
+from tuf.roledb import get_roleinfo
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
@@ -278,38 +280,47 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
-    def add_existing_targets(self, update_target_filenames):
-        """Register a list of files as TUF targets. Ensures that all targets
-        roles affected by update of these target files are normalized.
-        The files are expected to be inside the targets directory.
+    def get_all_target_files_state(self):
+        """Create dictionaries of added/modified and removed files by comparing current
+        file-system state with current signed targets (and delegations) metadata state.
 
         Args:
-        - update_target_filenames(str): Relative paths of the updated targets
+        - None
         Returns:
-        None
+        - Dict of added/modified files and dict of removed target files (inputs for
+          `modify_targets` method.)
 
         Raises:
-        - securesystemslib.exceptions.FormatError: If 'filepath' is improperly formatted.
-        - securesystemslib.exceptions.Error: If 'filepath' is not located in the repository's targets
+        - None
         """
+        added_target_files = {}
+        removed_target_files = {}
 
-        # find all files of roles if just one file delegated to that role
-        # was modified
-        # this is because we need to normalize the all target files before
-        # tuf calculates their legth and shas
-        # we do not want to register all files as changed as that would
-        # mean that we would update and have to sign all targets metadata files
-        # which might not even be possible if the user does not have all of the keys
-        all_target_files = self.all_target_files()
+        # current fs state
+        fs_target_files = set(self.all_target_files())
+        # current signed state
+        all_roles = self.get_all_targets_roles()
+        signed_target_files = set(
+            reduce(
+                operator.iconcat,
+                [self._role_obj(role).target_files for role in all_roles],
+                [],
+            )
+        )
 
-        roles_and_targets = self.target_files_by_roles(all_target_files)
-        for role_name, target_filenames in roles_and_targets.items():
-            if any(item in update_target_filenames for item in target_filenames):
-                targets_role_obj = self._role_obj(role_name)
-                for target_filename in target_filenames:
-                    self._add_target(
-                        targets_role_obj, str(self.targets_path / target_filename)
-                    )
+        # existing files with custom data and (modified) content
+        for file_name in fs_target_files:
+            target_file = self.targets_path / file_name
+            added_target_files[file_name] = {
+                "target": target_file.read_text(),
+                "custom": self.get_target_file_custom_data(file_name),
+            }
+
+        # removed files
+        for file_name in signed_target_files - fs_target_files:
+            removed_target_files[file_name] = {}
+
+        return added_target_files, removed_target_files
 
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
@@ -391,12 +402,15 @@ class Repository:
         for path in removed_data.keys():
             target_path = (self.targets_path / path).absolute()
             if target_path.exists():
-                targets_obj.remove_target(path)
-
                 if target_path.is_file():
                     target_path.unlink()
                 elif target_path.is_dir():
                     shutil.rmtree(target_path, onerror=on_rm_error)
+
+            try:
+                targets_obj.remove_target(path)
+            except Exception:
+                continue
 
         return targets_role
 
@@ -415,6 +429,17 @@ class Repository:
                     )
         return targets
 
+    def get_target_file_custom_data(self, target_path):
+        """
+        Return a custom data of a given target.
+        """
+        try:
+            role = self.get_role_from_target_paths([target_path])
+            roleinfo = get_roleinfo(role)
+            return roleinfo["paths"][target_path]
+        except Exception:
+            return None
+
     def get_role_from_target_paths(self, target_paths):
         """
         Find a common role that could be used to sign given target paths.
@@ -424,11 +449,15 @@ class Repository:
         targets_roles = self.map_signing_roles(target_paths)
         roles = list(targets_roles.values())
 
-        # all target files should have at least one common role
-        common_role = reduce(
-            set.intersection,
-            [set([r]) if isinstance(r, str) else set(r) for r in roles],
-        )
+        try:
+            # all target files should have at least one common role
+            common_role = reduce(
+                set.intersection,
+                [set([r]) if isinstance(r, str) else set(r) for r in roles],
+            )
+        except TypeError:
+            return None
+
         if not common_role:
             return None
 
@@ -474,7 +503,7 @@ class Repository:
         Delete all target files not specified in targets.json
         """
         targets_obj = self._role_obj(targets_role)
-        target_files_by_roles = self.sort_target_files_by_roles()
+        target_files_by_roles = self.sort_roles_targets_for_filenames()
         if targets_role in target_files_by_roles:
             for file_rel_path in target_files_by_roles[targets_role]:
                 if file_rel_path not in targets_obj.target_files:
@@ -493,7 +522,7 @@ class Repository:
         """
 
         def _find_delegated_role(parent_role_name, role_name):
-            delegations = self.get_delefations_info(parent_role_name)
+            delegations = self.get_delegations_info(parent_role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
@@ -516,7 +545,7 @@ class Repository:
 
         def _map_keys_to_roles(role_name, key_ids):
             keys_roles = []
-            delegations = self.get_delefations_info(role_name)
+            delegations = self.get_delegations_info(role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
@@ -541,7 +570,7 @@ class Repository:
 
         def _traverse_targets_roles(role_name):
             roles = [role_name]
-            delegations = self.get_delefations_info(role_name)
+            delegations = self.get_delegations_info(role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
@@ -569,7 +598,7 @@ class Repository:
         # of exactly one delegated role
         if parent_role is None:
             parent_role = self.find_delegated_roles_parent(role_name)
-        delegations = self.get_delefations_info(parent_role)
+        delegations = self.get_delegations_info(parent_role)
         for delegated_role in delegations["roles"]:
             if delegated_role["name"] == role_name:
                 return delegated_role[property_name]
@@ -649,7 +678,7 @@ class Repository:
             if all([fnmatch(repo, path) for path in role_paths])
         ]
 
-    def get_delefations_info(self, role_name):
+    def get_delegations_info(self, role_name):
         # load repository is not already loaded
         self._repository
         return tuf.roledb.get_roleinfo(role_name, self.name).get("delegations")
@@ -774,7 +803,7 @@ class Repository:
 
         def _map_targets_to_roles(role_name, target_filenames):
             roles_targets = {}
-            delegations = self.get_delefations_info(role_name)
+            delegations = self.get_delegations_info(role_name)
             if len(delegations):
                 for role_info in delegations.get("roles"):
                     # check if this role can sign target_path
@@ -870,7 +899,7 @@ class Repository:
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
 
-    def sort_target_files_by_roles(self):
+    def sort_roles_targets_for_filenames(self):
         rel_paths = []
         for filepath in self.targets_path.rglob("*"):
             if filepath.is_file():
@@ -999,13 +1028,13 @@ class Repository:
         if write:
             self._repository.write(role_name)
 
-    def target_files_by_roles(self, target_filenames):
+    def roles_targets_for_filenames(self, target_filenames):
         """Sort target files by roles
         Args:
-        - target_filenames: List of relativate paths of target files
+        - target_filenames: List of relative paths of target files
         Returns:
-        A dictionary mapping roles to a list of target files belonging
-        to the provided target_filenames list delegated to the role
+        - A dictionary mapping roles to a list of target files belonging
+          to the provided target_filenames list delegated to the role
         """
         targets_roles_mapping = self.map_signing_roles(target_filenames)
         roles_targets_mapping = {}
@@ -1094,7 +1123,12 @@ class Repository:
             raise MetadataUpdateError(role_name, str(e))
 
     def update_timestamp_keystores(
-        self, timestamp_signing_keys, start_date=None, interval=None, write=True
+        self,
+        timestamp_signing_keys,
+        start_date=None,
+        interval=None,
+        write=True,
+        **kwargs,
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -1132,6 +1166,7 @@ class Repository:
         interval=None,
         write=True,
         pins=None,
+        **kwargs,
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -1171,7 +1206,12 @@ class Repository:
             raise TimestampMetadataUpdateError(str(e))
 
     def update_snapshot_keystores(
-        self, snapshot_signing_keys, start_date=None, interval=None, write=True
+        self,
+        snapshot_signing_keys,
+        start_date=None,
+        interval=None,
+        write=True,
+        **kwargs,
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -1209,6 +1249,7 @@ class Repository:
         interval=None,
         write=True,
         pins=None,
+        **kwargs,
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -1255,6 +1296,7 @@ class Repository:
         start_date=None,
         interval=None,
         write=True,
+        **kwargs,
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
         one. If targets_data is specified, updates metadata corresponding to target files contained
@@ -1297,6 +1339,7 @@ class Repository:
         interval=None,
         write=True,
         pins=None,
+        **kwargs,
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
         one. If targets_data is specified, updates metadata corresponding to target files contained

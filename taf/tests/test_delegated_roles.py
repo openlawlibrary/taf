@@ -63,9 +63,9 @@ def test_find_keys_roles(
     ]
 
 
-def test_sort_target_files_by_roles(repositories):
+def test_sort_roles_targets_for_filenames(repositories):
     taf_delegated_roles = repositories["test-delegated-roles"]
-    targets_files_by_roles = taf_delegated_roles.sort_target_files_by_roles()
+    targets_files_by_roles = taf_delegated_roles.sort_roles_targets_for_filenames()
     assert "delegated_role1" in targets_files_by_roles
     for target_file in targets_files_by_roles["delegated_role1"]:
         assert target_file in [
