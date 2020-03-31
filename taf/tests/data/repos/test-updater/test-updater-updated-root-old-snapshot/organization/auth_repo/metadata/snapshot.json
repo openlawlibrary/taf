@@ -1,0 +1,22 @@
+{
+ "signatures": [
+  {
+   "keyid": "589a4f5fdf7a289071726f4981da0ca0743faceacea60bd1608d3c61f376f4ec",
+   "sig": "59c7ba8939ee6ca2daecb161c8ed7656cea0805bd0382e60dae91a4626d9300412f246771e4e0ee6f3dd5bbe1669a096c448b206baf6d26289b535a7a8de69f1582f0570a31b3579335c04401ccca83d6856aa72b213b6901910d08e49d70eedaa9bf64677fc56c0f3b7f3f03a94d4f1d98cb4a67c3d8e51f8988adfdc5faa4c1a30628bace4704f3068a0f48a4c15bc28d6b67cf5bd23b09e28a43d1c8c74ebee6e872760c6a1dec76aac90e1199671caef0886b57c7cc6c073d3c28bb65481a8a137b6d7e0b28b585ec72785b20a2f9b4f95e3445370767467a102d6406c55c1b6df6bf7d7d154c0d982128c4c99481a4491904aa01949a046cbbc113136ae"
+  }
+ ],
+ "signed": {
+  "_type": "snapshot",
+  "expires": "2020-04-07T19:31:48Z",
+  "meta": {
+   "root.json": {
+    "version": 1
+   },
+   "targets.json": {
+    "version": 2
+   }
+  },
+  "spec_version": "1.0",
+  "version": 2
+ }
+}
