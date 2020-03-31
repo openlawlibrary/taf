@@ -124,8 +124,7 @@ def add_signing_key(
         if num_of_signatures == keys_num:
             all_loaded = True
 
-    _update_roles(taf_repo, ["snapshot", "timestamp"], keystore, roles_infos)
-    taf_repo.writeall()
+    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
 
 
 def _load_signing_keys(
@@ -706,7 +705,9 @@ def _enter_role_info(role, is_targets_role, keystore):
             delegated_roles[role_name]["paths"] = delegated_paths
             is_terminating = click.confirm(f"Is {role_name} terminating?")
             delegated_roles[role_name]["terminating"] = is_terminating
-            delegated_roles[role_name].update(_enter_role_info(role_name, True))
+            delegated_roles[role_name].update(
+                _enter_role_info(role_name, True, keystore)
+            )
         role_info["delegations"] = delegated_roles
 
     return role_info
@@ -957,37 +958,37 @@ def register_target_files(
     roles_infos = roles_key_infos.get("roles")
 
     repo_path = Path(repo_path).resolve()
-    targets_path = repo_path / TARGETS_DIRECTORY_NAME
+    # targets_path = repo_path / TARGETS_DIRECTORY_NAME
     taf_repo = Repository(str(repo_path))
     auth_git_repo = GitRepository(repo_path)
 
     added_targets_data = {}  # modified included; re-added
     removed_targets_data = {}
     # find added (untracked + modified) and removed targets
-    if auth_git_repo.is_git_repository:
-        # untracked files (doesn't have custom)
-        for file_name in auth_git_repo.list_untracked_files(path="targets"):
-            file_name = os.path.relpath(str(file_name), str(targets_path))
-            added_targets_data[file_name] = {
-                "target": Path(taf_repo.targets_path, file_name).read_text()
-            }
+    # if auth_git_repo.is_git_repository:
+    #     # untracked files (doesn't have custom)
+    #     for file_name in auth_git_repo.list_untracked_files(path="targets"):
+    #         file_name = os.path.relpath(str(file_name), str(targets_path))
+    #         added_targets_data[file_name] = {
+    #             "target": Path(taf_repo.targets_path, file_name).read_text()
+    #         }
 
-        # tracked files: deleted, modified, ...
-        tracked_files = auth_git_repo.list_modified_files(
-            path="targets", with_status=True
-        )
+    #     # tracked files: deleted, modified, ...
+    #     tracked_files = auth_git_repo.list_modified_files(
+    #         path="targets", with_status=True
+    #     )
 
-        for status, file_name in tracked_files:
-            file_name = os.path.relpath(str(file_name), str(targets_path))
-            if status == "D":
-                removed_targets_data[file_name] = {}
-            else:
-                added_targets_data[file_name] = {
-                    "target": Path(taf_repo.targets_path, file_name).read_text(),
-                    "custom": taf_repo.get_target_file_custom_data(file_name),
-                }
-    else:
-        added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
+    #     for status, file_name in tracked_files:
+    #         file_name = os.path.relpath(str(file_name), str(targets_path))
+    #         if status == "D":
+    #             removed_targets_data[file_name] = {}
+    #         else:
+    #             added_targets_data[file_name] = {
+    #                 "target": Path(taf_repo.targets_path, file_name).read_text(),
+    #                 "custom": taf_repo.get_target_file_custom_data(file_name),
+    #             }
+    # else:
+    added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
 
     # get targets role
     role = taf_repo.get_role_from_target_paths(
@@ -997,14 +998,13 @@ def register_target_files(
     if role is None:
         raise TargetsMetadataUpdateError("There are no modified files!")
 
-    _update_roles(
+    _update_target_roles(
         taf_repo,
-        [role, "snapshot", "timestamp"],
+        added_targets_data,
+        removed_targets_data,
         keystore,
         roles_infos,
         scheme,
-        added_targets_data,
-        removed_targets_data,
     )
 
     if commit:
@@ -1136,33 +1136,72 @@ def update_metadata_expiration_date(
         auth_repo.commit(commit_message)
 
 
-def _update_roles(
+def update_snapshot_and_timestamp(
+    taf_repo, keystore, roles_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
+):
+    loaded_yubikeys = {}
+
+    for role in ("snapshot", "timestamp"):
+        keystore_keys, yubikeys = _load_signing_keys(
+            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
+        )
+        if len(yubikeys):
+            update_method = taf_repo.roles_yubikeys_update_method(role)
+            update_method(yubikeys, write=False)
+        else:
+            update_method = taf_repo.roles_keystore_update_method(role)
+            update_method(keystore_keys, write=False)
+
+    if write_all:
+        taf_repo.writeall()
+
+
+def _update_target_roles(
     taf_repo,
-    roles,
+    added_targets_data,
+    removed_targets_data,
     keystore,
     roles_infos,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    added_targets_data=None,
-    removed_targets_data=None,
 ):
-    targets_kwargs = dict(
-        added_targets_data=added_targets_data, removed_targets_data=removed_targets_data
+    """Update given targets data with an appropriate role, as well as snapshot and
+    timestamp roles.
+    """
+    added_targets_data = {} if added_targets_data is None else added_targets_data
+    removed_targets_data = {} if removed_targets_data is None else removed_targets_data
+
+    roles_targets = taf_repo.roles_targets_for_filenames(
+        list(added_targets_data.keys()) + list(removed_targets_data.keys())
     )
 
+    # update targets
     loaded_yubikeys = {}
-
-    for role_name in roles:
+    for role, target_paths in roles_targets.items():
         keystore_keys, yubikeys = _load_signing_keys(
-            taf_repo, role_name, keystore, roles_infos, loaded_yubikeys, scheme=scheme
+            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
         )
-        if len(yubikeys):
-            update_method = taf_repo.roles_yubikeys_update_method(role_name)
-            update_method(yubikeys, write=False, **targets_kwargs)
-        else:
-            update_method = taf_repo.roles_keystore_update_method(role_name)
-            update_method(keystore_keys, write=False, **targets_kwargs)
+        targets_data = dict(
+            added_targets_data={
+                path: val
+                for path, val in added_targets_data.items()
+                if path in target_paths
+            },
+            removed_targets_data={
+                path: val
+                for path, val in removed_targets_data.items()
+                if path in target_paths
+            },
+        )
 
-    taf_repo.writeall()
+        if len(yubikeys):
+            taf_repo.update_targets_yubikeys(yubikeys, write=False, **targets_data)
+        else:
+            taf_repo.update_targets_keystores(
+                keystore_keys, write=False, **targets_data
+            )
+
+    # update other roles and writeall
+    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
 
 
 # TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing
