@@ -286,11 +286,11 @@ def update_target_repos_from_repositories_json(
 def _check_if_can_create_repository(auth_repo):
     repo_path = Path(auth_repo.path)
     if repo_path.is_dir():
-        # check if there are metadata and targets directories
-        if (auth_repo.metadata_path).is_dir():
+        # check if there is non-empty metadata directory
+        if auth_repo.metadata_path.is_dir() and any(auth_repo.metadata_path.iterdir()):
             if auth_repo.is_git_repository:
                 print(
-                    f'"{repo_path}" is a git repository containing the metadata directory. Generating neew metadata files could make the repository invalid. Aborting.'
+                    f'"{repo_path}" is a git repository containing the metadata directory. Generating new metadata files could make the repository invalid. Aborting.'
                 )
                 return False
             if not click.confirm(
