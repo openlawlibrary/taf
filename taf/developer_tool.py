@@ -402,14 +402,17 @@ def create_repository(
         )
         test_auth_file.touch()
 
-    # check if there are any targets files and add them to the corresponding targets metadata
-    taf_repository = Repository(repo_path)
-    taf_repository._tuf_repository = repository
-    target_files = taf_repository.all_target_files()
-    if len(target_files):
-        taf_repository.add_existing_targets(target_files)
+    # register and sign target files (if any)
+    try:
+        taf_repository = Repository(repo_path)
+        taf_repository._tuf_repository = repository
+        register_target_files(
+            repo_path, keystore, roles_key_infos, commit=commit, taf_repo=taf_repository
+        )
+    except TargetsMetadataUpdateError:
+        # if there are no target files
+        repository.writeall()
 
-    repository.writeall()
     print("Created new authentication repository")
 
     if commit:
@@ -933,6 +936,7 @@ def register_target_files(
     roles_key_infos=None,
     commit=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    taf_repo=None,
 ):
     """
     <Purpose>
@@ -950,6 +954,8 @@ def register_target_files(
         Commit message. If specified, the changes made to the authentication are committed.
         scheme:
         A signature scheme used for signing.
+        taf_repo:
+        If taf repository is already initialized, it can be passed and used.
     """
     print("Signing target files")
     roles_key_infos, keystore = _initialize_roles_and_keystore(
@@ -957,46 +963,12 @@ def register_target_files(
     )
     roles_infos = roles_key_infos.get("roles")
 
-    repo_path = Path(repo_path).resolve()
-    # targets_path = repo_path / TARGETS_DIRECTORY_NAME
-    taf_repo = Repository(str(repo_path))
-    auth_git_repo = GitRepository(repo_path)
+    if taf_repo is None:
+        repo_path = Path(repo_path).resolve()
+        taf_repo = Repository(str(repo_path))
 
-    added_targets_data = {}  # modified included; re-added
-    removed_targets_data = {}
-    # find added (untracked + modified) and removed targets
-    # if auth_git_repo.is_git_repository:
-    #     # untracked files (doesn't have custom)
-    #     for file_name in auth_git_repo.list_untracked_files(path="targets"):
-    #         file_name = os.path.relpath(str(file_name), str(targets_path))
-    #         added_targets_data[file_name] = {
-    #             "target": Path(taf_repo.targets_path, file_name).read_text()
-    #         }
-
-    #     # tracked files: deleted, modified, ...
-    #     tracked_files = auth_git_repo.list_modified_files(
-    #         path="targets", with_status=True
-    #     )
-
-    #     for status, file_name in tracked_files:
-    #         file_name = os.path.relpath(str(file_name), str(targets_path))
-    #         if status == "D":
-    #             removed_targets_data[file_name] = {}
-    #         else:
-    #             added_targets_data[file_name] = {
-    #                 "target": Path(taf_repo.targets_path, file_name).read_text(),
-    #                 "custom": taf_repo.get_target_file_custom_data(file_name),
-    #             }
-    # else:
+    # find files that should be added/modified/removed
     added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
-
-    # get targets role
-    role = taf_repo.get_role_from_target_paths(
-        list(added_targets_data.keys()) + list(removed_targets_data.keys())
-    )
-
-    if role is None:
-        raise TargetsMetadataUpdateError("There are no modified files!")
 
     _update_target_roles(
         taf_repo,
@@ -1008,6 +980,7 @@ def register_target_files(
     )
 
     if commit:
+        auth_git_repo = GitRepository(taf_repo.path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_git_repo.commit(commit_message)
 
@@ -1173,6 +1146,11 @@ def _update_target_roles(
     roles_targets = taf_repo.roles_targets_for_filenames(
         list(added_targets_data.keys()) + list(removed_targets_data.keys())
     )
+
+    if not roles_targets:
+        raise TargetsMetadataUpdateError(
+            "There are no added/modified/removed target files."
+        )
 
     # update targets
     loaded_yubikeys = {}

@@ -11,6 +11,7 @@ import securesystemslib
 import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
+from securesystemslib.util import HASH_FUNCTION, get_file_details
 from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
@@ -307,14 +308,17 @@ class Repository:
                 [],
             )
         )
-
         # existing files with custom data and (modified) content
         for file_name in fs_target_files:
             target_file = self.targets_path / file_name
-            added_target_files[file_name] = {
-                "target": target_file.read_text(),
-                "custom": self.get_target_file_custom_data(file_name),
-            }
+            content = target_file.read_text()
+            # register only new or changed files
+            _, hashes = get_file_details(str(target_file))
+            if not hashes.get(HASH_FUNCTION) == self.get_target_file_hashes(file_name):
+                added_target_files[file_name] = {
+                    "target": content,
+                    "custom": self.get_target_file_custom_data(file_name),
+                }
 
         # removed files
         for file_name in signed_target_files - fs_target_files:
@@ -438,6 +442,20 @@ class Repository:
             return roleinfo["paths"][target_path]
         except Exception:
             return None
+
+    def get_target_file_hashes(self, target_path, hash_func=HASH_FUNCTION):
+        """
+        Return hashes of a given target path.
+        """
+        hashes = {"sha256": None, "sha512": None}
+        try:
+            role = self.get_role_from_target_paths([target_path])
+            role_dict = json.loads((self.metadata_path / f"{role}.json").read_text())
+            hashes.update(role_dict["signed"]["targets"][target_path]["hashes"])
+        except Exception:
+            pass
+
+        return hashes.get(hash_func, hashes)
 
     def get_role_from_target_paths(self, target_paths):
         """
