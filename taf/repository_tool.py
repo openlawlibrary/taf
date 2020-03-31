@@ -388,7 +388,6 @@ class Repository:
             raise TargetsError(
                 f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
             )
-
         targets_obj = self._role_obj(targets_role)
 
         # add new target files
@@ -1123,12 +1122,7 @@ class Repository:
             raise MetadataUpdateError(role_name, str(e))
 
     def update_timestamp_keystores(
-        self,
-        timestamp_signing_keys,
-        start_date=None,
-        interval=None,
-        write=True,
-        **kwargs,
+        self, timestamp_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -1166,7 +1160,6 @@ class Repository:
         interval=None,
         write=True,
         pins=None,
-        **kwargs,
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -1206,12 +1199,7 @@ class Repository:
             raise TimestampMetadataUpdateError(str(e))
 
     def update_snapshot_keystores(
-        self,
-        snapshot_signing_keys,
-        start_date=None,
-        interval=None,
-        write=True,
-        **kwargs,
+        self, snapshot_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Load the signing keys and sign the file if
@@ -1249,7 +1237,6 @@ class Repository:
         interval=None,
         write=True,
         pins=None,
-        **kwargs,
     ):
         """Update snapshot metadata's expiration date by setting it to a date calculated by
         adding the specified interval to start date. Register Yubikey signature providers and
@@ -1296,7 +1283,6 @@ class Repository:
         start_date=None,
         interval=None,
         write=True,
-        **kwargs,
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
         one. If targets_data is specified, updates metadata corresponding to target files contained
@@ -1339,7 +1325,6 @@ class Repository:
         interval=None,
         write=True,
         pins=None,
-        **kwargs,
     ):
         """Update a targets role's metadata. The role can be either be main targets role or a delegated
         one. If targets_data is specified, updates metadata corresponding to target files contained
