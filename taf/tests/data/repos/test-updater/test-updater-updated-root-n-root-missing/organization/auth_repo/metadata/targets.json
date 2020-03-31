@@ -1,0 +1,48 @@
+{
+ "signatures": [
+  {
+   "keyid": "d36f105af5bdb063d1005ee254e7e236b8dc116097a6dd78a22111b1d429533f",
+   "sig": "0c403f56fb295fde1189528f5f53ea981d11a76287e2412f92bb895db4055ca64395a53ced562dea968df57a62b73f2858c9d9cad1be739ec10c815dc9195a87976f4287246705c517862c561d226cd3dc745d6f082b92638d91aeab996ca1e80d6547a2814ae009c3a3afb2122b0c5a86425a425ef35826bc37a67032d4de4860dc8e4ccdc0df933546ff2bcfbb26829c9bb07a6d44d9b0a4a7374feba310a3076cce1a3a7e3f402ebc15b2bd478c0781870f20a72469b7a590a160fa2459a381de98bc9d61a3a7bf04cd6dc2b02dc64f994614e616508675f9eb0bacc979bdd9772871392b21724329f635a52ced2d77c9e37ec05096d227709981e11aa8f6"
+  }
+ ],
+ "signed": {
+  "_type": "targets",
+  "delegations": {
+   "keys": {},
+   "roles": []
+  },
+  "expires": "2020-06-29T23:31:36Z",
+  "spec_version": "1.0",
+  "targets": {
+   "namespace/TargetRepo1": {
+    "hashes": {
+     "sha256": "004dab321437c358151b98beafcb49f18d0c629a79eea2badd2ab8bcc7605b2f",
+     "sha512": "fe00bb33e96d9beb683ae73b7f0d688c3bf347b1b871db1106df9331eefc3834cc82a03854806ac8777a27b4faf8c611afa6411d515da4ee30d1c8abdc625593"
+    },
+    "length": 60
+   },
+   "namespace/TargetRepo2": {
+    "hashes": {
+     "sha256": "ff212d857205fa69f077ad7f17fc6b64a161737d3d7fcc54dbad2287e09d1595",
+     "sha512": "853258bdfd0bccaf0cec77160189beb00e9352048721081bf4420d378a11a87339136cc5412ae2c7d70d3a7def273c5428bcaf5258e0a77c699f7b8c14e5f14e"
+    },
+    "length": 60
+   },
+   "namespace/TargetRepo3": {
+    "hashes": {
+     "sha256": "ff09e0cb07241086fea7a471c4cb69471cf728cb858ab5bdb55e383365686e83",
+     "sha512": "8c664001cc0b53a41d447c34ff80ef0e386b346092a05e28f7ad39b146a095ad294fa2c8be322192fb7c2f060ea40bbbf2c0bcbcdd2bfe2cb08ea70dd8def19d"
+    },
+    "length": 60
+   },
+   "repositories.json": {
+    "hashes": {
+     "sha256": "804a8c36c8b039633d6e91d8c83f9c92deb1c17d18534b293520f28125a5df91",
+     "sha512": "f2bb92c8f86bf845a44db307c20b0d26559cd95206247338eeeab9cee3ef4e4b219d7420b5d138d68c5cca2a6e16ce53d223483be3adbfa26b5675546d5b4f74"
+    },
+    "length": 567
+   }
+  },
+  "version": 2
+ }
+}
