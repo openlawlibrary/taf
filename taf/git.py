@@ -536,6 +536,10 @@ class GitRepository:
             list_of_files.append(file_in_repo)
         return list_of_files
 
+    def list_changed_files_at_revision(self, commit):
+        file_names = self._git("diff-tree --no-commit-id --name-only -r {}", commit)
+        return (file_names or []).split("\n")
+
     def list_commits(self, branch="", **kwargs):
         params = []
         for name, value in kwargs.items():
