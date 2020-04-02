@@ -428,7 +428,11 @@ class Repository:
                 filepath = Path(root) / filename
                 if filepath.is_file():
                     targets.append(
-                        os.path.relpath(str(filepath), str(self.targets_path))
+                        str(
+                            Path(
+                                os.path.relpath(str(filepath), str(self.targets_path))
+                            ).as_posix()
+                        )
                     )
         return targets
 
