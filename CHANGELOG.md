@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Updater tests which validate updated root metadata ([118])
 - Create empty targets directory before instantiating tuf repository if it does not exist ([114])
 - When creating a new repository, print user's answers to setup question as json ([114])
 - Sign all target files which are found inside the targets directory when creating a new repository ([114])
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Load signing keys minor fixes ([117])
 - Normalize target files when creating a new repository ([117])
 
+[118]: https://github.com/openlawlibrary/taf/pull/118
 [117]: https://github.com/openlawlibrary/taf/pull/117
 [114]: https://github.com/openlawlibrary/taf/pull/114
 
