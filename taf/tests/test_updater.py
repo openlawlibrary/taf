@@ -101,6 +101,9 @@ def run_around_tests(client_dir):
         ("test-updater-test-repo", True),
         ("test-updater-multiple-branches", False),
         ("test-updater-delegated-roles", False),
+        ("test-updater-updated-root", False),
+        ("test-updater-updated-root-old-snapshot", False),
+        ("test-updater-updated-root-version-skipped", False),
     ],
 )
 def test_valid_update_no_client_repo(
@@ -119,6 +122,9 @@ def test_valid_update_no_client_repo(
         ("test-updater-allow-unauthenticated-commits", 1),
         ("test-updater-multiple-branches", 5),
         ("test-updater-delegated-roles", 1),
+        ("test-updater-updated-root", 1),
+        ("test-updater-updated-root-old-snapshot", 1),
+        ("test-updater-updated-root-version-skipped", 1),
     ],
 )
 def test_valid_update_existing_client_repos(
@@ -175,6 +181,8 @@ def test_no_update_necessary(
         ("test-updater-invalid-version-number", REPLAYED_METADATA),
         ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT),
         ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH),
+        ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS),
+        ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS),
     ],
 )
 def test_updater_invalid_update(

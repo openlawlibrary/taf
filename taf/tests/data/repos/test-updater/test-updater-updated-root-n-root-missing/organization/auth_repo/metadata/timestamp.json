@@ -1,0 +1,23 @@
+{
+ "signatures": [
+  {
+   "keyid": "cf70c2c4ac749948ca495f9275ceb8525cfb7c463118b54ca5be844ca5cfc0d6",
+   "sig": "0631bb955a00deb864bc4da5988dc902ffbf33eab45a57c95e4cecc99c8be1a4a297fd95406cda0f26676bdfcb104896f956cb35b83cab9a712b0288661f06952f423c3cd02935d1c3c2bed7fb62e828bbbf5560d434081cc6cd2ec58b2de5080ea2c43ae2bdfad1551c3e7d23f8e79c4effe9afec7c2decf2dc00d77bf905d94c929f87fcd2499c0c5b1b74c1c137fe1a483f712f7bcd031f73d048bbf19776dcd9dc97125d883276c5340026bff819a518e5eb5cd09ccc7e0caf83658de1bd8631f03e4e957a95e74e8ae816e7b390e6347100e73bcfc2273413399fac70f87103e70537f3163b67188aad3da34001ec322990362e332941467768d0ae5682"
+  }
+ ],
+ "signed": {
+  "_type": "timestamp",
+  "expires": "2020-04-01T23:31:36Z",
+  "meta": {
+   "snapshot.json": {
+    "hashes": {
+     "sha256": "7072088aabfd783dcce98867979dfa7aec97ed89d59b481fc46cd23e22d6d578"
+    },
+    "length": 854,
+    "version": 2
+   }
+  },
+  "spec_version": "1.0",
+  "version": 2
+ }
+}
