@@ -298,25 +298,18 @@ class Repository:
         removed_target_files = {}
 
         # current fs state
-        fs_target_files = set(self.all_target_files())
+        fs_target_files = self.all_target_files()
         # current signed state
-        all_roles = self.get_all_targets_roles()
-        signed_target_files = set(
-            reduce(
-                operator.iconcat,
-                [self._role_obj(role).target_files for role in all_roles],
-                [],
-            )
-        )
+        signed_target_files = self.get_signed_target_files()
+
         # existing files with custom data and (modified) content
         for file_name in fs_target_files:
             target_file = self.targets_path / file_name
-            content = target_file.read_text()
-            # register only new or changed files
             _, hashes = get_file_details(str(target_file))
-            if not hashes.get(HASH_FUNCTION) == self.get_target_file_hashes(file_name):
+            # register only new or changed files
+            if hashes.get(HASH_FUNCTION) != self.get_target_file_hashes(file_name):
                 added_target_files[file_name] = {
-                    "target": content,
+                    "target": target_file.read_text(),
                     "custom": self.get_target_file_custom_data(file_name),
                 }
 
@@ -325,6 +318,24 @@ class Repository:
             removed_target_files[file_name] = {}
 
         return added_target_files, removed_target_files
+
+    def get_signed_target_files(self):
+        """Return all target files signed by all roles.
+
+        Args:
+        - None
+
+        Returns:
+        - Set of all target paths relative to targets directory
+        """
+        all_roles = self.get_all_targets_roles()
+        return set(
+            reduce(
+                operator.iconcat,
+                [self._role_obj(role).target_files for role in all_roles],
+                [],
+            )
+        )
 
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
@@ -393,7 +404,6 @@ class Repository:
                 f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
             )
         targets_obj = self._role_obj(targets_role)
-
         # add new target files
         for path, target_data in added_data.items():
             target_path = (self.targets_path / path).absolute()
@@ -419,7 +429,7 @@ class Repository:
 
     def all_target_files(self):
         """
-        Return a list of relative paths of all files inside the targets
+        Return a set of relative paths of all files inside the targets
         directory
         """
         targets = []
@@ -434,7 +444,7 @@ class Repository:
                             ).as_posix()
                         )
                     )
-        return targets
+        return set(targets)
 
     def get_target_file_custom_data(self, target_path):
         """
