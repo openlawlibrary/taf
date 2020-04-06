@@ -548,7 +548,16 @@ def _setup_keystore_key(
                 generate_new_keys = click.confirm("Generate new keys?")
                 if not generate_new_keys:
                     if click.confirm("Reuse existing key?"):
-                        key_name = input("Enter name of an existing keystore file: ")
+                        reused_key_name = input(
+                            "Enter name of an existing keystore file: "
+                        )
+                        # copy existing private and public keys to the new files
+                        Path(keystore, key_name).write_bytes(
+                            Path(keystore, reused_key_name).read_bytes()
+                        )
+                        Path(keystore, key_name + ".pub").write_bytes(
+                            Path(keystore, reused_key_name + ".pub").read_bytes()
+                        )
                     else:
                         raise KeystoreError(f"Could not load {key_name}")
                 else:
