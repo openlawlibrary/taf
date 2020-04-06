@@ -9,23 +9,27 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Import error handling for `taf.yubikey` module ([120])
 - Updater tests which validate updated root metadata ([118])
-- New test cases for updating targets/delegations metadata [116]
+- New test cases for updating targets/delegations metadata ([116])
 - Create empty targets directory before instantiating tuf repository if it does not exist ([114])
 - When creating a new repository, print user's answers to setup question as json ([114])
 - Sign all target files which are found inside the targets directory when creating a new repository ([114])
 
 ### Changed
 
-- Use common role of given targets during update of targets/delegations metadata [116]
+- Logging formats ([120])
+- Use common role of given targets during update of targets/delegations metadata ([116])
 - Changed format of keys description json, as it can now contain roles' description under "roles" key and keystore path under "keystore" key ([114])
 
 ### Fixed
 
-- Load signing keys minor fixes ([117])
+- Signing fixes with keystore keys ([120])
+- Load signing keys minor fixes ([120] [117])
 - Normalize target files when creating a new repository ([117])
 
 
+[120]: https://github.com/openlawlibrary/taf/pull/120
 [118]: https://github.com/openlawlibrary/taf/pull/118
 [117]: https://github.com/openlawlibrary/taf/pull/117
 [116]: https://github.com/openlawlibrary/taf/pull/116
