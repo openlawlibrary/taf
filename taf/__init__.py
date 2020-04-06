@@ -4,6 +4,10 @@ import os
 import sys
 from pathlib import Path
 
+YUBIKEY_MANAGER_ERR_MSG = (
+    '"yubikey-manager" is not installed. Run "pip install .[yubikey]" to install it.'
+)
+
 _PLATFORM = sys.platform
 
 _PLATFORM_LIBS = str((Path(__file__).parent / "libs").resolve())
