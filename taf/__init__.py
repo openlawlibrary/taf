@@ -4,9 +4,20 @@ import os
 import sys
 from pathlib import Path
 
-YUBIKEY_MANAGER_ERR_MSG = (
-    '"yubikey-manager" is not installed. Run "pip install .[yubikey]" to install it.'
-)
+
+class YubikeyMissingLibrary:
+    """If `yubikey-manager` is not installed and we try to use any function from `taf.yubikey`
+    module, we will log appropriate error message and exit with code 1.
+    """
+
+    ERR_MSG = '"yubikey-manager" is not installed. Run "pip install .[yubikey]" to install it.'
+
+    def __getattr__(self, name):
+        from taf.log import taf_logger
+
+        taf_logger.warning(YubikeyMissingLibrary.ERR_MSG)
+        sys.exit(1)
+
 
 _PLATFORM = sys.platform
 

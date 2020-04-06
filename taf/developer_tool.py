@@ -17,7 +17,7 @@ from tuf.repository_tool import (
     generate_rsa_key,
 )
 
-from taf import YUBIKEY_MANAGER_ERR_MSG
+from taf import YubikeyMissingLibrary
 from taf.auth_repo import AuthenticationRepo
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, TargetsMetadataUpdateError
@@ -29,14 +29,13 @@ from taf.keystore import (
     read_private_key_from_keystore,
     read_public_key_from_keystore,
 )
-from taf.log import taf_logger
 from taf.repository_tool import Repository, yubikey_signature_provider
 from taf.utils import get_key_size, read_input_dict
 
 try:
     import taf.yubikey as yk
 except ImportError:
-    taf_logger.warning(YUBIKEY_MANAGER_ERR_MSG)
+    yk = YubikeyMissingLibrary()
 
 # Yubikey x509 certificate expiration interval
 EXPIRATION_INTERVAL = 36500
