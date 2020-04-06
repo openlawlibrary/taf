@@ -1,4 +1,5 @@
 from getpass import getpass
+from os import getcwd
 from pathlib import Path
 
 import click
@@ -11,6 +12,13 @@ from tuf.repository_tool import import_rsakey_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
+from taf.log import taf_logger
+
+
+def _default_keystore_path():
+    keystore_path = str(Path(getcwd(), "keystore"))
+    taf_logger.info(f"Keystore path is not passed, using default one: {keystore_path}")
+    return keystore_path
 
 
 def _form_private_pem(pem):
