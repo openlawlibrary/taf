@@ -170,8 +170,10 @@ def _load_signing_keys(
                     key = read_private_key_from_keystore(
                         keystore, key_name, role_infos, num_of_signatures, scheme
                     )
-                    keys.append(key)
-                    num_of_signatures += 1
+                    # load only valid keys
+                    if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
+                        keys.append(key)
+                        num_of_signatures += 1
                 except KeystoreError:
                     pass
 
