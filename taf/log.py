@@ -1,8 +1,10 @@
 import os
 import sys
+from pathlib import Path
+
 import tuf.log
 from loguru import logger as taf_logger
-from pathlib import Path
+
 import taf.settings as settings
 
 _FORMAT_STRING = "[{time}] [{level}] [{module} {function}@{line}]\n{message}\n"
@@ -26,9 +28,6 @@ taf_logger.remove()
 if settings.ENABLE_CONSOLE_LOGGING:
     console_loggers["log"] = taf_logger.add(
         sys.stdout, format=_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
-    )
-    console_loggers["error"] = taf_logger.add(
-        sys.stderr, format=_FORMAT_STRING, level=settings.ERROR_LOGGING_LEVEL
     )
 
 
