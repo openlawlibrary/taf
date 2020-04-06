@@ -7,7 +7,7 @@ from loguru import logger as taf_logger
 
 import taf.settings as settings
 
-_CONSOLE_FORMAT_STRING = "\n[{module}:{function}@{line}]: {message}\n"
+_CONSOLE_FORMAT_STRING = "\n{message}\n"
 _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message}\n"
 
 console_loggers = {}
