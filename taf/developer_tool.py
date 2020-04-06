@@ -470,7 +470,7 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     """
     roles_key_infos_dict = read_input_dict(roles_key_infos)
     if keystore is None:
-        keystore = roles_key_infos_dict.get("keystore", _default_keystore_path())
+        keystore = roles_key_infos_dict.get("keystore") or _default_keystore_path()
 
     if enter_info and not len(roles_key_infos_dict):
         # ask the user to enter roles, number of keys etc.
