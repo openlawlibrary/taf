@@ -23,6 +23,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keystore import (
+    _default_keystore_path,
     key_cmd_prompt,
     new_public_key_cmd_prompt,
     read_private_key_from_keystore,
@@ -467,11 +468,13 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     that json
     """
     roles_key_infos_dict = read_input_dict(roles_key_infos)
+    if keystore is None:
+        keystore = roles_key_infos_dict.get("keystore", _default_keystore_path())
+
     if enter_info and not len(roles_key_infos_dict):
         # ask the user to enter roles, number of keys etc.
         roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
-    if keystore is None:
-        keystore = roles_key_infos_dict.get("keystore")
+
     return roles_key_infos_dict, keystore
 
 
