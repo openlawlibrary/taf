@@ -7,7 +7,8 @@ from loguru import logger as taf_logger
 
 import taf.settings as settings
 
-_FORMAT_STRING = "[{time}] [{level}] [{module} {function}@{line}]\n{message}\n"
+_CONSOLE_FORMAT_STRING = "\n[{module}:{function}@{line}]: {message}\n"
+_FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message}\n"
 
 console_loggers = {}
 file_loggers = {}
@@ -27,7 +28,7 @@ taf_logger.remove()
 
 if settings.ENABLE_CONSOLE_LOGGING:
     console_loggers["log"] = taf_logger.add(
-        sys.stdout, format=_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
+        sys.stdout, format=_CONSOLE_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
     )
 
 
@@ -35,13 +36,15 @@ if settings.ENABLE_FILE_LOGGING:
     logs_location = _get_log_location()
     log_path = str(logs_location / settings.LOG_FILENAME)
     file_loggers["log"] = taf_logger.add(
-        log_path, format=_FORMAT_STRING, level=settings.FILE_LOGGING_LEVEL
+        log_path, format=_FILE_FORMAT_STRING, level=settings.FILE_LOGGING_LEVEL
     )
 
     if settings.SEPARATE_ERRORS:
         error_log_path = str(logs_location / settings.ERROR_LOG_FILENAME)
         file_loggers["error"] = taf_logger.add(
-            error_log_path, format=_FORMAT_STRING, level=settings.ERROR_LOGGING_LEVEL
+            error_log_path,
+            format=_FILE_FORMAT_STRING,
+            level=settings.ERROR_LOGGING_LEVEL,
         )
 
 
