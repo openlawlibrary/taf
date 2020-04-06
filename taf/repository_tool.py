@@ -3,7 +3,6 @@ import json
 import operator
 import os
 import shutil
-import sys
 from fnmatch import fnmatch
 from functools import partial, reduce
 from pathlib import Path
@@ -22,7 +21,7 @@ from tuf.repository_tool import (
 )
 from tuf.roledb import get_roleinfo
 
-from taf import YUBIKEY_MANAGER_ERR_MSG
+from taf import YubikeyMissingLibrary
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     InvalidKeyError,
@@ -36,8 +35,12 @@ from taf.exceptions import (
     YubikeyError,
 )
 from taf.git import GitRepository
-from taf.log import taf_logger
 from taf.utils import normalize_file_line_endings, on_rm_error
+
+try:
+    import taf.yubikey as yk
+except ImportError:
+    yk = YubikeyMissingLibrary()
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -118,12 +121,6 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     A signatures provider which asks the user to insert a yubikey
     Useful if several yubikeys need to be used at the same time
     """
-    try:
-        import taf.yubikey as yk
-    except ImportError:
-        taf_logger.warning(YUBIKEY_MANAGER_ERR_MSG)
-        sys.exit(1)
-
     from binascii import hexlify
 
     data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
@@ -823,13 +820,7 @@ class Repository:
         securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
 
         if public_key is None:
-            try:
-                from taf.yubikey import get_piv_public_key_tuf
-            except ImportError:
-                taf_logger.warning(YUBIKEY_MANAGER_ERR_MSG)
-                sys.exit(1)
-
-            public_key = get_piv_public_key_tuf()
+            public_key = yk.get_piv_public_key_tuf()
 
         return self.is_valid_metadata_key(role, public_key)
 
@@ -1037,12 +1028,6 @@ class Repository:
                           role's metadata
         - SigningError: If the number of signing keys is insufficient
         """
-        try:
-            import taf.yubikey as yk
-        except ImportError:
-            taf_logger.warning(YUBIKEY_MANAGER_ERR_MSG)
-            sys.exit(1)
-
         role_obj = self._role_obj(role_name)
         threshold = self.get_role_threshold(role_name)
         if len(public_keys) < threshold:
