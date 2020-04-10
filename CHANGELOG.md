@@ -24,11 +24,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fixed synced_with_remote ([121])
 - Signing fixes with keystore keys ([120])
 - Load signing keys minor fixes ([120] [117])
 - Normalize target files when creating a new repository ([117])
 
 
+[121]: https://github.com/openlawlibrary/taf/pull/121
 [120]: https://github.com/openlawlibrary/taf/pull/120
 [118]: https://github.com/openlawlibrary/taf/pull/118
 [117]: https://github.com/openlawlibrary/taf/pull/117

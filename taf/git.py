@@ -509,7 +509,7 @@ class GitRepository:
 
     def get_last_remote_commit(self, url, branch="master"):
         """
-        get the last remote commit without cloning the repo
+        Fet the last remote commit of the specified branch
         """
         if url is not None:
             last_commit = self._git(f"--no-pager ls-remote {url} {branch}")
