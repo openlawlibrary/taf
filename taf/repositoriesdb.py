@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from subprocess import CalledProcessError
+from copy import deepcopy
 
 from taf.log import taf_logger
 from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
@@ -62,8 +63,6 @@ def load_repositories(
         they are targets or not.
     """
     global _repositories_dict
-    if auth_repo.name not in _repositories_dict:
-        _repositories_dict[auth_repo.name] = {}
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
@@ -82,6 +81,14 @@ def load_repositories(
 
     if root_dir is None:
         root_dir = Path(auth_repo.path).parent.parent
+
+    if auth_repo.name not in _repositories_dict:
+        _repositories_dict[auth_repo.name] = {}
+        current_repositories = {}
+    else:
+        for commit in _repositories_dict[auth_repo.name]:
+            for path, repo in _repositories_dict[auth_repo.name][commit].items():
+                current_repositories[path] = repo
 
     for commit in commits:
         repositories_dict = {}
@@ -103,21 +110,30 @@ def load_repositories(
         for path, repo_data in repositories.items():
             urls = repo_data["urls"]
             target = targets.get(path)
-            if target is None and only_load_targets:
-                continue
             additional_info = _get_custom_data(repo_data, targets.get(path))
 
-            if factory is not None:
-                git_repo = factory(root_dir, path, urls, additional_info)
+            if target is None and only_load_targets:
+                continue
+            if path in current_repositories:
+                # check if data changed
+                prev_repo = current_repositories[path]
+                # repo already loaded, but chaged
+                git_repo = deepcopy(prev_repo)
+                git_repo.repo_urls = urls
+                git_repo.additionaL_info = additional_info
             else:
-                git_repo_class = _determine_repo_class(repo_classes, path)
-                git_repo = git_repo_class(root_dir, path, urls, additional_info)
+                if factory is not None:
+                    git_repo = factory(root_dir, path, urls, additional_info)
+                else:
+                    git_repo_class = _determine_repo_class(repo_classes, path)
+                    git_repo = git_repo_class(root_dir, path, urls, additional_info)
 
-            if not isinstance(git_repo, NamedGitRepository):
-                raise Exception(
-                    f"{type(git_repo)} is not a subclass of NamedGitRepository"
-                )
+                if not isinstance(git_repo, NamedGitRepository):
+                    raise Exception(
+                        f"{type(git_repo)} is not a subclass of NamedGitRepository"
+                    )
 
+            current_repositories[path] = git_repo
             repositories_dict[path] = git_repo
 
         taf_logger.debug(
