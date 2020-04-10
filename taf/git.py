@@ -290,18 +290,24 @@ class GitRepository:
     def clean(self):
         self._git("clean -fd")
 
-    def clone(self, no_checkout=False, bare=False):
+    def clone(self, no_checkout=False, bare=False, **kwargs):
 
         taf_logger.info("Repo {}: cloning repository", self.name)
         shutil.rmtree(self.path, True)
         self._path.mkdir(exist_ok=True, parents=True)
         if self.repo_urls is None:
             raise Exception("Cannot clone repository. No urls were specified")
-        params = ""
+        params = []
         if bare:
-            params = "--bare"
+            params.append("--bare")
         elif no_checkout:
-            params = "--no-checkout"
+            params.append("--no-checkout")
+
+        for name, value in kwargs.items():
+            params.append(f"--{name} {value}")
+
+        params = " ".join(params)
+
         for url in self.repo_urls:
             try:
                 self._git(
@@ -312,7 +318,7 @@ class GitRepository:
             else:
                 break
 
-    def clone_or_pull(self, branches=None, only_fetch=False):
+    def clone_or_pull(self, branches=None, only_fetch=False, **kwargs):
         """
         Clone or fetch the specified branch for the given repo.
         Return old and new HEAD.
@@ -327,7 +333,7 @@ class GitRepository:
         if old_head is None:
             taf_logger.debug("Repo {}: old head sha is {}", self.name, old_head)
             try:
-                self.clone()
+                self.clone(**kwargs)
             except subprocess.CalledProcessError:
                 taf_logger.error("Repo {}: could not clone repo", self.name)
                 raise CloneRepoException(self.url)
@@ -343,7 +349,7 @@ class GitRepository:
                     )
             except subprocess.CalledProcessError as e:
                 if "fatal" in e.stdout:
-                    raise FetchException(self.path)
+                    raise FetchException(f"{self.path}: {str(e)}")
                 pass
 
         new_head = self.head_commit_sha()
@@ -501,6 +507,16 @@ class GitRepository:
         """Return current branch."""
         return self._git("rev-parse --abbrev-ref HEAD").strip()
 
+    def get_last_remote_commit(self, url, branch="master"):
+        """
+        get the last remote commit without cloning the repo
+        """
+        if url is not None:
+            last_commit = self._git(f"--no-pager ls-remote {url} {branch}")
+            if last_commit:
+                return last_commit.split("\t", 1)[0]
+        return None
+
     def get_merge_base(self, branch1, branch2):
         """Finds the best common ancestor between two branches"""
         return self._git(f"merge-base {branch1} {branch2}")
@@ -645,10 +661,16 @@ class GitRepository:
         uncommitted_changes = self._git("status --porcelain")
         return bool(uncommitted_changes)
 
-    def synced_with_remote(self, branch="master"):
+    def synced_with_remote(self, branch="master", url=None):
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
+        if url is None:
+            if self.repo_urls is not None and len(self.repo_urls):
+                url = self.repo_urls[0]
+            else:
+                url = self.get_remote_url()
+
         tracking_branch = self.get_tracking_branch(branch)
         if not tracking_branch:
             return False
@@ -660,12 +682,7 @@ class GitRepository:
                 raise e
             local_commit = None
 
-        try:
-            remote_commit = self._git(f"rev-parse {tracking_branch}")
-        except subprocess.CalledProcessError as e:
-            if "unknown revision or path not in the working tree" not in e.output:
-                raise e
-            remote_commit = None
+        remote_commit = self.get_last_remote_commit(url, branch)
 
         return local_commit == remote_commit
 
