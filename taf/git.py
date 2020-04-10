@@ -304,7 +304,10 @@ class GitRepository:
             params.append("--no-checkout")
 
         for name, value in kwargs.items():
-            params.append(f"--{name} {value}")
+            if isinstance(value, bool):
+                params.append(f"--{name}")
+            else:
+                params.append(f"--{name} {value}")
 
         params = " ".join(params)
 
