@@ -22,7 +22,7 @@ def update_repository(
     target_repo_classes=None,
     target_factory=None,
     only_validate=False,
-    validate_from_commit=None
+    validate_from_commit=None,
 ):
     """
     <Arguments>
@@ -208,12 +208,14 @@ def _update_named_repository(
             repositories_json,
             repositories_branches_and_commits,
             last_validated_commit,
-            only_validate
+            only_validate,
         )
 
         if not only_validate:
             last_commit = commits[-1]
-            taf_logger.info("Merging commit {} into {}", last_commit, users_auth_repo.name)
+            taf_logger.info(
+                "Merging commit {} into {}", last_commit, users_auth_repo.name
+            )
             # if there were no errors, merge the last validated authentication repository commit
             users_auth_repo.checkout_branch(users_auth_repo.default_branch)
             users_auth_repo.merge_commit(last_commit)
@@ -310,7 +312,9 @@ def _update_target_repositories(
         is_git_repository = repository.is_git_repository_root
         if not is_git_repository:
             if only_validate:
-                taf_logger.info("Target repositories must already exist when only validating repositories")
+                taf_logger.info(
+                    "Target repositories must already exist when only validating repositories"
+                )
                 continue
             repository.clone(no_checkout=True)
             cloned_repositories.append(repository)
@@ -476,7 +480,9 @@ def validate_repository(clients_auth_path, clients_root_dir, validate_from_commi
         clients_root_dir,
         auth_repo_name,
         True,
-        authenticate_test_repo=(clients_auth_path / "targets" / "test-auth-repo").exists(),
+        authenticate_test_repo=(
+            clients_auth_path / "targets" / "test-auth-repo"
+        ).exists(),
         only_validate=True,
         validate_from_commit=validate_from_commit,
     )
