@@ -79,13 +79,13 @@ def load_repositories(
         ", ".join(commits),
     )
 
+    current_repositories = {}
+    _repositories_dict[auth_repo.name] = {}
+
     if root_dir is None:
         root_dir = Path(auth_repo.path).parent.parent
 
-    if auth_repo.name not in _repositories_dict:
-        _repositories_dict[auth_repo.name] = {}
-        current_repositories = {}
-    else:
+    if auth_repo.name in _repositories_dict:
         for commit in _repositories_dict[auth_repo.name]:
             for path, repo in _repositories_dict[auth_repo.name][commit].items():
                 current_repositories[path] = repo
