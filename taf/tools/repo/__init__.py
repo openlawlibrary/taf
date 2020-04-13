@@ -1,7 +1,7 @@
 import click
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.updater.updater import update_repository
+from taf.updater.updater import update_repository, validate_repository
 
 
 def attach_to_group(group):
@@ -202,3 +202,18 @@ def attach_to_group(group):
         """
         update_repository(url, clients_auth_path, clients_root_dir, from_fs,
                           authenticate_test_repo)
+
+    @repo.command()
+    @click.argument("clients-auth-path")
+    @click.option("--clients-root-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
+    @click.option("--from-commit", default=None, help="First commit which should be validated.")
+    def validate(clients_auth_path, clients_root_dir, from_commit):
+        """
+        Validates an authentication repository which is already on the file system
+        and its target repositories (which are also expected to be on the file system).
+        Does not clone repositories, fetch changes or merge commits.
+        """
+        validate_repository(clients_auth_path, clients_root_dir, from_commit)

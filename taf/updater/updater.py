@@ -21,6 +21,8 @@ def update_repository(
     authenticate_test_repo=False,
     target_repo_classes=None,
     target_factory=None,
+    only_validate=False,
+    validate_from_commit=None
 ):
     """
     <Arguments>
@@ -62,6 +64,8 @@ def update_repository(
         authenticate_test_repo,
         target_repo_classes,
         target_factory,
+        only_validate,
+        validate_from_commit,
     )
 
 
@@ -74,6 +78,8 @@ def _update_named_repository(
     authenticate_test_repo=False,
     target_repo_classes=None,
     target_factory=None,
+    only_validate=False,
+    validate_from_commit=None,
 ):
     """
     <Arguments>
@@ -145,8 +151,16 @@ def _update_named_repository(
     try:
         validation_auth_repo = repository_updater.update_handler.validation_auth_repo
         commits = repository_updater.update_handler.commits
-        last_validated_commit = users_auth_repo.last_validated_commit
-        if last_validated_commit is None:
+        if only_validate:
+            last_validated_commit = validate_from_commit
+            repository_updater.update_handler.commits = users_auth_repo.all_commits_since_commit(
+                last_validated_commit
+            )
+            repository_updater.update_handler.users_head_sha = last_validated_commit
+            commits = repository_updater.update_handler.commits
+        else:
+            last_validated_commit = users_auth_repo.last_validated_commit
+
             # check if the repository being updated is a test repository
             targets = validation_auth_repo.get_json(
                 commits[-1], "metadata/targets.json"
@@ -165,7 +179,7 @@ def _update_named_repository(
                 )
 
         # validate the authentication repository and fetch new commits
-        _update_authentication_repository(repository_updater)
+        _update_authentication_repository(repository_updater, only_validate)
 
         # get target repositories and their commits, as specified in targets.json
 
@@ -188,21 +202,23 @@ def _update_named_repository(
         repositories_json = users_auth_repo.get_json(
             commits[-1], "targets/repositories.json"
         )
-        last_validated_commit = users_auth_repo.last_validated_commit
+
         _update_target_repositories(
             repositories,
             repositories_json,
             repositories_branches_and_commits,
             last_validated_commit,
+            only_validate
         )
 
-        last_commit = commits[-1]
-        taf_logger.info("Merging commit {} into {}", last_commit, users_auth_repo.name)
-        # if there were no errors, merge the last validated authentication repository commit
-        users_auth_repo.checkout_branch(users_auth_repo.default_branch)
-        users_auth_repo.merge_commit(last_commit)
-        # update the last validated commit
-        users_auth_repo.set_last_validated_commit(last_commit)
+        if not only_validate:
+            last_commit = commits[-1]
+            taf_logger.info("Merging commit {} into {}", last_commit, users_auth_repo.name)
+            # if there were no errors, merge the last validated authentication repository commit
+            users_auth_repo.checkout_branch(users_auth_repo.default_branch)
+            users_auth_repo.merge_commit(last_commit)
+            # update the last validated commit
+            users_auth_repo.set_last_validated_commit(last_commit)
     except Exception as e:
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
@@ -212,7 +228,7 @@ def _update_named_repository(
         repositoriesdb.clear_repositories_db()
 
 
-def _update_authentication_repository(repository_updater):
+def _update_authentication_repository(repository_updater, only_validate):
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     taf_logger.info("Validating authentication repository {}", users_auth_repo.name)
@@ -259,12 +275,14 @@ def _update_authentication_repository(repository_updater):
     taf_logger.info(
         "Successfully validated authentication repository {}", users_auth_repo.name
     )
-    # fetch the latest commit or clone the repository without checkout
-    # do not merge before targets are validated as well
-    if users_auth_repo.is_git_repository_root:
-        users_auth_repo.fetch(fetch_all=True)
-    else:
-        users_auth_repo.clone(no_checkout=True)
+
+    if not only_validate:
+        # fetch the latest commit or clone the repository without checkout
+        # do not merge before targets are validated as well
+        if users_auth_repo.is_git_repository_root:
+            users_auth_repo.fetch(fetch_all=True)
+        else:
+            users_auth_repo.clone(no_checkout=True)
 
 
 def _update_target_repositories(
@@ -272,6 +290,7 @@ def _update_target_repositories(
     repositories_json,
     repositories_branches_and_commits,
     last_validated_commit,
+    only_validate,
 ):
     taf_logger.info("Validating target repositories")
     # keep track of the repositories which were cloned
@@ -290,6 +309,9 @@ def _update_target_repositories(
         allow_unauthenticated[path] = allow_unauthenticated_for_repo
         is_git_repository = repository.is_git_repository_root
         if not is_git_repository:
+            if only_validate:
+                taf_logger.info("Target repositories must already exist when only validating repositories")
+                continue
             repository.clone(no_checkout=True)
             cloned_repositories.append(repository)
         for branch in repositories_branches_and_commits[path]:
@@ -333,8 +355,9 @@ def _update_target_repositories(
                     )
                 else:
                     new_commits_on_repo_branch = []
-                fetched_commits = repository.all_fetched_commits(branch=branch)
-                new_commits_on_repo_branch.extend(fetched_commits)
+                if not only_validate:
+                    fetched_commits = repository.all_fetched_commits(branch=branch)
+                    new_commits_on_repo_branch.extend(fetched_commits)
 
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
 
@@ -355,26 +378,27 @@ def _update_target_repositories(
                 raise e
 
     taf_logger.info("Successfully validated all target repositories.")
-    # if update is successful, merge the commits
-    for path, repository in repositories.items():
-        for branch in repositories_branches_and_commits[path]:
-            repository.checkout_branch(branch)
-            repo_branch_commits = repositories_branches_and_commits[path][branch]
-            if len(repo_branch_commits):
-                taf_logger.info(
-                    "Merging {} into {}", repo_branch_commits[-1], repository.name
-                )
-                last_validated_commit = repo_branch_commits[-1]
-                commit_to_merge = (
-                    last_validated_commit
-                    if not allow_unauthenticated[path]
-                    else new_commits[path][branch][-1]
-                )
-                repository.merge_commit(commit_to_merge)
-                if not allow_unauthenticated[path]:
-                    repository.checkout_commit(commit_to_merge)
-                else:
-                    repository.checkout_branch(repository.default_branch)
+    if not only_validate:
+        # if update is successful, merge the commits
+        for path, repository in repositories.items():
+            for branch in repositories_branches_and_commits[path]:
+                repository.checkout_branch(branch)
+                repo_branch_commits = repositories_branches_and_commits[path][branch]
+                if len(repo_branch_commits):
+                    taf_logger.info(
+                        "Merging {} into {}", repo_branch_commits[-1], repository.name
+                    )
+                    last_validated_commit = repo_branch_commits[-1]
+                    commit_to_merge = (
+                        last_validated_commit
+                        if not allow_unauthenticated[path]
+                        else new_commits[path][branch][-1]
+                    )
+                    repository.merge_commit(commit_to_merge)
+                    if not allow_unauthenticated[path]:
+                        repository.checkout_commit(commit_to_merge)
+                    else:
+                        repository.checkout_branch(repository.default_branch)
 
 
 def _update_target_repository(
@@ -434,3 +458,25 @@ def _update_target_repository(
             f" and target repository {repository.name}"
         )
     taf_logger.info("Successfully validated {}", repository.name)
+
+
+def validate_repository(clients_auth_path, clients_root_dir, validate_from_commit=None):
+    clients_auth_path = Path(clients_auth_path)
+
+    if clients_root_dir is None:
+        clients_root_dir = clients_auth_path.parent.parent
+    else:
+        clients_root_dir = Path(clients_root_dir).resolve()
+
+    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
+    clients_auth_root_dir = clients_auth_path.parent.parent
+    _update_named_repository(
+        str(clients_auth_path),
+        clients_auth_root_dir,
+        clients_root_dir,
+        auth_repo_name,
+        True,
+        authenticate_test_repo=(clients_auth_path / "targets" / "test-auth-repo").exists(),
+        only_validate=True,
+        validate_from_commit=validate_from_commit,
+    )
