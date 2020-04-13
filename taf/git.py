@@ -511,6 +511,7 @@ class GitRepository:
         Fet the last remote commit of the specified branch
         """
         if url is not None:
+            branch = self.branch_local_name(branch)
             last_commit = self._git(f"--no-pager ls-remote {url} {branch}")
             if last_commit:
                 return last_commit.split("\t", 1)[0]
@@ -681,7 +682,7 @@ class GitRepository:
                 raise e
             local_commit = None
 
-        remote_commit = self.get_last_remote_commit(url, branch)
+        remote_commit = self.get_last_remote_commit(url, tracking_branch)
 
         return local_commit == remote_commit
 
