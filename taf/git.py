@@ -4,7 +4,6 @@ import re
 import shutil
 import subprocess
 from collections import OrderedDict
-from functools import reduce
 from pathlib import Path
 
 import taf.settings as settings
@@ -193,14 +192,8 @@ class GitRepository:
             ).split("\n")
         ]
 
-        if all and strip_remote:
-            remotes = self.remotes
-            branches = set(
-                [
-                    reduce(lambda b, r: b.replace(f"{r}/", ""), remotes, branch)
-                    for branch in branches
-                ]
-            )
+        if strip_remote:
+            branches = [self.branch_local_name(b) for b in branches]
 
         return branches
 
@@ -511,7 +504,6 @@ class GitRepository:
         Fet the last remote commit of the specified branch
         """
         if url is not None:
-            branch = self.branch_local_name(branch)
             last_commit = self._git(f"--no-pager ls-remote {url} {branch}")
             if last_commit:
                 return last_commit.split("\t", 1)[0]
@@ -521,12 +513,15 @@ class GitRepository:
         """Finds the best common ancestor between two branches"""
         return self._git(f"merge-base {branch1} {branch2}")
 
-    def get_tracking_branch(self, branch=""):
+    def get_tracking_branch(self, branch="", strip_remote=False):
         """Returns tracking branch name in format origin/branch-name or None if branch does not
         track remote branch.
         """
         try:
-            return self._git(f"rev-parse --abbrev-ref {branch}@{{u}}")
+            tracking_branch = self._git(f"rev-parse --abbrev-ref {branch}@{{u}}")
+            if strip_remote:
+                tracking_branch = self.branch_local_name(tracking_branch)
+            return tracking_branch
         except subprocess.CalledProcessError:
             return None
 
@@ -671,7 +666,7 @@ class GitRepository:
             else:
                 url = self.get_remote_url()
 
-        tracking_branch = self.get_tracking_branch(branch)
+        tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
         if not tracking_branch:
             return False
 
