@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added command for validating repositories without updating them ([124])
 - Import error handling for `taf.yubikey` module ([120])
 - Updater tests which validate updated root metadata ([118])
 - New test cases for updating targets/delegations metadata ([116])
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Normalize target files when creating a new repository ([117])
 
 
+[124]: https://github.com/openlawlibrary/taf/pull/124
 [121]: https://github.com/openlawlibrary/taf/pull/121
 [120]: https://github.com/openlawlibrary/taf/pull/120
 [118]: https://github.com/openlawlibrary/taf/pull/118
