@@ -47,9 +47,12 @@ import os
 import shutil
 from pathlib import Path
 from collections import defaultdict
+import json
 
 import pytest
 from pytest import fixture
+from freezegun import freeze_time
+from datetime import datetime
 
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepo
@@ -177,7 +180,6 @@ def test_no_update_necessary(
         ("test-updater-invalid-target-sha", TARGET1_SHA_MISMATCH),
         ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH),
         ("test-updater-wrong-key", NO_WORKING_MIRRORS),
-        ("test-updater-invalid-expiration-date", TIMESTAMP_EXPIRED),
         ("test-updater-invalid-version-number", REPLAYED_METADATA),
         ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT),
         ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH),
@@ -192,6 +194,17 @@ def test_updater_invalid_update(
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, expected_error
+    )
+    # make sure that the last validated commit does not exist
+    _check_if_last_validated_commit_exists(clients_auth_repo_path)
+
+
+def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
+    # without using freeze_time, we expect to get timestamp expired error
+    repositories = updater_repositories["test-updater-valid"]
+    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+    _update_invalid_repos_and_check_if_repos_exist(
+        client_dir, repositories, TIMESTAMP_EXPIRED, set_time=False
     )
     # make sure that the last validated commit does not exist
     _check_if_last_validated_commit_exists(clients_auth_repo_path)
@@ -408,19 +421,28 @@ def _get_head_commit_shas(client_repos):
     return start_head_shas
 
 
+def _get_valid_update_time(origin_auth_repo_path):
+    # read timestamp.json expiration date
+    timestamp_path = Path(origin_auth_repo_path, "metadata", "timestamp.json")
+    timestamp_data = json.loads(timestamp_path.read_text())
+    expires = timestamp_data["signed"]["expires"]
+    return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%Y-%m-%d")
+
+
 def _update_and_check_commit_shas(
     client_repos, repositories, origin_dir, client_dir, authetnicate_test_repo=False
 ):
     start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
-    update_repository(
-        str(origin_auth_repo_path),
-        str(clients_auth_repo_path),
-        str(client_dir),
-        True,
-        authenticate_test_repo=authetnicate_test_repo,
-    )
+    with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
+        update_repository(
+            str(origin_auth_repo_path),
+            str(clients_auth_repo_path),
+            str(client_dir),
+            True,
+            authenticate_test_repo=authetnicate_test_repo,
+        )
     _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas)
     _check_last_validated_commit(clients_auth_repo_path)
 
@@ -433,14 +455,15 @@ def _update_invalid_repos_and_check_if_remained_same(
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
 
-    with pytest.raises(UpdateFailedError, match=expected_error):
-        update_repository(
-            str(origin_auth_repo_path),
-            str(clients_auth_repo_path),
-            str(client_dir),
-            True,
-            authenticate_test_repo=authenticate_test_repo,
-        )
+    with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
+        with pytest.raises(UpdateFailedError, match=expected_error):
+            update_repository(
+                str(origin_auth_repo_path),
+                str(clients_auth_repo_path),
+                str(client_dir),
+                True,
+                authenticate_test_repo=authenticate_test_repo,
+            )
 
     # all repositories should still have the same head commit
     for repo_path, repo in client_repos.items():
@@ -451,19 +474,31 @@ def _update_invalid_repos_and_check_if_remained_same(
 
 
 def _update_invalid_repos_and_check_if_repos_exist(
-    client_dir, repositories, expected_error, authenticate_test_repo=False
+    client_dir,
+    repositories,
+    expected_error,
+    authenticate_test_repo=False,
+    set_time=True,
 ):
 
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
-    with pytest.raises(UpdateFailedError, match=expected_error):
-        update_repository(
-            str(origin_auth_repo_path),
-            str(clients_auth_repo_path),
-            str(client_dir),
-            True,
-            authenticate_test_repo=authenticate_test_repo,
-        ),
+
+    def _update_expect_error(client_dir, authenticate_test_repo):
+        with pytest.raises(UpdateFailedError, match=expected_error):
+            update_repository(
+                str(origin_auth_repo_path),
+                str(clients_auth_repo_path),
+                str(client_dir),
+                True,
+                authenticate_test_repo=authenticate_test_repo,
+            ),
+
+    if set_time:
+        with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
+            _update_expect_error(client_dir, authenticate_test_repo)
+    else:
+        _update_expect_error(client_dir, authenticate_test_repo)
 
     # the client repositories should not exits
     for repository_rel_path in repositories:

@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import time
 from pathlib import Path
 from subprocess import CalledProcessError
 
@@ -254,13 +255,10 @@ class GitUpdater(handlers.MetadataUpdater):
         shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):
-        # the last commit's metadata should have expiration dates which
-        # are greater or equal than the commit's creation date
+        # Only validate expiration time of the last commit
         if self.current_commit_index < len(self.commits) - 1:
             return 0
-        # TODO we should not rely on git commit date
-        # target metadata date should always be added and read here
-        return int(self.validation_auth_repo.get_commits_date(self.current_commit))
+        return int(time.time())
 
     def ensure_not_changed(self, metadata_filename):
         """
