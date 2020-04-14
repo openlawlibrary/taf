@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added updater check which verifies that metadata corresponding to the last commit has not yet expired ([124])
+- Additional updater tests ([124])
 - Added command for validating repositories without updating them ([124])
 - Import error handling for `taf.yubikey` module ([120])
 - Updater tests which validate updated root metadata ([118])
