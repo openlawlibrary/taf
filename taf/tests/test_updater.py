@@ -219,6 +219,27 @@ def test_updater_invalid_update(
     _check_if_last_validated_commit_exists(clients_auth_repo_path)
 
 
+@pytest.mark.parametrize(
+    "test_name, expected_error",
+    [
+        ("test-updater-invalid-target-sha", TARGET1_SHA_MISMATCH),
+        ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH),
+    ],
+)
+def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
+    test_name, expected_error, updater_repositories, client_dir, origin_dir
+):
+    repositories = updater_repositories[test_name]
+    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+    origin_dir = origin_dir / test_name
+    _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
+    _update_invalid_repos_and_check_if_repos_exist(
+        client_dir, repositories, expected_error
+    )
+    # make sure that the last validated commit does not exist
+    _check_if_last_validated_commit_exists(clients_auth_repo_path)
+
+
 def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
     # without using freeze_time, we expect to get timestamp expired error
     repositories = updater_repositories["test-updater-valid"]
@@ -503,6 +524,11 @@ def _update_invalid_repos_and_check_if_repos_exist(
 
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
+    repositories_which_existed = [
+        str(client_dir / repository_rel_path)
+        for repository_rel_path in repositories
+        if (client_dir / repository_rel_path).exists()
+    ]
 
     def _update_expect_error(client_dir, authenticate_test_repo):
         with pytest.raises(UpdateFailedError, match=expected_error):
@@ -523,4 +549,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
     # the client repositories should not exits
     for repository_rel_path in repositories:
         path = client_dir / repository_rel_path
-        assert path.exists() is False
+        if str(path) in repositories_which_existed:
+            assert path.exists()
+        else:
+            assert not path.exists()
