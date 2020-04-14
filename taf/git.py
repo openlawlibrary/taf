@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 from collections import OrderedDict
+from functools import reduce
 from pathlib import Path
 
 import taf.settings as settings
@@ -193,7 +194,13 @@ class GitRepository:
         ]
 
         if strip_remote:
-            branches = [self.branch_local_name(b) for b in branches]
+            remotes = self.remotes
+            branches = set(
+                [
+                    reduce(lambda b, r: b.replace(f"{r}/", ""), remotes, branch)
+                    for branch in branches
+                ]
+            )
 
         return branches
 
