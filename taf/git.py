@@ -253,7 +253,7 @@ class GitRepository:
             if remote_branch_name.startswith(remote + "/"):
                 return remote_branch_name.split("/", 1)[1]
 
-    def checkout_branch(self, branch_name, create=False):
+    def checkout_branch(self, branch_name, create=False, raise_anyway=False):
         """Check out the specified branch. If it does not exists and
     the create parameter is set to True, create a new branch.
     If the branch does not exist and create is set to False,
@@ -267,6 +267,9 @@ class GitRepository:
                 log_success_msg=f"checked out branch {branch_name}",
             )
         except subprocess.CalledProcessError as e:
+            if raise_anyway:
+                raise (e)
+
             # skip worktree errors
             if "is already checked out at" in e.output:
                 return
