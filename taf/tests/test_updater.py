@@ -62,6 +62,7 @@ from taf.updater.updater import update_repository
 from taf.utils import on_rm_error
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
+TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
 TARGET1_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1"
 TARGET2_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo2"
 TARGETS_MISMATCH_ANY = "Mismatch between target commits specified in authentication repository and target repository"
@@ -114,6 +115,25 @@ def test_valid_update_no_client_repo(
 ):
     repositories = updater_repositories[test_name]
     origin_dir = origin_dir / test_name
+    _update_and_check_commit_shas(None, repositories, origin_dir, client_dir, test_repo)
+
+
+@pytest.mark.parametrize(
+    "test_name, test_repo",
+    [
+        ("test-updater-valid", False),
+        ("test-updater-additional-target-commit", False),
+        ("test-updater-allow-unauthenticated-commits", False),
+        ("test-updater-multiple-branches", False),
+        ("test-updater-delegated-roles", False),
+    ],
+)
+def test_valid_update_no_auth_repo_one_target_repo_exists(
+    test_name, test_repo, updater_repositories, origin_dir, client_dir
+):
+    repositories = updater_repositories[test_name]
+    origin_dir = origin_dir / test_name
+    _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
     _update_and_check_commit_shas(None, repositories, origin_dir, client_dir, test_repo)
 
 
