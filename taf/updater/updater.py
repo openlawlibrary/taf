@@ -132,6 +132,9 @@ def _update_named_repository(
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
     settings.update_from_filesystem = update_from_filesystem
+    if only_validate:
+        settings.overwrite_last_validated_commit = True
+        settings.last_validated_commit = validate_from_commit
     # instantiate TUF's updater
     repository_mirrors = {
         "mirror1": {
@@ -151,32 +154,25 @@ def _update_named_repository(
     try:
         validation_auth_repo = repository_updater.update_handler.validation_auth_repo
         commits = repository_updater.update_handler.commits
-        if only_validate:
-            last_validated_commit = validate_from_commit
-            repository_updater.update_handler.commits = users_auth_repo.all_commits_since_commit(
-                last_validated_commit
-            )
-            repository_updater.update_handler.users_head_sha = last_validated_commit
-            commits = repository_updater.update_handler.commits
+        if settings.overwrite_last_validated_commit:
+            last_validated_commit = settings.last_validated_commit
         else:
-            last_validated_commit = users_auth_repo.last_validated_commit
+            users_auth_repo.last_validated_commit
 
-            # check if the repository being updated is a test repository
-            targets = validation_auth_repo.get_json(
-                commits[-1], "metadata/targets.json"
+        # check if the repository being updated is a test repository
+        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
+        test_repo = "test-auth-repo" in targets["signed"]["targets"]
+        if test_repo and not authenticate_test_repo:
+            raise UpdateFailedError(
+                f"Repository {users_auth_repo.name} is a test repository."
+                'Call update with "--authenticate-test-repo to update a test "'
+                "repository"
             )
-            test_repo = "test-auth-repo" in targets["signed"]["targets"]
-            if test_repo and not authenticate_test_repo:
-                raise UpdateFailedError(
-                    f"Repository {users_auth_repo.name} is a test repository."
-                    'Call update with "--authenticate-test-repo to update a test "'
-                    "repository"
-                )
-            elif not test_repo and authenticate_test_repo:
-                raise UpdateFailedError(
-                    f"Repository {users_auth_repo.name} is not a test repository,"
-                    ' but update was called with the "--authenticate-test-repo" flag'
-                )
+        elif not test_repo and authenticate_test_repo:
+            raise UpdateFailedError(
+                f"Repository {users_auth_repo.name} is not a test repository,"
+                ' but update was called with the "--authenticate-test-repo" flag'
+            )
 
         # validate the authentication repository and fetch new commits
         _update_authentication_repository(repository_updater, only_validate)

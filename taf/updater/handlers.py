@@ -135,9 +135,11 @@ class GitUpdater(handlers.MetadataUpdater):
         """
         # TODO check if users authentication repository is clean
 
-        # load the last validated commit from he conf file
-        last_validated_commit = self.users_auth_repo.last_validated_commit
-
+        # load the last validated commit from the conf file
+        if settings.overwrite_last_validated_commit:
+            last_validated_commit = settings.last_validated_commit
+        else:
+            last_validated_commit = self.users_auth_repo.last_validated_commit
         try:
             commits_since = self.validation_auth_repo.all_commits_since_commit(
                 last_validated_commit
@@ -164,10 +166,11 @@ class GitUpdater(handlers.MetadataUpdater):
 
         if not self.users_auth_repo.is_git_repository_root:
             users_head_sha = None
+        elif settings.overwrite_last_validated_commit:
+            users_head_sha = last_validated_commit
         else:
-            self.users_auth_repo.checkout_branch("master")
             if last_validated_commit is not None:
-                users_head_sha = self.users_auth_repo.head_commit_sha()
+                users_head_sha = self.users_auth_repo.top_commit_of_branch("master")
             else:
                 # if the user's repository exists, but there is no last_validated_commit
                 # start the update from the beginning
