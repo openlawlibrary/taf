@@ -157,7 +157,7 @@ def _update_named_repository(
         if settings.overwrite_last_validated_commit:
             last_validated_commit = settings.last_validated_commit
         else:
-            users_auth_repo.last_validated_commit
+            last_validated_commit = users_auth_repo.last_validated_commit
 
         # check if the repository being updated is a test repository
         targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
