@@ -46,7 +46,7 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
-    clients_auth_path = Path(clients_auth_path)
+    clients_auth_path = Path(clients_auth_path).resolve()
 
     if clients_root_dir is None:
         clients_root_dir = clients_auth_path.parent.parent
@@ -465,7 +465,8 @@ def _update_target_repository(
 
 
 def validate_repository(clients_auth_path, clients_root_dir, validate_from_commit=None):
-    clients_auth_path = Path(clients_auth_path)
+
+    clients_auth_path = Path(clients_auth_path).resolve()
 
     if clients_root_dir is None:
         clients_root_dir = clients_auth_path.parent.parent
