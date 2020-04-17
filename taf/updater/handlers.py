@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import time
 from pathlib import Path
 from subprocess import CalledProcessError
 
@@ -134,9 +135,11 @@ class GitUpdater(handlers.MetadataUpdater):
         """
         # TODO check if users authentication repository is clean
 
-        # load the last validated commit from he conf file
-        last_validated_commit = self.users_auth_repo.last_validated_commit
-
+        # load the last validated commit from the conf file
+        if settings.overwrite_last_validated_commit:
+            last_validated_commit = settings.last_validated_commit
+        else:
+            last_validated_commit = self.users_auth_repo.last_validated_commit
         try:
             commits_since = self.validation_auth_repo.all_commits_since_commit(
                 last_validated_commit
@@ -163,10 +166,11 @@ class GitUpdater(handlers.MetadataUpdater):
 
         if not self.users_auth_repo.is_git_repository_root:
             users_head_sha = None
+        elif settings.overwrite_last_validated_commit:
+            users_head_sha = last_validated_commit
         else:
-            self.users_auth_repo.checkout_branch("master")
             if last_validated_commit is not None:
-                users_head_sha = self.users_auth_repo.head_commit_sha()
+                users_head_sha = self.users_auth_repo.top_commit_of_branch("master")
             else:
                 # if the user's repository exists, but there is no last_validated_commit
                 # start the update from the beginning
@@ -254,13 +258,10 @@ class GitUpdater(handlers.MetadataUpdater):
         shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):
-        # the last commit's metadata should have expiration dates which
-        # are greater or equal than the commit's creation date
+        # Only validate expiration time of the last commit
         if self.current_commit_index < len(self.commits) - 1:
             return 0
-        # TODO we should not rely on git commit date
-        # target metadata date should always be added and read here
-        return int(self.validation_auth_repo.get_commits_date(self.current_commit))
+        return int(time.time())
 
     def ensure_not_changed(self, metadata_filename):
         """

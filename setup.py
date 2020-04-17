@@ -33,11 +33,12 @@ ci_require = [
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",
+    "freezegun==0.3.15",
 ]
 
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
-tests_require = ["pytest==4.5.0"]
+tests_require = ["pytest==4.5.0", "freezegun==0.3.15"]
 
 yubikey_require = ["yubikey-manager==3.0.0"]
 

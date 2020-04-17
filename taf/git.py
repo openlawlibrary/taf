@@ -448,10 +448,6 @@ class GitRepository:
             remote = self.remotes[0]
         self._git(f"push {remote} --delete {branch_name}")
 
-    def get_commits_date(self, commit):
-        date = self._git("show -s --format=%at {}", commit)
-        return date.split(" ", 1)[0]
-
     def get_commit_message(self, commit):
         """Returns commit message of the given commit"""
         return self._git("log --format=%B -n 1 {}", commit).strip()

@@ -10,6 +10,12 @@ update_from_filesystem = False
 
 validate_repo_name = True
 
+# Allows usage of specified commit as last validated commit
+# Useful when validating a local repository
+overwrite_last_validated_commit = False
+
+last_validated_commit = None
+
 # The 'log.py' module manages TUF's logging system.  Users have the option to
 # enable/disable logging to a file via 'ENABLE_FILE_LOGGING', or
 # tuf.log.enable_file_logging() and tuf.log.disable_file_logging().
