@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Updater: Partial repo factory ([125])
 - Logging formats ([120])
 - Use common role of given targets during update of targets/delegations metadata ([116])
 - Changed format of keys description json, as it can now contain roles' description under "roles" key and keystore path under "keystore" key ([114])
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Normalize target files when creating a new repository ([117])
 
 
+[125]: https://github.com/openlawlibrary/taf/pull/125
 [124]: https://github.com/openlawlibrary/taf/pull/124
 [121]: https://github.com/openlawlibrary/taf/pull/121
 [120]: https://github.com/openlawlibrary/taf/pull/120

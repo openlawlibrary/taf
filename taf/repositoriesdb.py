@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 from subprocess import CalledProcessError
 
-from taf.log import taf_logger
 from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
 from taf.git import NamedGitRepository
+from taf.log import taf_logger
 
 # {
 #     'authentication_repo_name': {
@@ -107,18 +107,21 @@ def load_repositories(
                 continue
             additional_info = _get_custom_data(repo_data, targets.get(path))
 
+            git_repo = None
             if factory is not None:
                 git_repo = factory(root_dir, path, urls, additional_info)
             else:
                 git_repo_class = _determine_repo_class(repo_classes, path)
                 git_repo = git_repo_class(root_dir, path, urls, additional_info)
 
-            if not isinstance(git_repo, NamedGitRepository):
-                raise Exception(
-                    f"{type(git_repo)} is not a subclass of NamedGitRepository"
-                )
+            # allows us to partially update repositories
+            if git_repo:
+                if not isinstance(git_repo, NamedGitRepository):
+                    raise Exception(
+                        f"{type(git_repo)} is not a subclass of NamedGitRepository"
+                    )
 
-            repositories_dict[path] = git_repo
+                repositories_dict[path] = git_repo
 
         taf_logger.debug(
             "Loaded the following repositories at revision {}: {}",

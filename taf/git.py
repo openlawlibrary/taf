@@ -193,7 +193,7 @@ class GitRepository:
             ).split("\n")
         ]
 
-        if all and strip_remote:
+        if strip_remote:
             remotes = self.remotes
             branches = set(
                 [
@@ -260,7 +260,7 @@ class GitRepository:
             if remote_branch_name.startswith(remote + "/"):
                 return remote_branch_name.split("/", 1)[1]
 
-    def checkout_branch(self, branch_name, create=False):
+    def checkout_branch(self, branch_name, create=False, raise_anyway=False):
         """Check out the specified branch. If it does not exists and
     the create parameter is set to True, create a new branch.
     If the branch does not exist and create is set to False,
@@ -274,6 +274,9 @@ class GitRepository:
                 log_success_msg=f"checked out branch {branch_name}",
             )
         except subprocess.CalledProcessError as e:
+            if raise_anyway:
+                raise (e)
+
             # skip worktree errors
             if "is already checked out at" in e.output:
                 return
@@ -520,12 +523,15 @@ class GitRepository:
         """Finds the best common ancestor between two branches"""
         return self._git(f"merge-base {branch1} {branch2}")
 
-    def get_tracking_branch(self, branch=""):
+    def get_tracking_branch(self, branch="", strip_remote=False):
         """Returns tracking branch name in format origin/branch-name or None if branch does not
         track remote branch.
         """
         try:
-            return self._git(f"rev-parse --abbrev-ref {branch}@{{u}}")
+            tracking_branch = self._git(f"rev-parse --abbrev-ref {branch}@{{u}}")
+            if strip_remote:
+                tracking_branch = self.branch_local_name(tracking_branch)
+            return tracking_branch
         except subprocess.CalledProcessError:
             return None
 
@@ -670,7 +676,7 @@ class GitRepository:
             else:
                 url = self.get_remote_url()
 
-        tracking_branch = self.get_tracking_branch(branch)
+        tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
         if not tracking_branch:
             return False
 
@@ -681,7 +687,7 @@ class GitRepository:
                 raise e
             local_commit = None
 
-        remote_commit = self.get_last_remote_commit(url, branch)
+        remote_commit = self.get_last_remote_commit(url, tracking_branch)
 
         return local_commit == remote_commit
 
