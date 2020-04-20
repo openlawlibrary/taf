@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Minor logging updates ([126])
 - Updater: Partial repo factory ([125])
 - Logging formats ([120])
 - Use common role of given targets during update of targets/delegations metadata ([116])
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Normalize target files when creating a new repository ([117])
 
 
+[126]: https://github.com/openlawlibrary/taf/pull/126
 [125]: https://github.com/openlawlibrary/taf/pull/125
 [124]: https://github.com/openlawlibrary/taf/pull/124
 [121]: https://github.com/openlawlibrary/taf/pull/121

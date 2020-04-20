@@ -1,8 +1,10 @@
 import os
 import sys
+import logging
 from pathlib import Path
 
 import tuf.log
+import tuf.exceptions
 from loguru import logger as taf_logger
 
 import taf.settings as settings
@@ -12,6 +14,15 @@ _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message
 
 console_loggers = {}
 file_loggers = {}
+
+
+def disable_console_logging():
+    taf_logger.remove(console_loggers["log"])
+    disable_tuf_console_logging()
+
+
+def disable_tuf_console_logging():
+    tuf.log.set_console_log_level(logging.CRITICAL)
 
 
 def _get_log_location():
@@ -30,6 +41,10 @@ if settings.ENABLE_CONSOLE_LOGGING:
     console_loggers["log"] = taf_logger.add(
         sys.stdout, format=_CONSOLE_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
     )
+    tuf.log.set_console_log_level(settings.CONSOLE_LOGGING_LEVEL)
+else:
+    # if console logging is disable, remove tuf console logger
+    disable_tuf_console_logging()
 
 
 if settings.ENABLE_FILE_LOGGING:
@@ -46,10 +61,10 @@ if settings.ENABLE_FILE_LOGGING:
             format=_FILE_FORMAT_STRING,
             level=settings.ERROR_LOGGING_LEVEL,
         )
-
-
-def disable_console_logging(remove_error=False):
-    taf_logger.remove(console_loggers["log"])
-    if remove_error:
-        taf_logger.remove(console_loggers["error"])
-    tuf.log.remove_console_handler()
+    try:
+        tuf.log.set_filehandler_log_level(settings.FILE_LOGGING_LEVEL)
+    except tuf.exceptions.Error:
+        pass
+else:
+    # if file logging is disabled, also disable tuf file logging
+    tuf.log.disable_file_logging()
