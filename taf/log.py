@@ -16,7 +16,6 @@ console_loggers = {}
 file_loggers = {}
 
 
-
 def disable_console_logging():
     taf_logger.remove(console_loggers["log"])
     disable_tuf_console_logging()

@@ -14,6 +14,7 @@ from taf.utils import on_rm_error
 
 disable_tuf_console_logging()
 
+
 def update_repository(
     url,
     clients_auth_path,
