@@ -114,7 +114,10 @@ class GitRepository:
                 if log_error_msg:
                     taf_logger.error(log_error_msg)
                 else:
-                    taf_logger.error(
+                    # not every git error indicates a problem
+                    # if it does, we expect that either custom error message will be provided
+                    # or that the error will be reraised
+                    taf_logger.debug(
                         "Repo {}: error occurred while executing {}:\n{}",
                         self.name,
                         command,
@@ -641,19 +644,20 @@ class GitRepository:
         try:
             return self.get_json(commit, path)
         except subprocess.CalledProcessError:
-            taf_logger.info(
+            taf_logger.debug(
                 "Auth repo {}: {} not available at revision {}",
                 self.name,
                 os.path.basename(path),
                 commit,
             )
         except json.decoder.JSONDecodeError:
-            taf_logger.info(
+            taf_logger.debug(
                 "Auth repo {}: {} not a valid json at revision {}",
                 self.name,
                 os.path.basename(path),
                 commit,
             )
+        return None
 
     def set_remote_url(self, new_url, remote="origin"):
         self._git(f"remote set-url {remote} {new_url}")

@@ -167,24 +167,16 @@ class AuthRepoMixin(TAFRepository):
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
                         continue
-                    try:
-                        target_content = self.get_json(
-                            commit, get_target_path(target_path)
-                        )
+                    target_content = self.safely_get_json(
+                        commit, get_target_path(target_path)
+                    )
+                    if target_content is not None:
                         target_commit = target_content.get("commit")
                         target_branch = target_content.get("branch", "master")
                         targets[commit][target_path] = {
                             "branch": target_branch,
                             "commit": target_commit,
                         }
-                    except json.decoder.JSONDecodeError:
-                        taf_logger.debug(
-                            "Auth repo {}: target file {} is not a valid json at revision {}",
-                            self.name,
-                            target_path,
-                            commit,
-                        )
-                        continue
         return targets
 
 

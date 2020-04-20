@@ -5,13 +5,14 @@ import tuf.client.updater as tuf_updater
 
 from collections import defaultdict
 from pathlib import Path
-from taf.log import taf_logger
+from taf.log import taf_logger, disable_tuf_console_logging
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
 from taf.exceptions import UpdateFailedError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 
+disable_tuf_console_logging()
 
 def update_repository(
     url,
@@ -370,6 +371,7 @@ def _update_target_repositories(
                     branch,
                 )
             except UpdateFailedError as e:
+                taf_logger.error("Updated failed due to error {}", str(e))
                 # delete all repositories that were cloned
                 for repo in cloned_repositories:
                     taf_logger.debug("Removing cloned repository {}", repo.path)
