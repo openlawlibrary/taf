@@ -29,7 +29,11 @@ from taf.keystore import (
     read_private_key_from_keystore,
     read_public_key_from_keystore,
 )
-from taf.repository_tool import Repository, yubikey_signature_provider
+from taf.repository_tool import (
+    Repository,
+    yubikey_signature_provider,
+    is_delegated_role,
+)
 from taf.utils import get_key_size, read_input_dict
 
 try:
@@ -92,9 +96,16 @@ def add_signing_key(
         return
 
     taf_repo.add_metadata_key(role, pub_key_pem, scheme)
-    root_obj = taf_repo._repository.root
-    threshold = root_obj.threshold
-    keys_num = len(root_obj.keys)
+
+    if is_delegated_role(role):
+        parent_role = taf_repo.find_delegated_roles_parent(role)
+    else:
+        parent_role = "root"
+
+    parent_obj = taf_repo._role_obj(parent_role)
+
+    threshold = parent_obj.threshold
+    keys_num = len(parent_obj.keys)
     num_of_signatures = 0
     loaded_yubikeys = {}
     pub_key, _ = yk.yubikey_prompt(
@@ -110,15 +121,15 @@ def add_signing_key(
         if num_of_signatures >= threshold:
             all_loaded = not (
                 click.confirm(
-                    "Threshold of root keys reached. Do you want to load more root keys?"
+                    f"Threshold of {parent_role} keys reached. Do you want to load more root keys?"
                 )
             )
         if not all_loaded:
-            name = f"root{num_of_signatures+1}"
+            name = f"{parent_role}{num_of_signatures+1}"
             pub_key, _ = yk.yubikey_prompt(
-                name, "root", taf_repo, loaded_yubikeys=loaded_yubikeys
+                name, parent_role, taf_repo, loaded_yubikeys=loaded_yubikeys
             )
-            root_obj.add_external_signature_provider(
+            parent_obj.add_external_signature_provider(
                 pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"])
             )
             num_of_signatures += 1
