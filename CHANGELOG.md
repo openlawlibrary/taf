@@ -29,12 +29,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fixed addition of new signing key so that this functionality works in case of delegated roles [128]
 - Fixed synced_with_remote ([121])
 - Signing fixes with keystore keys ([120])
 - Load signing keys minor fixes ([120] [117])
 - Normalize target files when creating a new repository ([117])
 
 
+[128]: https://github.com/openlawlibrary/taf/pull/128
 [126]: https://github.com/openlawlibrary/taf/pull/126
 [125]: https://github.com/openlawlibrary/taf/pull/125
 [124]: https://github.com/openlawlibrary/taf/pull/124
