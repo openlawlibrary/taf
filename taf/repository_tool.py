@@ -367,8 +367,9 @@ class Repository:
             pub_key_pem = pub_key_pem.decode("utf-8")
 
         if is_delegated_role(role):
+            parent_role = self.find_delegated_roles_parent(role)
             tuf.roledb._roledb_dict[self.name][role]["keyids"] = self.get_role_keys(
-                role
+                role, parent_role
             )
 
         key = import_rsakey_from_pem(pub_key_pem, scheme)
@@ -376,7 +377,10 @@ class Repository:
 
         if is_delegated_role(role):
             self.set_delegated_role_property(
-                "keyids", role, tuf.roledb.get_roleinfo(role, self.name)["keyids"]
+                "keyids",
+                role,
+                tuf.roledb.get_roleinfo(role, self.name)["keyids"],
+                parent_role,
             )
 
     def modify_targets(self, added_data=None, removed_data=None):
@@ -949,15 +953,12 @@ class Repository:
 
     def set_delegated_role_property(self, property_name, role, value, parent_role=None):
         """
-        Extract value of the specified property of the provided delegated role from
-        its parent's role info.
+        Set property of a delegated role by modifying its parent's "delegations" property
         Args:
             - property_name: Name of the property (like threshold)
             - role_name: Role
+            - value: New value of the property
             - parent_role: Parent role
-
-        Returns:
-            The specified property's value
         """
         if parent_role is None:
             parent_role = self.find_delegated_roles_parent(role)
@@ -967,8 +968,10 @@ class Repository:
         for delegated_role_info in delegated_roles_info:
             if delegated_role_info["name"] == role:
                 delegated_role_info[property_name] = value
-            tuf.roledb.update_roleinfo(parent_role, roleinfo, repository_name=self.name)
-            break
+                tuf.roledb.update_roleinfo(
+                    parent_role, roleinfo, repository_name=self.name
+                )
+                break
 
     def sort_roles_targets_for_filenames(self):
         rel_paths = []
