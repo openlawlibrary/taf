@@ -60,6 +60,10 @@ def get_target_path(target_name):
     return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
 
 
+def is_delegated_role(role):
+    return role not in ("root", "targets", "snapshot", "timestamp")
+
+
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Loads the specified role's key from a keystore file.
     The keystore file can, but doesn't have to be password protected.
@@ -362,8 +366,22 @@ class Repository:
         if isinstance(pub_key_pem, bytes):
             pub_key_pem = pub_key_pem.decode("utf-8")
 
+        if is_delegated_role(role):
+            parent_role = self.find_delegated_roles_parent(role)
+            tuf.roledb._roledb_dict[self.name][role]["keyids"] = self.get_role_keys(
+                role, parent_role
+            )
+
         key = import_rsakey_from_pem(pub_key_pem, scheme)
         self._role_obj(role).add_verification_key(key)
+
+        if is_delegated_role(role):
+            self.set_delegated_role_property(
+                "keyids",
+                role,
+                tuf.roledb.get_roleinfo(role, self.name)["keyids"],
+                parent_role,
+            )
 
     def modify_targets(self, added_data=None, removed_data=None):
         """Creates a target.json file containing a repository's commit for each repository.
@@ -932,6 +950,28 @@ class Repository:
 
         expiration_date = start_date + datetime.timedelta(interval)
         role_obj.expiration = expiration_date
+
+    def set_delegated_role_property(self, property_name, role, value, parent_role=None):
+        """
+        Set property of a delegated role by modifying its parent's "delegations" property
+        Args:
+            - property_name: Name of the property (like threshold)
+            - role_name: Role
+            - value: New value of the property
+            - parent_role: Parent role
+        """
+        if parent_role is None:
+            parent_role = self.find_delegated_roles_parent(role)
+
+        roleinfo = tuf.roledb.get_roleinfo(parent_role, self.name)
+        delegated_roles_info = roleinfo["delegations"]["roles"]
+        for delegated_role_info in delegated_roles_info:
+            if delegated_role_info["name"] == role:
+                delegated_role_info[property_name] = value
+                tuf.roledb.update_roleinfo(
+                    parent_role, roleinfo, repository_name=self.name
+                )
+                break
 
     def sort_roles_targets_for_filenames(self):
         rel_paths = []
