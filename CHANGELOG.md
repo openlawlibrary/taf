@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Git method to create orphan branch ([129])
 - Added updater check which verifies that metadata corresponding to the last commit has not yet expired ([124])
 - Additional updater tests ([124])
 - Added command for validating repositories without updating them ([124])
@@ -29,13 +30,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fixed addition of new signing key so that this functionality works in case of delegated roles [128]
+- Import errors (ykman) inside tests ([129])
+- Fixed addition of new signing key so that this functionality works in case of delegated roles ([128])
 - Fixed synced_with_remote ([121])
 - Signing fixes with keystore keys ([120])
 - Load signing keys minor fixes ([120] [117])
 - Normalize target files when creating a new repository ([117])
 
 
+[129]: https://github.com/openlawlibrary/taf/pull/129
 [128]: https://github.com/openlawlibrary/taf/pull/128
 [126]: https://github.com/openlawlibrary/taf/pull/126
 [125]: https://github.com/openlawlibrary/taf/pull/125
