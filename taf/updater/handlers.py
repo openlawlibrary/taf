@@ -3,11 +3,11 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from subprocess import CalledProcessError
 
 import securesystemslib
 import tuf.client.handlers as handlers
 
+from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
@@ -144,7 +144,7 @@ class GitUpdater(handlers.MetadataUpdater):
             commits_since = self.validation_auth_repo.all_commits_since_commit(
                 last_validated_commit
             )
-        except CalledProcessError as e:
+        except GitError as e:
             if "Invalid revision range" in e.output:
                 taf_logger.error(
                     "Commit {} is not contained by the remote repository {}.",

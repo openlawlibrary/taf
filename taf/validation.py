@@ -1,7 +1,7 @@
-import subprocess
 from pathlib import Path
 
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
+from taf.exceptions import GitError
 from taf.repository_tool import Repository
 from taf.constants import CAPSTONE
 from taf.exceptions import InvalidBranchError
@@ -114,7 +114,7 @@ def _check_branch_id(auth_repo, auth_commit, branch_id):
         new_branch_id = auth_repo.get_file(
             auth_commit, f"{TARGETS_DIRECTORY_NAME}/branch"
         )
-    except subprocess.CalledProcessError:
+    except GitError:
         raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
     if branch_id is not None and new_branch_id != branch_id:
         raise InvalidBranchError(

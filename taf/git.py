@@ -8,7 +8,12 @@ from functools import reduce
 from pathlib import Path
 
 import taf.settings as settings
-from taf.exceptions import CloneRepoException, FetchException, InvalidRepositoryError
+from taf.exceptions import (
+    CloneRepoException,
+    FetchException,
+    InvalidRepositoryError,
+    GitError,
+)
 from taf.log import taf_logger
 from taf.utils import run
 
@@ -75,7 +80,7 @@ class GitRepository:
         try:
             self._git("rev-parse --git-dir")
             return True
-        except subprocess.CalledProcessError:
+        except GitError:
             return False
 
     @property
@@ -101,32 +106,47 @@ class GitRepository:
         log_error_msg = kwargs.pop("log_error_msg", "")
         reraise_error = kwargs.pop("reraise_error", False)
         log_success_msg = kwargs.pop("log_success_msg", "")
+        error_if_not_exists = kwargs.pop("error_if_not_exists", True)
 
         if len(args):
             cmd = cmd.format(*args)
         command = f"git -C {self.path} {cmd}"
+        result = None
         if log_error or log_error_msg:
             try:
                 result = run(command)
                 if log_success_msg:
                     taf_logger.debug("Repo {}:" + log_success_msg, self.name)
             except subprocess.CalledProcessError as e:
+                if (
+                    error_if_not_exists
+                    and not self._path.is_dir()
+                    or not self.is_git_repository
+                ):
+                    error_msg = f"{self.path} does not exist or is not a git repository"
+                    reraise_error = True
+                else:
+                    error_msg = (
+                        log_error_msg
+                        if log_error_msg
+                        else f"Repo {self.name}: error occurred while executing {command}:\n\n{e.output}",
+                    )
                 if log_error_msg:
-                    taf_logger.error(log_error_msg)
+                    taf_logger.error(error_msg)
                 else:
                     # not every git error indicates a problem
                     # if it does, we expect that either custom error message will be provided
                     # or that the error will be reraised
-                    taf_logger.debug(
-                        "Repo {}: error occurred while executing {}:\n{}",
-                        self.name,
-                        command,
-                        e.output,
-                    )
+                    taf_logger.debug(error_msg)
                 if reraise_error:
-                    raise
+                    raise GitError(error_msg)
         else:
-            result = run(command)
+            try:
+                result = run(command)
+            except subprocess.CalledProcessError as e:
+                raise GitError(
+                    f"Repo {self.name}: error occurred while executing {command}:\n\n{e.output}"
+                ) from e
             if log_success_msg:
                 taf_logger.debug("Repo {}: " + log_success_msg, self.name)
         return result
@@ -189,10 +209,14 @@ class GitRepository:
     def branches(self, remote=False, all=False, strip_remote=False):
         """Returns all branches."""
         flag = "-r" if remote else "-a" if all else ""
+        error_msg = "remote" if remote else "all" if all else ""
         branches = [
             branch.strip('"').strip("'").strip()
             for branch in self._git(
-                "branch {} --format='%(refname:short)'", flag
+                "branch {} --format='%(refname:short)'",
+                flag,
+                log_error_msg=f"Repo {self.name}: could not list {error_msg} branches",
+                reraise_error=True,
             ).split("\n")
         ]
 
@@ -209,12 +233,18 @@ class GitRepository:
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
-        local_branches = self._git(f"branch --contains {commit}").split("\n")
+        local_branches = self._git(
+            f"branch --contains {commit}",
+            log_error_msg=f"Repo {self.name}: could not list branches containing commit {commit}",
+        ).split("\n")
         if local_branches:
             local_branches = [
                 branch.replace("*", "").strip() for branch in local_branches
             ]
-        remote_branches = self._git(f"branch -r --contains {commit}").split("\n")
+        remote_branches = self._git(
+            f"branch -r --contains {commit}",
+            log_error_msg=f"Repo {self.name}: could not list remote branches containing commit {commit}",
+        ).split("\n")
         filtered_remote_branches = []
         if remote_branches:
             for branch in remote_branches:
@@ -238,14 +268,22 @@ class GitRepository:
         If include_remotes is set to True, this checks if
         a remote branch exists.
         """
-        branch = self._git(f"branch --list {branch_name}")
+        branch = self._git(
+            f"branch --list {branch_name}",
+            log_error_msg=f"Repo {self.name}: could not list branches",
+            reraise_error=True,
+        )
         # this git command should return the branch's name if it exists
         # empty string otherwise
         if branch:
             return True
         if include_remotes:
             for remote in self.remotes:
-                remote_branch = self._git(f"branch -r --list {remote}/{branch_name}")
+                remote_branch = self._git(
+                    f"branch -r --list {remote}/{branch_name}",
+                    log_error_msg=f"Repo {self.name}: could not list remote branches",
+                    reraise_error=True,
+                )
                 # this command should return the branch's name if the remote branch
                 # exists
                 # it will also return some warnings if there are problems with some refs
@@ -255,7 +293,12 @@ class GitRepository:
 
     def branch_off_commit(self, branch_name, commit):
         """Create a new branch by branching off of the specified commit"""
-        self._git(f"checkout -b {branch_name} {commit}")
+        self._git(
+            f"checkout -b {branch_name} {commit}",
+            log_error_msg=f"Repo {self.name}: could not create a new branch {branch_name} branching off of {commit}",
+            reraise_error=True,
+            log_success_msg=f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit}",
+        )
 
     def branch_local_name(self, remote_branch_name):
         """Strip remote from the given remote branch"""
@@ -274,19 +317,23 @@ class GitRepository:
                 branch_name,
                 log_error=True,
                 reraise_error=True,
-                log_success_msg=f"checked out branch {branch_name}",
+                log_success_msg=f"Repo {self.name}: checked out branch {branch_name}",
             )
-        except subprocess.CalledProcessError as e:
+        except GitError as e:
             if raise_anyway:
                 raise (e)
 
             # skip worktree errors
-            if "is already checked out at" in e.output:
+            print(e)
+            if "is already checked out at" in str(e):
                 return
 
             if create:
                 self.create_and_checkout_branch(branch_name)
             else:
+                taf_logger.error(
+                    f"Repo {self.name}: could not check out branch {branch_name}"
+                )
                 raise (e)
 
     def checkout_paths(self, commit, *args):
@@ -296,10 +343,11 @@ class GitRepository:
     def checkout_orphan_branch(self, branch_name):
         """Creates orphan branch"""
         self._git(f"checkout --orphan {branch_name}")
-        try:
-            self._git("rm -rf .")
-        except subprocess.CalledProcessError:  # If repository is empty
-            pass
+        self._git(
+            "rm -rf .",
+            log_error_msg=f"Repo {self.name}: could not checkout orphan branch {branch_name}",
+            reraise_error=True,
+        )
 
     def clean(self):
         self._git("clean -fd")
@@ -310,7 +358,9 @@ class GitRepository:
         shutil.rmtree(self.path, True)
         self._path.mkdir(exist_ok=True, parents=True)
         if self.repo_urls is None:
-            raise Exception("Cannot clone repository. No urls were specified")
+            raise GitError(
+                f"Repo {self.name}: cannot clone repository. No urls were specified"
+            )
         params = []
         if bare:
             params.append("--bare")
@@ -330,8 +380,9 @@ class GitRepository:
                 self._git(
                     "clone {} . {}", url, params, log_success_msg="successfully cloned"
                 )
-            except subprocess.CalledProcessError:
+            except GitError:
                 taf_logger.error("Repo {}: cannot clone from url {}", self.name, url)
+                raise
             else:
                 break
 
@@ -351,8 +402,7 @@ class GitRepository:
             taf_logger.debug("Repo {}: old head sha is {}", self.name, old_head)
             try:
                 self.clone(**kwargs)
-            except subprocess.CalledProcessError:
-                taf_logger.error("Repo {}: could not clone repo", self.name)
+            except GitError:
                 raise CloneRepoException(self.url)
         else:
             try:
@@ -364,7 +414,7 @@ class GitRepository:
                     taf_logger.info(
                         "Repo {}: successfully fetched branch {}", self.name, branch
                     )
-            except subprocess.CalledProcessError as e:
+            except GitError as e:
                 if "fatal" in e.stdout:
                     raise FetchException(f"{self.path}: {str(e)}")
                 pass
@@ -418,9 +468,12 @@ class GitRepository:
         """Create a commit with the provided message on the currently checked out branch"""
         self._git("add -A")
         try:
-            self._git("diff --cached --exit-code --shortstat")
-        except subprocess.CalledProcessError:
-            run("git", "-C", self.path, "commit", "--quiet", "-m", message)
+            self._git("diff --cached --exit-code --shortstat", reraise_error=True)
+        except GitError:
+            try:
+                run("git", "-C", self.path, "commit", "--quiet", "-m", message)
+            except subprocess.CalledProcessError as e:
+                raise GitError(str(e))
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
@@ -489,7 +542,7 @@ class GitRepository:
     def get_remote_url(self):
         try:
             return self._git("config --get remote.origin.url").strip()
-        except subprocess.CalledProcessError:
+        except GitError:
             return None
 
     def delete_branch(self, branch_name):
@@ -505,7 +558,7 @@ class GitRepository:
         """Finds sha of the commit to which the current HEAD points"""
         try:
             return self._git("rev-parse HEAD")
-        except subprocess.CalledProcessError:
+        except GitError:
             return None
 
     def fetch(self, fetch_all=False, branch=None, remote="origin"):
@@ -543,7 +596,7 @@ class GitRepository:
             if strip_remote:
                 tracking_branch = self.branch_local_name(tracking_branch)
             return tracking_branch
-        except subprocess.CalledProcessError:
+        except GitError:
             return None
 
     def init_repo(self, bare=False):
@@ -651,7 +704,7 @@ class GitRepository:
     def safely_get_json(self, commit, path):
         try:
             return self.get_json(commit, path)
-        except subprocess.CalledProcessError:
+        except GitError:
             taf_logger.debug(
                 "Auth repo {}: {} not available at revision {}",
                 self.name,
@@ -694,8 +747,8 @@ class GitRepository:
 
         try:
             local_commit = self._git(f"rev-parse {branch}")
-        except subprocess.CalledProcessError as e:
-            if "unknown revision or path not in the working tree" not in e.output:
+        except GitError as e:
+            if "unknown revision or path not in the working tree" not in str(e):
                 raise e
             local_commit = None
 
