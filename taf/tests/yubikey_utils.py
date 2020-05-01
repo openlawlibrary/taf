@@ -7,8 +7,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from securesystemslib.pyca_crypto_keys import create_rsa_signature
 from tuf.repository_tool import import_rsakey_from_pem
-from ykman.descriptor import FailedOpeningDeviceException
-from ykman.piv import WrongPin
 
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
@@ -118,6 +116,8 @@ class FakePivController:
 
     def verify(self, pin):
         if self._driver.pin != pin:
+            from ykman.piv import WrongPin
+
             raise WrongPin("", "")
 
 
@@ -148,6 +148,8 @@ def _yk_piv_ctrl_mock(serial=None, pub_key_pem=None):
     global INSERTED_YUBIKEY
 
     if INSERTED_YUBIKEY is None:
+        from ykman.descriptor import FailedOpeningDeviceException
+
         raise FailedOpeningDeviceException()
 
     yield FakePivController(INSERTED_YUBIKEY), INSERTED_YUBIKEY.serial

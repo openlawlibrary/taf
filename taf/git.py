@@ -293,6 +293,14 @@ class GitRepository:
         for file_path in args:
             self._git(f"checkout {commit} {file_path}")
 
+    def checkout_orphan_branch(self, branch_name):
+        """Creates orphan branch"""
+        self._git(f"checkout --orphan {branch_name}")
+        try:
+            self._git("rm -rf .")
+        except subprocess.CalledProcessError:  # If repository is empty
+            pass
+
     def clean(self):
         self._git("clean -fd")
 
