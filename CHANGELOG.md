@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Error handling and logging improvements ([131])
+
+### Fixed
+
+[131]: https://github.com/openlawlibrary/taf/pull/131
+
 ### Fixed
 
 
