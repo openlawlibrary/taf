@@ -46,7 +46,7 @@ class GitRepository:
         if repo_urls is not None:
             if settings.update_from_filesystem is False:
                 for url in repo_urls:
-                    _validate_url(url)
+                    self._validate_url(url)
             else:
                 repo_urls = [
                     os.path.normpath(os.path.join(self.path, url))
@@ -86,16 +86,16 @@ class GitRepository:
     @property
     def initial_commit(self):
         return (
-            self._git("rev-list --max-parents=0 HEAD").strip()
+            self._git(
+                "rev-list --max-parents=0 HEAD", error_if_not_exists=False
+            ).strip()
             if self.is_git_repository
             else None
         )
 
-    def is_remote_branch(self, branch_name):
-        for remote in self.remotes:
-            if branch_name.startswith(remote + "/"):
-                return True
-        return False
+    @property
+    def log_prefix(self):
+        return f"Repo {self.name}: "
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
@@ -116,40 +116,49 @@ class GitRepository:
             try:
                 result = run(command)
                 if log_success_msg:
-                    taf_logger.debug("Repo {}:" + log_success_msg, self.name)
+                    self._log_debug(log_success_msg)
             except subprocess.CalledProcessError as e:
-                if (
-                    error_if_not_exists
-                    and not self._path.is_dir()
-                    or not self.is_git_repository
+                if error_if_not_exists and (
+                    not self._path.is_dir() or not self.is_git_repository
                 ):
-                    error_msg = f"{self.path} does not exist or is not a git repository"
-                    reraise_error = True
-                else:
-                    error_msg = (
-                        log_error_msg
-                        if log_error_msg
-                        else f"Repo {self.name}: error occurred while executing {command}:\n\n{e.output}",
+                    log_error_msg = (
+                        f"{self.path} does not exist or is not a git repository"
                     )
+                    reraise_error = True
                 if log_error_msg:
-                    taf_logger.error(error_msg)
+                    error = GitError(self, message=log_error_msg, error=e)
+                    self._log_error(error.message)
                 else:
+                    error = GitError(self, command=command, error=e)
                     # not every git error indicates a problem
                     # if it does, we expect that either custom error message will be provided
                     # or that the error will be reraised
-                    taf_logger.debug(error_msg)
+                    self._log_debug(error.message)
                 if reraise_error:
-                    raise GitError(error_msg)
+                    raise error
         else:
             try:
                 result = run(command)
             except subprocess.CalledProcessError as e:
-                raise GitError(
-                    f"Repo {self.name}: error occurred while executing {command}:\n\n{e.output}"
-                ) from e
+                raise GitError(self, command=command, error=e)
             if log_success_msg:
-                taf_logger.debug("Repo {}: " + log_success_msg, self.name)
+                self._log_debug(log_success_msg)
         return result
+
+    def _log(self, log_func, message):
+        log_func("{}{}", self.log_prefix, message)
+
+    def _log_debug(self, message):
+        self._log(taf_logger.debug, message)
+
+    def _log_info(self, message):
+        self._log(taf_logger.info, message)
+
+    def _log_warning(self, message):
+        self._log(taf_logger.warning, message)
+
+    def _log_error(self, message):
+        self._log(taf_logger.error, message)
 
     def all_commits_on_branch(self, branch=None, reverse=True):
         """Returns a list of all commits on the specified branch. If branch is None,
@@ -157,7 +166,7 @@ class GitRepository:
         """
         if branch is None:
             branch = ""
-        commits = self._git("log {} --format=format:%H", branch).strip()
+        commits = self._git("log {} --format=format:%H", branch, log_error=True).strip()
         if not commits:
             commits = []
         else:
@@ -165,9 +174,7 @@ class GitRepository:
             if reverse:
                 commits.reverse()
 
-        taf_logger.debug(
-            "Repo {}: found the following commits: {}", self.name, ", ".join(commits)
-        )
+        self._log_debug(f"found the following commits: {', '.join(commits)}")
         return commits
 
     def all_commits_since_commit(self, since_commit, branch=None, reverse=True):
@@ -178,7 +185,9 @@ class GitRepository:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
         if branch is None:
             branch = "HEAD"
-        commits = self._git("rev-list {}..{}", since_commit, branch).strip()
+        commits = self._git(
+            "rev-list {}..{}", since_commit, branch, log_error=True
+        ).strip()
         if not commits:
             commits = []
         else:
@@ -186,11 +195,8 @@ class GitRepository:
             if reverse:
                 commits.reverse()
 
-        taf_logger.debug(
-            "Repo {}: found the following commits after commit {}: {}",
-            self.name,
-            since_commit,
-            ", ".join(commits),
+        self._log_debug(
+            f"found the following commits after commit {since_commit}: {', '.join(commits)}"
         )
         return commits
 
@@ -201,9 +207,7 @@ class GitRepository:
         else:
             commits = commits.split("\n")
             commits.reverse()
-        taf_logger.debug(
-            "Repo {}: fetched the following commits {}", self.name, ", ".join(commits)
-        )
+        self._log_debug(f"fetched the following commits {', '.join(commits)}")
         return commits
 
     def branches(self, remote=False, all=False, strip_remote=False):
@@ -233,17 +237,15 @@ class GitRepository:
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
-        local_branches = self._git(
-            f"branch --contains {commit}",
-            log_error_msg=f"Repo {self.name}: could not list branches containing commit {commit}",
-        ).split("\n")
+        local_branches = self._git(f"branch --contains {commit}", log_error=True).split(
+            "\n"
+        )
         if local_branches:
             local_branches = [
                 branch.replace("*", "").strip() for branch in local_branches
             ]
         remote_branches = self._git(
-            f"branch -r --contains {commit}",
-            log_error_msg=f"Repo {self.name}: could not list remote branches containing commit {commit}",
+            f"branch -r --contains {commit}", log_error=True
         ).split("\n")
         filtered_remote_branches = []
         if remote_branches:
@@ -269,9 +271,7 @@ class GitRepository:
         a remote branch exists.
         """
         branch = self._git(
-            f"branch --list {branch_name}",
-            log_error_msg=f"Repo {self.name}: could not list branches",
-            reraise_error=True,
+            f"branch --list {branch_name}", log_error=True, reraise_error=True
         )
         # this git command should return the branch's name if it exists
         # empty string otherwise
@@ -295,7 +295,7 @@ class GitRepository:
         """Create a new branch by branching off of the specified commit"""
         self._git(
             f"checkout -b {branch_name} {commit}",
-            log_error_msg=f"Repo {self.name}: could not create a new branch {branch_name} branching off of {commit}",
+            log_error=True,
             reraise_error=True,
             log_success_msg=f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit}",
         )
@@ -315,8 +315,6 @@ class GitRepository:
             self._git(
                 "checkout {}",
                 branch_name,
-                log_error=True,
-                reraise_error=True,
                 log_success_msg=f"Repo {self.name}: checked out branch {branch_name}",
             )
         except GitError as e:
@@ -324,42 +322,37 @@ class GitRepository:
                 raise (e)
 
             # skip worktree errors
-            print(e)
-            if "is already checked out at" in str(e):
+            if "is already checked out at" in e.error.output:
                 return
 
             if create:
                 self.create_and_checkout_branch(branch_name)
             else:
-                taf_logger.error(
-                    f"Repo {self.name}: could not check out branch {branch_name}"
-                )
+                self._log_error(f'could not checkout branch {branch_name}')
                 raise (e)
 
     def checkout_paths(self, commit, *args):
         for file_path in args:
-            self._git(f"checkout {commit} {file_path}")
+            self._git(
+                f"checkout {commit} {file_path}", log_error=True, reraise_error=True
+            )
 
     def checkout_orphan_branch(self, branch_name):
         """Creates orphan branch"""
         self._git(f"checkout --orphan {branch_name}")
-        self._git(
-            "rm -rf .",
-            log_error_msg=f"Repo {self.name}: could not checkout orphan branch {branch_name}",
-            reraise_error=True,
-        )
+        self._git("rm -rf .", log_error=True, reraise_error=True)
 
     def clean(self):
         self._git("clean -fd")
 
     def clone(self, no_checkout=False, bare=False, **kwargs):
 
-        taf_logger.info("Repo {}: cloning repository", self.name)
+        self._log_info("cloning repository")
         shutil.rmtree(self.path, True)
         self._path.mkdir(exist_ok=True, parents=True)
         if self.repo_urls is None:
             raise GitError(
-                f"Repo {self.name}: cannot clone repository. No urls were specified"
+                repo=self, message="cannot clone repository. No urls were specified"
             )
         params = []
         if bare:
@@ -378,11 +371,10 @@ class GitRepository:
         for url in self.repo_urls:
             try:
                 self._git(
-                    "clone {} . {}", url, params, log_success_msg="successfully cloned"
+                    "clone {} . {}", url, params, log_success_msg=f"successfully cloned from {url}", log_error_msg=f'cannot clone from url {url}', reraise_error=True
                 )
             except GitError:
-                taf_logger.error("Repo {}: cannot clone from url {}", self.name, url)
-                raise
+                pass
             else:
                 break
 
@@ -393,13 +385,11 @@ class GitRepository:
         """
         if branches is None:
             branches = ["master"]
-        taf_logger.debug(
-            "Repo {}: cloning or pulling branches {}", self.name, ", ".join(branches)
-        )
+        self._log_debug(f"cloning or pulling branches {', '.join(branches)}")
 
         old_head = self.head_commit_sha()
         if old_head is None:
-            taf_logger.debug("Repo {}: old head sha is {}", self.name, old_head)
+            self._log_debug(f"old head sha is {old_head}")
             try:
                 self.clone(**kwargs)
             except GitError:
@@ -411,9 +401,7 @@ class GitRepository:
                         self._git("fetch", "origin", f"{branch}:{branch}")
                     else:
                         self._git("pull", "origin", branch)
-                    taf_logger.info(
-                        "Repo {}: successfully fetched branch {}", self.name, branch
-                    )
+                    self._log_info(f"successfully fetched branch {branch}")
             except GitError as e:
                 if "fatal" in e.stdout:
                     raise FetchException(f"{self.path}: {str(e)}")
@@ -473,7 +461,9 @@ class GitRepository:
             try:
                 run("git", "-C", self.path, "commit", "--quiet", "-m", message)
             except subprocess.CalledProcessError as e:
-                raise GitError(str(e))
+                raise GitError(
+                    repo=self, message=f"could not commit changes due to:\n{e.output}"
+                )
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
@@ -489,11 +479,8 @@ class GitRepository:
         on a speculative branch and not on the master branch.
         """
 
-        taf_logger.debug(
-            "Repo {}: finding commits which are on branch {}, but not on branch {}",
-            self.name,
-            branch1,
-            branch2,
+        self._log_debug(
+            f"finding commits which are on branch {branch1}, but not on branch {branch2}"
         )
         commits = self._git(
             "log {} --not {} --no-merges --format=format:%H", branch1, branch2
@@ -502,18 +489,18 @@ class GitRepository:
         if include_branching_commit:
             branching_commit = self._git("rev-list -n 1 {}~1", commits[-1])
             commits.append(branching_commit)
-        taf_logger.debug("Repo {}: found the following commits: {}", self.name, commits)
+        self._log_debug(f"found the following commits: {commits}")
         return commits
 
     def delete_local_branch(self, branch_name, force=False):
         """Deletes local branch."""
         flag = "-D" if force else "-d"
-        self._git(f"branch {flag} {branch_name}")
+        self._git(f"branch {flag} {branch_name}", log_error=True)
 
     def delete_remote_branch(self, branch_name, remote=None):
         if remote is None:
             remote = self.remotes[0]
-        self._git(f"push {remote} --delete {branch_name}")
+        self._git(f"push {remote} --delete {branch_name}", log_error=True)
 
     def get_commit_message(self, commit):
         """Returns commit message of the given commit"""
@@ -546,7 +533,7 @@ class GitRepository:
             return None
 
     def delete_branch(self, branch_name):
-        self._git("branch -D {}", branch_name)
+        self._git("branch -D {}", branch_name, log_error=True)
 
     def diff_between_revisions(self, revision1=EMPTY_TREE, revision2="HEAD"):
         return self._git("diff --name-status {} {}", revision1, revision2)
@@ -557,17 +544,17 @@ class GitRepository:
     def head_commit_sha(self):
         """Finds sha of the commit to which the current HEAD points"""
         try:
-            return self._git("rev-parse HEAD")
+            return self._git("rev-parse HEAD", error_if_not_exists=False)
         except GitError:
             return None
 
     def fetch(self, fetch_all=False, branch=None, remote="origin"):
         if fetch_all:
-            self._git("fetch --all")
+            self._git("fetch --all", log_error=True)
         else:
             if branch is None:
                 branch = ""
-            self._git("fetch {} {}", remote, branch)
+            self._git("fetch {} {}", remote, branch, log_error=True)
 
     def get_current_branch(self):
         """Return current branch."""
@@ -578,14 +565,16 @@ class GitRepository:
         Fet the last remote commit of the specified branch
         """
         if url is not None:
-            last_commit = self._git(f"--no-pager ls-remote {url} {branch}")
+            last_commit = self._git(
+                f"--no-pager ls-remote {url} {branch}", log_error=True
+            )
             if last_commit:
                 return last_commit.split("\t", 1)[0]
         return None
 
     def get_merge_base(self, branch1, branch2):
         """Finds the best common ancestor between two branches"""
-        return self._git(f"merge-base {branch1} {branch2}")
+        return self._git(f"merge-base {branch1} {branch2}", log_error=True)
 
     def get_tracking_branch(self, branch="", strip_remote=False):
         """Returns tracking branch name in format origin/branch-name or None if branch does not
@@ -603,9 +592,15 @@ class GitRepository:
         if self._path.is_dir():
             self._path.mkdir(exist_ok=True, parents=True)
         flag = "--bare" if bare else ""
-        self._git(f"init {flag}")
+        self._git(f"init {flag}", error_if_not_exists=False)
         if self.repo_urls is not None and len(self.repo_urls):
             self._git("remote add origin {}", self.repo_urls[0])
+
+    def is_remote_branch(self, branch_name):
+        for remote in self.remotes:
+            if branch_name.startswith(remote + "/"):
+                return True
+        return False
 
     def list_files_at_revision(self, commit, path=""):
         if path is None:
@@ -673,11 +668,11 @@ class GitRepository:
         ]
 
     def merge_commit(self, commit):
-        self._git("merge {}", commit)
+        self._git("merge {}", commit, log_error=True)
 
     def pull(self):
         """Pull current branch"""
-        self._git("pull")
+        self._git("pull", log_error=True)
 
     def push(self, branch=None, set_upstream=False, force=False):
         """Push all changes"""
@@ -685,7 +680,9 @@ class GitRepository:
             branch = self.get_current_branch()
         upstream_flag = "-u" if set_upstream else ""
         force_flag = "-f" if force else ""
-        self._git("push {} {} origin {}", upstream_flag, force_flag, branch)
+        self._git(
+            "push {} {} origin {}", upstream_flag, force_flag, branch, log_error=True
+        )
 
     def rename_branch(self, old_name, new_name):
         self._git("branch -m {} {}", old_name, new_name)
@@ -705,19 +702,9 @@ class GitRepository:
         try:
             return self.get_json(commit, path)
         except GitError:
-            taf_logger.debug(
-                "Auth repo {}: {} not available at revision {}",
-                self.name,
-                os.path.basename(path),
-                commit,
-            )
+            self._log_debug(f"{path} not available at revision {commit}")
         except json.decoder.JSONDecodeError:
-            taf_logger.debug(
-                "Auth repo {}: {} not a valid json at revision {}",
-                self.name,
-                os.path.basename(path),
-                commit,
-            )
+            self._log_debug(f"{path} not a valid json at revision {commit}")
         return None
 
     def set_remote_url(self, new_url, remote="origin"):
@@ -759,6 +746,17 @@ class GitRepository:
     def top_commit_of_branch(self, branch):
         return self._git(f"rev-parse {branch}")
 
+    def _validate_url(self, url):
+        """ ensure valid URL """
+        for _url_re in [_http_fttp_url, _ssh_url]:
+            match = _url_re.match(url)
+            if match:
+                return
+        self._log_error(f"URL ({url}) is not valid")
+        raise InvalidRepositoryError(
+            f'Repository URL must be a valid URL, but got "{url}".'
+        )
+
 
 class NamedGitRepository(GitRepository):
     def __init__(
@@ -782,7 +780,7 @@ class NamedGitRepository(GitRepository):
     root_dir and repo_name.
     """
         self.root_dir = root_dir
-        path = _get_repo_path(root_dir, repo_name)
+        path = self._get_repo_path(root_dir, repo_name)
         super().__init__(
             path,
             repo_name=repo_name,
@@ -791,34 +789,31 @@ class NamedGitRepository(GitRepository):
             default_branch=default_branch,
         )
 
+    def _get_repo_path(self, root_dir, repo_name):
+        """
+        get the path to a repo and ensure it is valid.
+        (since this is coming from potentially untrusted data)
+        """
+        self._validate_repo_name(repo_name)
+        repo_dir = str((Path(root_dir) / (repo_name or "")))
+        if not repo_dir.startswith(repo_dir):
+            self._log_error("repository name is not valid")
+            raise InvalidRepositoryError(f"Invalid repository name: {repo_name}")
+        return repo_dir
 
-def _get_repo_path(root_dir, repo_name):
-    """
-  get the path to a repo and ensure it is valid.
-  (since this is coming from potentially untrusted data)
-  """
-    _validate_repo_name(repo_name)
-    repo_dir = str((Path(root_dir) / (repo_name or "")))
-    if not repo_dir.startswith(repo_dir):
-        taf_logger.error("Repo {}: repository name is not valid", repo_name)
-        raise InvalidRepositoryError(f"Invalid repository name: {repo_name}")
-    return repo_dir
+    def _validate_repo_name(self, repo_name):
+        """ Ensure the repo name is not malicious """
+        match = _repo_name_re.match(repo_name)
+        if not match:
+            self._log_error("repository name is not valid")
+            raise InvalidRepositoryError(
+                "Repository name must be in format namespace/repository "
+                "and can only contain letters, numbers, underscores and "
+                f'dashes, but got "{repo_name}"'
+            )
 
 
 _repo_name_re = re.compile(r"^\w[\w_-]*/\w[\w_-]*$")
-
-
-def _validate_repo_name(repo_name):
-    """ Ensure the repo name is not malicious """
-    match = _repo_name_re.match(repo_name)
-    if not match:
-        taf_logger.error("Repo {}: repository name is not valid", repo_name)
-        raise InvalidRepositoryError(
-            "Repository name must be in format namespace/repository "
-            "and can only contain letters, numbers, underscores and "
-            f'dashes, but got "{repo_name}"'
-        )
-
 
 _http_fttp_url = re.compile(
     r"^(?:http|ftp)s?://"  # http:// or https://
@@ -834,15 +829,3 @@ _http_fttp_url = re.compile(
 _ssh_url = re.compile(
     r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)?(/)?"
 )
-
-
-def _validate_url(url):
-    """ ensure valid URL """
-    for _url_re in [_http_fttp_url, _ssh_url]:
-        match = _url_re.match(url)
-        if match:
-            return
-    taf_logger.error("Repository URL ({}) is not valid", url)
-    raise InvalidRepositoryError(
-        f'Repository URL must be a valid URL, but got "{url}".'
-    )
