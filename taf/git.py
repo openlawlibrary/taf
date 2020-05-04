@@ -328,7 +328,7 @@ class GitRepository:
             if create:
                 self.create_and_checkout_branch(branch_name)
             else:
-                self._log_error(f'could not checkout branch {branch_name}')
+                self._log_error(f"could not checkout branch {branch_name}")
                 raise (e)
 
     def checkout_paths(self, commit, *args):
@@ -371,7 +371,12 @@ class GitRepository:
         for url in self.repo_urls:
             try:
                 self._git(
-                    "clone {} . {}", url, params, log_success_msg=f"successfully cloned from {url}", log_error_msg=f'cannot clone from url {url}', reraise_error=True
+                    "clone {} . {}",
+                    url,
+                    params,
+                    log_success_msg=f"successfully cloned from {url}",
+                    log_error_msg=f"cannot clone from url {url}",
+                    reraise_error=True,
                 )
             except GitError:
                 pass
@@ -544,7 +549,7 @@ class GitRepository:
     def head_commit_sha(self):
         """Finds sha of the commit to which the current HEAD points"""
         try:
-            return self._git("rev-parse HEAD", error_if_not_exists=False)
+            return self._git("rev-parse HEAD")
         except GitError:
             return None
 

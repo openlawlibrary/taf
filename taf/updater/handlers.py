@@ -252,8 +252,10 @@ class GitUpdater(handlers.MetadataUpdater):
         directories. This should be called after the update is finished,
         either successfully or unsuccessfully.
         """
-        shutil.rmtree(self.current_path)
-        shutil.rmtree(self.previous_path)
+        if self.current_path.is_dir():
+            shutil.rmtree(self.current_path)
+        if self.previous_path.is_dir():
+            shutil.rmtree(self.previous_path)
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
         shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 

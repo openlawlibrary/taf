@@ -22,14 +22,14 @@ class GitError(TAFError):
     def __init__(self, repo, command=None, error=None, message=None):
         if message is None:
             if command is not None:
-                message = f'error occurred while executing {command}'
+                message = f"error occurred while executing {command}"
                 if error is not None:
-                    message = f'{message}:\n{error.output}'
+                    message = f"{message}:\n{error.output}"
             elif error is not None:
                 message = error.output
             else:
-                message = 'error occurred'
-        self.message = f'{repo.log_prefix}{message}'
+                message = "error occurred"
+        self.message = f"{repo.log_prefix}{message}"
         self.repo = repo
         self.command = command
         self.error = error
