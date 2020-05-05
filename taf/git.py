@@ -339,8 +339,13 @@ class GitRepository:
 
     def checkout_orphan_branch(self, branch_name):
         """Creates orphan branch"""
-        self._git(f"checkout --orphan {branch_name}")
-        self._git("rm -rf .", log_error=True, reraise_error=True)
+        self._git(
+            f"checkout --orphan {branch_name}", log_error=True, reraise_error=True
+        )
+        try:
+            self._git("rm -rf .")
+        except GitError:  # If repository is empty
+            pass
 
     def clean(self):
         self._git("clean -fd")
