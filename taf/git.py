@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import logging
 from collections import OrderedDict
 from functools import reduce
 from pathlib import Path
@@ -57,11 +58,21 @@ class GitRepository:
         self.repo_urls = repo_urls
         self.additional_info = additional_info
 
-    _remotes = None
+    logging_functions = {
+        logging.DEBUG: taf_logger.debug,
+        logging.INFO: taf_logger.info,
+        logging.WARNING: taf_logger.warning,
+        logging.ERROR: taf_logger.error,
+        logging.CRITICAL: taf_logger.critical
+    }
+
+    log_template = "{}{}"
 
     @property
     def path(self):
         return str(self._path)
+
+    _remotes = None
 
     @property
     def remotes(self):
@@ -146,19 +157,22 @@ class GitRepository:
         return result
 
     def _log(self, log_func, message):
-        log_func("{}{}", self.log_prefix, message)
+        log_func(self.log_template, self.log_prefix, message)
 
     def _log_debug(self, message):
-        self._log(taf_logger.debug, message)
+        self._log(self.logging_functions[logging.DEBUG], message)
 
     def _log_info(self, message):
-        self._log(taf_logger.info, message)
+        self._log(self.logging_functions[logging.INFO], message)
 
     def _log_warning(self, message):
-        self._log(taf_logger.warning, message)
+        self._log(self.logging_functions[logging.WARNING], message)
 
     def _log_error(self, message):
-        self._log(taf_logger.error, message)
+        self._log(self.logging_functions[logging.ERROR], message)
+
+    def _log_critical(self, message):
+        self._log(self.logging_functions[logging.CRITICAL], message)
 
     def all_commits_on_branch(self, branch=None, reverse=True):
         """Returns a list of all commits on the specified branch. If branch is None,
