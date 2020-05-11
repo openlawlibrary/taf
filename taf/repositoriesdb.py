@@ -98,11 +98,11 @@ def load_repositories(
             repositories = _get_json_file(auth_repo, repositories_path, commit)
             targets = _get_json_file(auth_repo, targets_path, commit)
         except InvalidOrMissingMetadataError as e:
-            log_func = taf_logger.warning
             if "targets/repositories.json not available at revision" in str(e):
-                log_func = taf_logger.debug
-            log_func("Skipping commit {} due to error: {}", commit, str(e))
-            continue
+                taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
+                continue
+            else:
+                raise
 
         # target repositories are defined in both mirrors.json and targets.json
         repositories = repositories["repositories"]

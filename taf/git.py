@@ -63,7 +63,7 @@ class GitRepository:
         logging.INFO: taf_logger.info,
         logging.WARNING: taf_logger.warning,
         logging.ERROR: taf_logger.error,
-        logging.CRITICAL: taf_logger.critical
+        logging.CRITICAL: taf_logger.critical,
     }
 
     log_template = "{}{}"
