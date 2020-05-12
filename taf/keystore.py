@@ -67,7 +67,7 @@ def load_tuf_private_key(key_str, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME)
 
 def new_public_key_cmd_prompt(scheme):
     def _enter_and_check_key(scheme):
-        pem = getpass(f"Enter public key without its header and footer\n")
+        pem = getpass("Enter public key without its header and footer\n")
         pem = _from_public_pem(pem)
         try:
             key = import_rsakey_from_pem(pem, scheme)

@@ -11,14 +11,21 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Fixed
+
+
+## [0.4.1] - 05/12/2020
+
+### Added
+
+### Changed
+
 - Error handling and logging improvements ([131])
 
 ### Fixed
 
+
 [131]: https://github.com/openlawlibrary/taf/pull/131
-
-### Fixed
-
 
 ## [0.4.0] - 05/01/2020
 
@@ -231,7 +238,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/openlawlibrary/pygls/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/openlawlibrary/pygls/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/openlawlibrary/pygls/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/openlawlibrary/taf/compare/v0.2.2...v0.3.0
