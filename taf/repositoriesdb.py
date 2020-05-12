@@ -1,8 +1,12 @@
 import json
 from pathlib import Path
-from subprocess import CalledProcessError
 
-from taf.exceptions import InvalidOrMissingMetadataError, RepositoriesNotFoundError
+from taf.exceptions import (
+    InvalidOrMissingMetadataError,
+    RepositoriesNotFoundError,
+    RepositoryInstantiationError,
+    GitError,
+)
 from taf.git import NamedGitRepository
 from taf.log import taf_logger
 
@@ -94,8 +98,11 @@ def load_repositories(
             repositories = _get_json_file(auth_repo, repositories_path, commit)
             targets = _get_json_file(auth_repo, targets_path, commit)
         except InvalidOrMissingMetadataError as e:
-            taf_logger.warning("Skipping commit {} due to error {}", commit, e)
-            continue
+            if "targets/repositories.json not available at revision" in str(e):
+                taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
+                continue
+            else:
+                raise
 
         # target repositories are defined in both mirrors.json and targets.json
         repositories = repositories["repositories"]
@@ -108,11 +115,20 @@ def load_repositories(
             additional_info = _get_custom_data(repo_data, targets.get(path))
 
             git_repo = None
-            if factory is not None:
-                git_repo = factory(root_dir, path, urls, additional_info)
-            else:
-                git_repo_class = _determine_repo_class(repo_classes, path)
-                git_repo = git_repo_class(root_dir, path, urls, additional_info)
+            try:
+                if factory is not None:
+                    git_repo = factory(root_dir, path, urls, additional_info)
+                else:
+                    git_repo_class = _determine_repo_class(repo_classes, path)
+                    git_repo = git_repo_class(root_dir, path, urls, additional_info)
+            except Exception as e:
+                taf_logger.error(
+                    "Auth repo {}: an error occurred while instantiating repository {}: {}",
+                    auth_repo.name,
+                    path,
+                    str(e),
+                )
+                raise RepositoryInstantiationError(f"{root_dir / path}", str(e))
 
             # allows us to partially update repositories
             if git_repo:
@@ -160,7 +176,7 @@ def _get_custom_data(repo, target):
 def _get_json_file(auth_repo, path, commit):
     try:
         return auth_repo.get_json(commit, path)
-    except CalledProcessError:
+    except GitError:
         raise InvalidOrMissingMetadataError(
             f"{path} not available at revision {commit}"
         )
