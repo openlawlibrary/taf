@@ -152,7 +152,7 @@ class GitRepository:
 
     def all_commits_since_commit(self, since_commit, branch=None, reverse=True):
         """Returns a list of all commits since the specified commit on the
-        currently checked out branch
+        specified or currently checked out branch
         """
         if since_commit is None:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)

@@ -9,13 +9,13 @@ def attach_to_group(group):
         pass
 
     @yubikey.command()
-    @click.option("--path", help="File to which the exported public key will be written. "
+    @click.option("--output", help="File to which the exported public key will be written. "
                   "The result will be written to the console if path is not specified")
-    def export_pub_key(path):
+    def export_pub_key(output):
         """
         Export the inserted Yubikey's public key and save it to the specified location.
         """
-        developer_tool.export_yk_public_pem(path)
+        developer_tool.export_yk_public_pem(output)
 
     @yubikey.command()
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved."

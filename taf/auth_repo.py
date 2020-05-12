@@ -104,7 +104,7 @@ class AuthRepoMixin(TAFRepository):
         )
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-    def sorted_commits_and_branches_per_repositories(self, commits):
+    def sorted_commits_and_branches_per_repositories(self, commits, target_repos=None):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {
@@ -121,7 +121,7 @@ class AuthRepoMixin(TAFRepository):
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits = defaultdict(dict)
-        targets = self.targets_at_revisions(*commits)
+        targets = self.targets_at_revisions(*commits, target_repos=target_repos)
         previous_commits = {}
         for commit in commits:
             for target_path, target_data in targets[commit].items():
@@ -140,7 +140,7 @@ class AuthRepoMixin(TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits):
+    def targets_at_revisions(self, *commits, target_repos=None):
         targets = defaultdict(dict)
         for commit in commits:
             # repositories.json might not exit, if the current commit is
@@ -166,6 +166,10 @@ class AuthRepoMixin(TAFRepository):
                 for target_path in targets_at_revision:
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
+                        continue
+                    if target_repos is not None and target_path not in target_repos:
+                        # if specific target repositories are specified, skip all other
+                        # repositories
                         continue
                     target_content = self.safely_get_json(
                         commit, get_target_path(target_path)

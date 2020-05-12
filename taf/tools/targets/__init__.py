@@ -11,6 +11,26 @@ def attach_to_group(group):
         pass
 
     @targets.command()
+    @click.argument("repo_path")
+    @click.option("--commit", default=None, help="Starting authentication repository commit")
+    @click.option("--output", default=None, help="File to which the resulting json will be written. "
+                  "If not provided, the output will be printed to console")
+    @click.option("--repo", multiple=True, help="Target repository whose historical data "
+                  "should be collected")
+    def export_history(repo_path, commit, output, repo):
+        """Export lists of sorted commits, grouped by branches and target repositories, based
+        on target files stored in the authentication repository. If commit is specified,
+        only return changes made at that revision and all subsequent revisions. If it is not,
+        start from the initial authentication repository commit.
+        Repositories which will be taken into consideration when collecting targets historical
+        data can be defined using the repo option. If no repositories are passed in, historical
+        data will include all target repositories.
+        to a file whose location is specified using the output option, or print it to
+        console.
+        """
+        developer_tool.export_targets_history(repo_path, commit, output, repo)
+
+    @targets.command()
     @click.argument("path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--keys-description", help="A dictionary containing information about the "
