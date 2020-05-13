@@ -166,8 +166,8 @@ def _update_named_repository(
         test_repo = "test-auth-repo" in targets["signed"]["targets"]
         if test_repo and not authenticate_test_repo:
             raise UpdateFailedError(
-                f"Repository {users_auth_repo.name} is a test repository."
-                'Call update with "--authenticate-test-repo to update a test "'
+                f"Repository {users_auth_repo.name} is a test repository. "
+                'Call update with "--authenticate-test-repo" to update a test '
                 "repository"
             )
         elif not test_repo and authenticate_test_repo:
@@ -225,6 +225,7 @@ def _update_named_repository(
             shutil.rmtree(users_auth_repo.conf_dir)
         raise e
     finally:
+        repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
 
 
@@ -269,8 +270,6 @@ def _update_authentication_repository(repository_updater, only_validate):
             f"Validation of authentication repository {users_auth_repo.name}"
             f" failed due to error: {e}"
         )
-    finally:
-        repository_updater.update_handler.cleanup()
 
     taf_logger.info(
         "Successfully validated authentication repository {}", users_auth_repo.name

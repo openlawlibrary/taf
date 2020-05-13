@@ -18,6 +18,23 @@ class FetchException(TAFError):
         self.message = f"Cannot fetch changes. Repo: {path}"
 
 
+class GitError(TAFError):
+    def __init__(self, repo, command=None, error=None, message=None):
+        if message is None:
+            if command is not None:
+                message = f"error occurred while executing {command}"
+                if error is not None:
+                    message = f"{message}:\n{error.output}"
+            elif error is not None:
+                message = error.output
+            else:
+                message = "error occurred"
+        self.message = f"{repo.log_prefix}{message}"
+        self.repo = repo
+        self.command = command
+        self.error = error
+
+
 class InvalidBranchError(TAFError):
     pass
 
@@ -43,6 +60,13 @@ class InvalidRepositoryError(TAFError):
 
 class InvalidPINError(TAFError):
     pass
+
+
+class RepositoryInstantiationError(TAFError):
+    def __init__(self, repo_path, message):
+        super().__init__(f"Could not instantiate repository {repo_path}\n\n: {message}")
+        self.repo_path = repo_path
+        self.message = message
 
 
 class MetadataUpdateError(TAFError):

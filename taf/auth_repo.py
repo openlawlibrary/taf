@@ -5,7 +5,6 @@ from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
-from taf.log import taf_logger
 from taf.git import GitRepository, NamedGitRepository
 from taf.repository_tool import (
     Repository as TAFRepository,
@@ -48,6 +47,10 @@ class AuthRepoMixin(TAFRepository):
             return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
         except FileNotFoundError:
             return None
+
+    @property
+    def log_prefix(self):
+        return f"Auth repo {self.name}: "
 
     def get_target(self, target_name, commit=None, safely=True):
         if commit is None:
@@ -99,9 +102,7 @@ class AuthRepoMixin(TAFRepository):
         """
         Set the last validated commit of the authentication repository
         """
-        taf_logger.debug(
-            "Auth repo {}: setting last validated commit to: {}", self.name, commit
-        )
+        self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
     def sorted_commits_and_branches_per_repositories(self, commits, target_repos=None):
@@ -136,10 +137,8 @@ class AuthRepoMixin(TAFRepository):
                         "additional-info": target_data.get("additional-info")
                     })
                 previous_commits[target_path] = target_commit
-        taf_logger.debug(
-            "Auth repo {}: new commits per repositories according to target files: {}",
-            self.name,
-            repositories_commits,
+        self._log_debug(
+            f"new commits per repositories according to target files: {repositories_commits}"
         )
         return repositories_commits
 
