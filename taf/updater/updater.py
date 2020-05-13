@@ -323,6 +323,7 @@ def _update_target_repositories(
             # branch
             branch_exists = repository.branch_exists(branch, include_remotes=False)
             repo_branch_commits = repositories_branches_and_commits[path][branch]
+            repo_branch_commits = [commit_info["commit"] for commit_info in repo_branch_commits]
             if (
                 last_validated_commit is None
                 or not is_git_repository

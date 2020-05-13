@@ -109,12 +109,12 @@ class AuthRepoMixin(TAFRepository):
         to it for every target repository:
         {
             target_repo1: {
-                branch1: [commit1, commit2, commit3],
-                branch2: [commit4, commit5]
+                branch1: [{"commit": commit1, "additional-info": {...}}, {"commit": commit2, "additional-info": {...}}, {"commit": commit3, "additional-info": {}}],
+                branch2: [{"commit": commit4, "additional-info: {...}}, {"commit": commit5, "additional_info": {}}]
             },
             target_repo2: {
-                branch1: [commit6, commit7, commit8],
-                branch2: [commit9, commit10]
+                branch1: [{"commit": commit6, "additional-info": {...}}],
+                branch2: [{"commit": commit7", "additional-info": {...}]
             }
         }
         Keep in mind that targets metadata
@@ -131,10 +131,13 @@ class AuthRepoMixin(TAFRepository):
                 if previous_commit is None or target_commit != previous_commit:
                     repositories_commits[target_path].setdefault(
                         target_branch, []
-                    ).append(target_commit)
+                    ).append({
+                        "commit": target_commit,
+                        "additional-info": target_data.get("additional-info")
+                    })
                 previous_commits[target_path] = target_commit
         taf_logger.debug(
-            "Auth repo {}: new commits per repositories according to targets.json: {}",
+            "Auth repo {}: new commits per repositories according to target files: {}",
             self.name,
             repositories_commits,
         )
@@ -175,11 +178,12 @@ class AuthRepoMixin(TAFRepository):
                         commit, get_target_path(target_path)
                     )
                     if target_content is not None:
-                        target_commit = target_content.get("commit")
-                        target_branch = target_content.get("branch", "master")
+                        target_commit = target_content.pop("commit")
+                        target_branch = target_content.pop("branch", "master")
                         targets[commit][target_path] = {
                             "branch": target_branch,
                             "commit": target_commit,
+                            "additional-info": target_content,
                         }
         return targets
 
