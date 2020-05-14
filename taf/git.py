@@ -804,6 +804,7 @@ class NamedGitRepository(GitRepository):
     root_dir and repo_name.
     """
         self.root_dir = root_dir
+        self.name = repo_name
         path = self._get_repo_path(root_dir, repo_name)
         super().__init__(
             path,
