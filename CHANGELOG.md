@@ -9,10 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a command for exporting targets historical data ([133])
+
 ### Changed
+
+- `sorted_commits_and_branches_per_repositories` returns additional targets data and not just commits ([133])
 
 ### Fixed
 
+[133]: https://github.com/openlawlibrary/taf/pull/133
 
 ## [0.4.1] - 05/12/2020
 
