@@ -132,10 +132,12 @@ class AuthRepoMixin(TAFRepository):
                 if previous_commit is None or target_commit != previous_commit:
                     repositories_commits[target_path].setdefault(
                         target_branch, []
-                    ).append({
-                        "commit": target_commit,
-                        "additional-info": target_data.get("additional-info")
-                    })
+                    ).append(
+                        {
+                            "commit": target_commit,
+                            "additional-info": target_data.get("additional-info"),
+                        }
+                    )
                 previous_commits[target_path] = target_commit
         self._log_debug(
             f"new commits per repositories according to target files: {repositories_commits}"
