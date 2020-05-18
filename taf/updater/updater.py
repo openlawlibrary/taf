@@ -322,6 +322,9 @@ def _update_target_repositories(
             # branch
             branch_exists = repository.branch_exists(branch, include_remotes=False)
             repo_branch_commits = repositories_branches_and_commits[path][branch]
+            repo_branch_commits = [
+                commit_info["commit"] for commit_info in repo_branch_commits
+            ]
             if (
                 last_validated_commit is None
                 or not is_git_repository
@@ -386,11 +389,10 @@ def _update_target_repositories(
             for branch in repositories_branches_and_commits[path]:
                 repository.checkout_branch(branch)
                 repo_branch_commits = repositories_branches_and_commits[path][branch]
+                last_commit = repo_branch_commits[-1]["commit"]
                 if len(repo_branch_commits):
-                    taf_logger.info(
-                        "Merging {} into {}", repo_branch_commits[-1], repository.name
-                    )
-                    last_validated_commit = repo_branch_commits[-1]
+                    taf_logger.info("Merging {} into {}", last_commit, repository.name)
+                    last_validated_commit = last_commit
                     commit_to_merge = (
                         last_validated_commit
                         if not allow_unauthenticated[path]

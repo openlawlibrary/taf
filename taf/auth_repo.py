@@ -105,24 +105,24 @@ class AuthRepoMixin(TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-    def sorted_commits_and_branches_per_repositories(self, commits):
+    def sorted_commits_and_branches_per_repositories(self, commits, target_repos=None):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {
             target_repo1: {
-                branch1: [commit1, commit2, commit3],
-                branch2: [commit4, commit5]
+                branch1: [{"commit": commit1, "additional-info": {...}}, {"commit": commit2, "additional-info": {...}}, {"commit": commit3, "additional-info": {}}],
+                branch2: [{"commit": commit4, "additional-info: {...}}, {"commit": commit5, "additional_info": {}}]
             },
             target_repo2: {
-                branch1: [commit6, commit7, commit8],
-                branch2: [commit9, commit10]
+                branch1: [{"commit": commit6, "additional-info": {...}}],
+                branch2: [{"commit": commit7", "additional-info": {...}]
             }
         }
         Keep in mind that targets metadata
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits = defaultdict(dict)
-        targets = self.targets_at_revisions(*commits)
+        targets = self.targets_at_revisions(*commits, target_repos=target_repos)
         previous_commits = {}
         for commit in commits:
             for target_path, target_data in targets[commit].items():
@@ -132,14 +132,19 @@ class AuthRepoMixin(TAFRepository):
                 if previous_commit is None or target_commit != previous_commit:
                     repositories_commits[target_path].setdefault(
                         target_branch, []
-                    ).append(target_commit)
+                    ).append(
+                        {
+                            "commit": target_commit,
+                            "additional-info": target_data.get("additional-info"),
+                        }
+                    )
                 previous_commits[target_path] = target_commit
         self._log_debug(
-            f"new commits per repositories according to targets.json: {repositories_commits}"
+            f"new commits per repositories according to target files: {repositories_commits}"
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits):
+    def targets_at_revisions(self, *commits, target_repos=None):
         targets = defaultdict(dict)
         for commit in commits:
             # repositories.json might not exit, if the current commit is
@@ -166,15 +171,20 @@ class AuthRepoMixin(TAFRepository):
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
                         continue
+                    if target_repos is not None and target_path not in target_repos:
+                        # if specific target repositories are specified, skip all other
+                        # repositories
+                        continue
                     target_content = self.safely_get_json(
                         commit, get_target_path(target_path)
                     )
                     if target_content is not None:
-                        target_commit = target_content.get("commit")
-                        target_branch = target_content.get("branch", "master")
+                        target_commit = target_content.pop("commit")
+                        target_branch = target_content.pop("branch", "master")
                         targets[commit][target_path] = {
                             "branch": target_branch,
                             "commit": target_commit,
+                            "additional-info": target_content,
                         }
         return targets
 

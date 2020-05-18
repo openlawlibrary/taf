@@ -193,7 +193,7 @@ class GitRepository:
 
     def all_commits_since_commit(self, since_commit, branch=None, reverse=True):
         """Returns a list of all commits since the specified commit on the
-        currently checked out branch
+        specified or currently checked out branch
         """
         if since_commit is None:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
@@ -804,6 +804,7 @@ class NamedGitRepository(GitRepository):
     root_dir and repo_name.
     """
         self.root_dir = root_dir
+        self.name = repo_name
         path = self._get_repo_path(root_dir, repo_name)
         super().__init__(
             path,

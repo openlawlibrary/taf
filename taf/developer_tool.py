@@ -770,6 +770,26 @@ def export_yk_certificate(certs_dir, key):
         f.write(yk.export_piv_x509())
 
 
+def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
+    auth_repo = AuthenticationRepo(repo_path)
+    commits = auth_repo.all_commits_since_commit(commit, branch="master")
+    if not len(target_repos):
+        target_repos = None
+    commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
+        commits, target_repos
+    )
+    commits_json = json.dumps(commits_on_branches, indent=4)
+    if output is not None:
+        output = Path(output).resolve()
+        if output.suffix != ".json":
+            output = output.with_suffix(".json")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(commits_json)
+        print(f"Result written to {output}")
+    else:
+        print(commits_json)
+
+
 def _get_namespace_and_root(repo_path, namespace, root_dir):
     repo_path = Path(repo_path).resolve()
     if namespace is None:
