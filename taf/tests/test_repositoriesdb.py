@@ -3,7 +3,7 @@ from taf.auth_repo import AuthenticationRepo
 import taf.settings as settings
 from contextlib import contextmanager
 
-AUTH_REPO_NAME = 'organization/auth_repo'
+AUTH_REPO_NAME = "organization/auth_repo"
 
 
 def setup_module(module):
@@ -26,15 +26,38 @@ def test_load_repositories_of_roles(repositoriesdb_test_repositories):
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
     roles = ["delegated_role1"]
     with load_repositories(auth_repo, roles=roles):
-        _check_repositories_dict(repositories, auth_repo, auth_repo.head_commit_sha(), roles=roles)
+        _check_repositories_dict(
+            repositories, auth_repo, auth_repo.head_commit_sha(), roles=roles
+        )
 
 
 def test_load_repositories_all_commits(repositoriesdb_test_repositories):
     repositories = repositoriesdb_test_repositories["test-delegated-roles"]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
-    commits = auth_repo.all_commits_on_branch()[1:] # remove the first commit
+    commits = auth_repo.all_commits_on_branch()[1:]  # remove the first commit
     with load_repositories(auth_repo, commits=commits):
         _check_repositories_dict(repositories, auth_repo, *commits)
+
+
+def test_get_deduplicated_repositories(repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories["test-delegated-roles"]
+    auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
+    commits = auth_repo.all_commits_on_branch()[1:]  # remove the first commit
+    with load_repositories(auth_repo, commits=commits):
+        repos = repositoriesdb.get_deduplicated_repositories(auth_repo, commits)
+        assert len(repos) == 3
+
+
+def test_get_repository(repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories["test-delegated-roles"]
+    auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
+    commits = auth_repo.all_commits_on_branch()[1:]  # remove the first commit
+    path = "namespace/TargetRepo1"
+    with load_repositories(auth_repo, commits=commits):
+        repo = repositoriesdb.get_repository(auth_repo, path, commits[-1])
+        assert repo.name == path
+        repo = repositoriesdb.get_repository(auth_repo, path, commits[-2])
+        assert repo.name == path
 
 
 def _check_repositories_dict(repositories, auth_repo, *commits, roles=None):

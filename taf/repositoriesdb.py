@@ -36,7 +36,7 @@ def load_repositories(
     root_dir=None,
     only_load_targets=False,
     commits=None,
-    roles=None
+    roles=None,
 ):
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -361,9 +361,13 @@ def _targets_of_roles(auth_repo, commit, roles):
             roles = auth_repo.get_all_targets_roles()
         for role in roles:
             try:
-                role_dict = json.loads((auth_repo.metadata_path / f"{role}.json").read_text())
+                role_dict = json.loads(
+                    (auth_repo.metadata_path / f"{role}.json").read_text()
+                )
             except Exception as e:
-                auth_repo._log_warning(f'could not load {role}.json metadata file due to {e}')
+                auth_repo._log_warning(
+                    f"could not load {role}.json metadata file due to {e}"
+                )
                 continue
             targets = role_dict["signed"]["targets"]
             all_targets.update(targets)
