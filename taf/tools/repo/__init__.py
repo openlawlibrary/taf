@@ -149,6 +149,7 @@ def attach_to_group(group):
                   "the target repositories do not have remotes set")
     @click.option("--custom", default=None, help="A dictionary containing custom "
                   "targets info which will be added to repositories.json")
+    @click.option("--use-mirrors", is_flag=True, help="Whether to generate mirrors.json or not")
     @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
                   "the current branch to target files")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -159,7 +160,7 @@ def attach_to_group(group):
     @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
                   "is a test authentication repository")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing.")
-    def initialize(path, root_dir, namespace, targets_rel_dir, custom, add_branch, keystore,
+    def initialize(path, root_dir, namespace, targets_rel_dir, custom, use_mirrors, add_branch, keystore,
                    keys_description, commit, test, scheme):
         """
         \b
@@ -174,8 +175,8 @@ def attach_to_group(group):
         In order to have greater control over individual steps and be able to review files created
         in the initialization process, execute the mentioned commands separately.
         """
-        developer_tool.init_repo(path, root_dir, namespace, targets_rel_dir, custom, add_branch,
-                                 keystore, keys_description, commit, test, scheme)
+        developer_tool.init_repo(path, root_dir, namespace, targets_rel_dir, custom, use_mirrors,
+                                 add_branch, keystore, keys_description, commit, test, scheme)
 
     @repo.command()
     @click.argument("url")

@@ -901,7 +901,9 @@ def generate_repositories_json(
             url = str(url.as_posix())
 
         if use_mirrors:
-            url = url.replace(namespace, "{org_name}").replace(target_repo_name, "{target_repo_name}")
+            url = url.replace(namespace, "{org_name}").replace(
+                target_repo_name, "{target_repo_name}"
+            )
             mirrors.append(url)
             repositories[target_repo_namespaced_name] = {}
         else:
@@ -934,6 +936,7 @@ def init_repo(
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
+    use_mirrors=True,
     add_branch=None,
     keystore=None,
     roles_key_infos=None,
@@ -984,7 +987,7 @@ def init_repo(
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, root_dir, namespace, targets_relative_dir, custom_data
+        repo_path, root_dir, namespace, targets_relative_dir, custom_data, use_mirrors
     )
     register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 
