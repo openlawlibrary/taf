@@ -1,10 +1,10 @@
+import pytest
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepo
 import taf.settings as settings
 from contextlib import contextmanager
 
 AUTH_REPO_NAME = "organization/auth_repo"
-
 
 
 def setup_module(module):
@@ -15,8 +15,15 @@ def teardown_module(module):
     settings.update_from_filesystem = False
 
 
-def test_load_repositories(repositoriesdb_test_repositories):
-    repositories = repositoriesdb_test_repositories["test-delegated-roles"]
+@pytest.mark.parametrize(
+    "test_name",
+    [
+        "test-no-delegations",
+        "test-delegated-roles",
+    ]
+)
+def test_load_repositories(test_name, repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories[test_name]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
     with load_repositories(auth_repo):
         _check_repositories_dict(repositories, auth_repo, auth_repo.head_commit_sha())
@@ -31,9 +38,15 @@ def test_load_repositories_of_roles(repositoriesdb_test_repositories):
             repositories, auth_repo, auth_repo.head_commit_sha(), roles=roles
         )
 
-
-def test_load_repositories_all_commits(repositoriesdb_test_repositories):
-    repositories = repositoriesdb_test_repositories["test-delegated-roles"]
+@pytest.mark.parametrize(
+    "test_name",
+    [
+        "test-no-delegations",
+        "test-delegated-roles",
+    ]
+)
+def test_load_repositories_all_commits(test_name, repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories[test_name]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
     commits = auth_repo.all_commits_on_branch()[1:]  # remove the first commit
     with load_repositories(auth_repo, commits=commits):
@@ -64,6 +77,16 @@ def test_get_repository(repositoriesdb_test_repositories):
         assert repo.name == path
 
 
+def test_get_repository_by_custom_data(repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories["test-delegated-roles"]
+    auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
+    with load_repositories(auth_repo):
+        for repo_type, repo_name in [("type1", "namespace/TargetRepo1"), ("type2", "namespace/TargetRepo2"), ("type3", "namespace/TargetRepo3")]:
+            type_repos = repositoriesdb.get_repositories_by_custom_data(auth_repo, type=repo_type)
+            assert len(type_repos) == 1
+            assert type_repos[0].name == repo_name
+
+
 def _check_repositories_dict(repositories, auth_repo, *commits, roles=None):
     assert auth_repo.name in repositoriesdb._repositories_dict
     auth_repos_dict = repositoriesdb._repositories_dict[auth_repo.name]
@@ -81,7 +104,6 @@ def _check_repositories_dict(repositories, auth_repo, *commits, roles=None):
                     assert auth_repos_dict[commit][repo_name].additional_info == custom_data
                 else:
                     assert repo_name not in auth_repos_dict[commit]
-
 
 
 @contextmanager
