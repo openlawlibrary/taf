@@ -101,27 +101,12 @@ def load_repositories(
             continue
 
         _repositories_dict[auth_repo.name][commit] = repositories_dict
-        try:
-            repositories = _get_json_file(auth_repo, REPOSITORIES_JSON_PATH, commit)
-        except InvalidOrMissingMetadataError as e:
-            if f"{REPOSITORIES_JSON_PATH} not available at revision" in str(e):
-                taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
-                continue
-            else:
-                raise
 
-        try:
-            mirrors = _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get(
-                "mirrors"
-            )
-        except InvalidOrMissingMetadataError:
-            taf_logger.debug(
-                "{} not available at revision {}. Expecting to find urls in {}",
-                MIRRORS_JSON_PATH,
-                commit,
-                REPOSITORIES_JSON_PATH,
-            )
-            mirrors = None
+        repositories = _load_repositories_json(auth_repo, commit)
+        if repositories is None:
+            continue
+
+        mirrors = _load_mirrors_json(auth_repo, commit)
 
         # target repositories are defined in both mirrors.json and targets.json
         repositories = repositories["repositories"]
@@ -383,6 +368,30 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom_data} not found"
     )
+
+
+def _load_repositories_json(auth_repo, commit):
+    try:
+        return _get_json_file(auth_repo, REPOSITORIES_JSON_PATH, commit)
+    except InvalidOrMissingMetadataError as e:
+        if f"{REPOSITORIES_JSON_PATH} not available at revision" in str(e):
+            taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
+            return None
+        else:
+            raise
+
+
+def _load_mirrors_json(auth_repo, commit):
+    try:
+        return _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get("mirrors")
+    except InvalidOrMissingMetadataError:
+        taf_logger.debug(
+            "{} not available at revision {}. Expecting to find urls in {}",
+            MIRRORS_JSON_PATH,
+            commit,
+            REPOSITORIES_JSON_PATH,
+        )
+        return None
 
 
 def _targets_of_roles(auth_repo, commit, roles=None):
