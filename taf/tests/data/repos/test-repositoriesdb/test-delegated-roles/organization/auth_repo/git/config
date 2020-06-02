@@ -6,4 +6,4 @@
 	ignorecase = true
 [gui]
 	wmstate = normal
-	geometry = 1920x956+-363+83 412 315
+	geometry = 1920x956+-440+106 412 315

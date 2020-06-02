@@ -6,6 +6,7 @@ from contextlib import contextmanager
 AUTH_REPO_NAME = "organization/auth_repo"
 
 
+
 def setup_module(module):
     settings.update_from_filesystem = True
 
@@ -46,6 +47,9 @@ def test_get_deduplicated_repositories(repositoriesdb_test_repositories):
     with load_repositories(auth_repo, commits=commits):
         repos = repositoriesdb.get_deduplicated_repositories(auth_repo, commits)
         assert len(repos) == 3
+        for repo_name in repositories:
+            if repo_name != AUTH_REPO_NAME:
+                assert repo_name in repos
 
 
 def test_get_repository(repositoriesdb_test_repositories):
@@ -65,13 +69,19 @@ def _check_repositories_dict(repositories, auth_repo, *commits, roles=None):
     auth_repos_dict = repositoriesdb._repositories_dict[auth_repo.name]
     target_files_of_roles = auth_repo.get_singed_target_files_of_roles(roles)
     for commit in commits:
+        repositories_json = auth_repo.get_json(commit, repositoriesdb.REPOSITORIES_JSON_PATH)
+        repositories_data = repositories_json["repositories"]
         assert commit in auth_repos_dict
         for repo_name in repositories:
             if repo_name != AUTH_REPO_NAME:
                 if repo_name in target_files_of_roles:
                     assert repo_name in auth_repos_dict[commit]
+                    # check custom data too
+                    custom_data = repositories_data[repo_name].get("custom", {})
+                    assert auth_repos_dict[commit][repo_name].additional_info == custom_data
                 else:
                     assert repo_name not in auth_repos_dict[commit]
+
 
 
 @contextmanager

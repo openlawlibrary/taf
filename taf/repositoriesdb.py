@@ -21,7 +21,7 @@ from taf.log import taf_logger
 # }
 
 _repositories_dict = {}
-repositories_path = "targets/repositories.json"
+REPOSITORIES_JSON_PATH = "targets/repositories.json"
 
 
 def clear_repositories_db():
@@ -101,7 +101,7 @@ def load_repositories(
 
         _repositories_dict[auth_repo.name][commit] = repositories_dict
         try:
-            repositories = _get_json_file(auth_repo, repositories_path, commit)
+            repositories = _get_json_file(auth_repo, REPOSITORIES_JSON_PATH, commit)
         except InvalidOrMissingMetadataError as e:
             if "targets/repositories.json not available at revision" in str(e):
                 taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
@@ -202,7 +202,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
         custom,
     )
     targets = auth_repo.get_json(commit, targets_path)
-    repositories = auth_repo.get_json(commit, repositories_path)
+    repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
     repositories = repositories["repositories"]
     targets = targets["signed"]["targets"]
 
