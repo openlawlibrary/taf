@@ -242,6 +242,7 @@ def inner_delegated_role_key(pytestconfig):
         pytestconfig.option.signature_scheme,
     )
 
+
 @contextmanager
 def load_repositories(auth_repo, **kwargs):
     repositoriesdb.load_repositories(auth_repo, **kwargs)

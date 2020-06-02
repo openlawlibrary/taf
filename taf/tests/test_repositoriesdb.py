@@ -15,7 +15,14 @@ def teardown_module(module):
     settings.update_from_filesystem = False
 
 
-@pytest.mark.parametrize("test_name", ["test-no-delegations", "test-delegated-roles", "test-delegated-roles-with-mirrors"])
+@pytest.mark.parametrize(
+    "test_name",
+    [
+        "test-no-delegations",
+        "test-delegated-roles",
+        "test-delegated-roles-with-mirrors",
+    ],
+)
 def test_load_repositories(test_name, repositoriesdb_test_repositories):
     repositories = repositoriesdb_test_repositories[test_name]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
@@ -24,11 +31,15 @@ def test_load_repositories(test_name, repositoriesdb_test_repositories):
 
 
 @pytest.mark.parametrize("test_name", ["test-no-delegations", "test-delegated-roles"])
-def test_load_repositories_only_load_targets(test_name, repositoriesdb_test_repositories):
+def test_load_repositories_only_load_targets(
+    test_name, repositoriesdb_test_repositories
+):
     repositories = repositoriesdb_test_repositories[test_name]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
     with load_repositories(auth_repo, only_load_targets=True):
-        _check_repositories_dict(repositories, auth_repo, auth_repo.head_commit_sha(), only_load_targets=True)
+        _check_repositories_dict(
+            repositories, auth_repo, auth_repo.head_commit_sha(), only_load_targets=True
+        )
 
 
 def test_load_repositories_of_roles(repositoriesdb_test_repositories):
@@ -90,7 +101,9 @@ def test_get_repository_by_custom_data(repositoriesdb_test_repositories):
             assert type_repos[0].name == repo_name
 
 
-def _check_repositories_dict(repositories, auth_repo, *commits, roles=None, only_load_targets=False):
+def _check_repositories_dict(
+    repositories, auth_repo, *commits, roles=None, only_load_targets=False
+):
     assert auth_repo.name in repositoriesdb._repositories_dict
     auth_repos_dict = repositoriesdb._repositories_dict[auth_repo.name]
     if roles is not None and len(roles):
@@ -105,7 +118,9 @@ def _check_repositories_dict(repositories, auth_repo, *commits, roles=None, only
         assert commit in auth_repos_dict
         for repo_name in repositories:
             if repo_name != AUTH_REPO_NAME:
-                if not only_load_targets or (only_load_targets and repo_name in target_files_of_roles):
+                if not only_load_targets or (
+                    only_load_targets and repo_name in target_files_of_roles
+                ):
                     assert repo_name in auth_repos_dict[commit]
                     # check custom data
                     custom_data = repositories_data[repo_name].get("custom", {})

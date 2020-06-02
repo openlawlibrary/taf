@@ -111,9 +111,16 @@ def load_repositories(
                 raise
 
         try:
-            mirrors = _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get("mirrors")
+            mirrors = _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get(
+                "mirrors"
+            )
         except InvalidOrMissingMetadataError:
-            taf_logger.debug("{} not available at revision {}. Expecting to find urls in {}", MIRRORS_JSON_PATH, commit, REPOSITORIES_JSON_PATH)
+            taf_logger.debug(
+                "{} not available at revision {}. Expecting to find urls in {}",
+                MIRRORS_JSON_PATH,
+                commit,
+                REPOSITORIES_JSON_PATH,
+            )
             mirrors = None
 
         # target repositories are defined in both mirrors.json and targets.json
@@ -204,19 +211,18 @@ def _get_urls(mirrors, repo_path, repo_data):
     if "urls" in repo_data:
         return repo_data["urls"]
     elif mirrors is None:
-        raise RepositoryInstantiationError(f'{MIRRORS_JSON_PATH} does not exists or is not valid and not urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}')
+        raise RepositoryInstantiationError(
+            f"{MIRRORS_JSON_PATH} does not exists or is not valid and not urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}"
+        )
 
     try:
-        org_name, repo_name = repo_path.split('/')
+        org_name, repo_name = repo_path.split("/")
     except Exception:
-        raise RepositoryInstantiationError(f'{repo_path} is not in the org_name/name format')
+        raise RepositoryInstantiationError(
+            f"{repo_path} is not in the org_name/name format"
+        )
 
     return [mirror.format(org_name=org_name, repo_name=repo_name) for mirror in mirrors]
-
-
-
-
-
 
 
 def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
