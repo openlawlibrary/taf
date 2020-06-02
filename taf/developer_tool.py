@@ -843,6 +843,7 @@ def generate_repositories_json(
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
+    use_mirrors=True,
 ):
     """
     <Purpose>
@@ -864,6 +865,7 @@ def generate_repositories_json(
 
     custom_data = read_input_dict(custom_data)
     repositories = {}
+    mirrors = []
     repo_path = Path(repo_path).resolve()
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     # if targets directory is not specified, assume that target repositories
@@ -874,6 +876,7 @@ def generate_repositories_json(
         targets_relative_dir = Path(targets_relative_dir).resolve()
 
     print(f"Adding all repositories from {targets_directory}")
+
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
             continue
@@ -896,7 +899,14 @@ def generate_repositories_json(
                 url = Path(target_repo.path).resolve()
             # convert to posix path
             url = str(url.as_posix())
-        repositories[target_repo_namespaced_name] = {"urls": [url]}
+
+        if use_mirrors:
+            url = url.replace(namespace, "{org_name}").replace(target_repo_name, "{target_repo_name}")
+            mirrors.append(url)
+            repositories[target_repo_namespaced_name] = {}
+        else:
+            repositories[target_repo_namespaced_name] = {"urls": [url]}
+
         if target_repo_namespaced_name in custom_data:
             repositories[target_repo_namespaced_name]["custom"] = custom_data[
                 target_repo_namespaced_name
@@ -905,6 +915,10 @@ def generate_repositories_json(
     file_path = auth_repo_targets_dir / "repositories.json"
     file_path.write_text(json.dumps({"repositories": repositories}, indent=4))
     print(f"Generated {file_path}")
+    if use_mirrors:
+        mirros_path = auth_repo_targets_dir / "mirrors.json"
+        mirros_path.write_text(json.dumps({"mirrors": mirrors}, indent=4))
+        print(f"Generated {mirros_path}")
 
 
 def _get_key_name(role_name, key_num, num_of_keys):
