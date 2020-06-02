@@ -78,7 +78,8 @@ def attach_to_group(group):
                   "the target repositories do not have remotes set")
     @click.option("--custom", default=None, help="A dictionary containing custom "
                   "targets info which will be added to repositories.json")
-    def generate_repositories_json(path, root_dir, namespace, targets_rel_dir, custom):
+    @click.option("--use-mirrors", is_flag=True, help="Whether to generate mirrors.json or not")
+    def generate_repositories_json(path, root_dir, namespace, targets_rel_dir, custom, use_mirrors):
         """
         Generate repositories.json. This file needs to be one of the authentication repository's
         target files or the updater won't be able to validate target repositories.
@@ -103,7 +104,13 @@ def attach_to_group(group):
         The url of a repository corresponds to its git remote url if set and to its location on the file
         system otherwise. Test repositories might not have remotes. If targets-rel-dir is specified
         and a repository does not have remote url, its url is calculated as a relative path to the
-        repository's location from this path.
+        repository's location from this path. There are two options of defining urls:
+        1. Directly specifying all urls of all repositories directly inside repositories.json
+        2. Using a separate mirrors.json file. This file will be generated only if use-mirrors flag is provided.
+        The mirrors file consists of a list of templates which contain namespace (org name) and repo name as arguments.
+        E.g. "https://github.com/{org_name}/{repo_name}.git". If a target repository's namespaced name
+        is namespace1/target_repo1, its url will be calculated by replacing {org_name} with namespace1
+        and {repo_name} with target_repo1 and would result in "https://github.com/namespace1/target_repo1.git"
 
         While urls are the only information that the updater needs, it is possible to add
         any other data using the custom option. Custom data can either be specified in a .json file
@@ -124,7 +131,9 @@ def attach_to_group(group):
         Note: this command does not automatically register repositories.json as a target file.
         It is recommended that the content of the file is reviewed before doing so manually.
         """
-        developer_tool.generate_repositories_json(path, root_dir, namespace, targets_rel_dir, custom)
+        developer_tool.generate_repositories_json(
+            path, root_dir, namespace, targets_rel_dir, custom, use_mirrors
+        )
 
     @repo.command()
     @click.argument("path")
