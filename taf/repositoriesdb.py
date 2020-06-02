@@ -22,6 +22,7 @@ from taf.log import taf_logger
 
 _repositories_dict = {}
 REPOSITORIES_JSON_PATH = "targets/repositories.json"
+MIRRORS_JSON_PATH = "targets/mirrors.json"
 
 
 def clear_repositories_db():
@@ -103,18 +104,24 @@ def load_repositories(
         try:
             repositories = _get_json_file(auth_repo, REPOSITORIES_JSON_PATH, commit)
         except InvalidOrMissingMetadataError as e:
-            if "targets/repositories.json not available at revision" in str(e):
+            if f"{REPOSITORIES_JSON_PATH} not available at revision" in str(e):
                 taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
                 continue
             else:
                 raise
+
+        try:
+            mirrors = _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get("mirrors")
+        except InvalidOrMissingMetadataError:
+            taf_logger.debug("{} not available at revision {}. Expecting to find urls in {}", MIRRORS_JSON_PATH, commit, REPOSITORIES_JSON_PATH)
+            mirrors = None
 
         # target repositories are defined in both mirrors.json and targets.json
         repositories = repositories["repositories"]
         targets = _targets_of_roles(auth_repo, commit, roles)
 
         for path, repo_data in repositories.items():
-            urls = repo_data["urls"]
+            urls = _get_urls(mirrors, path, repo_data)
             target = targets.get(path)
             if target is None and only_load_targets:
                 continue
@@ -191,6 +198,25 @@ def _get_json_file(auth_repo, path, commit):
         raise InvalidOrMissingMetadataError(
             f"{path} not a valid json at revision {commit}"
         )
+
+
+def _get_urls(mirrors, repo_path, repo_data):
+    if "urls" in repo_data:
+        return repo_data["urls"]
+    elif mirrors is None:
+        raise RepositoryInstantiationError(f'{MIRRORS_JSON_PATH} does not exists or is not valid and not urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}')
+
+    try:
+        org_name, repo_name = repo_path.split('/')
+    except Exception:
+        raise RepositoryInstantiationError(f'{repo_path} is not in the org_name/name format')
+
+    return [mirror.format(org_name=org_name, repo_name=repo_name) for mirror in mirrors]
+
+
+
+
+
 
 
 def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):

@@ -2,7 +2,7 @@ import pytest
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepo
 import taf.settings as settings
-from contextlib import contextmanager
+from taf.tests.conftest import load_repositories
 
 AUTH_REPO_NAME = "organization/auth_repo"
 
@@ -15,18 +15,20 @@ def teardown_module(module):
     settings.update_from_filesystem = False
 
 
-@pytest.mark.parametrize(
-    "test_name",
-    [
-        "test-no-delegations",
-        "test-delegated-roles",
-    ]
-)
+@pytest.mark.parametrize("test_name", ["test-no-delegations", "test-delegated-roles", "test-delegated-roles-with-mirrors"])
 def test_load_repositories(test_name, repositoriesdb_test_repositories):
     repositories = repositoriesdb_test_repositories[test_name]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
     with load_repositories(auth_repo):
         _check_repositories_dict(repositories, auth_repo, auth_repo.head_commit_sha())
+
+
+@pytest.mark.parametrize("test_name", ["test-no-delegations", "test-delegated-roles"])
+def test_load_repositories_only_load_targets(test_name, repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories[test_name]
+    auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
+    with load_repositories(auth_repo, only_load_targets=True):
+        _check_repositories_dict(repositories, auth_repo, auth_repo.head_commit_sha(), only_load_targets=True)
 
 
 def test_load_repositories_of_roles(repositoriesdb_test_repositories):
@@ -38,13 +40,8 @@ def test_load_repositories_of_roles(repositoriesdb_test_repositories):
             repositories, auth_repo, auth_repo.head_commit_sha(), roles=roles
         )
 
-@pytest.mark.parametrize(
-    "test_name",
-    [
-        "test-no-delegations",
-        "test-delegated-roles",
-    ]
-)
+
+@pytest.mark.parametrize("test_name", ["test-no-delegations", "test-delegated-roles"])
 def test_load_repositories_all_commits(test_name, repositoriesdb_test_repositories):
     repositories = repositoriesdb_test_repositories[test_name]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
@@ -81,33 +78,40 @@ def test_get_repository_by_custom_data(repositoriesdb_test_repositories):
     repositories = repositoriesdb_test_repositories["test-delegated-roles"]
     auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
     with load_repositories(auth_repo):
-        for repo_type, repo_name in [("type1", "namespace/TargetRepo1"), ("type2", "namespace/TargetRepo2"), ("type3", "namespace/TargetRepo3")]:
-            type_repos = repositoriesdb.get_repositories_by_custom_data(auth_repo, type=repo_type)
+        for repo_type, repo_name in [
+            ("type1", "namespace/TargetRepo1"),
+            ("type2", "namespace/TargetRepo2"),
+            ("type3", "namespace/TargetRepo3"),
+        ]:
+            type_repos = repositoriesdb.get_repositories_by_custom_data(
+                auth_repo, type=repo_type
+            )
             assert len(type_repos) == 1
             assert type_repos[0].name == repo_name
 
 
-def _check_repositories_dict(repositories, auth_repo, *commits, roles=None):
+def _check_repositories_dict(repositories, auth_repo, *commits, roles=None, only_load_targets=False):
     assert auth_repo.name in repositoriesdb._repositories_dict
     auth_repos_dict = repositoriesdb._repositories_dict[auth_repo.name]
-    target_files_of_roles = auth_repo.get_singed_target_files_of_roles(roles)
+    if roles is not None and len(roles):
+        only_load_targets = True
+    if only_load_targets:
+        target_files_of_roles = auth_repo.get_singed_target_files_of_roles(roles)
     for commit in commits:
-        repositories_json = auth_repo.get_json(commit, repositoriesdb.REPOSITORIES_JSON_PATH)
+        repositories_json = auth_repo.get_json(
+            commit, repositoriesdb.REPOSITORIES_JSON_PATH
+        )
         repositories_data = repositories_json["repositories"]
         assert commit in auth_repos_dict
         for repo_name in repositories:
             if repo_name != AUTH_REPO_NAME:
-                if repo_name in target_files_of_roles:
+                if not only_load_targets or (only_load_targets and repo_name in target_files_of_roles):
                     assert repo_name in auth_repos_dict[commit]
-                    # check custom data too
+                    # check custom data
                     custom_data = repositories_data[repo_name].get("custom", {})
-                    assert auth_repos_dict[commit][repo_name].additional_info == custom_data
+                    assert (
+                        auth_repos_dict[commit][repo_name].additional_info
+                        == custom_data
+                    )
                 else:
                     assert repo_name not in auth_repos_dict[commit]
-
-
-@contextmanager
-def load_repositories(auth_repo, **kwargs):
-    repositoriesdb.load_repositories(auth_repo, **kwargs)
-    yield
-    repositoriesdb.clear_repositories_db()

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import taf.repository_tool as repository_tool
 import taf.yubikey
+import taf.repositoriesdb as repositoriesdb
 from pytest import fixture, yield_fixture
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
@@ -240,3 +241,9 @@ def inner_delegated_role_key(pytestconfig):
         "inner_delegated_role",
         pytestconfig.option.signature_scheme,
     )
+
+@contextmanager
+def load_repositories(auth_repo, **kwargs):
+    repositoriesdb.load_repositories(auth_repo, **kwargs)
+    yield
+    repositoriesdb.clear_repositories_db()

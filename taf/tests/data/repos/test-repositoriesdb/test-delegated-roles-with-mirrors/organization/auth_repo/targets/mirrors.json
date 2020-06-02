@@ -1,0 +1,9 @@
+{
+  "mirrors": [
+    "https://github.com/{org_name}/{repo_name}.git",
+    "https://github.com/test/{org_name}-{repo_name}.git",
+    "https://gitlab.com/{org_name}2/{repo_name}.git",
+    "https://gitlab.com/{org_name}/{org_name}--{repo_name}.git",
+    "git@github.com:{org_name}/{repo_name}.git"
+  ]
+}
