@@ -101,6 +101,21 @@ def test_get_repository_by_custom_data(repositoriesdb_test_repositories):
             assert type_repos[0].name == repo_name
 
 
+def test_get_repositories_paths_by_custom_data(repositoriesdb_test_repositories):
+    repositories = repositoriesdb_test_repositories["test-delegated-roles"]
+    auth_repo = AuthenticationRepo(repositories[AUTH_REPO_NAME])
+    with load_repositories(auth_repo):
+        for repo_type, repo_name in [
+            ("type1", "namespace/TargetRepo1"),
+            ("type2", "namespace/TargetRepo2"),
+            ("type3", "namespace/TargetRepo3"),
+        ]:
+            paths = repositoriesdb.get_repositories_paths_by_custom_data(
+                auth_repo, type=repo_type
+            )
+            assert paths == [repo_name]
+
+
 def _check_repositories_dict(
     repositories, auth_repo, *commits, roles=None, only_load_targets=False
 ):

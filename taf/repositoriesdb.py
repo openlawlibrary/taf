@@ -212,7 +212,7 @@ def _get_urls(mirrors, repo_path, repo_data):
         return repo_data["urls"]
     elif mirrors is None:
         raise RepositoryInstantiationError(
-            f"{MIRRORS_JSON_PATH} does not exists or is not valid and not urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}"
+            f"{MIRRORS_JSON_PATH} does not exists or is not valid and not urls of {repo_path} specified in {REPOSITORIES_JSON_PATH}"
         )
 
     try:
@@ -233,10 +233,9 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
         auth_repo.name,
         custom,
     )
-    targets = auth_repo.get_json(commit, targets_path)
     repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
     repositories = repositories["repositories"]
-    targets = targets["signed"]["targets"]
+    targets = _targets_of_roles(auth_repo, commit)
 
     def _compare(path):
         # Check if `custom` dict is subset of targets[path]['custom'] dict
@@ -386,7 +385,7 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     )
 
 
-def _targets_of_roles(auth_repo, commit, roles):
+def _targets_of_roles(auth_repo, commit, roles=None):
     all_targets = {}
     with auth_repo.repository_at_revision(commit):
         if roles is None:
