@@ -197,14 +197,15 @@ def _get_urls(mirrors, repo_path, repo_data):
         return repo_data["urls"]
     elif mirrors is None:
         raise RepositoryInstantiationError(
-            f"{MIRRORS_JSON_PATH} does not exists or is not valid and not urls of {repo_path} specified in {REPOSITORIES_JSON_PATH}"
+            repo_path,
+            f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_path} specified in {REPOSITORIES_JSON_PATH}",
         )
 
     try:
         org_name, repo_name = repo_path.split("/")
     except Exception:
         raise RepositoryInstantiationError(
-            f"{repo_path} is not in the org_name/name format"
+            repo_path, "repository name is not in the org_name/repo_name format"
         )
 
     return [mirror.format(org_name=org_name, repo_name=repo_name) for mirror in mirrors]

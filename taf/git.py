@@ -387,6 +387,7 @@ class GitRepository:
 
         params = " ".join(params)
 
+        cloned = False
         for url in self.repo_urls:
             try:
                 self._git(
@@ -400,7 +401,11 @@ class GitRepository:
             except GitError:
                 pass
             else:
+                cloned = True
                 break
+
+        if not cloned:
+            raise CloneRepoException(self)
 
     def clone_or_pull(self, branches=None, only_fetch=False, **kwargs):
         """
@@ -414,10 +419,7 @@ class GitRepository:
         old_head = self.head_commit_sha()
         if old_head is None:
             self._log_debug(f"old head sha is {old_head}")
-            try:
-                self.clone(**kwargs)
-            except GitError:
-                raise CloneRepoException(self.url)
+            self.clone(**kwargs)
         else:
             try:
                 for branch in branches:
@@ -427,7 +429,7 @@ class GitRepository:
                         self._git("pull", "origin", branch)
                     self._log_info(f"successfully fetched branch {branch}")
             except GitError as e:
-                if "fatal" in e.stdout:
+                if "fatal" in str(e):
                     raise FetchException(f"{self.path}: {str(e)}")
                 pass
 
@@ -459,7 +461,7 @@ class GitRepository:
         )
 
     def create_local_branch(self, branch_name):
-        """Create local branch by checking it if it does not exist out and making sure
+        """Create local branch by checking it out if it does not exist and making sure
         to check out previously checked out branch
         """
         if not self.branch_exists(branch_name, include_remotes=False):
@@ -593,7 +595,9 @@ class GitRepository:
                 f"--no-pager ls-remote {url} {branch}", log_error=True
             )
             if last_commit:
-                return last_commit.split("\t", 1)[0]
+                last_commit = last_commit.split("\t", 1)[0]
+                # in some cases (e.g. upstream is defined the result might contain a warning line)
+                return last_commit.split()[-1]
         return None
 
     def get_merge_base(self, branch1, branch2):

@@ -9,8 +9,10 @@ class TAFError(Exception):
 
 
 class CloneRepoException(TAFError):
-    def __init__(self, url):
-        self.message = f"Cannot clone from {url}"
+    def __init__(self, repo):
+        self.message = (
+            f"Cannot clone {repo.name} from any of the following URLs: {repo.repo_urls}"
+        )
 
 
 class FetchException(TAFError):

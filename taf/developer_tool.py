@@ -902,7 +902,7 @@ def generate_repositories_json(
 
         if use_mirrors:
             url = url.replace(namespace, "{org_name}").replace(
-                target_repo_name, "{target_repo_name}"
+                target_repo_name, "{repo_name}"
             )
             mirrors.append(url)
             repositories[target_repo_namespaced_name] = {}
@@ -1024,7 +1024,6 @@ def register_target_files(
         roles_key_infos, keystore, enter_info=False
     )
     roles_infos = roles_key_infos.get("roles")
-
     if taf_repo is None:
         repo_path = Path(repo_path).resolve()
         taf_repo = Repository(str(repo_path))
