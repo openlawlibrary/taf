@@ -9,14 +9,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `repositoriesdb` tests ([134])
+- Add support for defining urls using a separate `mirrors.json` file ([134])
 - Add a command for exporting targets historical data ([133])
 
 ### Changed
 
+- Updated `repositoriesdb` so that delegated target roles are taken into considerations when finding targets data ([134])
 - `sorted_commits_and_branches_per_repositories` returns additional targets data and not just commits ([133])
 
 ### Fixed
 
+[134]: https://github.com/openlawlibrary/taf/pull/134
 [133]: https://github.com/openlawlibrary/taf/pull/133
 
 ## [0.4.1] - 05/12/2020

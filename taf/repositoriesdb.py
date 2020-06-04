@@ -21,8 +21,8 @@ from taf.log import taf_logger
 # }
 
 _repositories_dict = {}
-repositories_path = "targets/repositories.json"
-targets_path = "metadata/targets.json"
+REPOSITORIES_JSON_PATH = "targets/repositories.json"
+MIRRORS_JSON_PATH = "targets/mirrors.json"
 
 
 def clear_repositories_db():
@@ -37,6 +37,7 @@ def load_repositories(
     root_dir=None,
     only_load_targets=False,
     commits=None,
+    roles=None,
 ):
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -61,9 +62,12 @@ def load_repositories(
         If target_classes is None, all targets will be of TAF's NamedGitRepository type.
         root_dir: root directory relative to which the target paths are specified
         commits: Authentication repository's commits at which to read targets.json
-        only_load_targets: specifies if only repositories specified in targets.json should be loaded.
+        only_load_targets: specifies if only repositories specified in targets files should be loaded.
         If set to false, all repositories defined in repositories.json are loaded, regardless of if
         they are targets or not.
+        roles: a list of roles whose repositories should be loaded. The repositories linked to a specific
+        role are determined based on its targets, so there is no need to set only_load_targets to True.
+        If only_load_targets is True and roles is not set, all roles will be taken into consideration.
     """
     global _repositories_dict
     if auth_repo.name not in _repositories_dict:
@@ -87,6 +91,9 @@ def load_repositories(
     if root_dir is None:
         root_dir = Path(auth_repo.path).parent.parent
 
+    if roles is not None and len(roles):
+        only_load_targets = True
+
     for commit in commits:
         repositories_dict = {}
         # check if already loaded
@@ -94,24 +101,23 @@ def load_repositories(
             continue
 
         _repositories_dict[auth_repo.name][commit] = repositories_dict
-        try:
-            repositories = _get_json_file(auth_repo, repositories_path, commit)
-            targets = _get_json_file(auth_repo, targets_path, commit)
-        except InvalidOrMissingMetadataError as e:
-            if "targets/repositories.json not available at revision" in str(e):
-                taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
-                continue
-            else:
-                raise
+
+        repositories = _load_repositories_json(auth_repo, commit)
+        if repositories is None:
+            continue
+
+        mirrors = _load_mirrors_json(auth_repo, commit)
 
         # target repositories are defined in both mirrors.json and targets.json
         repositories = repositories["repositories"]
-        targets = targets["signed"]["targets"]
+        targets = _targets_of_roles(auth_repo, commit, roles)
+
         for path, repo_data in repositories.items():
-            urls = repo_data["urls"]
+            urls = _get_urls(mirrors, path, repo_data)
             target = targets.get(path)
             if target is None and only_load_targets:
                 continue
+
             additional_info = _get_custom_data(repo_data, targets.get(path))
 
             git_repo = None
@@ -186,6 +192,25 @@ def _get_json_file(auth_repo, path, commit):
         )
 
 
+def _get_urls(mirrors, repo_path, repo_data):
+    if "urls" in repo_data:
+        return repo_data["urls"]
+    elif mirrors is None:
+        raise RepositoryInstantiationError(
+            repo_path,
+            f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_path} specified in {REPOSITORIES_JSON_PATH}",
+        )
+
+    try:
+        org_name, repo_name = repo_path.split("/")
+    except Exception:
+        raise RepositoryInstantiationError(
+            repo_path, "repository name is not in the org_name/repo_name format"
+        )
+
+    return [mirror.format(org_name=org_name, repo_name=repo_name) for mirror in mirrors]
+
+
 def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
     if not commit:
         commit = auth_repo.head_commit_sha()
@@ -194,10 +219,9 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
         auth_repo.name,
         custom,
     )
-    targets = auth_repo.get_json(commit, targets_path)
-    repositories = auth_repo.get_json(commit, repositories_path)
+    repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
     repositories = repositories["repositories"]
-    targets = targets["signed"]["targets"]
+    targets = _targets_of_roles(auth_repo, commit)
 
     def _compare(path):
         # Check if `custom` dict is subset of targets[path]['custom'] dict
@@ -345,6 +369,50 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom_data} not found"
     )
+
+
+def _load_repositories_json(auth_repo, commit):
+    try:
+        return _get_json_file(auth_repo, REPOSITORIES_JSON_PATH, commit)
+    except InvalidOrMissingMetadataError as e:
+        if f"{REPOSITORIES_JSON_PATH} not available at revision" in str(e):
+            taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
+            return None
+        else:
+            raise
+
+
+def _load_mirrors_json(auth_repo, commit):
+    try:
+        return _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get("mirrors")
+    except InvalidOrMissingMetadataError:
+        taf_logger.debug(
+            "{} not available at revision {}. Expecting to find urls in {}",
+            MIRRORS_JSON_PATH,
+            commit,
+            REPOSITORIES_JSON_PATH,
+        )
+        return None
+
+
+def _targets_of_roles(auth_repo, commit, roles=None):
+    all_targets = {}
+    with auth_repo.repository_at_revision(commit):
+        if roles is None:
+            roles = auth_repo.get_all_targets_roles()
+        for role in roles:
+            try:
+                role_dict = json.loads(
+                    (auth_repo.metadata_path / f"{role}.json").read_text()
+                )
+            except Exception as e:
+                auth_repo._log_warning(
+                    f"could not load {role}.json metadata file due to {e}"
+                )
+                continue
+            targets = role_dict["signed"]["targets"]
+            all_targets.update(targets)
+    return all_targets
 
 
 def repositories_loaded(auth_repo):

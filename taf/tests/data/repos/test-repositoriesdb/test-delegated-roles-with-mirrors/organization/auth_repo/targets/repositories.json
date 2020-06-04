@@ -1,0 +1,13 @@
+{
+    "repositories": {
+        "namespace/TargetRepo1": {
+
+        },
+        "namespace/TargetRepo2": {
+
+        },
+        "namespace/TargetRepo3": {
+
+        }
+    }
+}

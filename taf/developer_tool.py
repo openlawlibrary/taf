@@ -843,6 +843,7 @@ def generate_repositories_json(
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
+    use_mirrors=True,
 ):
     """
     <Purpose>
@@ -857,13 +858,17 @@ def generate_repositories_json(
         is expected to be root_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
-        custom_date:
+        custom_data:
         Dictionary or path to a json file containing additional information about the repositories that
         should be added to repositories.json
+        use_mirrors:
+        Determines whether to generate mirror.json, which contains a list of mirror templates, or
+        to generate url elements in repositories.json
     """
 
     custom_data = read_input_dict(custom_data)
     repositories = {}
+    mirrors = []
     repo_path = Path(repo_path).resolve()
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     # if targets directory is not specified, assume that target repositories
@@ -874,6 +879,7 @@ def generate_repositories_json(
         targets_relative_dir = Path(targets_relative_dir).resolve()
 
     print(f"Adding all repositories from {targets_directory}")
+
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
             continue
@@ -896,7 +902,16 @@ def generate_repositories_json(
                 url = Path(target_repo.path).resolve()
             # convert to posix path
             url = str(url.as_posix())
-        repositories[target_repo_namespaced_name] = {"urls": [url]}
+
+        if use_mirrors:
+            url = url.replace(namespace, "{org_name}").replace(
+                target_repo_name, "{repo_name}"
+            )
+            mirrors.append(url)
+            repositories[target_repo_namespaced_name] = {}
+        else:
+            repositories[target_repo_namespaced_name] = {"urls": [url]}
+
         if target_repo_namespaced_name in custom_data:
             repositories[target_repo_namespaced_name]["custom"] = custom_data[
                 target_repo_namespaced_name
@@ -905,6 +920,10 @@ def generate_repositories_json(
     file_path = auth_repo_targets_dir / "repositories.json"
     file_path.write_text(json.dumps({"repositories": repositories}, indent=4))
     print(f"Generated {file_path}")
+    if use_mirrors:
+        mirrors_path = auth_repo_targets_dir / "mirrors.json"
+        mirrors_path.write_text(json.dumps({"mirrors": mirrors}, indent=4))
+        print(f"Generated {mirrors_path}")
 
 
 def _get_key_name(role_name, key_num, num_of_keys):
@@ -920,6 +939,7 @@ def init_repo(
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
+    use_mirrors=True,
     add_branch=None,
     keystore=None,
     roles_key_infos=None,
@@ -946,9 +966,12 @@ def init_repo(
         is expected to be root_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
-        custom_date:
+        custom_data:
         Dictionary or path to a json file containing additional information about the repositories that
         should be added to repositories.json
+        use_mirrors:
+        Determines whether to generate mirror.json, which contains a list of mirror templates, or
+        to generate url elements in repositories.json.
         add_branch:
         Indicates whether to add the current branch's name to the target file
         keystore:
@@ -970,7 +993,7 @@ def init_repo(
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, root_dir, namespace, targets_relative_dir, custom_data
+        repo_path, root_dir, namespace, targets_relative_dir, custom_data, use_mirrors
     )
     register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 
@@ -1007,7 +1030,6 @@ def register_target_files(
         roles_key_infos, keystore, enter_info=False
     )
     roles_infos = roles_key_infos.get("roles")
-
     if taf_repo is None:
         repo_path = Path(repo_path).resolve()
         taf_repo = Repository(str(repo_path))

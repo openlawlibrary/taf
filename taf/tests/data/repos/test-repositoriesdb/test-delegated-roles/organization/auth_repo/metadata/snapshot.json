@@ -1,0 +1,28 @@
+{
+ "signatures": [
+  {
+   "keyid": "4eaf748f7a339339770bd372d6127aee5ee43a3f962a8fe28d8678055c1ede7b",
+   "sig": "3be506a0d86563b1b66cf1ffd728c5e8b0330f234c787beec84f203ffab3baff1805829179d0848058e25113c46f4687cead288191ee0c964b9ae44637681b32c3ecad723587574b98727db94162053d8c374f5a0c767c16606191ebba17afb523fb31f4caf444cdaa2974243c855f4debf89b9f6c8eec32074645549c6d22d8adce5a99187b2a15a3ef728e3abb6e210e4e296bcd186290b10df6f03e36873a75dd00734ad667bbce483052513681728e76ffe289ea904b6c481427835dec9c141990f35474690a9bb426f9c4519dceac7a2616cec4d863fe75bae47bb6f53fb3b4cca03423bab163406b07a7d9695e6569f911c6b23046e4b694a0c12ed29a27b74ed0f05ae86d0e9083e82dd314ad7ebc20cc3c5cf7cd6abb742c5ab73cbb64ca96ce836d9f18a05aff6f07710b1267e7b1fb6af1e52a71448bb28cd96bcc90a07293ee939f98c3d1ed69605d167cc765da9ce062294326bac8b81d045422448637bfbcdc1da108f4541e631133760636da6e1b66b7117f7e53608c5e4ff5"
+  }
+ ],
+ "signed": {
+  "_type": "snapshot",
+  "expires": "2020-06-09T14:34:45Z",
+  "meta": {
+   "delegated_role1.json": {
+    "version": 5
+   },
+   "delegated_role2.json": {
+    "version": 5
+   },
+   "root.json": {
+    "version": 1
+   },
+   "targets.json": {
+    "version": 4
+   }
+  },
+  "spec_version": "1.0",
+  "version": 7
+ }
+}
