@@ -858,9 +858,12 @@ def generate_repositories_json(
         is expected to be root_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
-        custom_date:
+        custom_data:
         Dictionary or path to a json file containing additional information about the repositories that
         should be added to repositories.json
+        use_mirrors:
+        Determines whether to generate mirror.json, which contains a list of mirror templates, or
+        to generate url elements in repositories.json
     """
 
     custom_data = read_input_dict(custom_data)
@@ -918,9 +921,9 @@ def generate_repositories_json(
     file_path.write_text(json.dumps({"repositories": repositories}, indent=4))
     print(f"Generated {file_path}")
     if use_mirrors:
-        mirros_path = auth_repo_targets_dir / "mirrors.json"
-        mirros_path.write_text(json.dumps({"mirrors": mirrors}, indent=4))
-        print(f"Generated {mirros_path}")
+        mirrors_path = auth_repo_targets_dir / "mirrors.json"
+        mirrors_path.write_text(json.dumps({"mirrors": mirrors}, indent=4))
+        print(f"Generated {mirrors_path}")
 
 
 def _get_key_name(role_name, key_num, num_of_keys):
@@ -963,9 +966,12 @@ def init_repo(
         is expected to be root_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
-        custom_date:
+        custom_data:
         Dictionary or path to a json file containing additional information about the repositories that
         should be added to repositories.json
+        use_mirrors:
+        Determines whether to generate mirror.json, which contains a list of mirror templates, or
+        to generate url elements in repositories.json.
         add_branch:
         Indicates whether to add the current branch's name to the target file
         keystore:
