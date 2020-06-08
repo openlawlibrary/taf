@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Raise a nicer error when instantiating a TUF repository if it is invalid ([137])
+
 ### Fixed
+
+[137]: https://github.com/openlawlibrary/taf/pull/137
 
 ## [0.5.0] - 06/04/2020
 
