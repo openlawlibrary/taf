@@ -9,7 +9,7 @@ from pathlib import Path
 
 import securesystemslib
 import tuf.roledb
-from securesystemslib.exceptions import Error as SSLibError
+from securesystemslib.exceptions import Error as SSLibError, RepositoryError
 from securesystemslib.interface import import_rsa_privatekey_from_file
 from securesystemslib.util import HASH_FUNCTION, get_file_details
 from tuf.exceptions import Error as TUFError
@@ -33,6 +33,7 @@ from taf.exceptions import (
     TargetsMetadataUpdateError,
     TimestampMetadataUpdateError,
     YubikeyError,
+    InvalidRepositoryError,
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings, on_rm_error
@@ -215,7 +216,10 @@ class Repository:
         # to avoid errors raised by tuf
         if not self.targets_path.is_dir():
             self.targets_path.mkdir(parents=True, exist_ok=True)
-        self._tuf_repository = load_repository(path, self.name)
+        try:
+            self._tuf_repository = load_repository(path, self.name)
+        except RepositoryError:
+            raise InvalidRepositoryError(f"{self.name} is not a valid TUF repository!")
 
     def reload_tuf_repository(self):
         """
