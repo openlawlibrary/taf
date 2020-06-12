@@ -67,11 +67,8 @@ def add_signing_key(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
-    Adds a new signing key. Currently assumes that root keys, as well as signing key of the role
-    whose signing key is being added are stored on yubikeys. Automatically updates timestamp and
-    snapshot. Timestamp and snapshot keys can be loaded from the filesystem if located inside
-    the keystore whose location is specified via either the keystore argument, or role_key_infos
-    json.
+    Adds a new signing key to the listed roles. Automatically updates timestamp and
+    snapshot.
     """
     taf_repo = Repository(repo_path)
     roles_key_infos, keystore = _initialize_roles_and_keystore(

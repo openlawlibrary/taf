@@ -13,7 +13,7 @@ def attach_to_group(group):
 
     @metadata.command()
     @click.argument("path")
-    @click.option("--role",  multiple=True, help="A list of roles to whose list of signing keys "
+    @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys "
                   "the new key should be added")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to "
                   "the private key which should be registered as the role's signing key")
