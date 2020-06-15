@@ -1130,6 +1130,9 @@ class Repository:
             roles_targets_mapping.setdefault(role_name, []).append(target_filename)
         return roles_targets_mapping
 
+    def unmark_dirty_role(self, role):
+        self._repository.unmark_dirty([role])
+
     def update_role_keystores(
         self, role_name, signing_keys, start_date=None, interval=None, write=True
     ):
