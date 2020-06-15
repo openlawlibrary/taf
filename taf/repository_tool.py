@@ -1131,7 +1131,22 @@ class Repository:
         return roles_targets_mapping
 
     def unmark_dirty_role(self, role):
-        self._repository.unmark_dirty([role])
+        """
+        Unmakes one dirty role. This means that the corresponding metadata file
+        will not be updated.
+        Args:
+        - role which should be unmaked
+        """
+        self.unmark_dirty_roles([role])
+
+    def unmark_dirty_roles(self, roles):
+        """
+        Unmakes dirty roles. This means that the corresponding metadata files
+        will not be updated.
+        Args:
+        - roles which should be unmaked
+        """
+        self._repository.unmark_dirty(roles)
 
     def update_role_keystores(
         self, role_name, signing_keys, start_date=None, interval=None, write=True
