@@ -196,6 +196,16 @@ class Repository:
     def _add_delegated_key(
         self, role, keyid, pub_key, keytype="rsa", scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     ):
+        """
+        Adds public key of a new delegated role to the list of all keys of
+        delegated roles.
+        Args:
+        - role (str): parent target role's name
+        - keyid (str): keyid of the new signing key
+        - pub_key(str): public component of the new signing key
+        - keytype (str): key's type
+        - sheme (str): signature scheme
+        """
         roleinfo = tuf.roledb.get_roleinfo(role, self.name)
         keysinfo = roleinfo["delegations"]["keys"]
         if keyid in keysinfo:
