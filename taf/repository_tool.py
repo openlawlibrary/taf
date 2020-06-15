@@ -193,6 +193,20 @@ class Repository:
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
+    def _add_delegated_key(
+        self, role, keyid, pub_key, keytype="rsa", scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    ):
+        roleinfo = tuf.roledb.get_roleinfo(role, self.name)
+        keysinfo = roleinfo["delegations"]["keys"]
+        if keyid in keysinfo:
+            return
+        key = {"public": pub_key.strip()}
+        key_metadata_format = securesystemslib.keys.format_keyval_to_metadata(
+            keytype, scheme, key
+        )
+        keysinfo[keyid] = key_metadata_format
+        tuf.roledb.update_roleinfo(role, roleinfo, repository_name=self.name)
+
     def _add_target(self, targets_obj, file_path, custom=None):
         """
         <Purpose>
@@ -206,6 +220,40 @@ class Repository:
         file_path = str(Path(file_path).absolute())
         normalize_file_line_endings(file_path)
         targets_obj.add_target(file_path, custom)
+
+    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+        """Add metadata key of the provided role.
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - pub_key_pem(str|bytes): Public key in PEM format
+
+        Returns:
+        None
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
+
+        """
+        if isinstance(pub_key_pem, bytes):
+            pub_key_pem = pub_key_pem.decode("utf-8")
+
+        if is_delegated_role(role):
+            parent_role = self.find_delegated_roles_parent(role)
+            tuf.roledb._roledb_dict[self.name][role]["keyids"] = self.get_role_keys(
+                role, parent_role
+            )
+
+        key = import_rsakey_from_pem(pub_key_pem, scheme)
+        self._role_obj(role).add_verification_key(key)
+
+        if is_delegated_role(role):
+            keyids = tuf.roledb.get_roleinfo(role, self.name)["keyids"]
+            self.set_delegated_role_property("keyids", role, keyids, parent_role)
+            self._add_delegated_key(parent_role, keyids[-1], pub_key_pem, scheme=scheme)
 
     def _load_tuf_repository(self, path):
         """
@@ -362,43 +410,6 @@ class Repository:
                 [],
             )
         )
-
-    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-        """Add metadata key of the provided role.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - pub_key_pem(str|bytes): Public key in PEM format
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
-        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
-
-        """
-        if isinstance(pub_key_pem, bytes):
-            pub_key_pem = pub_key_pem.decode("utf-8")
-
-        if is_delegated_role(role):
-            parent_role = self.find_delegated_roles_parent(role)
-            tuf.roledb._roledb_dict[self.name][role]["keyids"] = self.get_role_keys(
-                role, parent_role
-            )
-
-        key = import_rsakey_from_pem(pub_key_pem, scheme)
-        self._role_obj(role).add_verification_key(key)
-
-        if is_delegated_role(role):
-            self.set_delegated_role_property(
-                "keyids",
-                role,
-                tuf.roledb.get_roleinfo(role, self.name)["keyids"],
-                parent_role,
-            )
 
     def modify_targets(self, added_data=None, removed_data=None):
         """Creates a target.json file containing a repository's commit for each repository.
