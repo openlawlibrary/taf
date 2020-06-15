@@ -101,6 +101,9 @@ def add_signing_key(
 
         parent_roles.add(parent_role)
 
+    if not len(parent_roles):
+        return
+
     taf_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
     for parent_role in parent_roles:
         _update_role(taf_repo, parent_role, keystore, roles_infos, scheme)
