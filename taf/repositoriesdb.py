@@ -35,7 +35,7 @@ def load_repositories(
     repo_classes=None,
     factory=None,
     root_dir=None,
-    only_load_targets=False,
+    only_load_targets=True,
     commits=None,
     roles=None,
 ):
