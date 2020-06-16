@@ -13,7 +13,8 @@ def attach_to_group(group):
 
     @metadata.command()
     @click.argument("path")
-    @click.argument("role")
+    @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys "
+                  "the new key should be added")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to "
                   "the private key which should be registered as the role's signing key")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -23,14 +24,17 @@ def attach_to_group(group):
                   "used for signing")
     def add_signing_key(path, role, pub_key_path, keystore, keys_description, scheme):
         """
-        Add a new signing key. This will make it possible to a sign the metadata file
-        corresponding to the specified role with another key. Although private keys are
+        Add a new signing key. This will make it possible to a sign metadata files
+        corresponding to the specified roles with another key. Although private keys are
         used for signing, key identifiers are calculated based on the public keys. This
         means that it's necessary to enter the public key in order to register
         a new signing key. Public key can be loaded from a file, in which case it is
         necessary to specify its path as the pub_key parameter's value. If this option
         is not used when calling this command, the key can be directly entered later.
         """
+        if not len(role):
+            print("Specify at least one role")
+            return
         developer_tool.add_signing_key(path, role, pub_key_path, keystore,
                                        keys_description, scheme)
 
