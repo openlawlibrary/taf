@@ -363,6 +363,27 @@ class Repository:
             )
         )
 
+    def get_singed_targets_with_custom_data(self, roles):
+        """Return all target files signed by the specified roles and and their custom data
+        as specified in the metadata files
+
+        Args:
+        - roles whose target files will be returned
+
+        Returns:
+        - A dictionary whose keys are parts of target files relative to the targets directory
+        and values are custom data dictionaries.
+        """
+        if roles is None:
+            roles = self.get_all_targets_roles()
+        target_files = {}
+        for role in roles:
+            roles_targets = self._role_obj(role).target_files
+            for target_file, custom_data in roles_targets.items():
+                target_files.setdefault(target_file, {}).update(custom_data)
+        return target_files
+
+
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
 

@@ -114,8 +114,7 @@ def load_repositories(
 
         for path, repo_data in repositories.items():
             urls = _get_urls(mirrors, path, repo_data)
-            target = targets.get(path)
-            if target is None and only_load_targets:
+            if path not in targets and only_load_targets:
                 continue
 
             additional_info = _get_custom_data(repo_data, targets.get(path))
@@ -396,23 +395,9 @@ def _load_mirrors_json(auth_repo, commit):
 
 
 def _targets_of_roles(auth_repo, commit, roles=None):
-    all_targets = {}
+
     with auth_repo.repository_at_revision(commit):
-        if roles is None:
-            roles = auth_repo.get_all_targets_roles()
-        for role in roles:
-            try:
-                role_dict = json.loads(
-                    (auth_repo.metadata_path / f"{role}.json").read_text()
-                )
-            except Exception as e:
-                auth_repo._log_warning(
-                    f"could not load {role}.json metadata file due to {e}"
-                )
-                continue
-            targets = role_dict["signed"]["targets"]
-            all_targets.update(targets)
-    return all_targets
+        return auth_repo.get_singed_targets_with_custom_data(roles)
 
 
 def repositories_loaded(auth_repo):
