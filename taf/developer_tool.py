@@ -60,23 +60,17 @@ DEFAULT_ROLE_SETUP_PARAMS = {
 
 def add_signing_key(
     repo_path,
-    role,
+    roles,
     pub_key_path=None,
     keystore=None,
     roles_key_infos=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
-    Adds a new signing key. Currently assumes that root keys, as well as signing key of the role
-    whose signing key is being added are stored on yubikeys. Automatically updates timestamp and
-    snapshot. Timestamp and snapshot keys can be loaded from the filesystem if located inside
-    the keystore whose location is specified via either the keystore argument, or role_key_infos
-    json.
+    Adds a new signing key to the listed roles. Automatically updates timestamp and
+    snapshot.
     """
-    from taf.repository_tool import yubikey_signature_provider
-
     taf_repo = Repository(repo_path)
-
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
@@ -91,50 +85,28 @@ def add_signing_key(
     if pub_key_pem is None:
         pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
 
-    if taf_repo.is_valid_metadata_key(role, pub_key_pem):
-        print(f"Key already registered as signing key of role {role}")
+    parent_roles = set()
+    for role in roles:
+
+        if taf_repo.is_valid_metadata_key(role, pub_key_pem):
+            print(f"Key already registered as signing key of role {role}")
+            continue
+
+        taf_repo.add_metadata_key(role, pub_key_pem, scheme)
+
+        if is_delegated_role(role):
+            parent_role = taf_repo.find_delegated_roles_parent(role)
+        else:
+            parent_role = "root"
+
+        parent_roles.add(parent_role)
+
+    if not len(parent_roles):
         return
 
-    taf_repo.add_metadata_key(role, pub_key_pem, scheme)
-
-    if is_delegated_role(role):
-        parent_role = taf_repo.find_delegated_roles_parent(role)
-    else:
-        parent_role = "root"
-
-    parent_obj = taf_repo._role_obj(parent_role)
-
-    threshold = parent_obj.threshold
-    keys_num = len(parent_obj.keys)
-    num_of_signatures = 0
-    loaded_yubikeys = {}
-    pub_key, _ = yk.yubikey_prompt(
-        role, role, taf_repo, loaded_yubikeys=loaded_yubikeys
-    )
-    role_obj = _role_obj(role, taf_repo._repository)
-    role_obj.add_external_signature_provider(
-        pub_key, partial(yubikey_signature_provider, role, pub_key["keyid"])
-    )
-
-    all_loaded = False
-    while not all_loaded:
-        if num_of_signatures >= threshold:
-            all_loaded = not (
-                click.confirm(
-                    f"Threshold of {parent_role} keys reached. Do you want to load more root keys?"
-                )
-            )
-        if not all_loaded:
-            name = f"{parent_role}{num_of_signatures+1}"
-            pub_key, _ = yk.yubikey_prompt(
-                name, parent_role, taf_repo, loaded_yubikeys=loaded_yubikeys
-            )
-            parent_obj.add_external_signature_provider(
-                pub_key, partial(yubikey_signature_provider, name, pub_key["keyid"])
-            )
-            num_of_signatures += 1
-        if num_of_signatures == keys_num:
-            all_loaded = True
+    taf_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
+    for parent_role in parent_roles:
+        _update_role(taf_repo, parent_role, keystore, roles_infos, scheme)
 
     update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
 
@@ -1160,7 +1132,7 @@ def update_metadata_expiration_date(
             taf_repo.update_role_keystores(
                 role, keys, start_date=start_date, interval=interval
             )
-        else:  # sign with yubikey
+        if len(yubikeys):  # sign with yubikey
             taf_repo.update_role_yubikeys(
                 role, yubikeys, start_date=start_date, interval=interval
             )
@@ -1176,6 +1148,16 @@ def update_metadata_expiration_date(
         auth_repo.commit(commit_message)
 
 
+def _update_role(taf_repo, role, keystore, roles_infos, scheme):
+    keystore_keys, yubikeys = _load_signing_keys(
+        taf_repo, role, keystore, roles_infos, scheme=scheme
+    )
+    if len(keystore_keys):
+        taf_repo.update_role_keystores(role, keystore_keys, write=False)
+    if len(yubikeys):
+        taf_repo.update_role_yubikeys(role, yubikeys, write=False)
+
+
 def update_snapshot_and_timestamp(
     taf_repo, keystore, roles_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
 ):
@@ -1188,7 +1170,7 @@ def update_snapshot_and_timestamp(
         if len(yubikeys):
             update_method = taf_repo.roles_yubikeys_update_method(role)
             update_method(yubikeys, write=False)
-        else:
+        if len(keystore_keys):
             update_method = taf_repo.roles_keystore_update_method(role)
             update_method(keystore_keys, write=False)
 
@@ -1240,7 +1222,7 @@ def _update_target_roles(
 
         if len(yubikeys):
             taf_repo.update_targets_yubikeys(yubikeys, write=False, **targets_data)
-        else:
+        if len(keystore_keys):
             taf_repo.update_targets_keystores(
                 keystore_keys, write=False, **targets_data
             )
