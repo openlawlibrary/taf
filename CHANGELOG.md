@@ -11,11 +11,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Set `only_load_targets` parameter to `True` by default in `repositoriesdb` ([139])
 - Use `_load_signing_keys` in `add_signing_key` ([138])
 - Raise a nicer error when instantiating a TUF repository if it is invalid ([137])
 
 ### Fixed
 
+- Fix loading targets metadata files in `repositoriesdb` ([139])
+
+
+[139]: https://github.com/openlawlibrary/taf/pull/139
 [138]: https://github.com/openlawlibrary/taf/pull/138
 [137]: https://github.com/openlawlibrary/taf/pull/137
 
