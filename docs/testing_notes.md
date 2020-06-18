@@ -22,18 +22,20 @@
 
 ```
 {
-   "root": {
-     "yubikey": true,
-     "number": 3,
-     "length": 2048,
-     "threshold": 2
-   },
-   "targets": {
-      "yubikey": true,
-      "length": 2048
-   },
-   "snapshot": {},
-   "timestamp": {}
+    "roles": {
+        "root": {
+          "yubikey": true,
+          "number": 3,
+          "length": 2048,
+          "threshold": 2
+        },
+        "targets": {
+           "yubikey": true,
+           "length": 2048
+        },
+        "snapshot": {},
+        "timestamp": {}
+    }
 }
 ```
 

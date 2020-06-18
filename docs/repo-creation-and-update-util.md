@@ -117,7 +117,7 @@ require certain information about roles and keys easier to use, an option called
 			"scheme": "rsassa-pss-sha256"
 		}
 	},
-	"keystore": "keystore"
+	"keystore": "keystore_path"
 }
 
 NOTE: in this example, scheme of snapshot and timestamp roles was specified in order to provide
@@ -131,7 +131,7 @@ make sure that you do not set different schemes. The default scheme is `"rsa-pkc
   - `threshold` - role's keys threshold
   - `yubikey` - a flag which signalizes that the keys should be on YubiKeys
   - `scheme` - signing scheme
-  - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold etc.
+  - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
 - `keystore` - location of the keystore files. This path can also be specified through an input parameter.
 
@@ -190,7 +190,11 @@ taf repo create E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-desc
 will generate a new authentication repository at `E:\OLL\auth_repo_path`. There are several options
 for signing metadata files - from keystore, by directly entering the key when prompted and by using
 Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
-when calling this command. If `keystore` is specified in `keys-description`, it is not necessary to also use the `--keystore` option.
+when calling this command. If `keystore` is specified in `keys-description`, it is not necessary
+to also use the `--keystore` option. All keys that do not already exist will be generated during
+execution of this command. Keys can generated on the Yubikeys, but that will delete everything
+stored on that key and will require new pins to be set. It is possible to reuse existing keys
+stored on Yubikeys.
 
 The generated files and folders will automatically be committed if `--commit` flag is present. If the
 new repository is only be meant to be used for testing, use `--test` flag. This will create a special

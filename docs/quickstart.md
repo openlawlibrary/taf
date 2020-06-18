@@ -4,37 +4,56 @@ This documents describes the most useful commands. See [this overview](repo-crea
 
 ## Create a repository
 
-Use the `repo create` command to reate a new authetnication repository:
+Use the `repo create` command to create a new authentication repository:
 
 ```bash
 taf repo create repo_path --keystore keystore_path --keys-description keys.json --commit --test
 ```
 
-- `keystore` is the location of the keystore files. Use this options if the keystore files were previously
-generated and not all metadata files should be signed using Yubikeys.
-- `keys-description` is the a dictionary which contains information about the roles. The easiest way to specify
-it is to define it in a `.json` file and provide path to that file when calling the `create command`. For example:
+- `keys-description` is a dictionary which contains information about the roles. The easiest way to specify it is to define it in a `.json` file and provide path to that file when calling the this command. For example:
 ```
 {
-  "root": {
-    "number": 3,
-    "length": 2048,
-    "passwords": ["password1", "password2", "password3"]
-	  "threshold": 2,
-    "yubikey": true
+  "roles": {
+    "root": {
+      "number": 3,
+      "length": 2048,
+      "passwords": ["password1", "password2", "password3"],
+	    "threshold": 2,
+      "yubikey": true
+    },
+    "targets": {
+      "length": 2048,
+      "delegations": {
+        "delegated_role1": {
+			    "paths": [
+              "delegated_path1",
+              "delegated_path2"
+			      ],
+			    "number": 1,
+			    "threshold": 1,
+			    "terminating": true
+		    }
+      }
+    },
+    "snapshot": {},
+    "timestamp": {}
   },
-  "targets": {
-    "length": 2048
-  },
-  "snapshot": {},
-  "timestamp": {}
+  "keystore": "keystore_path"
 }
 ```
+- `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
 - `commit` flag determines if the changes should be automatically committed
 - `test`  flag determines if a special target file called `test-auth-repo` will be created. That
 signalizes that an authentication repository is a test repository. When calling the updater,
 it's necessary to use a flag which makes it clear that it is a test repository which is to
 be updated.
+
+It is not necessary to generate keys or initialize Yubikeys prior to calling this command.
+For each role, keys can be:
+- loaded from the keystore files if they already exist
+- generated and stored to keystore files
+- loaded from previously initialized Yubikeys
+- generated and stored on a Yubikey (this deletes all existing data from that key)
 
 
 ## Update targets
@@ -54,9 +73,9 @@ taf targets update_repos_from_fs auth_path --root-dir root_dir_path --namespace 
 taf targets update_repos_from_repositories_json auth_path --root-dir root_dir_path --namespace namespace --add-branch
 ```
 
-- `root-dir` is the directory which contains the target repositories. It's default value is set to to
+- `root-dir` is the directory which contains the target repositories. Its default value is set to two
 directory's up from the authentication repository's path
-- `namespace` correspons to the name of the directory inside `root-dir` which directly contains target
+- `namespace` corresponds to the name of the directory inside `root-dir` which directly contains target
 repositories. Its default value is name of the authentication repository's parent directory.
 - `add-branch` is a flag which determines if name of the current branch of the target repositories
 will be noted in the corresponding target file.
@@ -66,12 +85,13 @@ no need to set `root-dir` and `namespace`. This command does not automatically s
 
 ## Sign metadata files
 
-To signs updated `targets` metadata file call the `targets sign` command. Updates `targets`, `snapshot`
+To signs updated `targets` metadata file call the `targets sign` command. Updates all targets metadata files corresponding to roles responsible for modified target files, `snapshot`
 and `timestamp.json`
 
 ```bash
-taf targets sign auth_path --keystore keystore_path --commit
+taf targets sign auth_path --keys-description keys_description.json --commit
 ```
-- `keystore` is the location of the keystore files. Use this option if one or more files shoudl be signed
-with keys loaded from disk.
+
+- `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
+- `keystore` is defines location of the keystore files and should be used when not keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
 - `commit` flag determines if the changes should be automatically committed
