@@ -39,13 +39,12 @@ def attach_to_group(group):
                   "used for signing")
     def sign(path, keystore, keys_description, scheme):
         """
-        Register and sign target files. This means that the targets metadata file
-        is updated by adding or editing information about all target files located
-        inside the targets directory of the authentication repository. Once the targets
-        file is updated, so are snapshot and timestamp. All files are signed. If the
+        Register and sign target files. This means that all targets metadata files corresponding
+        to roles responsible for updated target files are updated. Once the targets
+        files are updated, so are snapshot and timestamp. All files are then signed. If the
         keystore parameter is provided, keys stored in that directory will be used for
         signing. If a needed key is not in that directory, the file can either be signed
-        sy manually entering the key or by using a yubikey.
+        sy manually entering the key or by using a Yubikey.
         """
         try:
             developer_tool.register_target_files(path, keystore=keystore,
