@@ -85,7 +85,8 @@ no need to set `root-dir` and `namespace`. This command does not automatically s
 
 ## Sign metadata files
 
-To signs updated `targets` metadata file call the `targets sign` command. Updates all targets metadata files corresponding to roles responsible for modified target files, `snapshot`
+To sign updated `targets` metadata file call the `targets sign` command. It updates all targets
+metadata files corresponding to roles responsible for modified target files, `snapshot`
 and `timestamp.json`
 
 ```bash
@@ -93,5 +94,5 @@ taf targets sign auth_path --keys-description keys_description.json --commit
 ```
 
 - `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
-- `keystore` is defines location of the keystore files and should be used when not keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
+- `keystore` defines location of the keystore files and should be used when keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
 - `commit` flag determines if the changes should be automatically committed

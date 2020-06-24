@@ -275,7 +275,7 @@ directory is calculated as two repositories up from the authetication repository
 Authentication repository's namespace can, but does not have to be equal to the namespace or target,
 repositories. If the authentication repository's path is `E:\root\namespace\auth-repo`, root
 directory will be determined as `E:\root`. If this default value is not correct, it can be redefined
-through the `--root-dir` option. If the --namespace option's value is not provided, it is assumed
+through the `--root-dir` option. If the `--namespace` option's value is not provided, it is assumed
 that the namespace of target repositories is equal to the authentication repository's namespace,
 determined based on the repository's path. E.g. Namespace of `E:\root\namespace2\auth-repo`
 is `namespace2`.
@@ -377,7 +377,7 @@ directory and that `degetated_role1` is responsible for files in `delegated_role
 and that `delegated_role2` is responsible for files in `delegated_role2`. This command
 will update `targets.json` and `delegated_role1.json` metadata files by modifying information
 about the updated targets. Once the targets metadata files are updated, so are `snapshot` and `timestamp`. Metadata files can be signed using the keystore files, Yubikeys or by directly entering keys. If one or more of the mentioned metadata files should be
-signed with keys stored on disk, it's necessary to provide the keystore pat, by either using the `keystore` option or providing a `keys-description` json which contains the `keystore` property.
+signed with keys stored on disk, it's necessary to provide the keystore pat, by either using the `--keystore` option or providing a `--keys-description` json which contains the `keystore` property.
 
 If the changes should be committed automatically, use the `commit` flag.
 
@@ -390,7 +390,7 @@ taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --commit
 This command updates expiration date of the given role's metadata file. The metadata file
 can be signed by directly entering the key when prompted to do so, by loading the key
 from disk or from a Yubikey. If key should be loaded from disk, it is necessary to specify
-the keystore path using the `keystore` option or by providing a `keys-description` json which
+the keystore path using the `--keystore` option or by providing a `--keys-description` json which
 contains the `keystore` property. The new expiration date is calculated by
 adding interval to the start date, both of which can be specified when calling this command.
 By default, start date is today's date, while interval depends on the role and is:

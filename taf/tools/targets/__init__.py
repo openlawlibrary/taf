@@ -44,7 +44,7 @@ def attach_to_group(group):
         files are updated, so are snapshot and timestamp. All files are then signed. If the
         keystore parameter is provided, keys stored in that directory will be used for
         signing. If a needed key is not in that directory, the file can either be signed
-        sy manually entering the key or by using a Yubikey.
+        by manually entering the key or by using a Yubikey.
         """
         try:
             developer_tool.register_target_files(path, keystore=keystore,
