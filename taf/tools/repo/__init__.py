@@ -193,7 +193,7 @@ def attach_to_group(group):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
-        authentication repository and the target repositories are in the same root repository,
+        authentication repository and the target repositories are in the same root directory,
         locations of the target repositories are calculated based on the authentication repository's
         path. If that is not the case, it is necessary to redefine this default value using the
         --clients-root-dir option. This means that if authentication repository's path is
@@ -201,10 +201,10 @@ def attach_to_group(group):
         if clients-root-dir is not specified.
         Names of target repositories (as defined in repositories.json) are appended to the root repository's
         path thus defining the location of each target repository. If names of target repositories
-        are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of target
+        are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
         repositories will be calculated as E:\\root\\namespace\\repo1, E:\\root\\namespace\\root2 etc.
 
-        If remote repository's url is a file system path, it is necessary yo call this command with
+        If remote repository's url is a file system path, it is necessary to call this command with
         --from-fs flag so that url validation is skipped. When updating a test repository (one that has
         the "test" target file), use --authenticate-test-repo flag. An error will be raised
         if this flag is omitted in the mentioned case. Do not use this flag when validating a non-test
