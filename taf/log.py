@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import securesystemslib
 from pathlib import Path
 
 import tuf.log
@@ -22,7 +23,10 @@ def disable_console_logging():
 
 
 def disable_tuf_console_logging():
-    tuf.log.set_console_log_level(logging.CRITICAL)
+    try:
+        tuf.log.set_console_log_level(logging.CRITICAL)
+    except securesystemslib.exceptions.Error:
+        pass
 
 
 def _get_log_location():
