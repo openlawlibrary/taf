@@ -8,7 +8,8 @@ provide an easy way of updating information about target repositories.
 
 Most commands have just one required argument, and that is authentication repository's path.
 All other input parameters have default values or can be calculated based on this path, like
-root directory and namespace.
+root directory and namespace. Both absolute and relative paths can be used. To make the examples
+clearer, paths in this documentation are absolute.
 
 ## Options
 
@@ -72,35 +73,67 @@ called `allow-unauthenticated-commits` which is set to `true`.
 
 ### `keys-description`
 
-To make commands such as generation of keys and all other commands which require certain
-information about them (e.g. passwords of the keystore files) easier to use, an option called
+To make commands such as creation of repositories, generation of keys and all others which
+require certain information about roles and keys easier to use, an option called
 `keys-description` was introduced. It allows passing in a json, like the following one:
 
-```
 {
-  "root": {
-    "number": 3,
-    "length": 2048,
-    "passwords": ["password1", "password2", "password3"]
-	  "threshold": 2,
-    "yubikey": true
-  },
-  "targets": {
-    "length": 2048
-  },
-  "snapshot": {},
-  "timestamp": {}
+	"roles": {
+  	"root": {
+  	  "number": 3,
+			"threshold": 1
+  	},
+  	"targets": {
+			"number": 1,
+			"threshold": 1,
+			"delegations": {
+				"delegated_role1": {
+					"paths": [
+						"dir1/*"
+						],
+					"number": 3,
+					"threshold": 2,
+          "terminating": true
+				},
+				"delegated_role2":{
+					"paths": [
+						"dir2/*"
+					],
+					"delegations": {
+						"inner_delegated_role": {
+							"paths": [
+								"dir2/inner_delegated_role.txt"
+							],
+              "terminating": true
+						}
+					}
+				}
+			}
+  	},
+  	"snapshot": {
+			"scheme": "rsassa-pss-sha256"
+		},
+  	"timestamp": {
+			"scheme": "rsassa-pss-sha256"
+		}
+	},
+	"keystore": "keystore_path"
 }
-```
 
-So, for each metadata role (root, targets, snaphost, timestamp) there is a description of its keys.
-Configurable properties include the following:
-- `number` - total number of the role's keys
-- `length` - length of the role's keys. Only needed when this json is used to generate keys.
-- `passwords` - a list of passwords of the keystore files corresponding to the current role. The first
-entry in the list is expected to specify the first key's password.
-- `threshold` - role's keys threshold
-- `yubikey` - a flag which signalizes that the keys should be on YubiKeys
+NOTE: in this example, scheme of snapshot and timestamp roles was specified in order to provide
+and example of how to do so. At the moment, all keys should have the same signing scheme, so
+make sure that you do not set different schemes. The default scheme is `"rsa-pkcs1v15-sha256`.
+
+- `roles` contains information about roles and their keys, including delegations:
+  -  `number` - total number of the role's keys
+  - `length` - length of the role's keys. Only needed when this json is used to generate keys.
+  - `passwords` - a list of passwords of the keystore files corresponding to the current role The first entry in the list is expected to specify the first key's password.
+  - `threshold` - role's keys threshold
+  - `yubikey` - a flag which signalizes that the keys should be on YubiKeys
+  - `scheme` - signing scheme
+  - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
+  - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
+- `keystore` - location of the keystore files. This path can also be specified through an input parameter.
 
 Names of keys must follow a certain naming convention. That is,their names are composed of the role's name
 and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1`, `targets2`, `snapshot` etc.
@@ -110,9 +143,12 @@ If a property is omitted from the specification, it will have the default value.
 - `length=3072` Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
 - `passwords=[]` Meaning that the keystore files will not be password protected by default.
 - `threshold=1`
+- `scheme=rsa-pkcs1v15-sha256`
 
 The `keys-description` option can either directly contain the described json, or be a path to a file
 which contains it.
+In cases when this dictionary is not specified, it is necessary to enter the needed
+information when asked to do so, or confirm that default values should be used.
 
 ### `scheme`
 
@@ -121,7 +157,7 @@ Many commands have the `scheme` optional parameter. It represents the signature 
 
 ## Commands
 
-Commands are separated into several subcomands:
+Commands are separated into several subcommands:
 - `keystore`, containing commands for generating keystore files.
 - `metadata`, containing commands for adding a new signing key and updating a metadata file's expiration date.
 - `repo`, containing commands for creating and updating new authentication repositories.
@@ -154,17 +190,81 @@ taf repo create E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-desc
 will generate a new authentication repository at `E:\OLL\auth_repo_path`. There are several options
 for signing metadata files - from keystore, by directly entering the key when prompted and by using
 Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
-when calling this command.
+when calling this command. If `keystore` is specified in `keys-description`, it is not necessary
+to also use the `--keystore` option. All keys that do not already exist will be generated during
+execution of this command. Keys can generated on the Yubikeys, but that will delete everything
+stored on that key and will require new pins to be set. It is possible to reuse existing keys
+stored on Yubikeys.
 
 The generated files and folders will automatically be committed if `--commit` flag is present. If the
 new repository is only be meant to be used for testing, use `--test` flag. This will create a special
-target file called `test-auth-repo`. For example:
+target file called `test-auth-repo`.
+
+
+### `repo update`
+
+Update and validate local authentication repository and target repositories. Remote
+authentication's repository url and its filesystem path need to be specified when calling this command. If the
+authentication repository and the target repositories are in the same root directory,
+locations of the target repositories are calculated based on the authentication repository's
+path. If that is not the case, it is necessary to redefine this default value using the
+`--clients-root-dir` option.
+Names of target repositories (as defined in repositories.json) are appended to the root
+path thus defining the location of each target repository. If names of target repositories
+are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
+repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.
+
+When updating a test repository (that has the "test" target file), use `--authenticate-test-repo`
+flag. An error will be raised if this flag is omitted in the mentioned case. Do not use this
+flag when validating non-test repository as that will also result in an error.
+
+For example:
+
+```bash
+taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_repo  --authenticate-test-repo
+```
+
+In this example, all target repositories will be expected to be in `E:\root`.
+
+```
+taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_repo --clients-root-dir E:\\target-repos
+```
+
+In this example, the target repositories will be expected to be in `E:\\target-repos`.
+
+If remote repository's url is a file system path, it is necessary to call this command with
+`--from-fs` flag so that url validation is skipped. This option is mostly of interest to the
+implementation of updater tests. To validate local repositories, use the `validate` command.
+
+### `repo validate`
+
+This command validates an authentication repository which is already on the file system
+and its target repositories (which are also expected to be on the file system).
+Does not clone repositories, fetch changes or merge commits. The main purpose of this command is
+to make sure that the recent updates of the authentication repository and its targets are correct
+before pushing them.
+
+Locations of target repositories are calculated in the same way as when updating repositories.
+Unlike the update command, this command does not have the `url` argument or the `--authenticate-test-repoparameter` flag among its inputs. Additionally,
+it allows specification of the firs commit which should be validated through the `--from-commit`
+option. That means that we can only validate new authentication repository's commits. This
+command does not store information about the last validated commit. See updater documentation
+for more information about how it works.
+Here are a few examples:
+
+```bash
+taf repo validate E:\\root\\namespace\\auth_repo
+```
+
+```bash
+taf repo validate E:\\root\\namespace\\auth_repo --from-commit d0d0fafdc9a6b8c6dd8829635698ac75774b8eb3
+```
 
 ### `targets update_repos_from_fs`
 
-Update target files corresonding to target repositories by traversing through the root
+Update target files corresponding to target repositories by traversing through the root
 directory. Does not automatically sign the metadata files.
-Note: if repositories.json exists, it is better to call update_repos_from_repositories_json
+Note: if `repositories.json` exists, it is better to call update_repos_from_repositories_json
 
 Target repositories are expected to be inside a directory whose name is equal to the specified
 namespace and which is located inside the root directory. If root directory is `E:\examples\\root`
@@ -172,10 +272,10 @@ and namespace is namespace1, target repositories should be in `E:\examples\root\
 If the authentication repository and the target repositories are in the same root directory and
 the authentication repository is also directly inside a namespace directory, then the commoroot
 directory is calculated as two repositories up from the authetication repository's directory.
-Authentication repository's namespace can, but does not have to be equal to the namespace otarget,
+Authentication repository's namespace can, but does not have to be equal to the namespace or target,
 repositories. If the authentication repository's path is `E:\root\namespace\auth-repo`, root
-directory will be determined as `E:\root`. If this default value is not correct, it can bredefined
-through the --root-dir option. If the --namespace option's value is not provided, it is assumed
+directory will be determined as `E:\root`. If this default value is not correct, it can be redefined
+through the `--root-dir` option. If the `--namespace` option's value is not provided, it is assumed
 that the namespace of target repositories is equal to the authentication repository's namespace,
 determined based on the repository's path. E.g. Namespace of `E:\root\namespace2\auth-repo`
 is `namespace2`.
@@ -185,8 +285,7 @@ git repositories in that directory, apart from the authentication repository if 
 For each found repository the current top commit and branch (if called with the
 --add-branch flag) are written to the corresponding target files. Target files are files
 inside the authentication repository's target directory. For example, for a target repository
-namespace1/target1, a file called target1 is created inside the targets/namespaceauthentication
-repository's direcotry.
+namespace1/target1, a file called target1 is created inside the `targets/namespace` authentication repository's directory.
 
 For example, let's say that we have the following repositories:
 
@@ -257,27 +356,42 @@ It is recommended to use this command if `repositories.json` exists.
 
 ### `targets sign`
 
-This command registers the target files and signs updated metadata files. This assumes that
-the target files were previously updated. It traverses through all files found inside the `targets`
-directory and updates the `targets` metadata file based on their content. Once the `targets` file
-is updated, so are `snapshot` and `timestamp`. Metada files can be signed using the keystore files,
-Yubikeys or by directly entering keys. If one or more of the mentioned metadata files should be
-signed with keys stored on disk, it's necessary to provide the keystore path using the `keystore`
-option.
+This command registers target files and signs updated metadata. All targets
+metadata files corresponding to roles responsible for updated target files are updated.
+Let's say that we have the following target files:
+
+- `targets`
+  - `file1.txt`
+  - `file2.txt`
+  - `delegated_role1_dir`
+    - `file1.txt`
+    - `file2.txt`
+    - `file3.txt`
+  - `delegated_role2_dir`
+    - `file1.txt`
+    - `file3.txt`
+
+and that files `targets/file1.txt` and `targets/delefated_role1_dir/file2.txt` were modified.
+Assuming that the `targets` role is responsible for files directly inside the `targets`
+directory and that `degetated_role1` is responsible for files in `delegated_role1` directory
+and that `delegated_role2` is responsible for files in `delegated_role2`. This command
+will update `targets.json` and `delegated_role1.json` metadata files by modifying information
+about the updated targets. Once the targets metadata files are updated, so are `snapshot` and `timestamp`. Metadata files can be signed using the keystore files, Yubikeys or by directly entering keys. If one or more of the mentioned metadata files should be
+signed with keys stored on disk, it's necessary to provide the keystore pat, by either using the `--keystore` option or providing a `--keys-description` json which contains the `keystore` property.
+
+If the changes should be committed automatically, use the `commit` flag.
 
 ```bash
 taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --commit
 ```
 
-If the changes should be committed automatically, use the `commit` flag.
-
-
 ### `metadata update_expiration_date`
 
 This command updates expiration date of the given role's metadata file. The metadata file
 can be signed by directly entering the key when prompted to do so, by loading the key
-from disk or from a Yubikey. If key shoudl be loaded from disk, it is necessary to specify
-the keystore path using the `keystore` option. The new expiration date is calculated by
+from disk or from a Yubikey. If key should be loaded from disk, it is necessary to specify
+the keystore path using the `--keystore` option or by providing a `--keys-description` json which
+contains the `keystore` property. The new expiration date is calculated by
 adding interval to the start date, both of which can be specified when calling this command.
 By default, start date is today's date, while interval depends on the role and is:
 

@@ -14,6 +14,19 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 - Check remote repository when checking if a branch already exists ([142])
+
+### Fixed
+
+[142]: https://github.com/openlawlibrary/taf/pull/142
+
+
+## [0.5.1] - 06/25/2020
+
+### Added
+
+### Changed
+
+- Documentation updates ([140])
 - Set `only_load_targets` parameter to `True` by default in `repositoriesdb` ([139])
 - Use `_load_signing_keys` in `add_signing_key` ([138])
 - Raise a nicer error when instantiating a TUF repository if it is invalid ([137])
@@ -22,8 +35,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix loading targets metadata files in `repositoriesdb` ([139])
 
-
-[142]: https://github.com/openlawlibrary/taf/pull/142
+[140]: https://github.com/openlawlibrary/taf/pull/140
 [139]: https://github.com/openlawlibrary/taf/pull/139
 [138]: https://github.com/openlawlibrary/taf/pull/138
 [137]: https://github.com/openlawlibrary/taf/pull/137
@@ -270,7 +282,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/openlawlibrary/pygls/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/openlawlibrary/pygls/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/openlawlibrary/pygls/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/openlawlibrary/pygls/compare/v0.3.1...v0.4.0
