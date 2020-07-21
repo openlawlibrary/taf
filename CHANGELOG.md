@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.5.2] - 07/21/2020
+
+### Added
+
 - Git method for removing remote tracking branches ([142])
 
 ### Changed
@@ -282,7 +291,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/openlawlibrary/pygls/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/openlawlibrary/pygls/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/openlawlibrary/pygls/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/openlawlibrary/pygls/compare/v0.4.0...v0.4.1
