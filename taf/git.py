@@ -298,11 +298,23 @@ class GitRepository:
                     log_error_msg=f"Repo {self.name}: could not list remote branches",
                     reraise_error=True,
                 )
-                # this command should return the branch's name if the remote branch
+                # this command should return the branch's name if the remote tracking branch
                 # exists
                 # it will also return some warnings if there are problems with some refs
                 if branch_name in remote_branch:
                     return True
+
+                # finally, check remote branch
+                if self.has_remote():
+                    return (
+                        self._git(
+                            f"ls-remote --heads origin {branch_name}",
+                            log_error_msg=f"Repo {self.name}: could check if the branch exists in the remote repository",
+                            reraise_error=True,
+                        )
+                        != ""
+                    )
+
         return False
 
     def branch_off_commit(self, branch_name, commit):
@@ -522,6 +534,10 @@ class GitRepository:
         """Deletes local branch."""
         flag = "-D" if force else "-d"
         self._git(f"branch {flag} {branch_name}", log_error=True)
+
+    def delete_remote_tracking_branch(self, remote_branch_name, force=False):
+        flag = "-D" if force else "-d"
+        self._git(f"branch {flag} -r {remote_branch_name}", log_error=True)
 
     def delete_remote_branch(self, branch_name, remote=None):
         if remote is None:

@@ -464,7 +464,9 @@ def _update_target_repository(
     taf_logger.info("Successfully validated {}", repository.name)
 
 
-def validate_repository(clients_auth_path, clients_root_dir, validate_from_commit=None):
+def validate_repository(
+    clients_auth_path, clients_root_dir=None, validate_from_commit=None
+):
 
     clients_auth_path = Path(clients_auth_path).resolve()
 

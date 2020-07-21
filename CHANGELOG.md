@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Git method for removing remote tracking branches ([142])
+
 ### Changed
 
+- Check remote repository when checking if a branch already exists ([142])
+
 ### Fixed
+
+[142]: https://github.com/openlawlibrary/taf/pull/142
+
 
 ## [0.5.1] - 06/25/2020
 
