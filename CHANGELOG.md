@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Check if specified target repositories exist before trying to export historical commits data ([144])
+
 ### Fixed
+
+[144]: https://github.com/openlawlibrary/taf/pull/144
 
 
 ## [0.5.2] - 07/21/2020
