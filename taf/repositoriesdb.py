@@ -290,7 +290,7 @@ def get_deduplicated_repositories(auth_repo, commits):
 
 
 def get_repository(auth_repo, path, commit=None):
-    return get_repositories(auth_repo, commit)[path]
+    return get_repositories(auth_repo, commit).get(path)
 
 
 def get_repositories(auth_repo, commit=None):

@@ -34,6 +34,7 @@ from taf.repository_tool import (
     yubikey_signature_provider,
     is_delegated_role,
 )
+import taf.repositoriesdb as repositoriesdb
 from taf.utils import get_key_size, read_input_dict
 
 try:
@@ -747,6 +748,18 @@ def export_targets_history(repo_path, commit=None, output=None, target_repos=Non
     commits = auth_repo.all_commits_since_commit(commit, branch="master")
     if not len(target_repos):
         target_repos = None
+    else:
+        repositoriesdb.load_repositories(auth_repo)
+        invalid_targets = []
+        for target_repo in target_repos:
+            if repositoriesdb.get_repository(auth_repo, target_repo) is None:
+                invalid_targets.append(target_repo)
+        if len(invalid_targets):
+            print(
+                f"The following target repositories are not defined: {', '.join(invalid_targets)}"
+            )
+            return
+
     commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
         commits, target_repos
     )
