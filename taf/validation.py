@@ -1,13 +1,20 @@
+import subprocess
 from pathlib import Path
 
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
-from taf.exceptions import GitError
 from taf.repository_tool import Repository
 from taf.constants import CAPSTONE
 from taf.exceptions import InvalidBranchError
 
 
-def validate_branch(auth_repo, target_repos, branch_name, merge_branches, updated_role):
+def validate_branch(
+    auth_repo,
+    target_repos,
+    branch_name,
+    merge_branches,
+    updated_role,
+    should_check_capstone=True,
+):
     """
     Validates corresponding branches of the authentication repository
     and the target repositories. Assumes that:
@@ -23,8 +30,8 @@ def validate_branch(auth_repo, target_repos, branch_name, merge_branches, update
     that a capstone file is one of the targets specified in targets metadata)
     4. If all commits of an authentication repository's branch have the same branch ID
     """
-
-    check_capstone(auth_repo, branch_name)
+    if should_check_capstone:
+        check_capstone(auth_repo, branch_name)
     targets_and_commits = {
         target_repo: target_repo.commits_on_branch_and_not_other(
             branch_name, merge_branches[target_repo]
@@ -114,7 +121,7 @@ def _check_branch_id(auth_repo, auth_commit, branch_id):
         new_branch_id = auth_repo.get_file(
             auth_commit, f"{TARGETS_DIRECTORY_NAME}/branch"
         )
-    except GitError:
+    except subprocess.CalledProcessError:
         raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
     if branch_id is not None and new_branch_id != branch_id:
         raise InvalidBranchError(
@@ -161,10 +168,13 @@ def check_capstone(auth_repo, branch):
     """
     Check if there is a capstone file (a target file called capstone)
     at the end of the specified branch.
-    Assumes that the branch is checked out.
     """
-    capstone_path = Path(auth_repo.path, TARGETS_DIRECTORY_NAME, CAPSTONE)
-    if not capstone_path.is_file():
+    try:
+        auth_repo.get_file(
+            auth_repo.top_commit_of_branch(branch),
+            Path(TARGETS_DIRECTORY_NAME, CAPSTONE),
+        )
+    except Exception:
         raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
 
 
