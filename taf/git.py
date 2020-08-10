@@ -560,6 +560,11 @@ class GitRepository:
         path = Path(path).as_posix()
         return self._git("show {}:{}", commit, path)
 
+    def get_first_commit_on_branch(self, branch="master"):
+        return self._git(
+            f"rev-list --max-parents=0 {branch}", error_if_not_exists=False
+        ).strip()
+
     def get_last_branch_by_committer_date(self):
         """Find the latest branch based on committer date. Should only be used for
         testing purposes"""

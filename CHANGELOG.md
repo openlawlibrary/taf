@@ -9,12 +9,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Git method for getting the first commit on a branch ([145])
+
 ### Changed
 
+- Minor check capstone validation update ([145])
 - Check if specified target repositories exist before trying to export historical commits data ([144])
 
 ### Fixed
 
+[145]: https://github.com/openlawlibrary/taf/pull/145
 [144]: https://github.com/openlawlibrary/taf/pull/144
 
 
