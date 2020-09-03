@@ -192,8 +192,8 @@ def _update_named_repository(
             users_auth_repo, commits
         )
 
-        repositories_branches_and_commits = users_auth_repo.sorted_commits_and_branches_per_repositories(
-            commits
+        repositories_branches_and_commits = (
+            users_auth_repo.sorted_commits_and_branches_per_repositories(commits)
         )
 
         # update target repositories
