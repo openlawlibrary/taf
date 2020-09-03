@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add support for including additional custom information when exporting historical data ([147])
+
 ### Changed
 
 ### Fixed
+
+[147]: https://github.com/openlawlibrary/taf/pull/147
 
 ## [0.6.0] - 08/11/2020
 
