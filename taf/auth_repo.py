@@ -62,8 +62,7 @@ class AuthRepoMixin(TAFRepository):
             return self.get_json(commit, target_path)
 
     def is_commit_authenticated(self, target_name, commit):
-        """Checks if passed commit is ever authenticated for given target name.
-        """
+        """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
             target = self.get_target(target_name, auth_commit)
             try:
