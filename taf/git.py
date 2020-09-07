@@ -125,7 +125,7 @@ class GitRepository:
         result = None
         if log_error or log_error_msg:
             try:
-                result = run(command)
+                result = run(command, **kwargs)
                 if log_success_msg:
                     self._log_debug(log_success_msg)
             except subprocess.CalledProcessError as e:
@@ -149,7 +149,7 @@ class GitRepository:
                     raise error
         else:
             try:
-                result = run(command)
+                result = run(command, **kwargs)
             except subprocess.CalledProcessError as e:
                 raise GitError(self, command=command, error=e)
             if log_success_msg:
@@ -552,13 +552,13 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
-    def get_json(self, commit, path):
-        s = self.get_file(commit, path)
+    def get_json(self, commit, path, raw=False):
+        s = self.get_file(commit, path, raw=raw)
         return json.loads(s)
 
-    def get_file(self, commit, path):
+    def get_file(self, commit, path, raw=False):
         path = Path(path).as_posix()
-        return self._git("show {}:{}", commit, path)
+        return self._git("show {}:{}", commit, path, raw=raw)
 
     def get_first_commit_on_branch(self, branch="master"):
         return self._git(
