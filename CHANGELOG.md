@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Get binary file from git (skip encoding) ([148])
+
 ### Changed
 
 ### Fixed
+
+[148]: https://github.com/openlawlibrary/taf/pull/148
 
 ## [0.6.0] - 08/11/2020
 

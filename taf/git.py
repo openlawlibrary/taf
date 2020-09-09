@@ -33,12 +33,12 @@ class GitRepository:
         **kwargs,
     ):
         """
-    Args:
-      path: repository's path
-      repo_urls: repository's urls (optional)
-      additional_info: a dictionary containing other data (optional)
-      default_branch: repository's default branch
-    """
+        Args:
+          path: repository's path
+          repo_urls: repository's urls (optional)
+          additional_info: a dictionary containing other data (optional)
+          default_branch: repository's default branch
+        """
         self._path = Path(path).resolve()
         if repo_name is None:
             repo_name = self._path.name
@@ -110,9 +110,9 @@ class GitRepository:
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
-    e.g.:
-      self._git('checkout {}', branch_name)
-    """
+        e.g.:
+          self._git('checkout {}', branch_name)
+        """
         log_error = kwargs.pop("log_error", False)
         log_error_msg = kwargs.pop("log_error_msg", "")
         reraise_error = kwargs.pop("reraise_error", False)
@@ -125,7 +125,7 @@ class GitRepository:
         result = None
         if log_error or log_error_msg:
             try:
-                result = run(command)
+                result = run(command, **kwargs)
                 if log_success_msg:
                     self._log_debug(log_success_msg)
             except subprocess.CalledProcessError as e:
@@ -149,7 +149,7 @@ class GitRepository:
                     raise error
         else:
             try:
-                result = run(command)
+                result = run(command, **kwargs)
             except subprocess.CalledProcessError as e:
                 raise GitError(self, command=command, error=e)
             if log_success_msg:
@@ -334,9 +334,9 @@ class GitRepository:
 
     def checkout_branch(self, branch_name, create=False, raise_anyway=False):
         """Check out the specified branch. If it does not exists and
-    the create parameter is set to True, create a new branch.
-    If the branch does not exist and create is set to False,
-    raise an exception."""
+        the create parameter is set to True, create a new branch.
+        If the branch does not exist and create is set to False,
+        raise an exception."""
         try:
             self._git(
                 "checkout {}",
@@ -552,13 +552,13 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
-    def get_json(self, commit, path):
-        s = self.get_file(commit, path)
+    def get_json(self, commit, path, raw=False):
+        s = self.get_file(commit, path, raw=raw)
         return json.loads(s)
 
-    def get_file(self, commit, path):
+    def get_file(self, commit, path, raw=False):
         path = Path(path).as_posix()
-        return self._git("show {}:{}", commit, path)
+        return self._git("show {}:{}", commit, path, raw=raw)
 
     def get_first_commit_on_branch(self, branch="master"):
         return self._git(
@@ -819,15 +819,15 @@ class NamedGitRepository(GitRepository):
         **kwargs,
     ):
         """
-    Args:
-      root_dir: the root directory
-      repo_name: repository's path relative to the root directory root_dir
-      repo_urls: repository's urls (optional)
-      additional_info: a dictionary containing other data (optional)
-      default_branch: repository's default branch
-    path is the absolute path to this repository. It is set by joining
-    root_dir and repo_name.
-    """
+        Args:
+          root_dir: the root directory
+          repo_name: repository's path relative to the root directory root_dir
+          repo_urls: repository's urls (optional)
+          additional_info: a dictionary containing other data (optional)
+          default_branch: repository's default branch
+        path is the absolute path to this repository. It is set by joining
+        root_dir and repo_name.
+        """
         self.root_dir = root_dir
         self.name = repo_name
         path = self._get_repo_path(root_dir, repo_name)
