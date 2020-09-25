@@ -2,125 +2,147 @@
 trigger:
   branches:
     include:
-    - master
+      - master
   tags:
     include:
-    - v*
+      - v*
 
 pr:
-- master
+  - master
 
 # PLATFORMS
 strategy:
   matrix:
-    linux-ubuntu-16-04:
-      imageName: 'ubuntu-16.04'
-    macOS:
-      imageName: 'macOS-10.14'
-    windows-64bit:
-      imageName: 'vs2017-win2016'
+    # py36
+    linux-ubuntu-16-04-py36:
+      imageName: "ubuntu-16.04"
+      pythonVersion: "3.6"
+    macOS-py36:
+      imageName: "macOS-10.14"
+      pythonVersion: "3.6"
+    windows-64bit-py36:
+      imageName: "vs2017-win2016"
+      pythonVersion: "3.6"
       platform: x64
-      winArch: 'win64'
-    windows-32bit:
-      imageName: 'vs2017-win2016'
+      winArch: "win64"
+    windows-32bit-py36:
+      imageName: "vs2017-win2016"
+      pythonVersion: "3.6"
       platform: x86
-      winArch: 'win32'
+      winArch: "win32"
+    # py38
+    linux-ubuntu-16-04-py38:
+      imageName: "ubuntu-16.04"
+      pythonVersion: "3.8"
+    macOS-py38:
+      imageName: "macOS-10.14"
+      pythonVersion: "3.8"
+    windows-64bit-py38:
+      imageName: "vs2017-win2016"
+      pythonVersion: "3.8"
+      platform: x64
+      winArch: "win64"
+    windows-32bit-py38:
+      imageName: "vs2017-win2016"
+      pythonVersion: "3.8"
+      platform: x86
+      winArch: "win32"
 pool:
   vmImage: $(imageName)
 
 # VARIABLES
 variables:
-  ykpersBaseURL: 'https://developers.yubico.com/yubikey-personalization/Releases'
-  ykpersVersion: '1.20.0'
-  libusbBaseURL: 'https://github.com/libusb/libusb/releases/download/'
-  libusbVersion: '1.0.22'
+  ykpersBaseURL: "https://developers.yubico.com/yubikey-personalization/Releases"
+  ykpersVersion: "1.20.0"
+  libusbBaseURL: "https://github.com/libusb/libusb/releases/download/"
+  libusbVersion: "1.0.22"
 
 # BUILD STEPS
 steps:
-# Set python version - 64bit python 3.6
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.6'
-  condition: not(and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86')))
-# Set python version - 32bit python 3.6
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '3.6'
-    architecture: x86
-  condition: and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86'))
-# Linux setup
-- bash: |
-    sudo apt-add-repository -y ppa:yubico/stable
-    sudo apt-get update
-    sudo apt-get install -qq libykpers-1-1 python-pyscard swig libpcsclite-dev
-    pip install --disable-pip-version-check --upgrade pip
+  # Set python version - 64bit python 3.6
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: $(pythonVersion)
+    condition: not(and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86')))
+  # Set python version - 32bit python 3.6
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: $(pythonVersion)
+      architecture: x86
+    condition: and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86'))
+  # Linux setup
+  - bash: |
+      sudo apt-add-repository -y ppa:yubico/stable
+      sudo apt-get update
+      sudo apt-get install -qq libykpers-1-1 python-pyscard swig libpcsclite-dev
+      pip install --disable-pip-version-check --upgrade pip
 
-    # TODO: Use patchelf to change dependency paths (similar as install_name_tool for macOS)
-    # this will reduce needed dependencies for TAF to work (when building from source)
+      # TODO: Use patchelf to change dependency paths (similar as install_name_tool for macOS)
+      # this will reduce needed dependencies for TAF to work (when building from source)
 
-    # find /usr/lib/x86_64-linux-gnu/ -name 'libykpers*.so*' -exec cp '{}' taf/libs ';'
-    # find /usr/lib/x86_64-linux-gnu/ -name 'libyubikey*.so*' -exec cp '{}' taf/libs ';'
-    # find /lib/x86_64-linux-gnu/ -name 'libusb*.so*' -exec cp '{}' taf/libs ';'
-    # find /lib/x86_64-linux-gnu/ -name 'libjson-c*.so*' -exec cp '{}' taf/libs ';'
+      # find /usr/lib/x86_64-linux-gnu/ -name 'libykpers*.so*' -exec cp '{}' taf/libs ';'
+      # find /usr/lib/x86_64-linux-gnu/ -name 'libyubikey*.so*' -exec cp '{}' taf/libs ';'
+      # find /lib/x86_64-linux-gnu/ -name 'libusb*.so*' -exec cp '{}' taf/libs ';'
+      # find /lib/x86_64-linux-gnu/ -name 'libjson-c*.so*' -exec cp '{}' taf/libs ';'
 
-  condition: eq( variables['Agent.OS'], 'Linux')
-  displayName: Linux setup
-# macOS setup
-- bash: |
-    brew update
-    brew install ykpers libyubikey libusb swig openssl
+    condition: eq( variables['Agent.OS'], 'Linux')
+    displayName: Linux setup
+  # macOS setup
+  - bash: |
+      brew update
+      brew install ykpers libyubikey libusb swig openssl
 
-    mkdir yk
-    wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion)-mac.zip -O - | tar -xz -C ./yk
-    find ./yk/lib -name '*.dylib' -exec cp '{}' taf/libs ';'
-    find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
-    rm -rf yk
+      mkdir yk
+      wget -c $(ykpersBaseURL)/ykpers-$(ykpersVersion)-mac.zip -O - | tar -xz -C ./yk
+      find ./yk/lib -name '*.dylib' -exec cp '{}' taf/libs ';'
+      find /usr/local/Cellar/json-c/ -name '*.dylib' -exec cp '{}' taf/libs ';'
+      rm -rf yk
 
-    find /usr/local/Cellar/libusb/ -name '*.dylib' -exec cp '{}' taf/libs ';'
+      find /usr/local/Cellar/libusb/ -name '*.dylib' -exec cp '{}' taf/libs ';'
 
-    install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
-    install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
-  condition: eq( variables['Agent.OS'], 'Darwin')
-  displayName: macOS setup
-# Windows setup
-- powershell: |
-    choco install swig -y
-    choco upgrade swig
+      install_name_tool -change @executable_path/../lib/libyubikey.0.dylib @loader_path/libyubikey.0.dylib taf/libs/libykpers-1.dylib
+      install_name_tool -change @executable_path/../lib/libjson-c.2.dylib @loader_path/libjson-c.2.dylib taf/libs/libykpers-1.dylib
+    condition: eq( variables['Agent.OS'], 'Darwin')
+    displayName: macOS setup
+  # Windows setup
+  - powershell: |
+      choco install swig -y
+      choco upgrade swig
 
-    wget $(ykpersBaseURL)/ykpers-$(ykpersVersion)-$(winArch).zip -OutFile "ykpers-$(ykpersVersion)-$(winArch).zip"
-    7z x ykpers-$(ykpersVersion)-$(winArch).zip -o".\ykpers"
-    Copy-Item ".\ykpers\bin\*.dll" ".\taf\libs" -Force -verbose
+      wget $(ykpersBaseURL)/ykpers-$(ykpersVersion)-$(winArch).zip -OutFile "ykpers-$(ykpersVersion)-$(winArch).zip"
+      7z x ykpers-$(ykpersVersion)-$(winArch).zip -o".\ykpers"
+      Copy-Item ".\ykpers\bin\*.dll" ".\taf\libs" -Force -verbose
 
-    wget $(libusbBaseURL)/v$(libusbVersion)/libusb-$(libusbVersion).7z -OutFile "libusb-$(libusbVersion).7z"
-    7z x libusb-$(libusbVersion).7z -o".\libusb"
-    If("$(winArch)" -eq "win64") { Copy-Item ".\libusb\MinGW64\dll\*.dll" ".\taf\libs" -Force -verbose }
-    Else { Copy-Item ".\libusb\MinGW32\dll\*.dll" ".\taf\libs" -Force -verbose }
-  condition: eq( variables['Agent.OS'], 'Windows_NT')
-  displayName: Windows setup
+      wget $(libusbBaseURL)/v$(libusbVersion)/libusb-$(libusbVersion).7z -OutFile "libusb-$(libusbVersion).7z"
+      7z x libusb-$(libusbVersion).7z -o".\libusb"
+      If("$(winArch)" -eq "win64") { Copy-Item ".\libusb\MinGW64\dll\*.dll" ".\taf\libs" -Force -verbose }
+      Else { Copy-Item ".\libusb\MinGW32\dll\*.dll" ".\taf\libs" -Force -verbose }
+    condition: eq( variables['Agent.OS'], 'Windows_NT')
+    displayName: Windows setup
 
-- script: python -m pip install --upgrade pip setuptools wheel
-  displayName: 'Install tools'
+  - script: python -m pip install --upgrade pip setuptools wheel
+    displayName: "Install tools"
 
-- script: python setup.py sdist bdist_wheel clean --all
-  displayName: 'Build TAF'
+  - script: python setup.py sdist bdist_wheel clean --all
+    displayName: "Build TAF"
 
-- task: CopyFiles@2
-  inputs:
-    sourceFolder: dist
-    contents: '*'
-    targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: dist
+      contents: "*"
+      targetFolder: $(Build.ArtifactStagingDirectory)
 
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathToPublish: $(Build.ArtifactStagingDirectory)
-    artifactName: wheels
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: $(Build.ArtifactStagingDirectory)
+      artifactName: wheels
 
-- bash: |
-    python -m pip install twine
-    twine check dist/*
-    twine upload --skip-existing dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
-  env:
-    PYPI_USERNAME: $(pypiUsername)
-    PYPI_PASSWORD: $(pypiPassword)
-  condition: and(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), not(eq( variables['Agent.OS'], 'Linux')))
-  displayName: 'Upload wheels'
+  - bash: |
+      python -m pip install twine
+      twine check dist/*
+      twine upload --skip-existing dist/* -u $PYPI_USERNAME -p $PYPI_PASSWORD
+    env:
+      PYPI_USERNAME: $(pypiUsername)
+      PYPI_PASSWORD: $(pypiPassword)
+    condition: and(startsWith(variables['Build.SourceBranch'], 'refs/tags/v'), not(eq( variables['Agent.OS'], 'Linux')))
+    displayName: "Upload wheels"
