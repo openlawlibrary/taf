@@ -17,7 +17,7 @@ This attacker could then:
 
 TAF's goal is not to prevent any of the attacks listed above from happening, but to detect that an attack took place and cancel an update if that is the case. So, TAF should be used instead of directly calling `git pull` and `git clone`.
 
-TAF's implementation strongly relies on [The Update Framework (TUF](https://theupdateframework.github.io)), which helps developers maintain the security of a software update system and provides a flexible framework and specification that developers can adopt into any  software update system.
+TAF's implementation strongly relies on [The Update Framework (TUF)](https://theupdateframework.github.io), which helps developers maintain the security of a software update system and provides a flexible framework and specification that developers can adopt into any software update system.
 
 Further reading:
 
@@ -84,8 +84,10 @@ To run tests with real Yubikey:
 
 1. Open https://dev.azure.com/openlawlibrary/TAF/_build
 2. Click on latest build
-3. Open *Summary* tab
-4. Under *Build artifacts published*, click on *wheels to download zip
+3. Open _Summary_ tab
+4. Under _Build artifacts published_, click on \*wheels to download zip
+
+More info in [devops document](./docs/devops.md).
 
 ## Building Wheels on Ubuntu 16.04 and 18.04
 
