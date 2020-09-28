@@ -183,7 +183,7 @@ class GitRepository:
         commits = self._git("log {} --format=format:%H", branch, log_error=True)
         if commits is not None:
             commits = commits.strip()
-        if commits:
+        if not commits:
             commits = []
         else:
             commits = commits.split("\n")
@@ -201,9 +201,7 @@ class GitRepository:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
         if branch is None:
             branch = "HEAD"
-        commits = self._git(
-            "rev-list {}..{}", since_commit, branch, log_error=True
-        )
+        commits = self._git("rev-list {}..{}", since_commit, branch, log_error=True)
         if commits is not None:
             commits = commits.strip()
         if not commits:

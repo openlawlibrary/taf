@@ -119,8 +119,8 @@ def test_get_repositories_paths_by_custom_data(repositoriesdb_test_repositories)
 def _check_repositories_dict(
     repositories, auth_repo, *commits, roles=None, only_load_targets=False
 ):
-    assert auth_repo.name in repositoriesdb._repositories_dict
-    auth_repos_dict = repositoriesdb._repositories_dict[auth_repo.name]
+    assert auth_repo.path in repositoriesdb._repositories_dict
+    auth_repos_dict = repositoriesdb._repositories_dict[auth_repo.path]
     if roles is not None and len(roles):
         only_load_targets = True
     if only_load_targets:

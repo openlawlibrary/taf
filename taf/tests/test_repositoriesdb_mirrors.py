@@ -22,7 +22,7 @@ def test_load_repositories_with_mirrors(repositoriesdb_test_repositories):
     commit = auth_repo.head_commit_sha()
     with load_repositories(auth_repo):
         for repo_path in repositories:
-            loaded_repos_dict = repositoriesdb._repositories_dict[auth_repo.name][
+            loaded_repos_dict = repositoriesdb._repositories_dict[auth_repo.path][
                 commit
             ]
             if repo_path != AUTH_REPO_NAME:
