@@ -70,8 +70,8 @@ def load_repositories(
         If only_load_targets is True and roles is not set, all roles will be taken into consideration.
     """
     global _repositories_dict
-    if auth_repo.name not in _repositories_dict:
-        _repositories_dict[auth_repo.name] = {}
+    if auth_repo.path not in _repositories_dict:
+        _repositories_dict[auth_repo.path] = {}
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
@@ -84,7 +84,7 @@ def load_repositories(
 
     taf_logger.debug(
         "Loading {}'s target repositories at revisions {}",
-        auth_repo.name,
+        auth_repo.path,
         ", ".join(commits),
     )
 
@@ -97,10 +97,10 @@ def load_repositories(
     for commit in commits:
         repositories_dict = {}
         # check if already loaded
-        if commit in _repositories_dict[auth_repo.name]:
+        if commit in _repositories_dict[auth_repo.path]:
             continue
 
-        _repositories_dict[auth_repo.name][commit] = repositories_dict
+        _repositories_dict[auth_repo.path][commit] = repositories_dict
 
         repositories = _load_repositories_json(auth_repo, commit)
         if repositories is None:
@@ -129,7 +129,7 @@ def load_repositories(
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
-                    auth_repo.name,
+                    auth_repo.path,
                     path,
                     str(e),
                 )
@@ -215,7 +215,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
         commit = auth_repo.head_commit_sha()
     taf_logger.debug(
         "Auth repo {}: finding paths of repositories by custom data {}",
-        auth_repo.name,
+        auth_repo.path,
         custom,
     )
     repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
@@ -235,12 +235,12 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
     paths = list(filter(_compare, repositories)) if custom else list(repositories)
     if len(paths):
         taf_logger.debug(
-            "Auth repo {}: found the following paths {}", auth_repo.name, paths
+            "Auth repo {}: found the following paths {}", auth_repo.path, paths
         )
         return paths
     taf_logger.error(
         "Auth repo {}: repositories associated with custom data {} not found",
-        auth_repo.name,
+        auth_repo.path,
         custom,
     )
     raise RepositoriesNotFoundError(
@@ -251,17 +251,17 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 def get_deduplicated_repositories(auth_repo, commits):
     global _repositories_dict
     taf_logger.debug(
-        "Auth repo {}: getting a deduplicated list of repositories", auth_repo.name
+        "Auth repo {}: getting a deduplicated list of repositories", auth_repo.path
     )
-    all_repositories = _repositories_dict.get(auth_repo.name)
+    all_repositories = _repositories_dict.get(auth_repo.path)
     if all_repositories is None:
         taf_logger.error(
             "Repositories defined in authentication repository {} have not been loaded",
-            auth_repo.name,
+            auth_repo.path,
         )
         raise RepositoriesNotFoundError(
             "Repositories defined in authentication repository"
-            f" {auth_repo.name} have not been loaded"
+            f" {auth_repo.path} have not been loaded"
         )
     repositories = {}
     # persuming that the newest commit is the last one
@@ -270,12 +270,12 @@ def get_deduplicated_repositories(auth_repo, commits):
             taf_logger.error(
                 "Repositories defined in authentication repository {} at revision {} have "
                 "not been loaded",
-                auth_repo.name,
+                auth_repo.path,
                 commit,
             )
             raise RepositoriesNotFoundError(
                 "Repositories defined in authentication repository "
-                "{auth_repo.name} at revision {commit} have not been loaded"
+                "{auth_repo.path} at revision {commit} have not been loaded"
             )
         for path, repo in all_repositories[commit].items():
             # will overwrite older repo with newer
@@ -283,7 +283,7 @@ def get_deduplicated_repositories(auth_repo, commits):
 
     taf_logger.debug(
         "Auth repo {}: deduplicated list of repositories {}",
-        auth_repo.name,
+        auth_repo.path,
         ", ".join(repositories.keys()),
     )
     return repositories
@@ -299,18 +299,18 @@ def get_repositories(auth_repo, commit=None):
         commit = auth_repo.head_commit_sha()
     taf_logger.debug(
         "Auth repo {}: finding repositories defined at commit {}",
-        auth_repo.name,
+        auth_repo.path,
         commit,
     )
-    all_repositories = _repositories_dict.get(auth_repo.name)
+    all_repositories = _repositories_dict.get(auth_repo.path)
     if all_repositories is None:
         taf_logger.error(
             "Repositories defined in authentication repository {} have not been loaded",
-            auth_repo.name,
+            auth_repo.path,
         )
         raise RepositoriesNotFoundError(
             "Repositories defined in authentication repository"
-            f" {auth_repo.name} have not been loaded"
+            f" {auth_repo.path} have not been loaded"
         )
 
     repositories = all_repositories.get(commit)
@@ -318,16 +318,16 @@ def get_repositories(auth_repo, commit=None):
         taf_logger.error(
             "Repositories defined in authentication repository {} at revision {} have "
             "not been loaded",
-            auth_repo.name,
+            auth_repo.path,
             commit,
         )
         raise RepositoriesNotFoundError(
             "Repositories defined in authentication repository "
-            f"{auth_repo.name} at revision {commit} have not been loaded"
+            f"{auth_repo.path} at revision {commit} have not been loaded"
         )
     taf_logger.debug(
         "Auth repo {}: found the following repositories at revision {}: {}",
-        auth_repo.name,
+        auth_repo.path,
         commit,
         ", ".join(repositories.keys()),
     )
@@ -337,7 +337,7 @@ def get_repositories(auth_repo, commit=None):
 def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     taf_logger.debug(
         "Auth repo {}: finding repositories by custom data {}",
-        auth_repo.name,
+        auth_repo.path,
         custom_data,
     )
     repositories = get_repositories(auth_repo, commit).values()
@@ -356,13 +356,13 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     if len(found_repos):
         taf_logger.debug(
             "Auth repo {}: found the following repositories {}",
-            auth_repo.name,
+            auth_repo.path,
             repositories,
         )
         return found_repos
     taf_logger.error(
         "Auth repo {}: repositories associated with custom data {} not found",
-        auth_repo.name,
+        auth_repo.path,
         custom_data,
     )
     raise RepositoriesNotFoundError(
@@ -401,7 +401,7 @@ def _targets_of_roles(auth_repo, commit, roles=None):
 
 
 def repositories_loaded(auth_repo):
-    all_repositories = _repositories_dict.get(auth_repo.name)
+    all_repositories = _repositories_dict.get(auth_repo.path)
     if all_repositories is None or not len(all_repositories):
         return False
     return any(

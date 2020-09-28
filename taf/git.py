@@ -180,8 +180,10 @@ class GitRepository:
         """
         if branch is None:
             branch = ""
-        commits = self._git("log {} --format=format:%H", branch, log_error=True).strip()
-        if not commits:
+        commits = self._git("log {} --format=format:%H", branch, log_error=True)
+        if commits is not None:
+            commits = commits.strip()
+        if commits:
             commits = []
         else:
             commits = commits.split("\n")
@@ -201,7 +203,9 @@ class GitRepository:
             branch = "HEAD"
         commits = self._git(
             "rev-list {}..{}", since_commit, branch, log_error=True
-        ).strip()
+        )
+        if commits is not None:
+            commits = commits.strip()
         if not commits:
             commits = []
         else:
@@ -401,6 +405,7 @@ class GitRepository:
 
         cloned = False
         for url in self.repo_urls:
+            self._log_info(f"trying to clone from {url}")
             try:
                 self._git(
                     "clone {} . {}",
@@ -410,9 +415,10 @@ class GitRepository:
                     log_error_msg=f"cannot clone from url {url}",
                     reraise_error=True,
                 )
-            except GitError:
-                pass
+            except GitError as e:
+                self._log_info(f"could not clone from {url} due to {e}")
             else:
+                self._log_info(f"successfully cloned from {url}")
                 cloned = True
                 break
 
@@ -561,9 +567,12 @@ class GitRepository:
         return self._git("show {}:{}", commit, path, raw=raw)
 
     def get_first_commit_on_branch(self, branch="master"):
-        return self._git(
+        first_commit = self._git(
             f"rev-list --max-parents=0 {branch}", error_if_not_exists=False
-        ).strip()
+        )
+        if first_commit is not None:
+            first_commit = first_commit.strip()
+        return first_commit
 
     def get_last_branch_by_committer_date(self):
         """Find the latest branch based on committer date. Should only be used for
