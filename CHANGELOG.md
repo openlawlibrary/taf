@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Store authentication repo's path as key in `repositoriesdb` instead of its name ([153])
+
 ### Fixed
+
+- Minor YubiKey mock fix ([153])
+- Updated some git methods so that it is checked if the returned value is not `None` before calling strip ([153])
+
+[153]: https://github.com/openlawlibrary/taf/pull/153
 
 
 ## [0.6.1] - 09/09/2020
