@@ -36,7 +36,10 @@ if _PLATFORM == "darwin":
 elif _PLATFORM == "linux":
     _set_env("LD_LIBRARY_PATH", _PLATFORM_LIBS)
 elif _PLATFORM == "win32":
-    _set_env("PATH", _PLATFORM_LIBS)
+    if hasattr(os, "add_dll_directory"):  # python 3.8
+        os.add_dll_directory(_PLATFORM_LIBS)
+    else:
+        _set_env("PATH", _PLATFORM_LIBS)
 else:
     raise Exception(f'Platform "{_PLATFORM}" is not supported!')
 

@@ -123,7 +123,12 @@ def read_input_dict(value):
 
 def run(*command, **kwargs):
     """Run a command and return its output. Call with `debug=True` to print to
-    stdout."""
+    stdout.
+    In order to get bytes, call this command with `raw=True` argument.
+    """
+    # Skip decoding
+    raw = kwargs.pop("raw", False)
+
     if len(command) == 1 and isinstance(command[0], str):
         command = command[0].split()
     if taf.settings.LOG_COMMAND_OUTPUT:
@@ -138,12 +143,10 @@ def run(*command, **kwargs):
 
     command = [_format_word(word, **os.environ) for word in command]
     try:
-        options = dict(
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=True,
-            universal_newlines=True,
-        )
+        options = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+        if not raw:
+            options.update(universal_newlines=True)
+
         options.update(kwargs)
         completed = subprocess.run(command, **options)
     except subprocess.CalledProcessError as err:
@@ -157,10 +160,15 @@ def run(*command, **kwargs):
             err.returncode,
         )
         raise err
+
     if completed.stdout:
         if taf.settings.LOG_COMMAND_OUTPUT:
             taf_logger.debug(completed.stdout)
-    return completed.stdout.rstrip() if completed.returncode == 0 else None
+
+    if completed.returncode != 0:
+        return None
+
+    return completed.stdout if raw else completed.stdout.rstrip()
 
 
 def normalize_file_line_endings(file_path):
