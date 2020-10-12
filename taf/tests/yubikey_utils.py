@@ -81,6 +81,9 @@ class FakePivController:
     def generate_self_signed_certificate(self, *args, **kwargs):
         pass
 
+    def get_pin_tries(self):
+        return 1
+
     def read_certificate(self, _slot):
         name = x509.Name(
             [x509.NameAttribute(x509.NameOID.COMMON_NAME, self.__class__.__name__)]
@@ -118,7 +121,7 @@ class FakePivController:
         if self._driver.pin != pin:
             from ykman.piv import WrongPin
 
-            raise WrongPin("", "")
+            raise WrongPin(0, (0, 0, 0))
 
 
 class TargetYubiKey(FakeYubiKey):
