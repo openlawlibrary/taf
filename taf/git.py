@@ -568,9 +568,7 @@ class GitRepository:
         first_commit = self._git(
             f"rev-list --max-parents=0 {branch}", error_if_not_exists=False
         )
-        if first_commit is not None:
-            first_commit = first_commit.strip()
-        return first_commit
+        return first_commit.strip() if first_commit else None
 
     def get_last_branch_by_committer_date(self):
         """Find the latest branch based on committer date. Should only be used for
