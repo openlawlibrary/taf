@@ -130,8 +130,7 @@ class AuthRepoMixin(TAFRepository):
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
-                if "additional-info" not in target_data:
-                    target_data["additional-info"] = {}
+                target_data.setdefault("additional-info", {})
 
                 if previous_commit is None or target_commit != previous_commit:
                     if (
