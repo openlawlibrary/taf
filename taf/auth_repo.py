@@ -104,7 +104,9 @@ class AuthRepoMixin(TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-    def sorted_commits_and_branches_per_repositories(self, commits, target_repos=None):
+    def sorted_commits_and_branches_per_repositories(
+        self, commits, target_repos=None, additional_info_fns=None
+    ):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {
@@ -128,7 +130,17 @@ class AuthRepoMixin(TAFRepository):
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
+                target_data.setdefault("additional-info", {})
+
                 if previous_commit is None or target_commit != previous_commit:
+                    if (
+                        additional_info_fns is not None
+                        and target_path in additional_info_fns
+                    ):
+                        target_data["additional-info"].update(
+                            additional_info_fns[target_path](target_commit)
+                        )
+
                     repositories_commits[target_path].setdefault(
                         target_branch, []
                     ).append(

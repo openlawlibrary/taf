@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add support for including additional custom information when exporting historical data ([147])
+
 ### Changed
 
 - Store authentication repo's path as key in `repositoriesdb` instead of its name ([153])
@@ -31,8 +33,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[153]: https://github.com/openlawlibrary/taf/pull/153
 [148]: https://github.com/openlawlibrary/taf/pull/148
-
+[147]: https://github.com/openlawlibrary/taf/pull/147
 
 ## [0.6.0] - 08/11/2020
 
