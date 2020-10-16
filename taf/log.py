@@ -29,6 +29,15 @@ def disable_tuf_console_logging():
         pass
 
 
+def disable_tuf_file_logging():
+    if tuf.log.file_handler is not None:
+        tuf.log.disable_tuf_file_logging()
+    else:
+        logging.getLogger("tuf").setLevel(logging.CRITICAL)
+    logging.getLogger("securesystemslib_keys").setLevel(logging.CRITICAL)
+    logging.getLogger("securesystemslib_util").setLevel(logging.CRITICAL)
+
+
 def _get_log_location():
     location = settings.LOGS_LOCATION or os.environ.get("TAF_LOG")
     if location is None:
@@ -71,4 +80,4 @@ if settings.ENABLE_FILE_LOGGING:
         pass
 else:
     # if file logging is disabled, also disable tuf file logging
-    tuf.log.disable_file_logging()
+    disable_tuf_file_logging()
