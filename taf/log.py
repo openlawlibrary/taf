@@ -29,7 +29,7 @@ def disable_tuf_console_logging():
         pass
 
 
-def diable_tuf_file_logging():
+def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
         tuf.log.disable_tuf_file_logging()
     else:
@@ -80,4 +80,4 @@ if settings.ENABLE_FILE_LOGGING:
         pass
 else:
     # if file logging is disabled, also disable tuf file logging
-    diable_tuf_file_logging()
+    disable_tuf_file_logging()
