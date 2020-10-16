@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.7.0] - 10/16/2020
+
+### Added
+
 - Add support for fully disabling tuf logging ([154])
 - Add support for including additional custom information when exporting historical data ([147])
 
@@ -333,7 +342,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/openlawlibrary/taf/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/openlawlibrary/taf/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/openlawlibrary/taf/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/openlawlibrary/taf/compare/v0.5.1...v0.5.2
