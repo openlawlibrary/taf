@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Fixed
+
+
+## [0.7.1] - 10/28/2020
+
+### Added
+
+### Changed
+
 - Small branches_containing_commit git method fix following git changes ([156])
 
 ### Fixed
@@ -347,7 +356,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/openlawlibrary/taf/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/openlawlibrary/taf/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/openlawlibrary/taf/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/openlawlibrary/taf/compare/v0.5.2...v0.6.0
