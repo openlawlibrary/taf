@@ -258,7 +258,8 @@ class GitRepository:
         )
         if local_branches:
             local_branches = [
-                branch.replace("*", "").strip() for branch in local_branches
+                branch.replace("*", "").replace("+", "").strip()
+                for branch in local_branches
             ]
         remote_branches = self._git(
             f"branch -r --contains {commit}", log_error=True

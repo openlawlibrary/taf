@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Small branches_containing_commit git method fix following git changes ([156])
+
 ### Fixed
+
+
+[156]: https://github.com/openlawlibrary/taf/pull/156
 
 
 ## [0.7.0] - 10/16/2020
