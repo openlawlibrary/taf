@@ -59,6 +59,35 @@ DEFAULT_ROLE_SETUP_PARAMS = {
 }
 
 
+
+def add_roles(
+    repo_path,
+    keystore=None,
+    roles_key_infos=None,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+):
+
+    yubikeys = defaultdict(dict)
+    auth_repo = AuthenticationRepo(repo_path)
+    repo_path = Path(repo_path)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore
+    )
+    taf_repo = Repository(repo_path)
+    repository = taf_repo._repository
+    roles_infos = roles_key_infos.get("roles")
+    signing_keys, verification_keys = _load_sorted_keys(auth_repo, roles_infos, taf_repo, keystore, yubikeys)
+
+
+    # for key in signing_keys['targets']:
+    #     taf_repo._try_load_metadata_key('targets', key)
+
+    _create_delegations(roles_infos, repository, verification_keys, signing_keys)
+
+    _update_role(taf_repo, 'targets', keystore, roles_infos, scheme)
+    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
+
+
 def add_signing_key(
     repo_path,
     roles,
@@ -320,52 +349,7 @@ def create_repository(
 
     repository = create_new_repository(auth_repo.path)
     roles_infos = roles_key_infos.get("roles")
-
-    def _sort_roles(key_info, repository):
-        # load keys not stored on YubiKeys first, to avoid entering pins
-        # if there is somethig wrong with keystore files
-        keystore_roles = []
-        yubikey_roles = []
-        for role_name, role_key_info in key_info.items():
-            if not role_key_info.get("yubikey", False):
-                keystore_roles.append((role_name, role_key_info))
-            else:
-                yubikey_roles.append((role_name, role_key_info))
-            if "delegations" in role_key_info:
-                delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
-                    role_key_info["delegations"], repository
-                )
-                keystore_roles.extend(delegated_keystore_role)
-                yubikey_roles.extend(delegated_yubikey_roles)
-        return keystore_roles, yubikey_roles
-
-    # load and/or generate all keys first
-    try:
-        keystore_roles, yubikey_roles = _sort_roles(roles_infos, repository)
-        signing_keys = {}
-        verification_keys = {}
-        for role_name, key_info in keystore_roles:
-            keystore_keys, _ = _setup_roles_keys(
-                role_name, key_info, repository, keystore=keystore
-            )
-            for public_key, private_key in keystore_keys:
-                signing_keys.setdefault(role_name, []).append(private_key)
-                verification_keys.setdefault(role_name, []).append(public_key)
-
-        for role_name, key_info in yubikey_roles:
-            _, yubikey_keys = _setup_roles_keys(
-                role_name,
-                key_info,
-                repository,
-                certs_dir=auth_repo.certs_dir,
-                yubikeys=yubikeys,
-            )
-            verification_keys[role_name] = yubikey_keys
-
-    except KeystoreError as e:
-        print(f"Creation of repository failed: {e}")
-        return
-
+    signing_keys, verification_keys = _load_sorted_keys(auth_repo, roles_infos, repository, keystore, yubikeys)
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
     for role_name, role_key_info in roles_infos.items():
@@ -410,6 +394,7 @@ def create_repository(
 
 def _create_delegations(roles_infos, repository, verification_keys, signing_keys):
     for role_name, role_info in roles_infos.items():
+        import pdb; pdb.set_trace()
         if "delegations" in role_info:
             parent_role_obj = _role_obj(role_name, repository)
             delegations_info = role_info["delegations"]
@@ -461,6 +446,54 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
         roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
 
     return roles_key_infos_dict, keystore
+
+
+def _load_sorted_keys(auth_repo, roles_infos, repository, keystore, yubikeys):
+
+    def _sort_roles(key_info, repository):
+        # load keys not stored on YubiKeys first, to avoid entering pins
+        # if there is somethig wrong with keystore files
+        keystore_roles = []
+        yubikey_roles = []
+        for role_name, role_key_info in key_info.items():
+            if not role_key_info.get("yubikey", False):
+                keystore_roles.append((role_name, role_key_info))
+            else:
+                yubikey_roles.append((role_name, role_key_info))
+            if "delegations" in role_key_info:
+                delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
+                    role_key_info["delegations"], repository
+                )
+                keystore_roles.extend(delegated_keystore_role)
+                yubikey_roles.extend(delegated_yubikey_roles)
+        return keystore_roles, yubikey_roles
+
+    # load and/or generate all keys first
+    try:
+        keystore_roles, yubikey_roles = _sort_roles(roles_infos, repository)
+        signing_keys = {}
+        verification_keys = {}
+        for role_name, key_info in keystore_roles:
+            keystore_keys, _ = _setup_roles_keys(
+                role_name, key_info, repository, keystore=keystore
+            )
+            for public_key, private_key in keystore_keys:
+                signing_keys.setdefault(role_name, []).append(private_key)
+                verification_keys.setdefault(role_name, []).append(public_key)
+
+        for role_name, key_info in yubikey_roles:
+            _, yubikey_keys = _setup_roles_keys(
+                role_name,
+                key_info,
+                repository,
+                certs_dir=auth_repo.certs_dir,
+                yubikeys=yubikeys,
+            )
+            verification_keys[role_name] = yubikey_keys
+        return signing_keys, verification_keys
+    except KeystoreError as e:
+        print(f"Creation of repository failed: {e}")
+        return
 
 
 def _setup_roles_keys(
