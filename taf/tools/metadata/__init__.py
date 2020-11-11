@@ -41,15 +41,13 @@ def attach_to_group(group):
 
     @metadata.command()
     @click.argument("path")
+    @click.argument("keys-description")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores the needed information")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
     def add_roles(path, keystore, keys_description, scheme):
-        if not keys_description:
-            return
         developer_tool.add_roles(path, keystore, keys_description, scheme)
+
 
     @metadata.command()
     @click.argument("path")
