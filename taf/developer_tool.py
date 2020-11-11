@@ -59,7 +59,6 @@ DEFAULT_ROLE_SETUP_PARAMS = {
 }
 
 
-
 def add_roles(
     repo_path,
     keystore=None,
@@ -70,21 +69,61 @@ def add_roles(
     yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepo(repo_path)
     repo_path = Path(repo_path)
+
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
+
+    new_roles = []
     taf_repo = Repository(repo_path)
+    existing_roles = taf_repo.get_all_targets_roles()
+    main_roles = ["root", "snapshot", "timestamp", "targets"]
+    existing_roles.extend(main_roles)
+
+    # allow specification of roles without putting them inside targets delegations map
+    # ensuring that it is possible to specify only delegated roles
+    # since creation of delegations expects that structure, place the roles inside targets/delegations
+    delegations_info = {}
+    for role_name, role_data in dict(roles_key_infos["roles"]).items():
+        if role_name not in main_roles:
+            roles_key_infos["roles"].pop(role_name)
+            delegations_info[role_name] = role_data
+    roles_key_infos["roles"].setdefault("targets", {"delegations": {}})[
+        "delegations"
+    ].update(delegations_info)
+
+    # find all existing roles which are parents of the newly added roles
+    # they should be signed after the delegations are created
+    roles = [
+        (role_name, role_data)
+        for role_name, role_data in roles_key_infos["roles"].items()
+    ]
+    parent_roles = set()
+    while len(roles):
+        role_name, role_data = roles.pop()
+        for delegated_role, delegated_role_data in role_data.get(
+            "delegations", {}
+        ).items():
+            if delegated_role not in existing_roles:
+                if role_name not in new_roles:
+                    parent_roles.add(role_name)
+                new_roles.append(delegated_role)
+            roles.append((delegated_role, delegated_role_data))
+
+    if not len(new_roles):
+        print("All roles already set up")
+        return
+
     repository = taf_repo._repository
     roles_infos = roles_key_infos.get("roles")
-    signing_keys, verification_keys = _load_sorted_keys(auth_repo, roles_infos, taf_repo, keystore, yubikeys)
-
-
-    # for key in signing_keys['targets']:
-    #     taf_repo._try_load_metadata_key('targets', key)
-
-    _create_delegations(roles_infos, repository, verification_keys, signing_keys)
-
-    _update_role(taf_repo, 'targets', keystore, roles_infos, scheme)
+    signing_keys, verification_keys = _load_sorted_keys_of_new_roles(
+        auth_repo, roles_infos, taf_repo, keystore, yubikeys, existing_roles
+    )
+    _create_delegations(
+        roles_infos, repository, verification_keys, signing_keys, existing_roles
+    )
+    for parent_role in parent_roles:
+        _update_role(taf_repo, parent_role, keystore, roles_infos, scheme=scheme)
     update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
 
 
@@ -349,7 +388,9 @@ def create_repository(
 
     repository = create_new_repository(auth_repo.path)
     roles_infos = roles_key_infos.get("roles")
-    signing_keys, verification_keys = _load_sorted_keys(auth_repo, roles_infos, repository, keystore, yubikeys)
+    signing_keys, verification_keys = _load_sorted_keys_of_new_roles(
+        auth_repo, roles_infos, repository, keystore, yubikeys
+    )
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
     for role_name, role_key_info in roles_infos.items():
@@ -392,13 +433,19 @@ def create_repository(
         auth_repo.commit(commit_message)
 
 
-def _create_delegations(roles_infos, repository, verification_keys, signing_keys):
+def _create_delegations(
+    roles_infos, repository, verification_keys, signing_keys, existing_roles=None
+):
+    if existing_roles is None:
+        existing_roles = []
     for role_name, role_info in roles_infos.items():
-        import pdb; pdb.set_trace()
         if "delegations" in role_info:
             parent_role_obj = _role_obj(role_name, repository)
             delegations_info = role_info["delegations"]
             for delegated_role_name, delegated_role_info in delegations_info.items():
+                if delegated_role_name in existing_roles:
+                    print(f"Role {delegated_role_name} already set up.")
+                    continue
                 paths = delegated_role_info.get("paths", [])
                 roles_verification_keys = verification_keys[delegated_role_name]
                 # if yubikeys are used for signing, signing keys are not loaded
@@ -420,7 +467,9 @@ def _create_delegations(roles_infos, repository, verification_keys, signing_keys
                     repository,
                     roles_verification_keys,
                     roles_signing_keys,
+                    parent=parent_role_obj,
                 )
+                print(f"Setting up delegated role {delegated_role_name}")
             _create_delegations(
                 delegations_info, repository, verification_keys, signing_keys
             )
@@ -448,8 +497,9 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     return roles_key_infos_dict, keystore
 
 
-def _load_sorted_keys(auth_repo, roles_infos, repository, keystore, yubikeys):
-
+def _load_sorted_keys_of_new_roles(
+    auth_repo, roles_infos, repository, keystore, yubikeys, existing_roles=None
+):
     def _sort_roles(key_info, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
         # if there is somethig wrong with keystore files
@@ -469,11 +519,15 @@ def _load_sorted_keys(auth_repo, roles_infos, repository, keystore, yubikeys):
         return keystore_roles, yubikey_roles
 
     # load and/or generate all keys first
+    if existing_roles is None:
+        existing_roles = []
     try:
         keystore_roles, yubikey_roles = _sort_roles(roles_infos, repository)
         signing_keys = {}
         verification_keys = {}
         for role_name, key_info in keystore_roles:
+            if role_name in existing_roles:
+                continue
             keystore_keys, _ = _setup_roles_keys(
                 role_name, key_info, repository, keystore=keystore
             )
@@ -482,6 +536,8 @@ def _load_sorted_keys(auth_repo, roles_infos, repository, keystore, yubikeys):
                 verification_keys.setdefault(role_name, []).append(public_key)
 
         for role_name, key_info in yubikey_roles:
+            if role_name in existing_roles:
+                continue
             _, yubikey_keys = _setup_roles_keys(
                 role_name,
                 key_info,
@@ -1070,7 +1126,7 @@ def register_target_files(
         auth_git_repo.commit(commit_message)
 
 
-def _role_obj(role, repository):
+def _role_obj(role, repository, parent=None):
     if role == "targets":
         return repository.targets
     elif role == "snapshot":
@@ -1081,7 +1137,9 @@ def _role_obj(role, repository):
         return repository.root
     else:
         # return delegated role
-        return repository.targets(role)
+        if parent is None:
+            return repository.targets(role)
+        return parent(role)
 
 
 def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
@@ -1103,9 +1161,15 @@ def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
 
 
 def _setup_role(
-    role_name, threshold, is_yubikey, repository, verification_keys, signing_keys=None
+    role_name,
+    threshold,
+    is_yubikey,
+    repository,
+    verification_keys,
+    signing_keys=None,
+    parent=None,
 ):
-    role_obj = _role_obj(role_name, repository)
+    role_obj = _role_obj(role_name, repository, parent)
     role_obj.threshold = threshold
     if not is_yubikey:
         for public_key, private_key in zip(verification_keys, signing_keys):
