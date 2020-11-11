@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a command for adding new new delegated roles ([158])
+
+[158]: https://github.com/openlawlibrary/taf/pull/158
+
 ### Changed
 
 ### Fixed
