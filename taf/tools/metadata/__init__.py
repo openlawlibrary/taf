@@ -38,7 +38,6 @@ def attach_to_group(group):
         developer_tool.add_signing_key(path, role, pub_key_path, keystore,
                                        keys_description, scheme)
 
-
     @metadata.command()
     @click.argument("path")
     @click.argument("keys-description")
@@ -47,7 +46,6 @@ def attach_to_group(group):
                   "used for signing")
     def add_roles(path, keystore, keys_description, scheme):
         developer_tool.add_roles(path, keystore, keys_description, scheme)
-
 
     @metadata.command()
     @click.argument("path")
