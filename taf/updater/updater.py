@@ -299,7 +299,7 @@ def _update_target_repositories(
     new_commits = defaultdict(dict)
 
     for path, repository in repositories.items():
-
+        taf_logger.info("Validating repository {}", repository.name)
         allow_unauthenticated_for_repo = (
             repositories_json["repositories"][repository.name]
             .get("custom", {})
@@ -316,11 +316,19 @@ def _update_target_repositories(
             repository.clone(no_checkout=True)
             cloned_repositories.append(repository)
         for branch in repositories_branches_and_commits[path]:
+            taf_logger.info("Validating branch {}", branch)
             # if last_validated_commit is None or if the target repository didn't exist prior
             # to calling update, start the update from the beggining
             # otherwise, for each branch, start with the last validated commit of the local
             # branch
             branch_exists = repository.branch_exists(branch, include_remotes=False)
+            if not branch_exists and only_validate:
+                taf_logger.error(
+                    "{} does not contain a local branch named {} and cannot be validated. Please update the repositories",
+                    repository.name,
+                    branch,
+                )
+                return
             repo_branch_commits = repositories_branches_and_commits[path][branch]
             repo_branch_commits = [
                 commit_info["commit"] for commit_info in repo_branch_commits
@@ -345,9 +353,14 @@ def _update_target_repositories(
             if is_git_repository:
                 repository.fetch(branch=branch)
             if old_head is not None:
-                new_commits_on_repo_branch = repository.all_fetched_commits(
-                    branch=branch
-                )
+                if not only_validate:
+                    new_commits_on_repo_branch = repository.all_fetched_commits(
+                        branch=branch
+                    )
+                else:
+                    new_commits_on_repo_branch = repository.all_commits_since_commit(
+                        old_head, branch
+                    )
                 new_commits_on_repo_branch.insert(0, old_head)
             else:
                 if branch_exists:
@@ -424,6 +437,9 @@ def _update_target_repository(
         if update_successful:
             for target_commit, repo_commit in zip(target_commits, new_commits):
                 if target_commit != repo_commit:
+                    taf_logger.error(
+                        "Mismatch between commits {} and {}", target_commit, repo_commit
+                    )
                     update_successful = False
                     break
         if len(new_commits) > len(target_commits):
@@ -444,6 +460,11 @@ def _update_target_repository(
         for commit in new_commits:
             if commit in target_commits:
                 if commit != target_commits[target_commits_index]:
+                    taf_logger.error(
+                        "Mismatch between commits {} and {}",
+                        commit,
+                        target_commits[target_commits_index],
+                    )
                     update_successful = False
                     break
                 else:
