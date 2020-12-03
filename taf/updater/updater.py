@@ -8,7 +8,7 @@ from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
-from taf.exceptions import UpdateFailedError
+from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 
@@ -25,6 +25,7 @@ def update_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
+    check_for_unauthenticated=False,
 ):
     """
     <Arguments>
@@ -68,6 +69,7 @@ def update_repository(
         target_factory,
         only_validate,
         validate_from_commit,
+        check_for_unauthenticated,
     )
 
 
@@ -82,6 +84,7 @@ def _update_named_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
+    check_for_unauthenticated=False,
 ):
     """
     <Arguments>
@@ -153,6 +156,7 @@ def _update_named_repository(
     )
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     existing_repo = users_auth_repo.is_git_repository_root
+    additional_commits_per_repo = {}
     try:
         validation_auth_repo = repository_updater.update_handler.validation_auth_repo
         commits = repository_updater.update_handler.commits
@@ -201,12 +205,13 @@ def _update_named_repository(
             commits[-1], "targets/repositories.json"
         )
 
-        _update_target_repositories(
+        additional_commits_per_repo = _update_target_repositories(
             repositories,
             repositories_json,
             repositories_branches_and_commits,
             last_validated_commit,
             only_validate,
+            check_for_unauthenticated,
         )
 
         if not only_validate:
@@ -227,6 +232,9 @@ def _update_named_repository(
     finally:
         repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
+
+    if check_for_unauthenticated and len(additional_commits_per_repo):
+        raise UpdaterAdditionalCommits(additional_commits_per_repo)
 
 
 def _update_authentication_repository(repository_updater, only_validate):
@@ -290,6 +298,7 @@ def _update_target_repositories(
     repositories_branches_and_commits,
     last_validated_commit,
     only_validate,
+    check_for_unauthenticated,
 ):
     taf_logger.info("Validating target repositories")
     # keep track of the repositories which were cloned
@@ -297,6 +306,7 @@ def _update_target_repositories(
     cloned_repositories = []
     allow_unauthenticated = {}
     new_commits = defaultdict(dict)
+    additional_commits_per_repo = {}
 
     for path, repository in repositories.items():
         taf_logger.info("Validating repository {}", repository.name)
@@ -315,6 +325,14 @@ def _update_target_repositories(
                 continue
             repository.clone(no_checkout=True)
             cloned_repositories.append(repository)
+
+        # if no commits were published, repositories_branches_and_commits will be empty
+        # if unauthenticared commits are allow, we also want to check if there are
+        # new commits which
+        # only check the default branch
+        if not len(repositories_branches_and_commits[path]) and allow_unauthenticated_for_repo and not only_validate:
+            repositories_branches_and_commits[path][repository.default_branch] = []
+
         for branch in repositories_branches_and_commits[path]:
             taf_logger.info("Validating branch {}", branch)
             # if last_validated_commit is None or if the target repository didn't exist prior
@@ -337,6 +355,7 @@ def _update_target_repositories(
                 last_validated_commit is None
                 or not is_git_repository
                 or not branch_exists
+                or not len(repo_branch_commits)
             ):
                 old_head = None
             else:
@@ -373,19 +392,24 @@ def _update_target_repositories(
                 else:
                     new_commits_on_repo_branch = []
                 if not only_validate:
-                    fetched_commits = repository.all_fetched_commits(branch=branch)
-                    new_commits_on_repo_branch.extend(fetched_commits)
+                    try:
+                        fetched_commits = repository.all_fetched_commits(branch=branch)
+                        new_commits_on_repo_branch.extend(fetched_commits)
+                    except GitError:
+                        pass
 
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
 
             try:
-                _update_target_repository(
+                additional_commits = _update_target_repository(
                     repository,
                     new_commits_on_repo_branch,
                     repo_branch_commits,
                     allow_unauthenticated_for_repo,
                     branch,
                 )
+                if len(additional_commits):
+                    additional_commits_per_repo[repository.name] = additional_commits
             except UpdateFailedError as e:
                 taf_logger.error("Updated failed due to error {}", str(e))
                 # delete all repositories that were cloned
@@ -400,6 +424,8 @@ def _update_target_repositories(
         # if update is successful, merge the commits
         for path, repository in repositories.items():
             for branch in repositories_branches_and_commits[path]:
+                if not len(repositories_branches_and_commits[path][branch]):
+                    continue
                 repository.checkout_branch(branch)
                 repo_branch_commits = repositories_branches_and_commits[path][branch]
                 last_commit = repo_branch_commits[-1]["commit"]
@@ -416,7 +442,7 @@ def _update_target_repositories(
                         repository.checkout_commit(commit_to_merge)
                     else:
                         repository.checkout_branch(repository.default_branch)
-
+    return additional_commits_per_repo
 
 def _update_target_repository(
     repository, new_commits, target_commits, allow_unauthenticated, branch
@@ -424,6 +450,9 @@ def _update_target_repository(
     taf_logger.info(
         "Validating target repository {} {} branch", repository.name, branch
     )
+    # if authenticated commits are allowed, return a list of all fetched commits which
+    # are newer tham the last authenticated commits
+    additional_commits = []
     # A new commit might have been pushed after the update process
     # started and before fetch was called
     # So, the number of new commits, pushed to the target repository, could
@@ -431,7 +460,7 @@ def _update_target_repository(
     # repository. The opposite cannot be the case.
     # In general, if there are additional commits in the target repositories,
     # the updater will finish the update successfully, but will only update the
-    # target repositories until the latest validate commit
+    # target repositories until the latest validated commit
     if not allow_unauthenticated:
         update_successful = len(new_commits) >= len(target_commits)
         if update_successful:
@@ -455,22 +484,36 @@ def _update_target_repository(
         taf_logger.info(
             "Unauthenticated commits allowed in repository {}", repository.name
         )
-        update_successful = True
-        target_commits_index = 0
-        for commit in new_commits:
-            if commit in target_commits:
-                if commit != target_commits[target_commits_index]:
-                    taf_logger.error(
-                        "Mismatch between commits {} and {}",
-                        commit,
-                        target_commits[target_commits_index],
-                    )
-                    update_successful = False
+        update_successful = False
+        if not len(target_commits):
+            update_successful = True
+            additional_commits = new_commits
+        else:
+            target_commits_index = 0
+            for new_commit_index, commit in enumerate(new_commits):
+                if commit in target_commits:
+                    if commit != target_commits[target_commits_index]:
+                        taf_logger.error(
+                            "Mismatch between commits {} and {}",
+                            commit,
+                            target_commits[target_commits_index],
+                        )
+                        break
+                    else:
+                        target_commits_index += 1
+                if commit == target_commits[-1]:
+                    update_successful = True
+                    if commit != new_commits[-1]:
+                        additional_commits = new_commits[new_commit_index + 1:]
                     break
-                else:
-                    target_commits_index += 1
-
-        update_successful = target_commits_index == len(target_commits)
+            if len(additional_commits):
+                taf_logger.warning(
+                    "Found commits {} in repository {} which are newer than the last authenticable commit."
+                    "Repository will be updated up to commit {}",
+                    additional_commits,
+                    repository.name,
+                    commit,
+                )
 
     if not update_successful:
         taf_logger.error(
@@ -483,7 +526,7 @@ def _update_target_repository(
             f" and target repository {repository.name}"
         )
     taf_logger.info("Successfully validated {}", repository.name)
-
+    return additional_commits
 
 def validate_repository(
     clients_auth_path, clients_root_dir=None, validate_from_commit=None
