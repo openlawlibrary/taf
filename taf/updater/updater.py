@@ -401,15 +401,17 @@ def _update_target_repositories(
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
 
             try:
-                additional_commits = _update_target_repository(
+                additional_commits_on_branch = _update_target_repository(
                     repository,
                     new_commits_on_repo_branch,
                     repo_branch_commits,
                     allow_unauthenticated_for_repo,
                     branch,
+                    check_for_unauthenticated
                 )
-                if len(additional_commits):
-                    additional_commits_per_repo[repository.name] = additional_commits
+                if len(additional_commits_on_branch):
+                    additional_commits_per_repo.setdefault(repository.name, {})[branch] = additional_commits_on_branch
+
             except UpdateFailedError as e:
                 taf_logger.error("Updated failed due to error {}", str(e))
                 # delete all repositories that were cloned
@@ -445,7 +447,7 @@ def _update_target_repositories(
     return additional_commits_per_repo
 
 def _update_target_repository(
-    repository, new_commits, target_commits, allow_unauthenticated, branch
+    repository, new_commits, target_commits, allow_unauthenticated, branch, check_for_unauthenticated
 ):
     taf_logger.info(
         "Validating target repository {} {} branch", repository.name, branch
@@ -526,6 +528,15 @@ def _update_target_repository(
             f" and target repository {repository.name}"
         )
     taf_logger.info("Successfully validated {}", repository.name)
+
+    if check_for_unauthenticated and len(additional_commits):
+        # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
+        # that does not necessarily mean that the local repository is not up to date with the remote on
+        # pull could've been run manually
+        # check where the current local head is
+        branch_current_head = repository.top_commit_of_branch(branch)
+        additional_commits = additional_commits[additional_commits.index(branch_current_head)+1:]
+
     return additional_commits
 
 def validate_repository(

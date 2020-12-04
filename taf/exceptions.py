@@ -131,15 +131,16 @@ class UpdateFailedError(TAFError):
 
 class UpdaterAdditionalCommits(TAFError):
     def __init__(self, additional_commits_per_repo, message=None):
-        self.repositories = list(additional_commits_per_repo.keys())
+        self.additional_commits_per_repo = additional_commits_per_repo
         if message is None:
             message = ''
-            for repo, commits in additional_commits_per_repo.items():
-                message += f"Repository {repo} contains {len(commits)} additional"
-                if len(commits) > 1:
-                    message += "commits\n"
-                else:
-                    message += "commit\n"
+            for repo, branch_commits in additional_commits_per_repo.items():
+                for branch, commits in branch_commits.items():
+                    message += f"Repository {repo}: branch {branch} contains {len(commits)} additional"
+                    if len(commits) > 1:
+                        message += "commits\n"
+                    else:
+                        message += "commit\n"
         self.message = message
 
 
