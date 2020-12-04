@@ -373,35 +373,14 @@ def _update_target_repositories(
 
             # the repository was cloned if it didn't exist
             # if it wasn't cloned, fetch the current branch
-            if is_git_repository:
-                repository.fetch(branch=branch)
-            if old_head is not None:
-                if not only_validate:
-                    new_commits_on_repo_branch = repository.all_fetched_commits(
-                        branch=branch
-                    )
-                else:
-                    new_commits_on_repo_branch = repository.all_commits_since_commit(
-                        old_head, branch
-                    )
-                new_commits_on_repo_branch.insert(0, old_head)
-            else:
-                if branch_exists:
-                    # this happens in the case when last_validated_commit does not exist
-                    # we want to validate all commits, so combine existing commits and
-                    # fetched commits
-                    new_commits_on_repo_branch = repository.all_commits_on_branch(
-                        branch=branch, reverse=True
-                    )
-                else:
-                    new_commits_on_repo_branch = []
-                if not only_validate:
-                    try:
-                        fetched_commits = repository.all_fetched_commits(branch=branch)
-                        new_commits_on_repo_branch.extend(fetched_commits)
-                    except GitError:
-                        pass
-
+            new_commits_on_repo_branch = _get_commits(
+                repository,
+                is_git_repository,
+                branch,
+                only_validate,
+                old_head,
+                branch_exists,
+            )
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
 
             try:
@@ -445,6 +424,38 @@ def _update_target_repositories(
     return additional_commits_per_repo
 
 
+def _get_commits(
+    repository, existing_repository, branch, only_validate, old_head, branch_exists
+):
+    if existing_repository:
+        repository.fetch(branch=branch)
+    if old_head is not None:
+        if not only_validate:
+            new_commits_on_repo_branch = repository.all_fetched_commits(branch=branch)
+        else:
+            new_commits_on_repo_branch = repository.all_commits_since_commit(
+                old_head, branch
+            )
+        new_commits_on_repo_branch.insert(0, old_head)
+    else:
+        if branch_exists:
+            # this happens in the case when last_validated_commit does not exist
+            # we want to validate all commits, so combine existing commits and
+            # fetched commits
+            new_commits_on_repo_branch = repository.all_commits_on_branch(
+                branch=branch, reverse=True
+            )
+        else:
+            new_commits_on_repo_branch = []
+        if not only_validate:
+            try:
+                fetched_commits = repository.all_fetched_commits(branch=branch)
+                new_commits_on_repo_branch.extend(fetched_commits)
+            except GitError:
+                pass
+    return new_commits_on_repo_branch
+
+
 def _merge_branch_commits(
     repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
 ):
@@ -453,9 +464,7 @@ def _merge_branch_commits(
     taf_logger.info("Merging {} into {}", last_commit, repository.name)
     last_validated_commit = last_commit
     commit_to_merge = (
-        last_validated_commit
-        if not allow_unauthenticated
-        else new_branch_commits[-1]
+        last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
     )
     repository.merge_commit(commit_to_merge)
     if not allow_unauthenticated:
