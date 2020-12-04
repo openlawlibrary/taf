@@ -189,7 +189,9 @@ def attach_to_group(group):
                   "repository from the filesystem")
     @click.option("--authenticate-test-repo", is_flag=True, help="Indicates that the authentication "
                   "repository is a test repository")
-    def update(url, clients_auth_path, clients_root_dir, from_fs, authenticate_test_repo):
+    @click.option("--check-for-unauthenticated", is_flag=True, help="Check if there are additional new commits "
+                  "if a repostiory allows unauthenicated commits")
+    def update(url, clients_auth_path, clients_root_dir, from_fs, authenticate_test_repo, check_for_unauthenticated):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -211,7 +213,7 @@ def attach_to_group(group):
         repository as that will also result in an error.
         """
         update_repository(url, clients_auth_path, clients_root_dir, from_fs,
-                          authenticate_test_repo)
+                          authenticate_test_repo, check_for_unauthenticated=check_for_unauthenticated)
 
     @repo.command()
     @click.argument("clients-auth-path")

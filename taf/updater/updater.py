@@ -432,25 +432,36 @@ def _update_target_repositories(
         # if update is successful, merge the commits
         for path, repository in repositories.items():
             for branch in repositories_branches_and_commits[path]:
-                if not len(repositories_branches_and_commits[path][branch]):
+                branch_commits = repositories_branches_and_commits[path][branch]
+                if not len(branch_commits):
                     continue
-                repository.checkout_branch(branch)
-                repo_branch_commits = repositories_branches_and_commits[path][branch]
-                last_commit = repo_branch_commits[-1]["commit"]
-                if len(repo_branch_commits):
-                    taf_logger.info("Merging {} into {}", last_commit, repository.name)
-                    last_validated_commit = last_commit
-                    commit_to_merge = (
-                        last_validated_commit
-                        if not allow_unauthenticated[path]
-                        else new_commits[path][branch][-1]
-                    )
-                    repository.merge_commit(commit_to_merge)
-                    if not allow_unauthenticated[path]:
-                        repository.checkout_commit(commit_to_merge)
-                    else:
-                        repository.checkout_branch(repository.default_branch)
+                _merge_branch_commits(
+                    repository,
+                    branch,
+                    branch_commits,
+                    allow_unauthenticated[path],
+                    new_commits[path][branch],
+                )
     return additional_commits_per_repo
+
+
+def _merge_branch_commits(
+    repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
+):
+    repository.checkout_branch(branch)
+    last_commit = branch_commits[-1]["commit"]
+    taf_logger.info("Merging {} into {}", last_commit, repository.name)
+    last_validated_commit = last_commit
+    commit_to_merge = (
+        last_validated_commit
+        if not allow_unauthenticated
+        else new_branch_commits[-1]
+    )
+    repository.merge_commit(commit_to_merge)
+    if not allow_unauthenticated:
+        repository.checkout_commit(commit_to_merge)
+    else:
+        repository.checkout_branch(repository.default_branch)
 
 
 def _update_target_repository(
