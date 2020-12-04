@@ -133,7 +133,7 @@ class UpdaterAdditionalCommits(TAFError):
     def __init__(self, additional_commits_per_repo, message=None):
         self.additional_commits_per_repo = additional_commits_per_repo
         if message is None:
-            message = ''
+            message = ""
             for repo, branch_commits in additional_commits_per_repo.items():
                 for branch, commits in branch_commits.items():
                     message += f"Repository {repo}: branch {branch} contains {len(commits)} additional"
