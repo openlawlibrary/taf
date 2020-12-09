@@ -609,6 +609,14 @@ class GitRepository:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
 
+    def find_worktree_path_by_branch(self, branch_name):
+        """Returns worktree path where branch is checked out."""
+        worktrees = self.list_worktrees()
+        for path, _, _branch_name in worktrees.values():
+            if _branch_name == branch_name:
+                return path
+        return None
+
     def get_current_branch(self):
         """Return current branch."""
         return self._git("rev-parse --abbrev-ref HEAD").strip()
@@ -721,6 +729,14 @@ class GitRepository:
         return [
             untracked_file for untracked_file in untracked_files if len(untracked_file)
         ]
+
+    def list_worktrees(self):
+        worktrees_list = self._git(f"worktree list")
+        worktrees = [w.split() for w in worktrees_list.splitlines() if w]
+        return {
+            Path(wt[0]): (Path(wt[0]), wt[1], wt[2].replace("[", "").replace("]", ""))
+            for wt in worktrees
+        }
 
     def merge_commit(self, commit):
         self._git("merge {}", commit, log_error=True)

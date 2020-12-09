@@ -91,9 +91,13 @@ class GitUpdater(handlers.MetadataUpdater):
         auth_url = mirrors["mirror1"]["url_prefix"]
         self.metadata_path = mirrors["mirror1"]["metadata_path"]
         self.targets_path = mirrors["mirror1"]["targets_path"]
+        conf_directory_root = settings.conf_directory_root
         if settings.validate_repo_name:
             self.users_auth_repo = NamedAuthenticationRepo(
-                repository_directory, repository_name, repo_urls=[auth_url]
+                repository_directory,
+                repository_name,
+                repo_urls=[auth_url],
+                conf_directory_root=conf_directory_root,
             )
         else:
             users_repo_path = Path(repository_directory, repository_name)
@@ -102,6 +106,7 @@ class GitUpdater(handlers.MetadataUpdater):
                 self.metadata_path,
                 self.targets_path,
                 repo_urls=[auth_url],
+                conf_directory_root=conf_directory_root,
             )
 
         self._clone_validation_repo(auth_url)
@@ -145,7 +150,7 @@ class GitUpdater(handlers.MetadataUpdater):
                 last_validated_commit
             )
         except GitError as e:
-            if "Invalid revision range" in e.output:
+            if "Invalid revision range" in str(e):
                 taf_logger.error(
                     "Commit {} is not contained by the remote repository {}.",
                     last_validated_commit,

@@ -6,6 +6,7 @@ import tuf.client.updater as tuf_updater
 from collections import defaultdict
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
+from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
 from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
@@ -14,6 +15,7 @@ from taf.utils import on_rm_error
 
 disable_tuf_console_logging()
 
+# TODO distinguish library and build root
 
 def update_repository(
     url,
@@ -26,6 +28,7 @@ def update_repository(
     only_validate=False,
     validate_from_commit=None,
     check_for_unauthenticated=False,
+    conf_directory_root=None,
 ):
     """
     <Arguments>
@@ -70,6 +73,7 @@ def update_repository(
         only_validate,
         validate_from_commit,
         check_for_unauthenticated,
+        conf_directory_root,
     )
 
 
@@ -85,6 +89,7 @@ def _update_named_repository(
     only_validate=False,
     validate_from_commit=None,
     check_for_unauthenticated=False,
+    conf_directory_root=None,
 ):
     """
     <Arguments>
@@ -137,6 +142,7 @@ def _update_named_repository(
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
 
     settings.update_from_filesystem = update_from_filesystem
+    settings.conf_directory_root = conf_directory_root
     if only_validate:
         settings.overwrite_last_validated_commit = True
         settings.last_validated_commit = validate_from_commit
@@ -220,8 +226,7 @@ def _update_named_repository(
                 "Merging commit {} into {}", last_commit, users_auth_repo.name
             )
             # if there were no errors, merge the last validated authentication repository commit
-            users_auth_repo.checkout_branch(users_auth_repo.default_branch)
-            users_auth_repo.merge_commit(last_commit)
+            _merge_commit(users_auth_repo, users_auth_repo.default_branch, last_commit)
             # update the last validated commit
             users_auth_repo.set_last_validated_commit(last_commit)
     except Exception as e:
@@ -431,7 +436,14 @@ def _get_commits(
         repository.fetch(branch=branch)
     if old_head is not None:
         if not only_validate:
-            new_commits_on_repo_branch = repository.all_fetched_commits(branch=branch)
+            # if the local branch does not exist (the branch was not checked out locally)
+            # fetched commits will include already validated commits
+            # check which commits are newer that the previous head commit
+            fetched_commits = repository.all_fetched_commits(branch=branch)
+            if old_head in fetched_commits:
+                new_commits_on_repo_branch = fetched_commits[fetched_commits.index(old_head)+1::]
+            else:
+                new_commits_on_repo_branch = fetched_commits
         else:
             new_commits_on_repo_branch = repository.all_commits_since_commit(
                 old_head, branch
@@ -450,7 +462,12 @@ def _get_commits(
         if not only_validate:
             try:
                 fetched_commits = repository.all_fetched_commits(branch=branch)
-                new_commits_on_repo_branch.extend(fetched_commits)
+                # if the local branch does not exist (the branch was not checked out locally)
+                # fetched commits will include already validated commits
+                # check which commits are newer that the previous head commit
+                for commit in fetched_commits:
+                    if commit not in new_commits_on_repo_branch:
+                        new_commits_on_repo_branch.extend(fetched_commits)
             except GitError:
                 pass
     return new_commits_on_repo_branch
@@ -459,18 +476,36 @@ def _get_commits(
 def _merge_branch_commits(
     repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
 ):
-    repository.checkout_branch(branch)
     last_commit = branch_commits[-1]["commit"]
-    taf_logger.info("Merging {} into {}", last_commit, repository.name)
     last_validated_commit = last_commit
     commit_to_merge = (
         last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
     )
+    taf_logger.info("Merging {} into {}", commit_to_merge, repository.name)
+    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated)
+
+
+def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False):
+    checkout = True
+    try:
+        repository.checkout_branch(branch, raise_anyway=True)
+    except GitError:
+        # in order to merge a commit into a branch we need to check it out
+        # but that cannot be done if it is checked out in a different worktree
+        # it should be fine to update that other worktree if there are no uncommitted changes
+        # or no commits that have not been pushed yet
+        worktree = GitRepository(repository.find_worktree_path_by_branch(branch))
+        if worktree is None:
+            return False
+        repository = worktree
+        checkout = False
+
     repository.merge_commit(commit_to_merge)
-    if not allow_unauthenticated:
-        repository.checkout_commit(commit_to_merge)
-    else:
-        repository.checkout_branch(repository.default_branch)
+    if checkout:
+        if not allow_unauthenticated:
+            repository.checkout_commit(commit_to_merge)
+        else:
+            repository.checkout_branch(repository.default_branch)
 
 
 def _update_target_repository(
