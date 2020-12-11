@@ -1,7 +1,7 @@
 import click
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.updater.updater import update_repository, validate_repository
+from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
 def attach_to_group(group):
@@ -187,11 +187,12 @@ def attach_to_group(group):
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
                   "repository from the filesystem")
-    @click.option("--authenticate-test-repo", is_flag=True, help="Indicates that the authentication "
-                  "repository is a test repository")
+    @click.option("--expected-repo-type", type=click.Choice(["test", "official", "either"]),
+                  help="Indicates expected authentication repository type - test or official. If type is set to either, "
+                  "the updater will not check the repository's type")
     @click.option("--check-for-unauthenticated", is_flag=True, help="Check if there are additional new commits "
                   "if a repostiory allows unauthenicated commits")
-    def update(url, clients_auth_path, clients_root_dir, from_fs, authenticate_test_repo, check_for_unauthenticated):
+    def update(url, clients_auth_path, clients_root_dir, from_fs, expected_repo_type, check_for_unauthenticated):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -213,7 +214,8 @@ def attach_to_group(group):
         repository as that will also result in an error.
         """
         update_repository(url, clients_auth_path, clients_root_dir, from_fs,
-                          authenticate_test_repo, check_for_unauthenticated=check_for_unauthenticated)
+                          UpdateType.from_name(expected_repo_type),
+                          check_for_unauthenticated=check_for_unauthenticated)
 
     @repo.command()
     @click.argument("clients-auth-path")

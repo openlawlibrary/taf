@@ -61,20 +61,20 @@ def get_target_path(target_name):
     return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
 
 
+def is_delegated_role(role):
+    return role not in ("root", "targets", "snapshot", "timestamp")
+
+
 def is_auth_repo(repo_path):
     try:
         targets_path = Path(repo_path, TARGETS_DIRECTORY_NAME)
-        dir_existed = targets_path.is_dir()
+        targets_existed = targets_path.is_dir()
         Repository(repo_path)._repository
         return True
     except Exception:
-        if not dir_existed:
-            targets_path.rmdir()
+        if not targets_existed:
+            targets_path.rm_dir()
         return False
-
-
-def is_delegated_role(role):
-    return role not in ("root", "targets", "snapshot", "timestamp")
 
 
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):

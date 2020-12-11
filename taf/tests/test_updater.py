@@ -58,7 +58,7 @@ import taf.settings as settings
 from taf.auth_repo import AuthenticationRepo
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
-from taf.updater.updater import update_repository
+from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
@@ -332,7 +332,7 @@ def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
     origin_dir = origin_dir / "test-updater-test-repo"
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, IS_A_TEST_REPO
+        client_dir, repositories, IS_A_TEST_REPO, UpdateType.OFFICIAL
     )
 
 
@@ -341,7 +341,7 @@ def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
     origin_dir = origin_dir / "test-updater-valid"
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, NOT_A_TEST_REPO, True
+        client_dir, repositories, NOT_A_TEST_REPO, UpdateType.TEST
     )
 
 
@@ -471,7 +471,11 @@ def _get_valid_update_time(origin_auth_repo_path):
 
 
 def _update_and_check_commit_shas(
-    client_repos, repositories, origin_dir, client_dir, authetnicate_test_repo=False
+    client_repos,
+    repositories,
+    origin_dir,
+    client_dir,
+    expected_repo_type=UpdateType.EITHER,
 ):
     start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -482,14 +486,18 @@ def _update_and_check_commit_shas(
             str(clients_auth_repo_path),
             str(client_dir),
             True,
-            authenticate_test_repo=authetnicate_test_repo,
+            expected_repo_type=expected_repo_type,
         )
     _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas)
     _check_last_validated_commit(clients_auth_repo_path)
 
 
 def _update_invalid_repos_and_check_if_remained_same(
-    client_repos, client_dir, repositories, expected_error, authenticate_test_repo=False
+    client_repos,
+    client_dir,
+    repositories,
+    expected_error,
+    expected_repo_type=UpdateType.EITHER,
 ):
 
     start_head_shas = _get_head_commit_shas(client_repos)
@@ -503,7 +511,7 @@ def _update_invalid_repos_and_check_if_remained_same(
                 str(clients_auth_repo_path),
                 str(client_dir),
                 True,
-                authenticate_test_repo=authenticate_test_repo,
+                expected_repo_type=expected_repo_type,
             )
 
     # all repositories should still have the same head commit
@@ -518,7 +526,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
     client_dir,
     repositories,
     expected_error,
-    authenticate_test_repo=False,
+    expected_repo_type=UpdateType.EITHER,
     set_time=True,
 ):
 
@@ -530,21 +538,21 @@ def _update_invalid_repos_and_check_if_repos_exist(
         if (client_dir / repository_rel_path).exists()
     ]
 
-    def _update_expect_error(client_dir, authenticate_test_repo):
+    def _update_expect_error(client_dir, expected_repo_type):
         with pytest.raises(UpdateFailedError, match=expected_error):
             update_repository(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path),
                 str(client_dir),
                 True,
-                authenticate_test_repo=authenticate_test_repo,
+                expected_repo_type=expected_repo_type,
             ),
 
     if set_time:
         with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
-            _update_expect_error(client_dir, authenticate_test_repo)
+            _update_expect_error(client_dir, expected_repo_type)
     else:
-        _update_expect_error(client_dir, authenticate_test_repo)
+        _update_expect_error(client_dir, expected_repo_type)
 
     # the client repositories should not exits
     for repository_rel_path in repositories:

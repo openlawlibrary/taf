@@ -1,4 +1,5 @@
 import shutil
+import enum
 
 import tuf
 import tuf.client.updater as tuf_updater
@@ -13,16 +14,39 @@ from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 
+
 disable_tuf_console_logging()
 
-# TODO distinguish library and build root
+
+class UpdateType(enum.Enum):
+    TEST = (1,)
+    OFFICIAL = (2,)
+    EITHER = 3
+
+    @classmethod
+    def from_name(cls, name):
+        update_type = UPDATE_TYPES.get(name)
+        if update_type is not None:
+            return update_type
+        raise ValueError("{} is not a valid update type".format(name))
+
+    def to_name(self):
+        return UPDATE_TYPES[self.value]
+
+
+UPDATE_TYPES = {
+    "test": UpdateType.TEST,
+    "official": UpdateType.OFFICIAL,
+    "either": UpdateType.EITHER,
+}
+
 
 def update_repository(
     url,
     clients_auth_path,
     clients_root_dir=None,
     update_from_filesystem=False,
-    authenticate_test_repo=False,
+    expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
     target_factory=None,
     only_validate=False,
@@ -40,8 +64,10 @@ def update_repository(
         Directory where client's target repositories are located.
     update_from_filesystem:
         A flag which indicates if the URL is actually a file system path
-    authenticate_test_repo:
-        A flag which indicates that the repository to be updated is a test repository
+    expected_repo_type:
+        Indicates if the authentication repository which needs to be updated is
+        a test repository, official repository, or if the type is not important
+        and should not be validated
     target_repo_classes:
         A class or a dictionary used when instantiating target repositories.
         See repositoriesdb load_repositories for more details.
@@ -67,7 +93,7 @@ def update_repository(
         clients_root_dir,
         auth_repo_name,
         update_from_filesystem,
-        authenticate_test_repo,
+        expected_repo_type,
         target_repo_classes,
         target_factory,
         only_validate,
@@ -83,7 +109,7 @@ def _update_named_repository(
     targets_root_dir,
     auth_repo_name,
     update_from_filesystem,
-    authenticate_test_repo=False,
+    expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
     target_factory=None,
     only_validate=False,
@@ -171,20 +197,23 @@ def _update_named_repository(
         else:
             last_validated_commit = users_auth_repo.last_validated_commit
 
-        # check if the repository being updated is a test repository
-        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
-        test_repo = "test-auth-repo" in targets["signed"]["targets"]
-        if test_repo and not authenticate_test_repo:
-            raise UpdateFailedError(
-                f"Repository {users_auth_repo.name} is a test repository. "
-                'Call update with "--authenticate-test-repo" to update a test '
-                "repository"
+        if expected_repo_type != UpdateType.EITHER:
+            # check if the repository being updated is a test repository
+            targets = validation_auth_repo.get_json(
+                commits[-1], "metadata/targets.json"
             )
-        elif not test_repo and authenticate_test_repo:
-            raise UpdateFailedError(
-                f"Repository {users_auth_repo.name} is not a test repository,"
-                ' but update was called with the "--authenticate-test-repo" flag'
-            )
+            test_repo = "test-auth-repo" in targets["signed"]["targets"]
+            if test_repo and expected_repo_type != UpdateType.TEST:
+                raise UpdateFailedError(
+                    f"Repository {users_auth_repo.name} is a test repository. "
+                    'Call update with "--expected-repo-type" test to update a test '
+                    "repository"
+                )
+            elif not test_repo and expected_repo_type == UpdateType.TEST:
+                raise UpdateFailedError(
+                    f"Repository {users_auth_repo.name} is not a test repository,"
+                    ' but update was called with the "--expected-repo-type" test'
+                )
 
         # validate the authentication repository and fetch new commits
         _update_authentication_repository(repository_updater, only_validate)
@@ -441,7 +470,9 @@ def _get_commits(
             # check which commits are newer that the previous head commit
             fetched_commits = repository.all_fetched_commits(branch=branch)
             if old_head in fetched_commits:
-                new_commits_on_repo_branch = fetched_commits[fetched_commits.index(old_head)+1::]
+                new_commits_on_repo_branch = fetched_commits[
+                    fetched_commits.index(old_head) + 1 : :
+                ]
             else:
                 new_commits_on_repo_branch = fetched_commits
         else:
@@ -622,15 +653,18 @@ def validate_repository(
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
     clients_auth_root_dir = clients_auth_path.parent.parent
+    expected_repo_type = (
+        UpdateType.TEST
+        if (clients_auth_path / "targets" / "test-auth-repo").exists()
+        else UpdateType.OFFICIAL
+    )
     _update_named_repository(
         str(clients_auth_path),
         clients_auth_root_dir,
         clients_root_dir,
         auth_repo_name,
         True,
-        authenticate_test_repo=(
-            clients_auth_path / "targets" / "test-auth-repo"
-        ).exists(),
+        expected_repo_type=expected_repo_type,
         only_validate=True,
         validate_from_commit=validate_from_commit,
     )
