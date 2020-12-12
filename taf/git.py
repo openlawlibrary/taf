@@ -731,7 +731,7 @@ class GitRepository:
         ]
 
     def list_worktrees(self):
-        worktrees_list = self._git(f"worktree list")
+        worktrees_list = self._git("worktree list")
         worktrees = [w.split() for w in worktrees_list.splitlines() if w]
         return {
             Path(wt[0]): (Path(wt[0]), wt[1], wt[2].replace("[", "").replace("]", ""))

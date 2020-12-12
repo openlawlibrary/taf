@@ -98,16 +98,16 @@ def run_around_tests(client_dir):
 @pytest.mark.parametrize(
     "test_name, test_repo",
     [
-        ("test-updater-valid", False),
-        ("test-updater-additional-target-commit", False),
-        ("test-updater-valid-with-updated-expiration-dates", False),
-        ("test-updater-allow-unauthenticated-commits", False),
-        ("test-updater-test-repo", True),
-        ("test-updater-multiple-branches", False),
-        ("test-updater-delegated-roles", False),
-        ("test-updater-updated-root", False),
-        ("test-updater-updated-root-old-snapshot", False),
-        ("test-updater-updated-root-version-skipped", False),
+        ("test-updater-valid", UpdateType.OFFICIAL),
+        ("test-updater-additional-target-commit", UpdateType.OFFICIAL),
+        ("test-updater-valid-with-updated-expiration-dates", UpdateType.OFFICIAL),
+        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
+        ("test-updater-test-repo", UpdateType.TEST),
+        ("test-updater-multiple-branches", UpdateType.OFFICIAL),
+        ("test-updater-delegated-roles", UpdateType.OFFICIAL),
+        ("test-updater-updated-root", UpdateType.OFFICIAL),
+        ("test-updater-updated-root-old-snapshot", UpdateType.OFFICIAL),
+        ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL),
     ],
 )
 def test_valid_update_no_client_repo(
@@ -121,11 +121,11 @@ def test_valid_update_no_client_repo(
 @pytest.mark.parametrize(
     "test_name, test_repo",
     [
-        ("test-updater-valid", False),
-        ("test-updater-additional-target-commit", False),
-        ("test-updater-allow-unauthenticated-commits", False),
-        ("test-updater-multiple-branches", False),
-        ("test-updater-delegated-roles", False),
+        ("test-updater-valid", UpdateType.OFFICIAL),
+        ("test-updater-additional-target-commit", UpdateType.OFFICIAL),
+        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
+        ("test-updater-multiple-branches", UpdateType.OFFICIAL),
+        ("test-updater-delegated-roles", UpdateType.OFFICIAL),
     ],
 )
 def test_valid_update_no_auth_repo_one_target_repo_exists(
@@ -170,11 +170,11 @@ def test_valid_update_existing_client_repos(
 @pytest.mark.parametrize(
     "test_name, test_repo",
     [
-        ("test-updater-valid", False),
-        ("test-updater-allow-unauthenticated-commits", False),
-        ("test-updater-test-repo", True),
-        ("test-updater-multiple-branches", False),
-        ("test-updater-delegated-roles", False),
+        ("test-updater-valid", UpdateType.OFFICIAL),
+        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
+        ("test-updater-test-repo", UpdateType.TEST),
+        ("test-updater-multiple-branches", UpdateType.OFFICIAL),
+        ("test-updater-delegated-roles", UpdateType.OFFICIAL),
     ],
 )
 def test_no_update_necessary(
