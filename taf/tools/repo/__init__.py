@@ -187,7 +187,7 @@ def attach_to_group(group):
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
                   "repository from the filesystem")
-    @click.option("--expected-repo-type", type=click.Choice(["test", "official", "either"]),
+    @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
                   help="Indicates expected authentication repository type - test or official. If type is set to either, "
                   "the updater will not check the repository's type")
     @click.option("--check-for-unauthenticated", is_flag=True, help="Check if there are additional new commits "
