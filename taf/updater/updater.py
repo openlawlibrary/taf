@@ -128,13 +128,13 @@ def _update_main_named_repository(
         targets_root_dir,
         auth_repo_name,
         update_from_filesystem,
-        expected_repo_type=UpdateType.EITHER,
-        target_repo_classes=None,
-        target_factory=None,
-        only_validate=False,
-        validate_from_commit=None,
-        check_for_unauthenticated=False,
-        conf_directory_root=None,
+        expected_repo_type,
+        target_repo_classes,
+        target_factory,
+        only_validate,
+        validate_from_commit,
+        check_for_unauthenticated,
+        conf_directory_root,
     )
 
 

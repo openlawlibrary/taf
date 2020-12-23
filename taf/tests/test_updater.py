@@ -61,6 +61,8 @@ from taf.git import GitRepository
 from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
 
+from taf.log import disable_console_logging, disable_file_logging
+
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
 TARGET1_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1"
@@ -77,6 +79,10 @@ METADATA_CHANGED_BUT_SHOULDNT = (
 LAST_VALIDATED_COMMIT_MISMATCH = (
     "Saved last validated commit {} does not match the head commit"
 )
+
+
+disable_console_logging()
+disable_file_logging()
 
 
 def setup_module(module):
