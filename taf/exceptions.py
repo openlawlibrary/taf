@@ -45,9 +45,6 @@ class InvalidCommitError(TAFError):
     pass
 
 
-class InvalidDependenciesError(TAFError):
-    pass
-
 class InvalidKeyError(TAFError):
     def __init__(self, metadata_role):
         super().__init__(
