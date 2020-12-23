@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from taf.auth_repo import NamedAuthenticationRepo
 from taf.exceptions import (
     InvalidOrMissingMetadataError,
     RepositoriesNotFoundError,
@@ -21,6 +22,8 @@ from taf.log import taf_logger
 # }
 
 _repositories_dict = {}
+_dependencies_dict = {}
+DEPENDENCIES_JSON_PATH = "targets/dependencies.json"
 REPOSITORIES_JSON_PATH = "targets/repositories.json"
 MIRRORS_JSON_PATH = "targets/mirrors.json"
 
@@ -28,6 +31,96 @@ MIRRORS_JSON_PATH = "targets/mirrors.json"
 def clear_repositories_db():
     global _repositories_dict
     _repositories_dict.clear()
+
+
+def clear_dependencies_db():
+    global _dependencies_dict
+    _dependencies_dict.clear()
+
+
+def load_dependencies(
+    auth_repo,
+    auth_class=None,
+    root_dir=None,
+    commits=None,
+):
+    global _dependencies_dict
+    if auth_repo.path not in _dependencies_dict:
+        _dependencies_dict[auth_repo.path] = {}
+
+    if commits is None:
+        auth_repo_head_commit = auth_repo.head_commit_sha()
+        if auth_repo_head_commit is None:
+            taf_logger.info(
+                "Authentication repository does not exist - cannot load included authentication repositories"
+            )
+            return
+        commits = [auth_repo_head_commit]
+
+    taf_logger.debug(
+        "Loading {}'s included authentication repositories at revisions {}",
+        auth_repo.path,
+        ", ".join(commits),
+    )
+
+    if root_dir is None:
+        root_dir = Path(auth_repo.path).parent.parent
+
+    for commit in commits:
+        dependencies_dict = {}
+        # check if already loaded
+        if commit in _dependencies_dict[auth_repo.path]:
+            continue
+
+        _dependencies_dict[auth_repo.path][commit] = dependencies_dict
+
+        dependencies = _load_dependencies_json(auth_repo, commit)
+        if dependencies is None:
+            continue
+
+        mirrors = _load_mirrors_json(auth_repo, commit)
+
+        # target repositories are defined in both repositories.json and targets.json
+        dependencies = dependencies["dependencies"]
+
+        for path, repo_data in dependencies.items():
+            try:
+                urls = _get_urls(mirrors, path, repo_data)
+            except RepositoryInstantiationError:
+                dependencies_dict.clear()
+                break
+
+            additional_info = _get_custom_data(repo_data, None)
+
+            if auth_class is None:
+                auth_class = NamedAuthenticationRepo
+            else:
+                if not issubclass(auth_class, NamedAuthenticationRepo):
+                    raise Exception(
+                        f"{auth_class} is not a subclass of NamedAuthenticationRepo"
+                    )
+            contained_auth_repo = None
+            try:
+                # TODO check if repo class is subclass of NamedAuthenticationRepo
+                # or will that get caught by except
+                contained_auth_repo = auth_class(root_dir, path, urls, additional_info)
+            except Exception as e:
+                taf_logger.error(
+                    "Auth repo {}: an error occurred while instantiating repository {}: {}",
+                    auth_repo.path,
+                    path,
+                    str(e),
+                )
+                raise RepositoryInstantiationError(f"{root_dir / path}", str(e))
+
+            dependencies_dict[path] = contained_auth_repo
+
+        taf_logger.debug(
+            "Loaded the following contained authentication repositories at revision {}: {}",
+            commit,
+            ", ".join(dependencies_dict.keys()),
+        )
+
 
 
 def load_repositories(
@@ -108,7 +201,7 @@ def load_repositories(
 
         mirrors = _load_mirrors_json(auth_repo, commit)
 
-        # target repositories are defined in both mirrors.json and targets.json
+        # target repositories are defined in both repositories.json and targets.json
         repositories = repositories["repositories"]
         targets = _targets_of_roles(auth_repo, commit, roles)
 
@@ -248,19 +341,29 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
     )
 
 
+def get_deduplicated_auth_repositories(auth_repo, commits):
+    return _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, True)
+
+
 def get_deduplicated_repositories(auth_repo, commits):
-    global _repositories_dict
+    return _get_deduplicated_target_or_auth_repositotries(auth_repo, commits)
+
+
+def _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, load_auth=False):
+    loaded_repositories_dict = _dependencies_dict if load_auth else  _repositories_dict
+    auth_msg = 'included authentication ' if load_auth else ''
+    repositories_msg = 'Included authentication repositories' if load_auth else 'Repositories'
     taf_logger.debug(
-        "Auth repo {}: getting a deduplicated list of repositories", auth_repo.path
+        "Auth repo {}: getting a deduplicated list of {}repositories", auth_repo.path, auth_msg
     )
-    all_repositories = _repositories_dict.get(auth_repo.path)
+    all_repositories = loaded_repositories_dict.get(auth_repo.path)
     if all_repositories is None:
         taf_logger.error(
-            "Repositories defined in authentication repository {} have not been loaded",
-            auth_repo.path,
+            "{} defined in authentication repository {} have not been loaded",
+            repositories_msg, auth_repo.path,
         )
         raise RepositoriesNotFoundError(
-            "Repositories defined in authentication repository"
+            f"{repositories_msg} defined in authentication repository"
             f" {auth_repo.path} have not been loaded"
         )
     repositories = {}
@@ -268,22 +371,24 @@ def get_deduplicated_repositories(auth_repo, commits):
     for commit in commits:
         if commit not in all_repositories:
             taf_logger.error(
-                "Repositories defined in authentication repository {} at revision {} have "
+                "{} defined in authentication repository {} at revision {} have "
                 "not been loaded",
+                repositories_msg,
                 auth_repo.path,
                 commit,
             )
             raise RepositoriesNotFoundError(
-                "Repositories defined in authentication repository "
-                "{auth_repo.path} at revision {commit} have not been loaded"
+                f"{repositories_msg} defined in authentication repository "
+                f"{auth_repo.path} at revision {commit} have not been loaded"
             )
         for path, repo in all_repositories[commit].items():
             # will overwrite older repo with newer
             repositories[path] = repo
 
     taf_logger.debug(
-        "Auth repo {}: deduplicated list of repositories {}",
+        "Auth repo {}: deduplicated list of {}repositories {}",
         auth_repo.path,
+        auth_msg,
         ", ".join(repositories.keys()),
     )
     return repositories
@@ -293,41 +398,58 @@ def get_repository(auth_repo, path, commit=None):
     return get_repositories(auth_repo, commit).get(path)
 
 
+def get_auth_repository(auth_repo, path, commit=None):
+    return get_auth_repositories(auth_repo, commit).get(path)
+
+def get_auth_repositories(auth_repo, commit=None):
+    return  _get_repositories(auth_repo, commit, True)
+
+
 def get_repositories(auth_repo, commit=None):
-    global _repositories_dict
+    return  _get_repositories(auth_repo, commit)
+
+
+def _get_repositories(auth_repo, commit=None, load_auth=False):
+    loaded_repositories_dict = _dependencies_dict if load_auth else  _repositories_dict
+    auth_msg = 'included authentication ' if load_auth else ''
+    repositories_msg = 'Included authentication repositories' if load_auth else 'Repositories'
     if commit is None:
         commit = auth_repo.head_commit_sha()
     taf_logger.debug(
-        "Auth repo {}: finding repositories defined at commit {}",
+        "Auth repo {}: finding {}repositories defined at commit {}",
         auth_repo.path,
+        auth_msg,
         commit,
     )
-    all_repositories = _repositories_dict.get(auth_repo.path)
+    all_repositories = loaded_repositories_dict.get(auth_repo.path)
     if all_repositories is None:
         taf_logger.error(
-            "Repositories defined in authentication repository {} have not been loaded",
+            "{} defined in authentication repository {} have not been loaded",
+            repositories_msg,
             auth_repo.path,
         )
         raise RepositoriesNotFoundError(
-            "Repositories defined in authentication repository"
+            f"{repositories_msg} defined in authentication repository"
             f" {auth_repo.path} have not been loaded"
         )
 
     repositories = all_repositories.get(commit)
     if repositories is None:
         taf_logger.error(
-            "Repositories defined in authentication repository {} at revision {} have "
+            "{} defined in authentication repository {} at revision {} have "
             "not been loaded",
+            repositories_msg,
             auth_repo.path,
             commit,
         )
         raise RepositoriesNotFoundError(
-            "Repositories defined in authentication repository "
+            f"{repositories_msg} defined in authentication repository "
             f"{auth_repo.path} at revision {commit} have not been loaded"
         )
     taf_logger.debug(
-        "Auth repo {}: found the following repositories at revision {}: {}",
+        "Auth repo {}: found the following {}repositories at revision {}: {}",
         auth_repo.path,
+        auth_msg,
         commit,
         ", ".join(repositories.keys()),
     )
@@ -368,6 +490,17 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom_data} not found"
     )
+
+
+def _load_dependencies_json(auth_repo, commit):
+    try:
+        return _get_json_file(auth_repo, DEPENDENCIES_JSON_PATH, commit)
+    except InvalidOrMissingMetadataError as e:
+        if f"{DEPENDENCIES_JSON_PATH} not available at revision" in str(e):
+            taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
+            return None
+        else:
+            raise
 
 
 def _load_repositories_json(auth_repo, commit):

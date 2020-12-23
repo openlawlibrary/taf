@@ -885,6 +885,17 @@ class NamedGitRepository(GitRepository):
             )
 
 
+def get_last_remote_commit(url):
+    """
+    get the last remote commit without cloning the repo
+    """
+    if url is not None:
+        last_commit = run('git', '--no-pager', 'ls-remote', url, 'HEAD')
+        if last_commit:
+            return last_commit.split('\t', 1)[0]
+    return None
+
+
 _repo_name_re = re.compile(r"^\w[\w_-]*/\w[\w_-]*$")
 
 _http_fttp_url = re.compile(
