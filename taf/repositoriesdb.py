@@ -122,7 +122,6 @@ def load_dependencies(
         )
 
 
-
 def load_repositories(
     auth_repo,
     repo_classes=None,
@@ -350,17 +349,22 @@ def get_deduplicated_repositories(auth_repo, commits):
 
 
 def _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, load_auth=False):
-    loaded_repositories_dict = _dependencies_dict if load_auth else  _repositories_dict
-    auth_msg = 'included authentication ' if load_auth else ''
-    repositories_msg = 'Included authentication repositories' if load_auth else 'Repositories'
+    loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
+    auth_msg = "included authentication " if load_auth else ""
+    repositories_msg = (
+        "Included authentication repositories" if load_auth else "Repositories"
+    )
     taf_logger.debug(
-        "Auth repo {}: getting a deduplicated list of {}repositories", auth_repo.path, auth_msg
+        "Auth repo {}: getting a deduplicated list of {}repositories",
+        auth_repo.path,
+        auth_msg,
     )
     all_repositories = loaded_repositories_dict.get(auth_repo.path)
     if all_repositories is None:
         taf_logger.error(
             "{} defined in authentication repository {} have not been loaded",
-            repositories_msg, auth_repo.path,
+            repositories_msg,
+            auth_repo.path,
         )
         raise RepositoriesNotFoundError(
             f"{repositories_msg} defined in authentication repository"
@@ -401,18 +405,21 @@ def get_repository(auth_repo, path, commit=None):
 def get_auth_repository(auth_repo, path, commit=None):
     return get_auth_repositories(auth_repo, commit).get(path)
 
+
 def get_auth_repositories(auth_repo, commit=None):
-    return  _get_repositories(auth_repo, commit, True)
+    return _get_repositories(auth_repo, commit, True)
 
 
 def get_repositories(auth_repo, commit=None):
-    return  _get_repositories(auth_repo, commit)
+    return _get_repositories(auth_repo, commit)
 
 
 def _get_repositories(auth_repo, commit=None, load_auth=False):
-    loaded_repositories_dict = _dependencies_dict if load_auth else  _repositories_dict
-    auth_msg = 'included authentication ' if load_auth else ''
-    repositories_msg = 'Included authentication repositories' if load_auth else 'Repositories'
+    loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
+    auth_msg = "included authentication " if load_auth else ""
+    repositories_msg = (
+        "Included authentication repositories" if load_auth else "Repositories"
+    )
     if commit is None:
         commit = auth_repo.head_commit_sha()
     taf_logger.debug(

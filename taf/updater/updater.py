@@ -270,24 +270,13 @@ def _update_named_repository(
             users_auth_repo.sorted_commits_and_branches_per_repositories(commits)
         )
 
-        # TODO
-        # refactor this - we should not load repositories.json and use information
-        # stored in repositories since we loaded them
-        try:
-            repositories_json = users_auth_repo.get_json(
-                commits[-1], "targets/repositories.json"
-            )
-        except Exception:
-            pass
-        else:
-            additional_commits_per_repo = _update_target_repositories(
-                repositories,
-                repositories_json,
-                repositories_branches_and_commits,
-                last_validated_commit,
-                only_validate,
-                check_for_unauthenticated,
-            )
+        additional_commits_per_repo = _update_target_repositories(
+            repositories,
+            repositories_branches_and_commits,
+            last_validated_commit,
+            only_validate,
+            check_for_unauthenticated,
+        )
     except Exception as e:
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
@@ -409,7 +398,6 @@ def _update_authentication_repository(repository_updater, only_validate):
 
 def _update_target_repositories(
     repositories,
-    repositories_json,
     repositories_branches_and_commits,
     last_validated_commit,
     only_validate,
@@ -425,10 +413,8 @@ def _update_target_repositories(
 
     for path, repository in repositories.items():
         taf_logger.info("Validating repository {}", repository.name)
-        allow_unauthenticated_for_repo = (
-            repositories_json["repositories"][repository.name]
-            .get("custom", {})
-            .get("allow-unauthenticated-commits", False)
+        allow_unauthenticated_for_repo = repository.additional_info.get(
+            "allow-unauthenticated-commits", False
         )
         allow_unauthenticated[path] = allow_unauthenticated_for_repo
         is_git_repository = repository.is_git_repository_root

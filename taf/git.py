@@ -890,9 +890,9 @@ def get_last_remote_commit(url):
     get the last remote commit without cloning the repo
     """
     if url is not None:
-        last_commit = run('git', '--no-pager', 'ls-remote', url, 'HEAD')
+        last_commit = run("git", "--no-pager", "ls-remote", url, "HEAD")
         if last_commit:
-            return last_commit.split('\t', 1)[0]
+            return last_commit.split("\t", 1)[0]
     return None
 
 

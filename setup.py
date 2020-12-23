@@ -15,17 +15,17 @@ packages = find_packages()
 
 # Create platform specific wheel
 # https://stackoverflow.com/a/45150383/9669050
-try:
-    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+# try:
+#     from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
 
-    class bdist_wheel(_bdist_wheel):
-        def finalize_options(self):
-            _bdist_wheel.finalize_options(self)
-            self.root_is_pure = False
+#     class bdist_wheel(_bdist_wheel):
+#         def finalize_options(self):
+#             _bdist_wheel.finalize_options(self)
+#             self.root_is_pure = False
 
 
-except ImportError:
-    bdist_wheel = None
+# except ImportError:
+#     bdist_wheel = None
 
 ci_require = [
     "bandit>=1.6.0",
@@ -53,7 +53,7 @@ setup(
     author_email=AUTHOR_EMAIL,
     keywords=KEYWORDS,
     packages=packages,
-    cmdclass={"bdist_wheel": bdist_wheel},
+    #  cmdclass={"bdist_wheel": bdist_wheel},
     include_package_data=True,
     data_files=[("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
     zip_safe=False,
