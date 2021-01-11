@@ -58,6 +58,8 @@ def update_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
+    conf_directory_subfolder=None,
+    hosts=None,
 ):
     """
     <Arguments>
@@ -105,6 +107,8 @@ def update_repository(
         validate_from_commit,
         check_for_unauthenticated,
         conf_directory_root,
+        conf_directory_subfolder,
+        hosts,
     )
 
 
@@ -121,6 +125,8 @@ def _update_main_named_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
+    conf_directory_subfolder=None,
+    hosts=None,
 ):
     _update_named_repository(
         url,
@@ -135,6 +141,8 @@ def _update_main_named_repository(
         validate_from_commit,
         check_for_unauthenticated,
         conf_directory_root,
+        conf_directory_subfolder,
+        hosts,
     )
 
 
@@ -151,6 +159,8 @@ def _update_named_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
+    conf_directory_subfolder=None,
+    hosts=None,
 ):
     """
     <Arguments>
@@ -204,6 +214,7 @@ def _update_named_repository(
 
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
+    settings.conf_directory_subfolder = conf_directory_subfolder
     if only_validate:
         settings.overwrite_last_validated_commit = True
         settings.last_validated_commit = validate_from_commit
@@ -231,6 +242,7 @@ def _update_named_repository(
             last_validated_commit = settings.last_validated_commit
         else:
             last_validated_commit = users_auth_repo.last_validated_commit
+        users_auth_repo.hosts = hosts
 
         if expected_repo_type != UpdateType.EITHER:
             # check if the repository being updated is a test repository
@@ -302,6 +314,7 @@ def _update_named_repository(
 
     errors = []
     for auth_repo in dependencies.values():
+        delegated_repo_hosts = users_auth_repo.repository_hosts(auth_repo)
         try:
             _update_named_repository(
                 auth_repo.repo_urls[0],
@@ -316,6 +329,7 @@ def _update_named_repository(
                 validate_from_commit,
                 check_for_unauthenticated,
                 conf_directory_root,
+                delegated_repo_hosts,
             )
         except Exception as e:
             errors.append(str(e))

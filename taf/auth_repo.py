@@ -17,6 +17,7 @@ class AuthRepoMixin(TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
+    HOSTS_FILE = "hosts.json"
 
     _conf_dir = None
 
@@ -32,6 +33,8 @@ class AuthRepoMixin(TAFRepository):
         if self._conf_dir is None:
             last_dir = os.path.basename(os.path.normpath(self.path))
             conf_path = Path(self.conf_directory_root, f"_{last_dir}")
+            if self.conf_directory_subfolder is not None:
+                conf_path = conf_path / self.conf_directory_subfolder
             conf_path.mkdir(parents=True, exist_ok=True)
             self._conf_dir = str(conf_path)
         return self._conf_dir
@@ -51,6 +54,14 @@ class AuthRepoMixin(TAFRepository):
             return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
         except FileNotFoundError:
             return None
+
+    _hosts_conf = None
+
+    @property
+    def hosts_conf(self):
+        if self._hosts_conf is None:
+            self._hosts_conf = self.get_target(self.HOSTS_FILE)
+        return self._hosts_conf
 
     @property
     def log_prefix(self):
@@ -75,6 +86,13 @@ class AuthRepoMixin(TAFRepository):
             except TypeError:
                 continue
         return False
+
+
+    def repository_hosts(self, auth_repo):
+        if self.hosts_conf is None:
+            return None
+        return [host for host, host_data in self.hosts_conf.items() if auth_repo.name == host_data.get("auth_repo")]
+
 
     @contextmanager
     def repository_at_revision(self, commit):
@@ -212,12 +230,16 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
+        conf_directory_subfolder=None,
+        hosts=None,
         *args,
         **kwargs,
     ):
         if conf_directory_root is None:
             conf_directory_root = str(Path(path).parent)
         self.conf_directory_root = conf_directory_root
+        self.conf_directory_subfolder = conf_directory_subfolder
+        self.hosts=hosts
         super().__init__(path, repo_urls, additional_info, default_branch)
 
 
@@ -230,12 +252,15 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
+        conf_directory_subfolder=None,
+        hosts=None,
         *args,
         **kwargs,
     ):
         if conf_directory_root is None:
             conf_directory_root = str(Path(root_dir, repo_name).parent)
         self.conf_directory_root = conf_directory_root
+        self.conf_directory_subfolder = conf_directory_subfolder
         super().__init__(
             root_dir=root_dir,
             repo_name=repo_name,
@@ -243,4 +268,6 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             additional_info=additional_info,
             default_branch=default_branch,
             conf_directory_root=conf_directory_root,
+            conf_directory_subfolder=conf_directory_subfolder,
+            hosts=hosts,
         )
