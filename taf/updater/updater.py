@@ -58,7 +58,6 @@ def update_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
-    conf_directory_subfolder=None,
     hosts=None,
 ):
     """
@@ -107,7 +106,6 @@ def update_repository(
         validate_from_commit,
         check_for_unauthenticated,
         conf_directory_root,
-        conf_directory_subfolder,
         hosts,
     )
 
@@ -125,7 +123,6 @@ def _update_main_named_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
-    conf_directory_subfolder=None,
     hosts=None,
 ):
     _update_named_repository(
@@ -141,7 +138,6 @@ def _update_main_named_repository(
         validate_from_commit,
         check_for_unauthenticated,
         conf_directory_root,
-        conf_directory_subfolder,
         hosts,
     )
 
@@ -159,8 +155,8 @@ def _update_named_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
-    conf_directory_subfolder=None,
     hosts=None,
+    addtional_repo_data=None,
 ):
     """
     <Arguments>
@@ -214,7 +210,6 @@ def _update_named_repository(
 
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
-    settings.conf_directory_subfolder = conf_directory_subfolder
     if only_validate:
         settings.overwrite_last_validated_commit = True
         settings.last_validated_commit = validate_from_commit
@@ -314,7 +309,8 @@ def _update_named_repository(
 
     errors = []
     for auth_repo in dependencies.values():
-        delegated_repo_hosts = users_auth_repo.repository_hosts(auth_repo)
+        delegated_repo_hosts_data = users_auth_repo.repository_hosts_data(auth_repo)
+        hosts = delegated_repo_hosts_data.keys()
         try:
             _update_named_repository(
                 auth_repo.repo_urls[0],
@@ -329,7 +325,8 @@ def _update_named_repository(
                 validate_from_commit,
                 check_for_unauthenticated,
                 conf_directory_root,
-                delegated_repo_hosts,
+                hosts,
+                delegated_repo_hosts_data
             )
         except Exception as e:
             errors.append(str(e))
@@ -353,6 +350,9 @@ def _update_named_repository(
         _merge_commit(users_auth_repo, users_auth_repo.default_branch, last_commit)
         # update the last validated commit
         users_auth_repo.set_last_validated_commit(last_commit)
+
+    users_auth_repo.additional_info.update(delegated_repo_hosts_data)
+    users_auth_repo.execute_scripts()
 
 
 def _update_authentication_repository(repository_updater, only_validate):

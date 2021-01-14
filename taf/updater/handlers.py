@@ -92,14 +92,12 @@ class GitUpdater(handlers.MetadataUpdater):
         self.metadata_path = mirrors["mirror1"]["metadata_path"]
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
-        conf_directory_subfolder = settings.conf_directory_subfolder
         if settings.validate_repo_name:
             self.users_auth_repo = NamedAuthenticationRepo(
                 repository_directory,
                 repository_name,
                 repo_urls=[auth_url],
                 conf_directory_root=conf_directory_root,
-                conf_directory_subfolder=conf_directory_subfolder,
             )
         else:
             users_repo_path = Path(repository_directory, repository_name)
@@ -109,7 +107,6 @@ class GitUpdater(handlers.MetadataUpdater):
                 self.targets_path,
                 repo_urls=[auth_url],
                 conf_directory_root=conf_directory_root,
-                conf_directory_subfolder=conf_directory_subfolder,
             )
 
         self._clone_validation_repo(auth_url)
@@ -194,8 +191,8 @@ class GitUpdater(handlers.MetadataUpdater):
             # user's head sha.
             # For now, we will raise an error
             msg = (
-                f"Saved last validated commit {last_validated_commit} does not match the head"
-                f" commit of the authentication repository {users_head_sha}"
+                f"Saved last validated commit {last_validated_commit} of repository {self.users_auth_repo.name} "
+                f"does not match the head commit of the authentication repository {users_head_sha}"
             )
             taf_logger.error(msg)
             raise UpdateFailedError(msg)

@@ -56,6 +56,8 @@ class GitRepository:
                     for url in repo_urls
                 ]
         self.repo_urls = repo_urls
+        if additional_info is None:
+            additional_info = {}
         self.additional_info = additional_info
 
     logging_functions = {

@@ -8,8 +8,6 @@ temporary_directory = None
 
 conf_directory_root = None
 
-conf_directory_subfolder = None
-
 update_from_filesystem = False
 
 validate_repo_name = True

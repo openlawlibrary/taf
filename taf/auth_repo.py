@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import tempfile
@@ -18,6 +19,7 @@ class AuthRepoMixin(TAFRepository):
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     HOSTS_FILE = "hosts.json"
+    SCRIPTS_PATH = "scripts"
 
     _conf_dir = None
 
@@ -33,8 +35,6 @@ class AuthRepoMixin(TAFRepository):
         if self._conf_dir is None:
             last_dir = os.path.basename(os.path.normpath(self.path))
             conf_path = Path(self.conf_directory_root, f"_{last_dir}")
-            if self.conf_directory_subfolder is not None:
-                conf_path = conf_path / self.conf_directory_subfolder
             conf_path.mkdir(parents=True, exist_ok=True)
             self._conf_dir = str(conf_path)
         return self._conf_dir
@@ -76,6 +76,13 @@ class AuthRepoMixin(TAFRepository):
         else:
             return self.get_json(commit, target_path)
 
+    def execute_scirpts(self):
+        scripts_path = Path(self.path, self.get_target_path(self.SCRIPTS_PATH))
+        scripts = glob.glob(f"{scripts_path}/*.py")
+        scripts = [script for script in scripts.sort() if script[0].isdigit()]
+
+
+
     def is_commit_authenticated(self, target_name, commit):
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
@@ -88,10 +95,10 @@ class AuthRepoMixin(TAFRepository):
         return False
 
 
-    def repository_hosts(self, auth_repo):
+    def repository_hosts_data(self, auth_repo):
         if self.hosts_conf is None:
             return None
-        return [host for host, host_data in self.hosts_conf.items() if auth_repo.name == host_data.get("auth_repo")]
+        return {host: host_data for host, host_data in self.hosts_conf.items() if auth_repo.name == host_data.get("auth_repo")}
 
 
     @contextmanager
@@ -230,7 +237,6 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
-        conf_directory_subfolder=None,
         hosts=None,
         *args,
         **kwargs,
@@ -238,7 +244,6 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         if conf_directory_root is None:
             conf_directory_root = str(Path(path).parent)
         self.conf_directory_root = conf_directory_root
-        self.conf_directory_subfolder = conf_directory_subfolder
         self.hosts=hosts
         super().__init__(path, repo_urls, additional_info, default_branch)
 
@@ -252,7 +257,6 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
-        conf_directory_subfolder=None,
         hosts=None,
         *args,
         **kwargs,
@@ -260,7 +264,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         if conf_directory_root is None:
             conf_directory_root = str(Path(root_dir, repo_name).parent)
         self.conf_directory_root = conf_directory_root
-        self.conf_directory_subfolder = conf_directory_subfolder
+        self.hosts=hosts
         super().__init__(
             root_dir=root_dir,
             repo_name=repo_name,
@@ -268,6 +272,5 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             additional_info=additional_info,
             default_branch=default_branch,
             conf_directory_root=conf_directory_root,
-            conf_directory_subfolder=conf_directory_subfolder,
             hosts=hosts,
         )
