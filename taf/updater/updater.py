@@ -1,3 +1,5 @@
+
+import json
 import shutil
 import enum
 
@@ -44,6 +46,18 @@ UPDATE_TYPES = {
 # update repositoriesdb so that these repositories are not loaded as normal targets
 # separate list of children auth repositories
 # recursive update
+
+# TODO config path should be configurable
+def load_library_context(config_path):
+    config = {}
+    config_path = Path(config_path)
+    try:
+        config = json.loads(config_path.read_text())
+    except json.JSONDecodeError:
+        taf_logger.warning('Invalid json in config file at {}', str(config_path))
+    except FileNotFoundError:
+        taf_logger.warning('No config found at {}', str(config_path))
+    return config
 
 
 def update_repository(
@@ -207,7 +221,7 @@ def _update_named_repository(
     """
 
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-
+    # TODO combine hosts data from both parent and current repository
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
     if only_validate:
@@ -302,7 +316,6 @@ def _update_named_repository(
 
     # only load the repositories based on the top commit
     # if a repository was removed from dependencies.json, it will not be loaded
-    # TODO think through removal of repositories
     dependencies = repositoriesdb.get_deduplicated_auth_repositories(
         users_auth_repo, commits[-1:]
     )
@@ -749,3 +762,5 @@ def validate_repository(
         only_validate=True,
         validate_from_commit=validate_from_commit,
     )
+
+# TODO Find update order - some DFS algorithm which would handle recursive dependencies

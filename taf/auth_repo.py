@@ -17,11 +17,26 @@ from taf.repository_tool import (
 class AuthRepoMixin(TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
+    LAST_SUCCESSFUL_COMMITS = "last_successful_commits.json"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     HOSTS_FILE = "hosts.json"
     SCRIPTS_PATH = "scripts"
+    AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
+
+    def __init__(self, conf_directory_root, hosts=None):
+        self.hosts = hosts
+        self.conf_directory_root = conf_directory_root
+        # host data can be specified in the current authentication repository or in its parent
+        # the input parameter hosts is expected to contain hosts date specified outside of
+        # this repository's hosts file specifying its hosts
+        self.hosts = hosts or {}
+        # add information about the hosts specified in this repository's hosts file
+        self.hosts.update(self.get_hosts_of_repo(self))
+
+
+    # TODO rework conf_dir
 
     @property
     def conf_dir(self):
@@ -45,6 +60,17 @@ class AuthRepoMixin(TAFRepository):
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
+    def get_hosts_of_repo(self, repo):
+        repo_hosts = {}
+        for host, host_data in self.hosts_conf.items():
+            repos = host_data.get(self.AUTH_REPOS_HOSTS_KEY)
+            for repo_name in repos:
+                if repo_name == self.name:
+                    repo_hosts[host] = dict(host_data)
+                    repo_hosts[host].remove(self.AUTH_REPO_HOSTS_KEY)
+                    break
+        return repo_hosts
+
     @property
     def last_validated_commit(self):
         """
@@ -54,6 +80,18 @@ class AuthRepoMixin(TAFRepository):
             return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
         except FileNotFoundError:
             return None
+
+    @property
+    def last_successful_commits(self):
+        """
+        A file containing last commits successfully handled by scripts
+        """
+        path = os.path.join(self.conf_dir, self.LAST_SUCCESSFUL_COMMITS)
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.decoder.JSONDecodeError):
+            return {}
 
     _hosts_conf = None
 
@@ -77,10 +115,10 @@ class AuthRepoMixin(TAFRepository):
             return self.get_json(commit, target_path)
 
     def execute_scirpts(self):
+        current_last_successful_commits = self.last_successful_commits
         scripts_path = Path(self.path, self.get_target_path(self.SCRIPTS_PATH))
         scripts = glob.glob(f"{scripts_path}/*.py")
         scripts = [script for script in scripts.sort() if script[0].isdigit()]
-
 
 
     def is_commit_authenticated(self, target_name, commit):
@@ -93,13 +131,6 @@ class AuthRepoMixin(TAFRepository):
             except TypeError:
                 continue
         return False
-
-
-    def repository_hosts_data(self, auth_repo):
-        if self.hosts_conf is None:
-            return None
-        return {host: host_data for host, host_data in self.hosts_conf.items() if auth_repo.name == host_data.get("auth_repo")}
-
 
     @contextmanager
     def repository_at_revision(self, commit):
@@ -132,6 +163,22 @@ class AuthRepoMixin(TAFRepository):
         """
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
+
+
+    def set_last_successful_commits(self, action, env_data):
+        last_successful_commits = self.last_successful_commits
+        for env, data in env_data.items():
+            last_successful_commits.setdefault(env, {})
+            if isinstance(data, dict):
+                for key, value in data.items():
+                    last_successful_commits[env].setdefault(action, {})[key] = value
+            else:
+                last_successful_commits[env][action] = data
+
+        self._log_debug(f'setting last successfult commits to:\n{last_successful_commits}')
+        (Path(self.conf_dir) / 'last_successful_commits.json').write_text(
+            json.dumps(last_successful_commits, indent=4)
+        )
 
     def sorted_commits_and_branches_per_repositories(
         self, commits, target_repos=None, additional_info_fns=None
