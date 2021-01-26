@@ -15,6 +15,7 @@ import taf.settings as settings
 from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
+from taf.hostsdb import sort_repositories_by_host
 
 
 disable_tuf_console_logging()
@@ -60,6 +61,54 @@ def load_library_context(config_path):
     return config
 
 
+def prepare_host_script_data(auth_repo, auth_repo_head, config_path):
+    """
+        {
+
+        last_successful_commits: {
+
+        },
+
+        config: {
+
+        },
+
+        hosts: {
+
+        }
+    }
+    """
+    data = {
+        "last_successful_commits": auth_repo.last_successful_commmits,
+        "auth_repo_head": auth_repo_head,
+        "config": load_library_context(config_path),
+        "hosts": auth_repo.hosts
+    }
+    return json.dumps(data)
+
+
+# TODO Find update order - some DFS algorithm which would handle recursive dependencies
+
+def auth_repos_per_host(auth_repo, targets_root_dir, commits):
+    """
+    Instantiate authentication repositories and sort them by host
+    """
+    repositoriesdb.load_dependencies(
+        auth_repo, root_dir=targets_root_dir, commits=commits
+    )
+
+    repos_by_host = {}
+    for host, host_data in auth_repo.hosts_conf.items():
+        repo_names = host_data.get(auth_repo.AUTH_REPOS_HOSTS_KEY)
+        for repo_name in repo_names:
+            delegated_auth_repo = repositoriesdb.get_auth_repository(auth_repo, repo_name)
+            if delegated_auth_repo is None:
+                taf_logger.warning("Repository {} not defined in dependencies.json of {}",
+                                    repo_name, auth_repo.name)
+            repos_by_host.setdefault(host, []).append(child_auth_repo)
+    return repos_by_host
+
+
 def update_repository(
     url,
     clients_auth_path,
@@ -73,6 +122,7 @@ def update_repository(
     check_for_unauthenticated=False,
     conf_directory_root=None,
     hosts=None,
+    config_path=None,
 ):
     """
     <Arguments>
@@ -242,6 +292,10 @@ def _update_named_repository(
         auth_repo_name, repository_mirrors, GitUpdater
     )
     users_auth_repo = repository_updater.update_handler.users_auth_repo
+
+    sort_repositories_by_host(users_auth_repo, users_auth_repo.head_commit_sha())
+    import pdb; pdb.set_trace()
+
     existing_repo = users_auth_repo.is_git_repository_root
     additional_commits_per_repo = {}
     validation_auth_repo = repository_updater.update_handler.validation_auth_repo
@@ -310,39 +364,36 @@ def _update_named_repository(
     if check_for_unauthenticated and len(additional_commits_per_repo):
         raise UpdaterAdditionalCommits(additional_commits_per_repo)
 
-    repositoriesdb.load_dependencies(
-        users_auth_repo, root_dir=targets_root_dir, commits=commits
-    )
 
     # only load the repositories based on the top commit
     # if a repository was removed from dependencies.json, it will not be loaded
-    dependencies = repositoriesdb.get_deduplicated_auth_repositories(
-        users_auth_repo, commits[-1:]
-    )
+
+    #delegated_repos_per_host = auth_repos_per_host(users_auth_repo, )
+
 
     errors = []
-    for auth_repo in dependencies.values():
-        delegated_repo_hosts_data = users_auth_repo.repository_hosts_data(auth_repo)
-        hosts = delegated_repo_hosts_data.keys()
-        try:
-            _update_named_repository(
-                auth_repo.repo_urls[0],
-                clients_auth_root_dir,
-                targets_root_dir,
-                auth_repo.name,
-                False,
-                expected_repo_type,
-                target_repo_classes,
-                target_factory,
-                only_validate,
-                validate_from_commit,
-                check_for_unauthenticated,
-                conf_directory_root,
-                hosts,
-                delegated_repo_hosts_data
-            )
-        except Exception as e:
-            errors.append(str(e))
+    # for auth_repo in dependencies.values():
+    #     delegated_repo_hosts_data = users_auth_repo.get_hosts_of_repo(auth_repo)
+    #     hosts = delegated_repo_hosts_data.keys()
+    #     try:
+    #         _update_named_repository(
+    #             auth_repo.repo_urls[0],
+    #             clients_auth_root_dir,
+    #             targets_root_dir,
+    #             auth_repo.name,
+    #             False,
+    #             expected_repo_type,
+    #             target_repo_classes,
+    #             target_factory,
+    #             only_validate,
+    #             validate_from_commit,
+    #             check_for_unauthenticated,
+    #             conf_directory_root,
+    #             hosts,
+    #             delegated_repo_hosts_data
+    #         )
+    #     except Exception as e:
+    #         errors.append(str(e))
 
     if len(errors):
         errors = "\n".join(errors)
@@ -364,7 +415,7 @@ def _update_named_repository(
         # update the last validated commit
         users_auth_repo.set_last_validated_commit(last_commit)
 
-    users_auth_repo.additional_info.update(delegated_repo_hosts_data)
+    #users_auth_repo.additional_info.update(delegated_repo_hosts_data)
     users_auth_repo.execute_scripts()
 
 
@@ -762,5 +813,3 @@ def validate_repository(
         only_validate=True,
         validate_from_commit=validate_from_commit,
     )
-
-# TODO Find update order - some DFS algorithm which would handle recursive dependencies

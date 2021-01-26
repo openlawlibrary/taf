@@ -65,7 +65,7 @@ class AuthRepoMixin(TAFRepository):
         for host, host_data in self.hosts_conf.items():
             repos = host_data.get(self.AUTH_REPOS_HOSTS_KEY)
             for repo_name in repos:
-                if repo_name == self.name:
+                if repo_name == repo.name:
                     repo_hosts[host] = dict(host_data)
                     repo_hosts[host].remove(self.AUTH_REPO_HOSTS_KEY)
                     break
@@ -115,7 +115,6 @@ class AuthRepoMixin(TAFRepository):
             return self.get_json(commit, target_path)
 
     def execute_scirpts(self):
-        current_last_successful_commits = self.last_successful_commits
         scripts_path = Path(self.path, self.get_target_path(self.SCRIPTS_PATH))
         scripts = glob.glob(f"{scripts_path}/*.py")
         scripts = [script for script in scripts.sort() if script[0].isdigit()]
