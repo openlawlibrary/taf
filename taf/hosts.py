@@ -43,13 +43,25 @@ def sort_repositories_by_host(root_repo, commit):
             for child_auth_repo in repositoriesdb.get_deduplicated_auth_repositories(auth_repo, commit):
                 to_traverse.append(child_auth_repo)
                 hosts_hierarchy_per_repo[child_auth_repo] = hosts_hierarchy_per_repo + [_load_hosts_json(child_auth_repo)]
+                set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[child_auth_repo])
     return repos_by_host
 
 
+def set_hosts_of_repo(auth_repo, hosts):
+    hosts_of_repo = {}
+    for hosts_info in hosts:
+        for host, host_data in hosts_info.items():
+            if not auth_repo.name in host_data[AUTH_REPOS_HOSTS_KEY]:
+                continue
+            data = dict(host_data)
+            data.pop(AUTH_REPOS_HOSTS_KEY)
+            hosts_of_repo[host] = data
+    if not len(hosts_of_repo):
+        taf_logger.warning("Host of authentication repository {} not specified", auth_repo.name)
+    auth_repo.hosts = hosts_of_repo
 
 
-
-def _load_hosts_json(auth_repo, commit=None):
+def load_hosts_json(auth_repo, commit=None):
     if commit is None:
         commit = auth_repo.top_commit_of_branch("master")
     return _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)

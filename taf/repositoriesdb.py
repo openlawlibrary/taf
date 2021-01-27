@@ -49,7 +49,6 @@ def load_dependencies(
     auth_class=NamedAuthenticationRepo,
     root_dir=None,
     commits=None,
-    ancestor_hosts=None,
 ):
     global _dependencies_dict
     if auth_repo.path not in _dependencies_dict:
@@ -82,12 +81,7 @@ def load_dependencies(
     if root_dir is None:
         root_dir = Path(auth_repo.path).parent.parent
 
-    hosts = dict(ancestor_hosts) if ancestor_hosts is not None else []
-
     for commit in commits:
-        if not commit in hosts:
-            hosts[commit] = [_load_hosts_json(auth_repo, commit)]
-
         dependencies_dict = {}
         # check if already loaded
         if commit in _dependencies_dict[auth_repo.path]:
@@ -131,7 +125,6 @@ def load_dependencies(
                     str(e),
                 )
                 raise RepositoryInstantiationError(f"{root_dir / path}", str(e))
-            set_hosts_of_repo(contained_auth_repo, hosts[commit] + _load_hosts_json(contained_auth_repo, commit))
             dependencies_dict[path] = contained_auth_repo
 
         taf_logger.debug(
@@ -585,17 +578,3 @@ def repositories_loaded(auth_repo):
         len(repositories_at_commit)
         for repositories_at_commit in all_repositories.values()
     )
-
-
-def set_hosts_of_repo(auth_repo, hosts):
-    hosts_of_repo = {}
-    for hosts_info in hosts:
-        for host, host_data in hosts_info.items():
-            if not auth_repo.name in host_data[AUTH_REPOS_HOSTS_KEY]:
-                continue
-            data = dict(host_data)
-            data.pop(AUTH_REPOS_HOSTS_KEY)
-            hosts_of_repo[host] = data
-    if not len(hosts_of_repo):
-        taf_logger.warning("Host of authentication repository {} not specified", auth_repo.name)
-    auth_repo.hosts = hosts_of_repo

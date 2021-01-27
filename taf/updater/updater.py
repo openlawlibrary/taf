@@ -15,11 +15,15 @@ import taf.settings as settings
 from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hostsdb import sort_repositories_by_host
+from taf.hosts import load_hosts_json, set_hosts_of_repo
 
 
 disable_tuf_console_logging()
 
+class UpdateStatus(enum.Enum):
+    CHANGED = 1
+    UNCHANGED = 2
+    FAILED = 3
 
 class UpdateType(enum.Enum):
     TEST = (1,)
@@ -47,6 +51,12 @@ UPDATE_TYPES = {
 # update repositoriesdb so that these repositories are not loaded as normal targets
 # separate list of children auth repositories
 # recursive update
+
+
+def _handle_repo_event(auth_repo, commits, update_status, error):
+    # execute repo success scripts
+    pass
+
 
 # TODO config path should be configurable
 def load_library_context(config_path):
@@ -87,28 +97,6 @@ def prepare_host_script_data(auth_repo, auth_repo_head, config_path):
     return json.dumps(data)
 
 
-# TODO Find update order - some DFS algorithm which would handle recursive dependencies
-
-def auth_repos_per_host(auth_repo, targets_root_dir, commits):
-    """
-    Instantiate authentication repositories and sort them by host
-    """
-    repositoriesdb.load_dependencies(
-        auth_repo, root_dir=targets_root_dir, commits=commits
-    )
-
-    repos_by_host = {}
-    for host, host_data in auth_repo.hosts_conf.items():
-        repo_names = host_data.get(auth_repo.AUTH_REPOS_HOSTS_KEY)
-        for repo_name in repo_names:
-            delegated_auth_repo = repositoriesdb.get_auth_repository(auth_repo, repo_name)
-            if delegated_auth_repo is None:
-                taf_logger.warning("Repository {} not defined in dependencies.json of {}",
-                                    repo_name, auth_repo.name)
-            repos_by_host.setdefault(host, []).append(child_auth_repo)
-    return repos_by_host
-
-
 def update_repository(
     url,
     clients_auth_path,
@@ -121,7 +109,6 @@ def update_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
-    hosts=None,
     config_path=None,
 ):
     """
@@ -157,7 +144,7 @@ def update_repository(
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
     clients_auth_root_dir = clients_auth_path.parent.parent
-    _update_main_named_repository(
+    _update_named_repository(
         url,
         clients_auth_root_dir,
         clients_root_dir,
@@ -170,39 +157,6 @@ def update_repository(
         validate_from_commit,
         check_for_unauthenticated,
         conf_directory_root,
-        hosts,
-    )
-
-
-def _update_main_named_repository(
-    url,
-    clients_auth_root_dir,
-    targets_root_dir,
-    auth_repo_name,
-    update_from_filesystem,
-    expected_repo_type=UpdateType.EITHER,
-    target_repo_classes=None,
-    target_factory=None,
-    only_validate=False,
-    validate_from_commit=None,
-    check_for_unauthenticated=False,
-    conf_directory_root=None,
-    hosts=None,
-):
-    _update_named_repository(
-        url,
-        clients_auth_root_dir,
-        targets_root_dir,
-        auth_repo_name,
-        update_from_filesystem,
-        expected_repo_type,
-        target_repo_classes,
-        target_factory,
-        only_validate,
-        validate_from_commit,
-        check_for_unauthenticated,
-        conf_directory_root,
-        hosts,
     )
 
 
@@ -221,6 +175,9 @@ def _update_named_repository(
     conf_directory_root=None,
     hosts=None,
     addtional_repo_data=None,
+    visited=None,
+    hosts_hierarchy_per_repo=None,
+    repos_update_succedeed=None,
 ):
     """
     <Arguments>
@@ -270,8 +227,115 @@ def _update_named_repository(
     loads data from a most recent commit.
     """
 
+    if visited is None:
+        visited = []
+    # if there is a recursive dependency
+    if auth_repo_name in visited:
+        return
+    visited.append(auth_repo_name)
+    if repos_update_succedeed is None:
+        repos_update_succedeed = {}
+
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-    # TODO combine hosts data from both parent and current repository
+    update_status, auth_repo, commits, error = _update_current_repository(
+        url,
+        clients_auth_root_dir,
+        targets_root_dir,
+        auth_repo_name,
+        update_from_filesystem,
+        expected_repo_type=UpdateType.EITHER,
+        target_repo_classes=None,
+        target_factory=None,
+        only_validate=False,
+        validate_from_commit=None,
+        check_for_unauthenticated=False,
+        conf_directory_root=None,
+        hosts=None,
+        addtional_repo_data=None,
+    )
+    # check if top repository
+    if hosts_hierarchy_per_repo is None:
+        hosts_hierarchy_per_repo = {
+            auth_repo: load_hosts_json(auth_repo)
+        }
+    repositoriesdb.load_dependencies(
+        auth_repo,
+        root_dir=targets_root_dir,
+        commits=commits,
+    )
+
+    if update_status != UpdateStatus.FAILED:
+        errors = []
+        # load the repositories from dependencies.json and update these repositories
+        # we need to update the repositories before loading hosts data
+        child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, commits)
+        for child_auth_repo in child_auth_repos:
+            hosts_hierarchy_per_repo[child_auth_repo] = hosts_hierarchy_per_repo[auth_repo] + [load_hosts_json(child_auth_repo)]
+            try:
+                _update_named_repository(
+                    child_auth_repo.repo_urls[0],
+                    clients_auth_root_dir,
+                    targets_root_dir,
+                    child_auth_repo.name,
+                    False,
+                    expected_repo_type,
+                    target_repo_classes,
+                    target_factory,
+                    only_validate,
+                    validate_from_commit,
+                    check_for_unauthenticated,
+                    conf_directory_root,
+                    visited,
+                    hosts_hierarchy_per_repo,
+                    repos_update_succedeed,
+                )
+            except Exception as e:
+                errors.append(str(e))
+
+            if len(errors):
+                errors = "\n".join(errors)
+                taf_logger.error(
+                    "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
+                    auth_repo.name,
+                    errors,
+                )
+                error = UpdateFailedError(
+                    f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
+                )
+                update_status = UpdateStatus.FAILED
+
+    _handle_repo_event(auth_repo, commits, update_status, error)
+    if error is not None:
+        raise error
+
+    # all repositories that can be updated will be updated
+    if not only_validate:
+        last_commit = commits[-1]
+        taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
+        # if there were no errors, merge the last validated authentication repository commit
+        _merge_commit(auth_repo, auth_repo.default_branch, last_commit)
+        # update the last validated commit
+        auth_repo.set_last_validated_commit(last_commit)
+
+    # validation of the repository finished - successfully or not
+
+
+def _update_current_repository(
+    url,
+    clients_auth_root_dir,
+    targets_root_dir,
+    auth_repo_name,
+    update_from_filesystem,
+    expected_repo_type=UpdateType.EITHER,
+    target_repo_classes=None,
+    target_factory=None,
+    only_validate=False,
+    validate_from_commit=None,
+    check_for_unauthenticated=False,
+    conf_directory_root=None,
+    hosts=None,
+    addtional_repo_data=None,
+):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
     if only_validate:
@@ -286,21 +350,22 @@ def _update_named_repository(
             "confined_target_dirs": [""],
         }
     }
-
     tuf.settings.repositories_directory = clients_auth_root_dir
     repository_updater = tuf_updater.Updater(
         auth_repo_name, repository_mirrors, GitUpdater
     )
+    # the current authentication repository is insantiated in the handler
     users_auth_repo = repository_updater.update_handler.users_auth_repo
-
-    sort_repositories_by_host(users_auth_repo, users_auth_repo.head_commit_sha())
-    import pdb; pdb.set_trace()
 
     existing_repo = users_auth_repo.is_git_repository_root
     additional_commits_per_repo = {}
+
+    # this is the repository cloned inside the temp directory
+    # we validate it before updating the actual authentication repository
     validation_auth_repo = repository_updater.update_handler.validation_auth_repo
     try:
         commits = repository_updater.update_handler.commits
+        # used for testing purposes
         if settings.overwrite_last_validated_commit:
             last_validated_commit = settings.last_validated_commit
         else:
@@ -326,10 +391,10 @@ def _update_named_repository(
                 )
 
         # validate the authentication repository and fetch new commits
+        # if the validation is completed successfully, new commits are fetched (not merged yet)
         _update_authentication_repository(repository_updater, only_validate)
 
-        # get target repositories and their commits, as specified in targets.json
-
+        # load target repositories and validate them
         repositoriesdb.load_repositories(
             users_auth_repo,
             repo_classes=target_repo_classes,
@@ -356,67 +421,17 @@ def _update_named_repository(
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
-        raise e
+        return UpdateStatus.FAILED, users_auth_repo, commits, e
     finally:
         repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
 
     if check_for_unauthenticated and len(additional_commits_per_repo):
-        raise UpdaterAdditionalCommits(additional_commits_per_repo)
+        return UpdateStatus.FAILED, users_auth_repo, commits, UpdaterAdditionalCommits(additional_commits_per_repo)
 
-
-    # only load the repositories based on the top commit
-    # if a repository was removed from dependencies.json, it will not be loaded
-
-    #delegated_repos_per_host = auth_repos_per_host(users_auth_repo, )
-
-
-    errors = []
-    # for auth_repo in dependencies.values():
-    #     delegated_repo_hosts_data = users_auth_repo.get_hosts_of_repo(auth_repo)
-    #     hosts = delegated_repo_hosts_data.keys()
-    #     try:
-    #         _update_named_repository(
-    #             auth_repo.repo_urls[0],
-    #             clients_auth_root_dir,
-    #             targets_root_dir,
-    #             auth_repo.name,
-    #             False,
-    #             expected_repo_type,
-    #             target_repo_classes,
-    #             target_factory,
-    #             only_validate,
-    #             validate_from_commit,
-    #             check_for_unauthenticated,
-    #             conf_directory_root,
-    #             hosts,
-    #             delegated_repo_hosts_data
-    #         )
-    #     except Exception as e:
-    #         errors.append(str(e))
-
-    if len(errors):
-        errors = "\n".join(errors)
-        taf_logger.error(
-            "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
-            users_auth_repo.name,
-            errors,
-        )
-        raise UpdateFailedError(
-            f"Update of {users_auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
-        )
-
-    # all repositories that can be updated will be updated
-    if not only_validate:
-        last_commit = commits[-1]
-        taf_logger.info("Merging commit {} into {}", last_commit, users_auth_repo.name)
-        # if there were no errors, merge the last validated authentication repository commit
-        _merge_commit(users_auth_repo, users_auth_repo.default_branch, last_commit)
-        # update the last validated commit
-        users_auth_repo.set_last_validated_commit(last_commit)
-
-    #users_auth_repo.additional_info.update(delegated_repo_hosts_data)
-    users_auth_repo.execute_scripts()
+    if len(commits):
+        return UpdateStatus.CHANGED, users_auth_repo, commits, None
+    return UpdateStatus.UNCHANGED, users_auth_repo, commits, None
 
 
 def _update_authentication_repository(repository_updater, only_validate):
