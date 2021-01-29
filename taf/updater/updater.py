@@ -17,21 +17,15 @@ from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 from taf.hosts import load_hosts_json, set_hosts_of_repo
+from taf.updater.lifecycle_handlers import handle_event, LifecycleStage, Event
 
 
 disable_tuf_console_logging()
 
 
-class UpdateStatus(enum.Enum):
-    CHANGED = 1
-    UNCHANGED = 2
-    FAILED = 3
-    COMPLETED = 4
-
-
 class UpdateType(enum.Enum):
-    TEST = (1,)
-    OFFICIAL = (2,)
+    TEST = 1
+    OFFICIAL = 2
     EITHER = 3
 
     @classmethod
@@ -46,11 +40,10 @@ class UpdateType(enum.Enum):
 
 
 UPDATE_TYPES = {
-    "test": UpdateType.TEST,
-    "official": UpdateType.OFFICIAL,
-    "either": UpdateType.EITHER,
+    UpdateType.TEST : "test",
+    UpdateType.OFFICIAL: "official",
+    UpdateType.EITHER: "either"
 }
-
 
 
 
@@ -266,7 +259,7 @@ def _update_named_repository(
     )
 
     # TODO log what happened
-    if update_status != UpdateStatus.FAILED:
+    if update_status != Event.FAILED:
         errors = []
         # load the repositories from dependencies.json and update these repositories
         # we need to update the repositories before loading hosts data
@@ -304,13 +297,12 @@ def _update_named_repository(
             error = UpdateFailedError(
                 f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
             )
-            update_status =  UpdateStatus.FAILED
+            update_status =  Event.FAILED
 
     set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
-    _handle_repo_event(auth_repo, commits, update_status, error)
 
     # all repositories that can be updated will be updated
-    if not only_validate and len(commits) and UpdateStatus == UpdateStatus.CHANGED:
+    if not only_validate and len(commits) and Event == Event.CHANGED:
         last_commit = commits[-1]
         taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
         # if there were no errors, merge the last validated authentication repository commit
@@ -318,6 +310,8 @@ def _update_named_repository(
         # update the last validated commit
         auth_repo.set_last_validated_commit(last_commit)
 
+    handle_event(auth_repo, None, None, None)
+    # TODO export targets data
 
     # validation of the repository finished - successfully or not
 
@@ -373,7 +367,7 @@ def _update_current_repository(
             repo_urls=[url],
             conf_directory_root=conf_directory_root,
         )
-        return UpdateStatus.FAILED, users_auth_repo, [], e
+        return Event.FAILED, users_auth_repo, [], e
     try:
         # used for testing purposes
         if settings.overwrite_last_validated_commit:
@@ -430,17 +424,17 @@ def _update_current_repository(
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
-        return UpdateStatus.FAILED, users_auth_repo, commits, e
+        return Event.FAILED, users_auth_repo, commits, e
     finally:
         repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
 
     if check_for_unauthenticated and len(additional_commits_per_repo):
-        return UpdateStatus.FAILED, users_auth_repo, commits, UpdaterAdditionalCommits(additional_commits_per_repo)
+        return Event.FAILED, users_auth_repo, commits, UpdaterAdditionalCommits(additional_commits_per_repo)
 
     if len(commits):
-        return UpdateStatus.CHANGED, users_auth_repo, commits, None
-    return UpdateStatus.UNCHANGED, users_auth_repo, commits, None
+        return Event.CHANGED, users_auth_repo, commits, None
+    return Event.UNCHANGED, users_auth_repo, commits, None
 
 
 def _update_authentication_repository(repository_updater, only_validate):

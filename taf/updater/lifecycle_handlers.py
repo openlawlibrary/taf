@@ -130,9 +130,20 @@ def execute_scripts(self, auth_repo, scripts_rel_path, data):
         # data[TRANSIENT_KEY] = transient_data
 
 
-def prepare_data_repo():
-    return {}
-
+def prepare_data_repo(auth_repo, targets_data, persistent_data, transient_data):
+    return {
+        "repo_data": {
+            "root_dir": auth_repo.root_dir,
+            "name": auth_repo.name,
+            "repo_urls": auth_repo.repo_urls,
+            "additional_info": auth_repo.additonal_info,
+            "conf_directory_root": auth_repo.conf_directory_root,
+            "hosts": auth_repo.hosts,
+        },
+        "targets_data": targets_data,
+        TRANSIENT_KEY: transient_data,
+        PERSISTENT_KEY: persistent_data
+    }
 
 def prepare_data_host():
     return {}
