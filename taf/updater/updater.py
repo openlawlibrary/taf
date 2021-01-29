@@ -21,10 +21,13 @@ from taf.hosts import load_hosts_json, set_hosts_of_repo
 
 disable_tuf_console_logging()
 
+
 class UpdateStatus(enum.Enum):
     CHANGED = 1
     UNCHANGED = 2
     FAILED = 3
+    COMPLETED = 4
+
 
 class UpdateType(enum.Enum):
     TEST = (1,)
@@ -48,15 +51,7 @@ UPDATE_TYPES = {
     "either": UpdateType.EITHER,
 }
 
-# TODO support authentication repositories as targets
-# update repositoriesdb so that these repositories are not loaded as normal targets
-# separate list of children auth repositories
-# recursive update
 
-
-def _handle_repo_event(auth_repo, commits, update_status, error):
-    # execute repo success scripts
-    pass
 
 
 # TODO config path should be configurable
@@ -277,7 +272,6 @@ def _update_named_repository(
         # we need to update the repositories before loading hosts data
         child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, commits).values()
         for child_auth_repo in child_auth_repos:
-            import pdb; pdb.set_trace()
             hosts_hierarchy_per_repo[child_auth_repo.name] = list(hosts_hierarchy_per_repo[auth_repo.name])
             try:
                 _update_named_repository(
@@ -310,7 +304,7 @@ def _update_named_repository(
             error = UpdateFailedError(
                 f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
             )
-            update_status = UpdateStatus.FAILED
+            update_status =  UpdateStatus.FAILED
 
     set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
     _handle_repo_event(auth_repo, commits, update_status, error)
@@ -323,6 +317,7 @@ def _update_named_repository(
         _merge_commit(auth_repo, auth_repo.default_branch, last_commit)
         # update the last validated commit
         auth_repo.set_last_validated_commit(last_commit)
+
 
     # validation of the repository finished - successfully or not
 
