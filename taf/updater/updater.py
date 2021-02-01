@@ -17,7 +17,7 @@ from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 from taf.hosts import load_hosts_json, set_hosts_of_repo
-from taf.updater.lifecycle_handlers import handle_event, LifecycleStage, Event
+from taf.updater.lifecycle_handlers import handle_repo_event, Event
 
 
 disable_tuf_console_logging()
@@ -30,7 +30,7 @@ class UpdateType(enum.Enum):
 
     @classmethod
     def from_name(cls, name):
-        update_type = UPDATE_TYPES.get(name)
+        update_type = {v: k for k, v in UPDATE_TYPES.items()}.get(name)
         if update_type is not None:
             return update_type
         raise ValueError("{} is not a valid update type".format(name))
@@ -224,20 +224,21 @@ def _update_named_repository(
         repos_update_succedeed = {}
 
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-    update_status, auth_repo, commits, error = _update_current_repository(
-        url,
-        clients_auth_root_dir,
-        targets_root_dir,
-        auth_repo_name,
-        update_from_filesystem,
-        expected_repo_type=UpdateType.EITHER,
-        target_repo_classes=None,
-        target_factory=None,
-        only_validate=False,
-        validate_from_commit=None,
-        check_for_unauthenticated=False,
-        conf_directory_root=None,
-        addtional_repo_data=None,
+    update_status, auth_repo, commits, error, targets_pulled_commits, targets_additional_commits =  \
+        _update_current_repository(
+            url,
+            clients_auth_root_dir,
+            targets_root_dir,
+            auth_repo_name,
+            update_from_filesystem,
+            expected_repo_type=UpdateType.EITHER,
+            target_repo_classes=None,
+            target_factory=None,
+            only_validate=False,
+            validate_from_commit=None,
+            check_for_unauthenticated=False,
+            conf_directory_root=None,
+            addtional_repo_data=None,
     )
 
     # check if top repository
@@ -302,7 +303,7 @@ def _update_named_repository(
     set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
 
     # all repositories that can be updated will be updated
-    if not only_validate and len(commits) and Event == Event.CHANGED:
+    if not only_validate and len(commits) and update_status == Event.CHANGED:
         last_commit = commits[-1]
         taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
         # if there were no errors, merge the last validated authentication repository commit
@@ -310,9 +311,12 @@ def _update_named_repository(
         # update the last validated commit
         auth_repo.set_last_validated_commit(last_commit)
 
-    handle_event(auth_repo, None, None, None)
+    # repository update done, successfully or not, call the handlers
+    # the first commit in commits and first commits in targets_pulled_commits all correspond to the previous
+    # top commit
+    # remove it or not?
+    handle_repo_event(update_status, auth_repo, commits, error, targets_pulled_commits, targets_additional_commits)
     # TODO export targets data
-
     # validation of the repository finished - successfully or not
 
 
@@ -367,7 +371,7 @@ def _update_current_repository(
             repo_urls=[url],
             conf_directory_root=conf_directory_root,
         )
-        return Event.FAILED, users_auth_repo, [], e
+        return Event.FAILED, users_auth_repo, [], e, {}, {}
     try:
         # used for testing purposes
         if settings.overwrite_last_validated_commit:
@@ -408,7 +412,6 @@ def _update_current_repository(
         repositories = repositoriesdb.get_deduplicated_repositories(
             users_auth_repo, commits
         )
-
         repositories_branches_and_commits = (
             users_auth_repo.sorted_commits_and_branches_per_repositories(commits)
         )
@@ -424,7 +427,7 @@ def _update_current_repository(
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
-        return Event.FAILED, users_auth_repo, commits, e
+        return Event.FAILED, users_auth_repo, commits, e, None, None
     finally:
         repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
@@ -432,9 +435,10 @@ def _update_current_repository(
     if check_for_unauthenticated and len(additional_commits_per_repo):
         return Event.FAILED, users_auth_repo, commits, UpdaterAdditionalCommits(additional_commits_per_repo)
 
-    if len(commits):
-        return Event.CHANGED, users_auth_repo, commits, None
-    return Event.UNCHANGED, users_auth_repo, commits, None
+    # commits list will always contain the previous top commit of the repository
+    event = Event.CHANGED if len(commits) > 1 else Event.UNCHANGED
+    return event, users_auth_repo, commits, None, repositories_branches_and_commits, additional_commits_per_repo
+
 
 
 def _update_authentication_repository(repository_updater, only_validate):

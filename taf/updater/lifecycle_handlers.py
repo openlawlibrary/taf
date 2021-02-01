@@ -13,13 +13,13 @@ class LifecycleStage(enum.Enum):
 
     @classmethod
     def from_name(cls, name):
-        update_type = LIFECYCLE_NAMES.get(name)
-        if update_type is not None:
-            return update_type
+        stage = {v: k for k, v in LIFECYCLE_NAMES.items()}.get(name)
+        if stage is not None:
+            return stage
         raise ValueError(f"{name} is not a valid lifecycle stage")
 
     def to_name(self):
-        return LIFECYCLE_NAMES[self.value]
+        return LIFECYCLE_NAMES[self]
 
 
 LIFECYCLE_NAMES = {
@@ -38,13 +38,13 @@ class Event(enum.Enum):
 
     @classmethod
     def from_name(cls, name):
-        update_type = EVENT_NAMES.get(name)
-        if update_type is not None:
-            return update_type
+        event = {v: k for k, v in EVENT_NAMES.items()}.get(name)
+        if event is not None:
+            return event
         raise ValueError(f"{name} is not a valid event")
 
     def to_name(self):
-        return EVENT_NAMES[self.value]
+        return EVENT_NAMES[self]
 
 
 EVENT_NAMES = {
@@ -65,8 +65,13 @@ def _get_script_path(lifecycle_stage, event):
     return get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}")
 
 
-def handle_event(self, lifecycle_stage, event, *args, **kwargs):
-    prepare_data_name = f"prepare_data_{lifecycle_stage}"
+def handle_repo_event(event, auth_repo, commits, error, targets_pulled_commits, targets_additional_commits):
+    _handle_event(LifecycleStage.REPO, event, auth_repo, commits, error,
+                  targets_pulled_commits, targets_additional_commits)
+
+
+def _handle_event(lifecycle_stage, event, *args, **kwargs):
+    prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     data =  globals()[prepare_data_name](*args, **kwargs)
 
 
@@ -130,16 +135,17 @@ def execute_scripts(self, auth_repo, scripts_rel_path, data):
         # data[TRANSIENT_KEY] = transient_data
 
 
-def prepare_data_repo(auth_repo, targets_data, persistent_data, transient_data):
+def prepare_data_repo(auth_repo, commits, targets_data, persistent_data, transient_data):
     return {
         "repo_data": {
             "root_dir": auth_repo.root_dir,
             "name": auth_repo.name,
             "repo_urls": auth_repo.repo_urls,
-            "additional_info": auth_repo.additonal_info,
+            "additional_info": auth_repo.additional_info,
             "conf_directory_root": auth_repo.conf_directory_root,
             "hosts": auth_repo.hosts,
         },
+        "commits": commits,
         "targets_data": targets_data,
         TRANSIENT_KEY: transient_data,
         PERSISTENT_KEY: persistent_data
