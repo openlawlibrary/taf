@@ -65,9 +65,8 @@ def _get_script_path(lifecycle_stage, event):
     return get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}")
 
 
-def handle_repo_event(event, auth_repo, commits, error, targets_pulled_commits, targets_additional_commits):
-    _handle_event(LifecycleStage.REPO, event, auth_repo, commits, error,
-                  targets_pulled_commits, targets_additional_commits)
+def handle_repo_event(event, auth_repo, commits, error, targets_data):
+    _handle_event(LifecycleStage.REPO, event, auth_repo, commits, error, targets_data)
 
 
 def _handle_event(lifecycle_stage, event, *args, **kwargs):
@@ -125,6 +124,9 @@ def execute_scripts(self, auth_repo, scripts_rel_path, data):
     for script in scripts:
         # TODO
         json_data = json.dumps(data)
+        # each script need to return persistent and transient data and that data needs to be passed into the next script
+        # other data should stay the same
+        # this function needs to return the transient and persistent data returned by the last script
         output = run("py ", script, "--data ", json_data)
 
         # transient_data = output.get(TRANSIENT_KEY)
@@ -135,18 +137,29 @@ def execute_scripts(self, auth_repo, scripts_rel_path, data):
         # data[TRANSIENT_KEY] = transient_data
 
 
-def prepare_data_repo(auth_repo, commits, targets_data, persistent_data, transient_data):
+def prepare_data_repo(auth_repo, event, error, commits, targets_data,
+                      transient_data, persistent_data):
+    # commits should be a dictionary containing new commits,
+    # commit before pull and commit after pull
+    # commit before pull is not equal to the first new commit
+    # if the repository was freshly cloned
+
     return {
-        "repo_data": {
-            "root_dir": auth_repo.root_dir,
-            "name": auth_repo.name,
-            "repo_urls": auth_repo.repo_urls,
-            "additional_info": auth_repo.additional_info,
-            "conf_directory_root": auth_repo.conf_directory_root,
-            "hosts": auth_repo.hosts,
+        "changed": event == Event.CHANGED,
+        "repo_name": auth_repo.name,
+        "auth_repo": {
+            "data": {
+                "error_msg": str(error) if error else "",
+                "root_dir": auth_repo.root_dir,
+                "name": auth_repo.name,
+                "path": auth_repo.path,
+                "repo_urls": auth_repo.repo_urls,
+                "custom": auth_repo.additional_info,
+                "hosts": auth_repo.hosts,
+            },
         },
         "commits": commits,
-        "targets_data": targets_data,
+        "targets_repos": targets_data,
         TRANSIENT_KEY: transient_data,
         PERSISTENT_KEY: persistent_data
     }

@@ -60,6 +60,26 @@ class GitRepository:
             additional_info = {}
         self.additional_info = additional_info
 
+    @classmethod
+    def from_json_string(cls, json_string):
+        data = json.loads(json_string)
+        path = data.pop("path")
+        repo_urls = data.pop("urls")
+        additional_info = data.pop("custom")
+        name = data.pop("name")
+        default_branch = data.pop("default_branch")
+        return cls(path, repo_urls, additional_info, default_branch, name, **data)
+
+    def to_json(self):
+        return {
+            "path": str(self.path),
+            "urls": self.repo_urls,
+            "name": self.name,
+            "default_branch": self.default_branch,
+            "custom": self.additional_info
+        }
+
+
     logging_functions = {
         logging.DEBUG: taf_logger.debug,
         logging.INFO: taf_logger.info,
