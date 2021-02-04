@@ -7,8 +7,8 @@ from taf.utils import run
 
 
 class LifecycleStage(enum.Enum):
-    REPO = 1,
-    HOST = 2,
+    REPO = (1,)
+    HOST = (2,)
     UPDATE = 3
 
     @classmethod
@@ -25,7 +25,7 @@ class LifecycleStage(enum.Enum):
 LIFECYCLE_NAMES = {
     LifecycleStage.REPO: "repo",
     LifecycleStage.HOST: "host",
-    LifecycleStage.UPDATE: "update"
+    LifecycleStage.UPDATE: "update",
 }
 
 
@@ -52,7 +52,7 @@ EVENT_NAMES = {
     Event.CHANGED: "changed",
     Event.UNCHANGED: "unchanged",
     Event.FAILED: "failed",
-    Event.COMPLETED: "completed"
+    Event.COMPLETED: "completed",
 }
 
 
@@ -62,17 +62,39 @@ PERSISTENT_KEY = "persistent"
 
 
 def _get_script_path(lifecycle_stage, event):
-    return get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}")
+    return get_target_path(
+        f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}"
+    )
 
 
-def handle_repo_event(event, auth_repo, commits, error, targets_data):
-    _handle_event(LifecycleStage.REPO, event, auth_repo, commits, error, targets_data)
+def handle_repo_event(
+    event,
+    auth_repo,
+    commits_data,
+    error,
+    targets_data,
+    persistent_data=None,
+    transient_data=None,
+):
+    _handle_event(
+        LifecycleStage.REPO,
+        event,
+        persistent_data,
+        transient_data,
+        auth_repo,
+        commits_data,
+        error,
+        targets_data,
+    )
 
 
-def _handle_event(lifecycle_stage, event, *args, **kwargs):
+def _handle_event(
+    lifecycle_stage, event, persistent_data, transient_data, *args, **kwargs
+):
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
-    data =  globals()[prepare_data_name](*args, **kwargs)
-
+    data = globals()[prepare_data_name](
+        event, persistent_data, transient_data, *args, **kwargs
+    )
 
     def _execute_handler(handler, lifecycle_stage, event, data):
         script_rel_path = _get_script_path(lifecycle_stage, event)
@@ -137,32 +159,36 @@ def execute_scripts(self, auth_repo, scripts_rel_path, data):
         # data[TRANSIENT_KEY] = transient_data
 
 
-def prepare_data_repo(auth_repo, event, error, commits, targets_data,
-                      transient_data, persistent_data):
+def prepare_data_repo(
+    event,
+    transient_data,
+    persistent_data,
+    auth_repo,
+    commits_data,
+    error,
+    targets_dataa,
+):
     # commits should be a dictionary containing new commits,
     # commit before pull and commit after pull
     # commit before pull is not equal to the first new commit
     # if the repository was freshly cloned
-
     return {
         "changed": event == Event.CHANGED,
         "repo_name": auth_repo.name,
+        "error_msg": str(error) if error else "",
         "auth_repo": {
             "data": {
-                "error_msg": str(error) if error else "",
-                "root_dir": auth_repo.root_dir,
                 "name": auth_repo.name,
                 "path": auth_repo.path,
-                "repo_urls": auth_repo.repo_urls,
+                "urls": auth_repo.urls,
                 "custom": auth_repo.additional_info,
                 "hosts": auth_repo.hosts,
             },
         },
-        "commits": commits,
-        "targets_repos": targets_data,
         TRANSIENT_KEY: transient_data,
-        PERSISTENT_KEY: persistent_data
+        PERSISTENT_KEY: persistent_data,
     }
+
 
 def prepare_data_host():
     return {}

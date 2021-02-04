@@ -14,7 +14,7 @@ def test_url_validation_valid_urls():
         "git@github.com:openlawlibrary/taf",
     ]
     repo = GitRepository("path", urls)
-    for test_url, repo_url in zip(urls, repo.repo_urls):
+    for test_url, repo_url in zip(urls, repo.urls):
         assert test_url == repo_url
 
 

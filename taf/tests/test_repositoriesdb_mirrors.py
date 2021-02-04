@@ -27,4 +27,4 @@ def test_load_repositories_with_mirrors(repositoriesdb_test_repositories):
             ]
             if repo_path != AUTH_REPO_NAME:
                 repo = loaded_repos_dict[repo_path]
-                assert repo.repo_urls == REPOS_URLS[repo_path]
+                assert repo.urls == REPOS_URLS[repo_path]

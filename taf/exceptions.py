@@ -11,7 +11,7 @@ class TAFError(Exception):
 class CloneRepoException(TAFError):
     def __init__(self, repo):
         self.message = (
-            f"Cannot clone {repo.name} from any of the following URLs: {repo.repo_urls}"
+            f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
         )
 
 

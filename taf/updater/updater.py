@@ -1,4 +1,3 @@
-
 import json
 import shutil
 import enum
@@ -40,11 +39,10 @@ class UpdateType(enum.Enum):
 
 
 UPDATE_TYPES = {
-    UpdateType.TEST : "test",
+    UpdateType.TEST: "test",
     UpdateType.OFFICIAL: "official",
-    UpdateType.EITHER: "either"
+    UpdateType.EITHER: "either",
 }
-
 
 
 # TODO config path should be configurable
@@ -54,9 +52,9 @@ def load_library_context(config_path):
     try:
         config = json.loads(config_path.read_text())
     except json.JSONDecodeError:
-        taf_logger.warning('Invalid json in config file at {}', str(config_path))
+        taf_logger.warning("Invalid json in config file at {}", str(config_path))
     except FileNotFoundError:
-        taf_logger.warning('No config found at {}', str(config_path))
+        taf_logger.warning("No config found at {}", str(config_path))
     return config
 
 
@@ -81,7 +79,7 @@ def prepare_host_script_data(auth_repo, auth_repo_head, config_path):
         "last_successful_commits": auth_repo.last_successful_commmits,
         "auth_repo_head": auth_repo_head,
         "config": load_library_context(config_path),
-        "hosts": auth_repo.hosts
+        "hosts": auth_repo.hosts,
     }
     return json.dumps(data)
 
@@ -133,20 +131,28 @@ def update_repository(
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
     clients_auth_root_dir = clients_auth_path.parent.parent
-    _update_named_repository(
-        url,
-        clients_auth_root_dir,
-        clients_root_dir,
-        auth_repo_name,
-        update_from_filesystem,
-        expected_repo_type,
-        target_repo_classes,
-        target_factory,
-        only_validate,
-        validate_from_commit,
-        check_for_unauthenticated,
-        conf_directory_root,
-    )
+    repos_update_succeeded = {}
+    hosts = (
+        {}
+    )  # store host name and all information about the repositories; model as a new class
+    try:
+        _update_named_repository(
+            url,
+            clients_auth_root_dir,
+            clients_root_dir,
+            auth_repo_name,
+            update_from_filesystem,
+            expected_repo_type,
+            target_repo_classes,
+            target_factory,
+            only_validate,
+            validate_from_commit,
+            check_for_unauthenticated,
+            conf_directory_root,
+            repos_update_succeeded=repos_update_succeeded,
+        )
+    except Exception:
+        pass
 
 
 def _update_named_repository(
@@ -164,7 +170,7 @@ def _update_named_repository(
     conf_directory_root=None,
     visited=None,
     hosts_hierarchy_per_repo=None,
-    repos_update_succedeed=None,
+    repos_update_succeeded=None,
 ):
     """
     <Arguments>
@@ -213,39 +219,39 @@ def _update_named_repository(
     The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
     loads data from a most recent commit.
     """
-
     if visited is None:
         visited = []
     # if there is a recursive dependency
     if auth_repo_name in visited:
         return
     visited.append(auth_repo_name)
-    if repos_update_succedeed is None:
-        repos_update_succedeed = {}
 
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-    update_status, auth_repo, commits, error, targets_pulled_commits, targets_additional_commits =  \
-        _update_current_repository(
-            url,
-            clients_auth_root_dir,
-            targets_root_dir,
-            auth_repo_name,
-            update_from_filesystem,
-            expected_repo_type=UpdateType.EITHER,
-            target_repo_classes=None,
-            target_factory=None,
-            only_validate=False,
-            validate_from_commit=None,
-            check_for_unauthenticated=False,
-            conf_directory_root=None,
-            addtional_repo_data=None,
+    (
+        update_status,
+        auth_repo,
+        commits_data,
+        error,
+        targets_data,
+    ) = _update_current_repository(
+        url,
+        clients_auth_root_dir,
+        targets_root_dir,
+        auth_repo_name,
+        update_from_filesystem,
+        expected_repo_type=UpdateType.EITHER,
+        target_repo_classes=None,
+        target_factory=None,
+        only_validate=False,
+        validate_from_commit=None,
+        check_for_unauthenticated=False,
+        conf_directory_root=None,
+        addtional_repo_data=None,
     )
 
     # check if top repository
     if hosts_hierarchy_per_repo is None:
-        hosts_hierarchy_per_repo = {
-            auth_repo.name: [load_hosts_json(auth_repo)]
-        }
+        hosts_hierarchy_per_repo = {auth_repo.name: [load_hosts_json(auth_repo)]}
     else:
         try:
             # some repositories might not contain hosts.json and their host is defined
@@ -253,6 +259,11 @@ def _update_named_repository(
             hosts_hierarchy_per_repo[auth_repo.name] += [load_hosts_json(auth_repo)]
         except Exception:
             pass
+
+    commits = []
+    if commits_data["before_pull"] is not None:
+        commits = [commits_data["before_pull"]]
+    commits.extend(commits_data["new"])
     repositoriesdb.load_dependencies(
         auth_repo,
         root_dir=targets_root_dir,
@@ -264,12 +275,16 @@ def _update_named_repository(
         errors = []
         # load the repositories from dependencies.json and update these repositories
         # we need to update the repositories before loading hosts data
-        child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, commits).values()
+        child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+            auth_repo, commits
+        ).values()
         for child_auth_repo in child_auth_repos:
-            hosts_hierarchy_per_repo[child_auth_repo.name] = list(hosts_hierarchy_per_repo[auth_repo.name])
+            hosts_hierarchy_per_repo[child_auth_repo.name] = list(
+                hosts_hierarchy_per_repo[auth_repo.name]
+            )
             try:
                 _update_named_repository(
-                    child_auth_repo.repo_urls[0],
+                    child_auth_repo.urls[0],
                     clients_auth_root_dir,
                     targets_root_dir,
                     child_auth_repo.name,
@@ -283,7 +298,7 @@ def _update_named_repository(
                     conf_directory_root,
                     visited,
                     hosts_hierarchy_per_repo,
-                    repos_update_succedeed,
+                    repos_update_succeeded,
                 )
             except Exception as e:
                 errors.append(str(e))
@@ -298,7 +313,7 @@ def _update_named_repository(
             error = UpdateFailedError(
                 f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
             )
-            update_status =  Event.FAILED
+            update_status = Event.FAILED
 
     set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
 
@@ -311,11 +326,13 @@ def _update_named_repository(
         # update the last validated commit
         auth_repo.set_last_validated_commit(last_commit)
 
-    # repository update done, successfully or not, call the handlers
-    # the first commit in commits and first commits in targets_pulled_commits all correspond to the previous
-    # top commit
-    # remove it or not?
-    handle_repo_event(update_status, auth_repo, commits, error, targets_pulled_commits, targets_additional_commits)
+    # TODO
+    # combine auth repo data with commits and use that to form auth_data
+    # implement to/from json
+    handle_repo_event(update_status, auth_repo, commits_data, error, targets_data)
+    repos_update_succeeded[auth_repo.name] = update_status != Event.FAILED
+    if error is not None:
+        raise error
     # TODO export targets data
     # validation of the repository finished - successfully or not
 
@@ -350,7 +367,24 @@ def _update_current_repository(
         }
     }
     tuf.settings.repositories_directory = clients_auth_root_dir
+
+    def _commits_ret(commits, existing_repo, update_successful):
+        if commits is None:
+            commit_before_pull = None
+            new_commits = []
+            commit_after_pull = None
+        else:
+            commit_before_pull = commits[0] if existing_repo and len(commits) else None
+            commit_after_pull = commits[-1] if update_successful else None
+            new_commits = commits[1:] if len(commits) else []
+        return {
+            "before_pull": commit_before_pull,
+            "new": new_commits,
+            "after_pull": commit_after_pull,
+        }
+
     try:
+        commits = None
         repository_updater = tuf_updater.Updater(
             auth_repo_name, repository_mirrors, GitUpdater
         )
@@ -364,14 +398,27 @@ def _update_current_repository(
         # we validate it before updating the actual authentication repository
         validation_auth_repo = repository_updater.update_handler.validation_auth_repo
         commits = repository_updater.update_handler.commits
+
     except Exception as e:
         users_auth_repo = NamedAuthenticationRepo(
             clients_auth_root_dir,
             auth_repo_name,
-            repo_urls=[url],
+            urls=[url],
             conf_directory_root=conf_directory_root,
         )
-        return Event.FAILED, users_auth_repo, [], e, {}, {}
+        if commits is not None:
+            return (
+                Event.FAILED,
+                users_auth_repo,
+                _commits_ret(commits, existing_repo, False),
+                e,
+                {},
+            )
+        # this can happen if instantiation of the handler failed
+        # that will happen if the last successful commit is not the same as the top commit of the
+        # repository
+        # do not return any commits data in that case
+        return Event.FAILED, users_auth_repo, _commits_ret(commits, False, False), e, {}
     try:
         # used for testing purposes
         if settings.overwrite_last_validated_commit:
@@ -416,7 +463,7 @@ def _update_current_repository(
             users_auth_repo.sorted_commits_and_branches_per_repositories(commits)
         )
 
-        additional_commits_per_repo = _update_target_repositories(
+        additional_commits_per_repo, targets_data = _update_target_repositories(
             repositories,
             repositories_branches_and_commits,
             last_validated_commit,
@@ -427,18 +474,36 @@ def _update_current_repository(
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
-        return Event.FAILED, users_auth_repo, commits, e, None, None
+        return (
+            Event.FAILED,
+            users_auth_repo,
+            _commits_ret(commits, existing_repo, False),
+            e,
+            targets_data,
+        )
     finally:
         repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
 
     if check_for_unauthenticated and len(additional_commits_per_repo):
-        return Event.FAILED, users_auth_repo, commits, UpdaterAdditionalCommits(additional_commits_per_repo)
+        return (
+            Event.FAILED,
+            users_auth_repo,
+            _commits_ret(commits, existing_repo, False),
+            UpdaterAdditionalCommits(additional_commits_per_repo),
+            {},
+            {},
+        )
 
     # commits list will always contain the previous top commit of the repository
     event = Event.CHANGED if len(commits) > 1 else Event.UNCHANGED
-    return event, users_auth_repo, commits, None, repositories_branches_and_commits, additional_commits_per_repo
-
+    return (
+        event,
+        users_auth_repo,
+        _commits_ret(commits, existing_repo, True),
+        None,
+        targets_data,
+    )
 
 
 def _update_authentication_repository(repository_updater, only_validate):
@@ -510,7 +575,7 @@ def _update_target_repositories(
     allow_unauthenticated = {}
     new_commits = defaultdict(dict)
     additional_commits_per_repo = {}
-
+    top_commits_of_branches_before_pull = {}
     for path, repository in repositories.items():
         taf_logger.info("Validating repository {}", repository.name)
         allow_unauthenticated_for_repo = repository.additional_info.get(
@@ -582,8 +647,8 @@ def _update_target_repositories(
                 old_head,
                 branch_exists,
             )
+            top_commits_of_branches_before_pull.setdefault(path, {})[branch] = old_head
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
-
             try:
                 additional_commits_on_branch = _update_target_repository(
                     repository,
@@ -622,7 +687,13 @@ def _update_target_repositories(
                     allow_unauthenticated[path],
                     new_commits[path][branch],
                 )
-    return additional_commits_per_repo
+
+    return additional_commits_per_repo, _set_target_repositories_data(
+        repositories,
+        repositories_branches_and_commits,
+        top_commits_of_branches_before_pull,
+        additional_commits_per_repo,
+    )
 
 
 def _get_commits(
@@ -704,6 +775,49 @@ def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=Fal
             repository.checkout_commit(commit_to_merge)
         else:
             repository.checkout_branch(repository.default_branch)
+
+
+def _set_target_repositories_data(
+    repositories,
+    repositories_branches_and_commits,
+    top_commits_of_branches_before_pull,
+    additional_commits_per_repo,
+):
+    # TODO figure out what to return if pull failed
+    # the problem is that the pull could've failed because the commits weren't the same
+    # as those specified in auth repo
+    targets_data = {}
+    for repo_name, repo in repositories.items():
+        targets_data[repo_name] = {"repo_data": repo.to_json()}
+        commits_data = {}
+        for branch, commits_with_custom in repositories_branches_and_commits[
+            repo_name
+        ].items():
+            branch_commits_data = {}
+            previous_top_of_branch = top_commits_of_branches_before_pull[repo_name][
+                branch
+            ]
+            # should not be empty if exists
+            assert len(commits_with_custom)
+            if previous_top_of_branch is not None:
+                # this needs to be the same - implementation error otherwise
+                assert previous_top_of_branch == commits_with_custom[0]["commit"]
+                branch_commits_data["before_pull"] = commits_with_custom[0]
+            else:
+                branch_commits_data["before_pull"] = None
+            branch_commits_data["after_pull"] = commits_with_custom[-1]
+            if branch_commits_data["before_pull"] is not None:
+                commits_with_custom.pop(0)
+            branch_commits_data["new"] = commits_with_custom
+            additional_commits = (
+                additional_commits_per_repo.get(branch, [])
+                if repo_name in additional_commits_per_repo
+                else []
+            )
+            branch_commits_data["unathenticated"] = additional_commits
+            commits_data[branch] = branch_commits_data
+        targets_data[repo_name]["commits"] = commits_data
+    return targets_data
 
 
 def _update_target_repository(

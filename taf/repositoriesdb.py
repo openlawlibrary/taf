@@ -12,7 +12,6 @@ from taf.git import NamedGitRepository
 from taf.log import taf_logger
 
 
-
 # Target repositories db
 
 # {
@@ -76,7 +75,6 @@ def load_dependencies(
     # additionally, multiple repos can be specified under one host
     # in the same hosts file
     # also, one repo can have more than one host
-
 
     if root_dir is None:
         root_dir = Path(auth_repo.path).parent.parent

@@ -25,7 +25,7 @@ class GitRepository:
     def __init__(
         self,
         path,
-        repo_urls=None,
+        urls=None,
         additional_info=None,
         default_branch="master",
         repo_name=None,
@@ -35,7 +35,7 @@ class GitRepository:
         """
         Args:
           path: repository's path
-          repo_urls: repository's urls (optional)
+          urls: repository's urls (optional)
           additional_info: a dictionary containing other data (optional)
           default_branch: repository's default branch
         """
@@ -44,18 +44,18 @@ class GitRepository:
             repo_name = self._path.name
         self.name = repo_name
         self.default_branch = default_branch
-        if repo_urls is not None:
+        if urls is not None:
             if settings.update_from_filesystem is False:
-                for url in repo_urls:
+                for url in urls:
                     self._validate_url(url)
             else:
-                repo_urls = [
+                urls = [
                     os.path.normpath(os.path.join(self.path, url))
                     if not os.path.isabs(url)
                     else url
-                    for url in repo_urls
+                    for url in urls
                 ]
-        self.repo_urls = repo_urls
+        self.urls = urls
         if additional_info is None:
             additional_info = {}
         self.additional_info = additional_info
@@ -64,21 +64,20 @@ class GitRepository:
     def from_json_string(cls, json_string):
         data = json.loads(json_string)
         path = data.pop("path")
-        repo_urls = data.pop("urls")
+        urls = data.pop("urls")
         additional_info = data.pop("custom")
         name = data.pop("name")
         default_branch = data.pop("default_branch")
-        return cls(path, repo_urls, additional_info, default_branch, name, **data)
+        return cls(path, urls, additional_info, default_branch, name, **data)
 
     def to_json(self):
         return {
             "path": str(self.path),
-            "urls": self.repo_urls,
+            "urls": self.urls,
             "name": self.name,
             "default_branch": self.default_branch,
-            "custom": self.additional_info
+            "custom": self.additional_info,
         }
-
 
     logging_functions = {
         logging.DEBUG: taf_logger.debug,
@@ -406,7 +405,7 @@ class GitRepository:
         self._log_info("cloning repository")
         shutil.rmtree(self.path, True)
         self._path.mkdir(exist_ok=True, parents=True)
-        if self.repo_urls is None:
+        if self.urls is None:
             raise GitError(
                 repo=self, message="cannot clone repository. No urls were specified"
             )
@@ -425,7 +424,7 @@ class GitRepository:
         params = " ".join(params)
 
         cloned = False
-        for url in self.repo_urls:
+        for url in self.urls:
             self._log_info(f"trying to clone from {url}")
             try:
                 self._git(
@@ -678,8 +677,8 @@ class GitRepository:
             self._path.mkdir(exist_ok=True, parents=True)
         flag = "--bare" if bare else ""
         self._git(f"init {flag}", error_if_not_exists=False)
-        if self.repo_urls is not None and len(self.repo_urls):
-            self._git("remote add origin {}", self.repo_urls[0])
+        if self.urls is not None and len(self.urls):
+            self._git("remote add origin {}", self.urls[0])
 
     def is_remote_branch(self, branch_name):
         for remote in self.remotes:
@@ -816,8 +815,8 @@ class GitRepository:
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
         if url is None:
-            if self.repo_urls is not None and len(self.repo_urls):
-                url = self.repo_urls[0]
+            if self.urls is not None and len(self.urls):
+                url = self.urls[0]
             else:
                 url = self.get_remote_url()
 
@@ -856,7 +855,7 @@ class NamedGitRepository(GitRepository):
         self,
         root_dir,
         repo_name,
-        repo_urls=None,
+        urls=None,
         additional_info=None,
         default_branch="master",
         *args,
@@ -866,7 +865,7 @@ class NamedGitRepository(GitRepository):
         Args:
           root_dir: the root directory
           repo_name: repository's path relative to the root directory root_dir
-          repo_urls: repository's urls (optional)
+          urls: repository's urls (optional)
           additional_info: a dictionary containing other data (optional)
           default_branch: repository's default branch
         path is the absolute path to this repository. It is set by joining
@@ -878,7 +877,7 @@ class NamedGitRepository(GitRepository):
         super().__init__(
             path,
             repo_name=repo_name,
-            repo_urls=repo_urls,
+            urls=urls,
             additional_info=additional_info,
             default_branch=default_branch,
         )

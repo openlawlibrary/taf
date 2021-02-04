@@ -445,7 +445,7 @@ def _clone_client_repo(
 ):
     origin_repo_path = str(origin_dir / repository_rel_path)
     client_repo_path = str(client_dir / repository_rel_path)
-    client_repo = repo_class(client_repo_path, repo_urls=[origin_repo_path])
+    client_repo = repo_class(client_repo_path, urls=[origin_repo_path])
     client_repo.clone()
     return client_repo
 

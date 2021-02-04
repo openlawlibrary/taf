@@ -26,15 +26,13 @@ class AuthRepoMixin(TAFRepository):
     _conf_dir = None
 
     def __init__(self, conf_directory_root, hosts=None):
-        self.hosts = hosts
+        if conf_directory_root is None:
+            conf_directory_root = str(Path(self.path).parent)
         self.conf_directory_root = conf_directory_root
         # host data can be specified in the current authentication repository or in its parent
         # the input parameter hosts is expected to contain hosts date specified outside of
         # this repository's hosts file specifying its hosts
-        self.hosts = hosts or {}
-        # add information about the hosts specified in this repository's hosts file
-        self.hosts.update(self.get_hosts_of_repo(self))
-
+        self.hosts = hosts
 
     # TODO rework conf_dir
 
@@ -119,7 +117,6 @@ class AuthRepoMixin(TAFRepository):
         scripts = glob.glob(f"{scripts_path}/*.py")
         scripts = [script for script in scripts.sort() if script[0].isdigit()]
 
-
     def is_commit_authenticated(self, target_name, commit):
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
@@ -163,7 +160,6 @@ class AuthRepoMixin(TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-
     def set_last_successful_commits(self, action, env_data):
         last_successful_commits = self.last_successful_commits
         for env, data in env_data.items():
@@ -174,8 +170,10 @@ class AuthRepoMixin(TAFRepository):
             else:
                 last_successful_commits[env][action] = data
 
-        self._log_debug(f'setting last successfult commits to:\n{last_successful_commits}')
-        (Path(self.conf_dir) / 'last_successful_commits.json').write_text(
+        self._log_debug(
+            f"setting last successfult commits to:\n{last_successful_commits}"
+        )
+        (Path(self.conf_dir) / "last_successful_commits.json").write_text(
             json.dumps(last_successful_commits, indent=4)
         )
 
@@ -279,7 +277,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
     def __init__(
         self,
         path,
-        repo_urls=None,
+        urls=None,
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
@@ -287,11 +285,16 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         *args,
         **kwargs,
     ):
-        if conf_directory_root is None:
-            conf_directory_root = str(Path(path).parent)
-        self.conf_directory_root = conf_directory_root
-        self.hosts=hosts
-        super().__init__(path, repo_urls, additional_info, default_branch)
+        GitRepository.__init__(
+            self,
+            path,
+            urls=urls,
+            additional_info=additional_info,
+            default_branch=default_branch,
+        )
+        AuthRepoMixin.__init__(
+            self, conf_directory_root=conf_directory_root, hosts=hosts
+        )
 
 
 class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
@@ -299,7 +302,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         self,
         root_dir,
         repo_name,
-        repo_urls=None,
+        urls=None,
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
@@ -307,16 +310,14 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         *args,
         **kwargs,
     ):
-        if conf_directory_root is None:
-            conf_directory_root = str(Path(root_dir, repo_name).parent)
-        self.conf_directory_root = conf_directory_root
-        self.hosts=hosts
-        super().__init__(
+        NamedGitRepository.__init__(
+            self,
             root_dir=root_dir,
             repo_name=repo_name,
-            repo_urls=repo_urls,
+            urls=urls,
             additional_info=additional_info,
             default_branch=default_branch,
-            conf_directory_root=conf_directory_root,
-            hosts=hosts,
+        )
+        AuthRepoMixin.__init__(
+            self, conf_directory_root=conf_directory_root, hosts=hosts
         )
