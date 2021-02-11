@@ -28,7 +28,7 @@ class GitRepository:
         urls=None,
         additional_info=None,
         default_branch="master",
-        repo_name=None,
+        name=None,
         *args,
         **kwargs,
     ):
@@ -40,9 +40,9 @@ class GitRepository:
           default_branch: repository's default branch
         """
         self._path = Path(path).resolve()
-        if repo_name is None:
-            repo_name = self._path.name
-        self.name = repo_name
+        if name is None:
+            name = self._path.name
+        self.name = name
         self.default_branch = default_branch
         if urls is not None:
             if settings.update_from_filesystem is False:
@@ -70,7 +70,7 @@ class GitRepository:
         default_branch = data.pop("default_branch")
         return cls(path, urls, additional_info, default_branch, name, **data)
 
-    def to_json(self):
+    def to_json_dict(self):
         return {
             "path": str(self.path),
             "urls": self.urls,
@@ -854,7 +854,7 @@ class NamedGitRepository(GitRepository):
     def __init__(
         self,
         root_dir,
-        repo_name,
+        name,
         urls=None,
         additional_info=None,
         default_branch="master",
@@ -864,45 +864,65 @@ class NamedGitRepository(GitRepository):
         """
         Args:
           root_dir: the root directory
-          repo_name: repository's path relative to the root directory root_dir
+          name: repository's path relative to the root directory root_dir
           urls: repository's urls (optional)
           additional_info: a dictionary containing other data (optional)
           default_branch: repository's default branch
         path is the absolute path to this repository. It is set by joining
-        root_dir and repo_name.
+        root_dir and name.
         """
         self.root_dir = root_dir
-        self.name = repo_name
-        path = self._get_repo_path(root_dir, repo_name)
+        self.name = name
+        path = self._get_repo_path(root_dir, name)
         super().__init__(
             path,
-            repo_name=repo_name,
+            name=name,
             urls=urls,
             additional_info=additional_info,
             default_branch=default_branch,
         )
 
-    def _get_repo_path(self, root_dir, repo_name):
+    @classmethod
+    def from_json_string(cls, json_string):
+        data = json.loads(json_string)
+        root_dir = data.pop("root_dir")
+        urls = data.pop("urls")
+        additional_info = data.pop("custom")
+        name = data.pop("name")
+        default_branch = data.pop("default_branch")
+        return cls(root_dir, name, urls, additional_info, default_branch, **data)
+
+    def to_json_dict(self):
+        return {
+            "root_dir": str(self.root_dir),
+            "name": self.name,
+            "path": self.path,
+            "urls": self.urls,
+            "custom": self.additional_info,
+            "default_branch": self.default_branch,
+        }
+
+    def _get_repo_path(self, root_dir, name):
         """
         get the path to a repo and ensure it is valid.
         (since this is coming from potentially untrusted data)
         """
-        self._validate_repo_name(repo_name)
-        repo_dir = str((Path(root_dir) / (repo_name or "")))
+        self._validate_repo_name(name)
+        repo_dir = str((Path(root_dir) / (name or "")))
         if not repo_dir.startswith(repo_dir):
             self._log_error("repository name is not valid")
-            raise InvalidRepositoryError(f"Invalid repository name: {repo_name}")
+            raise InvalidRepositoryError(f"Invalid repository name: {name}")
         return repo_dir
 
-    def _validate_repo_name(self, repo_name):
+    def _validate_repo_name(self, name):
         """ Ensure the repo name is not malicious """
-        match = _repo_name_re.match(repo_name)
+        match = _repo_name_re.match(name)
         if not match:
             self._log_error("repository name is not valid")
             raise InvalidRepositoryError(
                 "Repository name must be in format namespace/repository "
                 "and can only contain letters, numbers, underscores and "
-                f'dashes, but got "{repo_name}"'
+                f'dashes, but got "{name}"'
             )
 
 

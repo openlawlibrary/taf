@@ -36,6 +36,25 @@ class AuthRepoMixin(TAFRepository):
 
     # TODO rework conf_dir
 
+    @classmethod
+    def from_json_string(cls, json_string):
+        data = json.loads(json_string)
+        path = data.pop("path")
+        urls = data.pop("urls")
+        additional_info = data.pop("custom")
+        name = data.pop("name")
+        default_branch = data.pop("default_branch")
+        return cls(path, urls, additional_info, default_branch, name, **data)
+
+    def to_json_dict(self):
+        return {
+            "path": str(self.path),
+            "urls": self.urls,
+            "name": self.name,
+            "default_branch": self.default_branch,
+            "custom": self.additional_info,
+        }
+
     @property
     def conf_dir(self):
         """
@@ -281,6 +300,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         additional_info=None,
         default_branch="master",
         conf_directory_root=None,
+        name=None,
         hosts=None,
         *args,
         **kwargs,
@@ -291,17 +311,40 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
             urls=urls,
             additional_info=additional_info,
             default_branch=default_branch,
+            name=name,
         )
         AuthRepoMixin.__init__(
             self, conf_directory_root=conf_directory_root, hosts=hosts
         )
+
+    @classmethod
+    def from_json_string(cls, json_string):
+        data = json.loads(json_string)
+        path = data.pop("path")
+        urls = data.pop("urls")
+        additional_info = data.pop("custom")
+        name = data.pop("name")
+        default_branch = data.pop("default_branch")
+        hosts = data.pop("hosts")
+        conf_directory_root = data.pop("conf_directory_root")
+        return cls(path, urls, additional_info, default_branch, conf_directory_root, name, hosts, **data)
+
+    def to_json(self):
+        return json.dumps({
+            "path": str(self.path),
+            "name": self.name,
+            "urls": self.urls,
+            "custom": self.additional_info,
+            "default_branch": self.default_branch,
+            "hosts": self.hosts
+        })
 
 
 class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
     def __init__(
         self,
         root_dir,
-        repo_name,
+        name,
         urls=None,
         additional_info=None,
         default_branch="master",
@@ -313,7 +356,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         NamedGitRepository.__init__(
             self,
             root_dir=root_dir,
-            repo_name=repo_name,
+            name=name,
             urls=urls,
             additional_info=additional_info,
             default_branch=default_branch,
@@ -321,3 +364,26 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         AuthRepoMixin.__init__(
             self, conf_directory_root=conf_directory_root, hosts=hosts
         )
+
+    @classmethod
+    def from_json_string(cls, json_string):
+        data = json.loads(json_string)
+        root_dir = data.pop("root_dir")
+        urls = data.pop("urls")
+        additional_info = data.pop("custom")
+        name = data.pop("name")
+        default_branch = data.pop("default_branch")
+        hosts = data.pop("hosts")
+        conf_directory_root = data.pop("conf_directory_root")
+        return cls(root_dir, name, urls, additional_info, default_branch, conf_directory_root, hosts, **data)
+
+    def to_json_dict(self):
+        return {
+            "root_dir": str(self.root_dir),
+            "name": self.name,
+            "path": self.path,
+            "urls": self.urls,
+            "custom": self.additional_info,
+            "default_branch": self.default_branch,
+            "hosts": self.hosts
+        }

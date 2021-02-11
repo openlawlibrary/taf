@@ -329,6 +329,7 @@ def _update_named_repository(
     # TODO
     # combine auth repo data with commits and use that to form auth_data
     # implement to/from json
+    import pdb; pdb.set_trace()
     handle_repo_event(update_status, auth_repo, commits_data, error, targets_data)
     repos_update_succeeded[auth_repo.name] = update_status != Event.FAILED
     if error is not None:
@@ -479,7 +480,7 @@ def _update_current_repository(
             users_auth_repo,
             _commits_ret(commits, existing_repo, False),
             e,
-            targets_data,
+            {},
         )
     finally:
         repository_updater.update_handler.cleanup()
@@ -788,7 +789,7 @@ def _set_target_repositories_data(
     # as those specified in auth repo
     targets_data = {}
     for repo_name, repo in repositories.items():
-        targets_data[repo_name] = {"repo_data": repo.to_json()}
+        targets_data[repo_name] = {"repo_data": repo.to_json_dict()}
         commits_data = {}
         for branch, commits_with_custom in repositories_branches_and_commits[
             repo_name

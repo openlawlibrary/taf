@@ -95,6 +95,7 @@ def _handle_event(
     data = globals()[prepare_data_name](
         event, persistent_data, transient_data, *args, **kwargs
     )
+    print(data)
 
     def _execute_handler(handler, lifecycle_stage, event, data):
         script_rel_path = _get_script_path(lifecycle_stage, event)
@@ -172,23 +173,77 @@ def prepare_data_repo(
     # commit before pull and commit after pull
     # commit before pull is not equal to the first new commit
     # if the repository was freshly cloned
-    return {
+    if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
+        event = f"event/{Event.SUCCEEDED.to_name()}"
+    else:
+        event = f"event/{Event.FAILED.to_name()}"
+    import pdb; pdb.set_trace()
+    return json.dumps({
         "changed": event == Event.CHANGED,
+        "event": event,
         "repo_name": auth_repo.name,
         "error_msg": str(error) if error else "",
         "auth_repo": {
-            "data": {
-                "name": auth_repo.name,
-                "path": auth_repo.path,
-                "urls": auth_repo.urls,
-                "custom": auth_repo.additional_info,
-                "hosts": auth_repo.hosts,
-            },
+            "data": auth_repo.to_json_dict(),
+            "commits": commits_data,
         },
+        "target_repos": targets_dataa,
         TRANSIENT_KEY: transient_data,
         PERSISTENT_KEY: persistent_data,
-    }
+    }, indent=4)
 
+
+# {
+#     dependecies: {
+#         # about the repository from dependencies.json - in repo data
+#     },
+#     changed: true/false,
+#     error_msg: text,
+#     event: event type (update/succeeded),
+#     repo_name: cityofsanmateo/law,
+#     auth_repo: {
+#         "data":{
+#             name: cityofsanmateo/law
+#             path: path on disk
+#             custom: {
+#                 custom data from dependencies.json
+#             },
+#             urls: repo urls
+#             hosts: hosts
+#         }
+#         new_commits: [],
+#         commits_before_pull: []
+#         commits_after_pull: []
+#     },
+#     target_repos:{
+#         cityofsanamteo/law-xml: {
+#             data: {
+#                 name: cityofsanamteo/law-xml,
+#                 path: path on disk,
+#                 custom: {
+#                     custom data from repositories.json
+#                 },
+#                 ursl: repo urls
+#             },
+#             branch1:{
+#                 commit_before_pull: {"commit": commit0, "custom": {...}}
+#                 new_commits: [{"commit": commit1, "custom": {...}}, {"commit": commit2, "custom": {...}}, {"commit": commit3, "custom": {}}]
+#                 commit_after_pull: {"commit": commit3, "custom": {}}
+#             }
+#             branch2: [{"commit": commit4, "custom: {...}}, {"commit": commit5, "custom": {}}]
+#         }
+#     },
+#     transient_state: {
+#         //if one script failed - return that error (updated after every script in every handler, but not saved to disk)
+#     },
+#     persistent_state: { // persisted after every script in every handler (same file every time in library root) - save to a temp file and move it
+#         cityofsanmateo/law-xml: {
+#             update/succeeded: {
+#                 ...
+#             }
+#         }
+#     },
+# }
 
 def prepare_data_host():
     return {}
