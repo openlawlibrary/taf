@@ -124,7 +124,6 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_
     # the update might have failed because the repository contains an additional
     # commit with, say, malicious scripts
     # load the scripts from the last validated commit - whether new or old
-    import pdb; pdb.set_trace()
 
     # this is a nightmare to test
     # load from filesystem in development mode so that the scripts can be updated without
@@ -145,8 +144,10 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_
         # each script need to return persistent and transient data and that data needs to be passed into the next script
         # other data should stay the same
         # this function needs to return the transient and persistent data returned by the last script
-        json_data = json.dumps(data, indent=4)
-        output = run("py ", script_path, "--data ", json_data)
+        json_data = json.dumps(data).replace("\"","'")
+        json_data = f"\"{json_data}\""
+
+        output = run("py", script_path, json_data)
         if output is not None and output != "":
             output = json.loads(output)
             transient_data = output.get(TRANSIENT_KEY)
