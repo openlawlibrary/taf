@@ -329,7 +329,6 @@ def _update_named_repository(
     # TODO
     # combine auth repo data with commits and use that to form auth_data
     # implement to/from json
-    import pdb; pdb.set_trace()
     handle_repo_event(update_status, auth_repo, commits_data, error, targets_data)
     repos_update_succeeded[auth_repo.name] = update_status != Event.FAILED
     if error is not None:
@@ -376,7 +375,7 @@ def _update_current_repository(
             commit_after_pull = None
         else:
             commit_before_pull = commits[0] if existing_repo and len(commits) else None
-            commit_after_pull = commits[-1] if update_successful else None
+            commit_after_pull = commits[-1] if update_successful else commits[0]
             new_commits = commits[1:] if len(commits) else []
         return {
             "before_pull": commit_before_pull,

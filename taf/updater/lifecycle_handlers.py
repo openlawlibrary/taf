@@ -59,6 +59,7 @@ EVENT_NAMES = {
 SCRIPTS_DIR = "scripts"
 TRANSIENT_KEY = "transient"
 PERSISTENT_KEY = "persistent"
+PERSISTENT_FILE_NAME = "last_successful_commits.json"
 
 
 def _get_script_path(lifecycle_stage, event):
@@ -89,75 +90,61 @@ def handle_repo_event(
 
 
 def _handle_event(
-    lifecycle_stage, event, persistent_data, transient_data, *args, **kwargs
+    lifecycle_stage, event, persistent_data, transient_data, auth_repo, *args, **kwargs
 ):
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     data = globals()[prepare_data_name](
-        event, persistent_data, transient_data, *args, **kwargs
+        event, persistent_data, transient_data, auth_repo, *args, **kwargs
     )
-    print(data)
 
-    def _execute_handler(handler, lifecycle_stage, event, data):
-        script_rel_path = _get_script_path(lifecycle_stage, event)
-        result = handler(script_rel_path, data)
-        transient_data = result.get(TRANSIENT_KEY)
-        persistent_data = result.get(PERSISTENT_KEY)
-        # process transient data
-        # process persistent data
-        data[PERSISTENT_KEY] = persistent_data
-        data[TRANSIENT_KEY] = transient_data
+    def _execute_scripts(auth_repo, lifecycle_stage, event, data):
+        scripts_rel_path = _get_script_path(lifecycle_stage, event)
+        result = execute_scripts(auth_repo, scripts_rel_path, data)
+
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
-        _execute_handler(handle_succeeded, lifecycle_stage, Event.SUCCEEDED, data)
+        # if event is changed or unchanged, execute these scripts first, then call the succeeded script
         if event == Event.CHANGED:
-            _execute_handler(handle_changed, lifecycle_stage, event, data)
+            _execute_scripts(auth_repo, lifecycle_stage, event, data)
         elif event == Event.UNCHANGED:
-            _execute_handler(handle_unchanged, lifecycle_stage, event, data)
+            _execute_scripts(auth_repo, lifecycle_stage, event, data)
+        _execute_scripts(auth_repo, lifecycle_stage, Event.SUCCEEDED, data)
     elif event == Event.FAILED:
-        _execute_handler(handle_failed, lifecycle_stage, event, data)
+        _execute_scripts(auth_repo, lifecycle_stage, event, data)
 
     # execute completed handler at the end
-    _execute_handler(handle_completed, lifecycle_stage, Event.COMPLETED, data)
+    _execute_scripts(auth_repo, lifecycle_stage, Event.COMPLETED, data)
 
 
-def handle_succeeded(script_path, data):
-    return {}
-
-
-def handle_changed(script_path, data):
-    return {}
-
-
-def handle_unchanged(script_path, data):
-    return {}
-
-
-def handle_failed(script_path, data):
-    return {}
-
-
-def handle_completed(script_path, data):
-    return {}
-
-
-def execute_scripts(self, auth_repo, scripts_rel_path, data):
+def execute_scripts(auth_repo, scripts_rel_path, data):
     scripts_path = Path(auth_repo.path, scripts_rel_path)
     scripts = glob.glob(f"{scripts_path}/*.py")
+    # TODO if update failed, which commit will be checked out?
+    # load from git?
+    # which commit to use?
     scripts = [script for script in scripts.sort() if script[0].isdigit()]
+    persistent_path = Path(auth_repo.root_dir, PERSISTENT_FILE_NAME)
     for script in scripts:
         # TODO
-        json_data = json.dumps(data)
         # each script need to return persistent and transient data and that data needs to be passed into the next script
         # other data should stay the same
         # this function needs to return the transient and persistent data returned by the last script
-        output = run("py ", script, "--data ", json_data)
-
-        # transient_data = output.get(TRANSIENT_KEY)
-        # persistent_data = output.get(PERSISTENT_KEY)
+        json_data = json.dumps(data, ident=4)
+        result = run("py ", script, "--data ", json_data)
+        if output is not None and output != "":
+            output = json.loads(result)
+            transient_data = output.get(TRANSIENT_KEY)
+            persistent_data = output.get(PERSISTENT_KEY)
+            if transient_data is not None:
+                data[TRANSIENT_KEY].extend(transient_data)
+            if persistent_data is not None:
+                data[PERSISTENT_KEY].extend(persistent_data)
+            _safely_save_to_disk(persistent_path, data[PERSISTENT_KEY])
         # process transient data
         # process persistent data
         # data[PERSISTENT_KEY] = persistent_data
         # data[TRANSIENT_KEY] = transient_data
+    return data[TRANSIENT_KEY], data[PERSISTENT_KEY]
 
 
 def prepare_data_repo(
@@ -167,7 +154,7 @@ def prepare_data_repo(
     auth_repo,
     commits_data,
     error,
-    targets_dataa,
+    targets_data,
 ):
     # commits should be a dictionary containing new commits,
     # commit before pull and commit after pull
@@ -177,8 +164,7 @@ def prepare_data_repo(
         event = f"event/{Event.SUCCEEDED.to_name()}"
     else:
         event = f"event/{Event.FAILED.to_name()}"
-    import pdb; pdb.set_trace()
-    return json.dumps({
+    return {
         "changed": event == Event.CHANGED,
         "event": event,
         "repo_name": auth_repo.name,
@@ -187,63 +173,11 @@ def prepare_data_repo(
             "data": auth_repo.to_json_dict(),
             "commits": commits_data,
         },
-        "target_repos": targets_dataa,
+        "target_repos": targets_data,
         TRANSIENT_KEY: transient_data,
         PERSISTENT_KEY: persistent_data,
-    }, indent=4)
+    }
 
-
-# {
-#     dependecies: {
-#         # about the repository from dependencies.json - in repo data
-#     },
-#     changed: true/false,
-#     error_msg: text,
-#     event: event type (update/succeeded),
-#     repo_name: cityofsanmateo/law,
-#     auth_repo: {
-#         "data":{
-#             name: cityofsanmateo/law
-#             path: path on disk
-#             custom: {
-#                 custom data from dependencies.json
-#             },
-#             urls: repo urls
-#             hosts: hosts
-#         }
-#         new_commits: [],
-#         commits_before_pull: []
-#         commits_after_pull: []
-#     },
-#     target_repos:{
-#         cityofsanamteo/law-xml: {
-#             data: {
-#                 name: cityofsanamteo/law-xml,
-#                 path: path on disk,
-#                 custom: {
-#                     custom data from repositories.json
-#                 },
-#                 ursl: repo urls
-#             },
-#             branch1:{
-#                 commit_before_pull: {"commit": commit0, "custom": {...}}
-#                 new_commits: [{"commit": commit1, "custom": {...}}, {"commit": commit2, "custom": {...}}, {"commit": commit3, "custom": {}}]
-#                 commit_after_pull: {"commit": commit3, "custom": {}}
-#             }
-#             branch2: [{"commit": commit4, "custom: {...}}, {"commit": commit5, "custom": {}}]
-#         }
-#     },
-#     transient_state: {
-#         //if one script failed - return that error (updated after every script in every handler, but not saved to disk)
-#     },
-#     persistent_state: { // persisted after every script in every handler (same file every time in library root) - save to a temp file and move it
-#         cityofsanmateo/law-xml: {
-#             update/succeeded: {
-#                 ...
-#             }
-#         }
-#     },
-# }
 
 def prepare_data_host():
     return {}
@@ -251,3 +185,7 @@ def prepare_data_host():
 
 def prepare_data_completed():
     return {}
+
+
+def _safely_save_to_disk(path, data):
+    print(f"Should save to {path} data {data}")
