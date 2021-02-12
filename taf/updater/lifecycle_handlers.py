@@ -90,16 +90,17 @@ def handle_repo_event(
 
 
 def _handle_event(
-    lifecycle_stage, event, persistent_data, transient_data, auth_repo, *args, **kwargs
+    lifecycle_stage, event, persistent_data, transient_data, auth_repo, commits_data, *args, **kwargs
 ):
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     data = globals()[prepare_data_name](
-        event, persistent_data, transient_data, auth_repo, *args, **kwargs
+        event, persistent_data, transient_data, auth_repo, commits_data, *args, **kwargs
     )
 
     def _execute_scripts(auth_repo, lifecycle_stage, event, data):
+        last_commit = commits_data["after_pull"]
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
-        result = execute_scripts(auth_repo, scripts_rel_path, data)
+        result = execute_scripts(auth_repo, last_commit, scripts_rel_path, data)
 
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
@@ -116,23 +117,38 @@ def _handle_event(
     _execute_scripts(auth_repo, lifecycle_stage, Event.COMPLETED, data)
 
 
-def execute_scripts(auth_repo, scripts_rel_path, data):
-    scripts_path = Path(auth_repo.path, scripts_rel_path)
-    scripts = glob.glob(f"{scripts_path}/*.py")
-    # TODO if update failed, which commit will be checked out?
-    # load from git?
-    # which commit to use?
-    scripts = [script for script in scripts.sort() if script[0].isdigit()]
+# TODO move development mode to settings
+def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_mode=True):
     persistent_path = Path(auth_repo.root_dir, PERSISTENT_FILE_NAME)
-    for script in scripts:
+    # do not load the script from the file system
+    # the update might have failed because the repository contains an additional
+    # commit with, say, malicious scripts
+    # load the scripts from the last validated commit - whether new or old
+    import pdb; pdb.set_trace()
+
+    # this is a nightmare to test
+    # load from filesystem in development mode so that the scripts can be updated without
+    # having to commit and push
+    if development_mode:
+        path = str(Path(auth_repo.path, scripts_rel_path))
+        script_paths = glob.glob(f"{path}/*.py")
+    else:
+        script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
+        script_rel_paths = [Path(scripts_rel_path, script_name).as_posix() for script_name in script_names if Path(script_name).suffix == ".py"]
+        # need to check if the path ends with py
+        auth_repo.checkout_paths(last_commit, *script_rel_paths)
+        script_paths = [str(Path(auth_repo.path, script_rel_path)) for script_rel_path in script_rel_paths]
+
+
+    for script_path in sorted(script_paths):
         # TODO
         # each script need to return persistent and transient data and that data needs to be passed into the next script
         # other data should stay the same
         # this function needs to return the transient and persistent data returned by the last script
-        json_data = json.dumps(data, ident=4)
-        result = run("py ", script, "--data ", json_data)
+        json_data = json.dumps(data, indent=4)
+        output = run("py ", script_path, "--data ", json_data)
         if output is not None and output != "":
-            output = json.loads(result)
+            output = json.loads(output)
             transient_data = output.get(TRANSIENT_KEY)
             persistent_data = output.get(PERSISTENT_KEY)
             if transient_data is not None:

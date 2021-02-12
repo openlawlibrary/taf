@@ -21,6 +21,10 @@ from taf.updater.lifecycle_handlers import handle_repo_event, Event
 
 disable_tuf_console_logging()
 
+# TODO
+# make sure custom info is loaded from dependencies.json
+# checge additional info to custom everywhere
+# validate initial commit based on auth-of-band-authentication which should be moved out of custom data
 
 class UpdateType(enum.Enum):
     TEST = 1
