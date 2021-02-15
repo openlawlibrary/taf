@@ -26,7 +26,7 @@ class GitRepository:
         self,
         path,
         urls=None,
-        additional_info=None,
+        custom=None,
         default_branch="master",
         name=None,
         *args,
@@ -36,7 +36,7 @@ class GitRepository:
         Args:
           path: repository's path
           urls: repository's urls (optional)
-          additional_info: a dictionary containing other data (optional)
+          custom: a dictionary containing other data (optional)
           default_branch: repository's default branch
         """
         self._path = Path(path).resolve()
@@ -56,19 +56,19 @@ class GitRepository:
                     for url in urls
                 ]
         self.urls = urls
-        if additional_info is None:
-            additional_info = {}
-        self.additional_info = additional_info
+        if custom is None:
+            custom = {}
+        self.custom = custom
 
     @classmethod
     def from_json_string(cls, json_string):
         data = json.loads(json_string)
         path = data.pop("path")
         urls = data.pop("urls")
-        additional_info = data.pop("custom")
+        custom = data.pop("custom")
         name = data.pop("name")
         default_branch = data.pop("default_branch")
-        return cls(path, urls, additional_info, default_branch, name, **data)
+        return cls(path, urls, custom, default_branch, name, **data)
 
     def to_json_dict(self):
         return {
@@ -76,7 +76,7 @@ class GitRepository:
             "urls": self.urls,
             "name": self.name,
             "default_branch": self.default_branch,
-            "custom": self.additional_info,
+            "custom": self.custom,
         }
 
     logging_functions = {
@@ -856,7 +856,7 @@ class NamedGitRepository(GitRepository):
         root_dir,
         name,
         urls=None,
-        additional_info=None,
+        custom=None,
         default_branch="master",
         *args,
         **kwargs,
@@ -866,7 +866,7 @@ class NamedGitRepository(GitRepository):
           root_dir: the root directory
           name: repository's path relative to the root directory root_dir
           urls: repository's urls (optional)
-          additional_info: a dictionary containing other data (optional)
+          custom: a dictionary containing other data (optional)
           default_branch: repository's default branch
         path is the absolute path to this repository. It is set by joining
         root_dir and name.
@@ -878,7 +878,7 @@ class NamedGitRepository(GitRepository):
             path,
             name=name,
             urls=urls,
-            additional_info=additional_info,
+            custom=custom,
             default_branch=default_branch,
         )
 
@@ -887,10 +887,10 @@ class NamedGitRepository(GitRepository):
         data = json.loads(json_string)
         root_dir = data.pop("root_dir")
         urls = data.pop("urls")
-        additional_info = data.pop("custom")
+        custom = data.pop("custom")
         name = data.pop("name")
         default_branch = data.pop("default_branch")
-        return cls(root_dir, name, urls, additional_info, default_branch, **data)
+        return cls(root_dir, name, urls, custom, default_branch, **data)
 
     def to_json_dict(self):
         return {
@@ -898,7 +898,7 @@ class NamedGitRepository(GitRepository):
             "name": self.name,
             "path": self.path,
             "urls": self.urls,
-            "custom": self.additional_info,
+            "custom": self.custom,
             "default_branch": self.default_branch,
         }
 

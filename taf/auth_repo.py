@@ -41,10 +41,10 @@ class AuthRepoMixin(TAFRepository):
         data = json.loads(json_string)
         path = data.pop("path")
         urls = data.pop("urls")
-        additional_info = data.pop("custom")
+        custom = data.pop("custom")
         name = data.pop("name")
         default_branch = data.pop("default_branch")
-        return cls(path, urls, additional_info, default_branch, name, **data)
+        return cls(path, urls, custom, default_branch, name, **data)
 
     def to_json_dict(self):
         return {
@@ -52,7 +52,7 @@ class AuthRepoMixin(TAFRepository):
             "urls": self.urls,
             "name": self.name,
             "default_branch": self.default_branch,
-            "custom": self.additional_info,
+            "custom": self.custom,
         }
 
     @property
@@ -197,18 +197,18 @@ class AuthRepoMixin(TAFRepository):
         )
 
     def sorted_commits_and_branches_per_repositories(
-        self, commits, target_repos=None, additional_info_fns=None
+        self, commits, target_repos=None, custom_fns=None
     ):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {
             target_repo1: {
-                branch1: [{"commit": commit1, "additional-info": {...}}, {"commit": commit2, "additional-info": {...}}, {"commit": commit3, "additional-info": {}}],
-                branch2: [{"commit": commit4, "additional-info: {...}}, {"commit": commit5, "additional_info": {}}]
+                branch1: [{"commit": commit1, "custom": {...}}, {"commit": commit2, "custom": {...}}, {"commit": commit3, "custom": {}}],
+                branch2: [{"commit": commit4, "custom: {...}}, {"commit": commit5, "custom": {}}]
             },
             target_repo2: {
-                branch1: [{"commit": commit6, "additional-info": {...}}],
-                branch2: [{"commit": commit7", "additional-info": {...}]
+                branch1: [{"commit": commit6, "custom": {...}}],
+                branch2: [{"commit": commit7", "custom": {...}]
             }
         }
         Keep in mind that targets metadata
@@ -222,15 +222,15 @@ class AuthRepoMixin(TAFRepository):
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
-                target_data.setdefault("additional-info", {})
+                target_data.setdefault("custom", {})
 
                 if previous_commit is None or target_commit != previous_commit:
                     if (
-                        additional_info_fns is not None
-                        and target_path in additional_info_fns
+                        custom_fns is not None
+                        and target_path in custom_fns
                     ):
-                        target_data["additional-info"].update(
-                            additional_info_fns[target_path](target_commit)
+                        target_data["custom"].update(
+                            custom_fns[target_path](target_commit)
                         )
 
                     repositories_commits[target_path].setdefault(
@@ -238,7 +238,7 @@ class AuthRepoMixin(TAFRepository):
                     ).append(
                         {
                             "commit": target_commit,
-                            "additional-info": target_data.get("additional-info"),
+                            "custom": target_data.get("custom"),
                         }
                     )
                 previous_commits[target_path] = target_commit
@@ -287,7 +287,7 @@ class AuthRepoMixin(TAFRepository):
                         targets[commit][target_path] = {
                             "branch": target_branch,
                             "commit": target_commit,
-                            "additional-info": target_content,
+                            "custom": target_content,
                         }
         return targets
 
@@ -297,7 +297,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         self,
         path,
         urls=None,
-        additional_info=None,
+        custom=None,
         default_branch="master",
         conf_directory_root=None,
         name=None,
@@ -309,7 +309,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
             self,
             path,
             urls=urls,
-            additional_info=additional_info,
+            custom=custom,
             default_branch=default_branch,
             name=name,
         )
@@ -322,19 +322,19 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         data = json.loads(json_string)
         path = data.pop("path")
         urls = data.pop("urls")
-        additional_info = data.pop("custom")
+        custom = data.pop("custom")
         name = data.pop("name")
         default_branch = data.pop("default_branch")
         hosts = data.pop("hosts")
         conf_directory_root = data.pop("conf_directory_root")
-        return cls(path, urls, additional_info, default_branch, conf_directory_root, name, hosts, **data)
+        return cls(path, urls, custom, default_branch, conf_directory_root, name, hosts, **data)
 
     def to_json(self):
         return json.dumps({
             "path": str(self.path),
             "name": self.name,
             "urls": self.urls,
-            "custom": self.additional_info,
+            "custom": self.custom,
             "default_branch": self.default_branch,
             "hosts": self.hosts
         })
@@ -346,7 +346,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         root_dir,
         name,
         urls=None,
-        additional_info=None,
+        custom=None,
         default_branch="master",
         conf_directory_root=None,
         hosts=None,
@@ -358,7 +358,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             root_dir=root_dir,
             name=name,
             urls=urls,
-            additional_info=additional_info,
+            custom=custom,
             default_branch=default_branch,
         )
         AuthRepoMixin.__init__(
@@ -370,12 +370,12 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         data = json.loads(json_string)
         root_dir = data.pop("root_dir")
         urls = data.pop("urls")
-        additional_info = data.pop("custom")
+        custom = data.pop("custom")
         name = data.pop("name")
         default_branch = data.pop("default_branch")
         hosts = data.pop("hosts")
         conf_directory_root = data.pop("conf_directory_root")
-        return cls(root_dir, name, urls, additional_info, default_branch, conf_directory_root, hosts, **data)
+        return cls(root_dir, name, urls, custom, default_branch, conf_directory_root, hosts, **data)
 
     def to_json_dict(self):
         return {
@@ -383,7 +383,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             "name": self.name,
             "path": self.path,
             "urls": self.urls,
-            "custom": self.additional_info,
+            "custom": self.custom,
             "default_branch": self.default_branch,
             "hosts": self.hosts
         }

@@ -582,7 +582,7 @@ def _update_target_repositories(
     top_commits_of_branches_before_pull = {}
     for path, repository in repositories.items():
         taf_logger.info("Validating repository {}", repository.name)
-        allow_unauthenticated_for_repo = repository.additional_info.get(
+        allow_unauthenticated_for_repo = repository.custom.get(
             "allow-unauthenticated-commits", False
         )
         allow_unauthenticated[path] = allow_unauthenticated_for_repo
@@ -606,7 +606,6 @@ def _update_target_repositories(
             and not only_validate
         ):
             repositories_branches_and_commits[path][repository.default_branch] = []
-
         for branch in repositories_branches_and_commits[path]:
             taf_logger.info("Validating branch {}", branch)
             # if last_validated_commit is None or if the target repository didn't exist prior

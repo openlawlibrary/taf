@@ -101,7 +101,7 @@ def load_dependencies(
                 dependencies_dict.clear()
                 break
 
-            additional_info = _get_custom_data(repo_data, None)
+            custom = _get_custom_data(repo_data, None)
 
             if auth_class is None:
                 auth_class = NamedAuthenticationRepo
@@ -114,7 +114,7 @@ def load_dependencies(
             try:
                 # TODO check if repo class is subclass of NamedAuthenticationRepo
                 # or will that get caught by except
-                contained_auth_repo = auth_class(root_dir, path, urls, additional_info)
+                contained_auth_repo = auth_class(root_dir, path, urls, custom)
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
@@ -219,15 +219,15 @@ def load_repositories(
             if path not in targets and only_load_targets:
                 continue
 
-            additional_info = _get_custom_data(repo_data, targets.get(path))
+            custom = _get_custom_data(repo_data, targets.get(path))
 
             git_repo = None
             try:
                 if factory is not None:
-                    git_repo = factory(root_dir, path, urls, additional_info)
+                    git_repo = factory(root_dir, path, urls, custom)
                 else:
                     git_repo_class = _determine_repo_class(repo_classes, path)
-                    git_repo = git_repo_class(root_dir, path, urls, additional_info)
+                    git_repo = git_repo_class(root_dir, path, urls, custom)
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
@@ -496,7 +496,7 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     def _compare(repo):
         # Check if `custom` dict is subset of targets[path]['custom'] dict
         try:
-            return custom_data.items() <= repo.additional_info.items()
+            return custom_data.items() <= repo.custom.items()
         except (AttributeError, KeyError):
             return False
 

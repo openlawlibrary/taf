@@ -140,7 +140,7 @@ def _check_repositories_dict(
                     # check custom data
                     custom_data = repositories_data[repo_name].get("custom", {})
                     assert (
-                        auth_repos_dict[commit][repo_name].additional_info
+                        auth_repos_dict[commit][repo_name].custom
                         == custom_data
                     )
                 else:
