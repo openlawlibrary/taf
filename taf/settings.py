@@ -18,6 +18,9 @@ overwrite_last_validated_commit = False
 
 last_validated_commit = None
 
+# determines if script files will be loaded from disk
+development_mode = True
+
 # The 'log.py' module manages TUF's logging system.  Users have the option to
 # enable/disable logging to a file via 'ENABLE_FILE_LOGGING', or
 # tuf.log.enable_file_logging() and tuf.log.disable_file_logging().

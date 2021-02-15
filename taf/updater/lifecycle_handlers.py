@@ -2,6 +2,8 @@ import enum
 import glob
 import json
 from pathlib import Path
+
+import taf.settings as settings
 from taf.repository_tool import get_target_path
 from taf.utils import run
 
@@ -117,8 +119,7 @@ def _handle_event(
     _execute_scripts(auth_repo, lifecycle_stage, Event.COMPLETED, data)
 
 
-# TODO move development mode to settings
-def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_mode=True):
+def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
     persistent_path = Path(auth_repo.root_dir, PERSISTENT_FILE_NAME)
     # do not load the script from the file system
     # the update might have failed because the repository contains an additional
@@ -128,6 +129,8 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_
     # this is a nightmare to test
     # load from filesystem in development mode so that the scripts can be updated without
     # having to commit and push
+    development_mode = settings.development_mode
+
     if development_mode:
         path = str(Path(auth_repo.path, scripts_rel_path))
         script_paths = glob.glob(f"{path}/*.py")
@@ -138,13 +141,12 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_
         auth_repo.checkout_paths(last_commit, *script_rel_paths)
         script_paths = [str(Path(auth_repo.path, script_rel_path)) for script_rel_path in script_rel_paths]
 
-
     for script_path in sorted(script_paths):
         # TODO
         # each script need to return persistent and transient data and that data needs to be passed into the next script
         # other data should stay the same
         # this function needs to return the transient and persistent data returned by the last script
-        json_data = json.dumps(data).replace("\"","'")
+        json_data = json.dumps(data).replace("\"","\\\"")
         json_data = f"\"{json_data}\""
 
         output = run("py", script_path, json_data)
@@ -153,14 +155,10 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, development_
             transient_data = output.get(TRANSIENT_KEY)
             persistent_data = output.get(PERSISTENT_KEY)
             if transient_data is not None:
-                data[TRANSIENT_KEY].extend(transient_data)
+                data[TRANSIENT_KEY].update(transient_data)
             if persistent_data is not None:
-                data[PERSISTENT_KEY].extend(persistent_data)
+                data[PERSISTENT_KEY].update(persistent_data)
             _safely_save_to_disk(persistent_path, data[PERSISTENT_KEY])
-        # process transient data
-        # process persistent data
-        # data[PERSISTENT_KEY] = persistent_data
-        # data[TRANSIENT_KEY] = transient_data
     return data[TRANSIENT_KEY], data[PERSISTENT_KEY]
 
 
@@ -173,6 +171,10 @@ def prepare_data_repo(
     error,
     targets_data,
 ):
+    if transient_data is None:
+        transient_data = {}
+    if persistent_data is None:
+        persistent_data = {}
     # commits should be a dictionary containing new commits,
     # commit before pull and commit after pull
     # commit before pull is not equal to the first new commit
@@ -206,3 +208,5 @@ def prepare_data_completed():
 
 def _safely_save_to_disk(path, data):
     print(f"Should save to {path} data {data}")
+    # do not overwrite the file, convert it to json and update what needs
+    # to be updated
