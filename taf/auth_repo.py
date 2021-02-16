@@ -25,10 +25,11 @@ class AuthRepoMixin(TAFRepository):
 
     _conf_dir = None
 
-    def __init__(self, conf_directory_root, hosts=None):
+    def __init__(self, conf_directory_root, out_of_band_authentication=None, hosts=None):
         if conf_directory_root is None:
             conf_directory_root = str(Path(self.path).parent)
         self.conf_directory_root = conf_directory_root
+        self.out_of_band_authentication = out_of_band_authentication
         # host data can be specified in the current authentication repository or in its parent
         # the input parameter hosts is expected to contain hosts date specified outside of
         # this repository's hosts file specifying its hosts
@@ -297,6 +298,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         self,
         path,
         urls=None,
+        out_of_band_authentication=None,
         custom=None,
         default_branch="master",
         conf_directory_root=None,
@@ -314,7 +316,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
             name=name,
         )
         AuthRepoMixin.__init__(
-            self, conf_directory_root=conf_directory_root, hosts=hosts
+            self, conf_directory_root=conf_directory_root, out_of_band_authentication=out_of_band_authentication, hosts=hosts
         )
 
     @classmethod
@@ -346,6 +348,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         root_dir,
         name,
         urls=None,
+        out_of_band_authentication=None,
         custom=None,
         default_branch="master",
         conf_directory_root=None,
@@ -362,7 +365,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             default_branch=default_branch,
         )
         AuthRepoMixin.__init__(
-            self, conf_directory_root=conf_directory_root, hosts=hosts
+            self, conf_directory_root=conf_directory_root, out_of_band_authentication=out_of_band_authentication, hosts=hosts
         )
 
     @classmethod

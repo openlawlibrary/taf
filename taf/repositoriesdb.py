@@ -101,6 +101,7 @@ def load_dependencies(
                 dependencies_dict.clear()
                 break
 
+            out_of_band_authentication = repo_data.get("out-of-band-authentication")
             custom = _get_custom_data(repo_data, None)
 
             if auth_class is None:
@@ -114,7 +115,7 @@ def load_dependencies(
             try:
                 # TODO check if repo class is subclass of NamedAuthenticationRepo
                 # or will that get caught by except
-                contained_auth_repo = auth_class(root_dir, path, urls, custom)
+                contained_auth_repo = auth_class(root_dir, path, urls, out_of_band_authentication, custom)
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",

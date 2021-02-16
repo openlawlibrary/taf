@@ -101,6 +101,7 @@ def update_repository(
     check_for_unauthenticated=False,
     conf_directory_root=None,
     config_path=None,
+    out_of_band_authentication=None,
 ):
     """
     <Arguments>
@@ -154,6 +155,7 @@ def update_repository(
             check_for_unauthenticated,
             conf_directory_root,
             repos_update_succeeded=repos_update_succeeded,
+            out_of_band_authentication=out_of_band_authentication,
         )
     except Exception:
         pass
@@ -175,6 +177,7 @@ def _update_named_repository(
     visited=None,
     hosts_hierarchy_per_repo=None,
     repos_update_succeeded=None,
+    out_of_band_authentication=None,
 ):
     """
     <Arguments>
@@ -244,13 +247,14 @@ def _update_named_repository(
         auth_repo_name,
         update_from_filesystem,
         expected_repo_type=UpdateType.EITHER,
-        target_repo_classes=None,
-        target_factory=None,
-        only_validate=False,
-        validate_from_commit=None,
-        check_for_unauthenticated=False,
+        target_repo_classes=target_repo_classes,
+        target_factory=target_factory,
+        only_validate=only_validate,
+        validate_from_commit=validate_from_commit,
+        check_for_unauthenticated=check_for_unauthenticated,
         conf_directory_root=None,
         addtional_repo_data=None,
+        out_of_band_authentication=out_of_band_authentication,
     )
 
     # check if top repository
@@ -303,6 +307,7 @@ def _update_named_repository(
                     visited,
                     hosts_hierarchy_per_repo,
                     repos_update_succeeded,
+                    child_auth_repo.out_of_band_authentication,
                 )
             except Exception as e:
                 errors.append(str(e))
@@ -355,6 +360,7 @@ def _update_current_repository(
     check_for_unauthenticated=False,
     conf_directory_root=None,
     addtional_repo_data=None,
+    out_of_band_authentication=None,
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
@@ -402,6 +408,10 @@ def _update_current_repository(
         # we validate it before updating the actual authentication repository
         validation_auth_repo = repository_updater.update_handler.validation_auth_repo
         commits = repository_updater.update_handler.commits
+
+        if users_auth_repo.last_validated_commit is None and commits[0] != out_of_band_authentication:
+            raise UpdateFailedError(f"First commit of repository {auth_repo_name} does not match "
+                                    "out of band authentication commit")
 
     except Exception as e:
         users_auth_repo = NamedAuthenticationRepo(
@@ -531,7 +541,7 @@ def _update_authentication_repository(repository_updater, only_validate):
                 try:
                     repository_updater._get_target_file(
                         target_filepath, trusted_length, trusted_hashes
-                    )  # pylint: disable=W0212 # noqa
+                    )
                 except tuf.exceptions.NoWorkingMirrorError as e:
                     taf_logger.error("Could not validate file {}", target_filepath)
                     raise e

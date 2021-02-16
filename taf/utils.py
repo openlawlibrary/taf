@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import stat
+import sys
 import subprocess
 from getpass import getpass
 from pathlib import Path
@@ -128,6 +129,7 @@ def run(*command, **kwargs):
     """
     # Skip decoding
     raw = kwargs.pop("raw", False)
+    data = kwargs.pop("input", None)
 
     if len(command) == 1 and isinstance(command[0], str):
         command = command[0].split()
@@ -146,6 +148,8 @@ def run(*command, **kwargs):
         options = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
         if not raw:
             options.update(universal_newlines=True)
+        if data is not None:
+            options.update(input=data)
 
         options.update(kwargs)
         completed = subprocess.run(command, **options)
@@ -155,9 +159,10 @@ def run(*command, **kwargs):
         if err.stderr:
             taf_logger.debug(err.stderr)
         taf_logger.debug(
-            "Command {} returned non-zero exit status {}",
+            "Command {} returned non-zero exit status {} with output {}",
             " ".join(command),
             err.returncode,
+            err.output,
         )
         raise err
 
