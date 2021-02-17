@@ -5,7 +5,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.repository_tool import get_target_path
-from taf.utils import run
+from taf.utils import run, safely_save_json_to_disk
 
 
 class LifecycleStage(enum.Enum):
@@ -58,10 +58,21 @@ EVENT_NAMES = {
 }
 
 
+CONFIG_NAME = "config.json"
 SCRIPTS_DIR = "scripts"
 TRANSIENT_KEY = "transient"
 PERSISTENT_KEY = "persistent"
-PERSISTENT_FILE_NAME = "last_successful_commits.json"
+PERSISTENT_FILE_NAME = "persistent.json"
+
+
+# config should only be read once per library root
+# make it flexible in case the updater needs to handle libraries with different roots
+config_db = {}
+
+
+# persistent data should be read from persistent file and updated after every handler call
+# should be one file per library root
+persistent_data_db = {}
 
 
 def _get_script_path(lifecycle_stage, event):
@@ -70,19 +81,44 @@ def _get_script_path(lifecycle_stage, event):
     )
 
 
+
+def get_config(library_root, config_name=CONFIG_NAME):
+    global config_db
+    if library_root not in config_db:
+        try:
+            config = json.loads(Path(library_root, CONFIG_NAME).read_text())
+        except Exception:
+            config = {}
+            config_db[library_root] = config
+    return config_db.get(library_root)
+
+
+def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
+    global persistent_data_db
+    persistent_file = Path(library_root, PERSISTENT_FILE_NAME)
+    if not persistent_file.is_file():
+        persistent_file.touch()
+
+    if library_root not in persistent_data_db:
+        try:
+            data = json.loads(persistent_file.read_text())
+        except Exception:
+            data = {}
+        persistent_data_db[library_root] = data
+    return persistent_data_db.get(library_root)
+
+
 def handle_repo_event(
     event,
     auth_repo,
     commits_data,
     error,
     targets_data,
-    persistent_data=None,
     transient_data=None,
 ):
     _handle_event(
         LifecycleStage.REPO,
         event,
-        persistent_data,
         transient_data,
         auth_repo,
         commits_data,
@@ -92,8 +128,10 @@ def handle_repo_event(
 
 
 def _handle_event(
-    lifecycle_stage, event, persistent_data, transient_data, auth_repo, commits_data, *args, **kwargs
+    lifecycle_stage, event, transient_data, auth_repo, commits_data, *args, **kwargs
 ):
+    # read initial persistent data from file
+    persistent_data = get_persistent_data(auth_repo.root_dir)
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     data = globals()[prepare_data_name](
         event, persistent_data, transient_data, auth_repo, commits_data, *args, **kwargs
@@ -156,7 +194,8 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
                 data[TRANSIENT_KEY].update(transient_data)
             if persistent_data is not None:
                 data[PERSISTENT_KEY].update(persistent_data)
-            _safely_save_to_disk(persistent_path, data[PERSISTENT_KEY])
+            import pdb; pdb.set_trace
+            safely_save_json_to_disk(data[PERSISTENT_KEY], persistent_path)
     return data[TRANSIENT_KEY], data[PERSISTENT_KEY]
 
 
@@ -182,17 +221,22 @@ def prepare_data_repo(
     else:
         event = f"event/{Event.FAILED.to_name()}"
     return {
-        "changed": event == Event.CHANGED,
-        "event": event,
-        "repo_name": auth_repo.name,
-        "error_msg": str(error) if error else "",
-        "auth_repo": {
-            "data": auth_repo.to_json_dict(),
-            "commits": commits_data,
+        "update": {
+            "changed": event == Event.CHANGED,
+            "event": event,
+            "repo_name": auth_repo.name,
+            "error_msg": str(error) if error else "",
+            "auth_repo": {
+                "data": auth_repo.to_json_dict(),
+                "commits": commits_data,
+            },
+            "target_repos": targets_data
         },
-        "target_repos": targets_data,
-        TRANSIENT_KEY: transient_data,
-        PERSISTENT_KEY: persistent_data,
+        "state": {
+            TRANSIENT_KEY: transient_data,
+            PERSISTENT_KEY: persistent_data,
+        },
+        "config": get_config(auth_repo.root_dir)
     }
 
 
@@ -202,9 +246,3 @@ def prepare_data_host():
 
 def prepare_data_completed():
     return {}
-
-
-def _safely_save_to_disk(path, data):
-    print(f"Should save to {path} data {data}")
-    # do not overwrite the file, convert it to json and update what needs
-    # to be updated

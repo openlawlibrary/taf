@@ -4,6 +4,7 @@ import os
 import stat
 import sys
 import subprocess
+import tempfile, shutil
 from getpass import getpass
 from pathlib import Path
 from cryptography import x509
@@ -200,6 +201,15 @@ def on_rm_error(_func, path, _exc_info):
     """
     os.chmod(path, stat.S_IWRITE)
     os.unlink(path)
+
+
+def safely_save_json_to_disk(data, permanent_path):
+    tfile = tempfile.NamedTemporaryFile(mode='w+t', delete=False)
+    json.dump(data, tfile)
+    temp_file_path = tfile.name
+    tfile.close()
+    shutil.copy(temp_file_path, permanent_path)
+    os.remove(temp_file_path)
 
 
 def to_tuf_datetime_format(start_date, interval):
