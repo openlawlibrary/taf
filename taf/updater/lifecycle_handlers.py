@@ -1,11 +1,13 @@
 import enum
 import glob
 import json
+import subprocess
 from pathlib import Path
 
 import taf.settings as settings
 from taf.repository_tool import get_target_path
 from taf.utils import run, safely_save_json_to_disk
+from taf.exceptions import ScriptExecutionError
 
 
 class LifecycleStage(enum.Enum):
@@ -60,8 +62,6 @@ EVENT_NAMES = {
 
 CONFIG_NAME = "config.json"
 SCRIPTS_DIR = "scripts"
-TRANSIENT_KEY = "transient"
-PERSISTENT_KEY = "persistent"
 PERSISTENT_FILE_NAME = "persistent.json"
 
 
@@ -185,18 +185,21 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
         # other data should stay the same
         # this function needs to return the transient and persistent data returned by the last script
         json_data = json.dumps(data)
-        output = run("py", script_path, input=json_data)
+        import pdb; pdb.set_trace
+        try:
+            output = run("py", script_path, input=json_data)
+        except subprocess.CalledProcessError as e:
+            raise ScriptExecutionError(script_path, e.output)
         if output is not None and output != "":
             output = json.loads(output)
-            transient_data = output.get(TRANSIENT_KEY)
-            persistent_data = output.get(PERSISTENT_KEY)
+            transient_data = output.get("transient")
+            persistent_data = output.get("persistent")
             if transient_data is not None:
-                data[TRANSIENT_KEY].update(transient_data)
+                data["state"]["transient"].update(transient_data)
             if persistent_data is not None:
-                data[PERSISTENT_KEY].update(persistent_data)
-            import pdb; pdb.set_trace
-            safely_save_json_to_disk(data[PERSISTENT_KEY], persistent_path)
-    return data[TRANSIENT_KEY], data[PERSISTENT_KEY]
+                data["state"]["persistent"].update(persistent_data)
+            safely_save_json_to_disk(data["state"]["persistent"], persistent_path)
+    return data["state"]["transient"]
 
 
 def prepare_data_repo(
@@ -233,8 +236,8 @@ def prepare_data_repo(
             "target_repos": targets_data
         },
         "state": {
-            TRANSIENT_KEY: transient_data,
-            PERSISTENT_KEY: persistent_data,
+            "transient": transient_data,
+            "persistent": persistent_data,
         },
         "config": get_config(auth_repo.root_dir)
     }
