@@ -205,7 +205,11 @@ def on_rm_error(_func, path, _exc_info):
 
 def safely_save_json_to_disk(data, permanent_path):
     tfile = tempfile.NamedTemporaryFile(mode='w+t', delete=False)
-    json.dump(data, tfile)
+    if data is not None:
+        json.dump(data, tfile)
+    else:
+        Path(permanent_path).write_text("")
+
     temp_file_path = tfile.name
     tfile.close()
     shutil.copy(temp_file_path, permanent_path)

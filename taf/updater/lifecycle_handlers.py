@@ -81,7 +81,6 @@ def _get_script_path(lifecycle_stage, event):
     )
 
 
-
 def get_config(library_root, config_name=CONFIG_NAME):
     global config_db
     if library_root not in config_db:
@@ -89,7 +88,7 @@ def get_config(library_root, config_name=CONFIG_NAME):
             config = json.loads(Path(library_root, CONFIG_NAME).read_text())
         except Exception:
             config = {}
-            config_db[library_root] = config
+        config_db[library_root] = config or {}
     return config_db.get(library_root)
 
 
@@ -104,7 +103,7 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
             data = json.loads(persistent_file.read_text())
         except Exception:
             data = {}
-        persistent_data_db[library_root] = data
+        persistent_data_db[library_root] = data or {}
     return persistent_data_db.get(library_root)
 
 
@@ -132,29 +131,33 @@ def _handle_event(
 ):
     # read initial persistent data from file
     persistent_data = get_persistent_data(auth_repo.root_dir)
+    transient_data = transient_data or {}
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     data = globals()[prepare_data_name](
-        event, persistent_data, transient_data, auth_repo, commits_data, *args, **kwargs
+        event, transient_data, persistent_data, auth_repo, commits_data, *args, **kwargs
     )
 
     def _execute_scripts(auth_repo, lifecycle_stage, event, data):
         last_commit = commits_data["after_pull"]
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
-        result = execute_scripts(auth_repo, last_commit, scripts_rel_path, data)
-
+        # this will update data
+        return execute_scripts(auth_repo, last_commit, scripts_rel_path, data)
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
         # if event is changed or unchanged, execute these scripts first, then call the succeeded script
         if event == Event.CHANGED:
-            _execute_scripts(auth_repo, lifecycle_stage, event, data)
+            data = _execute_scripts(auth_repo, lifecycle_stage, event, data)
         elif event == Event.UNCHANGED:
-            _execute_scripts(auth_repo, lifecycle_stage, event, data)
-        _execute_scripts(auth_repo, lifecycle_stage, Event.SUCCEEDED, data)
+            data = _execute_scripts(auth_repo, lifecycle_stage, event, data)
+        data = _execute_scripts(auth_repo, lifecycle_stage, Event.SUCCEEDED, data)
     elif event == Event.FAILED:
-        _execute_scripts(auth_repo, lifecycle_stage, event, data)
+        data = _execute_scripts(auth_repo, lifecycle_stage, event, data)
 
     # execute completed handler at the end
-    _execute_scripts(auth_repo, lifecycle_stage, Event.COMPLETED, data)
+    data = _execute_scripts(auth_repo, lifecycle_stage, Event.COMPLETED, data)
+
+    # return transient data as it should be propagated to other events and handlers
+    return data["state"]["transient"]
 
 
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
@@ -185,7 +188,6 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
         # other data should stay the same
         # this function needs to return the transient and persistent data returned by the last script
         json_data = json.dumps(data)
-        import pdb; pdb.set_trace
         try:
             output = run("py", script_path, input=json_data)
         except subprocess.CalledProcessError as e:
@@ -194,12 +196,22 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
             output = json.loads(output)
             transient_data = output.get("transient")
             persistent_data = output.get("persistent")
-            if transient_data is not None:
-                data["state"]["transient"].update(transient_data)
-            if persistent_data is not None:
-                data["state"]["persistent"].update(persistent_data)
-            safely_save_json_to_disk(data["state"]["persistent"], persistent_path)
-    return data["state"]["transient"]
+        else:
+            transient_data = persistent_data = {}
+        print(persistent_data)
+
+        # overwrite current persistent and transient data
+        data["state"]["transient"] = transient_data
+        data["state"]["persistent"] = persistent_data
+        try:
+            # if persistent data is not a valid json or if an error happens while storing
+            # to disk, raise an error
+            # we save to disk by copying a temp file, so the likelihood of an error
+            # should be decreased
+            safely_save_json_to_disk(persistent_data, persistent_path)
+        except Exception as e:
+            raise ScriptExecutionError(script_path, f"An error occurred while saving persistent data to disk: {str(e)}")
+    return data
 
 
 def prepare_data_repo(
@@ -211,10 +223,6 @@ def prepare_data_repo(
     error,
     targets_data,
 ):
-    if transient_data is None:
-        transient_data = {}
-    if persistent_data is None:
-        persistent_data = {}
     # commits should be a dictionary containing new commits,
     # commit before pull and commit after pull
     # commit before pull is not equal to the first new commit
