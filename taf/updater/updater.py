@@ -26,6 +26,7 @@ disable_tuf_console_logging()
 # checge additional info to custom everywhere
 # validate initial commit based on auth-of-band-authentication which should be moved out of custom data
 
+
 class UpdateType(enum.Enum):
     TEST = 1
     OFFICIAL = 2
@@ -409,9 +410,14 @@ def _update_current_repository(
         validation_auth_repo = repository_updater.update_handler.validation_auth_repo
         commits = repository_updater.update_handler.commits
 
-        if users_auth_repo.last_validated_commit is None and commits[0] != out_of_band_authentication:
-            raise UpdateFailedError(f"First commit of repository {auth_repo_name} does not match "
-                                    "out of band authentication commit")
+        if (
+            users_auth_repo.last_validated_commit is None
+            and commits[0] != out_of_band_authentication
+        ):
+            raise UpdateFailedError(
+                f"First commit of repository {auth_repo_name} does not match "
+                "out of band authentication commit"
+            )
 
     except Exception as e:
         users_auth_repo = NamedAuthenticationRepo(

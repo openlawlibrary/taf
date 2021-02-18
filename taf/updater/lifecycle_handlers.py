@@ -177,10 +177,17 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
         script_paths = glob.glob(f"{path}/*.py")
     else:
         script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
-        script_rel_paths = [Path(scripts_rel_path, script_name).as_posix() for script_name in script_names if Path(script_name).suffix == ".py"]
+        script_rel_paths = [
+            Path(scripts_rel_path, script_name).as_posix()
+            for script_name in script_names
+            if Path(script_name).suffix == ".py"
+        ]
         # need to check if the path ends with py
         auth_repo.checkout_paths(last_commit, *script_rel_paths)
-        script_paths = [str(Path(auth_repo.path, script_rel_path)) for script_rel_path in script_rel_paths]
+        script_paths = [
+            str(Path(auth_repo.path, script_rel_path))
+            for script_rel_path in script_rel_paths
+        ]
 
     for script_path in sorted(script_paths):
         # TODO
@@ -210,7 +217,10 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
             # should be decreased
             safely_save_json_to_disk(persistent_data, persistent_path)
         except Exception as e:
-            raise ScriptExecutionError(script_path, f"An error occurred while saving persistent data to disk: {str(e)}")
+            raise ScriptExecutionError(
+                script_path,
+                f"An error occurred while saving persistent data to disk: {str(e)}",
+            )
     return data
 
 
@@ -241,13 +251,13 @@ def prepare_data_repo(
                 "data": auth_repo.to_json_dict(),
                 "commits": commits_data,
             },
-            "target_repos": targets_data
+            "target_repos": targets_data,
         },
         "state": {
             "transient": transient_data,
             "persistent": persistent_data,
         },
-        "config": get_config(auth_repo.root_dir)
+        "config": get_config(auth_repo.root_dir),
     }
 
 
