@@ -10,53 +10,65 @@ from taf.log import taf_logger
 from taf.auth_repo import NamedAuthenticationRepo
 import taf.repositoriesdb as repositoriesdb
 
-_hosts_db = {}
+_hosts_dict = {}
 
-
-_repositories_dict = {}
-_dependencies_dict = {}
 DEPENDENCIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/dependencies.json"
 MIRRORS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/mirrors.json"
 REPOSITORIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/repositories.json"
 HOSTS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/hosts.json"
 AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
+class Host:
 
-def sort_repositories_by_host(root_repo, commit):
+    def __init__(self, host):
+        self.host = host
+        self.auth_repos_with_custom = []
 
-    repos_by_host = {}
-    to_traverse = [root_repo]
-    visited = []
+    def to_json(self):
+        pass
 
-    root_hosts = [_load_hosts_json(root_repo)]
-    hosts_hierarchy_per_repo = {root_repo: root_hosts}
-    repositoriesdb.set_hosts_of_repo(root_repo, root_hosts)
-    while len(to_traverse):
-        auth_repo = to_traverse.pop()
-        if auth_repo.name in visited:
-            continue
 
-        for host in auth_repo.hosts.keys():
-            repos_by_host.setdefault(host, []).append(auth_repo)
+def load_hosts(auth_repo, commits=None):
+    """
+    host_name: {
+        commit: {
+            loaded_repos: [auth_rpeo1, auth_repo2] - list repos that defined the host to avoid duplications
+            "host": host object with auth repositories
+        }
+    }
+    """
 
-        repositoriesdb.load_dependencies(
-            auth_repo,
-            commits=[commit],
-            ancestor_hosts={commit: hosts_hierarchy_per_repo[auth_repo]},
-        )
-        child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-            auth_repo, commit
-        )
-        if len(child_auth_repos):
-            for child_auth_repo in repositoriesdb.get_deduplicated_auth_repositories(
-                auth_repo, commit
-            ):
-                to_traverse.append(child_auth_repo)
-                hosts_hierarchy_per_repo[child_auth_repo] = hosts_hierarchy_per_repo + [
-                    _load_hosts_json(child_auth_repo)
-                ]
-                set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[child_auth_repo])
-    return repos_by_host
+    global _hosts_dict
+    if commits is None:
+        commits = [auth_repo.top_commit_of_branch("master")]
+
+    # can a host be defined in more than one repository?
+    # if it is defined in multiple repositories, combine the data
+    for commit in commits:
+        hosts_data = _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
+        for host_name, host_data in hosts_data.items():
+            commits_hosts_dict = _hosts_dict.setdefault(host_name, {})
+            if auth_repo.path in commits_hosts_dict.get("loaded_repos"):
+                continue
+            commits_hosts_dict.setdefault("loaded_repos", []).append(auth_repo.path)
+            repositoriesdb.load_dependencies(
+                auth_repo,
+                root_dir=auth_repo.root_dir,
+                commits=[commit],
+            )
+            child_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, [commit])
+            host = commits_hosts_dict.get("host")
+            if host is None:
+                host = Host(host_name)
+            commits_hosts_dict["host"]: host
+            # if more than one authentication repository defines the same host
+            # combine all all information about that host - each pair of auth repos and custom is added to a list
+            auth_repos_info = {
+                child_repo: host_data[AUTH_REPOS_HOSTS_KEY][child_repo.name] for child_repo in child_repos
+                if child_repo.name in host_data[AUTH_REPOS_HOSTS_KEY]
+            }
+            host.auth_repos_with_custom.append({AUTH_REPOS_HOSTS_KEY: auth_repos_info, "custom": host_data.get("custom", {})})
+
 
 
 def set_hosts_of_repo(auth_repo, hosts):
