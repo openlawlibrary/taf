@@ -20,55 +20,86 @@ AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
 class Host:
 
-    def __init__(self, host):
-        self.host = host
-        self.auth_repos_with_custom = []
-
-    def to_json(self):
-        pass
+    def __init__(self, name):
+        self.name = name
+        self.data_by_auth_repo = {}
 
 
-def load_hosts(auth_repo, commits=None):
-    """
-    host_name: {
-        commit: {
-            loaded_repos: [auth_rpeo1, auth_repo2] - list repos that defined the host to avoid duplications
-            "host": host object with auth repositories
+    def to_json_dict(self):
+        return {
+            "name": self.name,
+            "data": self.data_by_auth_repo
         }
-    }
+
+
+def load_hosts(root_auth_repo):
     """
+    Read hosts files of all repositories in the hierarchy and group repositories by hosts
+    One repository can belong to more than one host and one host can contain more than one
+    repository
+    For now, only read the hosts files given the top commits
+    The question is if it even makes sense to read older hosts date - in any case, not a high priority
+    """
+    # keep track of traversed repositories in case there are circular dependencies
+    # also keep a track of loaded repositories per host, in case there are multiple
+    # hosts.json files which define the same repo and host
+    # TODO
+    # should one overwrite another one or is this an error?
+    # raise and error for now
+    _load_hosts(root_auth_repo, [], {})
+
+
+def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
 
     global _hosts_dict
-    if commits is None:
-        commits = [auth_repo.top_commit_of_branch("master")]
+    if auth_repo.name in traversed_repos:
+        return
 
-    # can a host be defined in more than one repository?
-    # if it is defined in multiple repositories, combine the data
-    for commit in commits:
-        hosts_data = _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
-        for host_name, host_data in hosts_data.items():
-            commits_hosts_dict = _hosts_dict.setdefault(host_name, {})
-            if auth_repo.path in commits_hosts_dict.get("loaded_repos"):
-                continue
-            commits_hosts_dict.setdefault("loaded_repos", []).append(auth_repo.path)
-            repositoriesdb.load_dependencies(
-                auth_repo,
-                root_dir=auth_repo.root_dir,
-                commits=[commit],
-            )
-            child_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, [commit])
-            host = commits_hosts_dict.get("host")
-            if host is None:
-                host = Host(host_name)
-            commits_hosts_dict["host"]: host
-            # if more than one authentication repository defines the same host
-            # combine all all information about that host - each pair of auth repos and custom is added to a list
-            auth_repos_info = {
-                child_repo: host_data[AUTH_REPOS_HOSTS_KEY][child_repo.name] for child_repo in child_repos
-                if child_repo.name in host_data[AUTH_REPOS_HOSTS_KEY]
-            }
-            host.auth_repos_with_custom.append({AUTH_REPOS_HOSTS_KEY: auth_repos_info, "custom": host_data.get("custom", {})})
+    traversed_repos.append(auth_repo.name)
+    commit = auth_repo.top_commit_of_branch("commit", auth_repo.default_branch)
+    hosts_data = _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
+    for host_name, host_data in hosts_data.items():
+        host = _hosts_dict.setdefault(host_name, Host(host_name))
+        # if a host is defined in more than one authentication repository
+        # combine all information
+        # this is a dictionary which contains names of authentication repositories
+        # and some optional additional information
+        auth_repos = host_data[AUTH_REPOS_HOSTS_KEY]
+        custom = host_data["custom"]
+        # if this is called from the updater, the same repositories used in the updater will be returned
+        # unless the dependencies database is explicitly cleared
+        repositoriesdb.load_dependencies(
+            auth_repo,
+            root_dir=auth_repo.root_dir,
+            commits=[commit],
+        )
+        child_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, [commit])
+        # ignore repos defined in hosts.json if they are not also defined in dependencies.json
+        # and vice versa
+        host_repos = []
+        for child_repo in child_repos:
+            if child_repo.name in auth_repos:
+                if child_repo.name in loaded_repositories_per_host[host_name]:
+                    raise InvalidOrMissingHostsError(f"Host {host_name} and repo {child_repo.name} defined in multiple places")
+                loaded_repositories_per_host.setdefault(host_name, []).append(child_repo.name)
+                repo_custom = auth_repos[child_repo.name]
+                # add additional repo information specified in the hosts file to the repositories' custom dictionary
+                # if the data was already added to the custom dictionary, it will just be overwritten by the same data
+                host_repos.append({
+                    child_repo.name: {
+                        "repo": child_repo,
+                        "custom": repo_custom
+                    }
+                })
+        auth_repo_host_data = {
+            "auth_repos": host_repos,
+            "custom": custom
+        }
+        host.data_by_auth_repo[auth_repo] = auth_repo_host_data
 
+
+def get_hosts():
+    return _hosts_dict.values()
 
 
 def set_hosts_of_repo(auth_repo, hosts):
@@ -78,7 +109,10 @@ def set_hosts_of_repo(auth_repo, hosts):
             if not auth_repo.name in host_data[AUTH_REPOS_HOSTS_KEY]:
                 continue
             data = dict(host_data)
+            repo_custom = host_data[AUTH_REPOS_HOSTS_KEY][auth_repo.name]
             data.pop(AUTH_REPOS_HOSTS_KEY)
+            if len(repo_custom):
+                data["auth_repo"] = repo_custom
             hosts_of_repo[host] = data
     if not len(hosts_of_repo):
         taf_logger.warning(

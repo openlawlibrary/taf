@@ -15,7 +15,7 @@ import taf.settings as settings
 from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hosts import load_hosts_json, set_hosts_of_repo
+from taf.hosts import load_hosts_json, set_hosts_of_repo, load_hosts, get_hosts
 from taf.updater.lifecycle_handlers import handle_repo_event, Event
 
 
@@ -137,10 +137,7 @@ def update_repository(
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
     clients_auth_root_dir = clients_auth_path.parent.parent
-    repos_update_succeeded = {}
-    hosts = (
-        {}
-    )  # store host name and all information about the repositories; model as a new class
+    repos_update_data = {}
     try:
         _update_named_repository(
             url,
@@ -155,10 +152,17 @@ def update_repository(
             validate_from_commit,
             check_for_unauthenticated,
             conf_directory_root,
-            repos_update_succeeded=repos_update_succeeded,
+            repos_update_data=repos_update_data,
             out_of_band_authentication=out_of_band_authentication,
         )
     except Exception:
+        pass
+    # after all repositories have been updated, sort them by hosts and call hosts handlers
+    # update information is in repos_update_data
+    root_auth_repo = repos_update_data[auth_repo_name]
+    load_hosts(root_auth_repo)
+    hosts = get_hosts()
+    for host in hosts:
         pass
 
 
@@ -177,7 +181,7 @@ def _update_named_repository(
     conf_directory_root=None,
     visited=None,
     hosts_hierarchy_per_repo=None,
-    repos_update_succeeded=None,
+    repos_update_data=None,
     out_of_band_authentication=None,
 ):
     """
@@ -307,7 +311,7 @@ def _update_named_repository(
                     conf_directory_root,
                     visited,
                     hosts_hierarchy_per_repo,
-                    repos_update_succeeded,
+                    repos_update_data,
                     child_auth_repo.out_of_band_authentication,
                 )
             except Exception as e:
@@ -336,11 +340,17 @@ def _update_named_repository(
         # update the last validated commit
         auth_repo.set_last_validated_commit(last_commit)
 
-    # TODO
-    # combine auth repo data with commits and use that to form auth_data
-    # implement to/from json
+    # TODO this information needs to be propagated so that it can be used in the hosts
+    # handler
     handle_repo_event(update_status, auth_repo, commits_data, error, targets_data)
-    repos_update_succeeded[auth_repo.name] = update_status != Event.FAILED
+    repos_update_data[auth_repo.name] = {
+        "auth_repo": atuh_repo,
+        "update_status": update_status,
+        "commits_data": commits_data,
+        "error": error,
+        "targets_data": targets_data
+    }
+
     if error is not None:
         raise error
     # TODO export targets data
