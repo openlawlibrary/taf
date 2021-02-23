@@ -119,26 +119,33 @@ def handle_repo_event(
         LifecycleStage.REPO,
         event,
         transient_data,
+        auth_repo.root_dir,
         auth_repo,
         commits_data,
         error,
         targets_data,
     )
 
+def handle_host_event():
+    pass
+
 
 def _handle_event(
-    lifecycle_stage, event, transient_data, auth_repo, commits_data, *args, **kwargs
+    lifecycle_stage, event, transient_data, root_dir, *args, **kwargs
 ):
     # read initial persistent data from file
-    persistent_data = get_persistent_data(auth_repo.root_dir)
+    persistent_data = get_persistent_data(root_dir)
     transient_data = transient_data or {}
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     data = globals()[prepare_data_name](
-        event, transient_data, persistent_data, auth_repo, commits_data, *args, **kwargs
+        event, transient_data, persistent_data, *args, **kwargs
+    )
+    script_repo_and_commit_name = f"get_script_repo_and_commit_{lifecycle_stage.to_name()}"
+    auth_repo, last_commit = globals()[script_repo_and_commit_name](
+        *args, **kwargs
     )
 
-    def _execute_scripts(auth_repo, lifecycle_stage, event, data):
-        last_commit = commits_data["after_pull"]
+    def _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data):
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
         # this will update data
         return execute_scripts(auth_repo, last_commit, scripts_rel_path, data)
@@ -146,15 +153,15 @@ def _handle_event(
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
         # if event is changed or unchanged, execute these scripts first, then call the succeeded script
         if event == Event.CHANGED:
-            data = _execute_scripts(auth_repo, lifecycle_stage, event, data)
+            data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data)
         elif event == Event.UNCHANGED:
-            data = _execute_scripts(auth_repo, lifecycle_stage, event, data)
-        data = _execute_scripts(auth_repo, lifecycle_stage, Event.SUCCEEDED, data)
+            data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data)
+        data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, Event.SUCCEEDED, data)
     elif event == Event.FAILED:
-        data = _execute_scripts(auth_repo, lifecycle_stage, event, data)
+        data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data)
 
     # execute completed handler at the end
-    data = _execute_scripts(auth_repo, lifecycle_stage, Event.COMPLETED, data)
+    data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, Event.COMPLETED, data)
 
     # return transient data as it should be propagated to other events and handlers
     return data["state"]["transient"]
@@ -222,6 +229,22 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
                 f"An error occurred while saving persistent data to disk: {str(e)}",
             )
     return data
+
+
+def get_script_repo_and_commit_repo(
+    auth_repo,
+    commits_data,
+    *args
+):
+    return auth_repo, commits_data["after_pull"]
+
+
+def get_script_repo_and_commit_host(
+    auth_repo,
+    commits_data,
+    *args
+):
+    pass
 
 
 def prepare_data_repo(

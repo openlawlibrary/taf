@@ -159,11 +159,26 @@ def update_repository(
         pass
     # after all repositories have been updated, sort them by hosts and call hosts handlers
     # update information is in repos_update_data
-    root_auth_repo = repos_update_data[auth_repo_name]
+    root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
     load_hosts(root_auth_repo)
     hosts = get_hosts()
+    host_update_status = None
+    repo_update_statuses = []
     for host in hosts:
-        pass
+        # check if host update was successful - meaning that all repositories of that host were updated successfully
+        for host_data in host.data_by_auth_repo.values():
+            for host_repo_dict in host_data["auth_repos"]:
+                for host_repo_name in host_repo_dict:
+                    host_repo_update_data = repos_update_data[host_repo_name]
+                    repo_update_statuses.append(host_repo_update_data["update_status"])
+
+    if any(repo_update_status == Event.FAILED for repo_update_status in repo_update_statuses):
+        host_update_status = Event.FAILED
+    elif any(repo_update_status == Event.CHANGED for repo_update_status in repo_update_statuses):
+        host_update_status = Event.CHANGED
+    else:
+        host_update_status = Event.UNCHANGED
+    print(host_update_status)
 
 
 def _update_named_repository(
@@ -344,7 +359,7 @@ def _update_named_repository(
     # handler
     handle_repo_event(update_status, auth_repo, commits_data, error, targets_data)
     repos_update_data[auth_repo.name] = {
-        "auth_repo": atuh_repo,
+        "auth_repo": auth_repo,
         "update_status": update_status,
         "commits_data": commits_data,
         "error": error,

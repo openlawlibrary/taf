@@ -56,7 +56,7 @@ def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
         return
 
     traversed_repos.append(auth_repo.name)
-    commit = auth_repo.top_commit_of_branch("commit", auth_repo.default_branch)
+    commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
     hosts_data = _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
     for host_name, host_data in hosts_data.items():
         host = _hosts_dict.setdefault(host_name, Host(host_name))
@@ -77,17 +77,18 @@ def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
         # ignore repos defined in hosts.json if they are not also defined in dependencies.json
         # and vice versa
         host_repos = []
-        for child_repo in child_repos:
-            if child_repo.name in auth_repos:
-                if child_repo.name in loaded_repositories_per_host[host_name]:
+        for child_repo_name, child_repo in child_repos.items():
+            if child_repo_name in auth_repos:
+                loaded_repos_of_host = loaded_repositories_per_host.setdefault(host_name, [])
+                if child_repo.name in loaded_repos_of_host:
                     raise InvalidOrMissingHostsError(f"Host {host_name} and repo {child_repo.name} defined in multiple places")
-                loaded_repositories_per_host.setdefault(host_name, []).append(child_repo.name)
+                loaded_repos_of_host.append(child_repo.name)
                 repo_custom = auth_repos[child_repo.name]
                 # add additional repo information specified in the hosts file to the repositories' custom dictionary
                 # if the data was already added to the custom dictionary, it will just be overwritten by the same data
                 host_repos.append({
                     child_repo.name: {
-                        "repo": child_repo,
+                        "auth_repo": child_repo,
                         "custom": repo_custom
                     }
                 })
