@@ -16,7 +16,7 @@ from taf.exceptions import UpdateFailedError, UpdaterAdditionalCommits, GitError
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
 from taf.hosts import load_hosts_json, set_hosts_of_repo, load_hosts, get_hosts
-from taf.updater.lifecycle_handlers import handle_repo_event, Event
+from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event, Event
 
 
 disable_tuf_console_logging()
@@ -178,6 +178,7 @@ def update_repository(
         host_update_status = Event.CHANGED
     else:
         host_update_status = Event.UNCHANGED
+    import pdb; pdb.set_trace()
     print(host_update_status)
 
 
@@ -357,7 +358,7 @@ def _update_named_repository(
 
     # TODO this information needs to be propagated so that it can be used in the hosts
     # handler
-    handle_repo_event(update_status, auth_repo, commits_data, error, targets_data)
+    handle_repo_event(update_status, auth_repo, conf_directory_root, commits_data, error, targets_data)
     repos_update_data[auth_repo.name] = {
         "auth_repo": auth_repo,
         "update_status": update_status,

@@ -110,6 +110,7 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
 def handle_repo_event(
     event,
     auth_repo,
+    root_dir,
     commits_data,
     error,
     targets_data,
@@ -119,15 +120,31 @@ def handle_repo_event(
         LifecycleStage.REPO,
         event,
         transient_data,
-        auth_repo.root_dir,
+        root_dir,
         auth_repo,
         commits_data,
         error,
         targets_data,
     )
 
-def handle_host_event():
-    pass
+def handle_host_event(
+    event,
+    host,
+    root_dir,
+    root_commits_data,
+    repos_update_data,
+    error,
+    transient_data=None
+):
+    _handle_event(
+        LifecycleStage.HOST,
+        event,
+        transient_data,
+        root_dir,
+        host,
+        repos_update_data,
+        error,
+    )
 
 
 def _handle_event(
@@ -137,31 +154,32 @@ def _handle_event(
     persistent_data = get_persistent_data(root_dir)
     transient_data = transient_data or {}
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
-    data = globals()[prepare_data_name](
-        event, transient_data, persistent_data, *args, **kwargs
-    )
-    script_repo_and_commit_name = f"get_script_repo_and_commit_{lifecycle_stage.to_name()}"
-    auth_repo, last_commit = globals()[script_repo_and_commit_name](
-        *args, **kwargs
+    # expect a dictionary containing a map of the authentication repository whose
+    # scripts should be invoked and data to be passed to those scripts
+    repos_and_data = globals()[prepare_data_name](
+        event, transient_data, persistent_data, root_dir, *args, **kwargs
     )
 
-    def _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data):
+    def _execute_scripts(repos_and_data, lifecycle_stage, event):
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
         # this will update data
-        return execute_scripts(auth_repo, last_commit, scripts_rel_path, data)
+        for script_repo, script_data in repos_and_data.items():
+            data = script_data["data"]
+            last_commit = script_data["commit"]
+        return execute_scripts(script_repo, last_commit, scripts_rel_path, data)
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
         # if event is changed or unchanged, execute these scripts first, then call the succeeded script
         if event == Event.CHANGED:
-            data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data)
+            data = _execute_scripts(repos_and_data, lifecycle_stage, event)
         elif event == Event.UNCHANGED:
-            data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data)
-        data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, Event.SUCCEEDED, data)
+            data = _execute_scripts(repos_and_data, lifecycle_stage, event)
+        data = (repos_and_data, lifecycle_stage, Event.SUCCEEDED)
     elif event == Event.FAILED:
-        data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, event, data)
+        data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
     # execute completed handler at the end
-    data = _execute_scripts(auth_repo, last_commit, lifecycle_stage, Event.COMPLETED, data)
+    data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
     # return transient data as it should be propagated to other events and handlers
     return data["state"]["transient"]
@@ -251,42 +269,87 @@ def prepare_data_repo(
     event,
     transient_data,
     persistent_data,
+    root_dir,
     auth_repo,
     commits_data,
     error,
     targets_data,
 ):
-    # commits should be a dictionary containing new commits,
-    # commit before pull and commit after pull
-    # commit before pull is not equal to the first new commit
-    # if the repository was freshly cloned
-    if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
-        event = f"event/{Event.SUCCEEDED.to_name()}"
-    else:
-        event = f"event/{Event.FAILED.to_name()}"
     return {
-        "update": {
-            "changed": event == Event.CHANGED,
-            "event": event,
-            "repo_name": auth_repo.name,
-            "error_msg": str(error) if error else "",
-            "auth_repo": {
-                "data": auth_repo.to_json_dict(),
-                "commits": commits_data,
+        auth_repo: {
+            "data": {
+                "update": _repo_update_data(auth_repo, event, commits_data, targets_data, error),
+                "state": {
+                    "transient": transient_data,
+                    "persistent": persistent_data,
+                },
+                "config": get_config(auth_repo.root_dir),
             },
-            "target_repos": targets_data,
-        },
-        "state": {
-            "transient": transient_data,
-            "persistent": persistent_data,
-        },
-        "config": get_config(auth_repo.root_dir),
+            "commit": commits_data["after_pull"]
+        }
     }
 
 
-def prepare_data_host():
-    return {}
+def prepare_data_host(
+    event,
+    transient_data,
+    persistent_data,
+    root_dir,
+    host,
+    root_commits_data,
+    repos_update_data,
+    error,
+):
+    # combine data about the repos
+    host_data_by_repos = {}
+    for root_repo, contained_repos_host_data in host.data_by_auth_repo.items():
+        auth_repos = []
+        for repo_name, repo_host_data in contained_repos_host_data.items():
+            repo_data = _repo_update_data(**repos_update_data[repo_name])
+            repo_data["custom"] = repo_host_data["custom"]
+            auth_repos.append(repo_data)
+
+        host_data_by_repos[root_repo] = {
+            "data": {
+                "update": {
+                    "changed": event == Event.CHANGED,
+                    "event": _format_event(event),
+                    "host_name": host.name,
+                    "error_msg": str(error) if error else "",
+                    "auth_repos": auth_repos,
+                    "custom": contained_repos_host_data["custom"]
+                },
+                "state": {
+                    "transient": transient_data,
+                    "persistent": persistent_data,
+                },
+                "config": get_config(root_dir),
+            },
+            "commit": root_commits_data["after_pull"]
+        }
+    return host_data_by_repos
+
 
 
 def prepare_data_completed():
     return {}
+
+
+def _repo_update_data(auth_repo, event, commits_data, targets_data, error):
+    return {
+        "changed": event == Event.CHANGED,
+        "event": _format_event(event),
+        "repo_name": auth_repo.name,
+        "error_msg": str(error) if error else "",
+        "auth_repo": {
+            "data": auth_repo.to_json_dict(),
+            "commits": commits_data,
+        },
+        "target_repos": targets_data,
+    }
+
+def _format_event(event):
+    if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
+        return f"event/{Event.SUCCEEDED.to_name()}"
+    else:
+        return f"event/{Event.FAILED.to_name()}"
