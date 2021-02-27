@@ -162,24 +162,23 @@ def update_repository(
     root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
     load_hosts(root_auth_repo)
     hosts = get_hosts()
-    host_update_status = None
-    repo_update_statuses = []
+    host_update_status = Event.UNCHANGED
+    errors = ""
     for host in hosts:
         # check if host update was successful - meaning that all repositories of that host were updated successfully
         for host_data in host.data_by_auth_repo.values():
             for host_repo_dict in host_data["auth_repos"]:
                 for host_repo_name in host_repo_dict:
                     host_repo_update_data = repos_update_data[host_repo_name]
-                    repo_update_statuses.append(host_repo_update_data["update_status"])
+                    update_status = host_repo_update_data["update_status"]
+                    if host_update_status !=  Event.UNCHANGED and update_status != Event.UNCHANGED: # meaning changed or failed
+                        host_update_status = update_status
+                        break
+                    repo_error = host_repo_update_data["error"]
+                    if repo_error is not None:
+                        errors += str(repo_error)
 
-    if any(repo_update_status == Event.FAILED for repo_update_status in repo_update_statuses):
-        host_update_status = Event.FAILED
-    elif any(repo_update_status == Event.CHANGED for repo_update_status in repo_update_statuses):
-        host_update_status = Event.CHANGED
-    else:
-        host_update_status = Event.UNCHANGED
-    import pdb; pdb.set_trace()
-    print(host_update_status)
+        handle_host_event(host_update_status, host, root_auth_repo.root_dir, repos_update_data, errors)
 
 
 def _update_named_repository(
@@ -273,8 +272,7 @@ def _update_named_repository(
         only_validate=only_validate,
         validate_from_commit=validate_from_commit,
         check_for_unauthenticated=check_for_unauthenticated,
-        conf_directory_root=None,
-        addtional_repo_data=None,
+        conf_directory_root=conf_directory_root,
         out_of_band_authentication=out_of_band_authentication,
     )
 
@@ -345,8 +343,9 @@ def _update_named_repository(
             )
             update_status = Event.FAILED
 
+    # TODO which commit to load if the commit top commit does not match the last validated commit
+    # use last validated commit - if the repository contains it
     set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
-
     # all repositories that can be updated will be updated
     if not only_validate and len(commits) and update_status == Event.CHANGED:
         last_commit = commits[-1]
@@ -358,7 +357,7 @@ def _update_named_repository(
 
     # TODO this information needs to be propagated so that it can be used in the hosts
     # handler
-    handle_repo_event(update_status, auth_repo, conf_directory_root, commits_data, error, targets_data)
+    handle_repo_event(update_status, auth_repo, auth_repo.root_dir, commits_data, error, targets_data)
     repos_update_data[auth_repo.name] = {
         "auth_repo": auth_repo,
         "update_status": update_status,
@@ -386,7 +385,6 @@ def _update_current_repository(
     validate_from_commit=None,
     check_for_unauthenticated=False,
     conf_directory_root=None,
-    addtional_repo_data=None,
     out_of_band_authentication=None,
 ):
     settings.update_from_filesystem = update_from_filesystem

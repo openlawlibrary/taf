@@ -131,7 +131,6 @@ def handle_host_event(
     event,
     host,
     root_dir,
-    root_commits_data,
     repos_update_data,
     error,
     transient_data=None
@@ -159,6 +158,7 @@ def _handle_event(
     repos_and_data = globals()[prepare_data_name](
         event, transient_data, persistent_data, root_dir, *args, **kwargs
     )
+    print(repos_and_data)
 
     def _execute_scripts(repos_and_data, lifecycle_stage, event):
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
@@ -296,7 +296,6 @@ def prepare_data_host(
     persistent_data,
     root_dir,
     host,
-    root_commits_data,
     repos_update_data,
     error,
 ):
@@ -304,29 +303,30 @@ def prepare_data_host(
     host_data_by_repos = {}
     for root_repo, contained_repos_host_data in host.data_by_auth_repo.items():
         auth_repos = []
-        for repo_name, repo_host_data in contained_repos_host_data.items():
-            repo_data = _repo_update_data(**repos_update_data[repo_name])
-            repo_data["custom"] = repo_host_data["custom"]
-            auth_repos.append(repo_data)
+        for host_auth_repos in contained_repos_host_data["auth_repos"]:
+            for repo_name, repo_host_data in host_auth_repos.items():
+                repo_data = _repo_update_data(**repos_update_data[repo_name])
+                repo_data["custom"] = repo_host_data["custom"]
+                auth_repos.append(repo_data)
 
-        host_data_by_repos[root_repo] = {
-            "data": {
-                "update": {
-                    "changed": event == Event.CHANGED,
-                    "event": _format_event(event),
-                    "host_name": host.name,
-                    "error_msg": str(error) if error else "",
-                    "auth_repos": auth_repos,
-                    "custom": contained_repos_host_data["custom"]
+            host_data_by_repos[root_repo] = {
+                "data": {
+                    "update": {
+                        "changed": event == Event.CHANGED,
+                        "event": _format_event(event),
+                        "host_name": host.name,
+                        "error_msg": str(error) if error else "",
+                        "auth_repos": auth_repos,
+                        "custom": contained_repos_host_data["custom"]
+                    },
+                    "state": {
+                        "transient": transient_data,
+                        "persistent": persistent_data,
+                    },
+                    "config": get_config(root_dir),
                 },
-                "state": {
-                    "transient": transient_data,
-                    "persistent": persistent_data,
-                },
-                "config": get_config(root_dir),
-            },
-            "commit": root_commits_data["after_pull"]
-        }
+                "commit": repos_update_data[root_repo.name]["commits_data"]["after_pull"]
+            }
     return host_data_by_repos
 
 
@@ -335,10 +335,10 @@ def prepare_data_completed():
     return {}
 
 
-def _repo_update_data(auth_repo, event, commits_data, targets_data, error):
+def _repo_update_data(auth_repo, update_status, commits_data, targets_data, error):
     return {
-        "changed": event == Event.CHANGED,
-        "event": _format_event(event),
+        "changed": update_status == Event.CHANGED,
+        "event": _format_event(update_status),
         "repo_name": auth_repo.name,
         "error_msg": str(error) if error else "",
         "auth_repo": {
@@ -347,6 +347,7 @@ def _repo_update_data(auth_repo, event, commits_data, targets_data, error):
         },
         "target_repos": targets_data,
     }
+
 
 def _format_event(event):
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
