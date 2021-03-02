@@ -2,9 +2,9 @@ import datetime
 import json
 import os
 import stat
-import sys
 import subprocess
-import tempfile, shutil
+import tempfile
+import shutil
 from getpass import getpass
 from pathlib import Path
 from cryptography import x509
@@ -204,7 +204,7 @@ def on_rm_error(_func, path, _exc_info):
 
 
 def safely_save_json_to_disk(data, permanent_path):
-    tfile = tempfile.NamedTemporaryFile(mode='w+t', delete=False)
+    tfile = tempfile.NamedTemporaryFile(mode="w+t", delete=False)
     if data is not None:
         json.dump(data, tfile)
     else:

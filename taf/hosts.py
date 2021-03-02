@@ -1,14 +1,11 @@
 import json
-from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.exceptions import (
     GitError,
     MissingHostsError,
     InvalidHostsError,
-    RepositoryInstantiationError,
 )
 from taf.log import taf_logger
-from taf.auth_repo import NamedAuthenticationRepo
 import taf.repositoriesdb as repositoriesdb
 
 _hosts_dict = {}
@@ -104,7 +101,7 @@ def set_hosts_of_repo(auth_repo, hosts):
     hosts_of_repo = {}
     for hosts_info in hosts:
         for host, host_data in hosts_info.items():
-            if not auth_repo.name in host_data[AUTH_REPOS_HOSTS_KEY]:
+            if auth_repo.name not in host_data[AUTH_REPOS_HOSTS_KEY]:
                 continue
             data = dict(host_data)
             repo_custom = host_data[AUTH_REPOS_HOSTS_KEY][auth_repo.name]

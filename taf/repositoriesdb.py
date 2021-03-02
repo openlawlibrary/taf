@@ -115,7 +115,9 @@ def load_dependencies(
             try:
                 # TODO check if repo class is subclass of NamedAuthenticationRepo
                 # or will that get caught by except
-                contained_auth_repo = auth_class(root_dir, path, urls, out_of_band_authentication, custom)
+                contained_auth_repo = auth_class(
+                    root_dir, path, urls, out_of_band_authentication, custom
+                )
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",

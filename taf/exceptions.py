@@ -81,7 +81,9 @@ class RepositoryInstantiationError(TAFError):
 
 class ScriptExecutionError(TAFError):
     def __init__(self, script, error_msg):
-        message = f"An error happened during execution of script {script}:\n\n: {error_msg}"
+        message = (
+            f"An error happened during execution of script {script}:\n\n: {error_msg}"
+        )
         super().__init__(message)
         self.message = message
         self.script = script
