@@ -127,13 +127,9 @@ def handle_repo_event(
         targets_data,
     )
 
+
 def handle_host_event(
-    event,
-    host,
-    root_dir,
-    repos_update_data,
-    error,
-    transient_data=None
+    event, host, root_dir, repos_update_data, error, transient_data=None
 ):
     return _handle_event(
         LifecycleStage.HOST,
@@ -146,9 +142,7 @@ def handle_host_event(
     )
 
 
-def _handle_event(
-    lifecycle_stage, event, transient_data, root_dir, *args, **kwargs
-):
+def _handle_event(lifecycle_stage, event, transient_data, root_dir, *args, **kwargs):
     # read initial persistent data from file
     persistent_data = get_persistent_data(root_dir)
     transient_data = transient_data or {}
@@ -165,7 +159,9 @@ def _handle_event(
         for script_repo, script_data in repos_and_data.items():
             data = script_data["data"]
             last_commit = script_data["commit"]
-            repos_and_data[script_repo]["data"] = execute_scripts(script_repo, last_commit, scripts_rel_path, data)
+            repos_and_data[script_repo]["data"] = execute_scripts(
+                script_repo, last_commit, scripts_rel_path, data
+            )
         return repos_and_data
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
@@ -174,7 +170,9 @@ def _handle_event(
             repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
         elif event == Event.UNCHANGED:
             repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
-        repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.SUCCEEDED)
+        repos_and_data = _execute_scripts(
+            repos_and_data, lifecycle_stage, Event.SUCCEEDED
+        )
     elif event == Event.FAILED:
         repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
@@ -183,7 +181,8 @@ def _handle_event(
 
     # return transient data as it should be propagated to other event and handlers
     return {
-        repo.name: data["data"]["state"]["transient"] for repo, data in repos_and_data.items()
+        repo.name: data["data"]["state"]["transient"]
+        for repo, data in repos_and_data.items()
     }
 
 
@@ -251,19 +250,11 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
     return data
 
 
-def get_script_repo_and_commit_repo(
-    auth_repo,
-    commits_data,
-    *args
-):
+def get_script_repo_and_commit_repo(auth_repo, commits_data, *args):
     return auth_repo, commits_data["after_pull"]
 
 
-def get_script_repo_and_commit_host(
-    auth_repo,
-    commits_data,
-    *args
-):
+def get_script_repo_and_commit_host(auth_repo, commits_data, *args):
     pass
 
 
@@ -280,14 +271,16 @@ def prepare_data_repo(
     return {
         auth_repo: {
             "data": {
-                "update": _repo_update_data(auth_repo, event, commits_data, targets_data, error),
+                "update": _repo_update_data(
+                    auth_repo, event, commits_data, targets_data, error
+                ),
                 "state": {
                     "transient": transient_data,
                     "persistent": persistent_data,
                 },
                 "config": get_config(auth_repo.root_dir),
             },
-            "commit": commits_data["after_pull"]
+            "commit": commits_data["after_pull"],
         }
     }
 
@@ -319,7 +312,7 @@ def prepare_data_host(
                         "host_name": host.name,
                         "error_msg": str(error) if error else "",
                         "auth_repos": auth_repos,
-                        "custom": contained_repos_host_data["custom"]
+                        "custom": contained_repos_host_data["custom"],
                     },
                     "state": {
                         "transient": transient_data,
@@ -327,10 +320,11 @@ def prepare_data_host(
                     },
                     "config": get_config(root_dir),
                 },
-                "commit": repos_update_data[root_repo.name]["commits_data"]["after_pull"]
+                "commit": repos_update_data[root_repo.name]["commits_data"][
+                    "after_pull"
+                ],
             }
     return host_data_by_repos
-
 
 
 def prepare_data_completed():

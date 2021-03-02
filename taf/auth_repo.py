@@ -25,7 +25,9 @@ class AuthRepoMixin(TAFRepository):
 
     _conf_dir = None
 
-    def __init__(self, conf_directory_root, out_of_band_authentication=None, hosts=None):
+    def __init__(
+        self, conf_directory_root, out_of_band_authentication=None, hosts=None
+    ):
         if conf_directory_root is None:
             conf_directory_root = str(Path(self.path).parent)
         self.conf_directory_root = conf_directory_root
@@ -226,10 +228,7 @@ class AuthRepoMixin(TAFRepository):
                 target_data.setdefault("custom", {})
 
                 if previous_commit is None or target_commit != previous_commit:
-                    if (
-                        custom_fns is not None
-                        and target_path in custom_fns
-                    ):
+                    if custom_fns is not None and target_path in custom_fns:
                         target_data["custom"].update(
                             custom_fns[target_path](target_commit)
                         )
@@ -316,7 +315,10 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
             name=name,
         )
         AuthRepoMixin.__init__(
-            self, conf_directory_root=conf_directory_root, out_of_band_authentication=out_of_band_authentication, hosts=hosts
+            self,
+            conf_directory_root=conf_directory_root,
+            out_of_band_authentication=out_of_band_authentication,
+            hosts=hosts,
         )
 
     @classmethod
@@ -329,17 +331,21 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         default_branch = data.pop("default_branch")
         hosts = data.pop("hosts")
         conf_directory_root = data.pop("conf_directory_root")
-        return cls(path, urls, custom, default_branch, conf_directory_root, name, hosts, **data)
+        return cls(
+            path, urls, custom, default_branch, conf_directory_root, name, hosts, **data
+        )
 
     def to_json(self):
-        return json.dumps({
-            "path": str(self.path),
-            "name": self.name,
-            "urls": self.urls,
-            "custom": self.custom,
-            "default_branch": self.default_branch,
-            "hosts": self.hosts
-        })
+        return json.dumps(
+            {
+                "path": str(self.path),
+                "name": self.name,
+                "urls": self.urls,
+                "custom": self.custom,
+                "default_branch": self.default_branch,
+                "hosts": self.hosts,
+            }
+        )
 
 
 class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
@@ -365,7 +371,10 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             default_branch=default_branch,
         )
         AuthRepoMixin.__init__(
-            self, conf_directory_root=conf_directory_root, out_of_band_authentication=out_of_band_authentication, hosts=hosts
+            self,
+            conf_directory_root=conf_directory_root,
+            out_of_band_authentication=out_of_band_authentication,
+            hosts=hosts,
         )
 
     @classmethod
@@ -378,7 +387,16 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         default_branch = data.pop("default_branch")
         hosts = data.pop("hosts")
         conf_directory_root = data.pop("conf_directory_root")
-        return cls(root_dir, name, urls, custom, default_branch, conf_directory_root, hosts, **data)
+        return cls(
+            root_dir,
+            name,
+            urls,
+            custom,
+            default_branch,
+            conf_directory_root,
+            hosts,
+            **data,
+        )
 
     def to_json_dict(self):
         return {
@@ -388,5 +406,5 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             "urls": self.urls,
             "custom": self.custom,
             "default_branch": self.default_branch,
-            "hosts": self.hosts
+            "hosts": self.hosts,
         }

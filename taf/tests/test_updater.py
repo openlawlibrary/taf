@@ -87,10 +87,12 @@ disable_file_logging()
 
 def setup_module(module):
     settings.update_from_filesystem = True
+    settings.validate_initial_commit = False
 
 
 def teardown_module(module):
     settings.update_from_filesystem = False
+    settings.validate_initial_commit = True
 
 
 @fixture(autouse=True)

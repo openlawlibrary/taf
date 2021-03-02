@@ -3,7 +3,8 @@ from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.exceptions import (
     GitError,
-    InvalidOrMissingHostsError,
+    MissingHostsError,
+    InvalidHostsError,
     RepositoryInstantiationError,
 )
 from taf.log import taf_logger
@@ -18,18 +19,14 @@ REPOSITORIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/repositories.json"
 HOSTS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/hosts.json"
 AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
-class Host:
 
+class Host:
     def __init__(self, name):
         self.name = name
         self.data_by_auth_repo = {}
 
-
     def to_json_dict(self):
-        return {
-            "name": self.name,
-            "data": self.data_by_auth_repo
-        }
+        return {"name": self.name, "data": self.data_by_auth_repo}
 
 
 def load_hosts(root_auth_repo):
@@ -73,29 +70,29 @@ def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
             root_dir=auth_repo.root_dir,
             commits=[commit],
         )
-        child_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, [commit])
+        child_repos = repositoriesdb.get_deduplicated_auth_repositories(
+            auth_repo, [commit]
+        )
         # ignore repos defined in hosts.json if they are not also defined in dependencies.json
         # and vice versa
         host_repos = []
         for child_repo_name, child_repo in child_repos.items():
             if child_repo_name in auth_repos:
-                loaded_repos_of_host = loaded_repositories_per_host.setdefault(host_name, [])
+                loaded_repos_of_host = loaded_repositories_per_host.setdefault(
+                    host_name, []
+                )
                 if child_repo.name in loaded_repos_of_host:
-                    raise InvalidOrMissingHostsError(f"Host {host_name} and repo {child_repo.name} defined in multiple places")
+                    raise InvalidHostsError(
+                        f"Host {host_name} and repo {child_repo.name} defined in multiple places"
+                    )
                 loaded_repos_of_host.append(child_repo.name)
                 repo_custom = auth_repos[child_repo.name]
                 # add additional repo information specified in the hosts file to the repositories' custom dictionary
                 # if the data was already added to the custom dictionary, it will just be overwritten by the same data
-                host_repos.append({
-                    child_repo.name: {
-                        "auth_repo": child_repo,
-                        "custom": repo_custom
-                    }
-                })
-        auth_repo_host_data = {
-            "auth_repos": host_repos,
-            "custom": custom
-        }
+                host_repos.append(
+                    {child_repo.name: {"auth_repo": child_repo, "custom": repo_custom}}
+                )
+        auth_repo_host_data = {"auth_repos": host_repos, "custom": custom}
         host.data_by_auth_repo[auth_repo] = auth_repo_host_data
 
 
@@ -132,8 +129,6 @@ def _get_json_file(auth_repo, path, commit):
     try:
         return auth_repo.get_json(commit, path)
     except GitError:
-        raise InvalidOrMissingHostsError(f"{path} not available at revision {commit}")
+        raise MissingHostsError(f"{path} not available at revision {commit}")
     except json.decoder.JSONDecodeError:
-        raise InvalidOrMissingHostsError(
-            f"{path} not a valid json at revision {commit}"
-        )
+        raise InvalidHostsError(f"{path} not a valid json at revision {commit}")

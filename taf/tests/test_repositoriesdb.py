@@ -139,9 +139,6 @@ def _check_repositories_dict(
                     assert repo_name in auth_repos_dict[commit]
                     # check custom data
                     custom_data = repositories_data[repo_name].get("custom", {})
-                    assert (
-                        auth_repos_dict[commit][repo_name].custom
-                        == custom_data
-                    )
+                    assert auth_repos_dict[commit][repo_name].custom == custom_data
                 else:
                     assert repo_name not in auth_repos_dict[commit]

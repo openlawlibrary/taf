@@ -52,8 +52,13 @@ class InvalidKeyError(TAFError):
         )
 
 
-class InvalidOrMissingHostsError(TAFError):
+class MissingHostsError(TAFError):
     pass
+
+
+class InvalidHostsError(TAFError):
+    pass
+
 
 class InvalidOrMissingMetadataError(TAFError):
     pass
