@@ -138,6 +138,7 @@ def update_repository(
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
     clients_auth_root_dir = clients_auth_path.parent.parent
     repos_update_data = {}
+    transient_data = {}
     try:
         _update_named_repository(
             url,
@@ -153,6 +154,7 @@ def update_repository(
             check_for_unauthenticated,
             conf_directory_root,
             repos_update_data=repos_update_data,
+            transient_data=transient_data,
             out_of_band_authentication=out_of_band_authentication,
         )
     except Exception:
@@ -166,19 +168,23 @@ def update_repository(
     errors = ""
     for host in hosts:
         # check if host update was successful - meaning that all repositories of that host were updated successfully
+        host_transient_data = {}
         for host_data in host.data_by_auth_repo.values():
             for host_repo_dict in host_data["auth_repos"]:
                 for host_repo_name in host_repo_dict:
                     host_repo_update_data = repos_update_data[host_repo_name]
                     update_status = host_repo_update_data["update_status"]
-                    if host_update_status !=  Event.UNCHANGED and update_status != Event.UNCHANGED: # meaning changed or failed
+                    if host_update_status != update_status and host_update_status != Event.FAILED :
+                        # if one failed, then failed
+                        # else if one changed, then failed
+                        # else unchanged
                         host_update_status = update_status
-                        break
                     repo_error = host_repo_update_data["error"]
                     if repo_error is not None:
                         errors += str(repo_error)
-
-        handle_host_event(host_update_status, host, root_auth_repo.root_dir, repos_update_data, errors)
+                if host_repo_name in transient_data:
+                    host_transient_data[host_repo_name] = transient_data[host_repo_name]
+        handle_host_event(host_update_status, host, root_auth_repo.root_dir, repos_update_data, errors, host_transient_data)
 
 
 def _update_named_repository(
@@ -197,6 +203,7 @@ def _update_named_repository(
     visited=None,
     hosts_hierarchy_per_repo=None,
     repos_update_data=None,
+    transient_data=None,
     out_of_band_authentication=None,
 ):
     """
@@ -326,6 +333,7 @@ def _update_named_repository(
                     visited,
                     hosts_hierarchy_per_repo,
                     repos_update_data,
+                    transient_data,
                     child_auth_repo.out_of_band_authentication,
                 )
             except Exception as e:
@@ -357,14 +365,17 @@ def _update_named_repository(
 
     # TODO this information needs to be propagated so that it can be used in the hosts
     # handler
-    handle_repo_event(update_status, auth_repo, auth_repo.root_dir, commits_data, error, targets_data)
-    repos_update_data[auth_repo.name] = {
-        "auth_repo": auth_repo,
-        "update_status": update_status,
-        "commits_data": commits_data,
-        "error": error,
-        "targets_data": targets_data
-    }
+    transient = handle_repo_event(update_status, auth_repo, auth_repo.root_dir, commits_data, error, targets_data)
+    if transient_data is not None:
+        transient_data.update(transient)
+    if repos_update_data is not None:
+        repos_update_data[auth_repo.name] = {
+            "auth_repo": auth_repo,
+            "update_status": update_status,
+            "commits_data": commits_data,
+            "error": error,
+            "targets_data": targets_data
+        }
 
     if error is not None:
         raise error

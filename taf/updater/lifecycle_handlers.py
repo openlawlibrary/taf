@@ -116,7 +116,7 @@ def handle_repo_event(
     targets_data,
     transient_data=None,
 ):
-    _handle_event(
+    return _handle_event(
         LifecycleStage.REPO,
         event,
         transient_data,
@@ -135,7 +135,7 @@ def handle_host_event(
     error,
     transient_data=None
 ):
-    _handle_event(
+    return _handle_event(
         LifecycleStage.HOST,
         event,
         transient_data,
@@ -158,7 +158,6 @@ def _handle_event(
     repos_and_data = globals()[prepare_data_name](
         event, transient_data, persistent_data, root_dir, *args, **kwargs
     )
-    print(repos_and_data)
 
     def _execute_scripts(repos_and_data, lifecycle_stage, event):
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
@@ -166,23 +165,26 @@ def _handle_event(
         for script_repo, script_data in repos_and_data.items():
             data = script_data["data"]
             last_commit = script_data["commit"]
-        return execute_scripts(script_repo, last_commit, scripts_rel_path, data)
+            repos_and_data[script_repo]["data"] = execute_scripts(script_repo, last_commit, scripts_rel_path, data)
+        return repos_and_data
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
         # if event is changed or unchanged, execute these scripts first, then call the succeeded script
         if event == Event.CHANGED:
-            data = _execute_scripts(repos_and_data, lifecycle_stage, event)
+            repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
         elif event == Event.UNCHANGED:
-            data = _execute_scripts(repos_and_data, lifecycle_stage, event)
-        data = (repos_and_data, lifecycle_stage, Event.SUCCEEDED)
+            repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
+        repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.SUCCEEDED)
     elif event == Event.FAILED:
-        data = _execute_scripts(repos_and_data, lifecycle_stage, event)
+        repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
     # execute completed handler at the end
-    data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
+    repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
-    # return transient data as it should be propagated to other events and handlers
-    return data["state"]["transient"]
+    # return transient data as it should be propagated to other event and handlers
+    return {
+        repo.name: data["data"]["state"]["transient"] for repo, data in repos_and_data.items()
+    }
 
 
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
