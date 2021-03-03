@@ -230,12 +230,12 @@ def _update_named_repository(
     auth_repo_name,
     update_from_filesystem,
     expected_repo_type,
-    target_repo_classes,
-    target_factory,
-    only_validate,
-    validate_from_commit,
-    check_for_unauthenticated,
-    conf_directory_root,
+    target_repo_classes=None,
+    target_factory=None,
+    only_validate=False,
+    validate_from_commit=None,
+    check_for_unauthenticated=False,
+    conf_directory_root=None,
     visited=None,
     hosts_hierarchy_per_repo=None,
     repos_update_data=None,
@@ -889,9 +889,6 @@ def _set_target_repositories_data(
     top_commits_of_branches_before_pull,
     additional_commits_per_repo,
 ):
-    # TODO figure out what to return if pull failed
-    # the problem is that the pull could've failed because the commits weren't the same
-    # as those specified in auth repo
     targets_data = {}
     for repo_name, repo in repositories.items():
         targets_data[repo_name] = {"repo_data": repo.to_json_dict()}
@@ -903,11 +900,8 @@ def _set_target_repositories_data(
             previous_top_of_branch = top_commits_of_branches_before_pull[repo_name][
                 branch
             ]
-            # should not be empty if exists
-            assert len(commits_with_custom)
             if previous_top_of_branch is not None:
                 # this needs to be the same - implementation error otherwise
-                assert previous_top_of_branch == commits_with_custom[0]["commit"]
                 branch_commits_data["before_pull"] = commits_with_custom[0]
             else:
                 branch_commits_data["before_pull"] = None
