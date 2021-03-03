@@ -26,7 +26,7 @@ class Host:
         return {"name": self.name, "data": self.data_by_auth_repo}
 
 
-def load_hosts(root_auth_repo):
+def load_hosts(root_auth_repo, repos_and_commits):
     """
     Read hosts files of all repositories in the hierarchy and group repositories by hosts
     One repository can belong to more than one host and one host can contain more than one
@@ -40,18 +40,32 @@ def load_hosts(root_auth_repo):
     # TODO
     # should one overwrite another one or is this an error?
     # raise and error for now
-    _load_hosts(root_auth_repo, [], {})
+    _load_hosts(root_auth_repo, repos_and_commits, [], {})
 
 
-def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
+def _load_hosts(
+    auth_repo, repos_and_commits, traversed_repos, loaded_repositories_per_host
+):
 
     global _hosts_dict
     if auth_repo.name in traversed_repos:
         return
 
     traversed_repos.append(auth_repo.name)
-    commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
-    hosts_data = _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
+
+    # load based on the last validated commit
+    # if the repository did not exist and could not be validated, there should be no commit
+    # skip such repositories
+    commit = repos_and_commits[auth_repo.name]
+    if commit is None:
+        return
+    try:
+        hosts_data = _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
+    except MissingHostsError:
+        # if the current repository does not contain a host file, still check its dependencies
+        hosts_data = {}
+
+    child_repos = repositoriesdb.get_deduplicated_auth_repositories(auth_repo, [commit])
     for host_name, host_data in hosts_data.items():
         host = _hosts_dict.setdefault(host_name, Host(host_name))
         # if a host is defined in more than one authentication repository
@@ -67,12 +81,10 @@ def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
             root_dir=auth_repo.root_dir,
             commits=[commit],
         )
-        child_repos = repositoriesdb.get_deduplicated_auth_repositories(
-            auth_repo, [commit]
-        )
-        # ignore repos defined in hosts.json if they are not also defined in dependencies.json
-        # and vice versa
         host_repos = []
+        # iterate through repositories defined in dependencies.json
+        # skip the ones that are not
+        # collect information defined in hosts.json
         for child_repo_name, child_repo in child_repos.items():
             if child_repo_name in auth_repos:
                 loaded_repos_of_host = loaded_repositories_per_host.setdefault(
@@ -91,6 +103,11 @@ def _load_hosts(auth_repo, traversed_repos, loaded_repositories_per_host):
                 )
         auth_repo_host_data = {"auth_repos": host_repos, "custom": custom}
         host.data_by_auth_repo[auth_repo] = auth_repo_host_data
+
+    for child_repo in child_repos.values():
+        # recursively load hosts
+        # we do not expect a very large hierarchy, so no need to create a stack based implementation
+        _load_hosts(child_repo, traversed_repos, loaded_repos_of_host)
 
 
 def get_hosts():

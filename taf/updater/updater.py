@@ -28,6 +28,9 @@ from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event,
 disable_tuf_console_logging()
 
 
+# TODO think about defining schemas of all of the data and implement validation
+
+
 class UpdateType(enum.Enum):
     TEST = 1
     OFFICIAL = 2
@@ -151,6 +154,7 @@ def update_repository(
     clients_auth_root_dir = clients_auth_path.parent.parent
     repos_update_data = {}
     transient_data = {}
+    root_error = None
     try:
         _update_named_repository(
             url,
@@ -169,53 +173,54 @@ def update_repository(
             transient_data=transient_data,
             out_of_band_authentication=out_of_band_authentication,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        root_error = e
     # after all repositories have been updated, sort them by hosts and call hosts handlers
     # update information is in repos_update_data
     root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
+    repos_and_commits = {
+        auth_repo_name: repo_data["commits_data"].get("after_pull")
+        for auth_repo_name, repo_data in repos_update_data.items()
+    }
     try:
-        load_hosts(root_auth_repo)
-    except MissingHostsError as e:
-        # if a there is no host file, the update should not fail
-        taf_logger.info(str(e))
+        load_hosts(root_auth_repo, repos_and_commits)
     except InvalidHostsError as e:
         raise UpdateFailedError(str(e))
-    else:
-        hosts = get_hosts()
-        host_update_status = Event.UNCHANGED
-        errors = ""
-        for host in hosts:
-            # check if host update was successful - meaning that all repositories of that host were updated successfully
-            host_transient_data = {}
-            for host_data in host.data_by_auth_repo.values():
-                for host_repo_dict in host_data["auth_repos"]:
-                    for host_repo_name in host_repo_dict:
-                        host_repo_update_data = repos_update_data[host_repo_name]
-                        update_status = host_repo_update_data["update_status"]
-                        if (
-                            host_update_status != update_status
-                            and host_update_status != Event.FAILED
-                        ):
-                            # if one failed, then failed
-                            # else if one changed, then failed
-                            # else unchanged
-                            host_update_status = update_status
-                        repo_error = host_repo_update_data["error"]
-                        if repo_error is not None:
-                            errors += str(repo_error)
-                    if host_repo_name in transient_data:
-                        host_transient_data[host_repo_name] = transient_data[
-                            host_repo_name
-                        ]
-            handle_host_event(
-                host_update_status,
-                host,
-                root_auth_repo.root_dir,
-                repos_update_data,
-                errors,
-                host_transient_data,
-            )
+
+    hosts = get_hosts()
+    host_update_status = Event.UNCHANGED
+    errors = ""
+    for host in hosts:
+        # check if host update was successful - meaning that all repositories of that host were updated successfully
+        host_transient_data = {}
+        for host_data in host.data_by_auth_repo.values():
+            for host_repo_dict in host_data["auth_repos"]:
+                for host_repo_name in host_repo_dict:
+                    host_repo_update_data = repos_update_data[host_repo_name]
+                    update_status = host_repo_update_data["update_status"]
+                    if (
+                        host_update_status != update_status
+                        and host_update_status != Event.FAILED
+                    ):
+                        # if one failed, then failed
+                        # else if one changed, then failed
+                        # else unchanged
+                        host_update_status = update_status
+                    repo_error = host_repo_update_data["error"]
+                    if repo_error is not None:
+                        errors += str(repo_error)
+                if host_repo_name in transient_data:
+                    host_transient_data[host_repo_name] = transient_data[host_repo_name]
+        handle_host_event(
+            host_update_status,
+            host,
+            root_auth_repo.root_dir,
+            repos_update_data,
+            errors,
+            host_transient_data,
+        )
+    if root_error:
+        raise root_error
 
 
 def _update_named_repository(
@@ -224,13 +229,13 @@ def _update_named_repository(
     targets_root_dir,
     auth_repo_name,
     update_from_filesystem,
-    expected_repo_type=UpdateType.EITHER,
-    target_repo_classes=None,
-    target_factory=None,
-    only_validate=False,
-    validate_from_commit=None,
-    check_for_unauthenticated=False,
-    conf_directory_root=None,
+    expected_repo_type,
+    target_repo_classes,
+    target_factory,
+    only_validate,
+    validate_from_commit,
+    check_for_unauthenticated,
+    conf_directory_root,
     visited=None,
     hosts_hierarchy_per_repo=None,
     repos_update_data=None,
@@ -303,100 +308,114 @@ def _update_named_repository(
         targets_root_dir,
         auth_repo_name,
         update_from_filesystem,
-        expected_repo_type=UpdateType.EITHER,
-        target_repo_classes=target_repo_classes,
-        target_factory=target_factory,
-        only_validate=only_validate,
-        validate_from_commit=validate_from_commit,
-        check_for_unauthenticated=check_for_unauthenticated,
-        conf_directory_root=conf_directory_root,
-        out_of_band_authentication=out_of_band_authentication,
+        expected_repo_type,
+        target_repo_classes,
+        target_factory,
+        only_validate,
+        validate_from_commit,
+        check_for_unauthenticated,
+        conf_directory_root,
+        out_of_band_authentication,
     )
-    # check if top repository
-    if hosts_hierarchy_per_repo is None:
-        hosts_hierarchy_per_repo = {auth_repo.name: [_load_hosts_json(auth_repo)]}
-    else:
-        # some repositories might not contain hosts.json and their host is defined
-        # in their parent authentication repository
-        hosts_hierarchy_per_repo[auth_repo.name] += [_load_hosts_json(auth_repo)]
 
+    # if commits_data is empty, do not attempt to load the host or dependencies
+    # that can happen in the repository didn't exists, but could not be validated
+    # and was therefore deleted
+    # or if the last validated commit is not equal to the top commit, meaning that
+    # the repository was updated without using the updater
+    # this second case could be reworked to return the state as of the last validated commit
+    # but treat the repository as invalid for now
     commits = []
-    if commits_data["before_pull"] is not None:
-        commits = [commits_data["before_pull"]]
-    commits.extend(commits_data["new"])
-    repositoriesdb.load_dependencies(
-        auth_repo,
-        root_dir=targets_root_dir,
-        commits=commits,
-    )
+    if commits_data["after_pull"] is not None:
+        if hosts_hierarchy_per_repo is None:
+            hosts_hierarchy_per_repo = {auth_repo.name: [_load_hosts_json(auth_repo)]}
+        else:
+            # some repositories might not contain hosts.json and their host is defined
+            # in their parent authentication repository
+            hosts_hierarchy_per_repo[auth_repo.name] += [_load_hosts_json(auth_repo)]
 
-    # TODO log what happened
-    if update_status != Event.FAILED:
-        errors = []
-        # load the repositories from dependencies.json and update these repositories
-        # we need to update the repositories before loading hosts data
-        child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-            auth_repo, commits
-        ).values()
-        for child_auth_repo in child_auth_repos:
-            hosts_hierarchy_per_repo[child_auth_repo.name] = list(
-                hosts_hierarchy_per_repo[auth_repo.name]
-            )
-            try:
-                _update_named_repository(
-                    child_auth_repo.urls[0],
-                    clients_auth_root_dir,
-                    targets_root_dir,
-                    child_auth_repo.name,
-                    False,
-                    expected_repo_type,
-                    target_repo_classes,
-                    target_factory,
-                    only_validate,
-                    validate_from_commit,
-                    check_for_unauthenticated,
-                    conf_directory_root,
-                    visited,
-                    hosts_hierarchy_per_repo,
-                    repos_update_data,
-                    transient_data,
-                    child_auth_repo.out_of_band_authentication,
+        if commits_data["before_pull"] is not None:
+            commits = [commits_data["before_pull"]]
+        commits.extend(commits_data["new"])
+        repositoriesdb.load_dependencies(
+            auth_repo,
+            root_dir=targets_root_dir,
+            commits=commits,
+        )
+
+        # TODO log what happened
+        if update_status != Event.FAILED:
+            errors = []
+            # load the repositories from dependencies.json and update these repositories
+            # we need to update the repositories before loading hosts data
+            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+                auth_repo, commits
+            ).values()
+            for child_auth_repo in child_auth_repos:
+                hosts_hierarchy_per_repo[child_auth_repo.name] = list(
+                    hosts_hierarchy_per_repo[auth_repo.name]
                 )
-            except Exception as e:
-                errors.append(str(e))
+                try:
+                    _update_named_repository(
+                        child_auth_repo.urls[0],
+                        clients_auth_root_dir,
+                        targets_root_dir,
+                        child_auth_repo.name,
+                        False,
+                        expected_repo_type,
+                        target_repo_classes,
+                        target_factory,
+                        only_validate,
+                        validate_from_commit,
+                        check_for_unauthenticated,
+                        conf_directory_root,
+                        visited,
+                        hosts_hierarchy_per_repo,
+                        repos_update_data,
+                        transient_data,
+                        child_auth_repo.out_of_band_authentication,
+                    )
+                except Exception as e:
+                    errors.append(str(e))
 
-        if len(errors):
-            errors = "\n".join(errors)
-            taf_logger.error(
-                "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
-                auth_repo.name,
-                errors,
+            if len(errors):
+                errors = "\n".join(errors)
+                taf_logger.error(
+                    "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
+                    auth_repo.name,
+                    errors,
+                )
+                error = UpdateFailedError(
+                    f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
+                )
+                update_status = Event.FAILED
+
+        # TODO which commit to load if the commit top commit does not match the last validated commit
+        # use last validated commit - if the repository contains it
+        set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
+
+        # all repositories that can be updated will be updated
+        if not only_validate and len(commits) and update_status == Event.CHANGED:
+            last_commit = commits[-1]
+            taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
+            # if there were no errors, merge the last validated authentication repository commit
+            _merge_commit(auth_repo, auth_repo.default_branch, last_commit)
+            # update the last validated commit
+            auth_repo.set_last_validated_commit(last_commit)
+
+        # do not call the handlers if only validating the repositories
+        if not only_validate:
+            transient = handle_repo_event(
+                update_status,
+                auth_repo,
+                auth_repo.root_dir,
+                commits_data,
+                error,
+                targets_data,
             )
-            error = UpdateFailedError(
-                f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
-            )
-            update_status = Event.FAILED
+            if transient_data is not None:
+                transient_data.update(transient)
 
-    # TODO which commit to load if the commit top commit does not match the last validated commit
-    # use last validated commit - if the repository contains it
-    set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
-
-    # all repositories that can be updated will be updated
-    if not only_validate and len(commits) and update_status == Event.CHANGED:
-        last_commit = commits[-1]
-        taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
-        # if there were no errors, merge the last validated authentication repository commit
-        _merge_commit(auth_repo, auth_repo.default_branch, last_commit)
-        # update the last validated commit
-        auth_repo.set_last_validated_commit(last_commit)
-
-    # TODO this information needs to be propagated so that it can be used in the hosts
-    # handler
-    transient = handle_repo_event(
-        update_status, auth_repo, auth_repo.root_dir, commits_data, error, targets_data
-    )
-    if transient_data is not None:
-        transient_data.update(transient)
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
             "auth_repo": auth_repo,
@@ -418,14 +437,14 @@ def _update_current_repository(
     targets_root_dir,
     auth_repo_name,
     update_from_filesystem,
-    expected_repo_type=UpdateType.EITHER,
-    target_repo_classes=None,
-    target_factory=None,
-    only_validate=False,
-    validate_from_commit=None,
-    check_for_unauthenticated=False,
-    conf_directory_root=None,
-    out_of_band_authentication=None,
+    expected_repo_type,
+    target_repo_classes,
+    target_factory,
+    only_validate,
+    validate_from_commit,
+    check_for_unauthenticated,
+    conf_directory_root,
+    out_of_band_authentication,
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
@@ -503,6 +522,8 @@ def _update_current_repository(
         # that will happen if the last successful commit is not the same as the top commit of the
         # repository
         # do not return any commits data in that case
+        # TODO check if the the last validated commit exists in the repository
+        # and return it if found
         return Event.FAILED, users_auth_repo, _commits_ret(commits, False, False), e, {}
     try:
         # used for testing purposes
@@ -559,6 +580,7 @@ def _update_current_repository(
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
+            commits = None
         return (
             Event.FAILED,
             users_auth_repo,

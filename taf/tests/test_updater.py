@@ -76,10 +76,7 @@ NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
 METADATA_CHANGED_BUT_SHOULDNT = (
     "Metadata file targets.json should be the same at revisions"
 )
-LAST_VALIDATED_COMMIT_MISMATCH = (
-    "Saved last validated commit {} does not match the head commit"
-)
-
+LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
 
 disable_console_logging()
 disable_file_logging()
@@ -326,8 +323,12 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
     client_repos = _clone_and_revert_client_repositories(
         repositories, origin_dir, client_dir, 3
     )
-    first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()[0]
-    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(first_commit)
+    all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
+    first_commit = all_commits[0]
+    last_commit = all_commits[-1]
+    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(
+        first_commit, AUTH_REPO_REL_PATH, last_commit
+    )
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_remained_same(
@@ -338,7 +339,7 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-test-repo"]
     origin_dir = origin_dir / "test-updater-test-repo"
-    # try to update without setting the last validated commit
+    # try to update a test repo, set update type to official
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, IS_A_TEST_REPO, UpdateType.OFFICIAL
     )

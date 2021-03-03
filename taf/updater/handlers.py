@@ -192,7 +192,7 @@ class GitUpdater(handlers.MetadataUpdater):
             # For now, we will raise an error
             msg = (
                 f"Saved last validated commit {last_validated_commit} of repository {self.users_auth_repo.name} "
-                f"does not match the head commit of the authentication repository {users_head_sha}"
+                f"does not match the current head commit {users_head_sha}"
             )
             taf_logger.error(msg)
             raise UpdateFailedError(msg)
