@@ -175,6 +175,7 @@ def update_repository(
         )
     except Exception as e:
         root_error = e
+
     # after all repositories have been updated, sort them by hosts and call hosts handlers
     # update information is in repos_update_data
     root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
@@ -482,9 +483,26 @@ def _update_current_repository(
         repository_updater = tuf_updater.Updater(
             auth_repo_name, repository_mirrors, GitUpdater
         )
+    except Exception as e:
+        # Instantiation of the handler failed - this can happen if the url is not correct
+        # of if the saved last validated commit does not match the current head commit
+        # do not return any commits data if that is the case
+        # TODO in case of last validated issue, think about returning commits up to the last validated one
+        # the problem is that that could indicate that the history was changed
+        users_auth_repo = NamedAuthenticationRepo(
+            clients_auth_root_dir,
+            auth_repo_name,
+            urls=[url],
+            conf_directory_root=conf_directory_root,
+        )
+        # make sure that all update affects are deleted if the repository did not exist
+        if not users_auth_repo.is_git_repository_root:
+            shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
+            shutil.rmtree(users_auth_repo.conf_dir)
+        return Event.FAILED, users_auth_repo, _commits_ret(None, False, False), e, {}
+    try:
         # the current authentication repository is insantiated in the handler
         users_auth_repo = repository_updater.update_handler.users_auth_repo
-
         existing_repo = users_auth_repo.is_git_repository_root
         additional_commits_per_repo = {}
 
@@ -494,7 +512,7 @@ def _update_current_repository(
         commits = repository_updater.update_handler.commits
 
         if (
-            settings.validate_initial_commit
+            settings.validate_initial_commit and out_of_band_authentication is not None
             and users_auth_repo.last_validated_commit is None
             and commits[0] != out_of_band_authentication
         ):
@@ -502,30 +520,6 @@ def _update_current_repository(
                 f"First commit of repository {auth_repo_name} does not match "
                 "out of band authentication commit"
             )
-
-    except Exception as e:
-        users_auth_repo = NamedAuthenticationRepo(
-            clients_auth_root_dir,
-            auth_repo_name,
-            urls=[url],
-            conf_directory_root=conf_directory_root,
-        )
-        if commits is not None:
-            return (
-                Event.FAILED,
-                users_auth_repo,
-                _commits_ret(commits, existing_repo, False),
-                e,
-                {},
-            )
-        # this can happen if instantiation of the handler failed
-        # that will happen if the last successful commit is not the same as the top commit of the
-        # repository
-        # do not return any commits data in that case
-        # TODO check if the the last validated commit exists in the repository
-        # and return it if found
-        return Event.FAILED, users_auth_repo, _commits_ret(commits, False, False), e, {}
-    try:
         # used for testing purposes
         if settings.overwrite_last_validated_commit:
             last_validated_commit = settings.last_validated_commit
