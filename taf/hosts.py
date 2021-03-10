@@ -107,7 +107,7 @@ def _load_hosts(
     for child_repo in child_repos.values():
         # recursively load hosts
         # we do not expect a very large hierarchy, so no need to create a stack based implementation
-        _load_hosts(child_repo, traversed_repos, loaded_repos_of_host)
+        _load_hosts(child_repo, repos_and_commits, traversed_repos, loaded_repos_of_host)
 
 
 def get_hosts():

@@ -177,6 +177,7 @@ def _handle_event(lifecycle_stage, event, transient_data, root_dir, *args, **kwa
         repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
     # execute completed handler at the end
+    _print_data(repos_and_data, root_dir, lifecycle_stage)
     repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
     # return transient data as it should be propagated to other event and handlers
@@ -343,6 +344,13 @@ def _repo_update_data(auth_repo, update_status, commits_data, targets_data, erro
         },
         "target_repos": targets_data,
     }
+
+
+def _print_data(repos_and_data, root_dir, lifecycle_stage):
+    for repo, data in repos_and_data.items():
+        path = Path(root_dir, "data", lifecycle_stage.to_name(), f"{repo.name}.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=4))
 
 
 def _format_event(event):

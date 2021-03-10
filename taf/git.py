@@ -61,14 +61,13 @@ class GitRepository:
         self.custom = custom
 
     @classmethod
-    def from_json_string(cls, json_string):
-        data = json.loads(json_string)
-        path = data.pop("path")
-        urls = data.pop("urls")
-        custom = data.pop("custom")
-        name = data.pop("name")
-        default_branch = data.pop("default_branch")
-        return cls(path, urls, custom, default_branch, name, **data)
+    def from_json_dict(cls, json_data):
+        path = json_data.pop("path")
+        urls = json_data.pop("urls")
+        custom = json_data.pop("custom", None)
+        name = json_data.pop("name")
+        default_branch = json_data.pop("default_branch", "master")
+        return cls(path, urls, custom, default_branch, name, **json_data)
 
     def to_json_dict(self):
         return {
@@ -883,14 +882,14 @@ class NamedGitRepository(GitRepository):
         )
 
     @classmethod
-    def from_json_string(cls, json_string):
-        data = json.loads(json_string)
-        root_dir = data.pop("root_dir")
-        urls = data.pop("urls")
-        custom = data.pop("custom")
-        name = data.pop("name")
-        default_branch = data.pop("default_branch")
-        return cls(root_dir, name, urls, custom, default_branch, **data)
+    def from_json_dict(cls, json_data):
+        json_data.pop("path", None)
+        root_dir = json_data.pop("root_dir")
+        urls = json_data.pop("urls")
+        custom = json_data.pop("custom", None)
+        name = json_data.pop("name")
+        default_branch = json_data.pop("default_branch", "master")
+        return cls(root_dir, name, urls, custom, default_branch, **json_data)
 
     def to_json_dict(self):
         return {
