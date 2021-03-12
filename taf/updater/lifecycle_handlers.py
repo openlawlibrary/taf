@@ -6,7 +6,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.repository_tool import get_target_path
-from taf.utils import run, safely_save_json_to_disk
+from taf.utils import run, safely_save_json_to_disk, extract_json_objects
 from taf.exceptions import ScriptExecutionError
 from taf.log import taf_logger
 
@@ -221,9 +221,11 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
             raise ScriptExecutionError(script_path, e.output)
         taf_logger.info(output)
         if output is not None and output != "":
-            output = json.loads(output)
-            transient_data = output.get("transient")
-            persistent_data = output.get("persistent")
+            for json_data in extract_json_objects(output):
+                transient_data = json_data.get("transient")
+                persistent_data = json_data.get("persistent")
+                if transient_data is not None or persistent_data is not None:
+                    break
         else:
             transient_data = persistent_data = {}
         taf_logger.debug("Persistent data: {}", persistent_data)

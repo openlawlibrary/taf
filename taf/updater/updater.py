@@ -192,7 +192,8 @@ def update_repository(
     host_update_status = Event.UNCHANGED
     errors = ""
     for host in hosts:
-        # check if host update was successful - meaning that all repositories of that host were updated successfully
+        # check if host update was successful - meaning that all repositories
+        # of that host were updated successfully
         host_transient_data = {}
         for host_data in host.data_by_auth_repo.values():
             for host_repo_dict in host_data["auth_repos"]:
@@ -204,7 +205,7 @@ def update_repository(
                         and host_update_status != Event.FAILED
                     ):
                         # if one failed, then failed
-                        # else if one changed, then failed
+                        # else if one changed, then chenged
                         # else unchanged
                         host_update_status = update_status
                     repo_error = host_repo_update_data["error"]
@@ -212,6 +213,7 @@ def update_repository(
                         errors += str(repo_error)
                 if host_repo_name in transient_data:
                     host_transient_data[host_repo_name] = transient_data[host_repo_name]
+
         handle_host_event(
             host_update_status,
             host,

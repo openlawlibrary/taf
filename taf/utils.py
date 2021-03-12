@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
     load_pem_private_key,
 )
-
+from json import JSONDecoder
 import click
 import taf.settings
 from taf.exceptions import PINMissmatchError
@@ -99,6 +99,26 @@ def get_pin_for(name, confirm=True, repeat=True):
             else:
                 raise PINMissmatchError(err_msg)
     return pin
+
+
+def extract_json_objects(text, decoder=JSONDecoder()):
+    """Find JSON objects in text, and yield the decoded JSON data
+
+    Does not attempt to look for JSON arrays, text, or other JSON types outside
+    of a parent JSON object.
+
+    """
+    pos = 0
+    while True:
+        match = text.find('{', pos)
+        if match == -1:
+            break
+        try:
+            result, index = decoder.raw_decode(text[match:])
+            yield result
+            pos = match + index
+        except ValueError:
+            pos = match + 1
 
 
 def read_input_dict(value):
@@ -204,7 +224,6 @@ def on_rm_error(_func, path, _exc_info):
 
 
 def safely_save_json_to_disk(data, permanent_path):
-    # format data
     tfile = tempfile.NamedTemporaryFile(mode="w+t", delete=False)
     if data is not None:
         json.dump(data, tfile, indent=4)
