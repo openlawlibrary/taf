@@ -110,7 +110,7 @@ def extract_json_objects(text, decoder=JSONDecoder()):
     """
     pos = 0
     while True:
-        match = text.find('{', pos)
+        match = text.find("{", pos)
         if match == -1:
             break
         try:

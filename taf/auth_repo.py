@@ -331,8 +331,15 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         conf_directory_root = json_data.pop("root_dir", None)
         out_of_band_authentication = json_data.pop("out_of_banch_authentication", None)
         return cls(
-            path, urls, custom, default_branch, conf_directory_root,
-            name, out_of_band_authentication, hosts, **json_data
+            path,
+            urls,
+            custom,
+            default_branch,
+            conf_directory_root,
+            name,
+            out_of_band_authentication,
+            hosts,
+            **json_data,
         )
 
     def to_json(self):
@@ -344,7 +351,7 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
                 "custom": self.custom,
                 "default_branch": self.default_branch,
                 "hosts": self.hosts,
-                "out_of_band_authentication": self.out_of_band_authentication
+                "out_of_band_authentication": self.out_of_band_authentication,
             }
         )
 
@@ -371,7 +378,7 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
             custom=custom,
             default_branch=default_branch,
             *args,
-            **kwargs
+            **kwargs,
         )
         AuthRepoMixin.__init__(
             self,

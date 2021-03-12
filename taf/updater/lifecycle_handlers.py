@@ -10,6 +10,7 @@ from taf.utils import run, safely_save_json_to_disk, extract_json_objects
 from taf.exceptions import ScriptExecutionError
 from taf.log import taf_logger
 
+
 class LifecycleStage(enum.Enum):
     REPO = (1,)
     HOST = (2,)
@@ -217,10 +218,16 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
         try:
             output = run("py", script_path, input=json_data)
         except subprocess.CalledProcessError as e:
-            taf_logger.error("An error occurred while exeucuting {}: {}", script_path, e.output)
+            taf_logger.error(
+                "An error occurred while exeucuting {}: {}", script_path, e.output
+            )
             raise ScriptExecutionError(script_path, e.output)
         taf_logger.info(output)
         if output is not None and output != "":
+            # if the script contains print statements other than the final
+            # print which outputs transient and persistent data
+            # meaning that we might not be able to convert output to a json
+            # so try to locate jsons inside the output
             for json_data in extract_json_objects(output):
                 transient_data = json_data.get("transient")
                 persistent_data = json_data.get("persistent")

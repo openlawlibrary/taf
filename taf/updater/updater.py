@@ -514,7 +514,8 @@ def _update_current_repository(
         commits = repository_updater.update_handler.commits
 
         if (
-            settings.validate_initial_commit and out_of_band_authentication is not None
+            settings.validate_initial_commit
+            and out_of_band_authentication is not None
             and users_auth_repo.last_validated_commit is None
             and commits[0] != out_of_band_authentication
         ):
