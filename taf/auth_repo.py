@@ -168,7 +168,6 @@ class AuthRepoMixin(TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-
     def sorted_commits_and_branches_per_repositories(
         self, commits, target_repos=None, custom_fns=None
     ):
