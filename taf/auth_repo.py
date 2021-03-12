@@ -17,7 +17,6 @@ from taf.repository_tool import (
 class AuthRepoMixin(TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
-    LAST_SUCCESSFUL_COMMITS = "last_successful_commits.json"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     HOSTS_FILE = "hosts.json"
     SCRIPTS_PATH = "scripts"
@@ -100,18 +99,6 @@ class AuthRepoMixin(TAFRepository):
         except FileNotFoundError:
             return None
 
-    @property
-    def last_successful_commits(self):
-        """
-        A file containing last commits successfully handled by scripts
-        """
-        path = os.path.join(self.conf_dir, self.LAST_SUCCESSFUL_COMMITS)
-        try:
-            with open(path) as f:
-                return json.load(f)
-        except (FileNotFoundError, json.decoder.JSONDecodeError):
-            return {}
-
     _hosts_conf = None
 
     @property
@@ -181,22 +168,6 @@ class AuthRepoMixin(TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-    def set_last_successful_commits(self, action, env_data):
-        last_successful_commits = self.last_successful_commits
-        for env, data in env_data.items():
-            last_successful_commits.setdefault(env, {})
-            if isinstance(data, dict):
-                for key, value in data.items():
-                    last_successful_commits[env].setdefault(action, {})[key] = value
-            else:
-                last_successful_commits[env][action] = data
-
-        self._log_debug(
-            f"setting last successfult commits to:\n{last_successful_commits}"
-        )
-        (Path(self.conf_dir) / "last_successful_commits.json").write_text(
-            json.dumps(last_successful_commits, indent=4)
-        )
 
     def sorted_commits_and_branches_per_repositories(
         self, commits, target_repos=None, custom_fns=None

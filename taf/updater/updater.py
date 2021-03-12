@@ -78,32 +78,6 @@ def load_library_context(config_path):
     return config
 
 
-def prepare_host_script_data(auth_repo, auth_repo_head, config_path):
-    """
-        {
-
-        last_successful_commits: {
-
-        },
-
-        config: {
-
-        },
-
-        hosts: {
-
-        }
-    }
-    """
-    data = {
-        "last_successful_commits": auth_repo.last_successful_commmits,
-        "auth_repo_head": auth_repo_head,
-        "config": load_library_context(config_path),
-        "hosts": auth_repo.hosts,
-    }
-    return json.dumps(data)
-
-
 def update_repository(
     url,
     clients_auth_path,
