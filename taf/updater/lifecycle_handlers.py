@@ -8,7 +8,7 @@ import taf.settings as settings
 from taf.repository_tool import get_target_path
 from taf.utils import run, safely_save_json_to_disk
 from taf.exceptions import ScriptExecutionError
-
+from taf.log import taf_logger
 
 class LifecycleStage(enum.Enum):
     REPO = (1,)
@@ -72,7 +72,6 @@ config_db = {}
 
 # persistent data should be read from persistent file and updated after every handler call
 # should be one file per library root
-persistent_data_db = {}
 
 
 def _get_script_path(lifecycle_stage, event):
@@ -93,18 +92,14 @@ def get_config(library_root, config_name=CONFIG_NAME):
 
 
 def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
-    global persistent_data_db
     persistent_file = Path(library_root, PERSISTENT_FILE_NAME)
     if not persistent_file.is_file():
         persistent_file.touch()
 
-    if library_root not in persistent_data_db:
-        try:
-            data = json.loads(persistent_file.read_text())
-        except Exception:
-            data = {}
-        persistent_data_db[library_root] = data or {}
-    return persistent_data_db.get(library_root)
+    try:
+        return json.loads(persistent_file.read_text())
+    except Exception:
+        return {}
 
 
 def handle_repo_event(
@@ -131,6 +126,7 @@ def handle_repo_event(
 def handle_host_event(
     event, host, root_dir, repos_update_data, error, transient_data=None
 ):
+    taf_logger.info("Called {} handler of host {}", event.to_name(), host.name)
     return _handle_event(
         LifecycleStage.HOST,
         event,
@@ -215,25 +211,23 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
             str(Path(auth_repo.path, script_rel_path))
             for script_rel_path in script_rel_paths
         ]
-
     for script_path in sorted(script_paths):
-        # TODO
-        # each script need to return persistent and transient data and that data needs to be passed into the next script
-        # other data should stay the same
-        # this function needs to return the transient and persistent data returned by the last script
+        taf_logger.info("Executing script {}", script_path)
         json_data = json.dumps(data)
         try:
             output = run("py", script_path, input=json_data)
         except subprocess.CalledProcessError as e:
+            taf_logger.error("An error occurred while exeucuting {}: {}", script_path, e.output)
             raise ScriptExecutionError(script_path, e.output)
+        taf_logger.info(output)
         if output is not None and output != "":
             output = json.loads(output)
             transient_data = output.get("transient")
             persistent_data = output.get("persistent")
         else:
             transient_data = persistent_data = {}
-        print(persistent_data)
-
+        taf_logger.debug("Persistent data: {}", persistent_data)
+        taf_logger.debug("Transient data: {}", transient_data)
         # overwrite current persistent and transient data
         data["state"]["transient"] = transient_data
         data["state"]["persistent"] = persistent_data

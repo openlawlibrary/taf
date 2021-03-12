@@ -308,8 +308,8 @@ def _get_json_file(auth_repo, path, commit):
         )
 
 
-def _get_urls(mirrors, repo_path, repo_data):
-    if "urls" in repo_data:
+def _get_urls(mirrors, repo_path, repo_data=None):
+    if repo_data is not None and "urls" in repo_data:
         return repo_data["urls"]
     elif mirrors is None:
         raise RepositoryInstantiationError(
@@ -522,6 +522,14 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom_data} not found"
     )
+
+
+def get_repo_urls(auth_repo, repo_name, commit=None):
+    if commit is None:
+        commit = auth_repo.head_commit_sha()
+    mirrors = _load_mirrors_json(auth_repo, commit)
+    if mirrors is not None:
+        return _get_urls(mirrors, repo_name)
 
 
 def _load_dependencies_json(auth_repo, commit):
