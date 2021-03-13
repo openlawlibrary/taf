@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Initial support for executing handlers. Handlers are scripts contained by auth repos which can be used to execute some code after successful/failed update of a repository and/or a host. ([164])
 - Implemented delegation of auth repositories - an auth repository can reference others by defining a special target file `dependencies.json`. Updater will pull all referenced repositories. ([164])
 - Provided a way of specifying hosts of repositories though a special target file called `hosts.json` ([164])
+- Verification of the initial commit of a repository given `out-of-band-authentication` commit either directly passed into the udater or stored in `dependencies.json` of the parent auth repo. ([164])
 - Raise an error if there are additional commits newer than the last authenticated commit if the updater is called with the check-authenticated flag ([161])
 - Added initial worktrees support to the updater ([161])
 - Added support for specifying location of the conf directory ([161])
