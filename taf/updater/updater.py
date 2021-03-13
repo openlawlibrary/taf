@@ -30,9 +30,6 @@ class UpdateType(enum.Enum):
             return update_type
         raise ValueError("{} is not a valid update type".format(name))
 
-    def to_name(self):
-        return UPDATE_TYPES[self.value]
-
 
 UPDATE_TYPES = {
     "test": UpdateType.TEST,
