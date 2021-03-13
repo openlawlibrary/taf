@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
@@ -25,12 +24,26 @@ and this project adheres to [Semantic Versioning][semver].
 
 [161]: https://github.com/openlawlibrary/taf/pull/161
 
+
+## [0.8.0] - 02/09/2020
+
+### Added
+
+### Changed
+
+- Pin cryptography version ([162])
+
+### Fixed
+
+
+[162]: https://github.com/openlawlibrary/taf/pull/162
+
+
 ## [0.7.2] - 11/11/2020
 
 ### Added
 
 - Add a command for adding new new delegated roles ([158])
-
 
 ### Changed
 
@@ -38,6 +51,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 [158]: https://github.com/openlawlibrary/taf/pull/158
+
 
 ## [0.7.1] - 10/28/2020
 
@@ -381,7 +395,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/pygls/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/openlawlibrary/taf/compare/v0.7.2...v.0.8.0
 [0.7.2]: https://github.com/openlawlibrary/taf/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/openlawlibrary/taf/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/openlawlibrary/taf/compare/v0.6.1...v0.7.0
