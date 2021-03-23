@@ -129,7 +129,7 @@ class UpdateFailedError(TAFError):
     pass
 
 
-class UpdaterAdditionalCommits(TAFError):
+class UpdaterAdditionalCommitsError(TAFError):
     def __init__(self, additional_commits_per_repo, message=None):
         self.additional_commits_per_repo = additional_commits_per_repo
         if message is None:

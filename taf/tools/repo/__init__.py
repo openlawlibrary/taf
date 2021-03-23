@@ -190,9 +190,10 @@ def attach_to_group(group):
     @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
                   help="Indicates expected authentication repository type - test or official. If type is set to either, "
                   "the updater will not check the repository's type")
-    @click.option("--check-for-unauthenticated", is_flag=True, help="Check if there are additional new commits "
-                  "if a repostiory allows unauthenicated commits")
-    def update(url, clients_auth_path, clients_root_dir, from_fs, expected_repo_type, check_for_unauthenticated):
+    @click.option("--error-if-unauthenticated", is_flag=True, help="Raise an error if the repository allows "
+                  "unauthentiated commits and the updater detected authenticated commits newer than local "
+                  "head commit")
+    def update(url, clients_auth_path, clients_root_dir, from_fs, expected_repo_type, error_if_unauthenticated):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -212,10 +213,15 @@ def attach_to_group(group):
         the "test" target file), use --authenticate-test-repo flag. An error will be raised
         if this flag is omitted in the mentioned case. Do not use this flag when validating a non-test
         repository as that will also result in an error.
+
+        Some repositories can contain unauthenticated commits in-between two authenticated. The updater
+        will check if existance and order of all authenticated ones and ignore unauthenticated. To raise
+        an error if there new authenticated commits (newer than the last local commit), error-if-unauthenticated
+        can be used.
         """
         update_repository(url, clients_auth_path, clients_root_dir, from_fs,
                           UpdateType.from_name(expected_repo_type),
-                          check_for_unauthenticated=check_for_unauthenticated)
+                          error_if_unauthenticated=error_if_unauthenticated)
 
     @repo.command()
     @click.argument("clients-auth-path")
