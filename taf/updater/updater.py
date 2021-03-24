@@ -458,8 +458,7 @@ def _update_target_repositories(
 def _get_commits(
     repository, existing_repository, branch, only_validate, old_head, branch_exists
 ):
-    """Returns a list of newly fetched commits belonging to the specified branch.
-    """
+    """Returns a list of newly fetched commits belonging to the specified branch."""
     if existing_repository:
         repository.fetch(branch=branch)
     if old_head is not None:
@@ -506,7 +505,7 @@ def _get_commits(
 def _merge_branch_commits(
     repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
 ):
-    """ Determines which commits needs to be merged into the specified branch and
+    """Determines which commits needs to be merged into the specified branch and
     merge it.
     """
     last_commit = branch_commits[-1]["commit"]
@@ -519,7 +518,7 @@ def _merge_branch_commits(
 
 
 def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False):
-    """ Merge the specified commit into the given branch and check out the branch.
+    """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
     checkout = True
