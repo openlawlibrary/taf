@@ -289,7 +289,7 @@ class Repository:
             self._tuf_repository = load_repository(path, self.name)
         except RepositoryError:
             if not targets_existed:
-                targets_path.rm_dir()
+                self.targets_path.rmdir()
             raise InvalidRepositoryError(f"{self.name} is not a valid TUF repository!")
 
     def reload_tuf_repository(self):
