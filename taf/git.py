@@ -732,7 +732,12 @@ class GitRepository:
 
     def list_worktrees(self):
         """
-        Returns a list containing all worktrees of the git repository
+        Returns a dictionary containing information about repository's worktrees:
+        {
+            "worktree1_path: (worktree1_path, worktree1_commit, worktree1_branch),
+            "worktree2_path: (worktree2_path, worktree2_commit, worktree2_branch),
+            ...
+        }
         """
         worktrees_list = self._git("worktree list")
         worktrees = [w.split() for w in worktrees_list.splitlines() if w]

@@ -66,8 +66,7 @@ def is_delegated_role(role):
 
 
 def is_auth_repo(repo_path):
-    """Check if the given path contain a valid TUF repository
-    """
+    """Check if the given path contains a valid TUF repository"""
     try:
         Repository(repo_path)._repository
         return True

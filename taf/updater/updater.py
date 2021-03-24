@@ -507,7 +507,7 @@ def _merge_branch_commits(
     repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
 ):
     """ Determines which commits needs to be merged into the specified branch and
-    merged it.
+    merge it.
     """
     last_commit = branch_commits[-1]["commit"]
     last_validated_commit = last_commit
@@ -519,7 +519,8 @@ def _merge_branch_commits(
 
 
 def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False):
-    """ Merged the specified branch into the given branch
+    """ Merge the specified commit into the given branch and check out the branch.
+    If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
     checkout = True
     try:
@@ -540,7 +541,7 @@ def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=Fal
         if not allow_unauthenticated:
             repository.checkout_commit(commit_to_merge)
         else:
-            repository.checkout_branch(repository.default_branch)
+            repository.checkout_branch(branch)
 
 
 def _update_target_repository(

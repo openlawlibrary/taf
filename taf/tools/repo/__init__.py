@@ -214,10 +214,10 @@ def attach_to_group(group):
         if this flag is omitted in the mentioned case. Do not use this flag when validating a non-test
         repository as that will also result in an error.
 
-        Some repositories can contain unauthenticated commits in-between two authenticated. The updater
-        will check if existance and order of all authenticated ones and ignore unauthenticated. To raise
-        an error if there new authenticated commits (newer than the last local commit), error-if-unauthenticated
-        can be used.
+        Some repositories can contain unauthenticated commits in-between two authenticated ones. The updater
+        will check existance and order of all authenticated commits and ignore unauthenticated. To raise
+        an error if there are new unauthenticated commits (newer than the last local commit),
+        error-if-unauthenticated option can be used.
         """
         update_repository(url, clients_auth_path, clients_root_dir, from_fs,
                           UpdateType.from_name(expected_repo_type),
