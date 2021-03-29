@@ -1,7 +1,7 @@
 import click
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.updater.updater import update_repository, validate_repository
+from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
 def attach_to_group(group):
@@ -187,9 +187,13 @@ def attach_to_group(group):
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
                   "repository from the filesystem")
-    @click.option("--authenticate-test-repo", is_flag=True, help="Indicates that the authentication "
-                  "repository is a test repository")
-    def update(url, clients_auth_path, clients_root_dir, from_fs, authenticate_test_repo):
+    @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
+                  help="Indicates expected authentication repository type - test or official. If type is set to either, "
+                  "the updater will not check the repository's type")
+    @click.option("--error-if-unauthenticated", is_flag=True, help="Raise an error if the repository allows "
+                  "unauthentiated commits and the updater detected authenticated commits newer than local "
+                  "head commit")
+    def update(url, clients_auth_path, clients_root_dir, from_fs, expected_repo_type, error_if_unauthenticated):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -209,9 +213,15 @@ def attach_to_group(group):
         the "test" target file), use --authenticate-test-repo flag. An error will be raised
         if this flag is omitted in the mentioned case. Do not use this flag when validating a non-test
         repository as that will also result in an error.
+
+        Some repositories can contain unauthenticated commits in-between two authenticated ones. The updater
+        will check existance and order of all authenticated commits and ignore unauthenticated. To raise
+        an error if there are new unauthenticated commits (newer than the last local commit),
+        error-if-unauthenticated option can be used.
         """
         update_repository(url, clients_auth_path, clients_root_dir, from_fs,
-                          authenticate_test_repo)
+                          UpdateType.from_name(expected_repo_type),
+                          error_if_unauthenticated=error_if_unauthenticated)
 
     @repo.command()
     @click.argument("clients-auth-path")

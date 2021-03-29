@@ -6,6 +6,8 @@ import logging
 # unusable.
 temporary_directory = None
 
+conf_directory_root = None
+
 update_from_filesystem = False
 
 validate_repo_name = True

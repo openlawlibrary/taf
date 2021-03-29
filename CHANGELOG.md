@@ -9,9 +9,20 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Raise an error if there are additional commits newer than the last authenticated commit if the updater is called with the check-authenticated flag ([161])
+- Added initial worktrees support to the updater ([161])
+- Added support for specifying location of the conf directory ([161])
+- Added a function for disabling fie logging ([161])
 ### Changed
 
+- Replaced authenticate-test-repo flag with an enum ([161])
+
 ### Fixed
+
+- Minor validation command fix ([161])
+
+
+[161]: https://github.com/openlawlibrary/taf/pull/161
 
 
 ## [0.8.0] - 02/09/2020

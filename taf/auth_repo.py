@@ -18,6 +18,8 @@ class AuthRepoMixin(TAFRepository):
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
 
+    _conf_dir = None
+
     @property
     def conf_dir(self):
         """
@@ -27,10 +29,12 @@ class AuthRepoMixin(TAFRepository):
         """
         # the repository's name consists of the namespace and name (namespace/name)
         # the configuration directory should be _name
-        last_dir = os.path.basename(os.path.normpath(self.path))
-        conf_path = Path(self.path).parent / f"_{last_dir}"
-        conf_path.mkdir(parents=True, exist_ok=True)
-        return str(conf_path)
+        if self._conf_dir is None:
+            last_dir = os.path.basename(os.path.normpath(self.path))
+            conf_path = Path(self.conf_directory_root, f"_{last_dir}")
+            conf_path.mkdir(parents=True, exist_ok=True)
+            self._conf_dir = str(conf_path)
+        return self._conf_dir
 
     @property
     def certs_dir(self):
@@ -207,9 +211,13 @@ class AuthenticationRepo(GitRepository, AuthRepoMixin):
         repo_urls=None,
         additional_info=None,
         default_branch="master",
+        conf_directory_root=None,
         *args,
         **kwargs,
     ):
+        if conf_directory_root is None:
+            conf_directory_root = str(Path(path).parent)
+        self.conf_directory_root = conf_directory_root
         super().__init__(path, repo_urls, additional_info, default_branch)
 
 
@@ -221,13 +229,18 @@ class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
         repo_urls=None,
         additional_info=None,
         default_branch="master",
+        conf_directory_root=None,
         *args,
         **kwargs,
     ):
+        if conf_directory_root is None:
+            conf_directory_root = str(Path(root_dir, repo_name).parent)
+        self.conf_directory_root = conf_directory_root
         super().__init__(
             root_dir=root_dir,
             repo_name=repo_name,
             repo_urls=repo_urls,
             additional_info=additional_info,
             default_branch=default_branch,
+            conf_directory_root=conf_directory_root,
         )

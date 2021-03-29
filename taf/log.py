@@ -22,6 +22,11 @@ def disable_console_logging():
     disable_tuf_console_logging()
 
 
+def disable_file_logging():
+    taf_logger.remove(file_loggers["log"])
+    disable_tuf_console_logging()
+
+
 def disable_tuf_console_logging():
     try:
         tuf.log.set_console_log_level(logging.CRITICAL)
@@ -31,7 +36,7 @@ def disable_tuf_console_logging():
 
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
-        tuf.log.disable_tuf_file_logging()
+        tuf.log.disable_file_logging()
     else:
         logging.getLogger("tuf").setLevel(logging.CRITICAL)
     logging.getLogger("securesystemslib_keys").setLevel(logging.CRITICAL)
