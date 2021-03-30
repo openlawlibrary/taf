@@ -1,5 +1,7 @@
 import click
 import taf.developer_tool as developer_tool
+from taf.yubikey import is_valid_pin
+from taf.exceptions import YubikeyError
 
 
 def attach_to_group(group):
@@ -7,6 +9,17 @@ def attach_to_group(group):
     @group.group()
     def yubikey():
         pass
+
+    @yubikey.command()
+    @click.argument("pin")
+    def check_pin(pin):
+        """Checks if the specified pin is valid"""
+        try:
+            valid, retries = is_valid_pin(pin)
+        except YubikeyError:
+            valid = False
+            retries = None
+        print(valid, retries)
 
     @yubikey.command()
     @click.option("--output", help="File to which the exported public key will be written. "
