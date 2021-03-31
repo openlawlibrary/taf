@@ -1,6 +1,6 @@
 import click
-import taf.developer_tool as developer_tool
 import json
+import taf.developer_tool as developer_tool
 from taf.yubikey import is_valid_pin
 from taf.exceptions import YubikeyError
 
