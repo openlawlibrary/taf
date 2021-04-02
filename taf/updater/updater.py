@@ -287,7 +287,7 @@ def _update_named_repository(
         target_factory,
         only_validate,
         validate_from_commit,
-        check_for_unauthenticated,
+        error_if_unauthenticated,
         conf_directory_root,
         out_of_band_authentication,
     )
@@ -341,7 +341,7 @@ def _update_named_repository(
                         target_factory,
                         only_validate,
                         validate_from_commit,
-                        check_for_unauthenticated,
+                        error_if_unauthenticated,
                         conf_directory_root,
                         visited,
                         hosts_hierarchy_per_repo,
@@ -416,7 +416,7 @@ def _update_current_repository(
     target_factory,
     only_validate,
     validate_from_commit,
-    check_for_unauthenticated,
+    error_if_unauthenticated,
     conf_directory_root,
     out_of_band_authentication,
 ):
