@@ -14,7 +14,7 @@ from taf.auth_repo import NamedAuthenticationRepo
 import taf.settings as settings
 from taf.exceptions import (
     UpdateFailedError,
-    UpdaterAdditionalCommits,
+    UpdaterAdditionalCommitsError,
     GitError,
     MissingHostsError,
     InvalidHostsError,
@@ -42,9 +42,6 @@ class UpdateType(enum.Enum):
         if update_type is not None:
             return update_type
         raise ValueError("{} is not a valid update type".format(name))
-
-    def to_name(self):
-        return UPDATE_TYPES[self.value]
 
 
 UPDATE_TYPES = {
@@ -88,7 +85,7 @@ def update_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
-    check_for_unauthenticated=False,
+    error_if_unauthenticated=False,
     conf_directory_root=None,
     config_path=None,
     out_of_band_authentication=None,
@@ -141,7 +138,7 @@ def update_repository(
             target_factory,
             only_validate,
             validate_from_commit,
-            check_for_unauthenticated,
+            error_if_unauthenticated,
             conf_directory_root,
             repos_update_data=repos_update_data,
             transient_data=transient_data,
@@ -211,7 +208,7 @@ def _update_named_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
-    check_for_unauthenticated=False,
+    error_if_unauthenticated=False,
     conf_directory_root=None,
     visited=None,
     hosts_hierarchy_per_repo=None,
@@ -545,7 +542,7 @@ def _update_current_repository(
             repositories_branches_and_commits,
             last_validated_commit,
             only_validate,
-            check_for_unauthenticated,
+            error_if_unauthenticated,
         )
     except Exception as e:
         if not existing_repo:
@@ -563,12 +560,12 @@ def _update_current_repository(
         repository_updater.update_handler.cleanup()
         repositoriesdb.clear_repositories_db()
 
-    if check_for_unauthenticated and len(additional_commits_per_repo):
+    if error_if_unauthenticated and len(additional_commits_per_repo):
         return (
             Event.FAILED,
             users_auth_repo,
             _commits_ret(commits, existing_repo, False),
-            UpdaterAdditionalCommits(additional_commits_per_repo),
+            UpdaterAdditionalCommitsError(additional_commits_per_repo),
             {},
             {},
         )
@@ -644,7 +641,7 @@ def _update_target_repositories(
     repositories_branches_and_commits,
     last_validated_commit,
     only_validate,
-    check_for_unauthenticated,
+    error_if_unauthenticated,
 ):
     taf_logger.info("Validating target repositories")
     # keep track of the repositories which were cloned
@@ -733,7 +730,7 @@ def _update_target_repositories(
                     repo_branch_commits,
                     allow_unauthenticated_for_repo,
                     branch,
-                    check_for_unauthenticated,
+                    error_if_unauthenticated,
                 )
                 if len(additional_commits_on_branch):
                     additional_commits_per_repo.setdefault(repository.name, {})[
@@ -776,6 +773,7 @@ def _update_target_repositories(
 def _get_commits(
     repository, existing_repository, branch, only_validate, old_head, branch_exists
 ):
+    """Returns a list of newly fetched commits belonging to the specified branch."""
     if existing_repository:
         repository.fetch(branch=branch)
     if old_head is not None:
@@ -822,6 +820,9 @@ def _get_commits(
 def _merge_branch_commits(
     repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
 ):
+    """Determines which commits needs to be merged into the specified branch and
+    merge it.
+    """
     last_commit = branch_commits[-1]["commit"]
     last_validated_commit = last_commit
     commit_to_merge = (
@@ -832,6 +833,9 @@ def _merge_branch_commits(
 
 
 def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False):
+    """Merge the specified commit into the given branch and check out the branch.
+    If the repository cannot contain unauthenticated commits, check out the merged commit.
+    """
     checkout = True
     try:
         repository.checkout_branch(branch, raise_anyway=True)
@@ -851,7 +855,7 @@ def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=Fal
         if not allow_unauthenticated:
             repository.checkout_commit(commit_to_merge)
         else:
-            repository.checkout_branch(repository.default_branch)
+            repository.checkout_branch(branch)
 
 
 def _set_target_repositories_data(
@@ -897,7 +901,7 @@ def _update_target_repository(
     target_commits,
     allow_unauthenticated,
     branch,
-    check_for_unauthenticated,
+    error_if_unauthenticated,
 ):
     taf_logger.info(
         "Validating target repository {} {} branch", repository.name, branch
@@ -979,9 +983,9 @@ def _update_target_repository(
         )
     taf_logger.info("Successfully validated {}", repository.name)
 
-    if check_for_unauthenticated and len(additional_commits):
+    if error_if_unauthenticated and len(additional_commits):
         # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
-        # that does not necessarily mean that the local repository is not up to date with the remote on
+        # that does not necessarily mean that the local repository is not up to date with the remote
         # pull could've been run manually
         # check where the current local head is
         branch_current_head = repository.top_commit_of_branch(branch)

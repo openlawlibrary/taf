@@ -66,14 +66,11 @@ def is_delegated_role(role):
 
 
 def is_auth_repo(repo_path):
+    """Check if the given path contains a valid TUF repository"""
     try:
-        targets_path = Path(repo_path, TARGETS_DIRECTORY_NAME)
-        targets_existed = targets_path.is_dir()
         Repository(repo_path)._repository
         return True
     except Exception:
-        if not targets_existed:
-            targets_path.rm_dir()
         return False
 
 
@@ -284,11 +281,15 @@ class Repository:
         """
         # before attempting to tuf repository, create empty targets directory if it does not exist
         # to avoid errors raised by tuf
+        targets_existed = True
         if not self.targets_path.is_dir():
+            targets_existed = False
             self.targets_path.mkdir(parents=True, exist_ok=True)
         try:
             self._tuf_repository = load_repository(path, self.name)
         except RepositoryError:
+            if not targets_existed:
+                self.targets_path.rmdir()
             raise InvalidRepositoryError(f"{self.name} is not a valid TUF repository!")
 
     def reload_tuf_repository(self):
