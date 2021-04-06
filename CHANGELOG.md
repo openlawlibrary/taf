@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Raise keystore error when key not found in keystore directory [166]
 - Replaced authenticate-test-repo flag with an enum ([161])
 
 ### Fixed
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Minor validation command fix ([161])
 
 
+[166]: https://github.com/openlawlibrary/taf/pull/166
 [165]: https://github.com/openlawlibrary/taf/pull/165
 [161]: https://github.com/openlawlibrary/taf/pull/161
 
