@@ -34,7 +34,7 @@ from taf.exceptions import (
     TimestampMetadataUpdateError,
     YubikeyError,
     InvalidRepositoryError,
-    KeystoreError
+    KeystoreError,
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings, on_rm_error
