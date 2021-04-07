@@ -43,6 +43,10 @@ class AuthRepoMixin(TAFRepository):
         return str(certs_dir)
 
     @property
+    def is_test_repo(self):
+        return Path(self.path, self.targets_path, self.TEST_REPO_FLAG_FILE).is_file()
+
+    @property
     def last_validated_commit(self):
         """
         Return the last validated commit of the authentication repository
