@@ -10,7 +10,7 @@ from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
 from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
-from taf.auth_repo import NamedAuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 import taf.settings as settings
 from taf.exceptions import (
     UpdateFailedError,
@@ -462,7 +462,7 @@ def _update_current_repository(
         # do not return any commits data if that is the case
         # TODO in case of last validated issue, think about returning commits up to the last validated one
         # the problem is that that could indicate that the history was changed
-        users_auth_repo = NamedAuthenticationRepo(
+        users_auth_repo = AuthenticationRepository(
             clients_auth_root_dir,
             auth_repo_name,
             urls=[url],

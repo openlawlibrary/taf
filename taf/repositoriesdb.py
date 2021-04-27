@@ -1,14 +1,14 @@
 import json
 from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-from taf.auth_repo import NamedAuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import (
     InvalidOrMissingMetadataError,
     RepositoriesNotFoundError,
     RepositoryInstantiationError,
     GitError,
 )
-from taf.git import NamedGitRepository
+from taf.git import GitRepository
 from taf.log import taf_logger
 
 
@@ -45,7 +45,7 @@ def clear_dependencies_db():
 
 def load_dependencies(
     auth_repo,
-    auth_class=NamedAuthenticationRepo,
+    auth_class=AuthenticationRepository,
     root_dir=None,
     commits=None,
 ):
@@ -105,15 +105,15 @@ def load_dependencies(
             custom = _get_custom_data(repo_data, None)
 
             if auth_class is None:
-                auth_class = NamedAuthenticationRepo
+                auth_class = AuthenticationRepository
             else:
-                if not issubclass(auth_class, NamedAuthenticationRepo):
+                if not issubclass(auth_class, AuthenticationRepository):
                     raise Exception(
-                        f"{auth_class} is not a subclass of NamedAuthenticationRepo"
+                        f"{auth_class} is not a subclass of AuthenticationRepository"
                     )
             contained_auth_repo = None
             try:
-                # TODO check if repo class is subclass of NamedAuthenticationRepo
+                # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
                     root_dir, path, urls, out_of_band_authentication, custom
@@ -162,9 +162,9 @@ def load_repositories(
         When determening a target's class, in case when targets_classes is a dictionary,
         it is first checked if its path is in a key in the dictionary. If it is not found,
         it is checked if default class is set, by looking up value of 'default'. If nothing
-        is found, the class is set to TAF's NamedGitRepository.
+        is found, the class is set to TAF's GitRepository.
         If target_classes is a single class, all targets will be of that type.
-        If target_classes is None, all targets will be of TAF's NamedGitRepository type.
+        If target_classes is None, all targets will be of TAF's GitRepository type.
         root_dir: root directory relative to which the target paths are specified
         commits: Authentication repository's commits at which to read targets.json
         only_load_targets: specifies if only repositories specified in targets files should be loaded.
@@ -242,9 +242,9 @@ def load_repositories(
 
             # allows us to partially update repositories
             if git_repo:
-                if not isinstance(git_repo, NamedGitRepository):
+                if not isinstance(git_repo, GitRepository):
                     raise Exception(
-                        f"{type(git_repo)} is not a subclass of NamedGitRepository"
+                        f"{type(git_repo)} is not a subclass of GitRepository"
                     )
 
                 repositories_dict[path] = git_repo
@@ -259,7 +259,7 @@ def load_repositories(
 def _determine_repo_class(repo_classes, path):
     # if no class is specified, return the default one
     if repo_classes is None:
-        return NamedGitRepository
+        return GitRepository
 
     # if only one value is specified, that means that all target repositories
     # should be of the same class
@@ -272,7 +272,7 @@ def _determine_repo_class(repo_classes, path):
     if "default" in repo_classes:
         return repo_classes["default"]
 
-    return NamedGitRepository
+    return GitRepository
 
 
 def _get_custom_data(repo, target):

@@ -25,10 +25,10 @@ class GitRepository:
     def __init__(
         self,
         path,
+        name=None,
         urls=None,
         custom=None,
         default_branch="master",
-        name=None,
         *args,
         **kwargs,
     ):
@@ -39,11 +39,15 @@ class GitRepository:
           custom: a dictionary containing other data (optional)
           default_branch: repository's default branch
         """
-        self._path = Path(path).resolve()
-        if name is None:
-            name = self._path.name
+        if name is not None:
+            self._validate_repo_name(name)
+        else:
+            name = Path(path).name
         self.name = name
+        self._validate_repo_path(path)
+        self._path = Path(path).resolve()
         self.default_branch = default_branch
+
         if urls is not None:
             if settings.update_from_filesystem is False:
                 for url in urls:
@@ -59,6 +63,11 @@ class GitRepository:
         if custom is None:
             custom = {}
         self.custom = custom
+
+    @classmethod
+    def from_root_dir_and_name(cls, root_dir, name, **kwargs):
+        return cls(str(Path(root_dir, name)), **kwargs)
+
 
     @classmethod
     def from_json_dict(cls, json_data):
@@ -845,6 +854,28 @@ class GitRepository:
     def top_commit_of_branch(self, branch):
         return self._git(f"rev-parse {branch}")
 
+    def _validate_repo_name(self, name):
+        """ Ensure the repo name is not malicious """
+        match = _repo_name_re.match(name)
+        if not match:
+            taf_logger.error(f"Repository name {name} is not valid")
+            raise InvalidRepositoryError(
+                "Repository name must be in format namespace/repository "
+                "and can only contain letters, numbers, underscores and "
+                f'dashes, but got "{name}"'
+            )
+
+    def _validate_repo_path(self, path):
+        """
+        validate repo path
+        (since this is coming from potentially untrusted data)
+        """
+        repo_dir = str(Path(path))
+        if not repo_dir.startswith(repo_dir):
+            self._log_error("repository's path is not valid")
+            raise InvalidRepositoryError(f"Invalid repository path: {path}")
+        return repo_dir
+
     def _validate_url(self, url):
         """ ensure valid URL """
         for _url_re in [_http_fttp_url, _ssh_url]:
@@ -855,82 +886,6 @@ class GitRepository:
         raise InvalidRepositoryError(
             f'Repository URL must be a valid URL, but got "{url}".'
         )
-
-
-class NamedGitRepository(GitRepository):
-    def __init__(
-        self,
-        root_dir,
-        name,
-        urls=None,
-        custom=None,
-        default_branch="master",
-        *args,
-        **kwargs,
-    ):
-        """
-        Args:
-          root_dir: the root directory
-          name: repository's path relative to the root directory root_dir
-          urls: repository's urls (optional)
-          custom: a dictionary containing other data (optional)
-          default_branch: repository's default branch
-        path is the absolute path to this repository. It is set by joining
-        root_dir and name.
-        """
-        self.root_dir = root_dir
-        self.name = name
-        path = self._get_repo_path(root_dir, name)
-        super().__init__(
-            path,
-            name=name,
-            urls=urls,
-            custom=custom,
-            default_branch=default_branch,
-        )
-
-    @classmethod
-    def from_json_dict(cls, json_data):
-        json_data.pop("path", None)
-        root_dir = json_data.pop("root_dir")
-        urls = json_data.pop("urls")
-        custom = json_data.pop("custom", None)
-        name = json_data.pop("name")
-        default_branch = json_data.pop("default_branch", "master")
-        return cls(root_dir, name, urls, custom, default_branch, **json_data)
-
-    def to_json_dict(self):
-        return {
-            "root_dir": str(self.root_dir),
-            "name": self.name,
-            "path": self.path,
-            "urls": self.urls,
-            "custom": self.custom,
-            "default_branch": self.default_branch,
-        }
-
-    def _get_repo_path(self, root_dir, name):
-        """
-        get the path to a repo and ensure it is valid.
-        (since this is coming from potentially untrusted data)
-        """
-        self._validate_repo_name(name)
-        repo_dir = str((Path(root_dir) / (name or "")))
-        if not repo_dir.startswith(repo_dir):
-            self._log_error("repository name is not valid")
-            raise InvalidRepositoryError(f"Invalid repository name: {name}")
-        return repo_dir
-
-    def _validate_repo_name(self, name):
-        """ Ensure the repo name is not malicious """
-        match = _repo_name_re.match(name)
-        if not match:
-            self._log_error("repository name is not valid")
-            raise InvalidRepositoryError(
-                "Repository name must be in format namespace/repository "
-                "and can only contain letters, numbers, underscores and "
-                f'dashes, but got "{name}"'
-            )
 
 
 def get_last_remote_commit(url):

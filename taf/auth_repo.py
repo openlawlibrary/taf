@@ -1,4 +1,3 @@
-import glob
 import json
 import os
 import tempfile
@@ -6,7 +5,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
-from taf.git import GitRepository, NamedGitRepository
+from taf.git import GitRepository
 from taf.repository_tool import (
     Repository as TAFRepository,
     get_role_metadata_path,
@@ -14,7 +13,8 @@ from taf.repository_tool import (
 )
 
 
-class AuthRepoMixin(TAFRepository):
+
+class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
@@ -24,16 +24,30 @@ class AuthRepoMixin(TAFRepository):
 
     _conf_dir = None
 
+
     def __init__(
-        self, conf_directory_root, out_of_band_authentication=None, hosts=None
+        self,
+        path,
+        name=None,
+        urls=None,
+        custom=None,
+        default_branch="master",
+        conf_directory_root=None,
+        out_of_band_authentication=None,
+        hosts=None,
+        *args,
+        **kwargs,
     ):
+        super().__init__(path, name, urls, custom, default_branch, *args, **kwargs)
+
         if conf_directory_root is None:
             conf_directory_root = str(Path(self.path).parent)
         self.conf_directory_root = conf_directory_root
         self.out_of_band_authentication = out_of_band_authentication
         # host data can be specified in the current authentication repository or in its parent
-        # the input parameter hosts is expected to contain hosts date specified outside of
+        # the input parameter hosts is expected to contain hosts data specified outside of
         # this repository's hosts file specifying its hosts
+        # in other words, propagate hosts data from parent to the child repository
         self.hosts = hosts
 
     # TODO rework conf_dir
@@ -123,11 +137,6 @@ class AuthRepoMixin(TAFRepository):
             return self.safely_get_json(commit, target_path)
         else:
             return self.get_json(commit, target_path)
-
-    def execute_scirpts(self):
-        scripts_path = Path(self.path, self.get_target_path(self.SCRIPTS_PATH))
-        scripts = glob.glob(f"{scripts_path}/*.py")
-        scripts = [script for script in scripts.sort() if script[0].isdigit()]
 
     def is_commit_authenticated(self, target_name, commit):
         """Checks if passed commit is ever authenticated for given target name."""
@@ -263,135 +272,3 @@ class AuthRepoMixin(TAFRepository):
                             "custom": target_content,
                         }
         return targets
-
-
-class AuthenticationRepo(GitRepository, AuthRepoMixin):
-    def __init__(
-        self,
-        path,
-        urls=None,
-        custom=None,
-        default_branch="master",
-        conf_directory_root=None,
-        name=None,
-        out_of_band_authentication=None,
-        hosts=None,
-        *args,
-        **kwargs,
-    ):
-        GitRepository.__init__(
-            self,
-            path,
-            urls=urls,
-            custom=custom,
-            default_branch=default_branch,
-            name=name,
-        )
-        AuthRepoMixin.__init__(
-            self,
-            conf_directory_root=conf_directory_root,
-            out_of_band_authentication=out_of_band_authentication,
-            hosts=hosts,
-        )
-
-    @classmethod
-    def from_json_dict(cls, json_data):
-        path = json_data.pop("path")
-        urls = json_data.pop("urls")
-        custom = json_data.pop("custom")
-        name = json_data.pop("name")
-        default_branch = json_data.pop("default_branch")
-        hosts = json_data.pop("hosts", None)
-        conf_directory_root = json_data.pop("root_dir", None)
-        out_of_band_authentication = json_data.pop("out_of_banch_authentication", None)
-        return cls(
-            path,
-            urls,
-            custom,
-            default_branch,
-            conf_directory_root,
-            name,
-            out_of_band_authentication,
-            hosts,
-            **json_data,
-        )
-
-    def to_json(self):
-        return json.dumps(
-            {
-                "path": str(self.path),
-                "name": self.name,
-                "urls": self.urls,
-                "custom": self.custom,
-                "default_branch": self.default_branch,
-                "hosts": self.hosts,
-                "out_of_band_authentication": self.out_of_band_authentication,
-            }
-        )
-
-
-class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
-    def __init__(
-        self,
-        root_dir,
-        name,
-        urls=None,
-        out_of_band_authentication=None,
-        custom=None,
-        default_branch="master",
-        conf_directory_root=None,
-        hosts=None,
-        *args,
-        **kwargs,
-    ):
-        NamedGitRepository.__init__(
-            self,
-            root_dir=root_dir,
-            name=name,
-            urls=urls,
-            custom=custom,
-            default_branch=default_branch,
-            *args,
-            **kwargs,
-        )
-        AuthRepoMixin.__init__(
-            self,
-            conf_directory_root=conf_directory_root,
-            out_of_band_authentication=out_of_band_authentication,
-            hosts=hosts,
-        )
-
-    @classmethod
-    def from_json_dict(cls, json_data):
-        json_data.pop("path", None)
-        root_dir = json_data.pop("root_dir")
-        urls = json_data.pop("urls")
-        custom = json_data.pop("custom", None)
-        name = json_data.pop("name")
-        default_branch = json_data.pop("default_branch", "master")
-        hosts = json_data.pop("hosts", None)
-        conf_directory_root = json_data.pop("root_dir", None)
-        out_of_band_authentication = json_data.pop("out_of_band_authentication", None)
-        return cls(
-            root_dir,
-            name,
-            urls=urls,
-            out_of_band_authentication=out_of_band_authentication,
-            custom=custom,
-            default_branch=default_branch,
-            conf_directory_root=conf_directory_root,
-            hosts=hosts,
-            **json_data,
-        )
-
-    def to_json_dict(self):
-        return {
-            "root_dir": str(self.root_dir),
-            "name": self.name,
-            "path": self.path,
-            "urls": self.urls,
-            "custom": self.custom,
-            "default_branch": self.default_branch,
-            "out_of_band_authentication": self.out_of_band_authentication,
-            "hosts": self.hosts,
-        }

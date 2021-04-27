@@ -10,7 +10,7 @@ import tuf.client.handlers as handlers
 from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
-from taf.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.utils import on_rm_error
@@ -93,15 +93,16 @@ class GitUpdater(handlers.MetadataUpdater):
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
         if settings.validate_repo_name:
-            self.users_auth_repo = NamedAuthenticationRepo(
-                repository_directory,
+            users_repo_path = Path(repository_directory, repository_name)
+            self.users_auth_repo = AuthenticationRepository(
+                users_repo_path,
                 repository_name,
                 urls=[auth_url],
                 conf_directory_root=conf_directory_root,
             )
         else:
             users_repo_path = Path(repository_directory, repository_name)
-            self.users_auth_repo = AuthenticationRepo(
+            self.users_auth_repo = AuthenticationRepository(
                 str(users_repo_path),
                 self.metadata_path,
                 self.targets_path,

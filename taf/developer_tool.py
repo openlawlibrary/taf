@@ -18,7 +18,7 @@ from tuf.repository_tool import (
 )
 
 from taf import YubikeyMissingLibrary
-from taf.auth_repo import AuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, TargetsMetadataUpdateError
 from taf.git import GitRepository
@@ -67,7 +67,7 @@ def add_roles(
 ):
 
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepo(repo_path)
+    auth_repo = AuthenticationRepository(repo_path)
     repo_path = Path(repo_path)
 
     roles_key_infos, keystore = _initialize_roles_and_keystore(
@@ -376,7 +376,7 @@ def create_repository(
         Indicates if the created repository is a test authentication repository
     """
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepo(repo_path)
+    auth_repo = AuthenticationRepository(repo_path)
     repo_path = Path(repo_path)
 
     if not _check_if_can_create_repository(auth_repo):
@@ -833,7 +833,7 @@ def export_yk_certificate(certs_dir, key):
 
 
 def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
-    auth_repo = AuthenticationRepo(repo_path)
+    auth_repo = AuthenticationRepository(repo_path)
     commits = auth_repo.all_commits_since_commit(commit, branch="master")
     if not len(target_repos):
         target_repos = None
