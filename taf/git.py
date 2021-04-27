@@ -44,7 +44,7 @@ class GitRepository:
         else:
             name = Path(path).name
         self.name = name
-        self._validate_repo_path(path)
+        self._validate_repo_path(path, name)
         self._path = Path(path).resolve()
         self.default_branch = default_branch
 
@@ -67,7 +67,6 @@ class GitRepository:
     @classmethod
     def from_root_dir_and_name(cls, root_dir, name, **kwargs):
         return cls(str(Path(root_dir, name)), **kwargs)
-
 
     @classmethod
     def from_json_dict(cls, json_data):
@@ -97,6 +96,7 @@ class GitRepository:
 
     log_template = "{}{}"
 
+
     @property
     def path(self):
         return str(self._path)
@@ -108,6 +108,10 @@ class GitRepository:
         if self._remotes is None:
             self._remotes = self._git("remote").split("\n")
         return self._remotes
+
+    @property
+    def root_dir(self):
+        return Path(self.path.split(self.name)[0])
 
     @property
     def is_git_repository_root(self):
@@ -865,13 +869,14 @@ class GitRepository:
                 f'dashes, but got "{name}"'
             )
 
-    def _validate_repo_path(self, path):
+    def _validate_repo_path(self, path, name):
         """
         validate repo path
         (since this is coming from potentially untrusted data)
         """
         repo_dir = str(Path(path))
-        if not repo_dir.startswith(repo_dir):
+        name = str(Path(name))
+        if not repo_dir.startswith(repo_dir) or not repo_dir.endswith(name):
             self._log_error("repository's path is not valid")
             raise InvalidRepositoryError(f"Invalid repository path: {path}")
         return repo_dir

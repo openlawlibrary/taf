@@ -17,8 +17,8 @@ from taf.log import taf_logger
 # {
 #     'authentication_repo_path': {
 #         'commit' : {
-#             'path1': git_repository1
-#             'path2': target_git_repository2
+#             'name1': git_repository1
+#             'name2': target_git_repository2
 #             ...
 #         }
 #     }
@@ -94,9 +94,9 @@ def load_dependencies(
         mirrors = _load_mirrors_json(auth_repo, commit)
         dependencies = dependencies["dependencies"]
 
-        for path, repo_data in dependencies.items():
+        for name, repo_data in dependencies.items():
             try:
-                urls = _get_urls(mirrors, path, repo_data)
+                urls = _get_urls(mirrors, name, repo_data)
             except RepositoryInstantiationError:
                 dependencies_dict.clear()
                 break
@@ -112,21 +112,22 @@ def load_dependencies(
                         f"{auth_class} is not a subclass of AuthenticationRepository"
                     )
             contained_auth_repo = None
+            path = str(Path(root_dir, name))
             try:
                 # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
-                    root_dir, path, urls, out_of_band_authentication, custom
+                    path, name, urls, out_of_band_authentication, custom
                 )
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
                     auth_repo.path,
-                    path,
+                    name,
                     str(e),
                 )
-                raise RepositoryInstantiationError(f"{root_dir / path}", str(e))
-            dependencies_dict[path] = contained_auth_repo
+                raise RepositoryInstantiationError(path, str(e))
+            dependencies_dict[name] = contained_auth_repo
 
         taf_logger.debug(
             "Loaded the following contained authentication repositories at revision {}: {}",
@@ -153,19 +154,19 @@ def load_repositories(
     Args:
         auth_repo: the authentication repository
         target_classes: a single git repository class, or a dictionary whose keys are
-        target paths and values are git repository classes. E.g:
+        target names and values are git repository classes. E.g:
         {
-            'path1': GitRepo1,
-            'path2': GitRepo2,
+            'name1': GitRepo1,
+            'name2': GitRepo2,
             'default': GitRepo3
         }
         When determening a target's class, in case when targets_classes is a dictionary,
-        it is first checked if its path is in a key in the dictionary. If it is not found,
+        it is first checked if its name is in a key in the dictionary. If it is not found,
         it is checked if default class is set, by looking up value of 'default'. If nothing
         is found, the class is set to TAF's GitRepository.
         If target_classes is a single class, all targets will be of that type.
         If target_classes is None, all targets will be of TAF's GitRepository type.
-        root_dir: root directory relative to which the target paths are specified
+        root_dir: root directory relative to which the target names are specified
         commits: Authentication repository's commits at which to read targets.json
         only_load_targets: specifies if only repositories specified in targets files should be loaded.
         If set to false, all repositories defined in repositories.json are loaded, regardless of if
@@ -217,28 +218,29 @@ def load_repositories(
         repositories = repositories["repositories"]
         targets = _targets_of_roles(auth_repo, commit, roles)
 
-        for path, repo_data in repositories.items():
-            urls = _get_urls(mirrors, path, repo_data)
-            if path not in targets and only_load_targets:
+        for name, repo_data in repositories.items():
+            urls = _get_urls(mirrors, name, repo_data)
+            if name not in targets and only_load_targets:
                 continue
 
-            custom = _get_custom_data(repo_data, targets.get(path))
+            custom = _get_custom_data(repo_data, targets.get(name))
 
             git_repo = None
             try:
+                path = str(Path(root_dir, name))
                 if factory is not None:
-                    git_repo = factory(root_dir, path, urls, custom)
+                    git_repo = factory(path, name, urls, custom)
                 else:
-                    git_repo_class = _determine_repo_class(repo_classes, path)
-                    git_repo = git_repo_class(root_dir, path, urls, custom)
+                    git_repo_class = _determine_repo_class(repo_classes, name)
+                    git_repo = git_repo_class(path, name, urls, custom)
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
                     auth_repo.path,
-                    path,
+                    name,
                     str(e),
                 )
-                raise RepositoryInstantiationError(f"{root_dir / path}", str(e))
+                raise RepositoryInstantiationError(path, str(e))
 
             # allows us to partially update repositories
             if git_repo:
@@ -247,7 +249,7 @@ def load_repositories(
                         f"{type(git_repo)} is not a subclass of GitRepository"
                     )
 
-                repositories_dict[path] = git_repo
+                repositories_dict[name] = git_repo
 
         taf_logger.debug(
             "Loaded the following repositories at revision {}: {}",
@@ -256,7 +258,7 @@ def load_repositories(
         )
 
 
-def _determine_repo_class(repo_classes, path):
+def _determine_repo_class(repo_classes, name):
     # if no class is specified, return the default one
     if repo_classes is None:
         return GitRepository
@@ -266,8 +268,8 @@ def _determine_repo_class(repo_classes, path):
     if not isinstance(repo_classes, dict):
         return repo_classes
 
-    if path in repo_classes:
-        return repo_classes[path]
+    if name in repo_classes:
+        return repo_classes[name]
 
     if "default" in repo_classes:
         return repo_classes["default"]
@@ -295,33 +297,33 @@ def get_hosts_of_repo(self, repo):
     return repo_hosts
 
 
-def _get_json_file(auth_repo, path, commit):
+def _get_json_file(auth_repo, name, commit):
     try:
-        return auth_repo.get_json(commit, path)
+        return auth_repo.get_json(commit, name)
     except GitError:
         raise InvalidOrMissingMetadataError(
-            f"{path} not available at revision {commit}"
+            f"{name} not available at revision {commit}"
         )
     except json.decoder.JSONDecodeError:
         raise InvalidOrMissingMetadataError(
-            f"{path} not a valid json at revision {commit}"
+            f"{name} not a valid json at revision {commit}"
         )
 
 
-def _get_urls(mirrors, repo_path, repo_data=None):
+def _get_urls(mirrors, repo_name, repo_data=None):
     if repo_data is not None and "urls" in repo_data:
         return repo_data["urls"]
     elif mirrors is None:
         raise RepositoryInstantiationError(
-            repo_path,
-            f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_path} specified in {REPOSITORIES_JSON_PATH}",
+            repo_name,
+            f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}",
         )
 
     try:
-        org_name, repo_name = repo_path.split("/")
+        org_name, repo_name = repo_name.split("/")
     except Exception:
         raise RepositoryInstantiationError(
-            repo_path, "repository name is not in the org_name/repo_name format"
+            repo_name, "repository name is not in the org_name/repo_name format"
         )
 
     return [mirror.format(org_name=org_name, repo_name=repo_name) for mirror in mirrors]
@@ -331,7 +333,7 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
     if not commit:
         commit = auth_repo.head_commit_sha()
     taf_logger.debug(
-        "Auth repo {}: finding paths of repositories by custom data {}",
+        "Auth repo {}: finding names of repositories by custom data {}",
         auth_repo.path,
         custom,
     )
@@ -339,22 +341,22 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
     repositories = repositories["repositories"]
     targets = _targets_of_roles(auth_repo, commit)
 
-    def _compare(path):
-        # Check if `custom` dict is subset of targets[path]['custom'] dict
+    def _compare(name):
+        # Check if `custom` dict is subset of targets[name]['custom'] dict
         try:
             return (
                 custom.items()
-                <= _get_custom_data(repositories[path], targets.get(path)).items()
+                <= _get_custom_data(repositories[name], targets.get(name)).items()
             )
         except (AttributeError, KeyError):
             return False
 
-    paths = list(filter(_compare, repositories)) if custom else list(repositories)
-    if len(paths):
+    names = list(filter(_compare, repositories)) if custom else list(repositories)
+    if len(names):
         taf_logger.debug(
-            "Auth repo {}: found the following paths {}", auth_repo.path, paths
+            "Auth repo {}: found the following names {}", auth_repo.path, names
         )
-        return paths
+        return names
     taf_logger.error(
         "Auth repo {}: repositories associated with custom data {} not found",
         auth_repo.path,
@@ -410,9 +412,9 @@ def _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, load_auth
                 f"{repositories_msg} defined in authentication repository "
                 f"{auth_repo.path} at revision {commit} have not been loaded"
             )
-        for path, repo in all_repositories[commit].items():
+        for name, repo in all_repositories[commit].items():
             # will overwrite older repo with newer
-            repositories[path] = repo
+            repositories[name] = repo
 
     taf_logger.debug(
         "Auth repo {}: deduplicated list of {}repositories {}",
@@ -423,12 +425,12 @@ def _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, load_auth
     return repositories
 
 
-def get_repository(auth_repo, path, commit=None):
-    return get_repositories(auth_repo, commit).get(path)
+def get_repository(auth_repo, name, commit=None):
+    return get_repositories(auth_repo, commit).get(name)
 
 
-def get_auth_repository(auth_repo, path, commit=None):
-    return get_auth_repositories(auth_repo, commit).get(path)
+def get_auth_repository(auth_repo, name, commit=None):
+    return get_auth_repositories(auth_repo, commit).get(name)
 
 
 def get_auth_repositories(auth_repo, commit=None):
