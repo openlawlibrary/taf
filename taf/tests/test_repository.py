@@ -30,7 +30,7 @@ def test_url_validation_valid_urls():
         "git@github.com:openlawlibrary/taf.git",
         "git@github.com:openlawlibrary/taf",
     ]
-    repo = GitRepository("path", urls=urls)
+    repo = GitRepository(Path("path", "namespace", "repo"), urls=urls)
     for test_url, repo_url in zip(urls, repo.urls):
         assert test_url == repo_url
 
