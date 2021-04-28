@@ -99,7 +99,6 @@ class GitRepository:
 
     log_template = "{}{}"
 
-
     @property
     def path(self):
         return str(self._path)

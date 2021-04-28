@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from taf.exceptions import InvalidRepositoryError
 from taf.git import GitRepository
@@ -7,7 +8,9 @@ from taf.git import GitRepository
 def test_name_validation_valid_names():
     names = ["namespace/repo1", "namespace1/repo1"]
     for name in names:
-        repo = GitRepository("path", name)
+        repo = GitRepository(Path("path", name), name)
+        assert name == repo.name
+        repo = GitRepository(Path("path", name))
         assert name == repo.name
 
 

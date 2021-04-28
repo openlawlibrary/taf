@@ -13,7 +13,6 @@ from taf.repository_tool import (
 )
 
 
-
 class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
@@ -23,7 +22,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
-
 
     def __init__(
         self,
