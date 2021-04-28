@@ -463,8 +463,7 @@ def _update_current_repository(
         # TODO in case of last validated issue, think about returning commits up to the last validated one
         # the problem is that that could indicate that the history was changed
         users_auth_repo = AuthenticationRepository(
-            clients_auth_root_dir,
-            auth_repo_name,
+            Path(clients_auth_root_dir, auth_repo_name),
             urls=[url],
             conf_directory_root=conf_directory_root,
         )

@@ -55,7 +55,7 @@ from freezegun import freeze_time
 from datetime import datetime
 
 import taf.settings as settings
-from taf.auth_repo import AuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.updater.updater import update_repository, UpdateType
@@ -356,8 +356,8 @@ def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
 
 def _check_last_validated_commit(clients_auth_repo_path):
     # check if last validated commit is created and the saved commit is correct
-    client_auth_repo = AuthenticationRepo(
-        str(clients_auth_repo_path), "metadata", "targets"
+    client_auth_repo = AuthenticationRepository(
+        str(clients_auth_repo_path)
     )
     head_sha = client_auth_repo.head_commit_sha()
     last_validated_commit = client_auth_repo.last_validated_commit
@@ -365,8 +365,8 @@ def _check_last_validated_commit(clients_auth_repo_path):
 
 
 def _check_if_last_validated_commit_exists(clients_auth_repo_path):
-    client_auth_repo = AuthenticationRepo(
-        str(clients_auth_repo_path), "metadata", "targets"
+    client_auth_repo = AuthenticationRepository(
+        str(clients_auth_repo_path)
     )
     last_validated_commit = client_auth_repo.last_validated_commit
     assert last_validated_commit is None
@@ -407,7 +407,7 @@ def _clone_and_revert_client_repositories(
 ):
     client_repos = {}
     client_auth_repo = _clone_client_repo(
-        AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepo
+        AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepository
     )
     client_auth_repo.reset_num_of_commits(num_of_commits, True)
     client_repos[AUTH_REPO_REL_PATH] = client_auth_repo

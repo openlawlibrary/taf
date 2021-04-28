@@ -39,13 +39,16 @@ class GitRepository:
           custom: a dictionary containing other data (optional)
           default_branch: repository's default branch
         """
+        self._path = Path(path).resolve()
         if name is not None:
             self._validate_repo_name(name)
         else:
-            name = Path(path).name
+            if self._path.parent.parent != self._path.parent:
+                name = f"{self._path.parent.name}/{self._path.name}"
+            else:
+                name = self._path.name
         self.name = name
         self._validate_repo_path(path, name)
-        self._path = Path(path).resolve()
         self.default_branch = default_branch
 
         if urls is not None:
