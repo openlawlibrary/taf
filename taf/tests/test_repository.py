@@ -18,7 +18,7 @@ def test_name_validation_invalid_names():
     names = ["repo1", "../namespace/repo1", "/namespace/repo1"]
     for name in names:
         with pytest.raises(InvalidRepositoryError):
-            repo = GitRepository("path", name)
+            GitRepository(Path("path", name), name)
 
 
 def test_url_validation_valid_urls():
