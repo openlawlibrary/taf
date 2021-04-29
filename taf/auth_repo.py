@@ -50,23 +50,16 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     # TODO rework conf_dir
 
-    @classmethod
-    def from_json_dict(cls, json_data):
-        path = json_data.pop("path")
-        urls = json_data.pop("urls")
-        custom = json_data.pop("custom", None)
-        name = json_data.pop("name")
-        default_branch = json_data.pop("default_branch", "master")
-        return cls(path, urls, custom, default_branch, name, **json_data)
-
     def to_json_dict(self):
-        return {
-            "path": str(self.path),
-            "urls": self.urls,
-            "name": self.name,
-            "default_branch": self.default_branch,
-            "custom": self.custom,
-        }
+        data = super().to_json_dict()
+        data.update(
+            {
+                "conf_directory_root": self.conf_directory_root,
+                "out_of_band_authentication": self.out_of_band_authentication,
+                "hosts": self.hosts,
+            }
+        )
+        return data
 
     @property
     def conf_dir(self):
