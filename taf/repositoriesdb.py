@@ -285,18 +285,6 @@ def _get_custom_data(repo, target):
     return custom
 
 
-def get_hosts_of_repo(self, repo):
-    repo_hosts = {}
-    for host, host_data in self.hosts_conf.items():
-        repos = host_data.get(self.AUTH_REPOS_HOSTS_KEY)
-        for repo_name in repos:
-            if repo_name == repo.name:
-                repo_hosts[host] = dict(host_data)
-                repo_hosts[host].remove(self.AUTH_REPO_HOSTS_KEY)
-                break
-    return repo_hosts
-
-
 def _get_json_file(auth_repo, name, commit):
     try:
         return auth_repo.get_json(commit, name)

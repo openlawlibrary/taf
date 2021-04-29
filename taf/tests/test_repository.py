@@ -56,11 +56,13 @@ def test_from_json_dict():
     repo = GitRepository.from_json_dict(data)
     for attr_name, attr_value in data.items():
         assert getattr(repo, attr_name) == attr_value
-    data.update({
-        "conf_directory_root": str(Path("path")),
-        "out_of_band_authentication": "123456789",
-        "hosts": {"host1": "something"},
-    })
+    data.update(
+        {
+            "conf_directory_root": str(Path("path")),
+            "out_of_band_authentication": "123456789",
+            "hosts": {"host1": "something"},
+        }
+    )
     auth_repo = AuthenticationRepository.from_json_dict(data)
     for attr_name, attr_value in data.items():
         assert getattr(auth_repo, attr_name) == attr_value

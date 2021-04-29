@@ -36,6 +36,23 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         *args,
         **kwargs,
     ):
+        """
+        Args:
+          path: repository's full filesystem path or path to the root directory which contains the repository
+          name (optional): repository's name, which is appended to the root directory to form the full path.
+          Must be in the namespace/name format. If not specified, name will be determined based repository's
+          full path.
+          urls (optional): repository's urls
+          custom (optional): a dictionary containing other data
+          default_branch (optional): repository's default branch ("master" if not defined)
+          conf_directory_root (optional): path of the directory inside of which cthe configuration directory should be created
+          out_of_band_authentication (optional): manually specified initial commit
+          hosts (optional): host data is specified using the hosts.json file. Hosts of the current repo
+          can be specified in its parent's repo (meaning that this repo is listed in the parent's dependencies.json),
+          or it can be specified in hosts.json contained by the repo itself. If hosts data is defined in the parent,
+          it can be propagated to the contained repos. `load_hosts` function of the `hosts` module sets this
+          attribute.
+        """
         super().__init__(path, name, urls, custom, default_branch, *args, **kwargs)
 
         if conf_directory_root is None:
@@ -51,6 +68,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     # TODO rework conf_dir
 
     def to_json_dict(self):
+        """Returns a dictionary mapping all attributes to their values"""
         data = super().to_json_dict()
         data.update(
             {
@@ -82,17 +100,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         certs_dir = Path(self.path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
-
-    def get_hosts_of_repo(self, repo):
-        repo_hosts = {}
-        for host, host_data in self.hosts_conf.items():
-            repos = host_data.get(self.AUTH_REPOS_HOSTS_KEY)
-            for repo_name in repos:
-                if repo_name == repo.name:
-                    repo_hosts[host] = dict(host_data)
-                    repo_hosts[host].remove(self.AUTH_REPO_HOSTS_KEY)
-                    break
-        return repo_hosts
 
     @property
     def is_test_repo(self):

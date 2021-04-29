@@ -34,14 +34,18 @@ class GitRepository:
     ):
         """
         Args:
-          path: repository's path
-          urls: repository's urls (optional)
-          custom: a dictionary containing other data (optional)
-          default_branch: repository's default branch
+          path: repository's full filesystem path or path to the root directory which contains the repository
+          name (optional): repository's name, which is appended to the root directory to form the full path.
+          Must be in the namespace/name format. If not specified, name will be determined based repository's
+          full path.
+          urls (optional): repository's urls
+          custom (optional): a dictionary containing other data
+          default_branch (optional): repository's default branch ("master" if not defined)
         """
         self._path = Path(path).resolve()
         if name is not None:
             self._validate_repo_name(name)
+            self._path = self._path / name
         else:
             if self._path.parent.parent != self._path.parent:
                 name = f"{self._path.parent.name}/{self._path.name}"
@@ -68,14 +72,20 @@ class GitRepository:
         self.custom = custom
 
     @classmethod
-    def from_root_dir_and_name(cls, root_dir, name, **kwargs):
-        return cls(str(Path(root_dir, name)), **kwargs)
-
-    @classmethod
     def from_json_dict(cls, json_data):
+        """Create a new instance based on data contained by the `json_data` dictionary,
+        which can be create by calling `to_json_dict`
+        """
+        path = str(Path(json_data.get("path")))
+        name = json_data.get("name")
+        if name is not None:
+            name = str(Path(name))
+            if path.endswith(name):
+                json_data.pop("name")
         return cls(**json_data)
 
     def to_json_dict(self):
+        """Returns a dictionary mapping all attributes to their values"""
         return {
             "path": str(self.path),
             "name": self.name,
