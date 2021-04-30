@@ -87,3 +87,7 @@ def test_to_json_dict():
         out_of_band_authentication="123456789",
         hosts={"host1": "something"},
     )
+
+    json_data = auth_repo.to_json_dict()
+    for name, value in json_data.items():
+        assert getattr(auth_repo, name) == value
