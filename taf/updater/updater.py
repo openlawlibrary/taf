@@ -462,8 +462,10 @@ def _update_current_repository(
         # do not return any commits data if that is the case
         # TODO in case of last validated issue, think about returning commits up to the last validated one
         # the problem is that that could indicate that the history was changed
+        import pdb; pdb.set_trace()
         users_auth_repo = AuthenticationRepository(
-            Path(clients_auth_root_dir, auth_repo_name),
+            clients_auth_root_dir,
+            auth_repo_name,
             urls=[url],
             conf_directory_root=conf_directory_root,
         )

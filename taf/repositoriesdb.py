@@ -112,12 +112,11 @@ def load_dependencies(
                         f"{auth_class} is not a subclass of AuthenticationRepository"
                     )
             contained_auth_repo = None
-            path = str(Path(root_dir, name))
             try:
                 # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
-                    path, name, urls, out_of_band_authentication, custom
+                    root_dir, name, urls, out_of_band_authentication, custom
                 )
             except Exception as e:
                 taf_logger.error(
@@ -126,7 +125,7 @@ def load_dependencies(
                     name,
                     str(e),
                 )
-                raise RepositoryInstantiationError(path, str(e))
+                raise RepositoryInstantiationError(Path(root_dir, name), str(e))
             dependencies_dict[name] = contained_auth_repo
 
         taf_logger.debug(
@@ -227,12 +226,11 @@ def load_repositories(
 
             git_repo = None
             try:
-                path = str(Path(root_dir, name))
                 if factory is not None:
-                    git_repo = factory(path, name, urls, custom)
+                    git_repo = factory(root_dir, name, urls, custom)
                 else:
                     git_repo_class = _determine_repo_class(repo_classes, name)
-                    git_repo = git_repo_class(path, name, urls, custom)
+                    git_repo = git_repo_class(root_dir, name, urls, custom)
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
@@ -240,7 +238,7 @@ def load_repositories(
                     name,
                     str(e),
                 )
-                raise RepositoryInstantiationError(path, str(e))
+                raise RepositoryInstantiationError(Path(root_dir, name), str(e))
 
             # allows us to partially update repositories
             if git_repo:

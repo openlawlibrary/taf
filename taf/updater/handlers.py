@@ -92,23 +92,12 @@ class GitUpdater(handlers.MetadataUpdater):
         self.metadata_path = mirrors["mirror1"]["metadata_path"]
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
-        if settings.validate_repo_name:
-            users_repo_path = Path(repository_directory, repository_name)
-            self.users_auth_repo = AuthenticationRepository(
-                users_repo_path,
-                repository_name,
-                urls=[auth_url],
-                conf_directory_root=conf_directory_root,
-            )
-        else:
-            users_repo_path = Path(repository_directory, repository_name)
-            self.users_auth_repo = AuthenticationRepository(
-                str(users_repo_path),
-                self.metadata_path,
-                self.targets_path,
-                urls=[auth_url],
-                conf_directory_root=conf_directory_root,
-            )
+        self.users_auth_repo = AuthenticationRepository(
+            repository_directory,
+            repository_name,
+            urls=[auth_url],
+            conf_directory_root=conf_directory_root,
+        )
 
         self._clone_validation_repo(auth_url)
         repository_directory = Path(self.users_auth_repo.path)

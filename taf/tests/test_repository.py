@@ -54,6 +54,7 @@ def test_from_json_dict():
         "custom": {"a": "b"},
     }
     repo = GitRepository.from_json_dict(data)
+    data["path"] = str(Path(data["path"]).resolve())
     for attr_name, attr_value in data.items():
         assert getattr(repo, attr_name) == attr_value
     data.update(

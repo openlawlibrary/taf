@@ -42,7 +42,8 @@ class GitRepository:
           custom (optional): a dictionary containing other data
           default_branch (optional): repository's default branch ("master" if not defined)
         """
-        self._path = Path(path).resolve()
+        self._validate_repo_path(path)
+        self._path = Path(path)
         if name is not None:
             self._validate_repo_name(name)
             self._path = self._path / name
@@ -51,8 +52,8 @@ class GitRepository:
                 name = f"{self._path.parent.name}/{self._path.name}"
             else:
                 name = self._path.name
+        self._path = self._path.resolve()
         self.name = name
-        self._validate_repo_path(path, name)
         self.default_branch = default_branch
 
         if urls is not None:
@@ -876,14 +877,13 @@ class GitRepository:
                 f'dashes, but got "{name}"'
             )
 
-    def _validate_repo_path(self, path, name):
+    def _validate_repo_path(self, path):
         """
         validate repo path
         (since this is coming from potentially untrusted data)
         """
         repo_dir = str(Path(path))
-        name = str(Path(name))
-        if not repo_dir.startswith(repo_dir) or not repo_dir.endswith(name):
+        if not repo_dir.startswith(repo_dir):
             self._log_error("repository's path is not valid")
             raise InvalidRepositoryError(f"Invalid repository path: {path}")
         return repo_dir
