@@ -66,11 +66,11 @@ which are not listed in `repositories.json`, while `update_repos_from_fs` only s
 repository if it is inside the same directory as the the target repositories.
 
 ```bash
-taf targets update_repos_from_fs auth_path --root-dir root_dir_path --namespace namespace --add-branch
+taf targets update_repos_from_fs auth_path --root-dir library_dir_path --namespace namespace --add-branch
 ```
 
 ```bash
-taf targets update_repos_from_repositories_json auth_path --root-dir root_dir_path --namespace namespace --add-branch
+taf targets update_repos_from_repositories_json auth_path --root-dir library_dir_path --namespace namespace --add-branch
 ```
 
 - `root-dir` is the directory which contains the target repositories. Its default value is set to two

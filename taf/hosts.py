@@ -78,7 +78,7 @@ def _load_hosts(
         # unless the dependencies database is explicitly cleared
         repositoriesdb.load_dependencies(
             auth_repo,
-            root_dir=auth_repo.root_dir,
+            library_dir=auth_repo.library_dir,
             commits=[commit],
         )
         host_repos = []
@@ -122,7 +122,7 @@ def set_hosts_of_repo(auth_repo, hosts):
         for host, host_data in hosts_info.items():
             if auth_repo.name not in host_data[AUTH_REPOS_HOSTS_KEY]:
                 continue
-            data = dict(host_data)
+            data = host_data.copy()
             repo_custom = host_data[AUTH_REPOS_HOSTS_KEY][auth_repo.name]
             data.pop(AUTH_REPOS_HOSTS_KEY)
             if len(repo_custom):

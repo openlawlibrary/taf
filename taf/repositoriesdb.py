@@ -46,7 +46,7 @@ def clear_dependencies_db():
 def load_dependencies(
     auth_repo,
     auth_class=AuthenticationRepository,
-    root_dir=None,
+    library_dir=None,
     commits=None,
 ):
     global _dependencies_dict
@@ -76,8 +76,8 @@ def load_dependencies(
     # in the same hosts file
     # also, one repo can have more than one host
 
-    if root_dir is None:
-        root_dir = Path(auth_repo.path).parent.parent
+    if library_dir is None:
+        library_dir = Path(auth_repo.path).parent.parent
 
     for commit in commits:
         dependencies_dict = {}
@@ -116,7 +116,7 @@ def load_dependencies(
                 # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
-                    root_dir, name, urls, out_of_band_authentication, custom
+                    library_dir, name, urls, out_of_band_authentication, custom
                 )
             except Exception as e:
                 taf_logger.error(
@@ -125,7 +125,7 @@ def load_dependencies(
                     name,
                     str(e),
                 )
-                raise RepositoryInstantiationError(Path(root_dir, name), str(e))
+                raise RepositoryInstantiationError(Path(library_dir, name), str(e))
             dependencies_dict[name] = contained_auth_repo
 
         taf_logger.debug(
@@ -139,7 +139,7 @@ def load_repositories(
     auth_repo,
     repo_classes=None,
     factory=None,
-    root_dir=None,
+    library_dir=None,
     only_load_targets=True,
     commits=None,
     roles=None,
@@ -165,7 +165,7 @@ def load_repositories(
         is found, the class is set to TAF's GitRepository.
         If target_classes is a single class, all targets will be of that type.
         If target_classes is None, all targets will be of TAF's GitRepository type.
-        root_dir: root directory relative to which the target names are specified
+        library_dir: root directory relative to which the target names are specified
         commits: Authentication repository's commits at which to read targets.json
         only_load_targets: specifies if only repositories specified in targets files should be loaded.
         If set to false, all repositories defined in repositories.json are loaded, regardless of if
@@ -193,8 +193,8 @@ def load_repositories(
         ", ".join(commits),
     )
 
-    if root_dir is None:
-        root_dir = Path(auth_repo.path).parent.parent
+    if library_dir is None:
+        library_dir = Path(auth_repo.path).parent.parent
 
     if roles is not None and len(roles):
         only_load_targets = True
@@ -227,10 +227,10 @@ def load_repositories(
             git_repo = None
             try:
                 if factory is not None:
-                    git_repo = factory(root_dir, name, urls, custom)
+                    git_repo = factory(library_dir, name, urls, custom)
                 else:
                     git_repo_class = _determine_repo_class(repo_classes, name)
-                    git_repo = git_repo_class(root_dir, name, urls, custom)
+                    git_repo = git_repo_class(library_dir, name, urls, custom)
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",
@@ -238,7 +238,7 @@ def load_repositories(
                     name,
                     str(e),
                 )
-                raise RepositoryInstantiationError(Path(root_dir, name), str(e))
+                raise RepositoryInstantiationError(Path(library_dir, name), str(e))
 
             # allows us to partially update repositories
             if git_repo:

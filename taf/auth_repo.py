@@ -45,7 +45,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           urls (optional): repository's urls
           custom (optional): a dictionary containing other data
           default_branch (optional): repository's default branch ("master" if not defined)
-          conf_directory_root (optional): path of the directory inside of which cthe configuration directory should be created
+          conf_directory_root (optional): path of the directory inside of which the configuration directory should be created.
+          The configuration directory will contain the last successfully validated commit if TAF's updater is used to
+          update and validate it.
           out_of_band_authentication (optional): manually specified initial commit
           hosts (optional): host data is specified using the hosts.json file. Hosts of the current repo
           can be specified in its parent's repo (meaning that this repo is listed in the parent's dependencies.json),

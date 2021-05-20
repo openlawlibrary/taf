@@ -66,7 +66,7 @@ def attach_to_group(group):
                   "directory which contains the authentication repository")
     @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
                   "the current branch to target files")
-    def update_repos_from_fs(path, root_dir, namespace, add_branch):
+    def update_repos_from_fs(path, library_dir, namespace, add_branch):
         """
         Update target files corresponding to target repositories by traversing through the root
         directory. Does not automatically sign the metadata files.
@@ -94,7 +94,7 @@ def attach_to_group(group):
         namespace1/target1, a file called target1 is created inside the targets/namespace1 authentication
         repository's direcotry.
         """
-        developer_tool.update_target_repos_from_fs(path, root_dir, namespace, add_branch)
+        developer_tool.update_target_repos_from_fs(path, library_dir, namespace, add_branch)
 
     @targets.command()
     @click.argument("path")
@@ -107,7 +107,7 @@ def attach_to_group(group):
                   "directory which contains the authentication repository")
     @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
                   "the current branch to target files")
-    def update_repos_from_repositories_json(path, root_dir, namespace, add_branch):
+    def update_repos_from_repositories_json(path, library_dir, namespace, add_branch):
         """
         Update target files corresponding to target repositories by traversing through repositories
         specified in repositories.json which are located inside the specified targets directory without
@@ -135,4 +135,4 @@ def attach_to_group(group):
         namespace1/target1, a file called target1 is created inside the targets/namespace1
         authentication repo direcotry.
         """
-        developer_tool.update_target_repos_from_repositories_json(path, root_dir, namespace, add_branch)
+        developer_tool.update_target_repos_from_repositories_json(path, library_dir, namespace, add_branch)

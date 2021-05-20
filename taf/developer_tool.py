@@ -270,7 +270,7 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
 
 
 def update_target_repos_from_fs(
-    repo_path, root_dir=None, namespace=None, add_branch=True
+    repo_path, library_dir=None, namespace=None, add_branch=True
 ):
     """
     <Purpose>
@@ -278,7 +278,7 @@ def update_target_repos_from_fs(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
@@ -286,8 +286,8 @@ def update_target_repos_from_fs(
         Indicates whether to add the current branch's name to the target file
     """
     repo_path = Path(repo_path).resolve()
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    targets_directory = root_dir / namespace
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
     print(
         f"Updating target files corresponding to repos located at {targets_directory}"
     )
@@ -302,7 +302,7 @@ def update_target_repos_from_fs(
 
 
 def update_target_repos_from_repositories_json(
-    repo_path, root_dir, namespace, add_branch=True
+    repo_path, library_dir, namespace, add_branch=True
 ):
     """
     <Purpose>
@@ -310,7 +310,7 @@ def update_target_repos_from_repositories_json(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
@@ -322,13 +322,13 @@ def update_target_repos_from_repositories_json(
     repositories_json = json.loads(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
     print(
-        f"Updating target files corresponding to repos located at {(root_dir / namespace)}"
+        f"Updating target files corresponding to repos located at {(library_dir / namespace)}"
         "and specified in repositories.json"
     )
     for repo_name in repositories_json.get("repositories"):
-        target_repo_path = root_dir / repo_name
+        target_repo_path = library_dir / repo_name
         namespace_and_name = repo_name.rsplit("/", 1)
         if len(namespace_and_name) > 1:
             namespace, _ = namespace_and_name
@@ -864,15 +864,15 @@ def export_targets_history(repo_path, commit=None, output=None, target_repos=Non
         print(commits_json)
 
 
-def _get_namespace_and_root(repo_path, namespace, root_dir):
+def _get_namespace_and_root(repo_path, namespace, library_dir):
     repo_path = Path(repo_path).resolve()
     if namespace is None:
         namespace = repo_path.parent.name
-    if root_dir is None:
-        root_dir = repo_path.parent.parent
+    if library_dir is None:
+        library_dir = repo_path.parent.parent
     else:
-        root_dir = Path(root_dir).resolve()
-    return namespace, root_dir
+        library_dir = Path(library_dir).resolve()
+    return namespace, library_dir
 
 
 def generate_keys(keystore, roles_key_infos):
@@ -913,7 +913,7 @@ def generate_keys(keystore, roles_key_infos):
 
 def generate_repositories_json(
     repo_path,
-    root_dir=None,
+    library_dir=None,
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
@@ -925,11 +925,11 @@ def generate_repositories_json(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
-        is expected to be root_dir/namespace directory
+        is expected to be library_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
         custom_data:
@@ -947,8 +947,8 @@ def generate_repositories_json(
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     # if targets directory is not specified, assume that target repositories
     # and the authentication repository are in the same parent direcotry
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    targets_directory = root_dir / namespace
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
     if targets_relative_dir is not None:
         targets_relative_dir = Path(targets_relative_dir).resolve()
 
@@ -1009,7 +1009,7 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 def init_repo(
     repo_path,
-    root_dir=None,
+    library_dir=None,
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
@@ -1033,11 +1033,11 @@ def init_repo(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
-        is expected to be root_dir/namespace directory
+        is expected to be library_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
         custom_data:
@@ -1058,8 +1058,8 @@ def init_repo(
         A signature scheme used for signing.
     """
     # read the key infos here, no need to read the file multiple times
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    targets_directory = root_dir / namespace
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
@@ -1067,7 +1067,7 @@ def init_repo(
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, root_dir, namespace, targets_relative_dir, custom_data, use_mirrors
+        repo_path, library_dir, namespace, targets_relative_dir, custom_data, use_mirrors
     )
     register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 

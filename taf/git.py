@@ -42,10 +42,10 @@ class GitRepository:
           custom (optional): a dictionary containing other data
           default_branch (optional): repository's default branch ("master" if not defined)
         """
-        self._validate_repo_path(path)
         self._path = Path(path)
         if name is not None:
             self._validate_repo_name(name)
+            self._validate_repo_path(path, name)
             self._path = self._path / name
         else:
             if self._path.parent.parent != self._path.parent:
@@ -77,12 +77,10 @@ class GitRepository:
         """Create a new instance based on data contained by the `json_data` dictionary,
         which can be create by calling `to_json_dict`
         """
-        path = str(Path(json_data.get("path")))
-        name = json_data.get("name")
-        if name is not None:
-            name = str(Path(name))
-            if path.endswith(name):
-                json_data.pop("name")
+        path = Path(json_data.get("path", ""))
+        name = json_data.get("name", "")
+        if path.match(f"**/{name}"):
+            json_data.pop("name", None)
         return cls(**json_data)
 
     def to_json_dict(self):
@@ -118,7 +116,7 @@ class GitRepository:
         return self._remotes
 
     @property
-    def root_dir(self):
+    def library_dir(self):
         return Path(self.path.split(self.name)[0])
 
     @property
@@ -664,17 +662,17 @@ class GitRepository:
 
     def get_last_remote_commit(self, url, branch="master"):
         """
-        Fet the last remote commit of the specified branch
+        Fetch the last remote commit of the specified branch
         """
-        if url is not None:
-            last_commit = self._git(
-                f"--no-pager ls-remote {url} {branch}", log_error=True
+        if url is None:
+            raise FetchException(
+                f"Could not fetch the last remote commit. URL not specified"
             )
-            if last_commit:
-                last_commit = last_commit.split("\t", 1)[0]
-                # in some cases (e.g. upstream is defined the result might contain a warning line)
-                return last_commit.split()[-1]
-        return None
+        last_commit = self._git(f"--no-pager ls-remote {url} {branch}", log_error=True)
+        if last_commit:
+            last_commit = last_commit.split("\t", 1)[0]
+            # in some cases (e.g. upstream is defined the result might contain a warning line)
+            return last_commit.split()[-1]
 
     def get_merge_base(self, branch1, branch2):
         """Finds the best common ancestor between two branches"""
@@ -877,15 +875,15 @@ class GitRepository:
                 f'dashes, but got "{name}"'
             )
 
-    def _validate_repo_path(self, path):
+    def _validate_repo_path(self, library_dir, name):
         """
         validate repo path
         (since this is coming from potentially untrusted data)
         """
-        repo_dir = str(Path(path))
+        repo_dir = str(library_dir / name)
         if not repo_dir.startswith(repo_dir):
-            self._log_error("repository's path is not valid")
-            raise InvalidRepositoryError(f"Invalid repository path: {path}")
+            self._log_error("repository path is not valid")
+            raise InvalidRepositoryError(f"Invalid repository path: {repo_dir}")
         return repo_dir
 
     def _validate_url(self, url):
@@ -898,17 +896,6 @@ class GitRepository:
         raise InvalidRepositoryError(
             f'Repository URL must be a valid URL, but got "{url}".'
         )
-
-
-def get_last_remote_commit(url):
-    """
-    get the last remote commit without cloning the repo
-    """
-    if url is not None:
-        last_commit = run("git", "--no-pager", "ls-remote", url, "HEAD")
-        if last_commit:
-            return last_commit.split("\t", 1)[0]
-    return None
 
 
 _repo_name_re = re.compile(r"^\w[\w_-]*/\w[\w_-]*$")

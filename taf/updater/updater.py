@@ -78,7 +78,7 @@ def load_library_context(config_path):
 def update_repository(
     url,
     clients_auth_path,
-    clients_root_dir=None,
+    clients_library_dir=None,
     update_from_filesystem=False,
     expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
@@ -96,7 +96,7 @@ def update_repository(
         URL of the remote authentication repository
     clients_auth_path:
         Client's authentication repository's full path
-    clients_root_dir:
+    clients_library_dir:
         Directory where client's target repositories are located.
     update_from_filesystem:
         A flag which indicates if the URL is actually a file system path
@@ -116,21 +116,21 @@ def update_repository(
     # but set the validate_repo_name setting to False
     clients_auth_path = Path(clients_auth_path).resolve()
 
-    if clients_root_dir is None:
-        clients_root_dir = clients_auth_path.parent.parent
+    if clients_library_dir is None:
+        clients_library_dir = clients_auth_path.parent.parent
     else:
-        clients_root_dir = Path(clients_root_dir).resolve()
+        clients_library_dir = Path(clients_library_dir).resolve()
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_root_dir = clients_auth_path.parent.parent
+    clients_auth_library_dir = clients_auth_path.parent.parent
     repos_update_data = {}
     transient_data = {}
     root_error = None
     try:
         _update_named_repository(
             url,
-            clients_auth_root_dir,
-            clients_root_dir,
+            clients_auth_library_dir,
+            clients_library_dir,
             auth_repo_name,
             update_from_filesystem,
             expected_repo_type,
@@ -188,7 +188,7 @@ def update_repository(
         handle_host_event(
             host_update_status,
             host,
-            root_auth_repo.root_dir,
+            root_auth_repo.library_dir,
             repos_update_data,
             errors,
             host_transient_data,
@@ -199,8 +199,8 @@ def update_repository(
 
 def _update_named_repository(
     url,
-    clients_auth_root_dir,
-    targets_root_dir,
+    clients_auth_library_dir,
+    targets_library_dir,
     auth_repo_name,
     update_from_filesystem,
     expected_repo_type,
@@ -278,8 +278,8 @@ def _update_named_repository(
         targets_data,
     ) = _update_current_repository(
         url,
-        clients_auth_root_dir,
-        targets_root_dir,
+        clients_auth_library_dir,
+        targets_library_dir,
         auth_repo_name,
         update_from_filesystem,
         expected_repo_type,
@@ -313,7 +313,7 @@ def _update_named_repository(
         commits.extend(commits_data["new"])
         repositoriesdb.load_dependencies(
             auth_repo,
-            root_dir=targets_root_dir,
+            library_dir=targets_library_dir,
             commits=commits,
         )
 
@@ -332,8 +332,8 @@ def _update_named_repository(
                 try:
                     _update_named_repository(
                         child_auth_repo.urls[0],
-                        clients_auth_root_dir,
-                        targets_root_dir,
+                        clients_auth_library_dir,
+                        targets_library_dir,
                         child_auth_repo.name,
                         False,
                         expected_repo_type,
@@ -382,7 +382,7 @@ def _update_named_repository(
             transient = handle_repo_event(
                 update_status,
                 auth_repo,
-                auth_repo.root_dir,
+                auth_repo.library_dir,
                 commits_data,
                 error,
                 targets_data,
@@ -407,8 +407,8 @@ def _update_named_repository(
 
 def _update_current_repository(
     url,
-    clients_auth_root_dir,
-    targets_root_dir,
+    clients_auth_library_dir,
+    targets_library_dir,
     auth_repo_name,
     update_from_filesystem,
     expected_repo_type,
@@ -434,7 +434,7 @@ def _update_current_repository(
             "confined_target_dirs": [""],
         }
     }
-    tuf.settings.repositories_directory = clients_auth_root_dir
+    tuf.settings.repositories_directory = clients_auth_library_dir
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -463,7 +463,7 @@ def _update_current_repository(
         # TODO in case of last validated issue, think about returning commits up to the last validated one
         # the problem is that that could indicate that the history was changed
         users_auth_repo = AuthenticationRepository(
-            clients_auth_root_dir,
+            clients_auth_library_dir,
             auth_repo_name,
             urls=[url],
             conf_directory_root=conf_directory_root,
@@ -527,7 +527,7 @@ def _update_current_repository(
             users_auth_repo,
             repo_classes=target_repo_classes,
             factory=target_factory,
-            root_dir=targets_root_dir,
+            library_dir=targets_library_dir,
             commits=commits,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
@@ -997,18 +997,18 @@ def _update_target_repository(
 
 
 def validate_repository(
-    clients_auth_path, clients_root_dir=None, validate_from_commit=None
+    clients_auth_path, clients_library_dir=None, validate_from_commit=None
 ):
 
     clients_auth_path = Path(clients_auth_path).resolve()
 
-    if clients_root_dir is None:
-        clients_root_dir = clients_auth_path.parent.parent
+    if clients_library_dir is None:
+        clients_library_dir = clients_auth_path.parent.parent
     else:
-        clients_root_dir = Path(clients_root_dir).resolve()
+        clients_library_dir = Path(clients_library_dir).resolve()
 
     auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_root_dir = clients_auth_path.parent.parent
+    clients_auth_library_dir = clients_auth_path.parent.parent
     expected_repo_type = (
         UpdateType.TEST
         if (clients_auth_path / "targets" / "test-auth-repo").exists()
@@ -1016,8 +1016,8 @@ def validate_repository(
     )
     _update_named_repository(
         str(clients_auth_path),
-        clients_auth_root_dir,
-        clients_root_dir,
+        clients_auth_library_dir,
+        clients_library_dir,
         auth_repo_name,
         True,
         expected_repo_type=expected_repo_type,

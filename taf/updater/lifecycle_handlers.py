@@ -106,7 +106,7 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
 def handle_repo_event(
     event,
     auth_repo,
-    root_dir,
+    library_dir,
     commits_data,
     error,
     targets_data,
@@ -116,7 +116,7 @@ def handle_repo_event(
         LifecycleStage.REPO,
         event,
         transient_data,
-        root_dir,
+        library_dir,
         auth_repo,
         commits_data,
         error,
@@ -125,29 +125,29 @@ def handle_repo_event(
 
 
 def handle_host_event(
-    event, host, root_dir, repos_update_data, error, transient_data=None
+    event, host, library_dir, repos_update_data, error, transient_data=None
 ):
     taf_logger.info("Called {} handler of host {}", event.to_name(), host.name)
     return _handle_event(
         LifecycleStage.HOST,
         event,
         transient_data,
-        root_dir,
+        library_dir,
         host,
         repos_update_data,
         error,
     )
 
 
-def _handle_event(lifecycle_stage, event, transient_data, root_dir, *args, **kwargs):
+def _handle_event(lifecycle_stage, event, transient_data, library_dir, *args, **kwargs):
     # read initial persistent data from file
-    persistent_data = get_persistent_data(root_dir)
+    persistent_data = get_persistent_data(library_dir)
     transient_data = transient_data or {}
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
     # expect a dictionary containing a map of the authentication repository whose
     # scripts should be invoked and data to be passed to those scripts
     repos_and_data = globals()[prepare_data_name](
-        event, transient_data, persistent_data, root_dir, *args, **kwargs
+        event, transient_data, persistent_data, library_dir, *args, **kwargs
     )
 
     def _execute_scripts(repos_and_data, lifecycle_stage, event):
@@ -174,7 +174,7 @@ def _handle_event(lifecycle_stage, event, transient_data, root_dir, *args, **kwa
         repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
     # execute completed handler at the end
-    _print_data(repos_and_data, root_dir, lifecycle_stage)
+    _print_data(repos_and_data, library_dir, lifecycle_stage)
     repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
     # return transient data as it should be propagated to other event and handlers
@@ -185,7 +185,7 @@ def _handle_event(lifecycle_stage, event, transient_data, root_dir, *args, **kwa
 
 
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
-    persistent_path = Path(auth_repo.root_dir, PERSISTENT_FILE_NAME)
+    persistent_path = Path(auth_repo.library_dir, PERSISTENT_FILE_NAME)
     # do not load the script from the file system
     # the update might have failed because the repository contains an additional
     # commit with, say, malicious scripts
@@ -266,7 +266,7 @@ def prepare_data_repo(
     event,
     transient_data,
     persistent_data,
-    root_dir,
+    library_dir,
     auth_repo,
     commits_data,
     error,
@@ -282,7 +282,7 @@ def prepare_data_repo(
                     "transient": transient_data,
                     "persistent": persistent_data,
                 },
-                "config": get_config(auth_repo.root_dir),
+                "config": get_config(auth_repo.library_dir),
             },
             "commit": commits_data["after_pull"],
         }
@@ -293,7 +293,7 @@ def prepare_data_host(
     event,
     transient_data,
     persistent_data,
-    root_dir,
+    library_dir,
     host,
     repos_update_data,
     error,
@@ -322,7 +322,7 @@ def prepare_data_host(
                         "transient": transient_data,
                         "persistent": persistent_data,
                     },
-                    "config": get_config(root_dir),
+                    "config": get_config(library_dir),
                 },
                 "commit": repos_update_data[root_repo.name]["commits_data"][
                     "after_pull"
@@ -349,9 +349,9 @@ def _repo_update_data(auth_repo, update_status, commits_data, targets_data, erro
     }
 
 
-def _print_data(repos_and_data, root_dir, lifecycle_stage):
+def _print_data(repos_and_data, library_dir, lifecycle_stage):
     for repo, data in repos_and_data.items():
-        path = Path(root_dir, "data", lifecycle_stage.to_name(), f"{repo.name}.json")
+        path = Path(library_dir, "data", lifecycle_stage.to_name(), f"{repo.name}.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=4))
 

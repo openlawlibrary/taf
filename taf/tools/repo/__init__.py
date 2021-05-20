@@ -79,7 +79,7 @@ def attach_to_group(group):
     @click.option("--custom", default=None, help="A dictionary containing custom "
                   "targets info which will be added to repositories.json")
     @click.option("--use-mirrors", is_flag=True, help="Whether to generate mirrors.json or not")
-    def generate_repositories_json(path, root_dir, namespace, targets_rel_dir, custom, use_mirrors):
+    def generate_repositories_json(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors):
         """
         Generate repositories.json. This file needs to be one of the authentication repository's
         target files or the updater won't be able to validate target repositories.
@@ -132,7 +132,7 @@ def attach_to_group(group):
         It is recommended that the content of the file is reviewed before doing so manually.
         """
         developer_tool.generate_repositories_json(
-            path, root_dir, namespace, targets_rel_dir, custom, use_mirrors
+            path, library_dir, namespace, targets_rel_dir, custom, use_mirrors
         )
 
     @repo.command()
@@ -160,7 +160,7 @@ def attach_to_group(group):
     @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
                   "is a test authentication repository")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing.")
-    def initialize(path, root_dir, namespace, targets_rel_dir, custom, use_mirrors, add_branch, keystore,
+    def initialize(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors, add_branch, keystore,
                    keys_description, commit, test, scheme):
         """
         \b
@@ -175,7 +175,7 @@ def attach_to_group(group):
         In order to have greater control over individual steps and be able to review files created
         in the initialization process, execute the mentioned commands separately.
         """
-        developer_tool.init_repo(path, root_dir, namespace, targets_rel_dir, custom, use_mirrors,
+        developer_tool.init_repo(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors,
                                  add_branch, keystore, keys_description, commit, test, scheme)
 
     @repo.command()
@@ -193,7 +193,7 @@ def attach_to_group(group):
     @click.option("--error-if-unauthenticated", is_flag=True, help="Raise an error if the repository allows "
                   "unauthentiated commits and the updater detected authenticated commits newer than local "
                   "head commit")
-    def update(url, clients_auth_path, clients_root_dir, from_fs, expected_repo_type, error_if_unauthenticated):
+    def update(url, clients_auth_path, clients_library_dir, from_fs, expected_repo_type, error_if_unauthenticated):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -219,7 +219,7 @@ def attach_to_group(group):
         an error if there are new unauthenticated commits (newer than the last local commit),
         error-if-unauthenticated option can be used.
         """
-        update_repository(url, clients_auth_path, clients_root_dir, from_fs,
+        update_repository(url, clients_auth_path, clients_library_dir, from_fs,
                           UpdateType.from_name(expected_repo_type),
                           error_if_unauthenticated=error_if_unauthenticated)
 
@@ -230,10 +230,10 @@ def attach_to_group(group):
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
     @click.option("--from-commit", default=None, help="First commit which should be validated.")
-    def validate(clients_auth_path, clients_root_dir, from_commit):
+    def validate(clients_auth_path, clients_library_dir, from_commit):
         """
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
         Does not clone repositories, fetch changes or merge commits.
         """
-        validate_repository(clients_auth_path, clients_root_dir, from_commit)
+        validate_repository(clients_auth_path, clients_library_dir, from_commit)
