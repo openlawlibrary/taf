@@ -45,15 +45,15 @@ class GitRepository:
         self._path = Path(path)
         if name is not None:
             self._validate_repo_name(name)
-            self._validate_repo_path(path, name)
-            self._path = self._path / name
+            self.name = name
+            self._path = self._validate_repo_path(self._path, name)
         else:
             if self._path.parent.parent != self._path.parent:
                 name = f"{self._path.parent.name}/{self._path.name}"
             else:
                 name = self._path.name
-        self._path = self._path.resolve()
-        self.name = name
+            self.name = name
+            self._path = self._validate_repo_path(self._path, None)
         self.default_branch = default_branch
 
         if urls is not None:
@@ -880,11 +880,15 @@ class GitRepository:
         validate repo path
         (since this is coming from potentially untrusted data)
         """
-        repo_dir = str(library_dir / name)
-        if not repo_dir.startswith(repo_dir):
-            self._log_error("repository path is not valid")
-            raise InvalidRepositoryError(f"Invalid repository path: {repo_dir}")
-        return repo_dir
+        # using OS to avoid resolve adding drive letter name on Windows
+        repo_dir = os.path.join(str(library_dir), name or "")
+        repo_dir = os.path.normpath(repo_dir)
+        if not repo_dir.startswith(str(Path(library_dir))):
+            taf_logger.error(f"Repository path/name {library_dir}/{name} is not valid")
+            raise InvalidRepositoryError(
+                f"Repository path/name {library_dir}/{name} is not valid"
+            )
+        return Path(repo_dir)
 
     def _validate_url(self, url):
         """ ensure valid URL """

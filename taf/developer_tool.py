@@ -1067,7 +1067,12 @@ def init_repo(
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, library_dir, namespace, targets_relative_dir, custom_data, use_mirrors
+        repo_path,
+        library_dir,
+        namespace,
+        targets_relative_dir,
+        custom_data,
+        use_mirrors,
     )
     register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 

@@ -22,6 +22,23 @@ def test_name_validation_invalid_names():
             GitRepository(Path("path", name), name)
 
 
+def test_path_validation_valid_path():
+    paths = ["/test1/test2/test3", "../test1/test2/test3"]
+    name = "namespace/repo1"
+    for path in paths:
+        repo = GitRepository(path, name)
+        assert name == repo.name
+
+
+def test_path_validation_invalid_path():
+    path = "/test1/test2/../test3"
+    names = ["namespace/repo1", "namespace1/repo1"]
+    for name in names:
+        with pytest.raises(InvalidRepositoryError):
+            repo = GitRepository(path, name)
+            assert name == repo.name
+
+
 def test_url_validation_valid_urls():
     urls = [
         "https://github.com/account/repo_name.git",
