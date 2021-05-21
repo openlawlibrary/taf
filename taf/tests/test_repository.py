@@ -28,6 +28,10 @@ def test_path_validation_valid_path():
     for path in paths:
         repo = GitRepository(path, name)
         assert name == repo.name
+        assert str(Path(path, name).resolve()) == repo.path
+        repo = GitRepository(Path(path, name))
+        assert name == repo.name
+        assert str(Path(path, name).resolve()) == repo.path
 
 
 def test_path_validation_invalid_path():

@@ -46,16 +46,18 @@ class GitRepository:
         if name is not None:
             self._validate_repo_name(name)
             self.name = name
-            self._path = self._validate_repo_path(self._path, name)
+            self._validate_repo_path(self._path, name)
+            self._path = self._path / name
         else:
             if self._path.parent.parent != self._path.parent:
                 name = f"{self._path.parent.name}/{self._path.name}"
             else:
                 name = self._path.name
             self.name = name
-            self._path = self._validate_repo_path(self._path, None)
-        self.default_branch = default_branch
+            self._validate_repo_path(self._path, None)
 
+        self._path = self._path.resolve()
+        self.default_branch = default_branch
         if urls is not None:
             if settings.update_from_filesystem is False:
                 for url in urls:
@@ -885,9 +887,7 @@ class GitRepository:
         repo_dir = os.path.normpath(repo_dir)
         if not repo_dir.startswith(str(Path(library_dir))):
             taf_logger.error(f"Repository path/name {library_dir}/{name} is not valid")
-            raise InvalidRepositoryError(
-                f"Repository path/name {library_dir}/{name} is not valid"
-            )
+            raise InvalidRepositoryError(f"Repository path/name {library_dir}/{name} is not valid")
         return Path(repo_dir)
 
     def _validate_url(self, url):
