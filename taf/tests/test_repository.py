@@ -91,24 +91,40 @@ def test_from_json_dict():
 
 
 def test_to_json_dict():
-    repo = GitRepository(
-        str(Path("path", "namespace", "repo")),
-        urls=["http://github.com/namespace/repo", "http://gitlab.com/namespace/repo"],
-        custom={"a": "b"},
-    )
-    json_data = repo.to_json_dict()
-    for name, value in json_data.items():
-        assert getattr(repo, name) == value
 
-    auth_repo = AuthenticationRepository(
-        str(Path("path", "namespace", "repo")),
-        urls=["http://github.com/namespace/repo", "http://gitlab.com/namespace/repo"],
-        custom={"a": "b"},
-        conf_directory_root=str(Path("path")),
-        out_of_band_authentication="123456789",
-        hosts={"host1": "something"},
-    )
+    root_dir = "path"
+    name = "namespace/repo"
+    urls = ["http://github.com/namespace/repo", "http://gitlab.com/namespace/repo"]
+    custom = custom = {"a": "b"}
+    conf_directory_root = (str(Path("path")),)
+    out_of_band_authentication = ("123456789",)
+    hosts = ({"host1": "something"},)
 
-    json_data = auth_repo.to_json_dict()
-    for name, value in json_data.items():
-        assert getattr(auth_repo, name) == value
+    def _check_values(repo, json_data):
+        for name, value in json_data.items():
+            if name == "path":
+                assert value == root_dir
+            else:
+                assert getattr(repo, name) == value
+
+    for repo_path, repo_name in ((root_dir, name), (Path(root_dir, name), None)):
+        repo = GitRepository(
+            repo_path,
+            repo_name,
+            urls=[
+                "http://github.com/namespace/repo",
+                "http://gitlab.com/namespace/repo",
+            ],
+            custom={"a": "b"},
+        )
+        json_data = repo.to_json_dict()
+        _check_values(repo, json_data)
+        repo = AuthenticationRepository(
+            repo_path,
+            repo_name,
+            urls=urls,
+            custom=custom,
+            conf_directory_root=conf_directory_root,
+            out_of_band_authentication=out_of_band_authentication,
+            hosts=hosts,
+        )

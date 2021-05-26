@@ -87,8 +87,9 @@ class GitRepository:
 
     def to_json_dict(self):
         """Returns a dictionary mapping all attributes to their values"""
+        path = "".join(str(self._path.as_posix()).rsplit(self.name, 1))[:-1]
         return {
-            "path": str(self.path),
+            "path": path,
             "name": self.name,
             "urls": self.urls,
             "default_branch": self.default_branch,
@@ -887,7 +888,9 @@ class GitRepository:
         repo_dir = os.path.normpath(repo_dir)
         if not repo_dir.startswith(str(Path(library_dir))):
             taf_logger.error(f"Repository path/name {library_dir}/{name} is not valid")
-            raise InvalidRepositoryError(f"Repository path/name {library_dir}/{name} is not valid")
+            raise InvalidRepositoryError(
+                f"Repository path/name {library_dir}/{name} is not valid"
+            )
         return Path(repo_dir)
 
     def _validate_url(self, url):

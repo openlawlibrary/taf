@@ -12,8 +12,6 @@ update_from_filesystem = False
 
 validate_repo_name = True
 
-validate_initial_commit = True
-
 # Allows usage of specified commit as last validated commit
 # Useful when validating a local repository
 overwrite_last_validated_commit = False
