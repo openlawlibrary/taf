@@ -92,7 +92,7 @@ def test_from_json_dict():
 
 def test_to_json_dict():
 
-    root_dir = "path"
+    root_dir = str(Path("path").resolve())
     name = "namespace/repo"
     urls = ["http://github.com/namespace/repo", "http://gitlab.com/namespace/repo"]
     custom = custom = {"a": "b"}

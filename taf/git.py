@@ -669,7 +669,7 @@ class GitRepository:
         """
         if url is None:
             raise FetchException(
-                f"Could not fetch the last remote commit. URL not specified"
+                "Could not fetch the last remote commit. URL not specified"
             )
         last_commit = self._git(f"--no-pager ls-remote {url} {branch}", log_error=True)
         if last_commit:
