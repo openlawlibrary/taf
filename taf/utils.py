@@ -1,3 +1,4 @@
+import errno
 import datetime
 import json
 import os
@@ -5,6 +6,7 @@ import stat
 import subprocess
 import tempfile
 import shutil
+import uuid
 from getpass import getpass
 from pathlib import Path
 from cryptography import x509
@@ -232,8 +234,47 @@ def safely_save_json_to_disk(data, permanent_path):
 
     temp_file_path = tfile.name
     tfile.close()
-    shutil.copy(temp_file_path, permanent_path)
-    os.remove(temp_file_path)
+    safely_move_file(temp_file_path, permanent_path, overwrite=True)
+
+
+def safely_move_file(src, dst, overwrite=False):
+    """Rename a file from ``src`` to ``dst``.
+
+    *   Moves must be atomic.  ``shutil.move()`` is not atomic.
+        Note that multiple threads may try to write to the cache at once,
+        so atomicity is required to ensure the serving on one thread doesn't
+        pick up a partially saved image from another thread.
+
+    *   Moves must work across filesystems.  Often temp directories and the
+        cache directories live on different filesystems.  ``os.rename()`` can
+        throw errors if run across filesystems.
+
+    So we try ``os.rename()``, but if we detect a cross-filesystem copy, we
+    switch to ``shutil.move()`` with some wrappers to make it atomic.
+    https://alexwlchan.net/2019/03/atomic-cross-filesystem-moves-in-python/
+    """
+    src = str(src)
+    dst = str(dst)
+    if overwrite and os.path.isfile(dst):
+        os.remove(dst)
+    try:
+        os.rename(src, dst)
+    except OSError as err:
+        if err.errno == errno.EXDEV:
+            # Generate a unique ID, and copy `<src>` to the target directory
+            # with a temporary name `<dst>.<ID>.tmp`.  Because we're copying
+            # across a filesystem boundary, this initial copy may not be
+            # atomic.  We intersperse a random UUID so if different processes
+            # are copying into `<dst>`, they don't overlap in their tmp copies.
+            copy_id = uuid.uuid4()
+            tmp_dst = f"{dst}.{copy_id}.tmp"
+            shutil.copyfile(src, tmp_dst)
+            # Then do an atomic rename onto the new name, and clean up the
+            # source image.
+            os.rename(tmp_dst, dst)
+            os.unlink(src)
+        else:
+            raise
 
 
 def to_tuf_datetime_format(start_date, interval):

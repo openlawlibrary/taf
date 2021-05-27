@@ -25,6 +25,7 @@ from taf.utils import on_rm_error
 TEST_DATA_PATH = Path(__file__).parent / "data"
 TEST_DATA_REPOS_PATH = TEST_DATA_PATH / "repos"
 TEST_DATA_ORIGIN_PATH = TEST_DATA_REPOS_PATH / "origin"
+TEST_OUTPUT_PATH = TEST_DATA_PATH / "output"
 KEYSTORES_PATH = TEST_DATA_PATH / "keystores"
 KEYSTORE_PATH = KEYSTORES_PATH / "keystore"
 WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
@@ -91,6 +92,13 @@ def _load_key(keystore_path, key_name, scheme):
     )
     key["keyval"]["private"] = priv_key["keyval"]["private"]
     return key
+
+
+@yield_fixture(scope="session", autouse=True)
+def output_path():
+    TEST_OUTPUT_PATH.mkdir()
+    yield TEST_OUTPUT_PATH
+    shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
 
 
 @yield_fixture(scope="session", autouse=True)
