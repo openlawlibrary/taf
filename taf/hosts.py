@@ -30,7 +30,9 @@ def load_hosts(root_auth_repo, repos_and_commits):
     """
     Read hosts files of all repositories in the hierarchy and group repositories by hosts
     One repository can belong to more than one host and one host can contain more than one
-    repository
+    repository. Populate global hosts dictionary. get_hosts function can later be used to get
+    loaded losts.
+
     For now, only read the hosts files given the top commits
     The question is if it even makes sense to read older hosts date - in any case, not a high priority
     """
@@ -40,7 +42,7 @@ def load_hosts(root_auth_repo, repos_and_commits):
     # TODO
     # should one overwrite another one or is this an error?
     # raise and error for now
-    _load_hosts(root_auth_repo, repos_and_commits, [], {})
+    _load_hosts(root_auth_repo, repos_and_commits, set(), {})
 
 
 def _load_hosts(

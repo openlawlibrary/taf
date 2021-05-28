@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from taf.utils import normalize_line_endings, safely_save_json_to_disk, safely_move_file
 
 

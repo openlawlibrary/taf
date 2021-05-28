@@ -13,7 +13,7 @@ from taf.exceptions import (
     CloneRepoException,
     FetchException,
     InvalidRepositoryError,
-    GitError,
+    GitError
 )
 from taf.log import taf_logger
 from taf.utils import run
@@ -24,8 +24,9 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 class GitRepository:
     def __init__(
         self,
-        path,
+        library_dir=None,
         name=None,
+        path=None,
         urls=None,
         custom=None,
         default_branch="master",
@@ -34,63 +35,64 @@ class GitRepository:
     ):
         """
         Args:
-          path: repository's full filesystem path or path to the root directory which contains the repository
-          name (optional): repository's name, which is appended to the root directory to form the full path.
-          Must be in the namespace/name format. If not specified, name will be determined based repository's
-          full path.
-          urls (optional): repository's urls
-          custom (optional): a dictionary containing other data
-          default_branch (optional): repository's default branch ("master" if not defined)
+          library_dir (Path or str): path to the library root. This is a directory which contains other repositories,
+          whose full path is determined by appending their names to the library dir. A repository can be
+          instantiated by specifying library dir and name, or by the full path.
+          name (str): repository's name, which is appended to the library dir to form the full path.
+          Must be in the namespace/name format. If library_dir is specified, name must be specified too.
+          path (Path): repository's full filesystem path, which can be specified instead of name and library dir
+          urls (list): repository's urls
+          custom (dict): a dictionary containing other data
+          default_branch (str): repository's default branch ("master" if not defined)
         """
-        self._path = Path(path)
-        if name is not None:
-            self._validate_repo_name(name)
-            self.name = name
-            self._validate_repo_path(self._path, name)
-            self._path = self._path / name
-        else:
-            if self._path.parent.parent != self._path.parent:
-                name = f"{self._path.parent.name}/{self._path.name}"
-            else:
-                name = self._path.name
-            self.name = name
-            self._validate_repo_path(self._path, None)
+        if isinstance(library_dir, str):
+            library_dir = Path(library_dir)
+        if isinstance(path, str):
+            path = Path(path)
 
-        self._path = self._path.resolve()
-        self.default_branch = default_branch
-        if urls is not None:
-            if settings.update_from_filesystem is False:
-                for url in urls:
-                    self._validate_url(url)
+        if (library_dir, name).count(None) == 1:
+            raise InvalidRepositoryError("Both library_dir and name need to be specified")
+
+        if name is not None:
+            self.name = self._validate_repo_name(name)
+            self.path = self._validate_repo_path(library_dir, name, path)
+            self.library_dir = library_dir.resolve()
+        elif path is None:
+            raise InvalidRepositoryError("Either speicfy library dir and name pair or path!")
+        else:
+            # maintain support for repositories whose names are not of significance
+            # in that case, only full path is specified (can happen if only using the GitRepository class)
+            # without the rest of the framework in some cotext
+            # name is still required for logging, so determine it based on the path
+            # if the path points to a direcotry directly inside the root direcotry
+            # set name to the name of that folder
+            # otherwise, use the same format that is expected when name is specified
+            if path.parent.parent != path.parent:
+                self.name = f"{path.parent.name}/{path.name}"
+                self.library_dir = path.parent.parent
             else:
-                urls = [
-                    os.path.normpath(os.path.join(self.path, url))
-                    if not os.path.isabs(url)
-                    else url
-                    for url in urls
-                ]
-        self.urls = urls
-        if custom is None:
-            custom = {}
-        self.custom = custom
+                self.name = path.name
+                self.library_dir = path.parent
+            self.library_dir = self.library_dir.resolve()
+            self.path = self._validate_repo_path(path, None)
+
+        self.urls = self._validate_urls(urls)
+        self.default_branch = default_branch
+        self.custom = custom or {}
 
     @classmethod
     def from_json_dict(cls, json_data):
         """Create a new instance based on data contained by the `json_data` dictionary,
         which can be create by calling `to_json_dict`
         """
-        path = Path(json_data.get("path", ""))
-        name = json_data.get("name", "")
-        if path.match(f"**/{name}"):
-            json_data.pop("name", None)
         return cls(**json_data)
 
     def to_json_dict(self):
         """Returns a dictionary mapping all attributes to their values"""
-        path = "".join(str(self._path.as_posix()).rsplit(self.name, 1))[:-1]
         return {
-            "path": path,
+            "library_dir": self.library_dir,
             "name": self.name,
+            "path": self.path,
             "urls": self.urls,
             "default_branch": self.default_branch,
             "custom": self.custom,
@@ -106,10 +108,6 @@ class GitRepository:
 
     log_template = "{}{}"
 
-    @property
-    def path(self):
-        return str(self._path)
-
     _remotes = None
 
     @property
@@ -119,13 +117,9 @@ class GitRepository:
         return self._remotes
 
     @property
-    def library_dir(self):
-        return Path(self.path.split(self.name)[0])
-
-    @property
     def is_git_repository_root(self):
         """Check if path is git repository."""
-        git_path = self._path / ".git"
+        git_path = self.path / ".git"
         return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
 
     @property
@@ -172,7 +166,7 @@ class GitRepository:
                     self._log_debug(log_success_msg)
             except subprocess.CalledProcessError as e:
                 if error_if_not_exists and (
-                    not self._path.is_dir() or not self.is_git_repository
+                    not self.path.is_dir() or not self.is_git_repository
                 ):
                     log_error_msg = (
                         f"{self.path} does not exist or is not a git repository"
@@ -425,7 +419,7 @@ class GitRepository:
 
         self._log_info("cloning repository")
         shutil.rmtree(self.path, True)
-        self._path.mkdir(exist_ok=True, parents=True)
+        self.path.mkdir(exist_ok=True, parents=True)
         if self.urls is None:
             raise GitError(
                 repo=self, message="cannot clone repository. No urls were specified"
@@ -544,7 +538,7 @@ class GitRepository:
             self._git("diff --cached --exit-code --shortstat", reraise_error=True)
         except GitError:
             try:
-                run("git", "-C", self.path, "commit", "--quiet", "-m", message)
+                run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
             except subprocess.CalledProcessError as e:
                 raise GitError(
                     repo=self, message=f"could not commit changes due to:\n{e.output}"
@@ -552,7 +546,7 @@ class GitRepository:
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
-        run("git", "-C", self.path, "commit", "--quiet", "--allow-empty", "-m", message)
+        run("git", "-C", str(self.path), "commit", "--quiet", "--allow-empty", "-m", message)
         return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
@@ -694,8 +688,8 @@ class GitRepository:
             return None
 
     def init_repo(self, bare=False):
-        if self._path.is_dir():
-            self._path.mkdir(exist_ok=True, parents=True)
+        if self.path.is_dir():
+            self.path.mkdir(exist_ok=True, parents=True)
         flag = "--bare" if bare else ""
         self._git(f"init {flag}", error_if_not_exists=False)
         if self.urls is not None and len(self.urls):
@@ -877,8 +871,9 @@ class GitRepository:
                 "and can only contain letters, numbers, underscores and "
                 f'dashes, but got "{name}"'
             )
+        return name
 
-    def _validate_repo_path(self, library_dir, name):
+    def _validate_repo_path(self, library_dir, name, path=None):
         """
         validate repo path
         (since this is coming from potentially untrusted data)
@@ -891,7 +886,10 @@ class GitRepository:
             raise InvalidRepositoryError(
                 f"Repository path/name {library_dir}/{name} is not valid"
             )
-        return Path(repo_dir)
+        repo_dir = Path(repo_dir).resolve()
+        if path is not None and path != repo_dir:
+            raise InvalidRepositoryError("Both library dir and name pair and path specified and are not equal. Omit the path.")
+        return repo_dir
 
     def _validate_url(self, url):
         """ ensure valid URL """
@@ -903,6 +901,20 @@ class GitRepository:
         raise InvalidRepositoryError(
             f'Repository URL must be a valid URL, but got "{url}".'
         )
+
+    def _validate_urls(self, urls):
+        if urls is not None:
+            if settings.update_from_filesystem is False:
+                for url in urls:
+                    self._validate_url(url)
+            else:
+                urls = [
+                    str((self.path / url).resolve())
+                    if not os.path.isabs(url)
+                    else url
+                    for url in urls
+                ]
+        return urls
 
 
 _repo_name_re = re.compile(r"^\w[\w_-]*/\w[\w_-]*$")

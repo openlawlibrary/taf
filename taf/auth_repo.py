@@ -25,8 +25,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def __init__(
         self,
-        path,
+        library_dir=None,
         name=None,
+        path=None,
         urls=None,
         custom=None,
         default_branch="master",
@@ -38,28 +39,29 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     ):
         """
         Args:
-          path: repository's full filesystem path or path to the root directory which contains the repository
-          name (optional): repository's name, which is appended to the root directory to form the full path.
-          Must be in the namespace/name format. If not specified, name will be determined based repository's
-          full path.
-          urls (optional): repository's urls
-          custom (optional): a dictionary containing other data
-          default_branch (optional): repository's default branch ("master" if not defined)
-          conf_directory_root (optional): path of the directory inside of which the configuration directory should be created.
-          The configuration directory will contain the last successfully validated commit if TAF's updater is used to
-          update and validate it.
-          out_of_band_authentication (optional): manually specified initial commit
-          hosts (optional): host data is specified using the hosts.json file. Hosts of the current repo
+          library_dir (Path or str): path to the library root. This is a directory which contains other repositories,
+          whose full path is determined by appending their names to the library dir. A repository can be
+          instantiated by specifying library dir and name, or by the full path.
+          name (str): repository's name, which is appended to the library dir to form the full path.
+          Must be in the namespace/name format. If library_dir is specified, name must be specified too.
+          path (Path): repository's full filesystem path, which can be specified instead of name and library dir
+          urls (list): repository's urls
+          custom (dict): a dictionary containing other data
+          default_branch (str): repository's default branch ("master" if not defined)
+          out_of_band_authentication (str): manually specified initial commit
+          hosts (dict): host data is specified using the hosts.json file. Hosts of the current repo
           can be specified in its parent's repo (meaning that this repo is listed in the parent's dependencies.json),
           or it can be specified in hosts.json contained by the repo itself. If hosts data is defined in the parent,
           it can be propagated to the contained repos. `load_hosts` function of the `hosts` module sets this
           attribute.
         """
-        super().__init__(path, name, urls, custom, default_branch, *args, **kwargs)
+        super().__init__(library_dir, name, path, urls, custom, default_branch, *args, **kwargs)
 
         if conf_directory_root is None:
-            conf_directory_root = str(Path(self.path).parent)
-        self.conf_directory_root = conf_directory_root
+            conf_directory_root = Path(self.path).parent
+        elif isinstance(conf_directory_root, str):
+            conf_directory_root = Path(conf_directory_root)
+        self.conf_directory_root = conf_directory_root.resolve()
         self.out_of_band_authentication = out_of_band_authentication
         # host data can be specified in the current authentication repository or in its parent
         # the input parameter hosts is expected to contain hosts data specified outside of
@@ -92,7 +94,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         # the configuration directory should be _name
         if self._conf_dir is None:
             last_dir = os.path.basename(os.path.normpath(self.path))
-            conf_path = Path(self.conf_directory_root, f"_{last_dir}")
+            conf_path = self.conf_directory_root / f"_{last_dir}"
             conf_path.mkdir(parents=True, exist_ok=True)
             self._conf_dir = str(conf_path)
         return self._conf_dir

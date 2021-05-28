@@ -258,7 +258,7 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
     """Updates target repo's commit sha and branch"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:
         return
-    target_repo = GitRepository(str(target_repo_path))
+    target_repo = GitRepository(path=target_repo_path)
     if target_repo.is_git_repository:
         data = {"commit": target_repo.head_commit_sha()}
         if add_branch:
@@ -957,7 +957,7 @@ def generate_repositories_json(
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
             continue
-        target_repo = GitRepository(target_repo_dir.resolve())
+        target_repo = GitRepository(path=target_repo_dir.resolve())
         if not target_repo.is_git_repository:
             continue
         target_repo_name = target_repo_dir.name
@@ -1126,7 +1126,7 @@ def register_target_files(
     )
 
     if commit:
-        auth_git_repo = GitRepository(taf_repo.path)
+        auth_git_repo = GitRepository(path=taf_repo.path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_git_repo.commit(commit_message)
 
@@ -1258,7 +1258,7 @@ def update_metadata_expiration_date(
         print(f"Updated expiration date of {role}")
 
     if commit:
-        auth_repo = GitRepository(repo_path)
+        auth_repo = GitRepository(path=repo_path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
