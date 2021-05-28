@@ -55,7 +55,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           it can be propagated to the contained repos. `load_hosts` function of the `hosts` module sets this
           attribute.
         """
-        super().__init__(library_dir, name, path, urls, custom, default_branch, *args, **kwargs)
+        super().__init__(
+            library_dir, name, path, urls, custom, default_branch, *args, **kwargs
+        )
 
         if conf_directory_root is None:
             conf_directory_root = Path(self.path).parent

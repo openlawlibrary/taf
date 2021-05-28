@@ -13,7 +13,7 @@ from taf.exceptions import (
     CloneRepoException,
     FetchException,
     InvalidRepositoryError,
-    GitError
+    GitError,
 )
 from taf.log import taf_logger
 from taf.utils import run
@@ -51,14 +51,18 @@ class GitRepository:
             path = Path(path)
 
         if (library_dir, name).count(None) == 1:
-            raise InvalidRepositoryError("Both library_dir and name need to be specified")
+            raise InvalidRepositoryError(
+                "Both library_dir and name need to be specified"
+            )
 
         if name is not None:
             self.name = self._validate_repo_name(name)
             self.path = self._validate_repo_path(library_dir, name, path)
             self.library_dir = library_dir.resolve()
         elif path is None:
-            raise InvalidRepositoryError("Either speicfy library dir and name pair or path!")
+            raise InvalidRepositoryError(
+                "Either speicfy library dir and name pair or path!"
+            )
         else:
             # maintain support for repositories whose names are not of significance
             # in that case, only full path is specified (can happen if only using the GitRepository class)
@@ -546,7 +550,16 @@ class GitRepository:
         return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
-        run("git", "-C", str(self.path), "commit", "--quiet", "--allow-empty", "-m", message)
+        run(
+            "git",
+            "-C",
+            str(self.path),
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            message,
+        )
         return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
@@ -888,7 +901,9 @@ class GitRepository:
             )
         repo_dir = Path(repo_dir).resolve()
         if path is not None and path != repo_dir:
-            raise InvalidRepositoryError("Both library dir and name pair and path specified and are not equal. Omit the path.")
+            raise InvalidRepositoryError(
+                "Both library dir and name pair and path specified and are not equal. Omit the path."
+            )
         return repo_dir
 
     def _validate_url(self, url):
@@ -909,9 +924,7 @@ class GitRepository:
                     self._validate_url(url)
             else:
                 urls = [
-                    str((self.path / url).resolve())
-                    if not os.path.isabs(url)
-                    else url
+                    str((self.path / url).resolve()) if not os.path.isabs(url) else url
                     for url in urls
                 ]
         return urls

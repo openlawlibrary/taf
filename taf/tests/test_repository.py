@@ -79,7 +79,10 @@ def test_from_json_dict():
         for attr_name, attr_value in json_data.items():
             if attr_name == "library_dir":
                 attr_value = Path(json_data["library_dir"]).resolve()
-                assert repo.path == Path(json_data["library_dir"], json_data["name"]).resolve()
+                assert (
+                    repo.path
+                    == Path(json_data["library_dir"], json_data["name"]).resolve()
+                )
             elif attr_name in ("path", "conf_directory_root"):
                 attr_value = Path(json_data[attr_name]).resolve()
             assert getattr(repo, attr_name) == attr_value
@@ -109,38 +112,85 @@ def test_from_json_dict():
     _check_values(auth_repo, auth_data)
 
 
-# def test_to_json_dict():
-#     library_dir = str(Path("path").resolve())
-#     name = "namespace/repo"
-#     urls = ["http://github.com/namespace/repo", "http://gitlab.com/namespace/repo"]
-#     custom = {"a": "b"}
-#     conf_directory_root = (str(Path("path")),)
-#     out_of_band_authentication = ("123456789",)
-#     hosts = ({"host1": "something"},)
+def test_to_json_dict():
+    library_dir = Path("path").resolve()
+    name = "namespace/repo"
+    urls = ["http://github.com/namespace/repo", "http://gitlab.com/namespace/repo"]
+    custom = {"a": "b"}
+    conf_directory_root = Path("path").resolve()
+    out_of_band_authentication = ("123456789",)
+    hosts = ({"host1": "something"},)
 
-#     def _check_values(repo, json_data):
-#         for name, value in json_data.items():
-#             if name == "path":
-#                 assert value == root_dir
-#             else:
-#                 assert getattr(repo, name) == value
+    def _check_values(repo, json_data):
+        for attr_name, attr_value in json_data.items():
+            if attr_name == "path":
+                assert attr_value == (library_dir / name)
+            else:
+                assert getattr(repo, attr_name) == attr_value
 
-#     for repo_path, repo_name in ((root_dir, name), (Path(root_dir, name), None)):
-#         repo = GitRepository(
-#             repo_path,
-#             repo_name,
-#             urls=urls,
-#             custom=custom,
-#         )
-#         json_data = repo.to_json_dict()
-#         _check_values(repo, json_data)
-#         repo = AuthenticationRepository(
-#             repo_path,
-#             repo_name,
-#             urls=urls,
-#             custom=custom,
-#             conf_directory_root=conf_directory_root,
-#             out_of_band_authentication=out_of_band_authentication,
-#             hosts=hosts,
-#         )
-#         _check_values(repo, json_data)
+    for repo_library_dir, repo_name, repo_path in (
+        (library_dir, name, None),
+        (None, None, Path(library_dir, name)),
+    ):
+        repo = GitRepository(
+            repo_library_dir,
+            repo_name,
+            repo_path,
+            urls=urls,
+            custom=custom,
+        )
+        json_data = repo.to_json_dict()
+        _check_values(repo, json_data)
+        repo = AuthenticationRepository(
+            repo_library_dir,
+            repo_name,
+            repo_path,
+            urls=urls,
+            custom=custom,
+            conf_directory_root=conf_directory_root,
+            out_of_band_authentication=out_of_band_authentication,
+            hosts=hosts,
+        )
+        _check_values(repo, json_data)
+
+
+def test_to_from_json_roundtrip():
+    library_dir_data = {
+        "library_dir": Path("path").resolve(),
+        "name": "namespace/repo",
+        "urls": [
+            "http://github.com/namespace/repo",
+            "http://gitlab.com/namespace/repo",
+        ],
+        "default_branch": "master",
+        "custom": {"a": "b"},
+    }
+    library_dir_auth_data = library_dir_data.copy()
+    library_dir_auth_data.update(
+        {
+            "conf_directory_root": Path("path").resolve(),
+            "out_of_band_authentication": "123456789",
+            "hosts": {"host1": "something"},
+        }
+    )
+    path_data = library_dir_data.copy()
+    path_auth_data = library_dir_auth_data.copy()
+    for json_data in (path_data, path_auth_data):
+        json_data["path"] = Path(json_data["library_dir"], json_data["name"])
+        json_data.pop("library_dir")
+        json_data.pop("name")
+
+    def _check_values(input_data, output_data):
+        for key, value in input_data.items():
+            assert value == output_data[key]
+
+    for data, auth_data in (
+        (library_dir_data, library_dir_auth_data),
+        (path_data, path_auth_data),
+    ):
+        repo = GitRepository.from_json_dict(data)
+        output_data = repo.to_json_dict()
+        _check_values(data, output_data)
+        auth_repo = AuthenticationRepository.from_json_dict(auth_data)
+        output_data = auth_repo.to_json_dict()
+        _check_values(auth_data, output_data)
