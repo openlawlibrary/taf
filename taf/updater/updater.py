@@ -187,11 +187,11 @@ def update_repository(
 
         handle_host_event(
             host_update_status,
-            host,
+            host_transient_data,
             root_auth_repo.library_dir,
+            host,
             repos_update_data,
             errors,
-            host_transient_data,
         )
     if root_error:
         raise root_error
@@ -381,8 +381,9 @@ def _update_named_repository(
         if not only_validate:
             transient = handle_repo_event(
                 update_status,
-                auth_repo,
+                None,
                 auth_repo.library_dir,
+                auth_repo,
                 commits_data,
                 error,
                 targets_data,

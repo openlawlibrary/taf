@@ -178,11 +178,11 @@ class Repository:
 
     @property
     def targets_path(self):
-        return self._path / TARGETS_DIRECTORY_NAME
+        return self.path / TARGETS_DIRECTORY_NAME
 
     @property
     def metadata_path(self):
-        return self._path / METADATA_DIRECTORY_NAME
+        return self.path / METADATA_DIRECTORY_NAME
 
     _tuf_repository = None
 
@@ -198,7 +198,7 @@ class Repository:
 
     @property
     def certs_dir(self):
-        certs_dir = self._path / "certs"
+        certs_dir = self.path / "certs"
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 

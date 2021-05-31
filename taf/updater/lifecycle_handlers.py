@@ -2,11 +2,16 @@ import enum
 import glob
 import json
 import subprocess
+from functools import partial
 from pathlib import Path
 
 import taf.settings as settings
 from taf.repository_tool import get_target_path
-from taf.utils import run, safely_save_json_to_disk, extract_json_objects
+from taf.utils import (
+    run,
+    safely_save_json_to_disk,
+    extract_json_objects_from_trusted_stdout,
+)
 from taf.exceptions import ScriptExecutionError
 from taf.log import taf_logger
 
@@ -76,8 +81,8 @@ config_db = {}
 
 
 def _get_script_path(lifecycle_stage, event):
-    return get_target_path(
-        f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}"
+    return Path(
+        get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}")
     )
 
 
@@ -103,44 +108,9 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
         return {}
 
 
-def handle_repo_event(
-    event,
-    auth_repo,
-    library_dir,
-    commits_data,
-    error,
-    targets_data,
-    transient_data=None,
-):
-    return _handle_event(
-        LifecycleStage.REPO,
-        event,
-        transient_data,
-        library_dir,
-        auth_repo,
-        commits_data,
-        error,
-        targets_data,
-    )
-
-
-def handle_host_event(
-    event, host, library_dir, repos_update_data, error, transient_data=None
-):
-    taf_logger.info("Called {} handler of host {}", event.to_name(), host.name)
-    return _handle_event(
-        LifecycleStage.HOST,
-        event,
-        transient_data,
-        library_dir,
-        host,
-        repos_update_data,
-        error,
-    )
-
-
 def _handle_event(lifecycle_stage, event, transient_data, library_dir, *args, **kwargs):
     # read initial persistent data from file
+    taf_logger.info("Called {} handler. Event: {}", lifecycle_stage, event.to_name())
     persistent_data = get_persistent_data(library_dir)
     transient_data = transient_data or {}
     prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
@@ -184,8 +154,12 @@ def _handle_event(lifecycle_stage, event, transient_data, library_dir, *args, **
     }
 
 
+handle_repo_event = partial(_handle_event, LifecycleStage.REPO)
+handle_host_event = partial(_handle_event, LifecycleStage.HOST)
+
+
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
-    persistent_path = Path(auth_repo.library_dir, PERSISTENT_FILE_NAME)
+    persistent_path = auth_repo.library_dir / PERSISTENT_FILE_NAME
     # do not load the script from the file system
     # the update might have failed because the repository contains an additional
     # commit with, say, malicious scripts
@@ -197,19 +171,18 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
     development_mode = settings.development_mode
 
     if development_mode:
-        path = str(Path(auth_repo.path, scripts_rel_path))
+        path = auth_repo.path / scripts_rel_path
         script_paths = glob.glob(f"{path}/*.py")
     else:
         script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
         script_rel_paths = [
-            Path(scripts_rel_path, script_name).as_posix()
+            (scripts_rel_path / script_name).as_posix()
             for script_name in script_names
             if Path(script_name).suffix == ".py"
         ]
-        # need to check if the path ends with py
         auth_repo.checkout_paths(last_commit, *script_rel_paths)
         script_paths = [
-            str(Path(auth_repo.path, script_rel_path))
+            str(auth_repo.path / script_rel_path)
             for script_rel_path in script_rel_paths
         ]
     for script_path in sorted(script_paths):
@@ -228,7 +201,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
             # print which outputs transient and persistent data
             # meaning that we might not be able to convert output to a json
             # so try to locate jsons inside the output
-            for json_data in extract_json_objects(output):
+            for json_data in extract_json_objects_from_trusted_stdout(output):
                 transient_data = json_data.get("transient")
                 persistent_data = json_data.get("persistent")
                 if transient_data is not None or persistent_data is not None:
