@@ -103,9 +103,7 @@ def get_pin_for(name, confirm=True, repeat=True):
     return pin
 
 
-def extract_json_objects_from_trusted_stdout_from_trusted_stdout(
-    text, decoder=JSONDecoder()
-):
+def extract_json_objects_from_trusted_stdout(text, decoder=JSONDecoder()):
     """Find JSON objects in text, and yield the decoded JSON data
 
     Does not attempt to look for JSON arrays, text, or other JSON types outside
