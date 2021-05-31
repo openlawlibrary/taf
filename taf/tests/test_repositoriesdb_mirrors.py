@@ -18,7 +18,7 @@ REPOS_URLS = {
 
 def test_load_repositories_with_mirrors(repositoriesdb_test_repositories):
     repositories = repositoriesdb_test_repositories["test-delegated-roles-with-mirrors"]
-    auth_repo = AuthenticationRepository(repositories[AUTH_REPO_NAME])
+    auth_repo = AuthenticationRepository(path=repositories[AUTH_REPO_NAME])
     commit = auth_repo.head_commit_sha()
     with load_repositories(auth_repo):
         for repo_path in repositories:

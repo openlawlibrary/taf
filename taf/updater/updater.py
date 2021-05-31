@@ -843,7 +843,7 @@ def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=Fal
         # but that cannot be done if it is checked out in a different worktree
         # it should be fine to update that other worktree if there are no uncommitted changes
         # or no commits that have not been pushed yet
-        worktree = GitRepository(repository.find_worktree_path_by_branch(branch))
+        worktree = GitRepository(path=repository.find_worktree_path_by_branch(branch))
         if worktree is None:
             return False
         repository = worktree

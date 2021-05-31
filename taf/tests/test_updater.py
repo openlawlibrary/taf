@@ -354,22 +354,22 @@ def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
 
 def _check_last_validated_commit(clients_auth_repo_path):
     # check if last validated commit is created and the saved commit is correct
-    client_auth_repo = AuthenticationRepository(str(clients_auth_repo_path))
+    client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     head_sha = client_auth_repo.head_commit_sha()
     last_validated_commit = client_auth_repo.last_validated_commit
     assert head_sha == last_validated_commit
 
 
 def _check_if_last_validated_commit_exists(clients_auth_repo_path):
-    client_auth_repo = AuthenticationRepository(str(clients_auth_repo_path))
+    client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     last_validated_commit = client_auth_repo.last_validated_commit
     assert last_validated_commit is None
 
 
 def _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas=None):
     for repository_rel_path in repositories:
-        origin_repo = GitRepository(origin_dir / repository_rel_path)
-        client_repo = GitRepository(client_dir / repository_rel_path)
+        origin_repo = GitRepository(origin_dir, repository_rel_path)
+        client_repo = GitRepository(client_dir, repository_rel_path)
         for branch in origin_repo.branches():
             # ensures that git log will work
             client_repo.checkout_branch(branch)
