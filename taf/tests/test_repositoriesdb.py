@@ -20,7 +20,6 @@ def teardown_module(module):
     [
         "test-no-delegations",
         "test-delegated-roles",
-        "test-delegated-roles-with-mirrors",
     ],
 )
 def test_load_repositories(test_name, repositoriesdb_test_repositories):

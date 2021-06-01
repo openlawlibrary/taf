@@ -26,10 +26,10 @@ class GitRepository:
         self,
         library_dir=None,
         name=None,
-        path=None,
         urls=None,
         custom=None,
         default_branch="master",
+        path=None,
         *args,
         **kwargs,
     ):

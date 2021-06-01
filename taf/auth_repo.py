@@ -27,13 +27,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self,
         library_dir=None,
         name=None,
-        path=None,
         urls=None,
         custom=None,
         default_branch="master",
         conf_directory_root=None,
         out_of_band_authentication=None,
         hosts=None,
+        path=None,
         *args,
         **kwargs,
     ):
@@ -56,7 +56,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           attribute.
         """
         super().__init__(
-            library_dir, name, path, urls, custom, default_branch, *args, **kwargs
+            library_dir, name, urls, custom, default_branch, path, *args, **kwargs
         )
 
         if conf_directory_root is None:
