@@ -123,30 +123,34 @@ def test_to_json_dict():
 
     def _check_values(repo, json_data):
         for attr_name, attr_value in json_data.items():
-            assert str(getattr(repo, attr_name)) == attr_value
+            repo_value = getattr(repo, attr_name)
+            if isinstance(repo_value, Path):
+                assert str(repo_value) == attr_value
+            else:
+                assert repo_value == attr_value
 
-    for repo_library_dir, repo_name, repo_path in (
+    for repo_library_dir, repo_name, repo_path, in (
         (library_dir, name, None),
         (None, None, Path(library_dir, name)),
     ):
         repo = GitRepository(
-            repo_library_dir,
-            repo_name,
-            repo_path,
+            library_dir,
+            name,
             urls=urls,
             custom=custom,
+            path=repo_path
         )
         json_data = repo.to_json_dict()
         _check_values(repo, json_data)
         repo = AuthenticationRepository(
-            repo_library_dir,
-            repo_name,
-            repo_path,
+            library_dir,
+            name,
             urls=urls,
             custom=custom,
             conf_directory_root=conf_directory_root,
             out_of_band_authentication=out_of_band_authentication,
             hosts=hosts,
+            path=repo_path
         )
         _check_values(repo, json_data)
 
@@ -179,7 +183,13 @@ def test_to_from_json_roundtrip():
 
     def _check_values(input_data, output_data):
         for key, value in input_data.items():
-            assert str(value) == output_data[key]
+            if key == "path":
+                assert key not in output_data
+                continue
+            if isinstance(value, Path):
+                assert str(value) == output_data[key]
+            else:
+                assert value == output_data[key]
 
     for data, auth_data in (
         (library_dir_data, library_dir_auth_data),
