@@ -94,9 +94,8 @@ class GitRepository:
     def to_json_dict(self):
         """Returns a dictionary mapping all attributes to their values"""
         return {
-            "library_dir": self.library_dir,
+            "library_dir": str(self.library_dir),
             "name": self.name,
-            "path": self.path,
             "urls": self.urls,
             "default_branch": self.default_branch,
             "custom": self.custom,

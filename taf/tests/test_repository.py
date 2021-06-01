@@ -123,10 +123,7 @@ def test_to_json_dict():
 
     def _check_values(repo, json_data):
         for attr_name, attr_value in json_data.items():
-            if attr_name == "path":
-                assert attr_value == (library_dir / name)
-            else:
-                assert getattr(repo, attr_name) == attr_value
+            assert str(getattr(repo, attr_name)) == attr_value
 
     for repo_library_dir, repo_name, repo_path in (
         (library_dir, name, None),
@@ -182,7 +179,7 @@ def test_to_from_json_roundtrip():
 
     def _check_values(input_data, output_data):
         for key, value in input_data.items():
-            assert value == output_data[key]
+            assert str(value) == output_data[key]
 
     for data, auth_data in (
         (library_dir_data, library_dir_auth_data),

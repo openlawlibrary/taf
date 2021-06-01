@@ -149,6 +149,12 @@ def update_repository(
 
     # after all repositories have been updated, sort them by hosts and call hosts handlers
     # update information is in repos_update_data
+    if not auth_repo_name in repos_update_data:
+        # this must mean that an error occurred
+        if root_error is not None:
+            raise root_error
+        else:
+            raise UpdateFailedError(f"Update of {auth_repo_name} failed")
     root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
     repos_and_commits = {
         auth_repo_name: repo_data["commits_data"].get("after_pull")

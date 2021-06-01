@@ -78,7 +78,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         data = super().to_json_dict()
         data.update(
             {
-                "conf_directory_root": self.conf_directory_root,
+                "conf_directory_root": str(self.conf_directory_root),
                 "out_of_band_authentication": self.out_of_band_authentication,
                 "hosts": self.hosts,
             }
