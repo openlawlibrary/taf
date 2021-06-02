@@ -45,9 +45,7 @@ config_db = {}
 
 
 def _get_script_path(lifecycle_stage, event):
-    return Path(
-        get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}")
-    )
+    return Path(get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}"))
 
 
 def get_config(library_root, config_name=CONFIG_NAME):
