@@ -149,7 +149,7 @@ def update_repository(
 
     # after all repositories have been updated, sort them by hosts and call hosts handlers
     # update information is in repos_update_data
-    if not auth_repo_name in repos_update_data:
+    if auth_repo_name not in repos_update_data:
         # this must mean that an error occurred
         if root_error is not None:
             raise root_error

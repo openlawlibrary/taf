@@ -134,11 +134,7 @@ def test_to_json_dict():
         (None, None, Path(library_dir, name)),
     ):
         repo = GitRepository(
-            library_dir,
-            name,
-            urls=urls,
-            custom=custom,
-            path=repo_path
+            library_dir, name, urls=urls, custom=custom, path=repo_path
         )
         json_data = repo.to_json_dict()
         _check_values(repo, json_data)
@@ -150,7 +146,7 @@ def test_to_json_dict():
             conf_directory_root=conf_directory_root,
             out_of_band_authentication=out_of_band_authentication,
             hosts=hosts,
-            path=repo_path
+            path=repo_path,
         )
         _check_values(repo, json_data)
 
