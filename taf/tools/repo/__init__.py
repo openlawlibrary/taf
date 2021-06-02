@@ -220,7 +220,7 @@ def attach_to_group(group):
         error-if-unauthenticated option can be used.
         """
         update_repository(url, clients_auth_path, clients_library_dir, from_fs,
-                          UpdateType.from_name(expected_repo_type),
+                          UpdateType(expected_repo_type),
                           error_if_unauthenticated=error_if_unauthenticated)
 
     @repo.command()

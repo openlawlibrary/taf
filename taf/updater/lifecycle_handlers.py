@@ -17,53 +17,17 @@ from taf.log import taf_logger
 
 
 class LifecycleStage(enum.Enum):
-    REPO = (1,)
-    HOST = (2,)
-    UPDATE = 3
-
-    @classmethod
-    def from_name(cls, name):
-        stage = {v: k for k, v in LIFECYCLE_NAMES.items()}.get(name)
-        if stage is not None:
-            return stage
-        raise ValueError(f"{name} is not a valid lifecycle stage")
-
-    def to_name(self):
-        return LIFECYCLE_NAMES[self]
-
-
-LIFECYCLE_NAMES = {
-    LifecycleStage.REPO: "repo",
-    LifecycleStage.HOST: "host",
-    LifecycleStage.UPDATE: "update",
-}
+    REPO = "repo"
+    HOST = "host"
+    UPDATE = "update"
 
 
 class Event(enum.Enum):
-    SUCCEEDED = 1
-    CHANGED = 2
-    UNCHANGED = 3
-    FAILED = 4
-    COMPLETED = 5
-
-    @classmethod
-    def from_name(cls, name):
-        event = {v: k for k, v in EVENT_NAMES.items()}.get(name)
-        if event is not None:
-            return event
-        raise ValueError(f"{name} is not a valid event")
-
-    def to_name(self):
-        return EVENT_NAMES[self]
-
-
-EVENT_NAMES = {
-    Event.SUCCEEDED: "succeeded",
-    Event.CHANGED: "changed",
-    Event.UNCHANGED: "unchanged",
-    Event.FAILED: "failed",
-    Event.COMPLETED: "completed",
-}
+    SUCCEEDED = "succeeded"
+    CHANGED = "changed"
+    UNCHANGED = "unchanged"
+    FAILED = "failed"
+    COMPLETED = "completed"
 
 
 CONFIG_NAME = "config.json"
@@ -82,7 +46,7 @@ config_db = {}
 
 def _get_script_path(lifecycle_stage, event):
     return Path(
-        get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.to_name()}/{event.to_name()}")
+        get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}")
     )
 
 
@@ -110,10 +74,10 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
 
 def _handle_event(lifecycle_stage, event, transient_data, library_dir, *args, **kwargs):
     # read initial persistent data from file
-    taf_logger.info("Called {} handler. Event: {}", lifecycle_stage, event.to_name())
+    taf_logger.info("Called {} handler. Event: {}", lifecycle_stage, event.value)
     persistent_data = get_persistent_data(library_dir)
     transient_data = transient_data or {}
-    prepare_data_name = f"prepare_data_{lifecycle_stage.to_name()}"
+    prepare_data_name = f"prepare_data_{lifecycle_stage.value}"
     # expect a dictionary containing a map of the authentication repository whose
     # scripts should be invoked and data to be passed to those scripts
     repos_and_data = globals()[prepare_data_name](
@@ -324,13 +288,13 @@ def _repo_update_data(auth_repo, update_status, commits_data, targets_data, erro
 
 def _print_data(repos_and_data, library_dir, lifecycle_stage):
     for repo, data in repos_and_data.items():
-        path = Path(library_dir, "data", lifecycle_stage.to_name(), f"{repo.name}.json")
+        path = Path(library_dir, "data", lifecycle_stage.value, f"{repo.name}.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=4))
 
 
 def _format_event(event):
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
-        return f"event/{Event.SUCCEEDED.to_name()}"
+        return f"event/{Event.SUCCEEDED.value}"
     else:
-        return f"event/{Event.FAILED.to_name()}"
+        return f"event/{Event.FAILED.value}"

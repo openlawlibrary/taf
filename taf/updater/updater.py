@@ -32,23 +32,9 @@ disable_tuf_console_logging()
 
 
 class UpdateType(enum.Enum):
-    TEST = 1
-    OFFICIAL = 2
-    EITHER = 3
-
-    @classmethod
-    def from_name(cls, name):
-        update_type = {v: k for k, v in UPDATE_TYPES.items()}.get(name)
-        if update_type is not None:
-            return update_type
-        raise ValueError("{} is not a valid update type".format(name))
-
-
-UPDATE_TYPES = {
-    UpdateType.TEST: "test",
-    UpdateType.OFFICIAL: "official",
-    UpdateType.EITHER: "either",
-}
+    TEST = "test"
+    OFFICIAL = "official"
+    EITHER = "either"
 
 
 def _load_hosts_json(auth_repo):
