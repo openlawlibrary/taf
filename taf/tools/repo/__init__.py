@@ -181,7 +181,7 @@ def attach_to_group(group):
     @repo.command()
     @click.argument("url")
     @click.argument("clients-auth-path")
-    @click.option("--clients-root-dir", default=None, help="Directory where target repositories and, "
+    @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
