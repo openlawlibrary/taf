@@ -1,4 +1,3 @@
-
 definitions = {
     "repo_data": {
         "description": "Contains all properties of a GitRepository object",
@@ -28,8 +27,7 @@ definitions = {
                 "type": "string",
             },
         },
-        "required":["library_dir", "name", "urls"],
-        "additionalProperties": False,
+        "required": ["library_dir", "name", "urls"],
     },
     "commits_data": {
         "description": "Information about commits - top commit before pull, pulled commits and top commit after pull",
@@ -37,7 +35,7 @@ definitions = {
         "properties": {
             "before_pull": {
                 "description": "Repository's top commit before pull",
-                "type": ["string", "null"]
+                "type": ["string", "null"],
             },
             "new": {
                 "type": "array",
@@ -47,7 +45,7 @@ definitions = {
             },
             "after_pull": {
                 "description": "Repository's top commit before pull",
-                "type": ["string", "null"]
+                "type": ["string", "null"],
             },
         },
         "required": ["before_pull", "new", "after_pull"],
@@ -61,56 +59,59 @@ auth_repo_schema = {
         "data": {
             "description": "All properties of the authentication repository. Can be used to instantiate the AuthenticationRepository using from_json_dict",
             "type": "object",
-            "allOf": [
-                { "$ref": "#/definitions/repo_data"},
-                {"properties": {
-                    "conf_directory_root": {
-                        "description": "Path to the directory which contains the config directory",
-                        "type": "string",
-                    },
-                    "out_of_band_authentication": {
-                        "description": "Commit used to check repository's validity. Supposed to be uqual to the first commit",
-                        "type":  ["string", "null"]
-                    },
-                    "hosts": {
-                        "description": "A dictionary mapping host names to additional information about them. Extracted from dependencies.json",
-                        "type": "object",
-                        "patternProperties": {
-                            "^.*$": {
-                                "description": "Host name with additional information",
-                                "type": "object",
-                                "properties": {
-                                    "custom": {
-                                        "descirption": "Any information required for futher processing",
-                                        "type": "object"
-                                    }
-                                },
-                                "additionalProperties": False,
-                            },
-                        },
-                    },
+            "allOf": [{"$ref": "#/definitions/repo_data"}],
+            "properties": {
+                "library_dir": {},
+                "name": {},
+                "urls": {},
+                "default_branch": {},
+                "custom": {},
+                "conf_directory_root": {
+                    "description": "Path to the directory which contains the config directory",
+                    "type": "string",
                 },
-                    "additionalProperties": False,
-                }
-                    ]
+                "out_of_band_authentication": {
+                    "description": "Commit used to check repository's validity. Supposed to be uqual to the first commit",
+                    "type": ["string", "null"],
                 },
-                "commits": {"$ref": "#/definitions/commits_data"},
-                "target_repos": {
-                    "description": "Information about the authentication repository's target repositories, including pull data",
+                "hosts": {
+                    "description": "A dictionary mapping host names to additional information about them. Extracted from dependencies.json",
                     "type": "object",
-                    "properties": {
-                        "data": { "$ref": "#/definitions/repo_data"},
-                        "commits": {
-                            "description": "Commits per branches",
+                    "patternProperties": {
+                        "^.*$": {
+                            "description": "Host name with additional information",
                             "type": "object",
-                            "patternProperties": {
-                                "^.*$": { "$ref": "#/definitions/commits_data"}
+                            "properties": {
+                                "custom": {
+                                    "descirption": "Any information required for futher processing",
+                                    "type": "object",
+                                }
+                            },
+                            "additionalProperties": False,
                         },
-                        "additionalProperties": False,
-                    }
-                }
+                    },
+                },
             },
-    }
+            "required": ["library_dir", "name", "urls"],
+            "additionalProperties": False,
+        },
+        "commits": {"$ref": "#/definitions/commits_data"},
+        "target_repos": {
+            "description": "Information about the authentication repository's target repositories, including pull data",
+            "type": "object",
+            "properties": {
+                "data": {"$ref": "#/definitions/repo_data"},
+                "commits": {
+                    "description": "Commits per branches",
+                    "type": "object",
+                    "patternProperties": {
+                        "^.*$": {"$ref": "#/definitions/commits_data"}
+                    },
+                    "additionalProperties": False,
+                },
+            },
+        },
+    },
 }
 
 update_schema = {
@@ -136,12 +137,12 @@ update_schema = {
                 "error_msg": {
                     "description": "Error message that was raised while updating the F.json located inside the library root) after every execution"
                 },
-                "auth_repo": auth_repo_schema
+                "auth_repo": auth_repo_schema,
             },
         },
         "config": {
             "description": "Additional configuration, loaded from config.json located inside the library root",
             "type": "object",
         },
-    }
+    },
 }
