@@ -29,28 +29,20 @@ definitions = {
         },
         "required": ["library_dir", "name", "urls"],
     },
-    "commits_data": {
-        "description": "Information about commits - top commit before pull, pulled commits and top commit after pull",
+    "commit_with_custom": {
+        "description": "Commit SHA with an optional custom dictionary",
         "type": "object",
         "properties": {
-            "before_pull": {
-                "description": "Repository's top commit before pull",
-                "type": ["string", "null"],
+            "commit": {
+                "description": "Commit SHA",
+                "type": "string"
             },
-            "new": {
-                "type": "array",
-                "description": "A list of pulled (new) commits",
-                "items": {"type": "string"},
-                "uniqueItems": True,
-            },
-            "after_pull": {
-                "description": "Repository's top commit before pull",
-                "type": ["string", "null"],
-            },
-        },
-        "required": ["before_pull", "new", "after_pull"],
-        "additionalProperties": False,
-    },
+            "custom": {
+                "decription": "Additional custom information - can be anything that is useful for further processing",
+                "type": "object"
+            }
+        }
+    }
 }
 auth_repo_schema = {
     "description": "Information about the repository with pull details",
@@ -95,8 +87,30 @@ auth_repo_schema = {
             "required": ["library_dir", "name", "urls"],
             "additionalProperties": False,
         },
-        "commits": {"$ref": "#/definitions/commits_data"}
+        "commits": {
+            "description": "Information about commits - top commit before pull, pulled commits and top commit after pull",
+            "type": "object",
+            "properties": {
+                "before_pull": {
+                    "description": "Repository's top commit before pull",
+                    "type": ["string", "null"],
+                },
+                "new": {
+                    "type": "array",
+                    "description": "A list of pulled (new) commits",
+                    "items": {"type": "string"},
+                    "uniqueItems": True,
+                },
+                "after_pull": {
+                    "description": "Repository's top commit before pull",
+                    "type": ["string", "null"],
+                },
+            },
+            "required": ["before_pull", "new", "after_pull"],
+            "additionalProperties": False,
+        },
     },
+    "additionalProperties": False,
     "required": ["data", "commits"]
 }
 
@@ -127,18 +141,46 @@ update_schema = {
                 "target_repos": {
                     "description": "Information about the authentication repository's target repositories, including pull data",
                     "type": "object",
-                    "properties": {
-                        "data": {"$ref": "#/definitions/repo_data"},
-                        "commits": {
-                            "description": "Commits per branches",
+                    "patternProperties": {
+                        "^.*$": {
+                            "description": "Target repository's name and information about it and the pulled commits",
                             "type": "object",
-                            "patternProperties": {
-                                "^.*$": {"$ref": "#/definitions/commits_data"}
+                            "properties": {
+                                "repo_data": {"$ref": "#/definitions/repo_data"},
+                                "commits": {
+                                    "description": "Commits per branches",
+                                    "type": "object",
+                                    "patternProperties": {
+                                        "^.*$": {
+                                            "description": "Commit before pull, after pull and lists of new and unauthenticated commits belonging to the given branch",
+                                            "type": "object",
+                                            "properties": {
+                                                "before_pull": {"$ref": "#/definitions/commit_with_custom"},
+                                                "after_pull": {"$ref": "#/definitions/commit_with_custom"},
+                                                "new": {
+                                                    "description": "New authenticated commits",
+                                                    "type": "array"
+                                                },
+                                                "unauthenticated": {
+                                                    "description": "New unauthenticated commits - additional commits newer than the last authenticated commit in case of repositories where unauthenticated commits are allowed",
+                                                    "type": "array",
+                                                    "items": {"type": "string"},
+                                                    "uniqueItems": True,
+                                                }
+                                            },
+                                            "additionalProperties": False,
+                                            "required": ["before_pull", "after_pull", "new", "unauthenticated"]
+                                        }
+                                    },
+                                    "additionalProperties": False,
+                                },
                             },
+                            "required": ["repo_data", "commits"],
                             "additionalProperties": False,
-                        },
+                        }
                     },
-                },
+                    "additionalProperties": False,
+                }
             },
             "required": ["changed", "event", "repo_name", "error_msg", "auth_repo", "target_repos"],
             "additionalProperties": False,

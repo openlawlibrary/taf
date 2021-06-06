@@ -877,11 +877,11 @@ def _set_target_repositories_data(
                 commits_with_custom.pop(0)
             branch_commits_data["new"] = commits_with_custom
             additional_commits = (
-                additional_commits_per_repo.get(branch, [])
+                additional_commits_per_repo[repo_name].get(branch, [])
                 if repo_name in additional_commits_per_repo
                 else []
             )
-            branch_commits_data["unathenticated"] = additional_commits
+            branch_commits_data["unauthenticated"] = additional_commits
             commits_data[branch] = branch_commits_data
         targets_data[repo_name]["commits"] = commits_data
     return targets_data
