@@ -45,7 +45,10 @@ config_db = {}
 
 
 def _get_script_path(lifecycle_stage, event):
-    return Path(get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}"))
+    if settings.development_mode:
+        return f"{lifecycle_stage.value}/{event.value}"
+    else:
+        return Path(get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}"))
 
 
 def get_config(library_root, config_name=CONFIG_NAME):
@@ -70,7 +73,7 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
         return {}
 
 
-def _handle_event(lifecycle_stage, event, transient_data, library_dir, *args, **kwargs):
+def _handle_event(lifecycle_stage, event, transient_data, library_dir, scripts_root_dir, *args, **kwargs):
     # read initial persistent data from file
     taf_logger.info("Called {} handler. Event: {}", lifecycle_stage, event.value)
     persistent_data = get_persistent_data(library_dir)
@@ -89,7 +92,7 @@ def _handle_event(lifecycle_stage, event, transient_data, library_dir, *args, **
             data = script_data["data"]
             last_commit = script_data["commit"]
             repos_and_data[script_repo]["data"] = execute_scripts(
-                script_repo, last_commit, scripts_rel_path, data
+                script_repo, last_commit, scripts_rel_path, data, scripts_root_dir
             )
         return repos_and_data
 
@@ -120,7 +123,7 @@ handle_repo_event = partial(_handle_event, LifecycleStage.REPO)
 handle_host_event = partial(_handle_event, LifecycleStage.HOST)
 
 
-def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
+def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root_dir):
     persistent_path = auth_repo.library_dir / PERSISTENT_FILE_NAME
     # do not load the script from the file system
     # the update might have failed because the repository contains an additional
@@ -133,7 +136,10 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
     development_mode = settings.development_mode
 
     if development_mode:
-        path = auth_repo.path / scripts_rel_path
+        if scripts_root_dir is not None:
+            path = Path(scripts_root_dir) / auth_repo.name / scripts_rel_path
+        else:
+            path = Path(auth_repo.path) / scripts_rel_path
         script_paths = glob.glob(f"{path}/*.py")
     else:
         script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
@@ -147,6 +153,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data):
             str(auth_repo.path / script_rel_path)
             for script_rel_path in script_rel_paths
         ]
+
     for script_path in sorted(script_paths):
         taf_logger.info("Executing script {}", script_path)
         json_data = json.dumps(data)

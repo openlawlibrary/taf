@@ -193,7 +193,11 @@ def attach_to_group(group):
     @click.option("--error-if-unauthenticated", is_flag=True, help="Raise an error if the repository allows "
                   "unauthentiated commits and the updater detected authenticated commits newer than local "
                   "head commit")
-    def update(url, clients_auth_path, clients_library_dir, from_fs, expected_repo_type, error_if_unauthenticated):
+    @click.option("--script-root-dir", default=None, help="Scripts root directory, which can be used to move scripts "
+                  "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
+                  "to be located in scripts_root_dir/repo_name directory")
+    def update(url, clients_auth_path, clients_library_dir, from_fs, expected_repo_type, error_if_unauthenticated,
+               scripts_root_dir):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -218,10 +222,13 @@ def attach_to_group(group):
         will check existance and order of all authenticated commits and ignore unauthenticated. To raise
         an error if there are new unauthenticated commits (newer than the last local commit),
         error-if-unauthenticated option can be used.
+
+        Scripts root directory option can be used to move scripts out of the authentication repository for
+        testing purposes (avoid dirty index). Scripts will be expected  o be located in scripts_root_dir/repo_name directory
         """
         update_repository(url, clients_auth_path, clients_library_dir, from_fs,
                           UpdateType(expected_repo_type),
-                          error_if_unauthenticated=error_if_unauthenticated)
+                          error_if_unauthenticated=error_if_unauthenticated, scripts_root_dir=scripts_root_dir)
 
     @repo.command()
     @click.argument("clients-auth-path")

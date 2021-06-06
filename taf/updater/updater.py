@@ -75,6 +75,7 @@ def update_repository(
     conf_directory_root=None,
     config_path=None,
     out_of_band_authentication=None,
+    scripts_root_dir=None,
 ):
     """
     <Arguments>
@@ -129,6 +130,7 @@ def update_repository(
             repos_update_data=repos_update_data,
             transient_data=transient_data,
             out_of_band_authentication=out_of_band_authentication,
+            scripts_root_dir=scripts_root_dir,
         )
     except Exception as e:
         root_error = e
@@ -181,6 +183,7 @@ def update_repository(
             host_update_status,
             host_transient_data,
             root_auth_repo.library_dir,
+            scripts_root_dir,
             host,
             repos_update_data,
             errors,
@@ -207,6 +210,7 @@ def _update_named_repository(
     repos_update_data=None,
     transient_data=None,
     out_of_band_authentication=None,
+    scripts_root_dir=None,
 ):
     """
     <Arguments>
@@ -340,6 +344,7 @@ def _update_named_repository(
                         repos_update_data,
                         transient_data,
                         child_auth_repo.out_of_band_authentication,
+                        scripts_root_dir=scripts_root_dir,
                     )
                 except Exception as e:
                     errors.append(str(e))
@@ -355,7 +360,6 @@ def _update_named_repository(
                     f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
                 )
                 update_status = Event.FAILED
-
         # TODO which commit to load if the commit top commit does not match the last validated commit
         # use last validated commit - if the repository contains it
         set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
@@ -375,6 +379,7 @@ def _update_named_repository(
                 update_status,
                 None,
                 auth_repo.library_dir,
+                scripts_root_dir,
                 auth_repo,
                 commits_data,
                 error,
@@ -467,7 +472,7 @@ def _update_current_repository(
             shutil.rmtree(users_auth_repo.conf_dir)
         return Event.FAILED, users_auth_repo, _commits_ret(None, False, False), e, {}
     try:
-        # the current authentication repository is insantiated in the handler
+        # the current authentication repository is instantiated in the handler
         users_auth_repo = repository_updater.update_handler.users_auth_repo
         existing_repo = users_auth_repo.is_git_repository_root
         additional_commits_per_repo = {}

@@ -159,7 +159,8 @@ update_schema = {
                                                 "after_pull": {"$ref": "#/definitions/commit_with_custom"},
                                                 "new": {
                                                     "description": "New authenticated commits",
-                                                    "type": "array"
+                                                    "type": "array",
+                                                    "items": {"$ref": "#/definitions/commit_with_custom"}
                                                 },
                                                 "unauthenticated": {
                                                     "description": "New unauthenticated commits - additional commits newer than the last authenticated commit in case of repositories where unauthenticated commits are allowed",
