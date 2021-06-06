@@ -95,23 +95,9 @@ auth_repo_schema = {
             "required": ["library_dir", "name", "urls"],
             "additionalProperties": False,
         },
-        "commits": {"$ref": "#/definitions/commits_data"},
-        "target_repos": {
-            "description": "Information about the authentication repository's target repositories, including pull data",
-            "type": "object",
-            "properties": {
-                "data": {"$ref": "#/definitions/repo_data"},
-                "commits": {
-                    "description": "Commits per branches",
-                    "type": "object",
-                    "patternProperties": {
-                        "^.*$": {"$ref": "#/definitions/commits_data"}
-                    },
-                    "additionalProperties": False,
-                },
-            },
-        },
+        "commits": {"$ref": "#/definitions/commits_data"}
     },
+    "required": ["data", "commits"]
 }
 
 update_schema = {
@@ -135,14 +121,44 @@ update_schema = {
                     "type": "string",
                 },
                 "error_msg": {
-                    "description": "Error message that was raised while updating the F.json located inside the library root) after every execution"
+                    "description": "Error message that was raised while updating the repository"
                 },
                 "auth_repo": auth_repo_schema,
+                "target_repos": {
+                    "description": "Information about the authentication repository's target repositories, including pull data",
+                    "type": "object",
+                    "properties": {
+                        "data": {"$ref": "#/definitions/repo_data"},
+                        "commits": {
+                            "description": "Commits per branches",
+                            "type": "object",
+                            "patternProperties": {
+                                "^.*$": {"$ref": "#/definitions/commits_data"}
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
+                },
             },
+            "required": ["changed", "event", "repo_name", "error_msg", "auth_repo", "target_repos"],
+            "additionalProperties": False,
+        },
+        "state": {
+            "type": "object",
+            "properties": {
+                "transient": {
+                    "type": "object"
+                },
+                "persistent": {
+                    "type": "object"
+                }
+            }
         },
         "config": {
             "description": "Additional configuration, loaded from config.json located inside the library root",
             "type": "object",
         },
     },
+    "required": ["update", "state", "config"],
+    "additionalProperties": False,
 }
