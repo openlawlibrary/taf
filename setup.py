@@ -73,7 +73,7 @@ setup(
     },
     tests_require=tests_require,
     entry_points={
-        "console_scripts": ["taf = taf.tools.cli:main"],
+        "console_scripts": ["taf = taf.tools.cli.taf:main", "ocl = taf.tools.cli.ocl:main"],
         "pytest11": ["taf_yubikey_utils = taf.tests.yubikey_utils"],
     },
     classifiers=[
