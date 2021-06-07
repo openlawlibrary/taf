@@ -307,13 +307,14 @@ def _update_named_repository(
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
+        # TODO
         # need to handle wrong definitions and make sure that the update doesn't fail
         # for now, just take the newest commit and do not worry about updated definitions
-        latest_commit = commits[-1::]
+        # latest_commit = commits[-1::]
         repositoriesdb.load_dependencies(
             auth_repo,
             library_dir=targets_library_dir,
-            commits=latest_commit,
+            commits=commits,
         )
 
         # TODO log what happened
@@ -322,7 +323,7 @@ def _update_named_repository(
             # load the repositories from dependencies.json and update these repositories
             # we need to update the repositories before loading hosts data
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-                auth_repo, latest_commit
+                auth_repo, commits
             ).values()
             for child_auth_repo in child_auth_repos:
                 hosts_hierarchy_per_repo[child_auth_repo.name] = list(
