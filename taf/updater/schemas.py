@@ -33,16 +33,13 @@ definitions = {
         "description": "Commit SHA with an optional custom dictionary",
         "type": "object",
         "properties": {
-            "commit": {
-                "description": "Commit SHA",
-                "type": "string"
-            },
+            "commit": {"description": "Commit SHA", "type": "string"},
             "custom": {
                 "decription": "Additional custom information - can be anything that is useful for further processing",
-                "type": "object"
-            }
-        }
-    }
+                "type": "object",
+            },
+        },
+    },
 }
 auth_repo_schema = {
     "description": "Information about the repository with pull details",
@@ -111,7 +108,7 @@ auth_repo_schema = {
         },
     },
     "additionalProperties": False,
-    "required": ["data", "commits"]
+    "required": ["data", "commits"],
 }
 
 update_schema = {
@@ -155,22 +152,33 @@ update_schema = {
                                             "description": "Commit before pull, after pull and lists of new and unauthenticated commits belonging to the given branch",
                                             "type": "object",
                                             "properties": {
-                                                "before_pull": {"$ref": "#/definitions/commit_with_custom"},
-                                                "after_pull": {"$ref": "#/definitions/commit_with_custom"},
+                                                "before_pull": {
+                                                    "$ref": "#/definitions/commit_with_custom"
+                                                },
+                                                "after_pull": {
+                                                    "$ref": "#/definitions/commit_with_custom"
+                                                },
                                                 "new": {
                                                     "description": "New authenticated commits",
                                                     "type": "array",
-                                                    "items": {"$ref": "#/definitions/commit_with_custom"}
+                                                    "items": {
+                                                        "$ref": "#/definitions/commit_with_custom"
+                                                    },
                                                 },
                                                 "unauthenticated": {
                                                     "description": "New unauthenticated commits - additional commits newer than the last authenticated commit in case of repositories where unauthenticated commits are allowed",
                                                     "type": "array",
                                                     "items": {"type": "string"},
                                                     "uniqueItems": True,
-                                                }
+                                                },
                                             },
                                             "additionalProperties": False,
-                                            "required": ["before_pull", "after_pull", "new", "unauthenticated"]
+                                            "required": [
+                                                "before_pull",
+                                                "after_pull",
+                                                "new",
+                                                "unauthenticated",
+                                            ],
                                         }
                                     },
                                     "additionalProperties": False,
@@ -181,21 +189,24 @@ update_schema = {
                         }
                     },
                     "additionalProperties": False,
-                }
+                },
             },
-            "required": ["changed", "event", "repo_name", "error_msg", "auth_repo", "target_repos"],
+            "required": [
+                "changed",
+                "event",
+                "repo_name",
+                "error_msg",
+                "auth_repo",
+                "target_repos",
+            ],
             "additionalProperties": False,
         },
         "state": {
             "type": "object",
             "properties": {
-                "transient": {
-                    "type": "object"
-                },
-                "persistent": {
-                    "type": "object"
-                }
-            }
+                "transient": {"type": "object"},
+                "persistent": {"type": "object"},
+            },
         },
         "config": {
             "description": "Additional configuration, loaded from config.json located inside the library root",

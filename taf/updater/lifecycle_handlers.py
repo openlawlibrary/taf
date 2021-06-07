@@ -48,7 +48,9 @@ def _get_script_path(lifecycle_stage, event):
     if settings.development_mode:
         return f"{lifecycle_stage.value}/{event.value}"
     else:
-        return Path(get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}"))
+        return Path(
+            get_target_path(f"{SCRIPTS_DIR}/{lifecycle_stage.value}/{event.value}")
+        )
 
 
 def get_config(library_root, config_name=CONFIG_NAME):
@@ -73,7 +75,15 @@ def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
         return {}
 
 
-def _handle_event(lifecycle_stage, event, transient_data, library_dir, scripts_root_dir, *args, **kwargs):
+def _handle_event(
+    lifecycle_stage,
+    event,
+    transient_data,
+    library_dir,
+    scripts_root_dir,
+    *args,
+    **kwargs,
+):
     # read initial persistent data from file
     taf_logger.info("Called {} handler. Event: {}", lifecycle_stage, event.value)
     persistent_data = get_persistent_data(library_dir)
