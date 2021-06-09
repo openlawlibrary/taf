@@ -13,6 +13,7 @@ import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 import taf.settings as settings
 from taf.exceptions import (
+    ScriptExecutionError,
     UpdateFailedError,
     UpdaterAdditionalCommitsError,
     GitError,
@@ -26,9 +27,6 @@ from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event,
 
 
 disable_tuf_console_logging()
-
-
-# TODO think about defining schemas of all of the data and implement validation
 
 
 class UpdateType(enum.Enum):
@@ -59,6 +57,15 @@ def load_library_context(config_path):
     except FileNotFoundError:
         taf_logger.warning("No config found at {}", str(config_path))
     return config
+
+
+def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
+    auth_repo.reset_to_commit(commits_data["before_pull"], hard=True)
+    for repo_name, repo_data in targets_data.items():
+        repo = repositoriesdb.get_repository(repo_name)
+        for branch, branch_data in repo_data.items():
+            repo.checkout_branch(branch)
+            repo.reset_to_commit(branch_data["before_pull"], hard=True)
 
 
 def update_repository(
@@ -317,7 +324,6 @@ def _update_named_repository(
             commits=commits,
         )
 
-        # TODO log what happened
         if update_status != Event.FAILED:
             errors = []
             # load the repositories from dependencies.json and update these repositories
@@ -378,19 +384,26 @@ def _update_named_repository(
             auth_repo.set_last_validated_commit(last_commit)
 
         # do not call the handlers if only validating the repositories
+        # if a handler fails and we are in the development mode, revert the update
+        # so that it's easy to try again after fixing the handler
         if not only_validate:
-            transient = handle_repo_event(
-                update_status,
-                None,
-                auth_repo.library_dir,
-                scripts_root_dir,
-                auth_repo,
-                commits_data,
-                error,
-                targets_data,
-            )
-            if transient_data is not None:
-                transient_data.update(transient)
+            try:
+                transient = handle_repo_event(
+                    update_status,
+                    None,
+                    auth_repo.library_dir,
+                    scripts_root_dir,
+                    auth_repo,
+                    commits_data,
+                    error,
+                    targets_data,
+                )
+                if transient_data is not None:
+                    transient_data.update(transient)
+            except ScriptExecutionError:
+                if settings.development_mode:
+                    _reset_to_commits_before_pull(auth_repo, commits_data, commits_data, targets_data)
+                    raise
 
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
@@ -403,8 +416,6 @@ def _update_named_repository(
 
     if error is not None:
         raise error
-    # TODO export targets data
-    # validation of the repository finished - successfully or not
 
 
 def _update_current_repository(
