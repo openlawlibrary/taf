@@ -60,12 +60,20 @@ def load_library_context(config_path):
 
 
 def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
-    auth_repo.reset_to_commit(commits_data["before_pull"], hard=True)
+    taf_logger.info("In development mode. Resetting repositories to commits before pull after handler failure")
+    def _reset_repository(repo, commits_data):
+        before_pull = commits_data["before_pull"]
+        after_pull = commits_data["before_pull"]
+        if before_pull == after_pull:
+            return
+        repo.reset_to_commit(before_pull, hard=True)
+
+    _reset_repository(auth_repo, commits_data)
     for repo_name, repo_data in targets_data.items():
-        repo = repositoriesdb.get_repository(repo_name)
-        for branch, branch_data in repo_data.items():
+        repo = repositoriesdb.get_repository(auth_repo, repo_name)
+        for branch, branch_data in repo_data["commits"].items():
             repo.checkout_branch(branch)
-            repo.reset_to_commit(branch_data["before_pull"], hard=True)
+            _reset_repository(repo, branch_data)
 
 
 def update_repository(
@@ -400,10 +408,10 @@ def _update_named_repository(
                 )
                 if transient_data is not None:
                     transient_data.update(transient)
-            except ScriptExecutionError:
+            except ScriptExecutionError as e:
                 if settings.development_mode:
-                    _reset_to_commits_before_pull(auth_repo, commits_data, commits_data, targets_data)
-                    raise
+                    _reset_to_commits_before_pull(auth_repo, commits_data, targets_data)
+                    error = e
 
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
@@ -414,6 +422,7 @@ def _update_named_repository(
             "targets_data": targets_data,
         }
 
+    repositoriesdb.clear_repositories_db()
     if error is not None:
         raise error
 
@@ -570,7 +579,6 @@ def _update_current_repository(
         )
     finally:
         repository_updater.update_handler.cleanup()
-        repositoriesdb.clear_repositories_db()
 
     if error_if_unauthenticated and len(additional_commits_per_repo):
         return (
