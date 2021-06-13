@@ -63,12 +63,19 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
     taf_logger.info("In development mode. Resetting repositories to commits before pull after handler failure")
     def _reset_repository(repo, commits_data):
         before_pull = commits_data["before_pull"]
-        after_pull = commits_data["before_pull"]
+        if isinstance(before_pull, dict):
+            before_pull = before_pull["commit"]
+        after_pull = commits_data["after_pull"]
+        if isinstance(after_pull, dict):
+            after_pull = after_pull["commit"]
         if before_pull == after_pull:
             return
         repo.reset_to_commit(before_pull, hard=True)
 
+    auth_repo.checkout_branch(auth_repo.default_branch)
     _reset_repository(auth_repo, commits_data)
+    auth_repo.set_last_validated_commit(commits_data["before_pull"])
+
     for repo_name, repo_data in targets_data.items():
         repo = repositoriesdb.get_repository(auth_repo, repo_name)
         for branch, branch_data in repo_data["commits"].items():
