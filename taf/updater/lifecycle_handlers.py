@@ -174,7 +174,6 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
                 "An error occurred while exeucuting {}: {}", script_path, e.output
             )
             raise ScriptExecutionError(script_path, e.output)
-        taf_logger.info(output)
         if output is not None and output != "":
             # if the script contains print statements other than the final
             # print which outputs transient and persistent data
@@ -258,7 +257,7 @@ def prepare_data_host(
             for repo_name, repo_host_data in host_auth_repos.items():
                 repo_data = _repo_update_data(**repos_update_data[repo_name])
                 repo_data["custom"] = repo_host_data["custom"]
-                auth_repos.append(repo_data)
+                auth_repos.append({"update": repo_data})
 
             host_data_by_repos[root_repo] = {
                 "data": {

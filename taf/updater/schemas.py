@@ -111,9 +111,11 @@ auth_repo_schema = {
     "required": ["data", "commits"],
 }
 
-update_schema = {
+repo_update_schema = {
     "definitions": definitions,
     "type": "object",
+    "$id": "repo_update.schema.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "properties": {
         "update": {
             "description": "A collection of all information related to the update process - updated repository and pulled commits",
@@ -190,6 +192,10 @@ update_schema = {
                     },
                     "additionalProperties": False,
                 },
+                "custom": {
+                    "description": "Additional custom data",
+                    "type": "object",
+                },
             },
             "required": [
                 "changed",
@@ -213,6 +219,62 @@ update_schema = {
             "type": "object",
         },
     },
-    "required": ["update", "state", "config"],
+    "required": ["update"],
+    "additionalProperties": False,
+}
+
+
+host_update_schema = {
+    "type": "object",
+    "$id": "host_update.schema.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "properties": {
+        "update": {
+            "description": "A collection of all information related to the update process of a host (containing all authentication repositories linked to that host)",
+            "type": "object",
+            "properties": {
+                "changed": {
+                    "description": "Indicator if the repository was updated or not",
+                    "type": "boolean",
+                },
+                "event": {
+                    "description": "Event type - succeeded, changed, unchanged, failed, completed",
+                    "type": "string",
+                },
+                "host_name": {
+                    "description": "Name of the host whose update was attempted",
+                    "type": "string",
+                },
+                "error_msg": {
+                    "description": "Error message that was raised while updating the repository",
+                    "type": "string",
+                },
+                "auth_repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "repo_update.schema.json#"
+                    }
+                },
+                "custom": {
+                    "description": "Additional host data",
+                    "type": "object",
+                },
+            },
+            "required": ["changed", "event", "host_name", "error_msg", "auth_repos"],
+            "additionalProperties": False,
+        },
+        "state": {
+            "type": "object",
+            "properties": {
+                "transient": {"type": "object"},
+                "persistent": {"type": "object"},
+            },
+        },
+        "config": {
+            "description": "Additional configuration, loaded from config.json located inside the library root",
+            "type": "object",
+        },
+    },
+    "required": ["update"],
     "additionalProperties": False,
 }
