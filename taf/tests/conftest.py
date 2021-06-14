@@ -31,6 +31,11 @@ KEYSTORE_PATH = KEYSTORES_PATH / "keystore"
 WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
 DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
+HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
+REPO_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "repo"
+HOST_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "host"
+REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
+HOST_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "host"
 
 
 def pytest_configure(config):
@@ -156,6 +161,30 @@ def keystore():
 def wrong_keystore():
     """Path of the wrong keystore"""
     return str(WRONG_KEYSTORE_PATH)
+
+
+@fixture
+def repo_handlers_valid_inputs():
+    """Paths to the repo handler's input json files"""
+    return [input_path for input_path in REPO_HANDLERS_DATA_VALID_INPUT_IDR.glob('*.json')]
+
+
+@fixture
+def host_handlers_valid_inputs():
+    """Paths to the host handler's input json files"""
+    return [input_path for input_path in HOST_HANDLERS_DATA_VALID_INPUT_IDR.glob('*.json')]
+
+
+@fixture
+def repo_handlers_invalid_inputs():
+    """Paths to the repo handler's input json files"""
+    return [input_path for input_path in REPO_HANDLERS_DATA_INVALID_INPUT_IDR.glob('*.json')]
+
+
+@fixture
+def host_handlers_invalid_inputs():
+    """Paths to the host handler's input json files"""
+    return [input_path for input_path in HOST_HANDLERS_DATA_INVALID_INPUT_IDR.glob('*.json')]
 
 
 @fixture

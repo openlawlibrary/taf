@@ -1,0 +1,278 @@
+{
+    "update": {
+        "changed": false,
+        "event": "event/succeeded",
+        "repo_name": "cityofsanmateo/law",
+        "error_msg": "",
+        "auth_repo": {
+            "data": {
+                "library_dir": "E:\\oll\\library\\test-update",
+                "name": "cityofsanmateo/law",
+                "urls": [
+                    "http://github.com/oll-test-repos/cityofsanmateo-law"
+                ],
+                "default_branch": "master",
+                "custom": {},
+                "conf_directory_root": "E:\\oll\\library\\test-update\\cityofsanmateo",
+                "out_of_band_authentication": null,
+                "hosts": {
+                    "sanmateo.ca.us.open.law.vagrant": {
+                        "custom": {
+                            "subdomains": {
+                                "development": {
+                                    "cityofsanmateo/law-html": {
+                                        "repo-name": "cityofsanmateo/law-html-development"
+                                    }
+                                },
+                                "preview": {
+                                    "cityofsanmateo/law-xml-codified": {
+                                        "repo-name": "cityofsanmateo/law-html-preview"
+                                    },
+                                    "cityofsanmateo/law-html": {
+                                        "repo-name": "cityofsanmateo/law-html-preview",
+                                        "pull": "authenticated"
+                                    },
+                                    "cityofsanmateo/law-docs": {
+                                        "repo-name": "cityofsanmateo/law-docs-preview",
+                                        "pull": "latest"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "commits": {
+                "before_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938",
+                "new": [],
+                "after_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938"
+            }
+        },
+        "target_repos": {
+            "cityofsanmateo/law-docs": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-docs",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-docs"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "allow-unauthenticated-commits": true,
+                        "serve": "latest",
+                        "location_regex": "~/.*\\.pdf$"
+                    }
+                },
+                "commits": {
+                    "master": {
+                        "before_pull": {
+                            "commit": "6c881650b89853abc49587178ce4238cda4cc404",
+                            "custom": {
+                                "build-date": "2020-11-13"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "6c881650b89853abc49587178ce4238cda4cc404",
+                            "custom": {
+                                "build-date": "2020-11-13"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "cityofsanmateo/law-xml": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-xml",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-xml"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "type": "xml",
+                        "allow-unauthenticated-commits": true,
+                        "serve": "latest",
+                        "serve-prefix": "_uncodified_xml"
+                    }
+                },
+                "commits": {
+                    "master": {
+                        "before_pull": {
+                            "commit": "a7dec03e056cde62070cc798ac2a4d4ec5271a47",
+                            "custom": {
+                                "build-date": "2021-04-12"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "a7dec03e056cde62070cc798ac2a4d4ec5271a47",
+                            "custom": {
+                                "build-date": "2021-04-12"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": [
+                            "eac3e144eff61ed99b7e0e4020e189792955d83c",
+                            "9b1339c30d133d3c3ca5a9852d922575d4ec9e3c",
+                            "a81d2d158ef6a6b7bc2e8ee3b69650a2163ed7e2",
+                            "68d4842ce1e5dd631333f73af52d8974de7b4d4f",
+                            "5028c50e309fd642c28b90a4706c97fb44239e49",
+                            "b17c0063de736875f05bdc2290d3e8832b11d064",
+                            "c8142f838c77ff76b81e559abe7a4e9c175c04b5",
+                            "732ae0e360a1c032e2783745d6dd5694e2391cc8",
+                            "85a134ef4ed93dd5f06c7b269cdac764863eac76",
+                            "09233acc1403b281bafdddadd8038afe6a0766cd",
+                            "1c18ad6cfc5b4ce2d97b9e33cca503140a2a63ce",
+                            "1a1bb120091f76a39d7c1d9765a28f50e0b0771b",
+                            "c04c625bcbbbfdeb48034bc7e2ba03a8af27cc66",
+                            "d6f50308c7993b24ac237aa6669e188a88ee9865",
+                            "d1337f157b560fab72fd0248fe163f961eb89daa",
+                            "7b7da6a7c1ed8bbacb66c07a9f8346b3474a2c08",
+                            "e1e9b3af35f877d51d71cb5acd1d0898657afe79",
+                            "1f10e5994d7ec44b294927bc2e554c6f64cc7200",
+                            "fd77f60c603d0888b572b638eb0263ed5eac483c",
+                            "62ed985f3aeb623fab66cfaa66628b39c7e99480",
+                            "5cdb944837120cc6337faf1cfb957220b4da304a",
+                            "f0af09fb8a791dcc33156d8b3b9a26bb97a34164",
+                            "0eee90e74be40cc98028e4c30bde4315dcf638fc",
+                            "0065167193e397c4df1bd78c1b1b30f9f4f8894e",
+                            "d2dbe78fa5ad642cda38c3af84304514f3bd884d",
+                            "5e8978f6f90f8e8a3c81b1ad097f478825281be4",
+                            "a9dc274ae059c8d804da92cb707f9ab94f082834",
+                            "0cd7ee0ca22b2fe1edcde0da6773d009139be59c",
+                            "c87c4bec062e87425cb93d6d54dc321fce67ad44",
+                            "9c9558f959f9349d9a91a6f77209357376dbab96",
+                            "ed09c835a2e64adfea476ca1a48e953a9f67a058",
+                            "ea713201909b4ead55ee14b59aac653ca161f381",
+                            "f5530b9a8bb946f3d242d3c6d54bd3f15ddb514a",
+                            "695d15e78671c72aecf74d1a4cafb198315de245",
+                            "79023d1dedc948cde73d1c4b14bd77a53570ea0b",
+                            "684abe671b66bb4cb554bc4ba4cf3364e404bac3",
+                            "38be6e7cdf0fc68011837143a950e1baeacf8c71",
+                            "a6f79e987778e40fbd062576b3f7b3e97fd0ec12",
+                            "6b085f982213a45b1b1fc3b8fa6c31820526216c",
+                            "b9c02e14c46ba0c2dda5267a3234197bfcd26b31",
+                            "26c1b189913bba4235e654ce4a7ec34be5cf9227",
+                            "d43d2de9d613c7d6414141874b10b32e89610412",
+                            "6a494db1660e977cbf5e0cfa51b0db9dd0a22dee",
+                            "ae1e52db98c644211a346f228618c6d45c218404",
+                            "e375a76798233de10b05341ffff64b182732a7f8"
+                        ]
+                    }
+                }
+            },
+            "cityofsanmateo/law-html": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-html",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-html"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "preview": "https://github.com/oll-test-repos/cityofsanmateo-law-html-preview.git",
+                        "type": "html",
+                        "serve": "historical",
+                        "location_regex": "/"
+                    }
+                },
+                "commits": {
+                    "publication/2021-04-12": {
+                        "before_pull": {
+                            "commit": "c4eecc0593a2d8b008a2fa25ccb3021a2e1cf43d",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "c4eecc0593a2d8b008a2fa25ccb3021a2e1cf43d",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "cityofsanmateo/law-xml-codified": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-xml-codified",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-xml-codified"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "preview": "https://github.com/oll-test-repos/cityofsanmateo-law-xml-codified-preview.git",
+                        "type": "xml-codified",
+                        "serve": "historical",
+                        "serve-prefix": "_xml"
+                    }
+                },
+                "commits": {
+                    "publication/2021-04-12": {
+                        "before_pull": {
+                            "commit": "8e0a1d98bec503f7e0e6b6f46c7b267bc804c21b",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "8e0a1d98bec503f7e0e6b6f46c7b267bc804c21b",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "openlawlibrary/law-static-assets": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "openlawlibrary/law-static-assets",
+                    "urls": [
+                        "http://github.com/oll-test-repos/openlawlibrary-law-static-assets"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "type": "static-assets",
+                        "allow-unauthenticated-commits": true,
+                        "serve": "latest",
+                        "location_regex": "~.+(_document|_reader).+$"
+                    }
+                },
+                "commits": {
+                    "master": {
+                        "before_pull": {
+                            "commit": "403070a4bf4091c1b5ad79d4ed6e19b192d4cbce",
+                            "custom": {
+                                "build-date": "2021-05-20"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "403070a4bf4091c1b5ad79d4ed6e19b192d4cbce",
+                            "custom": {
+                                "build-date": "2021-05-20"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            }
+        }
+    },
+    "state": {
+        "transient": {},
+        "persistent": {}
+    },
+    "config": {}
+}
