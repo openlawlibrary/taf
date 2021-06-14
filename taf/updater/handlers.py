@@ -117,7 +117,11 @@ class GitUpdater(handlers.MetadataUpdater):
         # located on the users machine which needs to be updated
         self.repository_directory = str(repository_directory)
 
-        self._init_metadata()
+        try:
+            self._init_metadata()
+        except:
+            raise UpdateFailedError(
+                "Could not load metadata. Check if the URL and filesystem paths are correct.")
 
     def _init_commits(self):
         """

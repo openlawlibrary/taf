@@ -1,18 +1,23 @@
 definitions = {
+    "title": "Definitions",
+    "description": "Schema elements which occur in multiple places and should be reused",
     "repo_data": {
-        "description": "All information about a GitRepository instance. Can be used to create a new object.",
+        "description": "All information about a git repository instance. Can be used to create a new object.",
         "type": "object",
-        "title": "GitRepository",
+        "title": "Git Repository",
         "properties": {
             "library_dir": {
+                "title": "Library's Root Directory",
                 "descirption": "Library's root directory. Repository's name is appended to it to form the full path",
                 "type": "string",
             },
             "name": {
+                "title": "Name",
                 "description": "Repository's name, in namespace/repo_name format",
                 "type": "string",
             },
             "urls": {
+                "title": "URLs",
                 "description": "A list of repository's urls",
                 "type": "array",
                 "items": {"type": "string"},
@@ -20,10 +25,12 @@ definitions = {
                 "uniqueItems": True,
             },
             "custom": {
+                "title": "Custom",
                 "description": "Any additional information about the repository. Not used by the framework.",
                 "type": "object",
             },
             "default_branch": {
+                "title": "Default Branch",
                 "description": "Name of the default branch, e.g. master or main",
                 "type": "string",
             },
@@ -32,10 +39,11 @@ definitions = {
     },
     "commit_with_custom": {
         "type": "object",
-        "title": "Commit SHA and custom information",
+        "title": "Commit SHA and Custom Information",
         "properties": {
             "commit": {"description": "Commit SHA", "type": "string"},
             "custom": {
+                "title": "Custom",
                 "decription": "Additional custom information - can be anything that is useful for further processing. Not used by the framework.",
                 "type": "object",
             },
@@ -44,26 +52,28 @@ definitions = {
 }
 
 auth_repo_schema = {
-    "description": "All information about a AuthenticationRepository coupled with update details",
+    "description": "All information about an authentication repository coupled with update details",
     "type": "object",
-    "title": "Authentication repository with update details",
+    "title": "Authentication Rpository with Update Details",
     "properties": {
         "data": {
             "description": "All properties of the authentication repository. Can be used to instantiate the AuthenticationRepository",
-            "title": "AuthenticationRepository",
+            "title": "Authentication Repository",
             "type": "object",
             "allOf": [{"$ref": "#/definitions/repo_data"}],
             "properties": {
-                "library_dir": {},
-                "name": {},
-                "urls": {},
-                "default_branch": {},
-                "custom": {},
+                "library_dir": {"title": "Library's Root Directory"},
+                "name": {"title": "Name"},
+                "urls": {"title": "URLs"},
+                "default_branch": {"title": "Default Branch"},
+                "custom": {"title": "Custom"},
                 "conf_directory_root": {
+                    "title": "Configuration Directory's Parent Directory",
                     "description": "Path to the direcotry containing the configuration directory. The configuration direcotry contain last_validated_commit file and its name is equal to _repo_name",
                     "type": "string",
                 },
                 "out_of_band_authentication": {
+                    "title": "Out of Banch Authentication",
                     "description": "Commit used to check the authentication repository's validity. Supposed to be uqual to the first commit",
                     "type": ["string", "null"],
                 },
@@ -73,10 +83,11 @@ auth_repo_schema = {
                     "type": "object",
                     "patternProperties": {
                         "^.*$": {
-                            "title": "Host name with additional information",
+                            "title": "Host Name with Custom Info",
                             "type": "object",
                             "properties": {
                                 "custom": {
+                                    "title": "Custom",
                                     "descirption": "Any information required for futher processing. Not used by the framework",
                                     "type": "object",
                                 }
@@ -92,19 +103,22 @@ auth_repo_schema = {
         "commits": {
             "description": "Information about commits - top commit before pull, pulled commits and top commit after pull",
             "type": "object",
-            "title": "Authentication repository's commits",
+            "title": "Commits",
             "properties": {
                 "before_pull": {
+                    "title"
                     "description": "Repository's top commit before pull",
                     "type": ["string", "null"],
                 },
                 "new": {
+                    "title": "Pulled Commits",
                     "type": "array",
                     "description": "A list of pulled (new) commits",
                     "items": {"type": "string"},
                     "uniqueItems": True,
                 },
                 "after_pull": {
+                    "title": "Commit After Pull",
                     "description": "Repository's top commit before pull",
                     "type": ["string", "null"],
                 },
@@ -122,26 +136,30 @@ repo_update_schema = {
     "type": "object",
     "$id": "repo_update.schema.json",
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Repository handler's schema",
+    "title": "Repository Handlers Input",
     "properties": {
         "update": {
             "description": "All information related to the update process of an authentication repository - updated repository and pulled commits",
             "type": "object",
-            "title": "Authentication repository's update data",
+            "title": "Update Data",
             "properties": {
                 "changed": {
+                    "title": "Change Indicator",
                     "description": "Indicates if the repository was updated or not (will be false if pull was successful, but there were no new commits)",
                     "type": "boolean",
                 },
                 "event": {
+                    "title": "Update Event",
                     "description": "Update event type - succeeded, changed, unchanged, failed, completed",
                     "type": "string",
                 },
                 "repo_name": {
+                    "title": "Name",
                     "description": "Name of the repository whose update was attempted",
                     "type": "string",
                 },
                 "error_msg": {
+                    "title": "Error message",
                     "description": "Error message that was raised while updating the repository",
                     "type": "string",
                 },
@@ -149,20 +167,21 @@ repo_update_schema = {
                 "target_repos": {
                     "description": "Information about the authentication repository's target repositories, including the update details",
                     "type": "object",
-                    "title": "Target repositories' update information",
+                    "title": "Target Repos",
                     "patternProperties": {
                         "^.*$": {
-                            "description": "Target repository's pulled commits per branches",
+                            "title": "Repo and Commits",
                             "type": "object",
                             "properties": {
                                 "repo_data": {"$ref": "#/definitions/repo_data"},
                                 "commits": {
-                                    "description": "Commits per branches",
+                                    "title": "Commits by Branches",
                                     "type": "object",
                                     "patternProperties": {
                                         "^.*$": {
                                             "description": "Commit before pull, after pull and lists of new and unauthenticated commits belonging to the given branch",
                                             "type": "object",
+                                            "title": "Branch's Commits",
                                             "properties": {
                                                 "before_pull": {
                                                     "description": "Repository's top commit before pull",
@@ -205,6 +224,7 @@ repo_update_schema = {
                     "additionalProperties": False,
                 },
                 "custom": {
+                    "title": "Custom",
                     "description": "Additional custom data. Not used by the framework.",
                     "type": "object",
                 },
@@ -225,10 +245,12 @@ repo_update_schema = {
             "type": "object",
             "properties": {
                 "transient": {
+                    "title": "Transient",
                     "type": "object",
                     "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process"
                 },
                 "persistent": {
+                    "title": "Persistent",
                     "type": "object",
                     "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)"
                 },
@@ -236,7 +258,7 @@ repo_update_schema = {
         },
         "config": {
             "description": "Additional configuration, loaded from config.json located inside the library root",
-            "title": "Configuration data",
+            "title": "Configuration Data",
             "type": "object",
         },
     },
@@ -249,36 +271,42 @@ host_update_schema = {
     "type": "object",
     "$id": "host_update.schema.json",
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Host handler's schema",
+    "title": "Host Handlers Input",
     "properties": {
         "update": {
             "description": "All information related to the update process of a host (containing all authentication repositories linked to that host)",
             "type": "object",
-            "title": "Host's update data",
+            "title": "Update data",
             "properties": {
                 "changed": {
+                    "title": "Change Indicator",
                     "description": "Indicates if at least one of the host's repositories was updated (will be false if pull was successful, but there were no new commits)",
                     "type": "boolean",
                 },
                 "event": {
+                    "title": "Update Event",
                     "description": "Event type - succeeded, changed, unchanged, failed, completed",
                     "type": "string",
                 },
                 "host_name": {
+                    "title": "Name",
                     "description": "Name of the host whose update was attempted",
                     "type": "string",
                 },
                 "error_msg": {
+                    "title": "Error message",
                     "description": "Error message that was raised while updating the host's repositories",
                     "type": "string",
                 },
                 "auth_repos": {
+                    "title": "Authentication Repositories",
                     "type": "array",
                     "items": {
                         "$ref": "repo_update.schema.json#"
                     }
                 },
                 "custom": {
+                    "title": "Custom",
                     "description": "Additional host data. Not used by the framework",
                     "type": "object",
                 },
@@ -292,16 +320,19 @@ host_update_schema = {
             "type": "object",
             "properties": {
                 "transient": {
+                    "title": "Transient",
                     "type": "object",
                     "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process"
                 },
                 "persistent": {
+                    "title": "Persistent",
                     "type": "object",
                     "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)"
                 },
             },
         },
         "config": {
+            "title": "Configuration data",
             "description": "Additional configuration, loaded from config.json located inside the library root",
             "type": "object",
         },
