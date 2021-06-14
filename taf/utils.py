@@ -252,6 +252,7 @@ def safely_move_file(src, dst, overwrite=False):
     So we try ``os.rename()``, but if we detect a cross-filesystem copy, we
     switch to ``shutil.move()`` with some wrappers to make it atomic.
     https://alexwlchan.net/2019/03/atomic-cross-filesystem-moves-in-python/
+    MIT licensed.
     """
     src = str(src)
     dst = str(dst)

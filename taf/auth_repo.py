@@ -61,9 +61,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
         if conf_directory_root is None:
             conf_directory_root = Path(self.path).parent
-        elif isinstance(conf_directory_root, str):
-            conf_directory_root = Path(conf_directory_root)
-        self.conf_directory_root = conf_directory_root.resolve()
+        self.conf_directory_root = Path(conf_directory_root).resolve()
         self.out_of_band_authentication = out_of_band_authentication
         # host data can be specified in the current authentication repository or in its parent
         # the input parameter hosts is expected to contain hosts data specified outside of
