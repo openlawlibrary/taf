@@ -1,7 +1,5 @@
 {
     "definitions": {
-        "title": "Definitions",
-        "description": "Schema elements which occur in multiple places and should be reused",
         "repo_data": {
             "description": "All information about a git repository instance. Can be used to create a new object.",
             "type": "object",

@@ -1,6 +1,4 @@
 definitions = {
-    "title": "Definitions",
-    "description": "Schema elements which occur in multiple places and should be reused",
     "repo_data": {
         "description": "All information about a git repository instance. Can be used to create a new object.",
         "type": "object",
@@ -106,8 +104,7 @@ auth_repo_schema = {
             "title": "Commits",
             "properties": {
                 "before_pull": {
-                    "title"
-                    "description": "Repository's top commit before pull",
+                    "title" "description": "Repository's top commit before pull",
                     "type": ["string", "null"],
                 },
                 "new": {
@@ -247,12 +244,12 @@ repo_update_schema = {
                 "transient": {
                     "title": "Transient",
                     "type": "object",
-                    "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process"
+                    "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process",
                 },
                 "persistent": {
                     "title": "Persistent",
                     "type": "object",
-                    "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)"
+                    "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)",
                 },
             },
         },
@@ -301,9 +298,7 @@ host_update_schema = {
                 "auth_repos": {
                     "title": "Authentication Repositories",
                     "type": "array",
-                    "items": {
-                        "$ref": "repo_update.schema.json#"
-                    }
+                    "items": {"$ref": "repo_update.schema.json#"},
                 },
                 "custom": {
                     "title": "Custom",
@@ -322,12 +317,12 @@ host_update_schema = {
                 "transient": {
                     "title": "Transient",
                     "type": "object",
-                    "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process"
+                    "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process",
                 },
                 "persistent": {
                     "title": "Persistent",
                     "type": "object",
-                    "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)"
+                    "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)",
                 },
             },
         },

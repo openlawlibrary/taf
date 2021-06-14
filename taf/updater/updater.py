@@ -35,6 +35,34 @@ class UpdateType(enum.Enum):
     EITHER = "either"
 
 
+def _execute_repo_handlers(
+    update_status,
+    auth_repo,
+    scripts_root_dir,
+    commits_data,
+    error,
+    targets_data,
+    transient_data,
+):
+    try:
+        transient = handle_repo_event(
+            update_status,
+            None,
+            auth_repo.library_dir,
+            scripts_root_dir,
+            auth_repo,
+            commits_data,
+            error,
+            targets_data,
+        )
+        if transient_data is not None:
+            transient_data.update(transient)
+    except ScriptExecutionError as e:
+        if settings.development_mode:
+            _reset_to_commits_before_pull(auth_repo, commits_data, targets_data)
+            error = e
+
+
 def _load_hosts_json(auth_repo):
     try:
         return load_hosts_json(auth_repo)
@@ -60,7 +88,10 @@ def load_library_context(config_path):
 
 
 def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
-    taf_logger.info("In development mode. Resetting repositories to commits before pull after handler failure")
+    taf_logger.info(
+        "In development mode. Resetting repositories to commits before pull after handler failure"
+    )
+
     def _reset_repository(repo, commits_data):
         before_pull = commits_data["before_pull"]
         if isinstance(before_pull, dict):
@@ -402,23 +433,15 @@ def _update_named_repository(
         # if a handler fails and we are in the development mode, revert the update
         # so that it's easy to try again after fixing the handler
         if not only_validate:
-            try:
-                transient = handle_repo_event(
-                    update_status,
-                    None,
-                    auth_repo.library_dir,
-                    scripts_root_dir,
-                    auth_repo,
-                    commits_data,
-                    error,
-                    targets_data,
-                )
-                if transient_data is not None:
-                    transient_data.update(transient)
-            except ScriptExecutionError as e:
-                if settings.development_mode:
-                    _reset_to_commits_before_pull(auth_repo, commits_data, targets_data)
-                    error = e
+            _execute_repo_handlers(
+                update_status,
+                auth_repo,
+                scripts_root_dir,
+                commits_data,
+                error,
+                targets_data,
+                transient_data,
+            )
 
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
@@ -811,7 +834,7 @@ def _get_commits(
             fetched_commits = repository.all_fetched_commits(branch=branch)
             if old_head in fetched_commits:
                 new_commits_on_repo_branch = fetched_commits[
-                    fetched_commits.index(old_head) + 1 : :
+                    fetched_commits.index(old_head) + 1::
                 ]
             else:
                 new_commits_on_repo_branch = fetched_commits
@@ -955,7 +978,7 @@ def _update_target_repository(
                     update_successful = False
                     break
         if len(new_commits) > len(target_commits):
-            additional_commits = new_commits[len(target_commits) :]
+            additional_commits = new_commits[len(target_commits):]
             taf_logger.warning(
                 "Found commits {} in repository {} that are not accounted for in the authentication repo."
                 "Repository will be updated up to commit {}",
@@ -987,7 +1010,7 @@ def _update_target_repository(
                 if commit == target_commits[-1]:
                     update_successful = True
                     if commit != new_commits[-1]:
-                        additional_commits = new_commits[new_commit_index + 1 :]
+                        additional_commits = new_commits[new_commit_index + 1:]
                     break
             if len(additional_commits):
                 taf_logger.warning(
@@ -1017,7 +1040,7 @@ def _update_target_repository(
         # check where the current local head is
         branch_current_head = repository.top_commit_of_branch(branch)
         additional_commits = additional_commits[
-            additional_commits.index(branch_current_head) + 1 :
+            additional_commits.index(branch_current_head) + 1:
         ]
 
     return additional_commits

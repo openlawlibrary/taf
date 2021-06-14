@@ -166,25 +166,33 @@ def wrong_keystore():
 @fixture
 def repo_handlers_valid_inputs():
     """Paths to the repo handler's input json files"""
-    return [input_path for input_path in REPO_HANDLERS_DATA_VALID_INPUT_IDR.glob('*.json')]
+    return [
+        input_path for input_path in REPO_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
+    ]
 
 
 @fixture
 def host_handlers_valid_inputs():
     """Paths to the host handler's input json files"""
-    return [input_path for input_path in HOST_HANDLERS_DATA_VALID_INPUT_IDR.glob('*.json')]
+    return [
+        input_path for input_path in HOST_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
+    ]
 
 
 @fixture
 def repo_handlers_invalid_inputs():
     """Paths to the repo handler's input json files"""
-    return [input_path for input_path in REPO_HANDLERS_DATA_INVALID_INPUT_IDR.glob('*.json')]
+    return [
+        input_path for input_path in REPO_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
+    ]
 
 
 @fixture
 def host_handlers_invalid_inputs():
     """Paths to the host handler's input json files"""
-    return [input_path for input_path in HOST_HANDLERS_DATA_INVALID_INPUT_IDR.glob('*.json')]
+    return [
+        input_path for input_path in HOST_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
+    ]
 
 
 @fixture

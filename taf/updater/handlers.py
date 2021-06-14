@@ -119,9 +119,10 @@ class GitUpdater(handlers.MetadataUpdater):
 
         try:
             self._init_metadata()
-        except:
+        except Exception:
             raise UpdateFailedError(
-                "Could not load metadata. Check if the URL and filesystem paths are correct.")
+                "Could not load metadata. Check if the URL and filesystem paths are correct."
+            )
 
     def _init_commits(self):
         """
