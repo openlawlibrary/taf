@@ -75,7 +75,7 @@ setup(
     entry_points={
         "console_scripts": [
             "taf = taf.tools.cli.taf:main",
-            "ocl = taf.tools.cli.ocl:main",
+            "olc = taf.tools.cli.olc:main",
         ],
         "pytest11": ["taf_yubikey_utils = taf.tests.yubikey_utils"],
     },

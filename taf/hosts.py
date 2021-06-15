@@ -54,7 +54,6 @@ def _load_hosts(
         return
 
     traversed_repos.add(auth_repo.name)
-
     # load based on the last validated commit
     # if the repository did not exist and could not be validated, there should be no commit
     # skip such repositories

@@ -11,7 +11,7 @@ often found to be vulnerable to many known attacks. Unlike other examples of TUF
 - do not want to think of a single uploaded file (e.g. a xml or html file) as a target file and list all of them inside the targets metadata files,
 - do want to think of Git commits as target objects.
 
-The goal of this document is to explore how TUF can be used to protect GitHub repositories - which aspects need to be modified and how, and which must be closely followed.
+The goal of this document is to explore how TUF can be used to protect GitHub repositories - which aspect,s need to be modified and how, and which must be closely followed.
 
 A repository for experimentation and familiarization with TUF is [here](<https://github.com/openlawlibrary/tuf-test>).
 
@@ -296,7 +296,7 @@ organization name, so names defined in `reposiotires.json` are seen as `org_name
 }
 ```
 and a repository's name is `jurisdiction/law-xml`, its URLs will be set to `["http://github.com/jurisdiction/law-xml", "http://github.com/jurisdiction-backup/law-xml", "http://gitlab.com/jurisdiction/law-xml"]`.
-The framework will try to clone/pull the repository from GitHub the first URL, if that fails, try to use the second one etc. 
+The framework will try to clone/pull the repository from GitHub the first URL, if that fails, try to use the second one etc.
 
 **It is recommended to use `mirrors.json` instead of defining `URLs` lists in `repositories.json`. The second way is only still supported in order maintain backwards compatibility.**
 
@@ -324,7 +324,7 @@ When updating the repository which contains this target file, the updater will a
 
 
 This special target file is used to provide hosting information. It contains mappings of domains and authentication repositories whose content (or more precisely, content of whose target repositories) should be served through them. The framework does not actually
-handle servers configuration - it just extracts host information from the `hosts.json` file and makes it easier to consume this data later on. This is an example of `hosts.json`:
+handle servers configuration - it just extracts host information from the `hosts.json` file and makes it easier to consume this data later on (starting with version `0.9.0`). This is an example of `hosts.json`:
 
 
 ```
