@@ -1,6 +1,6 @@
 # The Update Process
 
-The purpose of the updater is to securely pull the authentication repository and specified target repositories. Authentication repositories are git repositories which contain metadata files defined by TUF (The Update Framework). and target files required by the Open Law Collections framework. More details, take a look at the [specification document](./specification.md").
+The purpose of the updater is to securely pull the authentication repository and specified target repositories. Authentication repositories are git repositories which contain metadata files defined by TUF (The Update Framework). and target files required by the Open Law Collections framework. More details, take a look at the [specification document](./specification.md).
 
 
 ## Calling the updater
@@ -19,7 +19,7 @@ path (think of it as library root) thus defining the location of each target rep
 are `namespace/repo1`, `namespace/repo2` etc. (the names have to be in the `namespace/repo_name` format and the root directory is `E:\\root`, paths of the target
 repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.
 
-If the authentication reposioty's path is, say `E:\\root\\namespace\\auth_repo`, it will be assumed that its name is `namespace/auth_repo` and that the root directory is `E:\\root`.
+If the authentication repository's path is, say `E:\\root\\namespace\\auth_repo`, it will be assumed that its name is `namespace/auth_repo` and that the root directory is `E:\\root`.
 
 
 ### Dependencies
