@@ -1,4 +1,8 @@
-# TUF Implementation
+# Updater Implementation
+
+The purpose of the updater is to securely pull the authentication repository and the specified target repositories. This means that we want to validate all of the repositories before pulling the changes. The main idea is to rely on TUF's updater as much as possible, redefining only parts of the code which download files and check expiration time of metadata. This means that all security checks provided by the TUF updater will be executed.
+
+## TUF
 
 The Update Framework (TUF) helps developers secure new or existing software update systems, which are
 often found to be vulnerable to many known attacks. Unlike other examples of TUF's usage, we:
