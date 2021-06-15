@@ -120,6 +120,7 @@ class GitUpdater(handlers.MetadataUpdater):
         try:
             self._init_metadata()
         except Exception:
+            self.cleanup()
             raise UpdateFailedError(
                 "Could not load metadata. Check if the URL and filesystem paths are correct."
             )

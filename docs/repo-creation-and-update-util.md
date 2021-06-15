@@ -270,7 +270,7 @@ Target repositories are expected to be inside a directory whose name is equal to
 namespace and which is located inside the root directory. If root directory is `E:\examples\\root`
 and namespace is namespace1, target repositories should be in `E:\examples\root\namespace1`.
 If the authentication repository and the target repositories are in the same root directory and
-the authentication repository is also directly inside a namespace directory, then the commoroot
+the authentication repository is also directly inside a namespace directory, then the root
 directory is calculated as two repositories up from the authetication repository's directory.
 Authentication repository's namespace can, but does not have to be equal to the namespace or target,
 repositories. If the authentication repository's path is `E:\root\namespace\auth-repo`, root

@@ -834,7 +834,7 @@ def _get_commits(
             fetched_commits = repository.all_fetched_commits(branch=branch)
             if old_head in fetched_commits:
                 new_commits_on_repo_branch = fetched_commits[
-                    fetched_commits.index(old_head) + 1::
+                    fetched_commits.index(old_head) + 1 : :
                 ]
             else:
                 new_commits_on_repo_branch = fetched_commits
@@ -978,7 +978,7 @@ def _update_target_repository(
                     update_successful = False
                     break
         if len(new_commits) > len(target_commits):
-            additional_commits = new_commits[len(target_commits):]
+            additional_commits = new_commits[len(target_commits) :]
             taf_logger.warning(
                 "Found commits {} in repository {} that are not accounted for in the authentication repo."
                 "Repository will be updated up to commit {}",
@@ -1010,7 +1010,7 @@ def _update_target_repository(
                 if commit == target_commits[-1]:
                     update_successful = True
                     if commit != new_commits[-1]:
-                        additional_commits = new_commits[new_commit_index + 1:]
+                        additional_commits = new_commits[new_commit_index + 1 :]
                     break
             if len(additional_commits):
                 taf_logger.warning(
@@ -1040,7 +1040,7 @@ def _update_target_repository(
         # check where the current local head is
         branch_current_head = repository.top_commit_of_branch(branch)
         additional_commits = additional_commits[
-            additional_commits.index(branch_current_head) + 1:
+            additional_commits.index(branch_current_head) + 1 :
         ]
 
     return additional_commits
