@@ -329,9 +329,9 @@ handle servers configuration - it just extracts host information from the `hosts
 
 ```
 {
-   "some_domain.orgs": {
+   "some_domain.org": {
       "auth_repos": {
-      "jurisdiction1/law": {}
+         "jurisdiction1/law": {}
       },
       "custom": {
          "subdomains": {
@@ -339,8 +339,8 @@ handle servers configuration - it just extracts host information from the `hosts
             "preview: {},
          }
       }
-   }
-   "another_domain.orgs": {
+   },
+   "another_domain.org": {
       "auth_repos": {
       "jurisdiction2/law": {}
       },
