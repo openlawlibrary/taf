@@ -105,11 +105,11 @@ up YubiKeys.
 Use the `repo create` command to create a new authentication repository:
 
 ```bash
-taf repo create repo_path --keystore keystore_path --keys-description keys-description.json --commit --test
+taf repo create auth_path --keystore keystore_path --keys-description keys-description.json --commit --test
 ```
 
-- `repo-path` is the only argument and is required. It should point to a folder where the new authentication repository's content should be stored to e.g. `test/auth_repo`.
-- `keys-description` was described at the top of this document
+- `auth-path` is the only argument and is required. It should point to a folder where the new authentication repository's content should be stored to e.g. `test/auth_repo`.
+- `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
 - `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
 - `commit` flag determines if the changes should be automatically committed
 - `test`  flag determines if a special target file called `test-auth-repo` will be created. That
@@ -223,11 +223,11 @@ This is an example where we defined a hierarchy (define two authentication repos
 ```
 
 
-### hosts.json
+### 1hosts.json1
 
 
 This is an optional file used to specify information about the hosts. The framework will only extract this information
-from the file and does not implement anything related to server configuration. An example of this file:
+from the file and does not implement anything related configuring the servers. Here is an example of this file:
 
 
 ```
@@ -246,6 +246,26 @@ from the file and does not implement anything related to server configuration. A
 }
 ```
 
+## Sign added targets
+
+After updating target files, it is necessary to sign them. That means updating and signing
+the metadata files. This can be accomplished by calling the `targets sign` command. It updates all targets
+metadata files corresponding to roles responsible for modified target files, `snapshot`
+and `timestamp.json`
+
+```bash
+taf targets sign auth_path --keys-description keys_description.json --commit
+```
+
+- `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
+- `keystore` defines location of the keystore files and should be used when keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
+- `commit` flag determines if the changes should be automatically committed
+
+Commit and push the changes. Having pushed the changes, run local validation to be sure that the authentication repository is in a valid state:
+
+```bash
+taf repo validate auth_path
+```
 
 ## Update targets
 

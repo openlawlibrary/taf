@@ -1080,6 +1080,7 @@ def validate_repository(
         clients_auth_library_dir,
         clients_library_dir,
         auth_repo_name,
+        default_branch,
         True,
         expected_repo_type=expected_repo_type,
         only_validate=True,
