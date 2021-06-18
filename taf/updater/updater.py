@@ -118,6 +118,7 @@ def update_repository(
     url,
     clients_auth_path,
     clients_library_dir=None,
+    default_branch="main",
     update_from_filesystem=False,
     expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
@@ -172,6 +173,7 @@ def update_repository(
             clients_auth_library_dir,
             clients_library_dir,
             auth_repo_name,
+            default_branch,
             update_from_filesystem,
             expected_repo_type,
             target_repo_classes,
@@ -250,6 +252,7 @@ def _update_named_repository(
     clients_auth_library_dir,
     targets_library_dir,
     auth_repo_name,
+    default_branch,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes=None,
@@ -330,6 +333,7 @@ def _update_named_repository(
         clients_auth_library_dir,
         targets_library_dir,
         auth_repo_name,
+        default_branch,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -387,6 +391,7 @@ def _update_named_repository(
                         clients_auth_library_dir,
                         targets_library_dir,
                         child_auth_repo.name,
+                        default_branch,
                         False,
                         expected_repo_type,
                         target_repo_classes,
@@ -462,6 +467,7 @@ def _update_current_repository(
     clients_auth_library_dir,
     targets_library_dir,
     auth_repo_name,
+    default_branch,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes,
@@ -474,6 +480,7 @@ def _update_current_repository(
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
+    settings.default_branch = default_branch
     if only_validate:
         settings.overwrite_last_validated_commit = True
         settings.last_validated_commit = validate_from_commit
@@ -517,6 +524,7 @@ def _update_current_repository(
         users_auth_repo = AuthenticationRepository(
             clients_auth_library_dir,
             auth_repo_name,
+            default_branch=default_branch,
             urls=[url],
             conf_directory_root=conf_directory_root,
         )
@@ -1047,7 +1055,7 @@ def _update_target_repository(
 
 
 def validate_repository(
-    clients_auth_path, clients_library_dir=None, validate_from_commit=None
+    clients_auth_path, clients_library_dir=None, default_branch="main", validate_from_commit=None
 ):
 
     clients_auth_path = Path(clients_auth_path).resolve()

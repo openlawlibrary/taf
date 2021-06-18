@@ -92,9 +92,11 @@ class GitUpdater(handlers.MetadataUpdater):
         self.metadata_path = mirrors["mirror1"]["metadata_path"]
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
+        default_branch = settings.default_branch
         self.users_auth_repo = AuthenticationRepository(
             repository_directory,
             repository_name,
+            default_branch=default_branch,
             urls=[auth_url],
             conf_directory_root=conf_directory_root,
         )

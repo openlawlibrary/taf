@@ -185,6 +185,7 @@ def attach_to_group(group):
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
+    @click.option("--default-branch", default="main", help="Name of the default branch, like mian or master")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
                   "repository from the filesystem")
     @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
@@ -196,7 +197,7 @@ def attach_to_group(group):
     @click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts "
                   "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
                   "to be located in scripts_root_dir/repo_name directory")
-    def update(url, clients_auth_path, clients_library_dir, from_fs, expected_repo_type, error_if_unauthenticated,
+    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, error_if_unauthenticated,
                scripts_root_dir):
         """
         Update and validate local authentication repository and target repositories. Remote
@@ -226,7 +227,7 @@ def attach_to_group(group):
         Scripts root directory option can be used to move scripts out of the authentication repository for
         testing purposes (avoid dirty index). Scripts will be expected  o be located in scripts_root_dir/repo_name directory
         """
-        update_repository(url, clients_auth_path, clients_library_dir, from_fs,
+        update_repository(url, clients_auth_path, clients_library_dir, default_branch, from_fs,
                           UpdateType(expected_repo_type),
                           error_if_unauthenticated=error_if_unauthenticated, scripts_root_dir=scripts_root_dir)
 
@@ -236,11 +237,12 @@ def attach_to_group(group):
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
+    @click.option("--default-branch", default="main", help="Name of the default branch, like mian or master")
     @click.option("--from-commit", default=None, help="First commit which should be validated.")
-    def validate(clients_auth_path, clients_library_dir, from_commit):
+    def validate(clients_auth_path, clients_library_dir, default_branch, from_commit):
         """
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
         Does not clone repositories, fetch changes or merge commits.
         """
-        validate_repository(clients_auth_path, clients_library_dir, from_commit)
+        validate_repository(clients_auth_path, clients_library_dir, default_branch, from_commit)

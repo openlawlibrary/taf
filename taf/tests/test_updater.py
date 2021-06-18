@@ -487,6 +487,7 @@ def _update_and_check_commit_shas(
             str(origin_auth_repo_path),
             str(clients_auth_repo_path),
             str(client_dir),
+            "master",
             True,
             expected_repo_type=expected_repo_type,
         )
@@ -512,6 +513,7 @@ def _update_invalid_repos_and_check_if_remained_same(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path),
                 str(client_dir),
+                "master",
                 True,
                 expected_repo_type=expected_repo_type,
             )
@@ -546,6 +548,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path),
                 str(client_dir),
+                "master",
                 True,
                 expected_repo_type=expected_repo_type,
             ),
