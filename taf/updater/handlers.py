@@ -173,7 +173,9 @@ class GitUpdater(handlers.MetadataUpdater):
             users_head_sha = last_validated_commit
         else:
             if last_validated_commit is not None:
-                users_head_sha = self.users_auth_repo.top_commit_of_branch(self.users_auth_repo.default_branch)
+                users_head_sha = self.users_auth_repo.top_commit_of_branch(
+                    self.users_auth_repo.default_branch
+                )
             else:
                 # if the user's repository exists, but there is no last_validated_commit
                 # start the update from the beginning

@@ -580,7 +580,6 @@ def _update_current_repository(
         # validate the authentication repository and fetch new commits
         # if the validation is completed successfully, new commits are fetched (not merged yet)
         _update_authentication_repository(repository_updater, only_validate)
-
         # load target repositories and validate them
         repositoriesdb.load_repositories(
             users_auth_repo,
