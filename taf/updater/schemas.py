@@ -249,7 +249,7 @@ repo_update_schema = {
                 "persistent": {
                     "title": "Persistent",
                     "type": "object",
-                    "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)",
+                    "description": "Persistent data is arbitrary data passed from one script execution to the next one and saved to disk (to a file called persistent.json directly inside the library root)",
                 },
             },
         },

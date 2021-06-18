@@ -7,7 +7,7 @@ The purpose of the updater is to securely pull the authentication repository and
 
 To invoke the updater, install the package and call the following command:
 
-```ocl repo update auth_repo_url filesystem_path --clients-root-dir root-dir --scripts-root-dir scripts-root-dir  --error-if-unauthenticated```
+```olc repo update auth_repo_url filesystem_path --clients-root-dir root-dir --scripts-root-dir scripts-root-dir  --error-if-unauthenticated```
 
 ### Names of the repositories and the root directory
 
@@ -103,9 +103,14 @@ def do_something(data):
         "persistent": persistent
     }
 
+def send_state(state):
+    # printed data will be sent from the script back to the updater
+    print(json.dumps(do_something(data)
+
 
 if __name__ == '__main__':
     data = process_stdin()
     data = json.loads(data)
-    print(json.dumps(do_something(data)))
+    state = do_something(data)
+    send_state(state)
 ```

@@ -11,7 +11,7 @@ often found to be vulnerable to many known attacks. Unlike other examples of TUF
 - do not want to think of a single uploaded file (e.g. a xml or html file) as a target file and list all of them inside the targets metadata files,
 - do want to think of Git commits as target objects.
 
-The goal of this document is to explore how TUF can be used to protect GitHub repositories - which aspect,s need to be modified and how, and which must be closely followed.
+The goal of this document is to explore how TUF can be used to protect GitHub repositories - which aspects need to be modified and how, and which must be closely followed.
 
 A repository for experimentation and familiarization with TUF is [here](<https://github.com/openlawlibrary/tuf-test>).
 
@@ -248,8 +248,8 @@ repositories. In addition to them, the framework expects some special target fil
 #### repositoires.json
 
 `repositories.json` contains repositories' definitions. Each repository is identified by a namespace prefixed name which
-should match the corresponding name in `targets.json`. The `urls` property is used to specify the repository's
-locations. We want to supported definition of multiple URLs, which is why this property is a list. Alternatively, URLs can be defined using another special target file, called `mirrors.json` (more about it in the next paragraph). On top
+should match the corresponding name in `targets.json`. The `urls` property is now deprecated, but can still be used to specify the repository's
+locations. We want to support definition of multiple URLs, which is why this property is a list. Alternatively, URLs can be defined using another special target file, called `mirrors.json` (more about it in the next paragraph). On top
 of that, it is possible to define any additional information, via the `custom` property. This is an example
 of the repositories definition file:
 
