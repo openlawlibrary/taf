@@ -66,10 +66,10 @@ def attach_to_group(group):
 
     @repo.command()
     @click.argument("path")
-    @click.option("--root-dir", default=None, help="Directory where target repositories and, "
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")
@@ -96,7 +96,7 @@ def attach_to_group(group):
         Authentication repository's namespace can, but does not have to be equal to the namespace of target,
         repositories. If the authentication repository's path is E:\\root\\namespace\\auth-repo, root
         directory will be determined as E:\\root. If this default value is not correct, it can be redefined
-        through the --root-dir option. If the --namespace option's value is not provided, it is assumed
+        through the --library-dir option. If the --namespace option's value is not provided, it is assumed
         that the namespace of target repositories is equal to the authentication repository's namespace,
         determined based on the repository's path. E.g. Namespace of E:\\root\\namespace2\\auth-repo
         is namespace2.
@@ -137,10 +137,10 @@ def attach_to_group(group):
 
     @repo.command()
     @click.argument("path")
-    @click.option("--root-dir", default=None, help="Directory where target repositories and, "
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")
@@ -205,9 +205,9 @@ def attach_to_group(group):
         authentication repository and the target repositories are in the same root directory,
         locations of the target repositories are calculated based on the authentication repository's
         path. If that is not the case, it is necessary to redefine this default value using the
-        --clients-root-dir option. This means that if authentication repository's path is
+        --clients-library-dir option. This means that if authentication repository's path is
         E:\\root\\namespace\\auth-repo, it will be assumed that E:\\root is the root direcotry
-        if clients-root-dir is not specified.
+        if clients-library-dir is not specified.
         Names of target repositories (as defined in repositories.json) are appended to the root repository's
         path thus defining the location of each target repository. If names of target repositories
         are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
@@ -233,10 +233,10 @@ def attach_to_group(group):
 
     @repo.command()
     @click.argument("clients-auth-path")
-    @click.option("--clients-root-dir", default=None, help="Directory where target repositories and, "
+    @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--default-branch", default="main", help="Name of the default branch, like mian or master")
     @click.option("--from-commit", default=None, help="First commit which should be validated.")
     def validate(clients_auth_path, clients_library_dir, default_branch, from_commit):

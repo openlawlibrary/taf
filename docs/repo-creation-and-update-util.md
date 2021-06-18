@@ -16,7 +16,7 @@ clearer, paths in this documentation are absolute.
 The commands have similar options, most complex of which will be described in more detail
 in the following sections.
 
-### `root-dir` and `namespace`
+### `library-dir` and `namespace`
 
 Root directory. All target repositories are expected to be inside this repository, either directly
 or inside a directory which is directly inside the root directory. That is, if names of targets
@@ -25,14 +25,14 @@ it is assumed that they are in a directory whose name corresponds to their names
 if root directory is `E:\example` and namespace of the target repositories is `namespace1`,
 these repositories are expected to be in `E:\example\namespace1` directory.
 Unless these two parameters are explicitly set, they are determined based on authentication
-repository's path, which is a required argument of all commands that have `root-dir` and `namespace`
+repository's path, which is a required argument of all commands that have `library-dir` and `namespace`
 options. It is assumed that the authentication repository is also inside a namespace directory.
-By default, namespace is set to the authentication repository's namespace and `root-dir` to
+By default, namespace is set to the authentication repository's namespace and `library-dir` to
 the namespace directory's parent directory. If authentication repository's path is
-`E:\example\namespace2\auth-repo`, `namespace` is set to `namespace2` and `root-dir` to
+`E:\example\namespace2\auth-repo`, `namespace` is set to `namespace2` and `library-dir` to
 `E:\example`. If any of these assumentions is not correct (authentication and target repositoris
 do not have the same namespace authentication repository is at a completely different location),
-it is necessary to set root directory and namespace manually throug h`root-dir` and `namespace`
+it is necessary to set root directory and namespace manually throug h`library-dir` and `namespace`
 options.
 
 Full names of target repositories combine their namespace and name. These names
@@ -208,7 +208,7 @@ authentication's repository url and its filesystem path need to be specified whe
 authentication repository and the target repositories are in the same root directory,
 locations of the target repositories are calculated based on the authentication repository's
 path. If that is not the case, it is necessary to redefine this default value using the
-`--clients-root-dir` option.
+`--clients-library-dir` option.
 Names of target repositories (as defined in repositories.json) are appended to the root
 path thus defining the location of each target repository. If names of target repositories
 are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
@@ -227,7 +227,7 @@ taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_r
 In this example, all target repositories will be expected to be in `E:\root`.
 
 ```
-taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_repo --clients-root-dir E:\\target-repos
+taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_repo --clients-library-dir E:\\target-repos
 ```
 
 In this example, the target repositories will be expected to be in `E:\\target-repos`.
@@ -275,7 +275,7 @@ directory is calculated as two repositories up from the authetication repository
 Authentication repository's namespace can, but does not have to be equal to the namespace or target,
 repositories. If the authentication repository's path is `E:\root\namespace\auth-repo`, root
 directory will be determined as `E:\root`. If this default value is not correct, it can be redefined
-through the `--root-dir` option. If the `--namespace` option's value is not provided, it is assumed
+through the `--library-dir` option. If the `--namespace` option's value is not provided, it is assumed
 that the namespace of target repositories is equal to the authentication repository's namespace,
 determined based on the repository's path. E.g. Namespace of `E:\root\namespace2\auth-repo`
 is `namespace2`.
@@ -303,7 +303,7 @@ If we call the command as follows
 taf targets update_repos_from_fs E:\\OLL\\examples\\auth_repo --add-branch
 ```
 
-there is no need to directly set `namespace` and `root-dir` and  three target files will be created or
+there is no need to directly set `namespace` and `library-dir` and  three target files will be created or
 updated. The resulting directory structure will be as seen below:
 
 ```

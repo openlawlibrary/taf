@@ -909,6 +909,8 @@ def generate_keys(keystore, roles_key_infos):
                 path = str(Path(keystore, key_name))
                 print(f"Generating {path}")
                 generate_and_write_rsa_keypair(path, bits=bits, password=password)
+        if "delegations" in key_info:
+            generate_keys(keystore, key_info["delegations"])
 
 
 def generate_repositories_json(
