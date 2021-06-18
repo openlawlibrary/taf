@@ -74,7 +74,7 @@ def _load_hosts(
         # this is a dictionary which contains names of authentication repositories
         # and some optional additional information
         auth_repos = host_data[AUTH_REPOS_HOSTS_KEY]
-        custom = host_data["custom"]
+        custom = host_data.get("custom")
         # if this is called from the updater, the same repositories used in the updater will be returned
         # unless the dependencies database is explicitly cleared
         repositoriesdb.load_dependencies(

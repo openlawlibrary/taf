@@ -142,8 +142,7 @@ git commit -m "Initial commit"
 git push --set-upstream origin main
 ```
 
-Clone the target repositories.
-
+Clone the target repositories to continue with the setup.
 
 ## Create special target files
 
@@ -166,13 +165,16 @@ name:
         },
         "test/repo2": {
             "custom": {
-				"custom_property": "custom_value"
+				"custom_property": "custom_value",
+				"allow-unauthenticated-commits":true
             }
         }
     }
 }
 ```
 It is recommended not to specify URLs in `repsositories.json`, as that has been deprecated.
+
+Notice custom property `allow-unauthenticated-commits`. If it is set to `true` the target repositories can contain unauthenticated commits in-between authenticated ones. This means that it is not necesary to sign the corresponding target files after every commit.
 
 ### `mirrors.json`
 
@@ -267,43 +269,43 @@ Commit and push the changes. Having pushed the changes, run local validation to 
 taf repo validate auth_path
 ```
 
-## Update targets
+If hosts were defined, make sure that there is not message saying that that is not the case - that can suggest that names of the repositories defined in different files do not match.
 
-To update authentication repository's target files based on the current state of the target repositories, use one of the two
-`update_repos` commands. If `repositories.json` exists, use the `targets update_repos_from_repositories_json`
-command. If that is not the case, call `targets update_repos_from_fs`. They both iterate through the
-directory where target repositories are located. `update_repos_from_repositories_json` skips all repositories
-which are not listed in `repositories.json`, while `update_repos_from_fs` only skips the authentication
-repository if it is inside the same directory as the the target repositories.
+## Add targets corresponding to target repositories
 
-```bash
-taf targets update_repos_from_fs auth_path --root-dir library_dir_path --namespace namespace --add-branch
-```
+Next, register the target repositories by creating target files corresponding to target repositories. This can be done manually, but the easiest way to add initial target files and
+update them is to use another one of available commands. Make sure that the filesystem structure matches the state defined in `repositories.json` - that each target repository is
+in `library-dir/namespace/repo_name`. The authentication repository should also be in the same parent directory (`library-dir/namespace`).
 
-```bash
-taf targets update_repos_from_repositories_json auth_path --root-dir library_dir_path --namespace namespace --add-branch
-```
+Once that is all set up, make the planned changes and commit them. Unless `allow-unauthenticated-commits` is set to `true` in `repositories.json` for a target repository,
+it is necessary to update the corresponding target files of the authentication repository after every commit.
 
-- `root-dir` is the directory which contains the target repositories. Its default value is set to two
-directory's up from the authentication repository's path
-- `namespace` corresponds to the name of the directory inside `root-dir` which directly contains target
+WARNING: If you added initial REDME or lincese using the GitHub interface, register thos commits before making further changes.
+
+Next, create or update the target files by running:
+
+`taf targets update_repos_from_repositories_json auth_repo_path --add-branch`
+
+This command will analyze `repositories.json`, determine path of all target repositories,
+determine their latest commits and create target files in the auth repo matching the format that the updater expects. Verify that everything looks good and sign the target files by running. If all repositroies are in the same library root directory and have the same namsepace, there is no need to specify additional options. A complete list of options contains:
+
+- `library-dir` is the directory which contains the target repositories. Its default value is set to two
+directory's up from the authentication repository's path.
+- `namespace` corresponds to the name of the directory inside `library-dir` which directly contains target
 repositories. Its default value is name of the authentication repository's parent directory.
 - `add-branch` is a flag which determines if name of the current branch of the target repositories
 will be noted in the corresponding target file.
 
-If the authentication repository and the target repositories are inside the same directory, there is
-no need to set `root-dir` and `namespace`. This command does not automatically sign metadata files.
+Push all changes made to both the authentication repository and the target repositories.
 
-## Sign metadata files
+### Run the updater
 
-To sign updated `targets` metadata file call the `targets sign` command. It updates all targets
-metadata files corresponding to roles responsible for modified target files, `snapshot`
-and `timestamp.json`
+Run the updater to make sure that everything has been set up correctly. If errors occur, you
+might have not pushed everything. Read the update log and make sure that every repository
+was recognized as a target repository (that the names and ulrs are correct throughout the
+special target files). The updater will create a direcotry called `_auth_repo_name` in the
+library root directory and write the last validated commit in a file directly inside it.
 
-```bash
-taf targets sign auth_path --keys-description keys_description.json --commit
-```
+**To trigger validation from the first commit should that sound useful, delete this directory**
 
-- `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
-- `keystore` defines location of the keystore files and should be used when keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
-- `commit` flag determines if the changes should be automatically committed
+The updater will check out the last validated commits, so to continue working, checkout the default branch again.
