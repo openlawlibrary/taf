@@ -28,7 +28,7 @@ class GitRepository:
         name=None,
         urls=None,
         custom=None,
-        default_branch="master",
+        default_branch="main",
         path=None,
         *args,
         **kwargs,
@@ -43,7 +43,7 @@ class GitRepository:
           path (Path): repository's full filesystem path, which can be specified instead of name and library dir
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
-          default_branch (str): repository's default branch ("master" if not defined)
+          default_branch (str): repository's default branch ("main" if not defined)
         """
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
@@ -255,7 +255,8 @@ class GitRepository:
         )
         return commits
 
-    def all_fetched_commits(self, branch="master"):
+    def all_fetched_commits(self, branch=None):
+        branch = branch or self.default_branch
         commits = self._git("rev-list ..origin/{}", branch).strip()
         if not commits:
             commits = []
@@ -469,7 +470,7 @@ class GitRepository:
         Return old and new HEAD.
         """
         if branches is None:
-            branches = ["master"]
+            branches = [self.default_branch]
         self._log_debug(f"cloning or pulling branches {', '.join(branches)}")
 
         old_head = self.head_commit_sha()
@@ -567,7 +568,7 @@ class GitRepository:
         """
         Meant to find commits belonging to a branch which branches off of
         a commit from another branch. For example, to find only commits
-        on a speculative branch and not on the master branch.
+        on a speculative branch and not on the main branch.
         """
 
         self._log_debug(
@@ -613,7 +614,8 @@ class GitRepository:
         path = Path(path).as_posix()
         return self._git("show {}:{}", commit, path, raw=raw)
 
-    def get_first_commit_on_branch(self, branch="master"):
+    def get_first_commit_on_branch(self, branch=None):
+        branch = branch or self.default_branch
         first_commit = self._git(
             f"rev-list --max-parents=0 {branch}", error_if_not_exists=False
         )
@@ -669,10 +671,11 @@ class GitRepository:
         """Return current branch."""
         return self._git("rev-parse --abbrev-ref HEAD").strip()
 
-    def get_last_remote_commit(self, url, branch="master"):
+    def get_last_remote_commit(self, url, branch=None):
         """
         Fetch the last remote commit of the specified branch
         """
+        branch = branch or self.default_branch
         if url is None:
             raise FetchException(
                 "Could not fetch the last remote commit. URL not specified"
@@ -738,7 +741,8 @@ class GitRepository:
 
         return self._git("log {} {}", branch, " ".join(params)).split("\n")
 
-    def list_commit_shas(self, branch="master"):
+    def list_commit_shas(self, branch=None):
+        branch = branch or self.default_branch
         return self.list_commits(branch, format="format:%H")
 
     def list_n_commits(self, number=10, skip=None, branch=None):
@@ -845,10 +849,11 @@ class GitRepository:
         uncommitted_changes = self._git("status --porcelain")
         return bool(uncommitted_changes)
 
-    def synced_with_remote(self, branch="master", url=None):
+    def synced_with_remote(self, branch=None, url=None):
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
+        branch = branch or self.default_branch
         if url is None:
             if self.urls is not None and len(self.urls):
                 url = self.urls[0]

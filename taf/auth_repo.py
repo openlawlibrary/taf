@@ -29,7 +29,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         name=None,
         urls=None,
         custom=None,
-        default_branch="master",
+        default_branch="main",
         conf_directory_root=None,
         out_of_band_authentication=None,
         hosts=None,
@@ -47,7 +47,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           path (Path): repository's full filesystem path, which can be specified instead of name and library dir
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
-          default_branch (str): repository's default branch ("master" if not defined)
+          default_branch (str): repository's default branch ("main" if not defined)
           out_of_band_authentication (str): manually specified initial commit
           hosts (dict): host data is specified using the hosts.json file. Hosts of the current repo
           can be specified in its parent's repo (meaning that this repo is listed in the parent's dependencies.json),

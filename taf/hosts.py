@@ -138,7 +138,7 @@ def set_hosts_of_repo(auth_repo, hosts):
 
 def load_hosts_json(auth_repo, commit=None):
     if commit is None:
-        commit = auth_repo.top_commit_of_branch("master")
+        commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
     return _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
 
 

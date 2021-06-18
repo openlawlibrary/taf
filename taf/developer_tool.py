@@ -834,7 +834,7 @@ def export_yk_certificate(certs_dir, key):
 
 def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
     auth_repo = AuthenticationRepository(path=repo_path)
-    commits = auth_repo.all_commits_since_commit(commit, branch="master")
+    commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
     if not len(target_repos):
         target_repos = None
     else:
