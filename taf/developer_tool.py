@@ -143,7 +143,7 @@ def add_signing_key(
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
-    roles_infos = roles_key_infos.get("role")
+    roles_infos = roles_key_infos.get("roles")
 
     pub_key_pem = None
     if pub_key_path is not None:
@@ -386,7 +386,7 @@ def create_repository(
         roles_key_infos, keystore
     )
 
-    repository = create_new_repository(auth_repo.path)
+    repository = create_new_repository(str(auth_repo.path))
     roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = _load_sorted_keys_of_new_roles(
         auth_repo, roles_infos, repository, keystore, yubikeys
@@ -441,7 +441,7 @@ def _create_delegations(
     for role_name, role_info in roles_infos.items():
         if "delegations" in role_info:
             parent_role_obj = _role_obj(role_name, repository)
-            delegations_info = role_info["delegations"]
+            delegations_info = role_info["delegations"]["roles"]
             for delegated_role_name, delegated_role_info in delegations_info.items():
                 if delegated_role_name in existing_roles:
                     print(f"Role {delegated_role_name} already set up.")
@@ -512,7 +512,7 @@ def _load_sorted_keys_of_new_roles(
                 yubikey_roles.append((role_name, role_key_info))
             if "delegations" in role_key_info:
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
-                    role_key_info["delegations"], repository
+                    role_key_info["delegations"]["roles"], repository
                 )
                 keystore_roles.extend(delegated_keystore_role)
                 yubikey_roles.extend(delegated_yubikey_roles)

@@ -83,52 +83,33 @@ information when asked to do so, or confirm that default values should be used.
 ## Generate keys
 
 In order to create a new repository, it is necessary to decide which keys are to be used - YubiKeys, keystore files
-or a combination of them. It is not recommended to use keystore files for signing root and targets metadata (including all delegated roles) of production repositories.
+or a combination of them. It is not recommended to use keystore files for signing root and targets metadata (including all delegated roles) of production repositories. Start by creating `keys-description.json`.
 
-To generate they keys, create `keys-description.json` and call:
+Keys can be generated while creating a new repository if they don't already exist, but can also be generated in advance.
+To generate new keystore files, call:
 
 `taf keystore generate destination_path keys-description.json`
 
 This command will only generate a key of roles explicitly listed in the input - so add empty snapshot and timestamp
 dictionaries if these keys should be generated as well.
 
+To set up new YubiKyes, call
+
+`taf yubikey setup_signing_key`
+
+WARNING: This command will delete the YubiKey's existing data. New repositories can be created using already set
+up YubiKeys.
+
 ## Create a repository
 
 Use the `repo create` command to create a new authentication repository:
 
 ```bash
-taf repo create repo_path --keystore keystore_path --keys-description keys.json --commit --test
+taf repo create repo_path --keystore keystore_path --keys-description keys-description.json --commit --test
 ```
 
-- `keys-description` is a dictionary which contains information about the roles. The easiest way to specify it is to define it in a `.json` file and provide path to that file when calling the this command. For example:
-```
-{
-  "roles": {
-    "root": {
-      "number": 3,
-      "length": 2048,
-	    "threshold": 2,
-    },
-    "targets": {
-      "length": 2048,
-      "delegations": {
-        "delegated_role1": {
-			    "paths": [
-              "delegated_path1",
-              "delegated_path2"
-			      ],
-			    "number": 1,
-			    "threshold": 1,
-			    "terminating": true
-		    }
-      }
-    },
-    "snapshot": {},
-    "timestamp": {}
-  },
-  "keystore": "keystore_path"
-}
-```
+- `repo-path` is the only argument and is required. It should point to a folder where the new authentication repository's content should be stored to e.g. `test/law`.
+- `keys-description` was described at the top of this document
 - `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
 - `commit` flag determines if the changes should be automatically committed
 - `test`  flag determines if a special target file called `test-auth-repo` will be created. That
@@ -143,6 +124,9 @@ For each role, keys can be:
 - loaded from previously initialized Yubikeys
 - generated and stored on a Yubikey (this deletes all existing data from that key)
 
+IMPORTANT: If the command was run without the commit flag, commit the changes before updating metadata files
+or adding targets. The updater will raise and error if version numbers of metadata files in two subsequent
+commits differ by more than one!
 
 ## Update targets
 
