@@ -225,8 +225,7 @@ This is an example where we defined a hierarchy (define two authentication repos
 ```
 
 
-### 1hosts.json1
-
+### `hosts.json`
 
 This is an optional file used to specify information about the hosts. The framework will only extract this information
 from the file and does not implement anything related configuring the servers. Here is an example of this file:
@@ -298,7 +297,7 @@ will be noted in the corresponding target file.
 
 Push all changes made to both the authentication repository and the target repositories.
 
-### Run the updater
+## Run the updater
 
 Run the updater to make sure that everything has been set up correctly. If errors occur, you
 might have not pushed everything. Read the update log and make sure that every repository
@@ -309,3 +308,57 @@ library root directory and write the last validated commit in a file directly in
 **To trigger validation from the first commit should that sound useful, delete this directory**
 
 The updater will check out the last validated commits, so to continue working, checkout the default branch again.
+
+For more information about the updater and how to use it, see [the update process document](./updater/update_process.md)
+
+## Update metadata files if they expired
+
+*This will be rework to make the update process easeir. An automate job can be set up to sign the metadata files. For testing purposes, sign them once and set a really long inteval*
+
+By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. The updater will raise an error if the top metadata file has expired. To resign a metadata files, run:
+
+```bash
+taf metadata update_expiration_date auth_repo_path metadata_name --keystore keystore_path --interval days
+```
+
+- `metadata_name` represents a metadata file - root, targets, snapshot, timestamp, delegated_targets_role
+- `keystore path` is the location of the keystore files. Can be ommitted if YubiKeys should be used instead
+- `interval` refers to the number of days added to today's date to calculate the expiration date
+
+**The order in which the files are signed is important**
+
+### timestamp update
+
+
+```bash
+taf metadata update_expiration_date auth_repo_path timestamp --keystore keystore_path --interval days
+```
+
+### snapshot update
+
+
+```bash
+taf metadata update_expiration_date auth_repo_path snapshot --keystore keystore_path --inteval days
+```
+
+```bash
+taf metadata update_expiration_date auth_repo_path timestamp --keystore keystore_path --inteval days
+```
+
+### targets update
+
+
+```bash
+taf metadata update_expiration_date auth_repo_path targets --keystore keystore_path --inteval days
+```
+
+```bash
+taf metadata update_expiration_date auth_repo_path snapshot --keystore keystore_path --inteval days
+```
+
+```bash
+taf metadata update_expiration_date auth_repo_path timestamp --keystore keystore_path --inteval days
+```
+
+**Don't forget to commit and push the changes**
+
