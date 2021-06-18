@@ -1055,7 +1055,10 @@ def _update_target_repository(
 
 
 def validate_repository(
-    clients_auth_path, clients_library_dir=None, default_branch="main", validate_from_commit=None
+    clients_auth_path,
+    clients_library_dir=None,
+    default_branch="main",
+    validate_from_commit=None,
 ):
 
     clients_auth_path = Path(clients_auth_path).resolve()
