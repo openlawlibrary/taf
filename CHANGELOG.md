@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
+
+### Added
+
+
+### Changed
+
+
+### Fixed
+
+
+## [0.8.1] - 04/14/2021
 
 ### Added
 
@@ -36,7 +48,7 @@ and this project adheres to [Semantic Versioning][semver].
 [161]: https://github.com/openlawlibrary/taf/pull/161
 
 
-## [0.8.0] - 02/09/2020
+## [0.8.0] - 02/09/2021
 
 ### Added
 
