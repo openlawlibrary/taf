@@ -55,11 +55,13 @@ from freezegun import freeze_time
 from datetime import datetime
 
 import taf.settings as settings
-from taf.auth_repo import AuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
+
+from taf.log import disable_console_logging, disable_file_logging
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
@@ -74,9 +76,10 @@ NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
 METADATA_CHANGED_BUT_SHOULDNT = (
     "Metadata file targets.json should be the same at revisions"
 )
-LAST_VALIDATED_COMMIT_MISMATCH = (
-    "Saved last validated commit {} does not match the head commit"
-)
+LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
+
+disable_console_logging()
+disable_file_logging()
 
 
 def setup_module(module):
@@ -318,8 +321,12 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
     client_repos = _clone_and_revert_client_repositories(
         repositories, origin_dir, client_dir, 3
     )
-    first_commit = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()[0]
-    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(first_commit)
+    all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
+    first_commit = all_commits[0]
+    last_commit = all_commits[-1]
+    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(
+        first_commit, AUTH_REPO_REL_PATH, last_commit
+    )
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_remained_same(
@@ -330,7 +337,7 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-test-repo"]
     origin_dir = origin_dir / "test-updater-test-repo"
-    # try to update without setting the last validated commit
+    # try to update a test repo, set update type to official
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, IS_A_TEST_REPO, UpdateType.OFFICIAL
     )
@@ -347,26 +354,22 @@ def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
 
 def _check_last_validated_commit(clients_auth_repo_path):
     # check if last validated commit is created and the saved commit is correct
-    client_auth_repo = AuthenticationRepo(
-        str(clients_auth_repo_path), "metadata", "targets"
-    )
+    client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     head_sha = client_auth_repo.head_commit_sha()
     last_validated_commit = client_auth_repo.last_validated_commit
     assert head_sha == last_validated_commit
 
 
 def _check_if_last_validated_commit_exists(clients_auth_repo_path):
-    client_auth_repo = AuthenticationRepo(
-        str(clients_auth_repo_path), "metadata", "targets"
-    )
+    client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     last_validated_commit = client_auth_repo.last_validated_commit
     assert last_validated_commit is None
 
 
 def _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas=None):
     for repository_rel_path in repositories:
-        origin_repo = GitRepository(origin_dir / repository_rel_path)
-        client_repo = GitRepository(client_dir / repository_rel_path)
+        origin_repo = GitRepository(origin_dir, repository_rel_path)
+        client_repo = GitRepository(client_dir, repository_rel_path)
         for branch in origin_repo.branches():
             # ensures that git log will work
             client_repo.checkout_branch(branch)
@@ -398,7 +401,7 @@ def _clone_and_revert_client_repositories(
 ):
     client_repos = {}
     client_auth_repo = _clone_client_repo(
-        AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepo
+        AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepository
     )
     client_auth_repo.reset_num_of_commits(num_of_commits, True)
     client_repos[AUTH_REPO_REL_PATH] = client_auth_repo
@@ -438,8 +441,7 @@ def _clone_client_repo(
     repository_rel_path, origin_dir, client_dir, repo_class=GitRepository
 ):
     origin_repo_path = str(origin_dir / repository_rel_path)
-    client_repo_path = str(client_dir / repository_rel_path)
-    client_repo = repo_class(client_repo_path, repo_urls=[origin_repo_path])
+    client_repo = repo_class(client_dir, repository_rel_path, urls=[origin_repo_path])
     client_repo.clone()
     return client_repo
 
@@ -485,6 +487,7 @@ def _update_and_check_commit_shas(
             str(origin_auth_repo_path),
             str(clients_auth_repo_path),
             str(client_dir),
+            "master",
             True,
             expected_repo_type=expected_repo_type,
         )
@@ -510,6 +513,7 @@ def _update_invalid_repos_and_check_if_remained_same(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path),
                 str(client_dir),
+                "master",
                 True,
                 expected_repo_type=expected_repo_type,
             )
@@ -544,6 +548,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path),
                 str(client_dir),
+                "master",
                 True,
                 expected_repo_type=expected_repo_type,
             ),

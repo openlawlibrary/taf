@@ -5,7 +5,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
-from taf.git import GitRepository, NamedGitRepository
+from taf.git import GitRepository
 from taf.repository_tool import (
     Repository as TAFRepository,
     get_role_metadata_path,
@@ -13,12 +13,75 @@ from taf.repository_tool import (
 )
 
 
-class AuthRepoMixin(TAFRepository):
+class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
+    HOSTS_FILE = "hosts.json"
+    SCRIPTS_PATH = "scripts"
+    AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
+
+    def __init__(
+        self,
+        library_dir=None,
+        name=None,
+        urls=None,
+        custom=None,
+        default_branch="main",
+        conf_directory_root=None,
+        out_of_band_authentication=None,
+        hosts=None,
+        path=None,
+        *args,
+        **kwargs,
+    ):
+        """
+        Args:
+          library_dir (Path or str): path to the library root. This is a directory which contains other repositories,
+          whose full path is determined by appending their names to the library dir. A repository can be
+          instantiated by specifying library dir and name, or by the full path.
+          name (str): repository's name, which is appended to the library dir to form the full path.
+          Must be in the namespace/name format. If library_dir is specified, name must be specified too.
+          path (Path): repository's full filesystem path, which can be specified instead of name and library dir
+          urls (list): repository's urls
+          custom (dict): a dictionary containing other data
+          default_branch (str): repository's default branch ("main" if not defined)
+          out_of_band_authentication (str): manually specified initial commit
+          hosts (dict): host data is specified using the hosts.json file. Hosts of the current repo
+          can be specified in its parent's repo (meaning that this repo is listed in the parent's dependencies.json),
+          or it can be specified in hosts.json contained by the repo itself. If hosts data is defined in the parent,
+          it can be propagated to the contained repos. `load_hosts` function of the `hosts` module sets this
+          attribute.
+        """
+        super().__init__(
+            library_dir, name, urls, custom, default_branch, path, *args, **kwargs
+        )
+
+        if conf_directory_root is None:
+            conf_directory_root = Path(self.path).parent
+        self.conf_directory_root = Path(conf_directory_root).resolve()
+        self.out_of_band_authentication = out_of_band_authentication
+        # host data can be specified in the current authentication repository or in its parent
+        # the input parameter hosts is expected to contain hosts data specified outside of
+        # this repository's hosts file specifying its hosts
+        # in other words, propagate hosts data from parent to the child repository
+        self.hosts = hosts
+
+    # TODO rework conf_dir
+
+    def to_json_dict(self):
+        """Returns a dictionary mapping all attributes to their values"""
+        data = super().to_json_dict()
+        data.update(
+            {
+                "conf_directory_root": str(self.conf_directory_root),
+                "out_of_band_authentication": self.out_of_band_authentication,
+                "hosts": self.hosts,
+            }
+        )
+        return data
 
     @property
     def conf_dir(self):
@@ -31,7 +94,7 @@ class AuthRepoMixin(TAFRepository):
         # the configuration directory should be _name
         if self._conf_dir is None:
             last_dir = os.path.basename(os.path.normpath(self.path))
-            conf_path = Path(self.conf_directory_root, f"_{last_dir}")
+            conf_path = self.conf_directory_root / f"_{last_dir}"
             conf_path.mkdir(parents=True, exist_ok=True)
             self._conf_dir = str(conf_path)
         return self._conf_dir
@@ -55,6 +118,14 @@ class AuthRepoMixin(TAFRepository):
             return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
         except FileNotFoundError:
             return None
+
+    _hosts_conf = None
+
+    @property
+    def hosts_conf(self):
+        if self._hosts_conf is None:
+            self._hosts_conf = self.get_target(self.HOSTS_FILE)
+        return self._hosts_conf
 
     @property
     def log_prefix(self):
@@ -113,18 +184,18 @@ class AuthRepoMixin(TAFRepository):
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
     def sorted_commits_and_branches_per_repositories(
-        self, commits, target_repos=None, additional_info_fns=None
+        self, commits, target_repos=None, custom_fns=None
     ):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {
             target_repo1: {
-                branch1: [{"commit": commit1, "additional-info": {...}}, {"commit": commit2, "additional-info": {...}}, {"commit": commit3, "additional-info": {}}],
-                branch2: [{"commit": commit4, "additional-info: {...}}, {"commit": commit5, "additional_info": {}}]
+                branch1: [{"commit": commit1, "custom": {...}}, {"commit": commit2, "custom": {...}}, {"commit": commit3, "custom": {}}],
+                branch2: [{"commit": commit4, "custom: {...}}, {"commit": commit5, "custom": {}}]
             },
             target_repo2: {
-                branch1: [{"commit": commit6, "additional-info": {...}}],
-                branch2: [{"commit": commit7", "additional-info": {...}]
+                branch1: [{"commit": commit6, "custom": {...}}],
+                branch2: [{"commit": commit7", "custom": {...}]
             }
         }
         Keep in mind that targets metadata
@@ -138,15 +209,12 @@ class AuthRepoMixin(TAFRepository):
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
-                target_data.setdefault("additional-info", {})
+                target_data.setdefault("custom", {})
 
                 if previous_commit is None or target_commit != previous_commit:
-                    if (
-                        additional_info_fns is not None
-                        and target_path in additional_info_fns
-                    ):
-                        target_data["additional-info"].update(
-                            additional_info_fns[target_path](target_commit)
+                    if custom_fns is not None and target_path in custom_fns:
+                        target_data["custom"].update(
+                            custom_fns[target_path](target_commit)
                         )
 
                     repositories_commits[target_path].setdefault(
@@ -154,7 +222,7 @@ class AuthRepoMixin(TAFRepository):
                     ).append(
                         {
                             "commit": target_commit,
-                            "additional-info": target_data.get("additional-info"),
+                            "custom": target_data.get("custom"),
                         }
                     )
                 previous_commits[target_path] = target_commit
@@ -203,48 +271,6 @@ class AuthRepoMixin(TAFRepository):
                         targets[commit][target_path] = {
                             "branch": target_branch,
                             "commit": target_commit,
-                            "additional-info": target_content,
+                            "custom": target_content,
                         }
         return targets
-
-
-class AuthenticationRepo(GitRepository, AuthRepoMixin):
-    def __init__(
-        self,
-        path,
-        repo_urls=None,
-        additional_info=None,
-        default_branch="master",
-        conf_directory_root=None,
-        *args,
-        **kwargs,
-    ):
-        if conf_directory_root is None:
-            conf_directory_root = str(Path(path).parent)
-        self.conf_directory_root = conf_directory_root
-        super().__init__(path, repo_urls, additional_info, default_branch)
-
-
-class NamedAuthenticationRepo(NamedGitRepository, AuthRepoMixin):
-    def __init__(
-        self,
-        root_dir,
-        repo_name,
-        repo_urls=None,
-        additional_info=None,
-        default_branch="master",
-        conf_directory_root=None,
-        *args,
-        **kwargs,
-    ):
-        if conf_directory_root is None:
-            conf_directory_root = str(Path(root_dir, repo_name).parent)
-        self.conf_directory_root = conf_directory_root
-        super().__init__(
-            root_dir=root_dir,
-            repo_name=repo_name,
-            repo_urls=repo_urls,
-            additional_info=additional_info,
-            default_branch=default_branch,
-            conf_directory_root=conf_directory_root,
-        )

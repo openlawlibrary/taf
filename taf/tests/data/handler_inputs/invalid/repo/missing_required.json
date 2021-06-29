@@ -1,0 +1,57 @@
+{
+    "update": {
+        "changed": false,
+        "repo_name": "cityofsanmateo/law",
+        "error_msg": "",
+        "auth_repo": {
+            "data": {
+                "library_dir": "E:\\oll\\library\\test-update",
+                "name": "cityofsanmateo/law",
+                "urls": [
+                    "http://github.com/oll-test-repos/cityofsanmateo-law"
+                ],
+                "default_branch": "master",
+                "custom": {},
+                "conf_directory_root": "E:\\oll\\library\\test-update\\cityofsanmateo",
+                "out_of_band_authentication": null,
+                "hosts": {
+                    "sanmateo.ca.us.open.law.vagrant": {
+                        "custom": {
+                            "subdomains": {
+                                "development": {
+                                    "cityofsanmateo/law-html": {
+                                        "repo-name": "cityofsanmateo/law-html-development"
+                                    }
+                                },
+                                "preview": {
+                                    "cityofsanmateo/law-xml-codified": {
+                                        "repo-name": "cityofsanmateo/law-html-preview"
+                                    },
+                                    "cityofsanmateo/law-html": {
+                                        "repo-name": "cityofsanmateo/law-html-preview",
+                                        "pull": "authenticated"
+                                    },
+                                    "cityofsanmateo/law-docs": {
+                                        "repo-name": "cityofsanmateo/law-docs-preview",
+                                        "pull": "latest"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "commits": {
+                "before_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938",
+                "new": [],
+                "after_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938"
+            }
+        },
+        "target_repos": {}
+    },
+    "state": {
+        "transient": {},
+        "persistent": {}
+    },
+    "config": {}
+}

@@ -18,7 +18,7 @@ from tuf.repository_tool import (
 )
 
 from taf import YubikeyMissingLibrary
-from taf.auth_repo import AuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, TargetsMetadataUpdateError
 from taf.git import GitRepository
@@ -67,7 +67,7 @@ def add_roles(
 ):
 
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepo(repo_path)
+    auth_repo = AuthenticationRepository(path=repo_path)
     repo_path = Path(repo_path)
 
     roles_key_infos, keystore = _initialize_roles_and_keystore(
@@ -143,7 +143,7 @@ def add_signing_key(
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
-    roles_infos = roles_key_infos.get("role")
+    roles_infos = roles_key_infos.get("roles")
 
     pub_key_pem = None
     if pub_key_path is not None:
@@ -258,7 +258,7 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
     """Updates target repo's commit sha and branch"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:
         return
-    target_repo = GitRepository(str(target_repo_path))
+    target_repo = GitRepository(path=target_repo_path)
     if target_repo.is_git_repository:
         data = {"commit": target_repo.head_commit_sha()}
         if add_branch:
@@ -270,7 +270,7 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
 
 
 def update_target_repos_from_fs(
-    repo_path, root_dir=None, namespace=None, add_branch=True
+    repo_path, library_dir=None, namespace=None, add_branch=True
 ):
     """
     <Purpose>
@@ -278,7 +278,7 @@ def update_target_repos_from_fs(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
@@ -286,8 +286,8 @@ def update_target_repos_from_fs(
         Indicates whether to add the current branch's name to the target file
     """
     repo_path = Path(repo_path).resolve()
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    targets_directory = root_dir / namespace
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
     print(
         f"Updating target files corresponding to repos located at {targets_directory}"
     )
@@ -302,7 +302,7 @@ def update_target_repos_from_fs(
 
 
 def update_target_repos_from_repositories_json(
-    repo_path, root_dir, namespace, add_branch=True
+    repo_path, library_dir, namespace, add_branch=True
 ):
     """
     <Purpose>
@@ -310,7 +310,7 @@ def update_target_repos_from_repositories_json(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
@@ -322,13 +322,13 @@ def update_target_repos_from_repositories_json(
     repositories_json = json.loads(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
     print(
-        f"Updating target files corresponding to repos located at {(root_dir / namespace)}"
+        f"Updating target files corresponding to repos located at {(library_dir / namespace)}"
         "and specified in repositories.json"
     )
     for repo_name in repositories_json.get("repositories"):
-        target_repo_path = root_dir / repo_name
+        target_repo_path = library_dir / repo_name
         namespace_and_name = repo_name.rsplit("/", 1)
         if len(namespace_and_name) > 1:
             namespace, _ = namespace_and_name
@@ -376,7 +376,7 @@ def create_repository(
         Indicates if the created repository is a test authentication repository
     """
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepo(repo_path)
+    auth_repo = AuthenticationRepository(path=repo_path)
     repo_path = Path(repo_path)
 
     if not _check_if_can_create_repository(auth_repo):
@@ -386,7 +386,7 @@ def create_repository(
         roles_key_infos, keystore
     )
 
-    repository = create_new_repository(auth_repo.path)
+    repository = create_new_repository(str(auth_repo.path))
     roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = _load_sorted_keys_of_new_roles(
         auth_repo, roles_infos, repository, keystore, yubikeys
@@ -441,7 +441,7 @@ def _create_delegations(
     for role_name, role_info in roles_infos.items():
         if "delegations" in role_info:
             parent_role_obj = _role_obj(role_name, repository)
-            delegations_info = role_info["delegations"]
+            delegations_info = role_info["delegations"]["roles"]
             for delegated_role_name, delegated_role_info in delegations_info.items():
                 if delegated_role_name in existing_roles:
                     print(f"Role {delegated_role_name} already set up.")
@@ -512,7 +512,7 @@ def _load_sorted_keys_of_new_roles(
                 yubikey_roles.append((role_name, role_key_info))
             if "delegations" in role_key_info:
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
-                    role_key_info["delegations"], repository
+                    role_key_info["delegations"]["roles"], repository
                 )
                 keystore_roles.extend(delegated_keystore_role)
                 yubikey_roles.extend(delegated_yubikey_roles)
@@ -833,8 +833,8 @@ def export_yk_certificate(certs_dir, key):
 
 
 def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
-    auth_repo = AuthenticationRepo(repo_path)
-    commits = auth_repo.all_commits_since_commit(commit, branch="master")
+    auth_repo = AuthenticationRepository(path=repo_path)
+    commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
     if not len(target_repos):
         target_repos = None
     else:
@@ -864,15 +864,15 @@ def export_targets_history(repo_path, commit=None, output=None, target_repos=Non
         print(commits_json)
 
 
-def _get_namespace_and_root(repo_path, namespace, root_dir):
+def _get_namespace_and_root(repo_path, namespace, library_dir):
     repo_path = Path(repo_path).resolve()
     if namespace is None:
         namespace = repo_path.parent.name
-    if root_dir is None:
-        root_dir = repo_path.parent.parent
+    if library_dir is None:
+        library_dir = repo_path.parent.parent
     else:
-        root_dir = Path(root_dir).resolve()
-    return namespace, root_dir
+        library_dir = Path(library_dir).resolve()
+    return namespace, library_dir
 
 
 def generate_keys(keystore, roles_key_infos):
@@ -909,11 +909,13 @@ def generate_keys(keystore, roles_key_infos):
                 path = str(Path(keystore, key_name))
                 print(f"Generating {path}")
                 generate_and_write_rsa_keypair(path, bits=bits, password=password)
+        if "delegations" in key_info:
+            generate_keys(keystore, key_info["delegations"])
 
 
 def generate_repositories_json(
     repo_path,
-    root_dir=None,
+    library_dir=None,
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
@@ -925,11 +927,11 @@ def generate_repositories_json(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
-        is expected to be root_dir/namespace directory
+        is expected to be library_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
         custom_data:
@@ -947,8 +949,8 @@ def generate_repositories_json(
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     # if targets directory is not specified, assume that target repositories
     # and the authentication repository are in the same parent direcotry
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    targets_directory = root_dir / namespace
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
     if targets_relative_dir is not None:
         targets_relative_dir = Path(targets_relative_dir).resolve()
 
@@ -957,7 +959,7 @@ def generate_repositories_json(
     for target_repo_dir in targets_directory.glob("*"):
         if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
             continue
-        target_repo = GitRepository(target_repo_dir.resolve())
+        target_repo = GitRepository(path=target_repo_dir.resolve())
         if not target_repo.is_git_repository:
             continue
         target_repo_name = target_repo_dir.name
@@ -1009,7 +1011,7 @@ def _get_key_name(role_name, key_num, num_of_keys):
 
 def init_repo(
     repo_path,
-    root_dir=None,
+    library_dir=None,
     namespace=None,
     targets_relative_dir=None,
     custom_data=None,
@@ -1033,11 +1035,11 @@ def init_repo(
     <Arguments>
         repo_path:
         Authentication repository's location
-        root_dir:
+        library_dir:
         Directory where target repositories and, optionally, authentication repository are locate
         namespace:
         Namespace used to form the full name of the target repositories. Each target repository
-        is expected to be root_dir/namespace directory
+        is expected to be library_dir/namespace directory
         targets_relative_dir:
         Directory relative to which urls of the target repositories are set, if they do not have remote set
         custom_data:
@@ -1058,8 +1060,8 @@ def init_repo(
         A signature scheme used for signing.
     """
     # read the key infos here, no need to read the file multiple times
-    namespace, root_dir = _get_namespace_and_root(repo_path, namespace, root_dir)
-    targets_directory = root_dir / namespace
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
@@ -1067,7 +1069,12 @@ def init_repo(
     create_repository(repo_path, keystore, roles_key_infos, commit, test)
     update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
     generate_repositories_json(
-        repo_path, root_dir, namespace, targets_relative_dir, custom_data, use_mirrors
+        repo_path,
+        library_dir,
+        namespace,
+        targets_relative_dir,
+        custom_data,
+        use_mirrors,
     )
     register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
 
@@ -1121,7 +1128,7 @@ def register_target_files(
     )
 
     if commit:
-        auth_git_repo = GitRepository(taf_repo.path)
+        auth_git_repo = GitRepository(path=taf_repo.path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_git_repo.commit(commit_message)
 
@@ -1253,7 +1260,7 @@ def update_metadata_expiration_date(
         print(f"Updated expiration date of {role}")
 
     if commit:
-        auth_repo = GitRepository(repo_path)
+        auth_repo = GitRepository(path=repo_path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
