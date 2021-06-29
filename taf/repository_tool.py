@@ -171,22 +171,18 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
 class Repository:
     def __init__(self, path, repo_name="default"):
-        self._path = Path(path)
+        self.path = Path(path)
         self.name = repo_name
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
     @property
-    def path(self):
-        return str(self._path)
-
-    @property
     def targets_path(self):
-        return self._path / TARGETS_DIRECTORY_NAME
+        return self.path / TARGETS_DIRECTORY_NAME
 
     @property
     def metadata_path(self):
-        return self._path / METADATA_DIRECTORY_NAME
+        return self.path / METADATA_DIRECTORY_NAME
 
     _tuf_repository = None
 
@@ -198,11 +194,11 @@ class Repository:
 
     @property
     def repo_id(self):
-        return GitRepository(self.path).initial_commit
+        return GitRepository(path=self.path).initial_commit
 
     @property
     def certs_dir(self):
-        certs_dir = self._path / "certs"
+        certs_dir = self.path / "certs"
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
@@ -290,7 +286,7 @@ class Repository:
             targets_existed = False
             self.targets_path.mkdir(parents=True, exist_ok=True)
         try:
-            self._tuf_repository = load_repository(path, self.name)
+            self._tuf_repository = load_repository(str(path), self.name)
         except RepositoryError:
             if not targets_existed:
                 self.targets_path.rmdir()

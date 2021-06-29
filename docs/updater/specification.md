@@ -1,4 +1,8 @@
-# TUF Implementation
+# Updater Implementation
+
+The purpose of the updater is to securely pull the authentication repository and the specified target repositories. This means that we want to validate all of the repositories before pulling the changes. The main idea is to rely on TUF's updater as much as possible, redefining only parts of the code which download files and check expiration time of metadata. This means that all security checks provided by the TUF updater will be executed.
+
+## TUF
 
 The Update Framework (TUF) helps developers secure new or existing software update systems, which are
 often found to be vulnerable to many known attacks. Unlike other examples of TUF's usage, we:
@@ -223,7 +227,7 @@ malicious update is not possible if targets key is not compromised.
 We require existance of certain target files, though there could be additional one. These include, as
 noted above, one target file per repository and a target files containing information about the repositories.
 
-If a target's path specified in `targets.json` is `somejurisdiction/law-xml`, there should be a target file
+If a target's path specified in `targets.json` (or target file of a delegated role) is `somejurisdiction/law-xml`, there should be a target file
 named `law-xml`, located inside `somejurisdiction` directory inside `targets`. These files are expected
 to be json files, containing at least the commit SHA. Here is an example of a target file containing a
 commit SHA:
@@ -233,11 +237,19 @@ commit SHA:
     "commit": "4a55ac5822bc4504673dcba43ac1959213531474"
 }
 ```
-They can containing other information, as needed.
+They can contain other information, as needed. These targets are used to validate target
+repositories. In addition to them, the framework expects some special target files:
+- `repositoires.json` (required)
+- `mirrors.json` (recommended, required if URLs are not defined in `repositoires.json`, re)
+- `depoendencies.json` (optional)
+- `hosts.json` (optional)
+- scripts (optional)
 
-`repositories.json` contains repositories' definitions. Each repository is identified by a path which
-should match the corresponding path in `targets.json`. The `urls` property is used to specify the repository's
-locations. We want to supported definition of multiple URLs, which is why this property is a list. On top
+#### repositoires.json
+
+`repositories.json` contains repositories' definitions. Each repository is identified by a namespace prefixed name which
+should match the corresponding name in `targets.json`. The `urls` property is now deprecated, but can still be used to specify the repository's
+locations. We want to support definition of multiple URLs, which is why this property is a list. Alternatively, URLs can be defined using another special target file, called `mirrors.json` (more about it in the next paragraph). On top
 of that, it is possible to define any additional information, via the `custom` property. This is an example
 of the repositories definition file:
 
@@ -268,6 +280,108 @@ of the repositories definition file:
 
 In this example, `custom` is used to define the repository's type, but it can store any data. It's value is
 expected to be a dictionary.
+
+#### mirrors.json
+
+This target files is use to determine URLs of repositories based on their names (specified in the `namespace/name` format in `repositories.json`). Namespace is expected to correspond to GitHub
+organization name, so names defined in `reposiotires.json` are seen as `org_name/repo_name`. If `mirrors.json` looks like this:
+
+```
+{
+    "mirrors": [
+        "http://github.com/{org_name}/{repo_name}",
+        "http://github.com/{org_name}-backup/{repo_name}",
+        "http://gitlab.com/{org_name}/{repo_name}"
+    ]
+}
+```
+and a repository's name is `jurisdiction/law-xml`, its URLs will be set to `["http://github.com/jurisdiction/law-xml", "http://github.com/jurisdiction-backup/law-xml", "http://gitlab.com/jurisdiction/law-xml"]`.
+The framework will try to clone/pull the repository from GitHub the first URL, if that fails, try to use the second one etc.
+
+**It is recommended to use `mirrors.json` instead of defining `URLs` lists in `repositories.json`. The second way is only still supported in order maintain backwards compatibility.**
+
+#### dependencies.json
+
+Starting with version `0.9.0`, the updater supports definition of hierarchies of authentication repositories. This means that it is possible to define one repository as the root authentication repository and link it with one or more other authentication repositories. The updater will automatically pull the whole hierarchy and only declare the update of the root repository as successful if update of all linked repositories succeeded. This is an example of a `dependecies.json`:
+
+```{
+    "dependencies": {
+        "jurisdiction1/law": {
+            "out-of-band-authentication": "bfcbc7db7adc3f43291a64b0572b6b114e63e98a"
+        },
+        "jurisdiction2/law": {
+            "out-of-band-authentication": "d7a6b796cffe53ad89b4504084402570b7d17f6b"
+        }
+    }
+}
+```
+When updating the repository which contains this target file, the updater will also update `jurisdiction1/law` and `jurisdiction2/law`. Their URLs are also determined by using the `mirrors.json` file (the root repository's `mirrors.json`).
+
+`out-of-band-authenticatio` is an optional property which, if defined, it is used to check if the repository's first commit matches this property's value. This is far from perfect security measure, but adds an additional layer or protection. The safest way would still be to contact the repositories' maintainers directly.
+
+
+### hosts.json
+
+
+This special target file is used to provide hosting information. It contains mappings of domains and authentication repositories whose content (or more precisely, content of whose target repositories) should be served through them. The framework does not actually
+handle servers configuration - it just extracts host information from the `hosts.json` file and makes it easier to consume this data later on (starting with version `0.9.0`). This is an example of `hosts.json`:
+
+
+```
+{
+   "some_domain.org": {
+      "auth_repos": {
+         "jurisdiction1/law": {}
+      },
+      "custom": {
+         "subdomains": {
+            "development": {},
+            "preview: {},
+         }
+      }
+   },
+   "another_domain.org": {
+      "auth_repos": {
+      "jurisdiction2/law": {}
+      },
+      "custom": {
+         "subdomains": {
+            "development": {},
+            "preview: {},
+         }
+      }
+   }
+}
+```
+
+#### Scripts
+
+Every authentication repository can contain target files inside `targets/scripts` folder which are expected to be Python scripts which will be executed after successful/failed update of that repository. Scripts can also be defined on a host level - will be executed after update of all repositories belonging to that host.
+
+If a repository was successfully pulled and updated, `changed`, `succeeded` and
+`completed` handlers will be called. If there were no new changes, `unchanged`,
+`succeeded` and `completed` will be executed. If the update failed, `failed` and
+`completed` handlers will be invoked. Scripts are linked to the mentioned events by being
+put into a folder of the corresponding name in side `targets/scripts`. Each folder can
+contain an arbitrary number of scripts and they will be called in alphabetical order.
+Here is a sketch of the `scriprs` folder:
+```
+/scripts
+    /repo
+      /succeeded - every time a repo is successfully pulled
+      /changed
+      /unchanged
+      /failed - every time a repo is not successfully pulled
+      /completed  - like finally (called in both cases)
+    /host
+      /succeeded - once for each host, after host's repositories have been successfully pulled
+      /changed
+      /unchanged
+      /failed - if one repository failed
+      /completed  - like finally (called in both cases)
+```
+
+Each script is expected to return a json containing persistent and transient data. Persistent data will automatically be saved to a file called `persistent.json` after every execution and passed to the next script, while the transient data will be passed to the next script without being stored anywhere. In addition to transient and persistent data, scripts receive information about repositories (both the auth repo and its target repositories), as well as about the update.
 
 ### Creation and update of metadata files
 

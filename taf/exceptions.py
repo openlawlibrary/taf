@@ -11,7 +11,7 @@ class TAFError(Exception):
 class CloneRepoException(TAFError):
     def __init__(self, repo):
         self.message = (
-            f"Cannot clone {repo.name} from any of the following URLs: {repo.repo_urls}"
+            f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
         )
 
 
@@ -52,6 +52,14 @@ class InvalidKeyError(TAFError):
         )
 
 
+class MissingHostsError(TAFError):
+    pass
+
+
+class InvalidHostsError(TAFError):
+    pass
+
+
 class InvalidOrMissingMetadataError(TAFError):
     pass
 
@@ -69,6 +77,16 @@ class RepositoryInstantiationError(TAFError):
         super().__init__(f"Could not instantiate repository {repo_path}\n\n: {message}")
         self.repo_path = repo_path
         self.message = message
+
+
+class ScriptExecutionError(TAFError):
+    def __init__(self, script, error_msg):
+        message = (
+            f"An error happened during execution of script {script}:\n\n: {error_msg}"
+        )
+        super().__init__(message)
+        self.message = message
+        self.script = script
 
 
 class MetadataUpdateError(TAFError):

@@ -63,6 +63,7 @@ setup(
         "cryptography==3.2.1",
         "oll-tuf==0.11.2.dev9",
         "loguru==0.4.0",
+        "jsonschema==3.2.0",
     ],
     extras_require={
         "ci": ci_require,
@@ -72,7 +73,10 @@ setup(
     },
     tests_require=tests_require,
     entry_points={
-        "console_scripts": ["taf = taf.tools.cli:main"],
+        "console_scripts": [
+            "taf = taf.tools.cli.taf:main",
+            "olc = taf.tools.cli.olc:main",
+        ],
         "pytest11": ["taf_yubikey_utils = taf.tests.yubikey_utils"],
     },
     classifiers=[

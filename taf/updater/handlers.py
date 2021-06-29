@@ -10,7 +10,7 @@ import tuf.client.handlers as handlers
 from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
-from taf.auth_repo import AuthenticationRepo, NamedAuthenticationRepo
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.utils import on_rm_error
@@ -92,22 +92,14 @@ class GitUpdater(handlers.MetadataUpdater):
         self.metadata_path = mirrors["mirror1"]["metadata_path"]
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
-        if settings.validate_repo_name:
-            self.users_auth_repo = NamedAuthenticationRepo(
-                repository_directory,
-                repository_name,
-                repo_urls=[auth_url],
-                conf_directory_root=conf_directory_root,
-            )
-        else:
-            users_repo_path = Path(repository_directory, repository_name)
-            self.users_auth_repo = AuthenticationRepo(
-                str(users_repo_path),
-                self.metadata_path,
-                self.targets_path,
-                repo_urls=[auth_url],
-                conf_directory_root=conf_directory_root,
-            )
+        default_branch = settings.default_branch
+        self.users_auth_repo = AuthenticationRepository(
+            repository_directory,
+            repository_name,
+            default_branch=default_branch,
+            urls=[auth_url],
+            conf_directory_root=conf_directory_root,
+        )
 
         self._clone_validation_repo(auth_url)
         repository_directory = Path(self.users_auth_repo.path)
@@ -127,7 +119,13 @@ class GitUpdater(handlers.MetadataUpdater):
         # located on the users machine which needs to be updated
         self.repository_directory = str(repository_directory)
 
-        self._init_metadata()
+        try:
+            self._init_metadata()
+        except Exception:
+            self.cleanup()
+            raise UpdateFailedError(
+                "Could not load metadata. Check if the URL and filesystem paths are correct."
+            )
 
     def _init_commits(self):
         """
@@ -175,7 +173,9 @@ class GitUpdater(handlers.MetadataUpdater):
             users_head_sha = last_validated_commit
         else:
             if last_validated_commit is not None:
-                users_head_sha = self.users_auth_repo.top_commit_of_branch("master")
+                users_head_sha = self.users_auth_repo.top_commit_of_branch(
+                    self.users_auth_repo.default_branch
+                )
             else:
                 # if the user's repository exists, but there is no last_validated_commit
                 # start the update from the beginning
@@ -191,8 +191,8 @@ class GitUpdater(handlers.MetadataUpdater):
             # user's head sha.
             # For now, we will raise an error
             msg = (
-                f"Saved last validated commit {last_validated_commit} does not match the head"
-                f" commit of the authentication repository {users_head_sha}"
+                f"Saved last validated commit {last_validated_commit} of repository {self.users_auth_repo.name} "
+                f"does not match the current head commit {users_head_sha}"
             )
             taf_logger.error(msg)
             raise UpdateFailedError(msg)
@@ -247,7 +247,7 @@ class GitUpdater(handlers.MetadataUpdater):
         """
         temp_dir = tempfile.mkdtemp()
         path = Path(temp_dir, self.users_auth_repo.name).absolute()
-        self.validation_auth_repo = GitRepository(path=path, repo_urls=[url])
+        self.validation_auth_repo = GitRepository(path=path, urls=[url])
         self.validation_auth_repo.clone(bare=True)
         self.validation_auth_repo.fetch(fetch_all=True)
 

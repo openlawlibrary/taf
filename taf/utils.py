@@ -1,8 +1,12 @@
+import errno
 import datetime
 import json
 import os
 import stat
 import subprocess
+import tempfile
+import shutil
+import uuid
 from getpass import getpass
 from pathlib import Path
 from cryptography import x509
@@ -11,7 +15,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
     load_pem_private_key,
 )
-
+from json import JSONDecoder
 import click
 import taf.settings
 from taf.exceptions import PINMissmatchError
@@ -99,6 +103,26 @@ def get_pin_for(name, confirm=True, repeat=True):
     return pin
 
 
+def extract_json_objects_from_trusted_stdout(text, decoder=JSONDecoder()):
+    """Find JSON objects in text, and yield the decoded JSON data
+
+    Does not attempt to look for JSON arrays, text, or other JSON types outside
+    of a parent JSON object.
+
+    """
+    pos = 0
+    while True:
+        match = text.find("{", pos)
+        if match == -1:
+            break
+        try:
+            result, index = decoder.raw_decode(text[match:])
+            yield result
+            pos = match + index
+        except ValueError:
+            pos = match + 1
+
+
 def read_input_dict(value):
     if value is None:
         return {}
@@ -128,6 +152,7 @@ def run(*command, **kwargs):
     """
     # Skip decoding
     raw = kwargs.pop("raw", False)
+    data = kwargs.pop("input", None)
 
     if len(command) == 1 and isinstance(command[0], str):
         command = command[0].split()
@@ -146,6 +171,8 @@ def run(*command, **kwargs):
         options = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
         if not raw:
             options.update(universal_newlines=True)
+        if data is not None:
+            options.update(input=data)
 
         options.update(kwargs)
         completed = subprocess.run(command, **options)
@@ -155,9 +182,10 @@ def run(*command, **kwargs):
         if err.stderr:
             taf_logger.debug(err.stderr)
         taf_logger.debug(
-            "Command {} returned non-zero exit status {}",
+            "Command {} returned non-zero exit status {} with output {}",
             " ".join(command),
             err.returncode,
+            err.output,
         )
         raise err
 
@@ -195,6 +223,59 @@ def on_rm_error(_func, path, _exc_info):
     """
     os.chmod(path, stat.S_IWRITE)
     os.unlink(path)
+
+
+def safely_save_json_to_disk(data, permanent_path):
+    tfile = tempfile.NamedTemporaryFile(mode="w+t", delete=False)
+    if data is not None:
+        json.dump(data, tfile, indent=4)
+    else:
+        Path(permanent_path).write_text("")
+
+    temp_file_path = tfile.name
+    tfile.close()
+    safely_move_file(temp_file_path, permanent_path, overwrite=True)
+
+
+def safely_move_file(src, dst, overwrite=False):
+    """Rename a file from ``src`` to ``dst``.
+
+    *   Moves must be atomic.  ``shutil.move()`` is not atomic.
+        Note that multiple threads may try to write to the cache at once,
+        so atomicity is required to ensure the serving on one thread doesn't
+        pick up a partially saved image from another thread.
+
+    *   Moves must work across filesystems.  Often temp directories and the
+        cache directories live on different filesystems.  ``os.rename()`` can
+        throw errors if run across filesystems.
+
+    So we try ``os.rename()``, but if we detect a cross-filesystem copy, we
+    switch to ``shutil.move()`` with some wrappers to make it atomic.
+    https://alexwlchan.net/2019/03/atomic-cross-filesystem-moves-in-python/
+    MIT licensed.
+    """
+    src = str(src)
+    dst = str(dst)
+    if overwrite and os.path.isfile(dst):
+        os.remove(dst)
+    try:
+        os.rename(src, dst)
+    except OSError as err:
+        if err.errno == errno.EXDEV:
+            # Generate a unique ID, and copy `<src>` to the target directory
+            # with a temporary name `<dst>.<ID>.tmp`.  Because we're copying
+            # across a filesystem boundary, this initial copy may not be
+            # atomic.  We intersperse a random UUID so if different processes
+            # are copying into `<dst>`, they don't overlap in their tmp copies.
+            copy_id = uuid.uuid4()
+            tmp_dst = f"{dst}.{copy_id}.tmp"
+            shutil.copyfile(src, tmp_dst)
+            # Then do an atomic rename onto the new name, and clean up the
+            # source image.
+            os.rename(tmp_dst, dst)
+            os.unlink(src)
+        else:
+            raise
 
 
 def to_tuf_datetime_format(start_date, interval):

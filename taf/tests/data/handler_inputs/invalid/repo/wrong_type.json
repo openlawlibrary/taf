@@ -1,0 +1,232 @@
+{
+    "update": {
+        "changed": false,
+        "event": "event/succeeded",
+        "repo_name": "cityofsanmateo/law",
+        "error_msg": "",
+        "auth_repo": {
+            "data": {
+                "library_dir": "E:\\oll\\library\\test-update",
+                "name": "cityofsanmateo/law",
+                "urls": [
+                    "http://github.com/oll-test-repos/cityofsanmateo-law"
+                ],
+                "default_branch": "master",
+                "custom": {},
+                "conf_directory_root": false,
+                "out_of_band_authentication": null,
+                "hosts": {
+                    "sanmateo.ca.us.open.law.vagrant": {
+                        "custom": {
+                            "subdomains": {
+                                "development": {
+                                    "cityofsanmateo/law-html": {
+                                        "repo-name": "cityofsanmateo/law-html-development"
+                                    }
+                                },
+                                "preview": {
+                                    "cityofsanmateo/law-xml-codified": {
+                                        "repo-name": "cityofsanmateo/law-html-preview"
+                                    },
+                                    "cityofsanmateo/law-html": {
+                                        "repo-name": "cityofsanmateo/law-html-preview",
+                                        "pull": "authenticated"
+                                    },
+                                    "cityofsanmateo/law-docs": {
+                                        "repo-name": "cityofsanmateo/law-docs-preview",
+                                        "pull": "latest"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "commits": {
+                "before_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938",
+                "new": [],
+                "after_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938"
+            }
+        },
+        "target_repos": {
+            "cityofsanmateo/law-docs": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-docs",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-docs"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "allow-unauthenticated-commits": true,
+                        "serve": "latest",
+                        "location_regex": "~/.*\\.pdf$"
+                    }
+                },
+                "commits": {
+                    "master": {
+                        "before_pull": {
+                            "commit": "6c881650b89853abc49587178ce4238cda4cc404",
+                            "custom": {
+                                "build-date": "2020-11-13"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "6c881650b89853abc49587178ce4238cda4cc404",
+                            "custom": {
+                                "build-date": "2020-11-13"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "cityofsanmateo/law-xml": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-xml",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-xml"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "type": "xml",
+                        "allow-unauthenticated-commits": true,
+                        "serve": "latest",
+                        "serve-prefix": "_uncodified_xml"
+                    }
+                },
+                "commits": {
+                    "master": {
+                        "before_pull": {
+                            "commit": "a7dec03e056cde62070cc798ac2a4d4ec5271a47",
+                            "custom": {
+                                "build-date": "2021-04-12"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "a7dec03e056cde62070cc798ac2a4d4ec5271a47",
+                            "custom": {
+                                "build-date": "2021-04-12"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "cityofsanmateo/law-html": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-html",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-html"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "preview": "https://github.com/oll-test-repos/cityofsanmateo-law-html-preview.git",
+                        "type": "html",
+                        "serve": "historical",
+                        "location_regex": "/"
+                    }
+                },
+                "commits": {
+                    "publication/2021-04-12": {
+                        "before_pull": {
+                            "commit": "c4eecc0593a2d8b008a2fa25ccb3021a2e1cf43d",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "c4eecc0593a2d8b008a2fa25ccb3021a2e1cf43d",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "cityofsanmateo/law-xml-codified": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "cityofsanmateo/law-xml-codified",
+                    "urls": [
+                        "http://github.com/oll-test-repos/cityofsanmateo-law-xml-codified"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "preview": "https://github.com/oll-test-repos/cityofsanmateo-law-xml-codified-preview.git",
+                        "type": "xml-codified",
+                        "serve": "historical",
+                        "serve-prefix": "_xml"
+                    }
+                },
+                "commits": {
+                    "publication/2021-04-12": {
+                        "before_pull": {
+                            "commit": "8e0a1d98bec503f7e0e6b6f46c7b267bc804c21b",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "8e0a1d98bec503f7e0e6b6f46c7b267bc804c21b",
+                            "custom": {
+                                "build-date": "2021-04-12",
+                                "codified-date": "2021-01-01"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            },
+            "openlawlibrary/law-static-assets": {
+                "repo_data": {
+                    "library_dir": "E:\\oll\\library\\test-update",
+                    "name": "openlawlibrary/law-static-assets",
+                    "urls": [
+                        "http://github.com/oll-test-repos/openlawlibrary-law-static-assets"
+                    ],
+                    "default_branch": "master",
+                    "custom": {
+                        "type": "static-assets",
+                        "allow-unauthenticated-commits": true,
+                        "serve": "latest",
+                        "location_regex": "~.+(_document|_reader).+$"
+                    }
+                },
+                "commits": {
+                    "master": {
+                        "before_pull": {
+                            "commit": "403070a4bf4091c1b5ad79d4ed6e19b192d4cbce",
+                            "custom": {
+                                "build-date": "2021-05-20"
+                            }
+                        },
+                        "after_pull": {
+                            "commit": "403070a4bf4091c1b5ad79d4ed6e19b192d4cbce",
+                            "custom": {
+                                "build-date": "2021-05-20"
+                            }
+                        },
+                        "new": [],
+                        "unauthenticated": []
+                    }
+                }
+            }
+        }
+    },
+    "state": {
+        "transient": {},
+        "persistent": {}
+    },
+    "config": {}
+}

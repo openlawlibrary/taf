@@ -18,8 +18,8 @@ def validate_branch(
     """
     Validates corresponding branches of the authentication repository
     and the target repositories. Assumes that:
-    1. Commits of the target repositories' branches are merged into the default (master) branch
-    2. Commits of the authentication repository are not merged into the default (master) branch
+    1. Commits of the target repositories' branches are merged into the default (main) branch
+    2. Commits of the authentication repository are not merged into the default (main) branch
     directly - fresh timestamp and snapshot are generated.
     Checks if:
     1. For each target repository, a commit sha of each commit of the specified branch matches
