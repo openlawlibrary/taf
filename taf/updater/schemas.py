@@ -56,7 +56,7 @@ auth_repo_schema = {
     "properties": {
         "data": {
             "description": "All properties of the authentication repository. Can be used to instantiate the AuthenticationRepository",
-            "title": "Authentication Repository",
+            "title": "Auth Repo",
             "type": "object",
             "allOf": [{"$ref": "#/definitions/repo_data"}],
             "properties": {
@@ -71,7 +71,7 @@ auth_repo_schema = {
                     "type": "string",
                 },
                 "out_of_band_authentication": {
-                    "title": "Out of Banch Authentication",
+                    "title": "Out of Band Authentication",
                     "description": "Commit used to check the authentication repository's validity. Supposed to be uqual to the first commit",
                     "type": ["string", "null"],
                 },
