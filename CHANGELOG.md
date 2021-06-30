@@ -17,15 +17,34 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+## [0.9.0] - 06/30/2021
+
+### Added
+
+- Initial support for executing handlers. Handlers are scripts contained by auth repos which can be used to execute some code after successful/failed update of a repository and/or a host. ([164])
+- Implemented delegation of auth repositories - an auth repository can reference others by defining a special target file `dependencies.json`. Updater will pull all referenced repositories. ([164])
+- Provided a way of specifying hosts of repositories though a special target file called `hosts.json` ([164])
+- Verification of the initial commit of a repository given `out-of-band-authentication` commit either directly passed into the udater or stored in `dependencies.json` of the parent auth repo. ([164])
+
+
+### Changed
+
+- Renamed `repo_name` and `repo_urls` attributes to `name` and `urls` and `additional_info` to `custom` ([164])
+- Reworked repository classes ([164])
+- Transition from TravisCI to Github Actions ([173])
+
+### Fixed
+
+
+[173]: https://github.com/openlawlibrary/taf/pull/173
+[164]: https://github.com/openlawlibrary/taf/pull/164
+
+
 ## [0.8.1] - 04/14/2021
 
 ### Added
 
 - Added a command for checking validity of the inserted YubiKey's pin ([165])
-- Initial support for executing handlers. Handlers are scripts contained by auth repos which can be used to execute some code after successful/failed update of a repository and/or a host. ([164])
-- Implemented delegation of auth repositories - an auth repository can reference others by defining a special target file `dependencies.json`. Updater will pull all referenced repositories. ([164])
-- Provided a way of specifying hosts of repositories though a special target file called `hosts.json` ([164])
-- Verification of the initial commit of a repository given `out-of-band-authentication` commit either directly passed into the udater or stored in `dependencies.json` of the parent auth repo. ([164])
 - Raise an error if there are additional commits newer than the last authenticated commit if the updater is called with the check-authenticated flag ([161])
 - Added initial worktrees support to the updater ([161])
 - Added support for specifying location of the conf directory ([161])
@@ -34,7 +53,6 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 - Raise keystore error when key not found in keystore directory [166]
-- Renamed `repo_name` and `repo_urls` attributes to `name` and `urls` and `additional_info` to `custom` ([164])
 - Replaced authenticate-test-repo flag with an enum ([161])
 
 ### Fixed
@@ -44,7 +62,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 [166]: https://github.com/openlawlibrary/taf/pull/166
 [165]: https://github.com/openlawlibrary/taf/pull/165
-[164]: https://github.com/openlawlibrary/taf/pull/164
 [161]: https://github.com/openlawlibrary/taf/pull/161
 
 
@@ -418,7 +435,9 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.9.0
+[0.8.1]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.8.1
 [0.8.0]: https://github.com/openlawlibrary/taf/compare/v0.7.2...v.0.8.0
 [0.7.2]: https://github.com/openlawlibrary/taf/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/openlawlibrary/taf/compare/v0.7.0...v0.7.1
