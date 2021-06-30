@@ -3,9 +3,9 @@
 ## Repository handler schema
 
 - [Full schema](./repo-update.schema.json)
-- [Schema documentation](./documentation/repo-update.md)
+- [Schema documentation](./docs/repo-update.md)
 
 ## Host handler schema
 
 - [Full schema](./host-update.schema.json)
-- [Schema documentation](./documentation/host-update.md)
+- [Schema documentation](./docs/host-update.md)
