@@ -8,7 +8,7 @@ repo_update.schema.json#/properties/update/properties/auth_repos/items
 
 | Abstract            | Extensible | Status         | Identifiable | Custom Properties | Additional Properties | Access Restrictions | Defined In                                                                           |
 | :------------------ | :--------- | :------------- | :----------- | :---------------- | :-------------------- | :------------------ | :----------------------------------------------------------------------------------- |
-| Can be instantiated | Yes        | Unknown status | No           | Forbidden         | Forbidden             | none                | [host-update.schema.json*](../../out/host-update.schema.json "open original schema") |
+| Can be instantiated | Yes        | Unknown status | No           | Forbidden         | Forbidden             | none                | [host-update.schema.json*](docs/host-update.schema.json "open original schema") |
 
 ## items Type
 
