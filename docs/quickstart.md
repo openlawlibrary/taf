@@ -95,7 +95,7 @@ dictionaries if these keys should be generated as well.
 
 To set up new YubiKyes, call
 
-`taf yubikey setup_signing_key`
+`taf yubikey setup-signing-key`
 
 WARNING: This command will delete the YubiKey's existing data. New repositories can be created using already set
 up YubiKeys.
@@ -131,18 +131,18 @@ commits differ by more than one!
 ## Update targets
 
 To update authentication repository's target files based on the current state of the target repositories, use one of the two
-`update_repos` commands. If `repositories.json` exists, use the `targets update_repos_from_repositories_json`
-command. If that is not the case, call `targets update_repos_from_fs`. They both iterate through the
-directory where target repositories are located. `update_repos_from_repositories_json` skips all repositories
-which are not listed in `repositories.json`, while `update_repos_from_fs` only skips the authentication
+`update-repos` commands. If `repositories.json` exists, use the `targets update-repos-from-repositories-json`
+command. If that is not the case, call `targets update-repos-from-fs`. They both iterate through the
+directory where target repositories are located. `update-repos-from-repositories-json` skips all repositories
+which are not listed in `repositories.json`, while `update-repos-from-fs` only skips the authentication
 repository if it is inside the same directory as the the target repositories.
 
 ```bash
-taf targets update_repos_from_fs auth_path --root-dir library_dir_path --namespace namespace --add-branch
+taf targets update-repos-from-fs auth_path --root-dir library_dir_path --namespace namespace --add-branch
 ```
 
 ```bash
-taf targets update_repos_from_repositories_json auth_path --root-dir library_dir_path --namespace namespace --add-branch
+taf targets update-repos-from-repositories-json auth_path --root-dir library_dir_path --namespace namespace --add-branch
 ```
 
 - `root-dir` is the directory which contains the target repositories. Its default value is set to two

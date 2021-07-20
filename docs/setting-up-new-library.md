@@ -283,7 +283,7 @@ WARNING: If you added initial REDME or lincese using the GitHub interface, regis
 
 Next, create or update the target files by running:
 
-`taf targets update_repos_from_repositories_json auth_repo_path --add-branch`
+`taf targets update-repos-from-repositories-json auth_repo_path --add-branch`
 
 This command will analyze `repositories.json`, determine path of all target repositories,
 determine their latest commits and create target files in the auth repo matching the format that the updater expects. Verify that everything looks good and sign the target files by running. If all repositroies are in the same library root directory and have the same namsepace, there is no need to specify additional options. A complete list of options contains:
@@ -318,7 +318,7 @@ For more information about the updater and how to use it, see [the update proces
 By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. The updater will raise an error if the top metadata file has expired. To resign a metadata files, run:
 
 ```bash
-taf metadata update_expiration_date auth_repo_path metadata_name --keystore keystore_path --interval days
+taf metadata update-expiration-date auth_repo_path metadata_name --keystore keystore_path --interval days
 ```
 
 - `metadata_name` represents a metadata file - root, targets, snapshot, timestamp, delegated_targets_role
@@ -331,33 +331,33 @@ taf metadata update_expiration_date auth_repo_path metadata_name --keystore keys
 
 
 ```bash
-taf metadata update_expiration_date auth_repo_path timestamp --keystore keystore_path --interval days
+taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --interval days
 ```
 
 ### snapshot update
 
 
 ```bash
-taf metadata update_expiration_date auth_repo_path snapshot --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_path --inteval days
 ```
 
 ```bash
-taf metadata update_expiration_date auth_repo_path timestamp --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --inteval days
 ```
 
 ### targets update
 
 
 ```bash
-taf metadata update_expiration_date auth_repo_path targets --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path targets --keystore keystore_path --inteval days
 ```
 
 ```bash
-taf metadata update_expiration_date auth_repo_path snapshot --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_path --inteval days
 ```
 
 ```bash
-taf metadata update_expiration_date auth_repo_path timestamp --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --inteval days
 ```
 
 **Don't forget to commit and push the changes**
