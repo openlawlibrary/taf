@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Update click to 7.1 ([176])
+
 
 ### Fixed
 
@@ -36,6 +38,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+[176]: https://github.com/openlawlibrary/taf/pull/176
 [173]: https://github.com/openlawlibrary/taf/pull/173
 [164]: https://github.com/openlawlibrary/taf/pull/164
 
