@@ -13,8 +13,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Update click to 7.1 ([176])
 
+### Fixed
+
+
+## [0.10.0] - 07/20/2021
+
+### Added
+
+
+### Changed
+
+- Update click to 7.1 ([176])
 
 ### Fixed
 
@@ -438,7 +448,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/openlawlibrary/taf/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.8.1
 [0.8.0]: https://github.com/openlawlibrary/taf/compare/v0.7.2...v.0.8.0
