@@ -167,7 +167,7 @@ Commands are separated into several subcommands:
 Here are some of the most important commands. Use the `--help` flag to see more information
 about the commands. E.g. `taf repo create --help`.
 
-### `keystore generate_keys`
+### `keystore generate`
 
 Generates and write rsa keypairs. Number of keys to generate per a metadata role, as well as their
 lengths and passwords of the keystore files are specified using the `keys-description` parameter.
@@ -260,7 +260,7 @@ taf repo validate E:\\root\\namespace\\auth_repo
 taf repo validate E:\\root\\namespace\\auth_repo --from-commit d0d0fafdc9a6b8c6dd8829635698ac75774b8eb3
 ```
 
-### `targets update_repos_from_fs`
+### `targets update-repos-from-fs`
 
 Update target files corresponding to target repositories by traversing through the root
 directory. Does not automatically sign the metadata files.
@@ -300,7 +300,7 @@ E:\OLL\example\namespace
 If we call the command as follows
 
 ```bash
-taf targets update_repos_from_fs E:\\OLL\\examples\\auth_repo --add-branch
+taf targets update-repos-from-fs E:\\OLL\\examples\\auth_repo --add-branch
 ```
 
 there is no need to directly set `namespace` and `library-dir` and  three target files will be created or
@@ -341,13 +341,13 @@ E:\OLL\example
 to get the same end result as in the previous case, the command would be called like this:
 
 ```bash
-taf targets update_repos_from_fs E:\\OLL\\examples\\auth_repo --namespace namespace1 --add-branch
+taf targets update-repos-from-fs E:\\OLL\\examples\\auth_repo --namespace namespace1 --add-branch
 ```
 
 That is because the authentication repository and the target repositories share are in the same
 root directory, but do not have the same namespace.
 
-### `targets update_repos_from_repositories_json`
+### `targets update-repos-from-repositories-json`
 
 This command is very similar to the previous command, but it will only update target files
 corresponding to repositories which are listed in `repositories.json`.
@@ -385,7 +385,7 @@ If the changes should be committed automatically, use the `commit` flag.
 taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --commit
 ```
 
-### `metadata update_expiration_date`
+### `metadata update-expiration-date`
 
 This command updates expiration date of the given role's metadata file. The metadata file
 can be signed by directly entering the key when prompted to do so, by loading the key
@@ -405,7 +405,7 @@ If the changes should be automatically committed, use the `commit` flag.
 For example:
 
 ```bash
-taf metadata update_expiration_date E:\\OLL\\auth_rpeo snapshot --interval 5 --commit
+taf metadata update-expiration-date E:\\OLL\\auth_rpeo snapshot --interval 5 --commit
 ```
 This will set the new expiration date of the snapshot role to 5 days after the current date
 and automatically commit the changes.
