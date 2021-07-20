@@ -7,7 +7,7 @@
 1. `taf repo create ./law --keys-description ./data/keys.json --commit-msg "Generated initial metadata"`
 2. `taf targets update-repos-from-fs ./law --library-dir ./data/targets --namespace test`
 3. `taf targets generate-repositories-json ./law --library-dir ./data/targets --namespace test --custom data/custom_data.json`
-4. `taf targets sign./law`
+4. `taf targets sign ./law`
 5. `taf metadata add-signing-key ./law --role targets`
 
 ### Yubikey + Keystore flow
