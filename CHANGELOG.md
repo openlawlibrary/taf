@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
 
+
+
 ## [Unreleased]
 
 ### Added
@@ -13,8 +15,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Do not raise an error if the hosts file is missing ([177])
 
 ### Fixed
+
+
+[177]: https://github.com/openlawlibrary/taf/pull/177
 
 
 ## [0.10.0] - 07/20/2021
