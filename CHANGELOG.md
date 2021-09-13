@@ -10,12 +10,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added support for skipping automatic checkout ([179])
 
 ### Changed
 
 
 ### Fixed
 
+
+[179]: https://github.com/openlawlibrary/taf/pull/179
 
 ## [0.10.1] - 08/16/2021
 
