@@ -826,7 +826,7 @@ def _update_target_repositories(
                     branch_commits,
                     allow_unauthenticated[path],
                     new_commits[path][branch],
-                    checkout
+                    checkout,
                 )
 
     return additional_commits_per_repo, _set_target_repositories_data(
@@ -885,7 +885,12 @@ def _get_commits(
 
 
 def _merge_branch_commits(
-    repository, branch, branch_commits, allow_unauthenticated, new_branch_commits, checkout=True
+    repository,
+    branch,
+    branch_commits,
+    allow_unauthenticated,
+    new_branch_commits,
+    checkout=True,
 ):
     """Determines which commits needs to be merged into the specified branch and
     merge it.
@@ -901,7 +906,9 @@ def _merge_branch_commits(
     _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated)
 
 
-def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False, checkout=True):
+def _merge_commit(
+    repository, branch, commit_to_merge, allow_unauthenticated=False, checkout=True
+):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
