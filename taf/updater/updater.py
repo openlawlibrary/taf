@@ -130,6 +130,7 @@ def update_repository(
     config_path=None,
     out_of_band_authentication=None,
     scripts_root_dir=None,
+    checkout=True,
 ):
     """
     <Arguments>
@@ -151,6 +152,8 @@ def update_repository(
     target_factory:
         A git repositories factory used when instantiating target repositories.
         See repositoriesdb load_repositories for more details.
+    checkout:
+        Whether to checkout last validated commits after update is done
     """
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
@@ -186,6 +189,7 @@ def update_repository(
             transient_data=transient_data,
             out_of_band_authentication=out_of_band_authentication,
             scripts_root_dir=scripts_root_dir,
+            checkout=checkout,
         )
     except Exception as e:
         root_error = e
@@ -267,6 +271,7 @@ def _update_named_repository(
     transient_data=None,
     out_of_band_authentication=None,
     scripts_root_dir=None,
+    checkout=True,
 ):
     """
     <Arguments>
@@ -343,6 +348,7 @@ def _update_named_repository(
         error_if_unauthenticated,
         conf_directory_root,
         out_of_band_authentication,
+        checkout,
     )
 
     # if commits_data is empty, do not attempt to load the host or dependencies
@@ -406,6 +412,7 @@ def _update_named_repository(
                         transient_data,
                         child_auth_repo.out_of_band_authentication,
                         scripts_root_dir=scripts_root_dir,
+                        checkout=checkout,
                     )
                 except Exception as e:
                     errors.append(str(e))
@@ -428,9 +435,8 @@ def _update_named_repository(
         # all repositories that can be updated will be updated
         if not only_validate and len(commits) and update_status == Event.CHANGED:
             last_commit = commits[-1]
-            taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
             # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(auth_repo, auth_repo.default_branch, last_commit)
+            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, checkout)
             # update the last validated commit
             auth_repo.set_last_validated_commit(last_commit)
 
@@ -477,6 +483,7 @@ def _update_current_repository(
     error_if_unauthenticated,
     conf_directory_root,
     out_of_band_authentication,
+    checkout,
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
@@ -601,6 +608,7 @@ def _update_current_repository(
             last_validated_commit,
             only_validate,
             error_if_unauthenticated,
+            checkout,
         )
     except Exception as e:
         if not existing_repo:
@@ -699,6 +707,7 @@ def _update_target_repositories(
     last_validated_commit,
     only_validate,
     error_if_unauthenticated,
+    checkout,
 ):
     taf_logger.info("Validating target repositories")
     # keep track of the repositories which were cloned
@@ -817,6 +826,7 @@ def _update_target_repositories(
                     branch_commits,
                     allow_unauthenticated[path],
                     new_commits[path][branch],
+                    checkout
                 )
 
     return additional_commits_per_repo, _set_target_repositories_data(
@@ -875,11 +885,13 @@ def _get_commits(
 
 
 def _merge_branch_commits(
-    repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
+    repository, branch, branch_commits, allow_unauthenticated, new_branch_commits, checkout=True
 ):
     """Determines which commits needs to be merged into the specified branch and
     merge it.
     """
+    if not checkout:
+        return
     last_commit = branch_commits[-1]["commit"]
     last_validated_commit = last_commit
     commit_to_merge = (
@@ -889,11 +901,13 @@ def _merge_branch_commits(
     _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated)
 
 
-def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False):
+def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False, checkout=True):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
-    checkout = True
+    if not checkout:
+        return
+    taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError:
