@@ -895,15 +895,13 @@ def _merge_branch_commits(
     """Determines which commits needs to be merged into the specified branch and
     merge it.
     """
-    if not checkout:
-        return
     last_commit = branch_commits[-1]["commit"]
     last_validated_commit = last_commit
     commit_to_merge = (
         last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
     )
     taf_logger.info("Merging {} into {}", commit_to_merge, repository.name)
-    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated)
+    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated, checkout)
 
 
 def _merge_commit(
@@ -912,8 +910,6 @@ def _merge_commit(
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
-    if not checkout:
-        return
     taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
     try:
         repository.checkout_branch(branch, raise_anyway=True)

@@ -285,6 +285,12 @@ class Repository:
         if not self.targets_path.is_dir():
             targets_existed = False
             self.targets_path.mkdir(parents=True, exist_ok=True)
+        current_dir = self.metadata_path / "current"
+        previous_dir = self.metadata_path / "previous"
+        if current_dir.is_dir():
+            shutil.rmtree(current_dir)
+        if previous_dir.is_dir():
+            shutil.rmtree(previous_dir)
         try:
             self._tuf_repository = load_repository(str(path), self.name)
         except RepositoryError:
