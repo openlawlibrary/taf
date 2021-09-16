@@ -632,7 +632,6 @@ def _update_current_repository(
             _commits_ret(commits, existing_repo, False),
             UpdaterAdditionalCommitsError(additional_commits_per_repo),
             {},
-            {},
         )
 
     # commits list will always contain the previous top commit of the repository
@@ -825,6 +824,7 @@ def _update_target_repositories(
                     branch,
                     branch_commits,
                     allow_unauthenticated[path],
+                    additional_commits_per_repo.get(path, {}).get(branch),
                     new_commits[path][branch],
                     checkout,
                 )
@@ -889,13 +889,17 @@ def _merge_branch_commits(
     branch,
     branch_commits,
     allow_unauthenticated,
+    additional_commits,
     new_branch_commits,
     checkout=True,
 ):
     """Determines which commits needs to be merged into the specified branch and
     merge it.
     """
-    last_commit = branch_commits[-1]["commit"]
+    if additional_commits is not None:
+        allow_unauthenticated = False
+    last_commit = branch_commits[-1]['commit']
+
     last_validated_commit = last_commit
     commit_to_merge = (
         last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
@@ -1063,9 +1067,10 @@ def _update_target_repository(
         # pull could've been run manually
         # check where the current local head is
         branch_current_head = repository.top_commit_of_branch(branch)
-        additional_commits = additional_commits[
-            additional_commits.index(branch_current_head) + 1 :
-        ]
+        if branch_current_head in additional_commits:
+            additional_commits = additional_commits[
+                additional_commits.index(branch_current_head) + 1 :
+            ]
 
     return additional_commits
 
