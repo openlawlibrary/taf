@@ -785,6 +785,7 @@ def _update_target_repositories(
                 only_validate,
                 old_head,
                 branch_exists,
+                allow_unauthenticated_for_repo,
             )
             top_commits_of_branches_before_pull.setdefault(path, {})[branch] = old_head
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
@@ -838,13 +839,13 @@ def _update_target_repositories(
 
 
 def _get_commits(
-    repository, existing_repository, branch, only_validate, old_head, branch_exists
+    repository, existing_repository, branch, only_validate, old_head, branch_exists, allow_unauthenticated_commits
 ):
     """Returns a list of newly fetched commits belonging to the specified branch."""
     if existing_repository:
         repository.fetch(branch=branch)
     if old_head is not None:
-        if not only_validate:
+        if not only_validate and not allow_unauthenticated_commits:
             # if the local branch does not exist (the branch was not checked out locally)
             # fetched commits will include already validated commits
             # check which commits are newer that the previous head commit
