@@ -844,18 +844,27 @@ def _get_commits(
     """Returns a list of newly fetched commits belonging to the specified branch."""
     if existing_repository:
         repository.fetch(branch=branch)
+
     if old_head is not None:
-        if not only_validate and not allow_unauthenticated_commits:
-            # if the local branch does not exist (the branch was not checked out locally)
-            # fetched commits will include already validated commits
-            # check which commits are newer that the previous head commit
+        if not only_validate:
             fetched_commits = repository.all_fetched_commits(branch=branch)
-            if old_head in fetched_commits:
-                new_commits_on_repo_branch = fetched_commits[
-                    fetched_commits.index(old_head) + 1 : :
-                ]
+            if not allow_unauthenticated_commits:
+                # if the local branch does not exist (the branch was not checked out locally)
+                # fetched commits will include already validated commits
+                # check which commits are newer that the previous head commit
+                if old_head in fetched_commits:
+                    new_commits_on_repo_branch = fetched_commits[
+                        fetched_commits.index(old_head) + 1 : :
+                    ]
+                else:
+                    new_commits_on_repo_branch = fetched_commits
             else:
-                new_commits_on_repo_branch = fetched_commits
+                new_commits_on_repo_branch = repository.all_commits_since_commit(
+                    old_head, branch
+                )
+                for commit in fetched_commits:
+                    if commit not in new_commits_on_repo_branch:
+                        new_commits_on_repo_branch.extend(fetched_commits)
         else:
             new_commits_on_repo_branch = repository.all_commits_since_commit(
                 old_head, branch
