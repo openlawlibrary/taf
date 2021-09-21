@@ -350,12 +350,11 @@ class GitRepository:
                 # finally, check remote branch
                 if self.has_remote():
                     return (
-                        self._git(
+                        branch_name in self._git(
                             f"ls-remote --heads origin {branch_name}",
                             log_error_msg=f"Repo {self.name}: could check if the branch exists in the remote repository",
                             reraise_error=True,
                         )
-                        != ""
                     )
 
         return False
@@ -420,7 +419,6 @@ class GitRepository:
         self._git("clean -fd")
 
     def clone(self, no_checkout=False, bare=False, **kwargs):
-
         self._log_info("cloning repository")
         shutil.rmtree(self.path, True)
         self.path.mkdir(exist_ok=True, parents=True)
