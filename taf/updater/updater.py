@@ -733,7 +733,7 @@ def _update_target_repositories(
             cloned_repositories.append(repository)
 
         # if no commits were published, repositories_branches_and_commits will be empty
-        # if unauthenticared commits are allow, we also want to check if there are
+        # if unauthenticared commits are allowed, we also want to check if there are
         # new commits which
         # only check the default branch
         if (
@@ -775,6 +775,18 @@ def _update_target_repositories(
                 # of the authentication repository's master branch at the time
                 # of update's invocation
                 old_head = repo_branch_commits[0]
+                if not allow_unauthenticated_for_repo:
+                    repo_old_head = repository.top_commit_of_branch(branch)
+                    if repo_old_head != old_head:
+                        taf_logger.error(
+                            "Mismatch between commits {} and {}",
+                            old_head,
+                            repo_old_head,
+                        )
+                        raise UpdateFailedError(
+                            "Mismatch between target commits specified in authentication repository"
+                            f" and target repository {repository.name} on branch {branch}"
+                        )
 
             # the repository was cloned if it didn't exist
             # if it wasn't cloned, fetch the current branch
@@ -839,7 +851,13 @@ def _update_target_repositories(
 
 
 def _get_commits(
-    repository, existing_repository, branch, only_validate, old_head, branch_exists, allow_unauthenticated_commits
+    repository,
+    existing_repository,
+    branch,
+    only_validate,
+    old_head,
+    branch_exists,
+    allow_unauthenticated_commits,
 ):
     """Returns a list of newly fetched commits belonging to the specified branch."""
     if existing_repository:
@@ -908,7 +926,7 @@ def _merge_branch_commits(
     """
     if additional_commits is not None:
         allow_unauthenticated = False
-    last_commit = branch_commits[-1]['commit']
+    last_commit = branch_commits[-1]["commit"]
 
     last_validated_commit = last_commit
     commit_to_merge = (
@@ -1067,7 +1085,7 @@ def _update_target_repository(
         )
         raise UpdateFailedError(
             "Mismatch between target commits specified in authentication repository"
-            f" and target repository {repository.name}"
+            f" and target repository {repository.name} on branch {branch}"
         )
     taf_logger.info("Successfully validated {}", repository.name)
 
