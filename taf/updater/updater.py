@@ -130,6 +130,7 @@ def update_repository(
     config_path=None,
     out_of_band_authentication=None,
     scripts_root_dir=None,
+    checkout=True,
 ):
     """
     <Arguments>
@@ -151,6 +152,8 @@ def update_repository(
     target_factory:
         A git repositories factory used when instantiating target repositories.
         See repositoriesdb load_repositories for more details.
+    checkout:
+        Whether to checkout last validated commits after update is done
     """
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
@@ -186,6 +189,7 @@ def update_repository(
             transient_data=transient_data,
             out_of_band_authentication=out_of_band_authentication,
             scripts_root_dir=scripts_root_dir,
+            checkout=checkout,
         )
     except Exception as e:
         root_error = e
@@ -267,6 +271,7 @@ def _update_named_repository(
     transient_data=None,
     out_of_band_authentication=None,
     scripts_root_dir=None,
+    checkout=True,
 ):
     """
     <Arguments>
@@ -343,6 +348,7 @@ def _update_named_repository(
         error_if_unauthenticated,
         conf_directory_root,
         out_of_band_authentication,
+        checkout,
     )
 
     # if commits_data is empty, do not attempt to load the host or dependencies
@@ -406,6 +412,7 @@ def _update_named_repository(
                         transient_data,
                         child_auth_repo.out_of_band_authentication,
                         scripts_root_dir=scripts_root_dir,
+                        checkout=checkout,
                     )
                 except Exception as e:
                     errors.append(str(e))
@@ -428,9 +435,8 @@ def _update_named_repository(
         # all repositories that can be updated will be updated
         if not only_validate and len(commits) and update_status == Event.CHANGED:
             last_commit = commits[-1]
-            taf_logger.info("Merging commit {} into {}", last_commit, auth_repo.name)
             # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(auth_repo, auth_repo.default_branch, last_commit)
+            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, checkout)
             # update the last validated commit
             auth_repo.set_last_validated_commit(last_commit)
 
@@ -477,6 +483,7 @@ def _update_current_repository(
     error_if_unauthenticated,
     conf_directory_root,
     out_of_band_authentication,
+    checkout,
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
@@ -601,6 +608,7 @@ def _update_current_repository(
             last_validated_commit,
             only_validate,
             error_if_unauthenticated,
+            checkout,
         )
     except Exception as e:
         if not existing_repo:
@@ -623,7 +631,6 @@ def _update_current_repository(
             users_auth_repo,
             _commits_ret(commits, existing_repo, False),
             UpdaterAdditionalCommitsError(additional_commits_per_repo),
-            {},
             {},
         )
 
@@ -699,6 +706,7 @@ def _update_target_repositories(
     last_validated_commit,
     only_validate,
     error_if_unauthenticated,
+    checkout,
 ):
     taf_logger.info("Validating target repositories")
     # keep track of the repositories which were cloned
@@ -725,7 +733,7 @@ def _update_target_repositories(
             cloned_repositories.append(repository)
 
         # if no commits were published, repositories_branches_and_commits will be empty
-        # if unauthenticared commits are allow, we also want to check if there are
+        # if unauthenticared commits are allowed, we also want to check if there are
         # new commits which
         # only check the default branch
         if (
@@ -767,6 +775,18 @@ def _update_target_repositories(
                 # of the authentication repository's master branch at the time
                 # of update's invocation
                 old_head = repo_branch_commits[0]
+                if not allow_unauthenticated_for_repo:
+                    repo_old_head = repository.top_commit_of_branch(branch)
+                    if repo_old_head != old_head:
+                        taf_logger.error(
+                            "Mismatch between commits {} and {}",
+                            old_head,
+                            repo_old_head,
+                        )
+                        raise UpdateFailedError(
+                            "Mismatch between target commits specified in authentication repository"
+                            f" and target repository {repository.name} on branch {branch}"
+                        )
 
             # the repository was cloned if it didn't exist
             # if it wasn't cloned, fetch the current branch
@@ -777,6 +797,7 @@ def _update_target_repositories(
                 only_validate,
                 old_head,
                 branch_exists,
+                allow_unauthenticated_for_repo,
             )
             top_commits_of_branches_before_pull.setdefault(path, {})[branch] = old_head
             new_commits[path].setdefault(branch, []).extend(new_commits_on_repo_branch)
@@ -816,7 +837,9 @@ def _update_target_repositories(
                     branch,
                     branch_commits,
                     allow_unauthenticated[path],
+                    additional_commits_per_repo.get(path, {}).get(branch),
                     new_commits[path][branch],
+                    checkout,
                 )
 
     return additional_commits_per_repo, _set_target_repositories_data(
@@ -828,23 +851,38 @@ def _update_target_repositories(
 
 
 def _get_commits(
-    repository, existing_repository, branch, only_validate, old_head, branch_exists
+    repository,
+    existing_repository,
+    branch,
+    only_validate,
+    old_head,
+    branch_exists,
+    allow_unauthenticated_commits,
 ):
     """Returns a list of newly fetched commits belonging to the specified branch."""
     if existing_repository:
         repository.fetch(branch=branch)
+
     if old_head is not None:
         if not only_validate:
-            # if the local branch does not exist (the branch was not checked out locally)
-            # fetched commits will include already validated commits
-            # check which commits are newer that the previous head commit
             fetched_commits = repository.all_fetched_commits(branch=branch)
-            if old_head in fetched_commits:
-                new_commits_on_repo_branch = fetched_commits[
-                    fetched_commits.index(old_head) + 1 : :
-                ]
+            if not allow_unauthenticated_commits:
+                # if the local branch does not exist (the branch was not checked out locally)
+                # fetched commits will include already validated commits
+                # check which commits are newer that the previous head commit
+                if old_head in fetched_commits:
+                    new_commits_on_repo_branch = fetched_commits[
+                        fetched_commits.index(old_head) + 1 : :
+                    ]
+                else:
+                    new_commits_on_repo_branch = fetched_commits
             else:
-                new_commits_on_repo_branch = fetched_commits
+                new_commits_on_repo_branch = repository.all_commits_since_commit(
+                    old_head, branch
+                )
+                for commit in fetched_commits:
+                    if commit not in new_commits_on_repo_branch:
+                        new_commits_on_repo_branch.extend(fetched_commits)
         else:
             new_commits_on_repo_branch = repository.all_commits_since_commit(
                 old_head, branch
@@ -875,25 +913,36 @@ def _get_commits(
 
 
 def _merge_branch_commits(
-    repository, branch, branch_commits, allow_unauthenticated, new_branch_commits
+    repository,
+    branch,
+    branch_commits,
+    allow_unauthenticated,
+    additional_commits,
+    new_branch_commits,
+    checkout=True,
 ):
     """Determines which commits needs to be merged into the specified branch and
     merge it.
     """
+    if additional_commits is not None:
+        allow_unauthenticated = False
     last_commit = branch_commits[-1]["commit"]
+
     last_validated_commit = last_commit
     commit_to_merge = (
         last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
     )
     taf_logger.info("Merging {} into {}", commit_to_merge, repository.name)
-    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated)
+    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated, checkout)
 
 
-def _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated=False):
+def _merge_commit(
+    repository, branch, commit_to_merge, allow_unauthenticated=False, checkout=True
+):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
-    checkout = True
+    taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError:
@@ -1036,7 +1085,7 @@ def _update_target_repository(
         )
         raise UpdateFailedError(
             "Mismatch between target commits specified in authentication repository"
-            f" and target repository {repository.name}"
+            f" and target repository {repository.name} on branch {branch}"
         )
     taf_logger.info("Successfully validated {}", repository.name)
 
@@ -1046,9 +1095,10 @@ def _update_target_repository(
         # pull could've been run manually
         # check where the current local head is
         branch_current_head = repository.top_commit_of_branch(branch)
-        additional_commits = additional_commits[
-            additional_commits.index(branch_current_head) + 1 :
-        ]
+        if branch_current_head in additional_commits:
+            additional_commits = additional_commits[
+                additional_commits.index(branch_current_head) + 1 :
+            ]
 
     return additional_commits
 

@@ -10,12 +10,22 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added support for skipping automatic checkout ([179])
 
 ### Changed
+
+- Compare current head commit according to the auth repo and top commit of target repo and raise an error if they are different ([179])
 
 
 ### Fixed
 
+- Automatically remove current and previous directories if they exist before instantiating tuf repo ([179])
+- Fixed branch exists check. Avoid wrongly returning true if there is a warning ([179])
+- Fixed update of repos which can contain unauhtenticated commits - combine fetched and existing commits ([179])
+- Fixed handling of additional commits on a branch ([179])
+
+
+[179]: https://github.com/openlawlibrary/taf/pull/179
 
 ## [0.10.1] - 08/16/2021
 
