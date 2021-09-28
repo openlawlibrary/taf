@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
+### Changed
+
+
+### Fixed
+
+
+## [0.11.0] - 09/28/2021
+
+
+### Added
+
 - Added support for skipping automatic checkout ([179])
 
 ### Changed
@@ -473,8 +485,9 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.10.1...HEAD
-[0.10.0]: https://github.com/openlawlibrary/taf/compare/v0.10.0...v0.10.1
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/openlawlibrary/taf/compare/v0.10.1...v0.11.0
+[0.10.1]: https://github.com/openlawlibrary/taf/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/openlawlibrary/taf/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.8.1
