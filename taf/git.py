@@ -349,12 +349,10 @@ class GitRepository:
 
                 # finally, check remote branch
                 if self.has_remote():
-                    return (
-                        branch_name in self._git(
-                            f"ls-remote --heads origin {branch_name}",
-                            log_error_msg=f"Repo {self.name}: could check if the branch exists in the remote repository",
-                            reraise_error=True,
-                        )
+                    return branch_name in self._git(
+                        f"ls-remote --heads origin {branch_name}",
+                        log_error_msg=f"Repo {self.name}: could check if the branch exists in the remote repository",
+                        reraise_error=True,
                     )
 
         return False
@@ -877,7 +875,7 @@ class GitRepository:
         return self._git(f"rev-parse {branch}")
 
     def _validate_repo_name(self, name):
-        """ Ensure the repo name is not malicious """
+        """Ensure the repo name is not malicious"""
         match = _repo_name_re.match(name)
         if not match:
             taf_logger.error(f"Repository name {name} is not valid")
@@ -909,7 +907,7 @@ class GitRepository:
         return repo_dir
 
     def _validate_url(self, url):
-        """ ensure valid URL """
+        """ensure valid URL"""
         for _url_re in [_http_fttp_url, _ssh_url]:
             match = _url_re.match(url)
             if match:
