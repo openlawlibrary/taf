@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
 
+
 ## [Unreleased]
 
 ### Added
@@ -15,6 +16,20 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 ### Fixed
+
+
+## [0.11.1] - 09/29/2021
+
+### Added
+
+
+### Changed
+
+- Removed generate schema docs due to their long names causing issues on Windows when installing taf ([181])
+
+### Fixed
+
+[181]: https://github.com/openlawlibrary/taf/pull/181
 
 
 ## [0.11.0] - 09/28/2021
@@ -485,7 +500,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/openlawlibrary/taf/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/openlawlibrary/taf/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/openlawlibrary/taf/compare/v0.9.0...v0.10.0
