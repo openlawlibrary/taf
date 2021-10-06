@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix validate local repo command ([183])
+
+
+[183] https://github.com/openlawlibrary/taf/pull/183
+
 
 ## [0.11.2] - 09/29/2021
 
