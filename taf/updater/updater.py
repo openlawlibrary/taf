@@ -709,7 +709,6 @@ def _update_target_repositories(
     additional_commits_per_repo = {}
     top_commits_of_branches_before_pull = {}
     for path, repository in repositories.items():
-        import pdb; pdb.set_trace()
         taf_logger.info("Validating repository {}", repository.name)
         allow_unauthenticated_for_repo = repository.custom.get(
             "allow-unauthenticated-commits", False
