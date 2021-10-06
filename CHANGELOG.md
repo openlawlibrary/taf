@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
 
+
 ## [Unreleased]
 
 ### Added
@@ -16,6 +17,56 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+## [0.11.2] - 09/29/2021
+
+### Added
+
+
+### Changed
+
+- Exclude test date from wheels ([182])
+
+### Fixed
+
+[182]: https://github.com/openlawlibrary/taf/pull/182
+
+
+## [0.11.1] - 09/29/2021
+
+### Added
+
+
+### Changed
+
+- Removed generate schema docs due to their long names causing issues on Windows when installing taf ([181])
+
+### Fixed
+
+[181]: https://github.com/openlawlibrary/taf/pull/181
+
+
+## [0.11.0] - 09/28/2021
+
+
+### Added
+
+- Added support for skipping automatic checkout ([179])
+
+### Changed
+
+- Compare current head commit according to the auth repo and top commit of target repo and raise an error if they are different ([179])
+
+
+### Fixed
+
+- Automatically remove current and previous directories if they exist before instantiating tuf repo ([179])
+- Fixed branch exists check. Avoid wrongly returning true if there is a warning ([179])
+- Fixed update of repos which can contain unauhtenticated commits - combine fetched and existing commits ([179])
+- Fixed handling of additional commits on a branch ([179])
+
+
+[179]: https://github.com/openlawlibrary/taf/pull/179
 
 ## [0.10.1] - 08/16/2021
 
@@ -463,8 +514,11 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.10.1...HEAD
-[0.10.0]: https://github.com/openlawlibrary/taf/compare/v0.10.0...v0.10.1
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.11.2...HEAD
+[0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.1...v0.11.2
+[0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.0...v0.11.1
+[0.11.0]: https://github.com/openlawlibrary/taf/compare/v0.10.1...v0.11.0
+[0.10.1]: https://github.com/openlawlibrary/taf/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/openlawlibrary/taf/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/openlawlibrary/taf/compare/v0.8.1...v0.8.1
