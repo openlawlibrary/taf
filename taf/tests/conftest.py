@@ -6,7 +6,7 @@ from pathlib import Path
 import taf.repository_tool as repository_tool
 import taf.yubikey
 import taf.repositoriesdb as repositoriesdb
-from pytest import fixture, yield_fixture
+from pytest import fixture
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
@@ -99,14 +99,14 @@ def _load_key(keystore_path, key_name, scheme):
     return key
 
 
-@yield_fixture(scope="session", autouse=True)
+@fixture(scope="session", autouse=True)
 def output_path():
     TEST_OUTPUT_PATH.mkdir()
     yield TEST_OUTPUT_PATH
     shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
 
 
-@yield_fixture(scope="session", autouse=True)
+@fixture(scope="session", autouse=True)
 def repositories(request, pytestconfig):
     """TAF repositories for testing."""
     repository_tool.DISABLE_KEYS_CACHING = True
@@ -127,14 +127,14 @@ def repositories(request, pytestconfig):
         }
 
 
-@yield_fixture(scope="session", autouse=True)
+@fixture(scope="session", autouse=True)
 def updater_repositories():
     test_dir = "test-updater"
     with origin_repos_group(test_dir) as origins:
         yield origins
 
 
-@yield_fixture(scope="session", autouse=True)
+@fixture(scope="session", autouse=True)
 def repositoriesdb_test_repositories():
     test_dir = "test-repositoriesdb"
     with origin_repos_group(test_dir) as origins:
@@ -237,13 +237,13 @@ def timestamp_key(pytestconfig):
     return _load_key(KEYSTORE_PATH, "timestamp", pytestconfig.option.signature_scheme)
 
 
-@yield_fixture
+@fixture
 def targets_key(pytestconfig):
     """Targets key."""
     return _load_key(KEYSTORE_PATH, "targets", pytestconfig.option.signature_scheme)
 
 
-@yield_fixture
+@fixture
 def delegated_role11_key(pytestconfig):
     return _load_key(
         DELEGATED_ROLES_KEYSTORE_PATH,
@@ -252,7 +252,7 @@ def delegated_role11_key(pytestconfig):
     )
 
 
-@yield_fixture
+@fixture
 def delegated_role12_key(pytestconfig):
     return _load_key(
         DELEGATED_ROLES_KEYSTORE_PATH,
@@ -261,7 +261,7 @@ def delegated_role12_key(pytestconfig):
     )
 
 
-@yield_fixture
+@fixture
 def delegated_role13_key(pytestconfig):
     return _load_key(
         DELEGATED_ROLES_KEYSTORE_PATH,
@@ -270,7 +270,7 @@ def delegated_role13_key(pytestconfig):
     )
 
 
-@yield_fixture
+@fixture
 def delegated_role2_key(pytestconfig):
     return _load_key(
         DELEGATED_ROLES_KEYSTORE_PATH,
@@ -279,7 +279,7 @@ def delegated_role2_key(pytestconfig):
     )
 
 
-@yield_fixture
+@fixture
 def inner_delegated_role_key(pytestconfig):
     return _load_key(
         DELEGATED_ROLES_KEYSTORE_PATH,
