@@ -925,7 +925,7 @@ class GitRepository:
             else:
                 urls = [
                     str((self.path / url).resolve())
-                    if (self.path / url).is_dir()
+                    if (self.path / url).resolve().is_dir()
                     else str((self.path).resolve())
                     if not os.path.isabs(url)
                     else url
