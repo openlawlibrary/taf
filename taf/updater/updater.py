@@ -678,13 +678,14 @@ def _update_authentication_repository(repository_updater, only_validate):
     except Exception as e:
         # for now, useful for debugging
         taf_logger.error(
-            "Validation of authentication repository {} failed due to error {}",
+            "Validation of authentication repository {} failed at revision {} due to error {}",
             users_auth_repo.name,
+            current_commit,
             e,
         )
         raise UpdateFailedError(
             f"Validation of authentication repository {users_auth_repo.name}"
-            f" failed due to error: {e}"
+            f" failed at revision {current_commit} due to error: {e}"
         )
 
     taf_logger.info(
