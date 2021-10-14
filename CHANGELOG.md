@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Updated cryptograpgy version ([183])
+
 
 ### Fixed
 

@@ -68,7 +68,9 @@ TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
 TARGET1_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo1"
 TARGET2_SHA_MISMATCH = "Mismatch between target commits specified in authentication repository and target repository namespace/TargetRepo2"
 TARGETS_MISMATCH_ANY = "Mismatch between target commits specified in authentication repository and target repository"
-NO_WORKING_MIRRORS = f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
+NO_WORKING_MIRRORS = (
+    f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
+)
 ROOT_EXPIRED = "Metadata 'root' expired"
 REPLAYED_METADATA = "ReplayedMetadataError"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
