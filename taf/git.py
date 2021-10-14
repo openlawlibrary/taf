@@ -388,7 +388,7 @@ class GitRepository:
                 raise (e)
 
             # skip worktree errors
-            if "is already checked out at" in e.error.output:
+            if "is already checked out at" in str(e):
                 return
 
             if create:
@@ -541,7 +541,7 @@ class GitRepository:
                 run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
             except subprocess.CalledProcessError as e:
                 raise GitError(
-                    repo=self, message=f"could not commit changes due to:\n{e.output}"
+                    repo=self, message=f"could not commit changes due to:\n{e}"
                 )
         return self._git("rev-parse HEAD")
 
