@@ -60,7 +60,7 @@ setup(
     install_requires=[
         "click==7.1",
         "colorama>=0.3.9",
-        "cryptography==3.2.1",
+        "cryptography>=3.3",
         "oll-tuf==0.11.2.dev9",
         "loguru==0.4.0",
         "jsonschema==3.2.0",
