@@ -14,8 +14,8 @@ pr:
 strategy:
   matrix:
     # py36
-    linux-ubuntu-16-04-py36:
-      imageName: "ubuntu-16.04"
+    linux-ubuntu-20-04-py36:
+      imageName: "ubuntu-20.04"
       pythonVersion: "3.6"
     macOS-py36:
       imageName: "macOS-10.14"
@@ -31,8 +31,8 @@ strategy:
       platform: x86
       winArch: "win32"
     # py38
-    linux-ubuntu-16-04-py38:
-      imageName: "ubuntu-16.04"
+    linux-ubuntu-20-04-py38:
+      imageName: "ubuntu-20.04"
       pythonVersion: "3.8"
     macOS-py38:
       imageName: "macOS-10.14"
