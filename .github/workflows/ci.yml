@@ -1,6 +1,5 @@
 on:
-  pull_request:
-    branches: [master]
+  [push, pull_request]
 
 jobs:
   build:
@@ -17,7 +16,7 @@ jobs:
           sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install -e .[ci] # Install with CI deps
-          pip install -e .[yubikey]
+          pip install -e .[setup_yubikey,yubikey]
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
