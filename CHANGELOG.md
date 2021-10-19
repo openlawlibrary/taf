@@ -6,7 +6,6 @@ The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
 
-
 ## [Unreleased]
 
 ### Added
@@ -19,8 +18,22 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+## [0.13.0] - 10/19/2021
 
-## [0.12.0] - 09/29/2021
+### Added
+
+
+### Changed
+
+- Updated yubikey-manager version ([184])
+
+### Fixed
+
+
+[184] https://github.com/openlawlibrary/taf/pull/183
+
+
+## [0.12.0] - 10/18/2021
 
 ### Added
 
