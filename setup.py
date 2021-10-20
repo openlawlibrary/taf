@@ -63,7 +63,7 @@ setup(
         "oll-tuf==0.11.2.dev9",
         "loguru==0.4.0",
         "cryptography==3.2.1",
-        "pyOpenSSL==20.0.1"
+        "pyOpenSSL==20.0.1",
     ],
     extras_require={
         "ci": ci_require,
