@@ -19,8 +19,23 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+## [0.13.0] - 10/20/2021
 
-## [0.12.0] - 09/29/2021
+### Added
+
+
+### Changed
+
+- Pin cryptography and pyOpenSSL versions to keep compatibility with yubikey-manager 3.0.0 ([184])
+
+
+### Fixed
+
+
+[183] https://github.com/openlawlibrary/taf/pull/184
+
+
+## [0.12.0] - 10/18/2021
 
 ### Added
 
