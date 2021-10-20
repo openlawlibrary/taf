@@ -9,13 +9,14 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from tuf.repository_tool import import_rsakey_from_pem
-from ykman.descriptor import list_devices, open_device
+from ykman.device import list_ccid_devices, connect_to_device
+from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
     ALGO,
     DEFAULT_MANAGEMENT_KEY,
     PIN_POLICY,
     SLOT,
-    PivController,
+    PivSession,
     WrongPin,
     generate_random_management_key,
 )
@@ -84,7 +85,7 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                             are inserted
 
     Returns:
-        - ykman.piv.PivController
+        - ykman.piv.PivSession
 
     Raises:
         - YubikeyError
@@ -92,32 +93,31 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
     # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
     # public keys.
     if pub_key_pem is not None:
-        for yk in list_devices(transports=TRANSPORT.CCID):
-            yk_ctrl = PivController(yk.driver)
-            device_pub_key_pem = (
-                yk_ctrl.read_certificate(SLOT.SIGNATURE)
-                .public_key()
-                .public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        for device in list_ccid_devices():
+            with connect_to_device(device.serial, [SmartCardConnection])[0] as yk:
+                yk_ctrl = PivSession(yk)
+                device_pub_key_pem = (
+                    yk_ctrl.read_certificate(SLOT.SIGNATURE)
+                    .public_key()
+                    .public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
+                    .decode("utf-8")
                 )
-                .decode("utf-8")
-            )
-            # Tries to match without last newline char
-            if (
-                device_pub_key_pem == pub_key_pem
-                or device_pub_key_pem[:-1] == pub_key_pem
-            ):
-                break
-            else:
-                yk.close()
-
+                # Tries to match without last newline char
+                if (
+                    device_pub_key_pem == pub_key_pem
+                    or device_pub_key_pem[:-1] == pub_key_pem
+                ):
+                    break
+                else:
+                    yk.close()
+                yield yk_ctrl, yk.serial
     else:
-        yk = open_device(transports=TRANSPORT.CCID, serial=serial)
-        yk_ctrl = PivController(yk.driver)
-
-    yield yk_ctrl, yk.serial
-    yk.close()
+        with connect_to_device(serial, [SmartCardConnection])[0] as yk:
+            yk_ctrl = PivSession(yk)
+            yield yk_ctrl, yk.serial
 
 
 def is_inserted():
@@ -132,7 +132,7 @@ def is_inserted():
     Raises:
         - YubikeyError
     """
-    return len(list(list_devices(transports=TRANSPORT.CCID))) > 0
+    return len(list(list_ccid_devices())) > 0
 
 
 @raise_yubikey_err()
