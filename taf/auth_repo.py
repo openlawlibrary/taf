@@ -184,7 +184,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
     def sorted_commits_and_branches_per_repositories(
-        self, commits, target_repos=None, custom_fns=None
+        self, commits, target_repos=None, custom_fns=None, default_branch=None
     ):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
@@ -202,7 +202,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits = defaultdict(dict)
-        targets = self.targets_at_revisions(*commits, target_repos=target_repos)
+        targets = self.targets_at_revisions(*commits, target_repos=target_repos, default_branch=default_branch)
         previous_commits = {}
         for commit in commits:
             for target_path, target_data in targets[commit].items():
@@ -231,8 +231,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits, target_repos=None):
+    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None):
         targets = defaultdict(dict)
+        if default_branch is None:
+            default_branch = self.default_branch
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
@@ -267,7 +269,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     )
                     if target_content is not None:
                         target_commit = target_content.pop("commit")
-                        target_branch = target_content.pop("branch", "master")
+                        target_branch = target_content.pop("branch", default_branch)
                         targets[commit][target_path] = {
                             "branch": target_branch,
                             "commit": target_commit,

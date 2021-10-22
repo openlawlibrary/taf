@@ -599,7 +599,7 @@ def _update_current_repository(
             users_auth_repo, commits
         )
         repositories_branches_and_commits = (
-            users_auth_repo.sorted_commits_and_branches_per_repositories(commits)
+            users_auth_repo.sorted_commits_and_branches_per_repositories(commits, default_branch=default_branch)
         )
 
         additional_commits_per_repo, targets_data = _update_target_repositories(
