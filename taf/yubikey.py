@@ -12,15 +12,16 @@ from tuf.repository_tool import import_rsakey_from_pem
 from ykman.device import list_ccid_devices, connect_to_device
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
-    ALGO,
-    DEFAULT_MANAGEMENT_KEY,
-    PIN_POLICY,
+    KEY_TYPE,
     SLOT,
     PivSession,
-    WrongPin,
     generate_random_management_key,
 )
-from ykman.util import TRANSPORT
+from yubikit.piv import (
+    DEFAULT_MANAGEMENT_KEY,
+    PIN_POLICY,
+    InvalidPinError
+)
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
@@ -78,7 +79,7 @@ def raise_yubikey_err(msg=None):
 
 @contextmanager
 def _yk_piv_ctrl(serial=None, pub_key_pem=None):
-    """Context manager to open connection and instantiate piv controller.
+    """Context manager to open connection and instantiate Piv Session.
 
     Args:
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
@@ -256,7 +257,7 @@ def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
         ctrl.verify(pin)
-        return ctrl.sign(SLOT.SIGNATURE, ALGO.RSA2048, data)
+        return ctrl.sign(SLOT.SIGNATURE, KEY_TYPE.RSA2048, data)
 
 
 @raise_yubikey_err("Cannot setup Yubikey.")
@@ -300,7 +301,7 @@ def setup(
 
         # Generate RSA2048
         if private_key_pem is None:
-            pub_key = ctrl.generate_key(SLOT.SIGNATURE, ALGO.RSA2048, PIN_POLICY.ALWAYS)
+            pub_key = ctrl.generate_key(SLOT.SIGNATURE, KEY_TYPE.RSA2048, PIN_POLICY.ALWAYS)
         else:
             try:
                 private_key = load_pem_private_key(
