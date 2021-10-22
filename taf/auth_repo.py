@@ -202,7 +202,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits = defaultdict(dict)
-        targets = self.targets_at_revisions(*commits, target_repos=target_repos, default_branch=default_branch)
+        targets = self.targets_at_revisions(
+            *commits, target_repos=target_repos, default_branch=default_branch
+        )
         previous_commits = {}
         for commit in commits:
             for target_path, target_data in targets[commit].items():
