@@ -13,24 +13,38 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-
-
 ### Fixed
 
-
-## [0.13.0] - 10/19/2021
+## [0.13.1] - 10/22/2021
 
 ### Added
 
 
 ### Changed
 
-- Updated yubikey-manager version ([184])
+
+### Fixed
+
+- Pass default branch to sorted_commits_and_branches_per_repositories ([185])
+
+
+[185] https://github.com/openlawlibrary/taf/pull/185
+
+
+## [0.13.0] - 10/20/2021
+
+### Added
+
+
+### Changed
+
+- Pin cryptography and pyOpenSSL versions to keep compatibility with yubikey-manager 3.0.0 ([184])
+
 
 ### Fixed
 
 
-[184] https://github.com/openlawlibrary/taf/pull/183
+[184] https://github.com/openlawlibrary/taf/pull/184
 
 
 ## [0.12.0] - 10/18/2021
@@ -547,7 +561,9 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/openlawlibrary/taf/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/openlawlibrary/taf/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openlawlibrary/taf/compare/v0.11.2...v0.12.0
 [0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.0...v0.11.1
