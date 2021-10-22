@@ -151,10 +151,10 @@ def is_valid_pin(pin):
     """
     with _yk_piv_ctrl() as (ctrl, _):
         try:
-            ctrl.verify(pin)
+            ctrl.verify_pin(pin)
             return True, None  # ctrl.get_pin_tries() fails if PIN is valid
-        except WrongPin:
-            return False, ctrl.get_pin_tries()
+        except InvalidPinError:
+            return False, ctrl.get_pin_attempts()
 
 
 @raise_yubikey_err("Cannot get serial number.")
