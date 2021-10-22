@@ -17,11 +17,7 @@ from ykman.piv import (
     PivSession,
     generate_random_management_key,
 )
-from yubikit.piv import (
-    DEFAULT_MANAGEMENT_KEY,
-    PIN_POLICY,
-    InvalidPinError
-)
+from yubikit.piv import DEFAULT_MANAGEMENT_KEY, PIN_POLICY, InvalidPinError
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
@@ -301,7 +297,9 @@ def setup(
 
         # Generate RSA2048
         if private_key_pem is None:
-            pub_key = ctrl.generate_key(SLOT.SIGNATURE, KEY_TYPE.RSA2048, PIN_POLICY.ALWAYS)
+            pub_key = ctrl.generate_key(
+                SLOT.SIGNATURE, KEY_TYPE.RSA2048, PIN_POLICY.ALWAYS
+            )
         else:
             try:
                 private_key = load_pem_private_key(
