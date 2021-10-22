@@ -98,7 +98,7 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
             with connect_to_device(device.serial, [SmartCardConnection])[0] as yk:
                 yk_ctrl = PivSession(yk)
                 device_pub_key_pem = (
-                    yk_ctrl.read_certificate(SLOT.SIGNATURE)
+                    yk_ctrl.get_certificate(SLOT.SIGNATURE)
                     .public_key()
                     .public_bytes(
                         encoding=serialization.Encoding.PEM,
@@ -191,7 +191,7 @@ def export_piv_x509(cert_format=serialization.Encoding.PEM, pub_key_pem=None):
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        x509 = ctrl.read_certificate(SLOT.SIGNATURE)
+        x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_bytes(encoding=cert_format)
 
 
@@ -211,7 +211,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        x509 = ctrl.read_certificate(SLOT.SIGNATURE)
+        x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_key().public_bytes(
             encoding=pub_key_format,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
