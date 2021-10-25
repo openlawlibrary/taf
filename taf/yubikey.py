@@ -5,9 +5,12 @@ from collections import defaultdict
 from getpass import getpass
 
 import click
+from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from tuf.repository_tool import import_rsakey_from_pem
 from ykman.device import list_all_devices, connect_to_device
 from yubikit.core.smartcard import SmartCardConnection
@@ -259,8 +262,10 @@ def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        ctrl.verify(pin)
-        return ctrl.sign(SLOT.SIGNATURE, KEY_TYPE.RSA2048, data)
+        ctrl.verify_pin(pin)
+        return ctrl.sign(
+            SLOT.SIGNATURE, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
+        )
 
 
 @raise_yubikey_err("Cannot setup Yubikey.")
@@ -299,14 +304,13 @@ def setup(
         # Factory reset and set PINs
         ctrl.reset()
 
-        ctrl.authenticate(DEFAULT_MANAGEMENT_KEY)
-        ctrl.set_mgm_key(mgm_key)
+        ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, DEFAULT_MANAGEMENT_KEY)
+        ctrl.set_management_key(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
 
         # Generate RSA2048
         if private_key_pem is None:
-            pub_key = ctrl.generate_key(
-                SLOT.SIGNATURE, KEY_TYPE.RSA2048, PIN_POLICY.ALWAYS
-            )
+            private_key = rsa.generate_private_key(65537, 2048, default_backend())
+            pub_key = private_key.public_key()
         else:
             try:
                 private_key = load_pem_private_key(
@@ -320,20 +324,31 @@ def setup(
                     private_key_pem, pem_pwd, default_backend()
                 )
 
-            ctrl.import_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
+            ctrl.put_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
             pub_key = private_key.public_key()
 
-        ctrl.authenticate(mgm_key)
-        ctrl.verify(DEFAULT_PIN)
+        ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
+        ctrl.verify_pin(DEFAULT_PIN)
 
-        # Generate and import certificate
         now = datetime.datetime.now()
         valid_to = now + datetime.timedelta(days=cert_exp_days)
-        ctrl.generate_self_signed_certificate(
-            SLOT.SIGNATURE, pub_key, cert_cn, now, valid_to
+
+        name = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, cert_cn)])
+        # Generate and import certificate
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(pub_key)
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(valid_to)
+            .sign(private_key, hashes.SHA256(), default_backend())
         )
 
-        ctrl.set_pin_retries(pin_retries=pin_retries, puk_retries=pin_retries)
+        ctrl.put_certificate(SLOT.SIGNATURE, cert)
+
+        ctrl.set_pin_attempts(pin_attempts=pin_retries, puk_attempts=pin_retries)
         ctrl.change_pin(DEFAULT_PIN, pin)
         ctrl.change_puk(DEFAULT_PUK, pin)
 
