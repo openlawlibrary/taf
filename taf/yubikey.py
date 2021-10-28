@@ -118,8 +118,6 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                 or device_pub_key_pem[:-1] == pub_key_pem
             ):
                 break
-            else:
-                session.close()
             yield session, device.serial
     else:
         connection, _, device = connect_to_device(serial, [SmartCardConnection])
