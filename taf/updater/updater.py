@@ -936,12 +936,10 @@ def _merge_branch_commits(
         last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
     )
     taf_logger.info("Merging {} into {}", commit_to_merge, repository.name)
-    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated, checkout)
+    _merge_commit(repository, branch, commit_to_merge, checkout)
 
 
-def _merge_commit(
-    repository, branch, commit_to_merge, allow_unauthenticated=False, checkout=True
-):
+def _merge_commit(repository, branch, commit_to_merge, checkout=True):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
@@ -961,10 +959,8 @@ def _merge_commit(
 
     repository.merge_commit(commit_to_merge)
     if checkout:
-        if not allow_unauthenticated:
-            repository.checkout_commit(commit_to_merge)
-        else:
-            repository.checkout_branch(branch)
+        taf_logger.info("{}: checking out branch {}", repository.name, branch)
+        repository.checkout_branch(branch)
 
 
 def _set_target_repositories_data(

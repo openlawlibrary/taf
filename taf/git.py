@@ -580,6 +580,9 @@ class GitRepository:
         self._log_debug(f"found the following commits: {commits}")
         return commits
 
+    def commit_before_commit(self, commit):
+        return self._git(f"log {commit}^ -1 --pretty=%H", log_error=True).strip()
+
     def delete_local_branch(self, branch_name, force=False):
         """Deletes local branch."""
         flag = "-D" if force else "-d"
