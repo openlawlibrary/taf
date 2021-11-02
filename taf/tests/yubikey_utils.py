@@ -84,7 +84,7 @@ class FakePivController:
     def get_pin_tries(self):
         return 1
 
-    def read_certificate(self, _slot):
+    def get_certificate(self, _slot):
         name = x509.Name(
             [x509.NameAttribute(x509.NameOID.COMMON_NAME, self.__class__.__name__)]
         )
@@ -107,7 +107,7 @@ class FakePivController:
     def set_pin_retries(self, *args, **kwargs):
         pass
 
-    def sign(self, slot, algorithm, data):
+    def sign(self, slot, key_type, data, hash, padding):
         """Sign data using the same function as TUF"""
         if isinstance(data, str):
             data = data.encode("utf-8")
@@ -117,11 +117,11 @@ class FakePivController:
         )
         return sig
 
-    def verify(self, pin):
+    def verify_pin(self, pin):
         if self._driver.pin != pin:
-            from ykman.piv import WrongPin
+            from yubikit.piv import InvalidPinError
 
-            raise WrongPin(0, (0, 0, 0))
+            raise InvalidPinError(0)
 
 
 class TargetYubiKey(FakeYubiKey):
@@ -151,8 +151,8 @@ def _yk_piv_ctrl_mock(serial=None, pub_key_pem=None):
     global INSERTED_YUBIKEY
 
     if INSERTED_YUBIKEY is None:
-        from ykman.descriptor import FailedOpeningDeviceException
+        from ykman.device import NoCardException
 
-        raise FailedOpeningDeviceException()
+        raise NoCardException()
 
     yield FakePivController(INSERTED_YUBIKEY), INSERTED_YUBIKEY.serial
