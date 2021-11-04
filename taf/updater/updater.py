@@ -780,16 +780,13 @@ def _update_target_repositories(
                 old_head = repo_branch_commits[0]
                 if not allow_unauthenticated_for_repo:
                     repo_old_head = repository.top_commit_of_branch(branch)
+                    # do the same as when checking the top and last_validated_commit of the authentication repository
                     if repo_old_head != old_head:
-                        taf_logger.error(
-                            "Mismatch between commits {} and {}",
-                            old_head,
-                            repo_old_head,
-                        )
-                        raise UpdateFailedError(
-                            "Mismatch between target commits specified in authentication repository"
-                            f" and target repository {repository.name} on branch {branch}"
-                        )
+                        commits_since = repository.all_commits_since_commit(old_head)
+                        if repo_old_head not in commits_since:
+                            msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
+                            taf_logger.error(msg)
+                            raise UpdateFailedError(msg)
 
             # the repository was cloned if it didn't exist
             # if it wasn't cloned, fetch the current branch
@@ -869,23 +866,21 @@ def _get_commits(
     if old_head is not None:
         if not only_validate:
             fetched_commits = repository.all_fetched_commits(branch=branch)
-            if not allow_unauthenticated_commits:
-                # if the local branch does not exist (the branch was not checked out locally)
-                # fetched commits will include already validated commits
-                # check which commits are newer that the previous head commit
-                if old_head in fetched_commits:
-                    new_commits_on_repo_branch = fetched_commits[
-                        fetched_commits.index(old_head) + 1 : :
-                    ]
-                else:
-                    new_commits_on_repo_branch = fetched_commits
+
+            # if the local branch does not exist (the branch was not checked out locally)
+            # fetched commits will include already validated commits
+            # check which commits are newer that the previous head commit
+            if old_head in fetched_commits:
+                new_commits_on_repo_branch = fetched_commits[
+                    fetched_commits.index(old_head) + 1 : :
+                ]
             else:
                 new_commits_on_repo_branch = repository.all_commits_since_commit(
                     old_head, branch
                 )
                 for commit in fetched_commits:
                     if commit not in new_commits_on_repo_branch:
-                        new_commits_on_repo_branch.extend(fetched_commits)
+                        new_commits_on_repo_branch.append(commit)
         else:
             new_commits_on_repo_branch = repository.all_commits_since_commit(
                 old_head, branch
@@ -909,7 +904,7 @@ def _get_commits(
                 # check which commits are newer that the previous head commit
                 for commit in fetched_commits:
                     if commit not in new_commits_on_repo_branch:
-                        new_commits_on_repo_branch.extend(fetched_commits)
+                        new_commits_on_repo_branch.append(commit)
             except GitError:
                 pass
     return new_commits_on_repo_branch

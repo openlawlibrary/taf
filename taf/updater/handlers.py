@@ -143,6 +143,7 @@ class GitUpdater(handlers.MetadataUpdater):
             last_validated_commit = settings.last_validated_commit
         else:
             last_validated_commit = self.users_auth_repo.last_validated_commit
+
         try:
             commits_since = self.validation_auth_repo.all_commits_since_commit(
                 last_validated_commit
@@ -157,7 +158,7 @@ class GitUpdater(handlers.MetadataUpdater):
                 raise UpdateFailedError(
                     f"Commit {last_validated_commit} is no longer contained by repository"
                     f" {self.validation_auth_repo.name}. This could "
-                    "either mean that there was an unauthorized push tot the remote "
+                    "either mean that there was an unauthorized push to the remote "
                     "repository, or that last_validated_commit file was modified."
                 )
             else:
@@ -182,20 +183,16 @@ class GitUpdater(handlers.MetadataUpdater):
                 users_head_sha = None
 
         if last_validated_commit != users_head_sha:
-            # TODO add a flag --force/f which, if provided, should force an automatic revert
-            # of the users authentication repository to the last validated commit
-            # This could be done if a user accidentally committed something to the auth repo
-            # or manually pulled the changes
-            # If the user deleted the repository or executed reset --hard, we could handle
-            # that by starting validation from the last validated commit, as opposed to the
-            # user's head sha.
-            # For now, we will raise an error
-            msg = (
-                f"Saved last validated commit {last_validated_commit} of repository {self.users_auth_repo.name} "
-                f"does not match the current head commit {users_head_sha}"
-            )
-            taf_logger.error(msg)
-            raise UpdateFailedError(msg)
+            # if a user committed something to the repo or manually pulled the changes
+            # last_validated_commit will no longer match the top commit, but the repository
+            # might still be completely valid
+            # committing without pushing is not valid
+            # user_head_sha should be newer than last validated commit
+            if users_head_sha not in commits_since:
+                msg = f"Top commit of repository {self.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
+                taf_logger.error(msg)
+                raise UpdateFailedError(msg)
+            users_head_sha = last_validated_commit
 
         # insert the current one at the beginning of the list
         if users_head_sha is not None:
