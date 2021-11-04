@@ -315,7 +315,7 @@ def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
     _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
-def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_dir):
+def test_older_last_validated_commit(updater_repositories, origin_dir, client_dir):
     # clone the origin repositories
     # revert them to an older commit
     repositories = updater_repositories["test-updater-valid"]
@@ -326,14 +326,10 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
     all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
     first_commit = all_commits[0]
     last_commit = all_commits[-1]
-    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(
-        first_commit, AUTH_REPO_REL_PATH, last_commit
-    )
+
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
-    _update_invalid_repos_and_check_if_remained_same(
-        client_repos, client_dir, repositories, expected_error
-    )
+    _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
