@@ -325,7 +325,6 @@ def test_older_last_validated_commit(updater_repositories, origin_dir, client_di
     )
     all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
     first_commit = all_commits[0]
-    last_commit = all_commits[-1]
 
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
