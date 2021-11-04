@@ -763,30 +763,16 @@ def _update_target_repositories(
             repo_branch_commits = [
                 commit_info["commit"] for commit_info in repo_branch_commits
             ]
-            if (
-                last_validated_commit is None
-                or not is_git_repository
-                or not branch_exists
-                or not len(repo_branch_commits)
-            ):
-                old_head = None
-            else:
-                # TODO what if a local target repository is missing some commits,
-                # but all existing commits are valid?
-                # top commit of any branch should be identical to commit sha
-                # defined for that branch in commit which was the top commit
-                # of the authentication repository's master branch at the time
-                # of update's invocation
-                old_head = repo_branch_commits[0]
-                if not allow_unauthenticated_for_repo:
-                    repo_old_head = repository.top_commit_of_branch(branch)
-                    # do the same as when checking the top and last_validated_commit of the authentication repository
-                    if repo_old_head != old_head:
-                        commits_since = repository.all_commits_since_commit(old_head)
-                        if repo_old_head not in commits_since:
-                            msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
-                            taf_logger.error(msg)
-                            raise UpdateFailedError(msg)
+
+            old_head = _set_target_old_head_and_validate(
+                repository,
+                branch,
+                branch_exists,
+                last_validated_commit,
+                is_git_repository,
+                repo_branch_commits,
+                allow_unauthenticated_for_repo,
+            )
 
             # the repository was cloned if it didn't exist
             # if it wasn't cloned, fetch the current branch
@@ -848,6 +834,36 @@ def _update_target_repositories(
         top_commits_of_branches_before_pull,
         additional_commits_per_repo,
     )
+
+
+def _set_target_old_head_and_validate(
+    repository,
+    branch,
+    branch_exists,
+    last_validated_commit,
+    is_git_repository,
+    repo_branch_commits,
+    allow_unauthenticated_for_repo,
+):
+    if (
+        last_validated_commit is None
+        or not is_git_repository
+        or not branch_exists
+        or not len(repo_branch_commits)
+    ):
+        old_head = None
+    else:
+        old_head = repo_branch_commits[0]
+        if not allow_unauthenticated_for_repo:
+            repo_old_head = repository.top_commit_of_branch(branch)
+            # do the same as when checking the top and last_validated_commit of the authentication repository
+            if repo_old_head != old_head:
+                commits_since = repository.all_commits_since_commit(old_head)
+                if repo_old_head not in commits_since:
+                    msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
+                    taf_logger.error(msg)
+                    raise UpdateFailedError(msg)
+    return old_head
 
 
 def _get_commits(
