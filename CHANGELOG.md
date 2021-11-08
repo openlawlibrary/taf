@@ -14,7 +14,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Remove commit checkout and checkout the latest branch for each target repository ([195])
+- If top commit of the authentication repository is not the same as the `last_validated_commit`, validate the newer commits as if they were just pulled ([195])
+
 ### Fixed
+
+
+[195]: https://github.com/openlawlibrary/taf/pull/195
+
 
 ## [0.13.1] - 10/22/2021
 
@@ -29,7 +36,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Pass default branch to sorted_commits_and_branches_per_repositories ([185])
 
 
-[185] https://github.com/openlawlibrary/taf/pull/185
+[185]: https://github.com/openlawlibrary/taf/pull/185
 
 
 ## [0.13.0] - 10/20/2021
@@ -45,7 +52,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
-[184] https://github.com/openlawlibrary/taf/pull/184
+[184]: https://github.com/openlawlibrary/taf/pull/184
 
 
 ## [0.12.0] - 10/18/2021
@@ -63,7 +70,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix validate local repo command ([183])
 
 
-[183] https://github.com/openlawlibrary/taf/pull/183
+[183]: https://github.com/openlawlibrary/taf/pull/183
 
 
 ## [0.11.2] - 09/29/2021
