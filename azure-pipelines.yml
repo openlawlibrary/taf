@@ -18,7 +18,7 @@ strategy:
       imageName: "ubuntu-20.04"
       pythonVersion: "3.6"
     macOS-py36:
-      imageName: "macOS-10.14"
+      imageName: "macOS-10.15"
       pythonVersion: "3.6"
     windows-64bit-py36:
       imageName: "vs2017-win2016"
