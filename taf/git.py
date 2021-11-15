@@ -518,9 +518,7 @@ class GitRepository:
         to check out previously checked out branch
         """
         if not self.branch_exists(branch_name, include_remotes=False):
-            current_branch = self.get_current_branch()
-            self.checkout_branch(branch_name)
-            self.checkout_branch(current_branch)
+            self._git(f"branch {branch_name} {self.remotes[0]}/{branch_name}")
 
     def checkout_commit(self, commit):
         self._git(
