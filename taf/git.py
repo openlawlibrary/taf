@@ -850,23 +850,25 @@ class GitRepository:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
-        branch = branch or self.default_branch
-        if url is None:
-            if self.urls is not None and len(self.urls):
-                url = self.urls[0]
-            else:
-                url = self.get_remote_url()
+        urls = (
+            [url]
+            if url is not None
+            else self.urls
+            if self.urls
+            else [self.get_remote_url()]
+        )
+        for url in urls:
+            branch = branch or self.default_branch
+            tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
+            if not tracking_branch:
+                return False
 
-        tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
-        if not tracking_branch:
-            return False
-
-        try:
-            local_commit = self._git(f"rev-parse {branch}")
-        except GitError as e:
-            if "unknown revision or path not in the working tree" not in str(e):
-                raise e
-            local_commit = None
+            try:
+                local_commit = self._git(f"rev-parse {branch}")
+            except GitError as e:
+                if "unknown revision or path not in the working tree" not in str(e):
+                    raise e
+                local_commit = None
 
         remote_commit = self.get_last_remote_commit(url, tracking_branch)
 
