@@ -18,6 +18,25 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+## [0.13.3] - 11/18/2021
+
+
+### Added
+
+
+### Changed
+
+- Update create local branch git command - remove checkout ([197])
+- Iterate throuh all urls when checking if a local repo is synced with remote ([197])
+
+
+### Fixed
+
+
+[197]: https://github.com/openlawlibrary/taf/pull/197
+
+
+
 ## [0.13.2] - 11/11/2021
 
 
@@ -582,7 +601,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/openlawlibrary/taf/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/openlawlibrary/taf/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/openlawlibrary/taf/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/openlawlibrary/taf/compare/v0.12.0...v0.13.0
