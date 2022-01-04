@@ -131,7 +131,7 @@ def _handle_event(
 
 handle_repo_event = partial(_handle_event, LifecycleStage.REPO)
 handle_host_event = partial(_handle_event, LifecycleStage.HOST)
-
+handle_update_event = partial(_handle_event, LifecycleStage.UPDATE)
 
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root_dir):
     persistent_path = auth_repo.library_dir / PERSISTENT_FILE_NAME
