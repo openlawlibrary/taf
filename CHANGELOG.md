@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 ### Fixed
+- pytest works when taf installed via wheel ([200])
 
+[200]: https://github.com/openlawlibrary/taf/pull/200
 
 ## [0.13.3] - 11/18/2021
 
