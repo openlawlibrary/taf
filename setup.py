@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+import importlib
 
 PACKAGE_NAME = "taf"
 VERSION = "0.13.3"
@@ -42,22 +43,22 @@ tests_require = ["pytest==4.5.0", "freezegun==0.3.15", "jsonschema==3.2.0"]
 
 yubikey_require = ["yubikey-manager==3.0.0"]
 
-setup(
-    name=PACKAGE_NAME,
-    version=VERSION,
-    description=DESCRIPTION,
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url=URL,
-    author=AUTHOR,
-    author_email=AUTHOR_EMAIL,
-    keywords=KEYWORDS,
-    packages=packages,
-    cmdclass={"bdist_wheel": bdist_wheel},
-    include_package_data=True,
-    data_files=[("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
-    zip_safe=False,
-    install_requires=[
+kwargs = {
+    "name": PACKAGE_NAME,
+    "version": VERSION,
+    "description": DESCRIPTION,
+    "long_description": long_description,
+    "long_description_content_type": "text/markdown",
+    "url": URL,
+    "author": AUTHOR,
+    "author_email": AUTHOR_EMAIL,
+    "keywords": KEYWORDS,
+    "packages": packages,
+    "cmdclass": {"bdist_wheel"": bdist_wheel},
+    "include_package_data": True,
+    "data_files": [("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
+    "zip_safe": "False,
+    "install_requires": "[
         "click==7.1",
         "colorama>=0.3.9",
         "oll-tuf==0.11.2.dev9",
@@ -65,14 +66,14 @@ setup(
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
     ],
-    extras_require={
+    "extras_require": {
         "ci": ci_require,
         "test": tests_require,
         "dev": dev_require,
         "yubikey": yubikey_require,
     },
-    tests_require=tests_require,
-    entry_points={
+    "tests_require": tests_require,
+    "entry_points": {
         "console_scripts": [
             "taf = taf.tools.cli.taf:main",
             "olc = taf.tools.cli.olc:main",
@@ -91,4 +92,11 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
-)
+}
+
+from importlib.util import find_spec
+if importlib.find_spec("taf.tests")
+if find_spec('taf.tests'):
+    kwargs['entry_points']["pytest11"] = ["taf_yubikey_utils = taf.tests.yubikey_utils"],
+
+setup(**kwargs)
