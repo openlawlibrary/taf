@@ -122,6 +122,8 @@ def _handle_event(
     _print_data(repos_and_data, library_dir, lifecycle_stage)
     repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
+    if lifecycle_stage == LifecycleStage.UPDATE:
+        return repos_and_data
     # return transient data as it should be propagated to other event and handlers
     return {
         repo.name: data["data"]["state"]["transient"]
@@ -132,6 +134,7 @@ def _handle_event(
 handle_repo_event = partial(_handle_event, LifecycleStage.REPO)
 handle_host_event = partial(_handle_event, LifecycleStage.HOST)
 handle_update_event = partial(_handle_event, LifecycleStage.UPDATE)
+
 
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root_dir):
     persistent_path = auth_repo.library_dir / PERSISTENT_FILE_NAME
@@ -282,6 +285,31 @@ def prepare_data_host(
     return host_data_by_repos
 
 
+def prepare_data_update(
+    event,
+    transient_data,
+    persistent_data,
+    library_dir,
+    repo,
+    repos_update_data,
+    error,
+    skip_hosts,
+    root_auth_repo
+):
+
+    prepared_data = {}
+
+    if skip_hosts is True:
+        prepared_data = _format_update_without_host(
+            repos_update_data, repo, event, error, transient_data, persistent_data, library_dir, root_auth_repo)
+    else:
+
+        prepared_data = _format_update(
+            repo, repos_update_data, event, error, transient_data, persistent_data, library_dir, root_auth_repo)
+
+    return prepared_data
+
+
 def prepare_data_completed():
     return {}
 
@@ -312,3 +340,74 @@ def _format_event(event):
         return f"event/{Event.SUCCEEDED.value}"
     else:
         return f"event/{Event.FAILED.value}"
+
+
+def _format_update_without_host(repos_update_data, repo, event, error, transient_data, persistent_data, library_dir, root_auth_repo):
+    update_data_by_repos = {}
+    auth_repos = []
+    for repo_name, repo_data in repos_update_data.items():
+        repo_data = _repo_update_data(**repos_update_data[repo_name])
+        auth_repos.append({"update": repo_data})
+
+        update_data_by_repos[repo] = {
+            "data": {
+                "update": {
+                    "changed": event == Event.CHANGED,
+                    "event": _format_event(event),
+                    "error_msg": str(error) if error else "",
+                    "hosts": {
+                        "auth_repos": auth_repos,
+                        "custom": repo_data["auth_repo"]["data"]["custom"],
+                    }
+                },
+                "state": {
+                    "transient": transient_data,
+                    "persistent": persistent_data,
+                },
+                "config": get_config(library_dir),
+            },
+            "commit": repos_update_data[repo_name]["commits_data"][
+                "after_pull"
+            ],
+        }
+    return update_data_by_repos
+
+
+def _format_update(repo, repos_update_data, event, error, transient_data, persistent_data, library_dir, root_auth_repo):
+    update_hosts = []
+    for host in repo:
+        for root_repo, contained_repo_data in host.data_by_auth_repo.items():
+            auth_repos = []
+            for host_auth_repos in contained_repo_data["auth_repos"]:
+                for repo_name, repo_host_data in host_auth_repos.items():
+                    repo_data = _repo_update_data(**repos_update_data[repo_name])
+                    repo_data["custom"] = repo_host_data["custom"]
+                    auth_repos.append({"update": repo_data})
+
+            update_hosts.append({
+                "host_name": host.name,
+                "error_msg": str(error) if error else "",
+                "auth_repos": auth_repos,
+                "custom": contained_repo_data["custom"],
+            })
+
+    return {
+        root_auth_repo: {
+            "data": {
+                "update": {
+                    "changed": event == Event.CHANGED,
+                    "event": _format_event(event),
+                    "error_msg": str(error) if error else "",
+                    "hosts": update_hosts,
+                },
+                "state": {
+                    "transient": transient_data,
+                    "persistent": persistent_data,
+                },
+                "config": get_config(library_dir),
+            },
+            "commit": repos_update_data[root_auth_repo.name]["commits_data"][
+                "after_pull"
+            ],
+        }
+    }
