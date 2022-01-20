@@ -115,7 +115,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Return the last validated commit of the authentication repository
         """
         try:
-            return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
+            return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text().strip()
         except FileNotFoundError:
             return None
 

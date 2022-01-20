@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
 
+
 ## [Unreleased]
 
 
@@ -17,6 +18,24 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+
+
+## [0.13.4] - 01/20/2022
+
+
+### Added
+
+
+### Changed
+
+- Trim text read from the last_validated_commit file ([201])
+
+
+### Fixed
+
+
+[201]: https://github.com/openlawlibrary/taf/pull/201
 
 ## [0.13.3] - 11/18/2021
 
@@ -601,7 +620,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.3...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.4...HEAD
+[0.13.4]: https://github.com/openlawlibrary/taf/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/openlawlibrary/taf/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/openlawlibrary/taf/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/openlawlibrary/taf/compare/v0.13.0...v0.13.1
