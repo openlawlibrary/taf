@@ -810,24 +810,27 @@ def _update_target_repositories(
                 # TODO is it important to undo a fetch if the repository was not cloned?
                 raise e
 
-    taf_logger.info("Successfully validated all target repositories.")
-    if not only_validate:
-        # if update is successful, merge the commits
-        for path, repository in repositories.items():
-            for branch in repositories_branches_and_commits[path]:
-                branch_commits = repositories_branches_and_commits[path][branch]
-                if not len(branch_commits):
-                    continue
-                _merge_branch_commits(
-                    repository,
-                    branch,
-                    branch_commits,
-                    allow_unauthenticated[path],
-                    additional_commits_per_repo.get(path, {}).get(branch),
-                    new_commits[path][branch],
-                    checkout,
-                )
-
+    if not len(additional_commits_per_repo) or not error_if_unauthenticated:
+        taf_logger.info("Successfully validated all target repositories.")
+        # do not merge commits if there there are
+        if not only_validate:
+            # if update is successful, merge the commits
+            for path, repository in repositories.items():
+                for branch in repositories_branches_and_commits[path]:
+                    branch_commits = repositories_branches_and_commits[path][branch]
+                    if not len(branch_commits):
+                        continue
+                    _merge_branch_commits(
+                        repository,
+                        branch,
+                        branch_commits,
+                        allow_unauthenticated[path],
+                        additional_commits_per_repo.get(path, {}).get(branch),
+                        new_commits[path][branch],
+                        checkout,
+                    )
+    else:
+        taf_logger.error("Unauthenticated commits not allowed")
     return additional_commits_per_repo, _set_target_repositories_data(
         repositories,
         repositories_branches_and_commits,
@@ -1045,13 +1048,12 @@ def _update_target_repository(
                     break
         if len(new_commits) > len(target_commits):
             additional_commits = new_commits[len(target_commits) :]
-            taf_logger.warning(
-                "Found commits {} in repository {} that are not accounted for in the authentication repo."
-                "Repository will be updated up to commit {}",
+            taf_logger.error(
+                "Found commits {} in repository {} that are not accounted for in the authentication repo. Unauthenticated commits are not allowed in this repo.",
                 additional_commits,
                 repository.name,
-                target_commits[-1],
             )
+            update_successful = False
     else:
         taf_logger.info(
             "Unauthenticated commits allowed in repository {}", repository.name
