@@ -144,7 +144,6 @@ def test_valid_update_no_auth_repo_one_target_repo_exists(
     "test_name, num_of_commits_to_revert",
     [
         ("test-updater-valid", 3),
-        ("test-updater-additional-target-commit", 1),
         ("test-updater-allow-unauthenticated-commits", 1),
         ("test-updater-multiple-branches", 5),
         ("test-updater-delegated-roles", 1),
