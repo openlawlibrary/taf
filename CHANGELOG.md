@@ -6,7 +6,6 @@ The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
 
-
 ## [Unreleased]
 
 
@@ -15,7 +14,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- ​Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
+
+### Fixed
+
+
+## [0.14.0] - 01/25/2022
+
+
+### Added
+
+
+### Changed
+
+- Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
 
 ### Fixed
 
@@ -625,7 +636,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.4...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/openlawlibrary/taf/compare/v0.13.4...v0.14.0
 [0.13.4]: https://github.com/openlawlibrary/taf/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/openlawlibrary/taf/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/openlawlibrary/taf/compare/v0.13.1...v0.13.2
