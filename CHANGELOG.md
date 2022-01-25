@@ -15,10 +15,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- ​Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
 
 ### Fixed
 
+- Raise an error if a repository which should not contain additional commits does so ([203])
+- Do not merge target commits if update as a whole will later fail ([203])
 
+
+[203]: https://github.com/openlawlibrary/taf/pull/203
 
 
 ## [0.13.4] - 01/20/2022
