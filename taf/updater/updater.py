@@ -125,7 +125,7 @@ def update_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
-    error_if_unauthenticated=False,
+    error_if_unauthenticated_repos_list=None,
     conf_directory_root=None,
     config_path=None,
     out_of_band_authentication=None,
@@ -158,6 +158,8 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
+    if error_if_unauthenticated_repos_list is None:
+        error_if_unauthenticated_repos_list = []
     clients_auth_path = Path(clients_auth_path).resolve()
 
     if clients_library_dir is None:
@@ -183,7 +185,7 @@ def update_repository(
             target_factory,
             only_validate,
             validate_from_commit,
-            error_if_unauthenticated,
+            error_if_unauthenticated_repos_list,
             conf_directory_root,
             repos_update_data=repos_update_data,
             transient_data=transient_data,
@@ -263,7 +265,7 @@ def _update_named_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
-    error_if_unauthenticated=False,
+    error_if_unauthenticated_repos_list=None,
     conf_directory_root=None,
     visited=None,
     hosts_hierarchy_per_repo=None,
@@ -322,6 +324,8 @@ def _update_named_repository(
     """
     if visited is None:
         visited = []
+    if error_if_unauthenticated_repos_list is None:
+        error_if_unauthenticated_repos_list = []
     # if there is a recursive dependency
     if auth_repo_name in visited:
         return
@@ -345,7 +349,7 @@ def _update_named_repository(
         target_factory,
         only_validate,
         validate_from_commit,
-        error_if_unauthenticated,
+        error_if_unauthenticated_repos_list,
         conf_directory_root,
         out_of_band_authentication,
         checkout,
@@ -404,7 +408,7 @@ def _update_named_repository(
                         target_factory,
                         only_validate,
                         validate_from_commit,
-                        error_if_unauthenticated,
+                        error_if_unauthenticated_repos_list,
                         conf_directory_root,
                         visited,
                         hosts_hierarchy_per_repo,
@@ -480,7 +484,7 @@ def _update_current_repository(
     target_factory,
     only_validate,
     validate_from_commit,
-    error_if_unauthenticated,
+    error_if_unauthenticated_repos_list,
     conf_directory_root,
     out_of_band_authentication,
     checkout,
@@ -609,7 +613,7 @@ def _update_current_repository(
             repositories_branches_and_commits,
             last_validated_commit,
             only_validate,
-            error_if_unauthenticated,
+            error_if_unauthenticated_repos_list,
             checkout,
         )
     except Exception as e:
@@ -627,7 +631,11 @@ def _update_current_repository(
     finally:
         repository_updater.update_handler.cleanup()
 
-    if error_if_unauthenticated and len(additional_commits_per_repo):
+    unauthenticated_repo = any(
+        repo in error_if_unauthenticated_repos_list
+        for repo in additional_commits_per_repo
+    )
+    if unauthenticated_repo:
         return (
             Event.FAILED,
             users_auth_repo,
@@ -708,7 +716,7 @@ def _update_target_repositories(
     repositories_branches_and_commits,
     last_validated_commit,
     only_validate,
-    error_if_unauthenticated,
+    error_if_unauthenticated_repos_list,
     checkout,
 ):
     taf_logger.info("Validating target repositories")
@@ -720,6 +728,7 @@ def _update_target_repositories(
     additional_commits_per_repo = {}
     top_commits_of_branches_before_pull = {}
     for path, repository in repositories.items():
+        error_if_unauthenticated = path in error_if_unauthenticated_repos_list
         taf_logger.info("Validating repository {}", repository.name)
         allow_unauthenticated_for_repo = repository.custom.get(
             "allow-unauthenticated-commits", False

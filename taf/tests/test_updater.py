@@ -104,7 +104,6 @@ def run_around_tests(client_dir):
     "test_name, test_repo",
     [
         ("test-updater-valid", UpdateType.OFFICIAL),
-        ("test-updater-additional-target-commit", UpdateType.OFFICIAL),
         ("test-updater-valid-with-updated-expiration-dates", UpdateType.OFFICIAL),
         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
         ("test-updater-test-repo", UpdateType.TEST),
@@ -127,7 +126,6 @@ def test_valid_update_no_client_repo(
     "test_name, test_repo",
     [
         ("test-updater-valid", UpdateType.OFFICIAL),
-        ("test-updater-additional-target-commit", UpdateType.OFFICIAL),
         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
         ("test-updater-multiple-branches", UpdateType.OFFICIAL),
         ("test-updater-delegated-roles", UpdateType.OFFICIAL),
@@ -203,6 +201,7 @@ def test_no_update_necessary(
     "test_name, expected_error",
     [
         ("test-updater-invalid-target-sha", TARGET1_SHA_MISMATCH),
+        ("test-updater-additional-target-commit", TARGET1_SHA_MISMATCH),
         ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH),
         ("test-updater-wrong-key", NO_WORKING_MIRRORS),
         ("test-updater-invalid-version-number", REPLAYED_METADATA),
