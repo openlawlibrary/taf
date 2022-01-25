@@ -191,13 +191,13 @@ def attach_to_group(group):
     @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
                   help="Indicates expected authentication repository type - test or official. If type is set to either, "
                   "the updater will not check the repository's type")
-    @click.option("--error-if-unauthenticated", is_flag=True, help="Raise an error if the repository allows "
+    @click.option("--error-if-unauthenticated-repos-list", multiple=True, help="Raise an error if the repository allows "
                   "unauthentiated commits and the updater detected authenticated commits newer than local "
                   "head commit")
     @click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts "
                   "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
                   "to be located in scripts_root_dir/repo_name directory")
-    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, error_if_unauthenticated,
+    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, error_if_unauthenticated_repos_list,
                scripts_root_dir):
         """
         Update and validate local authentication repository and target repositories. Remote
@@ -229,7 +229,7 @@ def attach_to_group(group):
         """
         update_repository(url, clients_auth_path, clients_library_dir, default_branch, from_fs,
                           UpdateType(expected_repo_type),
-                          error_if_unauthenticated=error_if_unauthenticated, scripts_root_dir=scripts_root_dir)
+                          error_if_unauthenticated_repos_list=error_if_unauthenticated_repos_list, scripts_root_dir=scripts_root_dir)
 
     @repo.command()
     @click.argument("clients-auth-path")
