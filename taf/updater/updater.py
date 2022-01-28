@@ -74,7 +74,19 @@ def _load_hosts_json(auth_repo):
         raise UpdateFailedError(str(e))
 
 
+def _load_dependencies_json(auth_repo):
+    try:
+        return load_dependencies_json(auth_repo)
+    except MissingHostsError as e:
+        # if a there is no host file, the update should not fail
+        taf_logger.info(str(e))
+        return {}
+    except InvalidHostsError as e:
+        raise UpdateFailedError(str(e))
+
 # TODO config path should be configurable
+
+
 def load_library_context(config_path):
     config = {}
     config_path = Path(config_path)
@@ -383,6 +395,9 @@ def _update_named_repository(
             library_dir=targets_library_dir,
             commits=commits,
         )
+
+        # read dependencies.json and set them to the parent authentication repository
+        auth_repo.set_dependencies(_load_dependencies_json(auth_repo))
 
         if update_status != Event.FAILED:
             errors = []
