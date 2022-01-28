@@ -174,7 +174,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             output = run("py", script_path, input=json_data)
         except subprocess.CalledProcessError as e:
             taf_logger.error(
-                "An error occurred while exeucuting {}: {}", script_path, e.output
+                "An error occurred while executing {}: {}", script_path, e.output
             )
             raise ScriptExecutionError(script_path, e.output)
         if output is not None and output != "":
@@ -290,24 +290,58 @@ def prepare_data_update(
     transient_data,
     persistent_data,
     library_dir,
-    repo,
+    hosts,
     repos_update_data,
     error,
-    skip_hosts,
     root_auth_repo
 ):
 
-    prepared_data = {}
+    update_hosts = {}
+    flat_auth_repos = {}
+    for auth_repo_name in repos_update_data.keys():
+        flat_auth_repos[auth_repo_name] = _repo_update_data(
+            **repos_update_data[auth_repo_name])
 
-    if skip_hosts is True:
-        prepared_data = _format_update_without_host(
-            repos_update_data, repo, event, error, transient_data, persistent_data, library_dir, root_auth_repo)
-    else:
+    for host_data in hosts:
+        auth_repos = {}
+        for root_repo, contained_repo_data in host_data.data_by_auth_repo.items():
+            for host_auth_repos in contained_repo_data["auth_repos"]:
+                for repo_name, repo_host_data in host_auth_repos.items():
+                    auth_repo = {}
+                    auth_repo[repo_name] = _repo_update_data(
+                        **repos_update_data[repo_name])
+                    auth_repo[repo_name]["custom"] = repo_host_data["custom"]
+                    auth_repos.update({"update": auth_repo})
 
-        prepared_data = _format_update(
-            repo, repos_update_data, event, error, transient_data, persistent_data, library_dir, root_auth_repo)
+            update_hosts[host_data.name] = {
+                "host_name": host_data.name,
+                "error_msg": str(error) if error else "",
+                "auth_repos": auth_repos,
+                "custom": contained_repo_data["custom"],
+            }
 
-    return prepared_data
+    return {
+        root_auth_repo: {
+            "data": {
+                "update": {
+                    "changed": event == Event.CHANGED,
+                    "event": _format_event(event),
+                    "error_msg": str(error) if error else "",
+                    "hosts": update_hosts,
+                    "auth_repos": flat_auth_repos,
+                    "auth_repo": root_auth_repo.name
+                },
+                "state": {
+                    "transient": transient_data,
+                    "persistent": persistent_data,
+                },
+                "config": get_config(library_dir),
+            },
+            "commit": repos_update_data[root_auth_repo.name]["commits_data"][
+                "after_pull"
+            ],
+        }
+    }
 
 
 def prepare_data_completed():
@@ -340,74 +374,3 @@ def _format_event(event):
         return f"event/{Event.SUCCEEDED.value}"
     else:
         return f"event/{Event.FAILED.value}"
-
-
-def _format_update_without_host(repos_update_data, repo, event, error, transient_data, persistent_data, library_dir, root_auth_repo):
-    update_data_by_repos = {}
-    auth_repos = []
-    for repo_name, repo_data in repos_update_data.items():
-        repo_data = _repo_update_data(**repos_update_data[repo_name])
-        auth_repos.append({"update": repo_data})
-
-        update_data_by_repos[repo] = {
-            "data": {
-                "update": {
-                    "changed": event == Event.CHANGED,
-                    "event": _format_event(event),
-                    "error_msg": str(error) if error else "",
-                    "hosts": {
-                        "auth_repos": auth_repos,
-                        "custom": repo_data["auth_repo"]["data"]["custom"],
-                    }
-                },
-                "state": {
-                    "transient": transient_data,
-                    "persistent": persistent_data,
-                },
-                "config": get_config(library_dir),
-            },
-            "commit": repos_update_data[repo_name]["commits_data"][
-                "after_pull"
-            ],
-        }
-    return update_data_by_repos
-
-
-def _format_update(repo, repos_update_data, event, error, transient_data, persistent_data, library_dir, root_auth_repo):
-    update_hosts = []
-    for host in repo:
-        for root_repo, contained_repo_data in host.data_by_auth_repo.items():
-            auth_repos = []
-            for host_auth_repos in contained_repo_data["auth_repos"]:
-                for repo_name, repo_host_data in host_auth_repos.items():
-                    repo_data = _repo_update_data(**repos_update_data[repo_name])
-                    repo_data["custom"] = repo_host_data["custom"]
-                    auth_repos.append({"update": repo_data})
-
-            update_hosts.append({
-                "host_name": host.name,
-                "error_msg": str(error) if error else "",
-                "auth_repos": auth_repos,
-                "custom": contained_repo_data["custom"],
-            })
-
-    return {
-        root_auth_repo: {
-            "data": {
-                "update": {
-                    "changed": event == Event.CHANGED,
-                    "event": _format_event(event),
-                    "error_msg": str(error) if error else "",
-                    "hosts": update_hosts,
-                },
-                "state": {
-                    "transient": transient_data,
-                    "persistent": persistent_data,
-                },
-                "config": get_config(library_dir),
-            },
-            "commit": repos_update_data[root_auth_repo.name]["commits_data"][
-                "after_pull"
-            ],
-        }
-    }
