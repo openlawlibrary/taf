@@ -120,7 +120,7 @@ def load_dependencies(
                 # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
-                    library_dir, name, urls, out_of_band_authentication, custom
+                    library_dir=library_dir, name=name, urls=urls, out_of_band_authentication=out_of_band_authentication, custom=custom
                 )
             except Exception as e:
                 taf_logger.error(
@@ -358,14 +358,14 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
 
 def get_deduplicated_auth_repositories(auth_repo, commits):
-    return _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, True)
+    return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
 
 def get_deduplicated_repositories(auth_repo, commits):
-    return _get_deduplicated_target_or_auth_repositotries(auth_repo, commits)
+    return _get_deduplicated_target_or_auth_repositories(auth_repo, commits)
 
 
-def _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, load_auth=False):
+def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=False):
     loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
     auth_msg = "included authentication " if load_auth else ""
     repositories_msg = (
