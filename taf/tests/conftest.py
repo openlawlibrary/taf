@@ -34,8 +34,10 @@ CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
 REPO_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "repo"
 HOST_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "host"
+UPDATE_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "update"
 REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
 HOST_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "host"
+UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "update"
 
 
 def pytest_configure(config):
@@ -182,6 +184,14 @@ def host_handlers_valid_inputs():
 
 
 @fixture
+def update_handlers_valid_inputs():
+    """Paths to the update handler's input json files"""
+    return [
+        input_path for input_path in UPDATE_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
+    ]
+
+
+@fixture
 def repo_handlers_invalid_inputs():
     """Paths to the repo handler's input json files"""
     return [
@@ -194,6 +204,14 @@ def host_handlers_invalid_inputs():
     """Paths to the host handler's input json files"""
     return [
         input_path for input_path in HOST_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
+    ]
+
+
+@fixture
+def update_handlers_invalid_inputs():
+    """Paths to the update handler's input json files"""
+    return [
+        input_path for input_path in UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
     ]
 
 
