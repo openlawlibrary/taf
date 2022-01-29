@@ -14,6 +14,8 @@ from taf.utils import (
 )
 from taf.exceptions import ScriptExecutionError
 from taf.log import taf_logger
+from taf.updater.types.update import (Update)
+from cattr import structure
 
 
 class LifecycleStage(enum.Enum):
@@ -112,6 +114,7 @@ def _handle_event(
             repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
         elif event == Event.UNCHANGED:
             repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
+
         repos_and_data = _execute_scripts(
             repos_and_data, lifecycle_stage, Event.SUCCEEDED
         )
@@ -122,8 +125,13 @@ def _handle_event(
     _print_data(repos_and_data, library_dir, lifecycle_stage)
     repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
+    # return formatted response if update lifecycle is done
     if lifecycle_stage == LifecycleStage.UPDATE:
-        return repos_and_data
+        for _, data in repos_and_data.items():
+            data = data["data"]["update"]
+            # example of converting data to classes. for now we're using cattrs default converters.
+            # TODO: goal is full support of class types
+            return structure(data, Update)
     # return transient data as it should be propagated to other event and handlers
     return {
         repo.name: data["data"]["state"]["transient"]

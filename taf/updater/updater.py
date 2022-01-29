@@ -1,4 +1,5 @@
 import json
+from logging import root
 import shutil
 import enum
 
@@ -22,9 +23,9 @@ from taf.exceptions import (
 )
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hosts import load_hosts_json, set_hosts_of_repo, load_hosts, get_hosts
-from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event, Event
-
+from taf.hosts import load_dependencies_json, load_hosts_json, set_hosts_of_repo, load_hosts, get_hosts
+from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event, handle_update_event, Event
+from cattr import unstructure
 
 disable_tuf_console_logging()
 
@@ -229,6 +230,8 @@ def update_repository(
     hosts = get_hosts()
     host_update_status = Event.UNCHANGED
     errors = ""
+    update_transient_data = {}
+
     for host in hosts:
         # check if host update was successful - meaning that all repositories
         # of that host were updated successfully
@@ -243,7 +246,7 @@ def update_repository(
                         and host_update_status != Event.FAILED
                     ):
                         # if one failed, then failed
-                        # else if one changed, then chenged
+                        # else if one changed, then changed
                         # else unchanged
                         host_update_status = update_status
                     repo_error = host_repo_update_data["error"]
@@ -251,6 +254,7 @@ def update_repository(
                         errors += str(repo_error)
                 if host_repo_name in transient_data:
                     host_transient_data[host_repo_name] = transient_data[host_repo_name]
+                    update_transient_data[host_repo_name] = host_transient_data[host_repo_name]
 
         handle_host_event(
             host_update_status,
@@ -261,8 +265,22 @@ def update_repository(
             repos_update_data,
             errors,
         )
+
+    update_data = handle_update_event(
+        host_update_status,
+        update_transient_data,
+        root_auth_repo.library_dir,
+        scripts_root_dir,
+        hosts,
+        repos_update_data,
+        errors,
+        root_auth_repo
+    )
+
     if root_error:
         raise root_error
+
+    return unstructure(update_data)
 
 
 def _update_named_repository(
@@ -366,7 +384,6 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
     )
-
     # if commits_data is empty, do not attempt to load the host or dependencies
     # that can happen in the repository didn't exists, but could not be validated
     # and was therefore deleted
@@ -410,6 +427,7 @@ def _update_named_repository(
                 hosts_hierarchy_per_repo[child_auth_repo.name] = list(
                     hosts_hierarchy_per_repo[auth_repo.name]
                 )
+
                 try:
                     _update_named_repository(
                         child_auth_repo.urls[0],
@@ -472,7 +490,6 @@ def _update_named_repository(
                 targets_data,
                 transient_data,
             )
-
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
             "auth_repo": auth_repo,
@@ -915,7 +932,7 @@ def _get_commits(
             # check which commits are newer that the previous head commit
             if old_head in fetched_commits:
                 new_commits_on_repo_branch = fetched_commits[
-                    fetched_commits.index(old_head) + 1 : :
+                    fetched_commits.index(old_head) + 1::
                 ]
             else:
                 new_commits_on_repo_branch = repository.all_commits_since_commit(
@@ -1102,7 +1119,7 @@ def _update_target_repository(
                 if commit == target_commits[-1]:
                     update_successful = True
                     if commit != new_commits[-1]:
-                        additional_commits = new_commits[new_commit_index + 1 :]
+                        additional_commits = new_commits[new_commit_index + 1:]
                     break
             if len(additional_commits):
                 taf_logger.warning(
@@ -1133,7 +1150,7 @@ def _update_target_repository(
         branch_current_head = repository.top_commit_of_branch(branch)
         if branch_current_head in additional_commits:
             additional_commits = additional_commits[
-                additional_commits.index(branch_current_head) + 1 :
+                additional_commits.index(branch_current_head) + 1:
             ]
 
     return additional_commits
