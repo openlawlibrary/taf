@@ -174,17 +174,13 @@ def wrong_keystore():
 @fixture
 def types_update_valid_inputs():
     """Paths to the type update's input json files"""
-    return [
-        input_path for input_path in UPDATE_TYPES_VALID_INPUT_DIR.glob("*.json")
-    ]
+    return [input_path for input_path in UPDATE_TYPES_VALID_INPUT_DIR.glob("*.json")]
 
 
 @fixture
 def types_update_invalid_inputs():
     """Paths to the type update's input json files"""
-    return [
-        input_path for input_path in UPDATE_TYPES_INVALID_INPUT_DIR.glob("*.json")
-    ]
+    return [input_path for input_path in UPDATE_TYPES_INVALID_INPUT_DIR.glob("*.json")]
 
 
 @fixture
@@ -231,7 +227,8 @@ def host_handlers_invalid_inputs():
 def update_handlers_invalid_inputs():
     """Paths to the update handler's input json files"""
     return [
-        input_path for input_path in UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
+        input_path
+        for input_path in UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
     ]
 
 

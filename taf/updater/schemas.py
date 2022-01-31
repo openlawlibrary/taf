@@ -372,7 +372,7 @@ update_update_schema = {
                             "type": "object",
                             "items": {"$ref": "update_update.schema.json#"},
                         }
-                    }
+                    },
                 },
                 "auth_repos": {
                     "title": "Authentication Repositories with a flat structure",
@@ -383,9 +383,16 @@ update_update_schema = {
                     "title": "Name",
                     "description": "Name of authentication repository that was called by the updater",
                     "type": "string",
-                }
+                },
             },
-            "required": ["changed", "event", "hosts", "error_msg", "auth_repos", "auth_repo"],
+            "required": [
+                "changed",
+                "event",
+                "hosts",
+                "error_msg",
+                "auth_repos",
+                "auth_repo",
+            ],
             "additionalProperties": False,
         },
         "state": {

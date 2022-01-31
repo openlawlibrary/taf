@@ -148,7 +148,12 @@ def _load_json(auth_repo, commit=None, path=None):
     if commit is None:
         commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
     try:
-        if path in (DEPENDENCIES_JSON_PATH, HOSTS_JSON_PATH, MIRRORS_JSON_PATH, REPOSITORIES_JSON_PATH):
+        if path in (
+            DEPENDENCIES_JSON_PATH,
+            HOSTS_JSON_PATH,
+            MIRRORS_JSON_PATH,
+            REPOSITORIES_JSON_PATH,
+        ):
             return _get_json_file(auth_repo, path, commit)
     except MissingHostsError:
         return {}

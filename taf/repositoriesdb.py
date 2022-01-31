@@ -120,7 +120,11 @@ def load_dependencies(
                 # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
-                    library_dir=library_dir, name=name, urls=urls, out_of_band_authentication=out_of_band_authentication, custom=custom
+                    library_dir=library_dir,
+                    name=name,
+                    urls=urls,
+                    out_of_band_authentication=out_of_band_authentication,
+                    custom=custom,
                 )
             except Exception as e:
                 taf_logger.error(

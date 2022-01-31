@@ -14,7 +14,7 @@ from taf.utils import (
 )
 from taf.exceptions import ScriptExecutionError
 from taf.log import taf_logger
-from taf.updater.types.update import (Update)
+from taf.updater.types.update import Update
 from cattr import structure
 
 
@@ -301,14 +301,15 @@ def prepare_data_update(
     hosts,
     repos_update_data,
     error,
-    root_auth_repo
+    root_auth_repo,
 ):
 
     update_hosts = {}
     flat_auth_repos = {}
     for auth_repo_name in repos_update_data.keys():
         flat_auth_repos[auth_repo_name] = _repo_update_data(
-            **repos_update_data[auth_repo_name])
+            **repos_update_data[auth_repo_name]
+        )
 
     for host_data in hosts:
         auth_repos = {}
@@ -317,7 +318,8 @@ def prepare_data_update(
                 for repo_name, repo_host_data in host_auth_repos.items():
                     auth_repo = {}
                     auth_repo[repo_name] = _repo_update_data(
-                        **repos_update_data[repo_name])
+                        **repos_update_data[repo_name]
+                    )
                     auth_repo[repo_name]["custom"] = repo_host_data["custom"]
                     auth_repos.update({"update": auth_repo})
 
@@ -337,7 +339,7 @@ def prepare_data_update(
                     "error_msg": str(error) if error else "",
                     "hosts": update_hosts,
                     "auth_repos": flat_auth_repos,
-                    "auth_repo": root_auth_repo.name
+                    "auth_repo": root_auth_repo.name,
                 },
                 "state": {
                     "transient": transient_data,

@@ -81,7 +81,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 "conf_directory_root": str(self.conf_directory_root),
                 "out_of_band_authentication": self.out_of_band_authentication,
                 "hosts": self.hosts,
-                "dependencies": self.dependencies
+                "dependencies": self.dependencies,
             }
         )
         return data
@@ -188,7 +188,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def set_dependencies(self, dependencies):
         """
-        Set dependencies.json content to authentication repository. 
+        Set dependencies.json content to authentication repository.
         If the dependencies.json is empty, field is empty.
         """
         deps = {}

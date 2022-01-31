@@ -3,13 +3,17 @@ import pytest
 from jsonschema import validate, RefResolver, Draft7Validator
 from jsonschema.exceptions import ValidationError
 from pathlib import Path
-from taf.updater.schemas import repo_update_schema, host_update_schema, update_update_schema
+from taf.updater.schemas import (
+    repo_update_schema,
+    host_update_schema,
+    update_update_schema,
+)
 
 
 schema_store = {
     repo_update_schema["$id"]: repo_update_schema,
     host_update_schema["$id"]: host_update_schema,
-    update_update_schema["$id"]: update_update_schema
+    update_update_schema["$id"]: update_update_schema,
 }
 
 
