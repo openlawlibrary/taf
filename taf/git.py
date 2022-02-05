@@ -742,6 +742,15 @@ class GitRepository:
         return False
 
     def list_files_at_revision(self, commit, path=""):
+        path = Path(path).as_posix()
+        try:
+            return self.pygit.list_files_at_revision(commit, path)
+        except TAFError as e:
+            raise e
+        except Exception:
+            return self._list_files_at_revision(commit, path)
+
+    def _list_files_at_revision(self, commit, path):
         if path is None:
             path = ""
         file_names = self._git("ls-tree -r --name-only {}", commit)
