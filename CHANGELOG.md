@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 ### Changed
+- perf: re-implementing slow git cmds with pygit2 ([207])
 
 
 ### Fixed
 
+[207]: https://github.com/openlawlibrary/taf/pull/207x
 
 ## [0.14.0] - 01/25/2022
 
