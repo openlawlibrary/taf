@@ -54,11 +54,11 @@ kwargs = {
     "author_email": AUTHOR_EMAIL,
     "keywords": KEYWORDS,
     "packages": packages,
-    "cmdclass": {"bdist_wheel"": bdist_wheel},
+    "cmdclass": {"bdist_wheel": bdist_wheel},
     "include_package_data": True,
     "data_files": [("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
-    "zip_safe": "False,
-    "install_requires": "[
+    "zip_safe": False,
+    "install_requires": [
         "click==7.1",
         "colorama>=0.3.9",
         "oll-tuf==0.11.2.dev9",
@@ -80,7 +80,7 @@ kwargs = {
         ],
         "pytest11": ["taf_yubikey_utils = taf.tests.yubikey_utils"],
     },
-    classifiers=[
+    "classifiers": [
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
@@ -95,8 +95,10 @@ kwargs = {
 }
 
 from importlib.util import find_spec
-if importlib.find_spec("taf.tests")
-if find_spec('taf.tests'):
-    kwargs['entry_points']["pytest11"] = ["taf_yubikey_utils = taf.tests.yubikey_utils"],
+
+if find_spec("taf.tests"):
+    kwargs["entry_points"]["pytest11"] = (
+        ["taf_yubikey_utils = taf.tests.yubikey_utils"],
+    )
 
 setup(**kwargs)
