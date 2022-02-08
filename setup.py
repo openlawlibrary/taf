@@ -1,5 +1,5 @@
 from setuptools import find_packages, setup
-import importlib
+from importlib.util import find_spec
 
 PACKAGE_NAME = "taf"
 VERSION = "0.13.3"
@@ -94,7 +94,6 @@ kwargs = {
     ],
 }
 
-from importlib.util import find_spec
 
 try:
     tests_exist = find_spec("taf.tests")
