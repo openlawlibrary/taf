@@ -96,7 +96,11 @@ kwargs = {
 
 from importlib.util import find_spec
 
-if find_spec("taf.tests"):
+try:
+    tests_exist = find_spec("taf.tests")
+except ModuleNotFoundError:
+    tests_exist = False
+if tests_exist:
     kwargs["entry_points"]["pytest11"] = (
         ["taf_yubikey_utils = taf.tests.yubikey_utils"],
     )
