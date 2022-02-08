@@ -258,6 +258,7 @@ class GitUpdater(handlers.MetadataUpdater):
             shutil.rmtree(self.current_path)
         if self.previous_path.is_dir():
             shutil.rmtree(self.previous_path)
+        self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
         shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 

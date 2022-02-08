@@ -65,6 +65,7 @@ kwargs = {
         "loguru==0.4.0",
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
+        "pygit2==0.28.2",
     ],
     "extras_require": {
         "ci": ci_require,

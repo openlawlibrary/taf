@@ -10,6 +10,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    TAFError,
     CloneRepoException,
     FetchException,
     InvalidRepositoryError,
@@ -17,6 +18,7 @@ from taf.exceptions import (
 )
 from taf.log import taf_logger
 from taf.utils import run
+from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -83,6 +85,17 @@ class GitRepository:
         self.urls = self._validate_urls(urls)
         self.default_branch = default_branch
         self.custom = custom or {}
+
+    _pygit = None
+
+    @property
+    def pygit(self):
+        if self._pygit is None:
+            try:
+                self._pygit = PyGitRepository(self)
+            except Exception:
+                pass
+        return self._pygit
 
     @classmethod
     def from_json_dict(cls, json_data):
@@ -416,6 +429,11 @@ class GitRepository:
     def clean(self):
         self._git("clean -fd")
 
+    def cleanup(self):
+        if self._pygit is not None:
+            self._pygit.cleanup()
+            self._pygit = None
+
     def clone(self, no_checkout=False, bare=False, **kwargs):
         self._log_info("cloning repository")
         shutil.rmtree(self.path, True)
@@ -609,7 +627,17 @@ class GitRepository:
 
     def get_file(self, commit, path, raw=False):
         path = Path(path).as_posix()
-        return self._git("show {}:{}", commit, path, raw=raw)
+        if raw:
+            return self._git("show {}:{}", commit, path, raw=raw)
+        try:
+            out = self.pygit.get_file(commit, path)
+            # if not out:
+            #     import pdb; pdb.set_trace()
+            return out
+        except TAFError as e:
+            raise e
+        except Exception:
+            return self._git("show {}:{}", commit, path, raw=raw)
 
     def get_first_commit_on_branch(self, branch=None):
         branch = branch or self.default_branch
@@ -714,6 +742,15 @@ class GitRepository:
         return False
 
     def list_files_at_revision(self, commit, path=""):
+        path = Path(path).as_posix()
+        try:
+            return self.pygit.list_files_at_revision(commit, path)
+        except TAFError as e:
+            raise e
+        except Exception:
+            return self._list_files_at_revision(commit, path)
+
+    def _list_files_at_revision(self, commit, path):
         if path is None:
             path = ""
         file_names = self._git("ls-tree -r --name-only {}", commit)

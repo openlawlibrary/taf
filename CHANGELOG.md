@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 ### Changed
+- perf: re-implementing slow git cmds with pygit2 ([207])
 
 
 ### Fixed
 - pytest works when taf installed via wheel ([200])
 
+[207]: https://github.com/openlawlibrary/taf/pull/207
 [200]: https://github.com/openlawlibrary/taf/pull/200
 
 ## [0.14.0] - 01/25/2022

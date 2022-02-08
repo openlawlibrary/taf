@@ -80,6 +80,7 @@ def _copy_repos(test_dir_path, test_name):
                 repo_rel_path = Path(root).relative_to(test_dir_path)
                 dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
                 # convert dst_path to string in order to support python 3.5
+                shutil.rmtree(dst_path, ignore_errors=True)
                 shutil.copytree(root, str(dst_path))
                 (dst_path / "git").rename(dst_path / ".git")
                 repo_rel_path = Path(repo_rel_path).as_posix()
@@ -101,6 +102,7 @@ def _load_key(keystore_path, key_name, scheme):
 
 @fixture(scope="session", autouse=True)
 def output_path():
+    shutil.rmtree(TEST_OUTPUT_PATH, ignore_errors=True)
     TEST_OUTPUT_PATH.mkdir()
     yield TEST_OUTPUT_PATH
     shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
