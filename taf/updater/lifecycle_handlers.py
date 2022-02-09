@@ -305,15 +305,15 @@ def prepare_data_update(
 ):
 
     update_hosts = {}
-    flat_auth_repos = {}
-    for auth_repo_name in repos_update_data.keys():
-        flat_auth_repos[auth_repo_name] = _repo_update_data(
+    all_auth_repos = {}
+    for auth_repo_name in repos_update_data:
+        all_auth_repos[auth_repo_name] = _repo_update_data(
             **repos_update_data[auth_repo_name]
         )
 
     for host_data in hosts:
         auth_repos = {}
-        for root_repo, contained_repo_data in host_data.data_by_auth_repo.items():
+        for _, contained_repo_data in host_data.data_by_auth_repo.items():
             for host_auth_repos in contained_repo_data["auth_repos"]:
                 for repo_name, repo_host_data in host_auth_repos.items():
                     auth_repo = {}
@@ -321,7 +321,7 @@ def prepare_data_update(
                         **repos_update_data[repo_name]
                     )
                     auth_repo[repo_name]["custom"] = repo_host_data["custom"]
-                    auth_repos.update({"update": auth_repo})
+                    auth_repos["update"] = auth_repo
 
             update_hosts[host_data.name] = {
                 "host_name": host_data.name,
@@ -338,8 +338,8 @@ def prepare_data_update(
                     "event": _format_event(event),
                     "error_msg": str(error) if error else "",
                     "hosts": update_hosts,
-                    "auth_repos": flat_auth_repos,
-                    "auth_repo": root_auth_repo.name,
+                    "auth_repos": all_auth_repos,
+                    "auth_repo_name": root_auth_repo.name,
                 },
                 "state": {
                     "transient": transient_data,
@@ -352,10 +352,6 @@ def prepare_data_update(
             ],
         }
     }
-
-
-def prepare_data_completed():
-    return {}
 
 
 def _repo_update_data(auth_repo, update_status, commits_data, targets_data, error):
