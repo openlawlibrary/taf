@@ -851,5 +851,5 @@
             "target_repos": {}
         }
     },
-    "auth_repo": "openlawlibrary/law"
+    "auth_repo_name": "openlawlibrary/law"
 }

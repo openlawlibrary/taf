@@ -15,7 +15,7 @@ def test_update_structure_valid(types_update_valid_inputs):
                 event=result.event,
                 hosts=result.hosts,
                 auth_repos=result.auth_repos,
-                auth_repo="openlawlibrary/law",
+                auth_repo_name="openlawlibrary/law",
             )
             == result
         )
@@ -32,7 +32,7 @@ def test_update_structure_invalid(types_update_invalid_inputs):
                 error_msg="",
                 hosts={},
                 auth_repos={},
-                auth_repo="",
+                auth_repo_name="",
             )
             == result
         )

@@ -379,7 +379,7 @@ update_update_schema = {
                     "type": "object",
                     "items": {"$ref": "repo_update.schema.json#"},
                 },
-                "auth_repo": {
+                "auth_repo_name": {
                     "title": "Name",
                     "description": "Name of authentication repository that was called by the updater",
                     "type": "string",
@@ -391,7 +391,7 @@ update_update_schema = {
                 "hosts",
                 "error_msg",
                 "auth_repos",
-                "auth_repo",
+                "auth_repo_name",
             ],
             "additionalProperties": False,
         },

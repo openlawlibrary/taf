@@ -9,4 +9,4 @@ class Update:
     error_msg: str = field(default="")
     hosts: Dict = field(factory=dict)
     auth_repos: Dict = field(factory=dict)
-    auth_repo: str = field(default="")
+    auth_repo_name: str = field(default="")

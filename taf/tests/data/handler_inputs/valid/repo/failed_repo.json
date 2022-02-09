@@ -2,38 +2,38 @@
     "update": {
         "changed": false,
         "event": "event/failed",
-        "repo_name": "cityofsanmateo/law",
+        "repo_name": "portland/law",
         "error_msg": "",
         "auth_repo": {
             "data": {
                 "library_dir": "E:\\oll\\library\\test-update",
-                "name": "cityofsanmateo/law",
+                "name": "portland/law",
                 "urls": [
-                    "http://github.com/oll-test-repos/cityofsanmateo-law"
+                    "http://github.com/portland/portland-law"
                 ],
                 "default_branch": "master",
                 "custom": {},
-                "conf_directory_root": "E:\\oll\\library\\test-update\\cityofsanmateo",
+                "conf_directory_root": "E:\\oll\\library\\test-update\\portland",
                 "out_of_band_authentication": null,
                 "hosts": {
-                    "sanmateo.ca.us.open.law.vagrant": {
+                    "portland.oregon.open.law.vagrant": {
                         "custom": {
                             "subdomains": {
                                 "development": {
-                                    "cityofsanmateo/law-html": {
-                                        "repo-name": "cityofsanmateo/law-html-development"
+                                    "portland/law-html": {
+                                        "repo-name": "portland/law-html-development"
                                     }
                                 },
                                 "preview": {
-                                    "cityofsanmateo/law-xml-codified": {
-                                        "repo-name": "cityofsanmateo/law-html-preview"
+                                    "portland/law-xml-codified": {
+                                        "repo-name": "portland/law-html-preview"
                                     },
-                                    "cityofsanmateo/law-html": {
-                                        "repo-name": "cityofsanmateo/law-html-preview",
+                                    "portland/law-html": {
+                                        "repo-name": "portland/law-html-preview",
                                         "pull": "authenticated"
                                     },
-                                    "cityofsanmateo/law-docs": {
-                                        "repo-name": "cityofsanmateo/law-docs-preview",
+                                    "portland/law-docs": {
+                                        "repo-name": "portland/law-docs-preview",
                                         "pull": "latest"
                                     }
                                 }

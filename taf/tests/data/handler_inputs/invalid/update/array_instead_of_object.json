@@ -5,29 +5,29 @@
         "error_msg": "",
         "hosts": [
             {
-                "san-ildefonso.nsn.us.open.law.vagrant": {
-                    "host_name": "san-ildefonso.nsn.us.open.law.vagrant",
+                "houston.texas.us.open.law.vagrant": {
+                    "host_name": "houston.texas.us.open.law.vagrant",
                     "error_msg": "",
                     "auth_repos": {
                         "update": {
-                            "sanipueblo/law": {
+                            "portland/law": {
                                 "changed": false,
                                 "event": "event/succeeded",
-                                "repo_name": "sanipueblo/law",
+                                "repo_name": "portland/law",
                                 "error_msg": "",
                                 "auth_repo": {
                                     "data": {
                                         "library_dir": "C:\\OLL\\test1",
-                                        "name": "sanipueblo/law",
+                                        "name": "portland/law",
                                         "urls": [
-                                            "http://github.com/oll-test-repos/sanipueblo-law"
+                                            "http://github.com/houston/portland-law"
                                         ],
                                         "default_branch": "master",
                                         "custom": {},
-                                        "conf_directory_root": "C:\\OLL\\test1\\sanipueblo",
+                                        "conf_directory_root": "C:\\OLL\\test1\\portland",
                                         "out_of_band_authentication": null,
                                         "hosts": {
-                                            "san-ildefonso.nsn.us.open.law.vagrant": {}
+                                            "houston.texas.us.open.law.vagrant": {}
                                         },
                                         "dependencies": {}
                                     },
@@ -38,12 +38,12 @@
                                     }
                                 },
                                 "target_repos": {
-                                    "sanipueblo/law-xml": {
+                                    "portland/law-xml": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "sanipueblo/law-xml",
+                                            "name": "portland/law-xml",
                                             "urls": [
-                                                "http://github.com/oll-test-repos/sanipueblo-law-xml"
+                                                "http://github.com/houston/portland-law-xml"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
@@ -72,16 +72,16 @@
                                             }
                                         }
                                     },
-                                    "sanipueblo/law-html": {
+                                    "portland/law-html": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "sanipueblo/law-html",
+                                            "name": "portland/law-html",
                                             "urls": [
-                                                "http://github.com/oll-test-repos/sanipueblo-law-html"
+                                                "http://github.com/houston/portland-law-html"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
-                                                "preview": "git@github.com:oll-test-repos/sanipueblo-law-html-preview.git",
+                                                "preview": "git@github.com:houston/portland-law-html-preview.git",
                                                 "type": "html",
                                                 "serve": "historical",
                                                 "location_regex": "/"
@@ -108,16 +108,16 @@
                                             }
                                         }
                                     },
-                                    "sanipueblo/law-xml-codified": {
+                                    "portland/law-xml-codified": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "sanipueblo/law-xml-codified",
+                                            "name": "portland/law-xml-codified",
                                             "urls": [
-                                                "http://github.com/oll-test-repos/sanipueblo-law-xml-codified"
+                                                "http://github.com/houston/portland-law-xml-codified"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
-                                                "preview": "git@github.com:oll-test-repos/sanipueblo-law-xml-codified-preview.git",
+                                                "preview": "git@github.com:houston/portland-law-xml-codified-preview.git",
                                                 "type": "xml-codified",
                                                 "serve": "historical",
                                                 "serve-prefix": "_xml"
@@ -153,46 +153,46 @@
                 }
             },
             {
-                "sanmateo.ca.us.open.law.vagrant": {
-                    "host_name": "sanmateo.ca.us.open.law.vagrant",
+                "portland.oregon.open.law.vagrant": {
+                    "host_name": "portland.oregon.open.law.vagrant",
                     "error_msg": "",
                     "auth_repos": {
                         "update": {
-                            "cityofsanmateo/law": {
+                            "houstontexas/law": {
                                 "changed": false,
                                 "event": "event/succeeded",
-                                "repo_name": "cityofsanmateo/law",
+                                "repo_name": "houstontexas/law",
                                 "error_msg": "",
                                 "auth_repo": {
                                     "data": {
                                         "library_dir": "C:\\OLL\\test1",
-                                        "name": "cityofsanmateo/law",
+                                        "name": "houstontexas/law",
                                         "urls": [
-                                            "http://github.com/oll-test-repos/cityofsanmateo-law"
+                                            "http://github.com/houston/houstontexas-law"
                                         ],
                                         "default_branch": "master",
                                         "custom": {},
-                                        "conf_directory_root": "C:\\OLL\\test1\\cityofsanmateo",
+                                        "conf_directory_root": "C:\\OLL\\test1\\houstontexas",
                                         "out_of_band_authentication": null,
                                         "hosts": {
-                                            "sanmateo.ca.us.open.law.vagrant": {
+                                            "portland.oregon.open.law.vagrant": {
                                                 "custom": {
                                                     "subdomains": {
                                                         "development": {
-                                                            "cityofsanmateo/law-html": {
-                                                                "repo-name": "cityofsanmateo/law-html-development"
+                                                            "houstontexas/law-html": {
+                                                                "repo-name": "houstontexas/law-html-development"
                                                             }
                                                         },
                                                         "preview": {
-                                                            "cityofsanmateo/law-xml-codified": {
-                                                                "repo-name": "cityofsanmateo/law-html-preview"
+                                                            "houstontexas/law-xml-codified": {
+                                                                "repo-name": "houstontexas/law-html-preview"
                                                             },
-                                                            "cityofsanmateo/law-html": {
-                                                                "repo-name": "cityofsanmateo/law-html-preview",
+                                                            "houstontexas/law-html": {
+                                                                "repo-name": "houstontexas/law-html-preview",
                                                                 "pull": "authenticated"
                                                             },
-                                                            "cityofsanmateo/law-docs": {
-                                                                "repo-name": "cityofsanmateo/law-docs-preview",
+                                                            "houstontexas/law-docs": {
+                                                                "repo-name": "houstontexas/law-docs-preview",
                                                                 "pull": "latest"
                                                             }
                                                         }
@@ -209,13 +209,13 @@
                                     }
                                 },
                                 "target_repos": {
-                                    "cityofsanmateo/law-docs": {
+                                    "houstontexas/law-docs": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "cityofsanmateo/law-docs",
+                                            "name": "houstontexas/law-docs",
                                             "urls": [
-                                                "git@github.com:oll-test-repos/cityofsanmateo-law-docs.git",
-                                                "http://github.com/oll-test-repos/cityofsanmateo-law-docs"
+                                                "git@github.com:houston/houstontexas-law-docs.git",
+                                                "http://github.com/houston/houstontexas-law-docs"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
@@ -243,13 +243,13 @@
                                             }
                                         }
                                     },
-                                    "cityofsanmateo/law-xml": {
+                                    "houstontexas/law-xml": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "cityofsanmateo/law-xml",
+                                            "name": "houstontexas/law-xml",
                                             "urls": [
-                                                "git@github.com:oll-test-repos/cityofsanmateo-law-xml.git",
-                                                "http://github.com/oll-test-repos/cityofsanmateo-law-xml"
+                                                "git@github.com:houston/houstontexas-law-xml.git",
+                                                "http://github.com/houston/houstontexas-law-xml"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
@@ -283,17 +283,17 @@
                                             }
                                         }
                                     },
-                                    "cityofsanmateo/law-html": {
+                                    "houstontexas/law-html": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "cityofsanmateo/law-html",
+                                            "name": "houstontexas/law-html",
                                             "urls": [
-                                                "git@github.com:oll-test-repos/cityofsanmateo-law-html.git",
-                                                "http://github.com/oll-test-repos/cityofsanmateo-law-html"
+                                                "git@github.com:houston/houstontexas-law-html.git",
+                                                "http://github.com/houston/houstontexas-law-html"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
-                                                "preview": "git@github.com:oll-test-repos/cityofsanmateo-law-html-preview.git",
+                                                "preview": "git@github.com:houston/houstontexas-law-html-preview.git",
                                                 "type": "html",
                                                 "serve": "historical",
                                                 "location_regex": "/"
@@ -323,17 +323,17 @@
                                             }
                                         }
                                     },
-                                    "cityofsanmateo/law-xml-codified": {
+                                    "houstontexas/law-xml-codified": {
                                         "repo_data": {
                                             "library_dir": "C:\\OLL\\test1",
-                                            "name": "cityofsanmateo/law-xml-codified",
+                                            "name": "houstontexas/law-xml-codified",
                                             "urls": [
-                                                "git@github.com:oll-test-repos/cityofsanmateo-law-xml-codified.git",
-                                                "http://github.com/oll-test-repos/cityofsanmateo-law-xml-codified"
+                                                "git@github.com:houston/houstontexas-law-xml-codified.git",
+                                                "http://github.com/houston/houstontexas-law-xml-codified"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
-                                                "preview": "git@github.com:oll-test-repos/cityofsanmateo-law-xml-codified-preview.git",
+                                                "preview": "git@github.com:houston/houstontexas-law-xml-codified-preview.git",
                                                 "type": "xml-codified",
                                                 "serve": "historical",
                                                 "serve-prefix": "_xml"
@@ -368,8 +368,8 @@
                                             "library_dir": "C:\\OLL\\test1",
                                             "name": "openlawlibrary/law-static-assets",
                                             "urls": [
-                                                "git@github.com:oll-test-repos/openlawlibrary-law-static-assets.git",
-                                                "http://github.com/oll-test-repos/openlawlibrary-law-static-assets"
+                                                "git@github.com:houston/openlawlibrary-law-static-assets.git",
+                                                "http://github.com/houston/openlawlibrary-law-static-assets"
                                             ],
                                             "default_branch": "main",
                                             "custom": {
@@ -413,20 +413,20 @@
                     "custom": {
                         "subdomains": {
                             "development": {
-                                "cityofsanmateo/law-html": {
-                                    "repo-name": "cityofsanmateo/law-html-development"
+                                "houstontexas/law-html": {
+                                    "repo-name": "houstontexas/law-html-development"
                                 }
                             },
                             "preview": {
-                                "cityofsanmateo/law-xml-codified": {
-                                    "repo-name": "cityofsanmateo/law-html-preview"
+                                "houstontexas/law-xml-codified": {
+                                    "repo-name": "houstontexas/law-html-preview"
                                 },
-                                "cityofsanmateo/law-html": {
-                                    "repo-name": "cityofsanmateo/law-html-preview",
+                                "houstontexas/law-html": {
+                                    "repo-name": "houstontexas/law-html-preview",
                                     "pull": "authenticated"
                                 },
-                                "cityofsanmateo/law-docs": {
-                                    "repo-name": "cityofsanmateo/law-docs-preview",
+                                "houstontexas/law-docs": {
+                                    "repo-name": "houstontexas/law-docs-preview",
                                     "pull": "latest"
                                 }
                             }
@@ -436,41 +436,41 @@
             }
         ],
         "auth_repos": {
-            "cityofsanmateo/law": {
+            "houstontexas/law": {
                 "changed": false,
                 "event": "event/succeeded",
-                "repo_name": "cityofsanmateo/law",
+                "repo_name": "houstontexas/law",
                 "error_msg": "",
                 "auth_repo": {
                     "data": {
                         "library_dir": "C:\\OLL\\test1",
-                        "name": "cityofsanmateo/law",
+                        "name": "houstontexas/law",
                         "urls": [
-                            "http://github.com/oll-test-repos/cityofsanmateo-law"
+                            "http://github.com/houston/houstontexas-law"
                         ],
                         "default_branch": "master",
                         "custom": {},
-                        "conf_directory_root": "C:\\OLL\\test1\\cityofsanmateo",
+                        "conf_directory_root": "C:\\OLL\\test1\\houstontexas",
                         "out_of_band_authentication": null,
                         "hosts": {
-                            "sanmateo.ca.us.open.law.vagrant": {
+                            "portland.oregon.open.law.vagrant": {
                                 "custom": {
                                     "subdomains": {
                                         "development": {
-                                            "cityofsanmateo/law-html": {
-                                                "repo-name": "cityofsanmateo/law-html-development"
+                                            "houstontexas/law-html": {
+                                                "repo-name": "houstontexas/law-html-development"
                                             }
                                         },
                                         "preview": {
-                                            "cityofsanmateo/law-xml-codified": {
-                                                "repo-name": "cityofsanmateo/law-html-preview"
+                                            "houstontexas/law-xml-codified": {
+                                                "repo-name": "houstontexas/law-html-preview"
                                             },
-                                            "cityofsanmateo/law-html": {
-                                                "repo-name": "cityofsanmateo/law-html-preview",
+                                            "houstontexas/law-html": {
+                                                "repo-name": "houstontexas/law-html-preview",
                                                 "pull": "authenticated"
                                             },
-                                            "cityofsanmateo/law-docs": {
-                                                "repo-name": "cityofsanmateo/law-docs-preview",
+                                            "houstontexas/law-docs": {
+                                                "repo-name": "houstontexas/law-docs-preview",
                                                 "pull": "latest"
                                             }
                                         }
@@ -487,13 +487,13 @@
                     }
                 },
                 "target_repos": {
-                    "cityofsanmateo/law-docs": {
+                    "houstontexas/law-docs": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "cityofsanmateo/law-docs",
+                            "name": "houstontexas/law-docs",
                             "urls": [
-                                "git@github.com:oll-test-repos/cityofsanmateo-law-docs.git",
-                                "http://github.com/oll-test-repos/cityofsanmateo-law-docs"
+                                "git@github.com:houston/houstontexas-law-docs.git",
+                                "http://github.com/houston/houstontexas-law-docs"
                             ],
                             "default_branch": "main",
                             "custom": {
@@ -521,13 +521,13 @@
                             }
                         }
                     },
-                    "cityofsanmateo/law-xml": {
+                    "houstontexas/law-xml": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "cityofsanmateo/law-xml",
+                            "name": "houstontexas/law-xml",
                             "urls": [
-                                "git@github.com:oll-test-repos/cityofsanmateo-law-xml.git",
-                                "http://github.com/oll-test-repos/cityofsanmateo-law-xml"
+                                "git@github.com:houston/houstontexas-law-xml.git",
+                                "http://github.com/houston/houstontexas-law-xml"
                             ],
                             "default_branch": "main",
                             "custom": {
@@ -561,17 +561,17 @@
                             }
                         }
                     },
-                    "cityofsanmateo/law-html": {
+                    "houstontexas/law-html": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "cityofsanmateo/law-html",
+                            "name": "houstontexas/law-html",
                             "urls": [
-                                "git@github.com:oll-test-repos/cityofsanmateo-law-html.git",
-                                "http://github.com/oll-test-repos/cityofsanmateo-law-html"
+                                "git@github.com:houston/houstontexas-law-html.git",
+                                "http://github.com/houston/houstontexas-law-html"
                             ],
                             "default_branch": "main",
                             "custom": {
-                                "preview": "git@github.com:oll-test-repos/cityofsanmateo-law-html-preview.git",
+                                "preview": "git@github.com:houston/houstontexas-law-html-preview.git",
                                 "type": "html",
                                 "serve": "historical",
                                 "location_regex": "/"
@@ -601,17 +601,17 @@
                             }
                         }
                     },
-                    "cityofsanmateo/law-xml-codified": {
+                    "houstontexas/law-xml-codified": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "cityofsanmateo/law-xml-codified",
+                            "name": "houstontexas/law-xml-codified",
                             "urls": [
-                                "git@github.com:oll-test-repos/cityofsanmateo-law-xml-codified.git",
-                                "http://github.com/oll-test-repos/cityofsanmateo-law-xml-codified"
+                                "git@github.com:houston/houstontexas-law-xml-codified.git",
+                                "http://github.com/houston/houstontexas-law-xml-codified"
                             ],
                             "default_branch": "main",
                             "custom": {
-                                "preview": "git@github.com:oll-test-repos/cityofsanmateo-law-xml-codified-preview.git",
+                                "preview": "git@github.com:houston/houstontexas-law-xml-codified-preview.git",
                                 "type": "xml-codified",
                                 "serve": "historical",
                                 "serve-prefix": "_xml"
@@ -646,8 +646,8 @@
                             "library_dir": "C:\\OLL\\test1",
                             "name": "openlawlibrary/law-static-assets",
                             "urls": [
-                                "git@github.com:oll-test-repos/openlawlibrary-law-static-assets.git",
-                                "http://github.com/oll-test-repos/openlawlibrary-law-static-assets"
+                                "git@github.com:houston/openlawlibrary-law-static-assets.git",
+                                "http://github.com/houston/openlawlibrary-law-static-assets"
                             ],
                             "default_branch": "main",
                             "custom": {
@@ -685,24 +685,24 @@
                     }
                 }
             },
-            "sanipueblo/law": {
+            "portland/law": {
                 "changed": false,
                 "event": "event/succeeded",
-                "repo_name": "sanipueblo/law",
+                "repo_name": "portland/law",
                 "error_msg": "",
                 "auth_repo": {
                     "data": {
                         "library_dir": "C:\\OLL\\test1",
-                        "name": "sanipueblo/law",
+                        "name": "portland/law",
                         "urls": [
-                            "http://github.com/oll-test-repos/sanipueblo-law"
+                            "http://github.com/houston/portland-law"
                         ],
                         "default_branch": "master",
                         "custom": {},
-                        "conf_directory_root": "C:\\OLL\\test1\\sanipueblo",
+                        "conf_directory_root": "C:\\OLL\\test1\\portland",
                         "out_of_band_authentication": null,
                         "hosts": {
-                            "san-ildefonso.nsn.us.open.law.vagrant": {}
+                            "houston.texas.us.open.law.vagrant": {}
                         },
                         "dependencies": {}
                     },
@@ -713,12 +713,12 @@
                     }
                 },
                 "target_repos": {
-                    "sanipueblo/law-xml": {
+                    "portland/law-xml": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "sanipueblo/law-xml",
+                            "name": "portland/law-xml",
                             "urls": [
-                                "http://github.com/oll-test-repos/sanipueblo-law-xml"
+                                "http://github.com/houston/portland-law-xml"
                             ],
                             "default_branch": "main",
                             "custom": {
@@ -747,16 +747,16 @@
                             }
                         }
                     },
-                    "sanipueblo/law-html": {
+                    "portland/law-html": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "sanipueblo/law-html",
+                            "name": "portland/law-html",
                             "urls": [
-                                "http://github.com/oll-test-repos/sanipueblo-law-html"
+                                "http://github.com/houston/portland-law-html"
                             ],
                             "default_branch": "main",
                             "custom": {
-                                "preview": "git@github.com:oll-test-repos/sanipueblo-law-html-preview.git",
+                                "preview": "git@github.com:houston/portland-law-html-preview.git",
                                 "type": "html",
                                 "serve": "historical",
                                 "location_regex": "/"
@@ -783,16 +783,16 @@
                             }
                         }
                     },
-                    "sanipueblo/law-xml-codified": {
+                    "portland/law-xml-codified": {
                         "repo_data": {
                             "library_dir": "C:\\OLL\\test1",
-                            "name": "sanipueblo/law-xml-codified",
+                            "name": "portland/law-xml-codified",
                             "urls": [
-                                "http://github.com/oll-test-repos/sanipueblo-law-xml-codified"
+                                "http://github.com/houston/portland-law-xml-codified"
                             ],
                             "default_branch": "main",
                             "custom": {
-                                "preview": "git@github.com:oll-test-repos/sanipueblo-law-xml-codified-preview.git",
+                                "preview": "git@github.com:houston/portland-law-xml-codified-preview.git",
                                 "type": "xml-codified",
                                 "serve": "historical",
                                 "serve-prefix": "_xml"
@@ -831,7 +831,7 @@
                         "library_dir": "C:\\OLL\\test1",
                         "name": "openlawlibrary/law",
                         "urls": [
-                            "https://github.com/oll-test-repos/openlawlibrary-law.git"
+                            "https://github.com/houston/openlawlibrary-law.git"
                         ],
                         "default_branch": "master",
                         "custom": {},
@@ -839,10 +839,10 @@
                         "out_of_band_authentication": null,
                         "hosts": {},
                         "dependencies": {
-                            "cityofsanmateo/law": {
+                            "houstontexas/law": {
                                 "out-of-band-authentication": "bfcbc7db7adc3f43291a64b0572b6b114e63e98a"
                             },
-                            "sanipueblo/law": {
+                            "portland/law": {
                                 "out-of-band-authentiction": "d7a6b796cffe53ad89b4504084402570b7d17f6b"
                             }
                         }
@@ -856,41 +856,11 @@
                 "target_repos": {}
             }
         },
-        "auth_repo": "openlawlibrary/law"
+        "auth_repo_name": "openlawlibrary/law"
     },
     "state": {
-        "transient": {
-            "sanipueblo/law": {
-                "script1": {
-                    "sanipueblo/law": "this is transient"
-                },
-                "script2": {
-                    "sanipueblo/law": "this is transient"
-                }
-            },
-            "cityofsanmateo/law": {
-                "script1": {
-                    "sanipueblo/law": "this is transient"
-                },
-                "script2": {
-                    "sanipueblo/law": "this is transient"
-                }
-            },
-            "script1": {
-                "cityofsanamteo/law": "this is transient"
-            },
-            "script2": {
-                "cityofsanamteo/law": "this is transient"
-            }
-        },
-        "persistent": {
-            "script1": {
-                "cityofsanamteo/law": "this is persistent"
-            },
-            "script2": {
-                "cityofsanamteo/law": "this is persistent"
-            }
-        }
+        "transient": {},
+        "persistent": {}
     },
     "config": {}
 }
