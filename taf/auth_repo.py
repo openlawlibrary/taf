@@ -22,6 +22,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
+    _dependencies = {}
 
     def __init__(
         self,
@@ -34,7 +35,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         out_of_band_authentication=None,
         hosts=None,
         path=None,
-        dependencies=None,
         *args,
         **kwargs,
     ):
@@ -69,7 +69,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         # this repository's hosts file specifying its hosts
         # in other words, propagate hosts data from parent to the child repository
         self.hosts = hosts
-        self.dependencies = dependencies
 
     # TODO rework conf_dir
 
@@ -107,6 +106,14 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         certs_dir = Path(self.path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
+
+    @property
+    def dependencies(self):
+        return self._dependencies
+
+    @dependencies.setter
+    def dependencies(self, value):
+        self._dependencies = value
 
     @property
     def is_test_repo(self):
@@ -185,19 +192,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
-
-    def set_dependencies(self, dependencies):
-        """
-        Set dependencies.json content to authentication repository.
-        If the dependencies.json is empty, field is empty.
-        """
-        deps = {}
-        for dependency_info in dependencies.values():
-            for dependency_name, dependency_data in dependency_info.items():
-                if len(dependency_data):
-                    deps[dependency_name] = dependency_data
-
-        self.dependencies = deps
 
     def sorted_commits_and_branches_per_repositories(
         self, commits, target_repos=None, custom_fns=None, default_branch=None
