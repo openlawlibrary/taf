@@ -17,8 +17,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 ### Fixed
+- Update handler fix: return an empty list of targets if the targets folder does not exist ([208])
 - pytest works when taf installed via wheel ([200])
 
+[208]: https://github.com/openlawlibrary/taf/pull/208
 [207]: https://github.com/openlawlibrary/taf/pull/207
 [200]: https://github.com/openlawlibrary/taf/pull/200
 
