@@ -285,9 +285,12 @@ class GitUpdater(handlers.MetadataUpdater):
             )
 
     def get_current_targets(self):
-        return self.validation_auth_repo.list_files_at_revision(
-            self.current_commit, "targets"
-        )
+        try:
+            return self.validation_auth_repo.list_files_at_revision(
+                self.current_commit, "targets"
+            )
+        except GitError:
+            return []
 
     def get_mirrors(self, _file_type, _file_path):
         # pylint: disable=unused-argument
