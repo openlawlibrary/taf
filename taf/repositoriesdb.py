@@ -120,7 +120,11 @@ def load_dependencies(
                 # TODO check if repo class is subclass of AuthenticationRepository
                 # or will that get caught by except
                 contained_auth_repo = auth_class(
-                    library_dir, name, urls, out_of_band_authentication, custom
+                    library_dir=library_dir,
+                    name=name,
+                    urls=urls,
+                    out_of_band_authentication=out_of_band_authentication,
+                    custom=custom,
                 )
             except Exception as e:
                 taf_logger.error(
@@ -137,6 +141,14 @@ def load_dependencies(
             commit,
             ", ".join(dependencies_dict.keys()),
         )
+
+    # we don't need to set auth_repo dependencies for each commit,
+    # just the latest version
+    latest_commit = commits[-1]
+    dependencies = _load_dependencies_json(auth_repo, latest_commit)
+    auth_repo.dependencies = (
+        dependencies["dependencies"] if dependencies is not None else {}
+    )
 
 
 def load_repositories(
@@ -358,14 +370,14 @@ def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):
 
 
 def get_deduplicated_auth_repositories(auth_repo, commits):
-    return _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, True)
+    return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
 
 def get_deduplicated_repositories(auth_repo, commits):
-    return _get_deduplicated_target_or_auth_repositotries(auth_repo, commits)
+    return _get_deduplicated_target_or_auth_repositories(auth_repo, commits)
 
 
-def _get_deduplicated_target_or_auth_repositotries(auth_repo, commits, load_auth=False):
+def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=False):
     loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
     auth_msg = "included authentication " if load_auth else ""
     repositories_msg = (
@@ -524,15 +536,13 @@ def get_repo_urls(auth_repo, repo_name, commit=None):
         return _get_urls(mirrors, repo_name)
 
 
-def _load_dependencies_json(auth_repo, commit):
+def _load_dependencies_json(auth_repo, commit=None):
     try:
         return _get_json_file(auth_repo, DEPENDENCIES_JSON_PATH, commit)
     except InvalidOrMissingMetadataError as e:
         if f"{DEPENDENCIES_JSON_PATH} not available at revision" in str(e):
             taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
-            return None
-        else:
-            raise
+        return None
 
 
 def _load_hosts_json(auth_repo, commit=None):

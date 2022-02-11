@@ -22,9 +22,19 @@ from taf.exceptions import (
 )
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hosts import load_hosts_json, set_hosts_of_repo, load_hosts, get_hosts
-from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event, Event
-
+from taf.hosts import (
+    load_hosts_json,
+    set_hosts_of_repo,
+    load_hosts,
+    get_hosts,
+)
+from taf.updater.lifecycle_handlers import (
+    handle_repo_event,
+    handle_host_event,
+    handle_update_event,
+    Event,
+)
+from cattr import unstructure
 
 disable_tuf_console_logging()
 
@@ -33,6 +43,29 @@ class UpdateType(enum.Enum):
     TEST = "test"
     OFFICIAL = "official"
     EITHER = "either"
+
+
+def _check_update_status(repos_update_data, auth_repo_name, host_update_status, errors):
+    # helper function to set update status of update handler based on repo or host status.
+    # if either hosts or repo handlers event status changed,
+    # change the update handler status
+    repo_status = repos_update_data[auth_repo_name]["update_status"]
+    repo_error = repos_update_data[auth_repo_name]["error"]
+
+    update_update_status = Event.UNCHANGED
+
+    if (
+        repo_status != update_update_status
+        and update_update_status == host_update_status
+    ):
+        update_update_status = repo_status
+
+        if repos_update_data[auth_repo_name]["error"] is not None:
+            repo_error = repos_update_data[auth_repo_name]["error"]
+            errors += str(repo_error)
+    else:
+        update_update_status = host_update_status
+    return update_update_status, errors
 
 
 def _execute_repo_handlers(
@@ -75,6 +108,8 @@ def _load_hosts_json(auth_repo):
 
 
 # TODO config path should be configurable
+
+
 def load_library_context(config_path):
     config = {}
     config_path = Path(config_path)
@@ -217,6 +252,8 @@ def update_repository(
     hosts = get_hosts()
     host_update_status = Event.UNCHANGED
     errors = ""
+    update_transient_data = {}
+
     for host in hosts:
         # check if host update was successful - meaning that all repositories
         # of that host were updated successfully
@@ -231,7 +268,7 @@ def update_repository(
                         and host_update_status != Event.FAILED
                     ):
                         # if one failed, then failed
-                        # else if one changed, then chenged
+                        # else if one changed, then changed
                         # else unchanged
                         host_update_status = update_status
                     repo_error = host_repo_update_data["error"]
@@ -239,6 +276,9 @@ def update_repository(
                         errors += str(repo_error)
                 if host_repo_name in transient_data:
                     host_transient_data[host_repo_name] = transient_data[host_repo_name]
+                    update_transient_data[host_repo_name] = host_transient_data[
+                        host_repo_name
+                    ]
 
         handle_host_event(
             host_update_status,
@@ -249,8 +289,26 @@ def update_repository(
             repos_update_data,
             errors,
         )
+
+    update_update_status, errors = _check_update_status(
+        repos_update_data, auth_repo_name, host_update_status, errors
+    )
+
+    update_data = handle_update_event(
+        update_update_status,
+        update_transient_data,
+        root_auth_repo.library_dir,
+        scripts_root_dir,
+        hosts,
+        repos_update_data,
+        errors,
+        root_auth_repo,
+    )
+
     if root_error:
         raise root_error
+
+    return unstructure(update_data)
 
 
 def _update_named_repository(
@@ -354,7 +412,6 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
     )
-
     # if commits_data is empty, do not attempt to load the host or dependencies
     # that can happen in the repository didn't exists, but could not be validated
     # and was therefore deleted
@@ -395,6 +452,7 @@ def _update_named_repository(
                 hosts_hierarchy_per_repo[child_auth_repo.name] = list(
                     hosts_hierarchy_per_repo[auth_repo.name]
                 )
+
                 try:
                     _update_named_repository(
                         child_auth_repo.urls[0],
@@ -457,7 +515,6 @@ def _update_named_repository(
                 targets_data,
                 transient_data,
             )
-
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
             "auth_repo": auth_repo,

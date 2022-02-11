@@ -22,6 +22,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
+    _dependencies = {}
 
     def __init__(
         self,
@@ -79,6 +80,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 "conf_directory_root": str(self.conf_directory_root),
                 "out_of_band_authentication": self.out_of_band_authentication,
                 "hosts": self.hosts,
+                "dependencies": self.dependencies,
             }
         )
         return data
@@ -104,6 +106,14 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         certs_dir = Path(self.path, "certs")
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
+
+    @property
+    def dependencies(self):
+        return self._dependencies
+
+    @dependencies.setter
+    def dependencies(self, value):
+        self._dependencies = value
 
     @property
     def is_test_repo(self):
