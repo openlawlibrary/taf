@@ -45,6 +45,29 @@ class UpdateType(enum.Enum):
     EITHER = "either"
 
 
+def _check_update_status(repos_update_data, auth_repo_name, host_update_status, errors):
+    # helper function to set update status of update handler based on repo or host status.
+    # if either hosts or repo handlers event status changed,
+    # change the update handler status
+    repo_status = repos_update_data[auth_repo_name]["update_status"]
+    repo_error = repos_update_data[auth_repo_name]["error"]
+
+    update_update_status = Event.UNCHANGED
+
+    if (
+        repo_status != update_update_status
+        and update_update_status == host_update_status
+    ):
+        update_update_status = repo_status
+
+        if repos_update_data[auth_repo_name]["error"] is not None:
+            repo_error = repos_update_data[auth_repo_name]["error"]
+            errors += str(repo_error)
+    else:
+        update_update_status = host_update_status
+    return update_update_status, errors
+
+
 def _execute_repo_handlers(
     update_status,
     auth_repo,
@@ -267,8 +290,12 @@ def update_repository(
             errors,
         )
 
+    update_update_status, errors = _check_update_status(
+        repos_update_data, auth_repo_name, host_update_status, errors
+    )
+
     update_data = handle_update_event(
-        host_update_status,
+        update_update_status,
         update_transient_data,
         root_auth_repo.library_dir,
         scripts_root_dir,
