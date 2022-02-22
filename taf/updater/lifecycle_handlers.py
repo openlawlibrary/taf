@@ -122,7 +122,7 @@ def _handle_event(
         repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
     # execute completed handler at the end
-    _print_data(repos_and_data, library_dir, lifecycle_stage)
+    # _print_data(repos_and_data, library_dir, lifecycle_stage)
     repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
     # return formatted response if update lifecycle is done
