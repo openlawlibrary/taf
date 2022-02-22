@@ -5,16 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
 
-
 ### Changed
 
+- Only clone if directory is empty ([211])
 
 ### Fixed
+
+[211]: https://github.com/openlawlibrary/taf/pull/211
 
 ## [0.15.0] - 02/11/2022
 
