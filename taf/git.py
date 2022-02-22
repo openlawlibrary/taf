@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import shutil
 import subprocess
 import logging
 from collections import OrderedDict
@@ -436,8 +435,14 @@ class GitRepository:
 
     def clone(self, no_checkout=False, bare=False, **kwargs):
         self._log_info("cloning repository")
-        shutil.rmtree(self.path, True)
+
         self.path.mkdir(exist_ok=True, parents=True)
+        if len(os.listdir(self.path)) != 0:
+            raise GitError(
+                repo=self,
+                message=f"destination path {self.path} is not an empty directory.",
+            )
+
         if self.urls is None:
             raise GitError(
                 repo=self, message="cannot clone repository. No urls were specified"

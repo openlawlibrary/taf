@@ -563,6 +563,10 @@ def _update_current_repository(
     }
     tuf.settings.repositories_directory = clients_auth_library_dir
 
+    # check whether the directory that runs the cloning exists or contains additional files.
+    # we need to check the state of folder before running tuf.
+    users_repo_existed = Path(clients_auth_library_dir, auth_repo_name).exists()
+
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
             commit_before_pull = None
@@ -597,7 +601,7 @@ def _update_current_repository(
             conf_directory_root=conf_directory_root,
         )
         # make sure that all update affects are deleted if the repository did not exist
-        if not users_auth_repo.is_git_repository_root:
+        if not users_repo_existed:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
         return Event.FAILED, users_auth_repo, _commits_ret(None, False, False), e, {}
@@ -685,8 +689,6 @@ def _update_current_repository(
             e,
             {},
         )
-    finally:
-        repository_updater.update_handler.cleanup()
 
     unauthenticated_repo = any(
         repo in error_if_unauthenticated_repos_list
@@ -754,6 +756,8 @@ def _update_authentication_repository(repository_updater, only_validate):
             f"Validation of authentication repository {users_auth_repo.name}"
             f" failed at revision {current_commit} due to error: {e}"
         )
+    finally:
+        repository_updater.update_handler.cleanup()
 
     taf_logger.info(
         "Successfully validated authentication repository {}", users_auth_repo.name

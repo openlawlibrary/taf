@@ -219,6 +219,7 @@ class GitUpdater(handlers.MetadataUpdater):
 
         metadata_path = Path(self.repository_directory, "metadata")
         metadata_path.mkdir(parents=True, exist_ok=True)
+        self.metadata_dir_path = metadata_path
         self.current_path = Path(metadata_path, "current")
         self.current_path.mkdir()
         self.previous_path = Path(metadata_path, "previous")
@@ -254,13 +255,12 @@ class GitUpdater(handlers.MetadataUpdater):
         directories. This should be called after the update is finished,
         either successfully or unsuccessfully.
         """
-        if self.current_path.is_dir():
-            shutil.rmtree(self.current_path)
-        if self.previous_path.is_dir():
-            shutil.rmtree(self.previous_path)
+        if self.metadata_dir_path.is_dir():
+            shutil.rmtree(self.metadata_dir_path)
         self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
-        shutil.rmtree(str(temp_dir), onerror=on_rm_error)
+        if temp_dir.is_dir():
+            shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):
         # Only validate expiration time of the last commit
