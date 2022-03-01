@@ -193,17 +193,27 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
+    import pdb
+
+    pdb.set_trace()
     if error_if_unauthenticated_repos_list is None:
         error_if_unauthenticated_repos_list = []
-    clients_auth_path = Path(clients_auth_path).resolve()
+
+    if clients_auth_path is not None:
+        clients_auth_path = Path(clients_auth_path).resolve()
 
     if clients_library_dir is None:
         clients_library_dir = clients_auth_path.parent.parent
     else:
         clients_library_dir = Path(clients_library_dir).resolve()
 
-    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_library_dir = clients_auth_path.parent.parent
+    auth_repo_name = (
+        f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
+        if clients_auth_path is not None
+        else None
+    )
+
+    clients_auth_library_dir = clients_library_dir
     repos_update_data = {}
     transient_data = {}
     root_error = None
@@ -564,8 +574,13 @@ def _update_current_repository(
     tuf.settings.repositories_directory = clients_auth_library_dir
 
     # check whether the directory that runs the cloning exists or contains additional files.
-    # we need to check the state of folder before running tuf.
-    users_repo_existed = Path(clients_auth_library_dir, auth_repo_name).exists()
+    # we need to check the state of folder before running tuf. Resolves issue #22
+    # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
+    users_repo_existed = (
+        Path(clients_auth_library_dir, auth_repo_name).exists()
+        if auth_repo_name is not None
+        else False
+    )
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -584,9 +599,13 @@ def _update_current_repository(
 
     try:
         commits = None
+        # if auth_repo None -> auth_repo = default
         repository_updater = tuf_updater.Updater(
-            auth_repo_name, repository_mirrors, GitUpdater
+            auth_repo_name or "default", repository_mirrors, GitUpdater
         )
+        import pdb
+
+        pdb.set_trace()
     except Exception as e:
         # Instantiation of the handler failed - this can happen if the url is not correct
         # of if the saved last validated commit does not match the current head commit
@@ -652,6 +671,9 @@ def _update_current_repository(
         # validate the authentication repository and fetch new commits
         # if the validation is completed successfully, new commits are fetched (not merged yet)
         _update_authentication_repository(repository_updater, only_validate)
+
+        # after the update, user client auth repo?
+
         # load target repositories and validate them
         repositoriesdb.load_repositories(
             users_auth_repo,

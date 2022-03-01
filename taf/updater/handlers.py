@@ -93,6 +93,10 @@ class GitUpdater(handlers.MetadataUpdater):
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
+        repository_name = self._clone_validation_repo(
+            auth_url, repository_name, default_branch
+        )
+
         self.users_auth_repo = AuthenticationRepository(
             repository_directory,
             repository_name,
@@ -101,7 +105,6 @@ class GitUpdater(handlers.MetadataUpdater):
             conf_directory_root=conf_directory_root,
         )
 
-        self._clone_validation_repo(auth_url)
         repository_directory = Path(self.users_auth_repo.path)
         if repository_directory.exists():
             if not self.users_auth_repo.is_git_repository_root:
@@ -119,6 +122,8 @@ class GitUpdater(handlers.MetadataUpdater):
         # located on the users machine which needs to be updated
         self.repository_directory = str(repository_directory)
 
+        # TODO: read protected/info.json and append to users_auth_repo.name?
+        # if
         try:
             self._init_metadata()
         except Exception:
@@ -237,17 +242,33 @@ class GitUpdater(handlers.MetadataUpdater):
             current_filename.write_text(metadata)
             shutil.copyfile(str(current_filename), str(previous_filename))
 
-    def _clone_validation_repo(self, url):
+    def _clone_validation_repo(self, url, repository_name, default_branch):
         """
         Clones the authentication repository based on the url specified using the
         mirrors parameter. The repository is cloned as a bare repository
         to a the temp directory and will be deleted one the update is done.
         """
         temp_dir = tempfile.mkdtemp()
-        path = Path(temp_dir, self.users_auth_repo.name).absolute()
+        path = Path(temp_dir, repository_name).absolute()
         self.validation_auth_repo = GitRepository(path=path, urls=[url])
         self.validation_auth_repo.clone(bare=True)
         self.validation_auth_repo.fetch(fetch_all=True)
+        import pdb
+
+        pdb.set_trace()
+        if repository_name == "default":
+            try:
+                validation_head_sha = self.validation_auth_repo.top_commit_of_branch(
+                    default_branch
+                )
+                info = self.validation_auth_repo.get_json(
+                    validation_head_sha, "targets/protected/info.json"
+                )
+                repository_name = f'{info["namespace"]}/{info["name"]}'
+                # info = self.validation_auth_repo.get_file(validation_head_sha, 'targets/protected/info.json')
+            except Exception as e:
+                raise e
+        return repository_name
 
     def cleanup(self):
         """
