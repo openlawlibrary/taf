@@ -1,7 +1,7 @@
 import json
 import shutil
 import enum
-
+import tempfile
 import tuf
 import tuf.client.updater as tuf_updater
 
@@ -66,6 +66,39 @@ def _check_update_status(repos_update_data, auth_repo_name, host_update_status, 
     else:
         update_update_status = host_update_status
     return update_update_status, errors
+
+
+def _clone_validation_repo(url, repository_name, default_branch):
+    """
+    Clones the authentication repository based on the url specified using the
+    mirrors parameter. The repository is cloned as a bare repository
+    to a the temp directory and will be deleted one the update is done.
+
+    If repository_name isn't provided (default value), extract it from info.json.
+    """
+    temp_dir = tempfile.mkdtemp()
+    path = Path(temp_dir, "auth_repo").absolute()
+    validation_auth_repo = GitRepository(path=path, urls=[url])
+    validation_auth_repo.clone(bare=True)
+    validation_auth_repo.fetch(fetch_all=True)
+
+    settings.validation_repo_path = validation_auth_repo.path
+
+    validation_head_sha = validation_auth_repo.top_commit_of_branch(default_branch)
+
+    if repository_name is None:
+        try:
+            info = validation_auth_repo.get_json(
+                validation_head_sha, "targets/protected/info.json"
+            )
+            repository_name = f'{info["namespace"]}/{info["name"]}'
+        except Exception:
+            raise UpdateFailedError(
+                "Error during info.json parse. Check if info.json exists or provide full path to auth repo"
+            )
+
+    validation_auth_repo.cleanup()
+    return repository_name
 
 
 def _execute_repo_handlers(
@@ -600,6 +633,11 @@ def _update_current_repository(
 
     try:
         commits = None
+
+        # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
+        # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
+        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
+
         repository_updater = tuf_updater.Updater(
             auth_repo_name, repository_mirrors, GitUpdater
         )

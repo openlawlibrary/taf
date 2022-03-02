@@ -1,6 +1,5 @@
 import os
 import shutil
-import tempfile
 import time
 from pathlib import Path
 
@@ -93,6 +92,12 @@ class GitUpdater(handlers.MetadataUpdater):
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
+        validation_path = settings.validation_repo_path
+
+        self._set_validation_repo(validation_path, auth_url)
+
+        # users_auth_repo is the authentication repository
+        # located on the users machine which needs to be updated
         self.users_auth_repo = AuthenticationRepository(
             repository_directory,
             repository_name,
@@ -101,24 +106,18 @@ class GitUpdater(handlers.MetadataUpdater):
             conf_directory_root=conf_directory_root,
         )
 
-        self._clone_validation_repo(auth_url)
         repository_directory = Path(self.users_auth_repo.path)
+
         if repository_directory.exists():
             if not self.users_auth_repo.is_git_repository_root:
-                if repository_directory.glob("*"):
+                if len(list(repository_directory.glob("*"))):
                     raise UpdateFailedError(
                         f"{repository_directory} is not a git repository and is not empty"
                     )
 
-        # validation_auth_repo is a freshly cloned bare repository.
-        # It is cloned to a temporary directory that should be removed
-        # once the update is completed
-
         self._init_commits()
-        # users_auth_repo is the authentication repository
-        # located on the users machine which needs to be updated
-        self.repository_directory = str(repository_directory)
 
+        self.repository_directory = str(repository_directory)
         try:
             self._init_metadata()
         except Exception:
@@ -237,17 +236,11 @@ class GitUpdater(handlers.MetadataUpdater):
             current_filename.write_text(metadata)
             shutil.copyfile(str(current_filename), str(previous_filename))
 
-    def _clone_validation_repo(self, url):
+    def _set_validation_repo(self, path, url):
         """
-        Clones the authentication repository based on the url specified using the
-        mirrors parameter. The repository is cloned as a bare repository
-        to a the temp directory and will be deleted one the update is done.
+        Used outside of GitUpdater to access validation auth repo.
         """
-        temp_dir = tempfile.mkdtemp()
-        path = Path(temp_dir, self.users_auth_repo.name).absolute()
         self.validation_auth_repo = GitRepository(path=path, urls=[url])
-        self.validation_auth_repo.clone(bare=True)
-        self.validation_auth_repo.fetch(fetch_all=True)
 
     def cleanup(self):
         """
@@ -255,7 +248,11 @@ class GitUpdater(handlers.MetadataUpdater):
         directories. This should be called after the update is finished,
         either successfully or unsuccessfully.
         """
-        if self.metadata_dir_path.is_dir():
+        if self.current_path.is_dir():
+            shutil.rmtree(self.current_path)
+        if self.previous_path.is_dir():
+            shutil.rmtree(self.previous_path)
+        if len(list(self.metadata_dir_path.glob("*"))) == 0:
             shutil.rmtree(self.metadata_dir_path)
         self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
