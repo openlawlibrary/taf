@@ -660,52 +660,31 @@ def _update_current_repository(
             shutil.rmtree(users_auth_repo.conf_dir)
         return Event.FAILED, users_auth_repo, _commits_ret(None, False, False), e, {}
     try:
-        # the current authentication repository is instantiated in the handler
-        users_auth_repo = repository_updater.update_handler.users_auth_repo
-        existing_repo = users_auth_repo.is_git_repository_root
-        additional_commits_per_repo = {}
+        (
+            users_auth_repo,
+            existing_repo,
+            additional_commits_per_repo,
+            commits,
+            error_msg,
+            last_validated_commit,
+        ) = _validate_authentication_repository(
+            repository_updater,
+            out_of_band_authentication,
+            auth_repo_name,
+            expected_repo_type,
+        )
 
-        # this is the repository cloned inside the temp directory
-        # we validate it before updating the actual authentication repository
-        validation_auth_repo = repository_updater.update_handler.validation_auth_repo
-        commits = repository_updater.update_handler.commits
+        if error_msg is not None:
+            raise UpdateFailedError(error_msg)
 
-        if (
-            out_of_band_authentication is not None
-            and users_auth_repo.last_validated_commit is None
-            and commits[0] != out_of_band_authentication
-        ):
-            raise UpdateFailedError(
-                f"First commit of repository {auth_repo_name} does not match "
-                "out of band authentication commit"
-            )
-        # used for testing purposes
-        if settings.overwrite_last_validated_commit:
-            last_validated_commit = settings.last_validated_commit
-        else:
-            last_validated_commit = users_auth_repo.last_validated_commit
+        if not only_validate:
+            # fetch the latest commit or clone the repository without checkout
+            # do not merge before targets are validated as well
+            if users_auth_repo.is_git_repository_root:
+                users_auth_repo.fetch(fetch_all=True)
+            else:
+                users_auth_repo.clone(no_checkout=True)
 
-        if expected_repo_type != UpdateType.EITHER:
-            # check if the repository being updated is a test repository
-            targets = validation_auth_repo.get_json(
-                commits[-1], "metadata/targets.json"
-            )
-            test_repo = "test-auth-repo" in targets["signed"]["targets"]
-            if test_repo and expected_repo_type != UpdateType.TEST:
-                raise UpdateFailedError(
-                    f"Repository {users_auth_repo.name} is a test repository. "
-                    'Call update with "--expected-repo-type" test to update a test '
-                    "repository"
-                )
-            elif not test_repo and expected_repo_type == UpdateType.TEST:
-                raise UpdateFailedError(
-                    f"Repository {users_auth_repo.name} is not a test repository,"
-                    ' but update was called with the "--expected-repo-type" test'
-                )
-
-        # validate the authentication repository and fetch new commits
-        # if the validation is completed successfully, new commits are fetched (not merged yet)
-        _update_authentication_repository(repository_updater, only_validate)
         # load target repositories and validate them
         repositoriesdb.load_repositories(
             users_auth_repo,
@@ -769,7 +748,7 @@ def _update_current_repository(
     )
 
 
-def _update_authentication_repository(repository_updater, only_validate):
+def _update_authentication_repository(repository_updater):
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     taf_logger.info("Validating authentication repository {}", users_auth_repo.name)
@@ -801,30 +780,23 @@ def _update_authentication_repository(repository_updater, only_validate):
                 )
     except Exception as e:
         # for now, useful for debugging
+        repository_updater.update_handler.cleanup()
+
         taf_logger.error(
             "Validation of authentication repository {} failed at revision {} due to error {}",
             users_auth_repo.name,
             current_commit,
             e,
         )
+
         raise UpdateFailedError(
             f"Validation of authentication repository {users_auth_repo.name}"
             f" failed at revision {current_commit} due to error: {e}"
         )
-    finally:
-        repository_updater.update_handler.cleanup()
 
     taf_logger.info(
         "Successfully validated authentication repository {}", users_auth_repo.name
     )
-
-    if not only_validate:
-        # fetch the latest commit or clone the repository without checkout
-        # do not merge before targets are validated as well
-        if users_auth_repo.is_git_repository_root:
-            users_auth_repo.fetch(fetch_all=True)
-        else:
-            users_auth_repo.clone(no_checkout=True)
 
 
 def _update_target_repositories(
@@ -1271,4 +1243,66 @@ def validate_repository(
         expected_repo_type=expected_repo_type,
         only_validate=True,
         validate_from_commit=validate_from_commit,
+    )
+
+
+def _validate_authentication_repository(
+    repository_updater, out_of_band_authentication, auth_repo_name, expected_repo_type
+):
+    # validate the authentication repository and fetch new commits
+    # if the validation is completed successfully, new commits are fetched (not merged yet)
+    _update_authentication_repository(repository_updater)
+
+    users_auth_repo = repository_updater.update_handler.users_auth_repo
+    existing_repo = users_auth_repo.is_git_repository_root
+    additional_commits_per_repo = {}
+
+    # this is the repository cloned inside the temp directory
+    # we validate it before updating the actual authentication repository
+    validation_auth_repo = repository_updater.update_handler.validation_auth_repo
+    commits = repository_updater.update_handler.commits
+
+    error_msg = None
+
+    if (
+        out_of_band_authentication is not None
+        and users_auth_repo.last_validated_commit is None
+        and commits[0] != out_of_band_authentication
+    ):
+        error_msg = (
+            f"First commit of repository {auth_repo_name} does not match "
+            "out of band authentication commit"
+        )
+    # used for testing purposes
+    if settings.overwrite_last_validated_commit:
+        last_validated_commit = settings.last_validated_commit
+    else:
+        last_validated_commit = users_auth_repo.last_validated_commit
+
+    if expected_repo_type != UpdateType.EITHER:
+        # check if the repository being updated is a test repository
+        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
+        test_repo = "test-auth-repo" in targets["signed"]["targets"]
+        if test_repo and expected_repo_type != UpdateType.TEST:
+            error_msg = (
+                f"Repository {users_auth_repo.name} is a test repository. "
+                'Call update with "--expected-repo-type" test to update a test '
+                "repository"
+            )
+        elif not test_repo and expected_repo_type == UpdateType.TEST:
+            error_msg = (
+                f"Repository {users_auth_repo.name} is not a test repository,"
+                ' but update was called with the "--expected-repo-type" test'
+            )
+
+    # always cleanup repository updater
+    repository_updater.update_handler.cleanup()
+
+    return (
+        users_auth_repo,
+        existing_repo,
+        additional_commits_per_repo,
+        commits,
+        error_msg,
+        last_validated_commit,
     )
