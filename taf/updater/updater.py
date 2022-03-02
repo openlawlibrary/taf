@@ -193,22 +193,30 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
+
     if error_if_unauthenticated_repos_list is None:
         error_if_unauthenticated_repos_list = []
-    clients_auth_path = Path(clients_auth_path).resolve()
+
+    if clients_auth_path is not None:
+        clients_auth_path = Path(clients_auth_path).resolve()
 
     if clients_library_dir is None:
         clients_library_dir = clients_auth_path.parent.parent
     else:
         clients_library_dir = Path(clients_library_dir).resolve()
 
-    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_library_dir = clients_auth_path.parent.parent
+    auth_repo_name = (
+        f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
+        if clients_auth_path is not None
+        else None
+    )
+
+    clients_auth_library_dir = clients_library_dir
     repos_update_data = {}
     transient_data = {}
     root_error = None
     try:
-        _update_named_repository(
+        auth_repo_name = _update_named_repository(
             url,
             clients_auth_library_dir,
             clients_library_dir,
@@ -392,6 +400,7 @@ def _update_named_repository(
     (
         update_status,
         auth_repo,
+        auth_repo_name,
         commits_data,
         error,
         targets_data,
@@ -528,6 +537,8 @@ def _update_named_repository(
     if error is not None:
         raise error
 
+    return auth_repo_name
+
 
 def _update_current_repository(
     url,
@@ -564,8 +575,13 @@ def _update_current_repository(
     tuf.settings.repositories_directory = clients_auth_library_dir
 
     # check whether the directory that runs the cloning exists or contains additional files.
-    # we need to check the state of folder before running tuf.
-    users_repo_existed = Path(clients_auth_library_dir, auth_repo_name).exists()
+    # we need to check the state of folder before running tuf. Resolves issue #22
+    # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
+    users_repo_existed = (
+        Path(clients_auth_library_dir, auth_repo_name).exists()
+        if auth_repo_name is not None
+        else True
+    )
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -708,6 +724,7 @@ def _update_current_repository(
     return (
         event,
         users_auth_repo,
+        auth_repo_name,
         _commits_ret(commits, existing_repo, True),
         None,
         targets_data,
