@@ -62,7 +62,7 @@ class GitRepository:
             self.library_dir = library_dir.resolve()
         elif path is None:
             raise InvalidRepositoryError(
-                "Either speicfy library dir and name pair or path!"
+                "Either specify library dir and name pair or path!"
             )
         else:
             # maintain support for repositories whose names are not of significance
