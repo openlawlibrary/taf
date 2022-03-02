@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- change `clients-auth-path` in `taf repo update` to optional. ([#213])
 - Only clone if directory is empty ([211])
 
 ### Fixed
 
+[213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211
 
 ## [0.15.0] - 02/11/2022
