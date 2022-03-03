@@ -662,7 +662,6 @@ def _update_current_repository(
     try:
         (
             users_auth_repo,
-            existing_repo,
             additional_commits_per_repo,
             commits,
             error_msg,
@@ -676,6 +675,8 @@ def _update_current_repository(
 
         if error_msg is not None:
             raise UpdateFailedError(error_msg)
+
+        existing_repo = users_auth_repo.is_git_repository_root
 
         if not only_validate:
             # fetch the latest commit or clone the repository without checkout
@@ -718,6 +719,7 @@ def _update_current_repository(
         return (
             Event.FAILED,
             users_auth_repo,
+            auth_repo_name,
             _commits_ret(commits, existing_repo, False),
             e,
             {},
@@ -731,6 +733,7 @@ def _update_current_repository(
         return (
             Event.FAILED,
             users_auth_repo,
+            auth_repo_name,
             _commits_ret(commits, existing_repo, False),
             UpdaterAdditionalCommitsError(additional_commits_per_repo),
             {},
@@ -1254,7 +1257,6 @@ def _validate_authentication_repository(
     _update_authentication_repository(repository_updater)
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
-    existing_repo = users_auth_repo.is_git_repository_root
     additional_commits_per_repo = {}
 
     # this is the repository cloned inside the temp directory
@@ -1300,7 +1302,6 @@ def _validate_authentication_repository(
 
     return (
         users_auth_repo,
-        existing_repo,
         additional_commits_per_repo,
         commits,
         error_msg,
