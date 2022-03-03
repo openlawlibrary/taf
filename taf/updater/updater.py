@@ -248,6 +248,7 @@ def update_repository(
     repos_update_data = {}
     transient_data = {}
     root_error = None
+
     try:
         auth_repo_name = _update_named_repository(
             url,
@@ -454,6 +455,11 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
     )
+    # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
+    # or info.json is missing from protected
+    if auth_repo is None:
+        raise error
+
     # if commits_data is empty, do not attempt to load the host or dependencies
     # that can happen in the repository didn't exists, but could not be validated
     # and was therefore deleted
@@ -647,36 +653,48 @@ def _update_current_repository(
         # do not return any commits data if that is the case
         # TODO in case of last validated issue, think about returning commits up to the last validated one
         # the problem is that that could indicate that the history was changed
-        users_auth_repo = AuthenticationRepository(
-            clients_auth_library_dir,
-            auth_repo_name,
-            default_branch=default_branch,
-            urls=[url],
-            conf_directory_root=conf_directory_root,
-        )
-        # make sure that all update affects are deleted if the repository did not exist
-        if not users_repo_existed:
-            shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
-            shutil.rmtree(users_auth_repo.conf_dir)
-        return Event.FAILED, users_auth_repo, _commits_ret(None, False, False), e, {}
-    try:
-        (
+        users_auth_repo = None
+
+        if auth_repo_name is not None:
+            users_auth_repo = AuthenticationRepository(
+                clients_auth_library_dir,
+                auth_repo_name,
+                default_branch=default_branch,
+                urls=[url],
+                conf_directory_root=conf_directory_root,
+            )
+            # make sure that all update affects are deleted if the repository did not exist
+            if not users_repo_existed:
+                shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
+                shutil.rmtree(users_auth_repo.conf_dir)
+        return (
+            Event.FAILED,
             users_auth_repo,
-            additional_commits_per_repo,
+            auth_repo_name,
+            _commits_ret(None, False, False),
+            e,
+            {},
+        )
+    try:
+
+        users_auth_repo = repository_updater.update_handler.users_auth_repo
+        existing_repo = users_auth_repo.is_git_repository_root
+        additional_commits_per_repo = {}
+
+        (
             commits,
             error_msg,
             last_validated_commit,
         ) = _validate_authentication_repository(
             repository_updater,
+            users_auth_repo,
             out_of_band_authentication,
             auth_repo_name,
             expected_repo_type,
         )
 
         if error_msg is not None:
-            raise UpdateFailedError(error_msg)
-
-        existing_repo = users_auth_repo.is_git_repository_root
+            raise error_msg
 
         if not only_validate:
             # fetch the latest commit or clone the repository without checkout
@@ -712,6 +730,7 @@ def _update_current_repository(
             checkout,
         )
     except Exception as e:
+
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
@@ -783,8 +802,6 @@ def _update_authentication_repository(repository_updater):
                 )
     except Exception as e:
         # for now, useful for debugging
-        repository_updater.update_handler.cleanup()
-
         taf_logger.error(
             "Validation of authentication repository {} failed at revision {} due to error {}",
             users_auth_repo.name,
@@ -1250,28 +1267,31 @@ def validate_repository(
 
 
 def _validate_authentication_repository(
-    repository_updater, out_of_band_authentication, auth_repo_name, expected_repo_type
+    repository_updater,
+    users_auth_repo,
+    out_of_band_authentication,
+    auth_repo_name,
+    expected_repo_type,
 ):
+    error_msg = None
     # validate the authentication repository and fetch new commits
     # if the validation is completed successfully, new commits are fetched (not merged yet)
-    _update_authentication_repository(repository_updater)
-
-    users_auth_repo = repository_updater.update_handler.users_auth_repo
-    additional_commits_per_repo = {}
+    try:
+        _update_authentication_repository(repository_updater)
+    except Exception as e:
+        error_msg = e
 
     # this is the repository cloned inside the temp directory
     # we validate it before updating the actual authentication repository
     validation_auth_repo = repository_updater.update_handler.validation_auth_repo
     commits = repository_updater.update_handler.commits
 
-    error_msg = None
-
     if (
         out_of_band_authentication is not None
         and users_auth_repo.last_validated_commit is None
         and commits[0] != out_of_band_authentication
     ):
-        error_msg = (
+        error_msg = UpdateFailedError(
             f"First commit of repository {auth_repo_name} does not match "
             "out of band authentication commit"
         )
@@ -1286,13 +1306,13 @@ def _validate_authentication_repository(
         targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
         test_repo = "test-auth-repo" in targets["signed"]["targets"]
         if test_repo and expected_repo_type != UpdateType.TEST:
-            error_msg = (
+            error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is a test repository. "
                 'Call update with "--expected-repo-type" test to update a test '
                 "repository"
             )
         elif not test_repo and expected_repo_type == UpdateType.TEST:
-            error_msg = (
+            error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is not a test repository,"
                 ' but update was called with the "--expected-repo-type" test'
             )
@@ -1301,8 +1321,6 @@ def _validate_authentication_repository(
     repository_updater.update_handler.cleanup()
 
     return (
-        users_auth_repo,
-        additional_commits_per_repo,
         commits,
         error_msg,
         last_validated_commit,
