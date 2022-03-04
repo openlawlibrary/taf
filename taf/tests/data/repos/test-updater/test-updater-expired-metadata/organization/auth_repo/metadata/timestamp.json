@@ -1,0 +1,23 @@
+{
+ "signatures": [
+  {
+   "keyid": "cf70c2c4ac749948ca495f9275ceb8525cfb7c463118b54ca5be844ca5cfc0d6",
+   "sig": "03bfbad845ada30f166223f5cbf0f828bb384004d5caa9f0add24eca7707ce1f85819550f3faf24d90ce2de5e83950696a613b71585c32eb06646b58dc11305270971bc5cfb5f8e26869222de632f88bc1be0676e769acb7ae77fe4f89eb7e8869b880f5dcfd6cd456eddd98a1e93a47125a1c148b96e1bb8ee2aedbe0c3f8dcfb6bc2bfa9d7ff0ccac1fcf3914276360bf1890c74526e1e3ab450903095f29fe79b2d7ee13c9c40f4531441e8285d63141485c48b391450743e7d8747e672f226c35fed9a52994533bd4d88f8d4d7ce6fd11a2b7c1fb0291a23363b8c9d2a93070cf15dd2a0d67cd804557d457d684cbe7f84dc53837687232379894cbcc883"
+  }
+ ],
+ "signed": {
+  "_type": "timestamp",
+  "expires": "2019-06-15T17:27:48Z",
+  "meta": {
+   "snapshot.json": {
+    "hashes": {
+     "sha256": "49a490a36866ce18dc7b8d049fd7d74f22e05aa0f481a078a07cac0a93ca6180"
+    },
+    "length": 854,
+    "version": 6
+   }
+  },
+  "spec_version": "1.0",
+  "version": 6
+ }
+}

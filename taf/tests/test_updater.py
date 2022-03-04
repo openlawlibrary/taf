@@ -260,7 +260,7 @@ def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
 
 def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
     # without using freeze_time, we expect to get metadata expired error
-    repositories = updater_repositories["test-updater-valid"]
+    repositories = updater_repositories["test-updater-expired-metadata"]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, ROOT_EXPIRED, set_time=False
