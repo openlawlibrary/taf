@@ -94,7 +94,7 @@ class GitUpdater(handlers.MetadataUpdater):
         default_branch = settings.default_branch
         validation_path = settings.validation_repo_path
 
-        self._set_validation_repo(validation_path, auth_url)
+        self.set_validation_repo(validation_path, auth_url)
 
         # users_auth_repo is the authentication repository
         # located on the users machine which needs to be updated
@@ -236,7 +236,7 @@ class GitUpdater(handlers.MetadataUpdater):
             current_filename.write_text(metadata)
             shutil.copyfile(str(current_filename), str(previous_filename))
 
-    def _set_validation_repo(self, path, url):
+    def set_validation_repo(self, path, url):
         """
         Used outside of GitUpdater to access validation auth repo.
         """
