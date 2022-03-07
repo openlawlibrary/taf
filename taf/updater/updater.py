@@ -4,6 +4,7 @@ import enum
 import tempfile
 import tuf
 import tuf.client.updater as tuf_updater
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 from collections import defaultdict
 from pathlib import Path
@@ -35,6 +36,9 @@ from taf.updater.lifecycle_handlers import (
     Event,
 )
 from cattr import unstructure
+
+PROTECTED_DIRECTORY_NAME = "protected"
+INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
 disable_tuf_console_logging()
 
@@ -88,9 +92,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
 
     if repository_name is None:
         try:
-            info = validation_auth_repo.get_json(
-                validation_head_sha, "targets/protected/info.json"
-            )
+            info = validation_auth_repo.get_json(validation_head_sha, INFO_JSON_PATH)
             repository_name = f'{info["namespace"]}/{info["name"]}'
         except Exception:
             raise UpdateFailedError(
@@ -613,15 +615,6 @@ def _update_current_repository(
     }
     tuf.settings.repositories_directory = clients_auth_library_dir
 
-    # check whether the directory that runs the cloning exists or contains additional files.
-    # we need to check the state of folder before running tuf. Resolves issue #22
-    # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
-    users_repo_existed = (
-        Path(clients_auth_library_dir, auth_repo_name).exists()
-        if auth_repo_name is not None
-        else True
-    )
-
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
             commit_before_pull = None
@@ -643,6 +636,15 @@ def _update_current_repository(
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
         auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
+
+        # check whether the directory that runs clone exists or contains additional files.
+        # we need to check the state of folder before running tuf. Resolves issue #22
+        # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
+        users_repo_existed = (
+            Path(clients_auth_library_dir, auth_repo_name).exists()
+            if auth_repo_name is not None
+            else True
+        )
 
         repository_updater = tuf_updater.Updater(
             auth_repo_name, repository_mirrors, GitUpdater
