@@ -632,6 +632,7 @@ def _update_current_repository(
 
     try:
         commits = None
+        users_repo_existed = False
 
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
