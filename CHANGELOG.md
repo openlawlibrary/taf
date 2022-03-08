@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fixed `_validate_urls` and local validation ([216])
+
+[215]: https://github.com/openlawlibrary/taf/pull/216
 [213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211
 
