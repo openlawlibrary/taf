@@ -963,7 +963,6 @@ class GitRepository:
         )
 
     def _validate_urls(self, urls):
-
         def _find_url(path, url):
             try:
                 if (path / url).resolve().is_dir():
@@ -979,10 +978,7 @@ class GitRepository:
                 for url in urls:
                     self._validate_url(url)
             else:
-                urls = [
-                    _find_url(self.path, url)
-                    for url in urls
-                ]
+                urls = [_find_url(self.path, url) for url in urls]
         return urls
 
 
