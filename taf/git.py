@@ -963,17 +963,24 @@ class GitRepository:
         )
 
     def _validate_urls(self, urls):
+
+        def _find_url(path, url):
+            try:
+                if (path / url).resolve().is_dir():
+                    return str((path / url).resolve())
+            except OSError:
+                pass
+            if os.path.isabs(url):
+                return url
+            return str((path).resolve())
+
         if urls is not None:
             if settings.update_from_filesystem is False:
                 for url in urls:
                     self._validate_url(url)
             else:
                 urls = [
-                    str((self.path / url).resolve())
-                    if (self.path / url).resolve().is_dir()
-                    else str((self.path).resolve())
-                    if not os.path.isabs(url)
-                    else url
+                    _find_url(self.path, url)
                     for url in urls
                 ]
         return urls
