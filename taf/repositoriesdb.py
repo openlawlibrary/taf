@@ -159,6 +159,7 @@ def load_repositories(
     only_load_targets=True,
     commits=None,
     roles=None,
+    default_branch="main",
 ):
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -243,10 +244,12 @@ def load_repositories(
             git_repo = None
             try:
                 if factory is not None:
-                    git_repo = factory(library_dir, name, urls, custom)
+                    git_repo = factory(library_dir, name, urls, custom, default_branch)
                 else:
                     git_repo_class = _determine_repo_class(repo_classes, name)
-                    git_repo = git_repo_class(library_dir, name, urls, custom)
+                    git_repo = git_repo_class(
+                        library_dir, name, urls, custom, default_branch
+                    )
             except Exception as e:
                 taf_logger.error(
                     "Auth repo {}: an error occurred while instantiating repository {}: {}",

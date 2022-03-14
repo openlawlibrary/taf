@@ -701,6 +701,8 @@ def _update_current_repository(
             factory=target_factory,
             library_dir=targets_library_dir,
             commits=commits,
+            only_load_targets=False,
+            default_branch=default_branch,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
             users_auth_repo, commits
@@ -1080,12 +1082,19 @@ def _set_target_repositories_data(
             previous_top_of_branch = top_commits_of_branches_before_pull[repo_name][
                 branch
             ]
+
+            branch_commits_data["before_pull"] = None
+
             if previous_top_of_branch is not None:
                 # this needs to be the same - implementation error otherwise
-                branch_commits_data["before_pull"] = commits_with_custom[0]
-            else:
-                branch_commits_data["before_pull"] = None
-            branch_commits_data["after_pull"] = commits_with_custom[-1]
+                branch_commits_data["before_pull"] = (
+                    commits_with_custom[0] if len(commits_with_custom) else None
+                )
+
+            branch_commits_data["after_pull"] = (
+                commits_with_custom[-1] if len(commits_with_custom) else None
+            )
+
             if branch_commits_data["before_pull"] is not None:
                 commits_with_custom.pop(0)
             branch_commits_data["new"] = commits_with_custom
