@@ -17,9 +17,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
 
 [220]: https://github.com/openlawlibrary/taf/pull/220
+[219]: https://github.com/openlawlibrary/taf/pull/219
 [216]: https://github.com/openlawlibrary/taf/pull/216
 [213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211

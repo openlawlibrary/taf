@@ -345,7 +345,6 @@ def update_repository(
 
     if root_error:
         raise root_error
-
     return unstructure(update_data)
 
 
@@ -611,7 +610,11 @@ def _update_current_repository(
         else:
             commit_before_pull = commits[0] if existing_repo and len(commits) else None
             commit_after_pull = commits[-1] if update_successful else commits[0]
-            new_commits = commits[1:] if len(commits) else []
+
+            if not existing_repo:
+                new_commits = commits
+            else:
+                new_commits = commits[1:] if len(commits) else []
         return {
             "before_pull": commit_before_pull,
             "new": new_commits,
@@ -625,7 +628,6 @@ def _update_current_repository(
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
         auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
-
         # check whether the directory that runs clone exists or contains additional files.
         # we need to check the state of folder before running tuf. Resolves issue #22
         # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
