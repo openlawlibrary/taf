@@ -21,12 +21,12 @@ strategy:
       imageName: "macOS-10.15"
       pythonVersion: "3.6"
     windows-64bit-py36:
-      imageName: "vs2017-win2016"
+      imageName: "windows-2019"
       pythonVersion: "3.6"
       platform: x64
       winArch: "win64"
     windows-32bit-py36:
-      imageName: "vs2017-win2016"
+      imageName: "windows-2019"
       pythonVersion: "3.6"
       platform: x86
       winArch: "win32"
@@ -38,12 +38,12 @@ strategy:
       imageName: "macOS-10.15"
       pythonVersion: "3.8"
     windows-64bit-py38:
-      imageName: "vs2017-win2016"
+      imageName: "windows-2022"
       pythonVersion: "3.8"
       platform: x64
       winArch: "win64"
     windows-32bit-py38:
-      imageName: "vs2017-win2016"
+      imageName: "windows-2022"
       pythonVersion: "3.8"
       platform: x86
       winArch: "win32"
