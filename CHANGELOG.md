@@ -11,14 +11,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- change `clients-auth-path` in `taf repo update` to optional. ([#213])
+- Remove `--error-if-unauthenticated` flag ([220])
+- Change `clients-auth-path` in `taf repo update` to optional. ([213])
 - Only clone if directory is empty ([211])
 
 ### Fixed
 
 - Fixed `_validate_urls` and local validation ([216])
 
-[215]: https://github.com/openlawlibrary/taf/pull/216
+[220]: https://github.com/openlawlibrary/taf/pull/220
+[216]: https://github.com/openlawlibrary/taf/pull/216
 [213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211
 
