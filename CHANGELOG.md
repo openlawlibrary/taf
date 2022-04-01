@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Remove `no_checkout=True` from `clone` ([226])
 - Remove `--error-if-unauthenticated` flag ([220])
 - Change `clients-auth-path` in `taf repo update` to optional. ([213])
 - Only clone if directory is empty ([211])
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
 
+[226]: https://github.com/openlawlibrary/taf/pull/226
 [220]: https://github.com/openlawlibrary/taf/pull/220
 [219]: https://github.com/openlawlibrary/taf/pull/219
 [216]: https://github.com/openlawlibrary/taf/pull/216
