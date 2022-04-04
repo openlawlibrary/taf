@@ -1031,13 +1031,16 @@ def _merge_branch_commits(
     """Determines which commits needs to be merged into the specified branch and
     merge it.
     """
-    if additional_commits is not None:
-        allow_unauthenticated = False
     last_commit = branch_commits[-1]["commit"]
-
     last_validated_commit = last_commit
+
+    if additional_commits is not None:
+        top_commit_of_branch = repository.top_commit_of_branch(branch)
+    else:
+        top_commit_of_branch = new_branch_commits[-1]
+
     commit_to_merge = (
-        last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
+        last_validated_commit if not allow_unauthenticated else top_commit_of_branch
     )
     taf_logger.info("Merging {} into {}", commit_to_merge, repository.name)
     _merge_commit(repository, branch, commit_to_merge, checkout)
@@ -1048,18 +1051,7 @@ def _merge_commit(repository, branch, commit_to_merge, checkout=True):
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
     taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
-    try:
-        repository.checkout_branch(branch, raise_anyway=True)
-    except GitError:
-        # in order to merge a commit into a branch we need to check it out
-        # but that cannot be done if it is checked out in a different worktree
-        # it should be fine to update that other worktree if there are no uncommitted changes
-        # or no commits that have not been pushed yet
-        worktree = GitRepository(path=repository.find_worktree_path_by_branch(branch))
-        if worktree is None:
-            return False
-        repository = worktree
-        checkout = False
+    repository.checkout_branch(branch, raise_anyway=True)
 
     repository.merge_commit(commit_to_merge)
     if checkout:
