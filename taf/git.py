@@ -23,8 +23,6 @@ from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-calls = {}
-
 
 class GitRepository:
     def __init__(
@@ -176,12 +174,6 @@ class GitRepository:
         log_success_msg = kwargs.pop("log_success_msg", "")
         error_if_not_exists = kwargs.pop("error_if_not_exists", True)
 
-        global calls
-        if cmd in calls:
-            num = calls[cmd] + 1
-        else:
-            num = 1
-        calls[cmd] = num
         if len(args):
             cmd = cmd.format(*args)
         command = f"git -C {self.path} {cmd}"
@@ -278,7 +270,6 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-
     def all_fetched_commits(self, branch=None):
         branch = branch or self.default_branch
         commits = self._git("rev-list ..origin/{}", branch).strip()
@@ -373,8 +364,9 @@ class GitRepository:
             self._log_error(str(e))
             raise
         finally:
-            self._log_info(f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit_sha}")
-
+            self._log_info(
+                f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit_sha}"
+            )
 
     def branch_local_name(self, remote_branch_name):
         """Strip remote from the given remote branch"""
@@ -523,7 +515,7 @@ class GitRepository:
             if branch is not None and raise_error_if_exists:
                 raise GitError(f"Branch {branch_name} already exists")
             try:
-                commit = repo.revparse_single('HEAD')
+                commit = repo.revparse_single("HEAD")
                 repo.branches.local.create(branch_name, commit)
                 branch = repo.lookup_branch(branch_name)
                 ref = repo.lookup_reference(branch.name)
@@ -535,14 +527,13 @@ class GitRepository:
                 # branch = repo.lookup_branch(branch_name)
                 flag = "-b" if raise_error_if_exists else "-B"
                 self._git(
-                        "checkout {} {}",
-                        flag,
-                        branch_name,
-                        log_success_msg=f"created and checked out branch {branch_name}",
-                        log_error=True,
-                        reraise_error=True,
-                    )
-
+                    "checkout {} {}",
+                    flag,
+                    branch_name,
+                    log_success_msg=f"created and checked out branch {branch_name}",
+                    log_error=True,
+                    reraise_error=True,
+                )
 
         except Exception as e:
             self._log_error(str(e))
@@ -556,7 +547,7 @@ class GitRepository:
             if commit is not None:
                 branch_commit = repo[commit]
             else:
-                branch_commit = repo.revparse_single('HEAD')
+                branch_commit = repo.revparse_single("HEAD")
             repo.branches.local.create(branch_name, branch_commit)
         except Exception as e:
             self._log_error(str(e))
@@ -584,7 +575,7 @@ class GitRepository:
                 index.add_all()
                 index.write()
             tree = index.write_tree()
-            ref_name = 'HEAD'
+            ref_name = "HEAD"
             parents = []
             try:
                 repo.lookup_reference(repo.head.name)
@@ -603,14 +594,12 @@ class GitRepository:
                 self.reset_to_head()
             return str(oid)
         except Exception as e:
-            raise GitError(
-                repo=self, message=f"could not commit changes due to:\n{e}"
-            )
+            raise GitError(repo=self, message=f"could not commit changes due to:\n{e}")
 
     def commit_empty(self, message):
         repo = self.pygit_repo
         self.commit(message, True)
-        return repo.revparse_single('HEAD').id.hex
+        return repo.revparse_single("HEAD").id.hex
 
     def commits_on_branch_and_not_other(
         self, branch1, branch2, include_branching_commit=False
@@ -640,7 +629,10 @@ class GitRepository:
             repo = self.pygit_repo
             repo.branches.delete(branch_name)
         except KeyError:
-            raise GitError(repo=self, message=f"Could not delete branch {branch_name}. Branch does not exist")
+            raise GitError(
+                repo=self,
+                message=f"Could not delete branch {branch_name}. Branch does not exist",
+            )
         except Exception:
             raise GitError(repo=self, message=f"Could not delete branch {branch_name}.")
         # flag = "-D" if force else "-d"
@@ -717,7 +709,7 @@ class GitRepository:
         """Finds sha of the commit to which the current HEAD points"""
         repo = self.pygit_repo
         try:
-            return repo.revparse_single('HEAD').id.hex
+            return repo.revparse_single("HEAD").id.hex
         except Exception:
             return None
 
@@ -740,7 +732,7 @@ class GitRepository:
     def get_current_branch(self, full_name=False):
         """Return current branch."""
         repo = self.pygit_repo
-        branch = repo.lookup_reference('HEAD').resolve()
+        branch = repo.lookup_reference("HEAD").resolve()
         if full_name:
             return branch.name
         return branch.shorthand
@@ -831,7 +823,6 @@ class GitRepository:
             file_names.add(delta.new_file.path)
             file_names.add(delta.old_file.path)
         return list(file_names)
-
 
     def list_commits(self, branch=""):
         repo = self.pygit_repo
@@ -925,7 +916,6 @@ class GitRepository:
         else:
             self._git("merge {}", branch_name, log_error=True)
 
-
     def pull(self):
         """Pull current branch"""
         self._git("pull", log_error=True)
@@ -943,7 +933,11 @@ class GitRepository:
             upstream_flag = "-u" if set_upstream else ""
             force_flag = "-f" if force else ""
             self._git(
-                "push {} {} origin {}", upstream_flag, force_flag, branch, log_error=True
+                "push {} {} origin {}",
+                upstream_flag,
+                force_flag,
+                branch,
+                log_error=True,
             )
 
     def rename_branch(self, old_name, new_name):
