@@ -5,75 +5,150 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
 
-
 ### Changed
 
+- Remove `no_checkout=True` from `clone` ([226])
+- Remove `--error-if-unauthenticated` flag ([220])
+- Change `clients-auth-path` in `taf repo update` to optional. ([213])
+- Only clone if directory is empty ([211])
 - Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
 
 ### Fixed
 
+- Fix updates of repos which only contain one commit ([219])
+- Fixed `_validate_urls` and local validation ([216])
 
-[191] https://github.com/openlawlibrary/taf/pull/191
+[226]: https://github.com/openlawlibrary/taf/pull/226
+[220]: https://github.com/openlawlibrary/taf/pull/220
+[219]: https://github.com/openlawlibrary/taf/pull/219
+[216]: https://github.com/openlawlibrary/taf/pull/216
+[213]: https://github.com/openlawlibrary/taf/pull/213
+[211]: https://github.com/openlawlibrary/taf/pull/211
+[191]: https://github.com/openlawlibrary/taf/pull/191
+
+## [0.15.0] - 02/11/2022
+
+### Added
+
+- `Update` handler pipeline, showcase mapping dict fields to class types with `attrs` + `cattrs`. ([206])
+- Schema for update handler. ([206])
+- Add `type` tests for `attrs` structuring. ([206])
+
+### Changed
+
+### Fixed
+
+- perf: re-implementing slow git cmds with pygit2 ([207])
+- Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
+
+### Fixed
+
+- Update handler fix: return an empty list of targets if the targets folder does not exist ([208])
+- pytest works when taf installed via wheel ([200])
+
+[208]: https://github.com/openlawlibrary/taf/pull/208
+[207]: https://github.com/openlawlibrary/taf/pull/207
+[206]: https://github.com/openlawlibrary/taf/pull/206
+[200]: https://github.com/openlawlibrary/taf/pull/200
+
+## [0.14.0] - 01/25/2022
+
+### Added
+
+### Changed
+
+- Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
+
+### Fixed
+
+- Raise an error if a repository which should not contain additional commits does so ([203])
+- Do not merge target commits if update as a whole will later fail ([203])
+
+[203]: https://github.com/openlawlibrary/taf/pull/203
+
+## [0.13.4] - 01/20/2022
+
+### Added
+
+### Changed
+
+- Trim text read from the last_validated_commit file ([201])
+
+### Fixed
+
+[201]: https://github.com/openlawlibrary/taf/pull/201
+
+## [0.13.3] - 11/18/2021
+
+### Added
+
+### Changed
+
+- Update create local branch git command - remove checkout ([197])
+- Iterate throuh all urls when checking if a local repo is synced with remote ([197])
+
+### Fixed
+
+[197]: https://github.com/openlawlibrary/taf/pull/197
+
+## [0.13.2] - 11/11/2021
+
+### Added
+
+### Changed
+
+- Remove commit checkout and checkout the latest branch for each target repository ([195])
+- If top commit of the authentication repository is not the same as the `last_validated_commit`, validate the newer commits as if they were just pulled ([195])
+
+### Fixed
+
+[195]: https://github.com/openlawlibrary/taf/pull/195
 
 ## [0.13.1] - 10/22/2021
 
 ### Added
 
-
 ### Changed
-
 
 ### Fixed
 
 - Pass default branch to sorted_commits_and_branches_per_repositories ([185])
 
-
-[185] https://github.com/openlawlibrary/taf/pull/185
-
+[185]: https://github.com/openlawlibrary/taf/pull/185
 
 ## [0.13.0] - 10/20/2021
 
 ### Added
 
-
 ### Changed
 
 - Pin cryptography and pyOpenSSL versions to keep compatibility with yubikey-manager 3.0.0 ([184])
 
-
 ### Fixed
 
-
-[184] https://github.com/openlawlibrary/taf/pull/184
-
+[184]: https://github.com/openlawlibrary/taf/pull/184
 
 ## [0.12.0] - 10/18/2021
 
 ### Added
 
-
 ### Changed
 
 - Updated cryptography version ([183])
-
 
 ### Fixed
 
 - Fix validate local repo command ([183])
 
-
-[183] https://github.com/openlawlibrary/taf/pull/183
-
+[183]: https://github.com/openlawlibrary/taf/pull/183
 
 ## [0.11.2] - 09/29/2021
 
 ### Added
-
 
 ### Changed
 
@@ -83,11 +158,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 [182]: https://github.com/openlawlibrary/taf/pull/182
 
-
 ## [0.11.1] - 09/29/2021
 
 ### Added
-
 
 ### Changed
 
@@ -97,9 +170,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [181]: https://github.com/openlawlibrary/taf/pull/181
 
-
 ## [0.11.0] - 09/28/2021
-
 
 ### Added
 
@@ -109,7 +180,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Compare current head commit according to the auth repo and top commit of target repo and raise an error if they are different ([179])
 
-
 ### Fixed
 
 - Automatically remove current and previous directories if they exist before instantiating tuf repo ([179])
@@ -117,13 +187,11 @@ and this project adheres to [Semantic Versioning][semver].
 - Fixed update of repos which can contain unauhtenticated commits - combine fetched and existing commits ([179])
 - Fixed handling of additional commits on a branch ([179])
 
-
 [179]: https://github.com/openlawlibrary/taf/pull/179
 
 ## [0.10.1] - 08/16/2021
 
 ### Added
-
 
 ### Changed
 
@@ -131,21 +199,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [177]: https://github.com/openlawlibrary/taf/pull/177
-
 
 ## [0.10.0] - 07/20/2021
 
 ### Added
-
 
 ### Changed
 
 - Update click to 7.1 ([176])
 
 ### Fixed
-
 
 ## [0.9.0] - 06/30/2021
 
@@ -156,7 +220,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Provided a way of specifying hosts of repositories though a special target file called `hosts.json` ([164])
 - Verification of the initial commit of a repository given `out-of-band-authentication` commit either directly passed into the udater or stored in `dependencies.json` of the parent auth repo. ([164])
 
-
 ### Changed
 
 - Renamed `repo_name` and `repo_urls` attributes to `name` and `urls` and `additional_info` to `custom` ([164])
@@ -165,11 +228,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [176]: https://github.com/openlawlibrary/taf/pull/176
 [173]: https://github.com/openlawlibrary/taf/pull/173
 [164]: https://github.com/openlawlibrary/taf/pull/164
-
 
 ## [0.8.1] - 04/14/2021
 
@@ -190,11 +251,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Minor validation command fix ([161])
 
-
 [166]: https://github.com/openlawlibrary/taf/pull/166
 [165]: https://github.com/openlawlibrary/taf/pull/165
 [161]: https://github.com/openlawlibrary/taf/pull/161
-
 
 ## [0.8.0] - 02/09/2021
 
@@ -206,9 +265,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [162]: https://github.com/openlawlibrary/taf/pull/162
-
 
 ## [0.7.2] - 11/11/2020
 
@@ -220,9 +277,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [158]: https://github.com/openlawlibrary/taf/pull/158
-
 
 ## [0.7.1] - 10/28/2020
 
@@ -234,9 +289,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [156]: https://github.com/openlawlibrary/taf/pull/156
-
 
 ## [0.7.0] - 10/16/2020
 
@@ -254,11 +307,9 @@ and this project adheres to [Semantic Versioning][semver].
 - Minor YubiKey mock fix ([153])
 - Updated some git methods so that it is checked if the returned value is not `None` before calling strip ([153])
 
-
 [154]: https://github.com/openlawlibrary/taf/pull/154
 [153]: https://github.com/openlawlibrary/taf/pull/153
 [147]: https://github.com/openlawlibrary/taf/pull/147
-
 
 ## [0.6.1] - 09/09/2020
 
@@ -288,7 +339,6 @@ and this project adheres to [Semantic Versioning][semver].
 [145]: https://github.com/openlawlibrary/taf/pull/145
 [144]: https://github.com/openlawlibrary/taf/pull/144
 
-
 ## [0.5.2] - 07/21/2020
 
 ### Added
@@ -302,7 +352,6 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 [142]: https://github.com/openlawlibrary/taf/pull/142
-
 
 ## [0.5.1] - 06/25/2020
 
@@ -352,7 +401,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [131]: https://github.com/openlawlibrary/taf/pull/131
 
 ## [0.4.0] - 05/01/2020
@@ -386,7 +434,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Signing fixes with keystore keys ([120])
 - Load signing keys minor fixes ([120] [117])
 - Normalize target files when creating a new repository ([117])
-
 
 [129]: https://github.com/openlawlibrary/taf/pull/129
 [128]: https://github.com/openlawlibrary/taf/pull/128
@@ -566,7 +613,12 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.15.0...HEAD
+[0.14.0]: https://github.com/openlawlibrary/taf/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/openlawlibrary/taf/compare/v0.13.4...v0.14.0
+[0.13.4]: https://github.com/openlawlibrary/taf/compare/v0.13.3...v0.13.4
+[0.13.3]: https://github.com/openlawlibrary/taf/compare/v0.13.2...v0.13.3
+[0.13.2]: https://github.com/openlawlibrary/taf/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/openlawlibrary/taf/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/openlawlibrary/taf/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openlawlibrary/taf/compare/v0.11.2...v0.12.0

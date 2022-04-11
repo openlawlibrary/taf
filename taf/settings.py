@@ -12,6 +12,8 @@ update_from_filesystem = False
 
 validate_repo_name = True
 
+validation_repo_path = None
+
 default_branch = "main"
 
 # Allows usage of specified commit as last validated commit

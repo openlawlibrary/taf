@@ -32,10 +32,16 @@ WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
 DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
+TYPES_DIR = TEST_DATA_PATH / "types"
+UPDATE_TYPES_DIR = TYPES_DIR / "update"
+UPDATE_TYPES_VALID_INPUT_DIR = UPDATE_TYPES_DIR / "valid"
+UPDATE_TYPES_INVALID_INPUT_DIR = UPDATE_TYPES_DIR / "invalid"
 REPO_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "repo"
 HOST_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "host"
+UPDATE_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "update"
 REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
 HOST_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "host"
+UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "update"
 
 
 def pytest_configure(config):
@@ -80,6 +86,7 @@ def _copy_repos(test_dir_path, test_name):
                 repo_rel_path = Path(root).relative_to(test_dir_path)
                 dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
                 # convert dst_path to string in order to support python 3.5
+                shutil.rmtree(dst_path, ignore_errors=True)
                 shutil.copytree(root, str(dst_path))
                 (dst_path / "git").rename(dst_path / ".git")
                 repo_rel_path = Path(repo_rel_path).as_posix()
@@ -101,6 +108,7 @@ def _load_key(keystore_path, key_name, scheme):
 
 @fixture(scope="session", autouse=True)
 def output_path():
+    shutil.rmtree(TEST_OUTPUT_PATH, ignore_errors=True)
     TEST_OUTPUT_PATH.mkdir()
     yield TEST_OUTPUT_PATH
     shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
@@ -164,6 +172,18 @@ def wrong_keystore():
 
 
 @fixture
+def types_update_valid_inputs():
+    """Paths to the type update's input json files"""
+    return [input_path for input_path in UPDATE_TYPES_VALID_INPUT_DIR.glob("*.json")]
+
+
+@fixture
+def types_update_invalid_inputs():
+    """Paths to the type update's input json files"""
+    return [input_path for input_path in UPDATE_TYPES_INVALID_INPUT_DIR.glob("*.json")]
+
+
+@fixture
 def repo_handlers_valid_inputs():
     """Paths to the repo handler's input json files"""
     return [
@@ -180,6 +200,14 @@ def host_handlers_valid_inputs():
 
 
 @fixture
+def update_handlers_valid_inputs():
+    """Paths to the update handler's input json files"""
+    return [
+        input_path for input_path in UPDATE_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
+    ]
+
+
+@fixture
 def repo_handlers_invalid_inputs():
     """Paths to the repo handler's input json files"""
     return [
@@ -192,6 +220,15 @@ def host_handlers_invalid_inputs():
     """Paths to the host handler's input json files"""
     return [
         input_path for input_path in HOST_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
+    ]
+
+
+@fixture
+def update_handlers_invalid_inputs():
+    """Paths to the update handler's input json files"""
+    return [
+        input_path
+        for input_path in UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
     ]
 
 

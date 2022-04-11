@@ -1,7 +1,6 @@
 import click
 import json
 import taf.developer_tool as developer_tool
-from taf.yubikey import is_valid_pin
 from taf.exceptions import YubikeyError
 
 
@@ -16,6 +15,7 @@ def attach_to_group(group):
     def check_pin(pin):
         """Checks if the specified pin is valid"""
         try:
+            from taf.yubikey import is_valid_pin
             valid, retries = is_valid_pin(pin)
             inserted = True
         except YubikeyError:

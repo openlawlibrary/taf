@@ -14,6 +14,8 @@ from taf.utils import (
 )
 from taf.exceptions import ScriptExecutionError
 from taf.log import taf_logger
+from taf.updater.types.update import Update
+from cattr import structure
 
 
 class LifecycleStage(enum.Enum):
@@ -112,6 +114,7 @@ def _handle_event(
             repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
         elif event == Event.UNCHANGED:
             repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
+
         repos_and_data = _execute_scripts(
             repos_and_data, lifecycle_stage, Event.SUCCEEDED
         )
@@ -119,9 +122,16 @@ def _handle_event(
         repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, event)
 
     # execute completed handler at the end
-    _print_data(repos_and_data, library_dir, lifecycle_stage)
+    # _print_data(repos_and_data, library_dir, lifecycle_stage)
     repos_and_data = _execute_scripts(repos_and_data, lifecycle_stage, Event.COMPLETED)
 
+    # return formatted response if update lifecycle is done
+    if lifecycle_stage == LifecycleStage.UPDATE:
+        for _, data in repos_and_data.items():
+            data = data["data"]["update"]
+            # example of converting data to classes. for now we're using cattrs default converters.
+            # TODO: goal is full support of class types
+            return structure(data, Update)
     # return transient data as it should be propagated to other event and handlers
     return {
         repo.name: data["data"]["state"]["transient"]
@@ -131,6 +141,7 @@ def _handle_event(
 
 handle_repo_event = partial(_handle_event, LifecycleStage.REPO)
 handle_host_event = partial(_handle_event, LifecycleStage.HOST)
+handle_update_event = partial(_handle_event, LifecycleStage.UPDATE)
 
 
 def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root_dir):
@@ -171,7 +182,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             output = run("py", script_path, input=json_data)
         except subprocess.CalledProcessError as e:
             taf_logger.error(
-                "An error occurred while exeucuting {}: {}", script_path, e.output
+                "An error occurred while executing {}: {}", script_path, e.output
             )
             raise ScriptExecutionError(script_path, e.output)
         if output is not None and output != "":
@@ -282,8 +293,65 @@ def prepare_data_host(
     return host_data_by_repos
 
 
-def prepare_data_completed():
-    return {}
+def prepare_data_update(
+    event,
+    transient_data,
+    persistent_data,
+    library_dir,
+    hosts,
+    repos_update_data,
+    error,
+    root_auth_repo,
+):
+
+    update_hosts = {}
+    all_auth_repos = {}
+    for auth_repo_name in repos_update_data:
+        all_auth_repos[auth_repo_name] = _repo_update_data(
+            **repos_update_data[auth_repo_name]
+        )
+
+    for host_data in hosts:
+        auth_repos = {}
+        for _, contained_repo_data in host_data.data_by_auth_repo.items():
+            for host_auth_repos in contained_repo_data["auth_repos"]:
+                for repo_name, repo_host_data in host_auth_repos.items():
+                    auth_repo = {}
+                    auth_repo[repo_name] = _repo_update_data(
+                        **repos_update_data[repo_name]
+                    )
+                    auth_repo[repo_name]["custom"] = repo_host_data["custom"]
+                    auth_repos["update"] = auth_repo
+
+            update_hosts[host_data.name] = {
+                "host_name": host_data.name,
+                "error_msg": str(error) if error else "",
+                "auth_repos": auth_repos,
+                "custom": contained_repo_data["custom"],
+            }
+
+    return {
+        root_auth_repo: {
+            "data": {
+                "update": {
+                    "changed": event == Event.CHANGED,
+                    "event": _format_event(event),
+                    "error_msg": str(error) if error else "",
+                    "hosts": update_hosts,
+                    "auth_repos": all_auth_repos,
+                    "auth_repo_name": root_auth_repo.name,
+                },
+                "state": {
+                    "transient": transient_data,
+                    "persistent": persistent_data,
+                },
+                "config": get_config(library_dir),
+            },
+            "commit": repos_update_data[root_auth_repo.name]["commits_data"][
+                "after_pull"
+            ],
+        }
+    }
 
 
 def _repo_update_data(auth_repo, update_status, commits_data, targets_data, error):

@@ -71,6 +71,7 @@ TARGETS_MISMATCH_ANY = "Mismatch between target commits specified in authenticat
 NO_WORKING_MIRRORS = (
     f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
 )
+NO_REPOSITORY_INFO_JSON = "Error during info.json parse. Check if info.json exists or provide full path to auth repo"
 ROOT_EXPIRED = "Metadata 'root' expired"
 REPLAYED_METADATA = "ReplayedMetadataError"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
@@ -101,33 +102,40 @@ def run_around_tests(client_dir):
 
 
 @pytest.mark.parametrize(
-    "test_name, test_repo",
+    "test_name, test_repo, auth_repo_name_exists",
     [
-        ("test-updater-valid", UpdateType.OFFICIAL),
-        ("test-updater-additional-target-commit", UpdateType.OFFICIAL),
-        ("test-updater-valid-with-updated-expiration-dates", UpdateType.OFFICIAL),
-        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
-        ("test-updater-test-repo", UpdateType.TEST),
-        ("test-updater-multiple-branches", UpdateType.OFFICIAL),
-        ("test-updater-delegated-roles", UpdateType.OFFICIAL),
-        ("test-updater-updated-root", UpdateType.OFFICIAL),
-        ("test-updater-updated-root-old-snapshot", UpdateType.OFFICIAL),
-        ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL),
+        ("test-updater-valid", UpdateType.OFFICIAL, True),
+        ("test-updater-valid", UpdateType.OFFICIAL, False),
+        ("test-updater-valid-with-updated-expiration-dates", UpdateType.OFFICIAL, True),
+        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL, True),
+        ("test-updater-test-repo", UpdateType.TEST, True),
+        ("test-updater-multiple-branches", UpdateType.OFFICIAL, True),
+        ("test-updater-delegated-roles", UpdateType.OFFICIAL, True),
+        ("test-updater-updated-root", UpdateType.OFFICIAL, True),
+        ("test-updater-updated-root-old-snapshot", UpdateType.OFFICIAL, True),
+        ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
+        ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
     ],
 )
 def test_valid_update_no_client_repo(
-    test_name, test_repo, updater_repositories, origin_dir, client_dir
+    test_name,
+    test_repo,
+    auth_repo_name_exists,
+    updater_repositories,
+    origin_dir,
+    client_dir,
 ):
     repositories = updater_repositories[test_name]
     origin_dir = origin_dir / test_name
-    _update_and_check_commit_shas(None, repositories, origin_dir, client_dir, test_repo)
+    _update_and_check_commit_shas(
+        None, repositories, origin_dir, client_dir, test_repo, auth_repo_name_exists
+    )
 
 
 @pytest.mark.parametrize(
     "test_name, test_repo",
     [
         ("test-updater-valid", UpdateType.OFFICIAL),
-        ("test-updater-additional-target-commit", UpdateType.OFFICIAL),
         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
         ("test-updater-multiple-branches", UpdateType.OFFICIAL),
         ("test-updater-delegated-roles", UpdateType.OFFICIAL),
@@ -146,7 +154,6 @@ def test_valid_update_no_auth_repo_one_target_repo_exists(
     "test_name, num_of_commits_to_revert",
     [
         ("test-updater-valid", 3),
-        ("test-updater-additional-target-commit", 1),
         ("test-updater-allow-unauthenticated-commits", 1),
         ("test-updater-multiple-branches", 5),
         ("test-updater-delegated-roles", 1),
@@ -200,25 +207,31 @@ def test_no_update_necessary(
 
 
 @pytest.mark.parametrize(
-    "test_name, expected_error",
+    "test_name, expected_error, auth_repo_name_exists",
     [
-        ("test-updater-invalid-target-sha", TARGET1_SHA_MISMATCH),
-        ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH),
-        ("test-updater-wrong-key", NO_WORKING_MIRRORS),
-        ("test-updater-invalid-version-number", REPLAYED_METADATA),
-        ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT),
-        ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH),
-        ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS),
-        ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS),
+        ("test-updater-invalid-target-sha", TARGET1_SHA_MISMATCH, True),
+        ("test-updater-additional-target-commit", TARGET1_SHA_MISMATCH, True),
+        ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH, True),
+        ("test-updater-wrong-key", NO_WORKING_MIRRORS, True),
+        ("test-updater-invalid-version-number", REPLAYED_METADATA, True),
+        ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT, True),
+        ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH, True),
+        ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True),
+        ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS, True),
+        ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False),
     ],
 )
 def test_updater_invalid_update(
-    test_name, expected_error, updater_repositories, client_dir
+    test_name, expected_error, auth_repo_name_exists, updater_repositories, client_dir
 ):
     repositories = updater_repositories[test_name]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, expected_error
+        client_dir,
+        repositories,
+        expected_error,
+        auth_repo_name_exists=auth_repo_name_exists,
     )
     # make sure that the last validated commit does not exist
     _check_if_last_validated_commit_exists(clients_auth_repo_path)
@@ -247,7 +260,7 @@ def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
 
 def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
     # without using freeze_time, we expect to get metadata expired error
-    repositories = updater_repositories["test-updater-valid"]
+    repositories = updater_repositories["test-updater-expired-metadata"]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, ROOT_EXPIRED, set_time=False
@@ -315,7 +328,7 @@ def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
     _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
-def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_dir):
+def test_older_last_validated_commit(updater_repositories, origin_dir, client_dir):
     # clone the origin repositories
     # revert them to an older commit
     repositories = updater_repositories["test-updater-valid"]
@@ -325,15 +338,10 @@ def test_invalid_last_validated_commit(updater_repositories, origin_dir, client_
     )
     all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
     first_commit = all_commits[0]
-    last_commit = all_commits[-1]
-    expected_error = LAST_VALIDATED_COMMIT_MISMATCH.format(
-        first_commit, AUTH_REPO_REL_PATH, last_commit
-    )
+
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
-    _update_invalid_repos_and_check_if_remained_same(
-        client_repos, client_dir, repositories, expected_error
-    )
+    _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
@@ -480,6 +488,7 @@ def _update_and_check_commit_shas(
     origin_dir,
     client_dir,
     expected_repo_type=UpdateType.EITHER,
+    auth_repo_name_exists=True,
 ):
     start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -487,7 +496,7 @@ def _update_and_check_commit_shas(
     with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
         update_repository(
             str(origin_auth_repo_path),
-            str(clients_auth_repo_path),
+            str(clients_auth_repo_path) if auth_repo_name_exists else None,
             str(client_dir),
             "master",
             True,
@@ -534,6 +543,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
     expected_error,
     expected_repo_type=UpdateType.EITHER,
     set_time=True,
+    auth_repo_name_exists=True,
 ):
 
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -548,7 +558,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
         with pytest.raises(UpdateFailedError, match=expected_error):
             update_repository(
                 str(origin_auth_repo_path),
-                str(clients_auth_repo_path),
+                str(clients_auth_repo_path) if auth_repo_name_exists else None,
                 str(client_dir),
                 "master",
                 True,

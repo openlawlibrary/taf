@@ -1,9 +1,10 @@
 import json
 import shutil
 import enum
-
+import tempfile
 import tuf
 import tuf.client.updater as tuf_updater
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 from collections import defaultdict
 from pathlib import Path
@@ -15,16 +16,28 @@ import taf.settings as settings
 from taf.exceptions import (
     ScriptExecutionError,
     UpdateFailedError,
-    UpdaterAdditionalCommitsError,
     GitError,
     MissingHostsError,
     InvalidHostsError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hosts import load_hosts_json, set_hosts_of_repo, load_hosts, get_hosts
-from taf.updater.lifecycle_handlers import handle_repo_event, handle_host_event, Event
+from taf.hosts import (
+    load_hosts_json,
+    set_hosts_of_repo,
+    load_hosts,
+    get_hosts,
+)
+from taf.updater.lifecycle_handlers import (
+    handle_repo_event,
+    handle_host_event,
+    handle_update_event,
+    Event,
+)
+from cattr import unstructure
 
+PROTECTED_DIRECTORY_NAME = "protected"
+INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
 disable_tuf_console_logging()
 
@@ -33,6 +46,60 @@ class UpdateType(enum.Enum):
     TEST = "test"
     OFFICIAL = "official"
     EITHER = "either"
+
+
+def _check_update_status(repos_update_data, auth_repo_name, host_update_status, errors):
+    # helper function to set update status of update handler based on repo or host status.
+    # if either hosts or repo handlers event status changed,
+    # change the update handler status
+    repo_status = repos_update_data[auth_repo_name]["update_status"]
+    repo_error = repos_update_data[auth_repo_name]["error"]
+
+    update_update_status = Event.UNCHANGED
+
+    if (
+        repo_status != update_update_status
+        and update_update_status == host_update_status
+    ):
+        update_update_status = repo_status
+
+        if repos_update_data[auth_repo_name]["error"] is not None:
+            repo_error = repos_update_data[auth_repo_name]["error"]
+            errors += str(repo_error)
+    else:
+        update_update_status = host_update_status
+    return update_update_status, errors
+
+
+def _clone_validation_repo(url, repository_name, default_branch):
+    """
+    Clones the authentication repository based on the url specified using the
+    mirrors parameter. The repository is cloned as a bare repository
+    to a the temp directory and will be deleted one the update is done.
+
+    If repository_name isn't provided (default value), extract it from info.json.
+    """
+    temp_dir = tempfile.mkdtemp()
+    path = Path(temp_dir, "auth_repo").absolute()
+    validation_auth_repo = GitRepository(path=path, urls=[url])
+    validation_auth_repo.clone(bare=True)
+    validation_auth_repo.fetch(fetch_all=True)
+
+    settings.validation_repo_path = validation_auth_repo.path
+
+    validation_head_sha = validation_auth_repo.top_commit_of_branch(default_branch)
+
+    if repository_name is None:
+        try:
+            info = validation_auth_repo.get_json(validation_head_sha, INFO_JSON_PATH)
+            repository_name = f'{info["namespace"]}/{info["name"]}'
+        except Exception:
+            raise UpdateFailedError(
+                "Error during info.json parse. Check if info.json exists or provide full path to auth repo"
+            )
+
+    validation_auth_repo.cleanup()
+    return repository_name
 
 
 def _execute_repo_handlers(
@@ -75,6 +142,8 @@ def _load_hosts_json(auth_repo):
 
 
 # TODO config path should be configurable
+
+
 def load_library_context(config_path):
     config = {}
     config_path = Path(config_path)
@@ -125,7 +194,6 @@ def update_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
-    error_if_unauthenticated=False,
     conf_directory_root=None,
     config_path=None,
     out_of_band_authentication=None,
@@ -158,20 +226,28 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
-    clients_auth_path = Path(clients_auth_path).resolve()
+
+    if clients_auth_path is not None:
+        clients_auth_path = Path(clients_auth_path).resolve()
 
     if clients_library_dir is None:
         clients_library_dir = clients_auth_path.parent.parent
     else:
         clients_library_dir = Path(clients_library_dir).resolve()
 
-    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_library_dir = clients_auth_path.parent.parent
+    auth_repo_name = (
+        f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
+        if clients_auth_path is not None
+        else None
+    )
+
+    clients_auth_library_dir = clients_library_dir
     repos_update_data = {}
     transient_data = {}
     root_error = None
+
     try:
-        _update_named_repository(
+        auth_repo_name = _update_named_repository(
             url,
             clients_auth_library_dir,
             clients_library_dir,
@@ -183,7 +259,6 @@ def update_repository(
             target_factory,
             only_validate,
             validate_from_commit,
-            error_if_unauthenticated,
             conf_directory_root,
             repos_update_data=repos_update_data,
             transient_data=transient_data,
@@ -215,6 +290,8 @@ def update_repository(
     hosts = get_hosts()
     host_update_status = Event.UNCHANGED
     errors = ""
+    update_transient_data = {}
+
     for host in hosts:
         # check if host update was successful - meaning that all repositories
         # of that host were updated successfully
@@ -229,7 +306,7 @@ def update_repository(
                         and host_update_status != Event.FAILED
                     ):
                         # if one failed, then failed
-                        # else if one changed, then chenged
+                        # else if one changed, then changed
                         # else unchanged
                         host_update_status = update_status
                     repo_error = host_repo_update_data["error"]
@@ -237,6 +314,9 @@ def update_repository(
                         errors += str(repo_error)
                 if host_repo_name in transient_data:
                     host_transient_data[host_repo_name] = transient_data[host_repo_name]
+                    update_transient_data[host_repo_name] = host_transient_data[
+                        host_repo_name
+                    ]
 
         handle_host_event(
             host_update_status,
@@ -247,8 +327,25 @@ def update_repository(
             repos_update_data,
             errors,
         )
+
+    update_update_status, errors = _check_update_status(
+        repos_update_data, auth_repo_name, host_update_status, errors
+    )
+
+    update_data = handle_update_event(
+        update_update_status,
+        update_transient_data,
+        root_auth_repo.library_dir,
+        scripts_root_dir,
+        hosts,
+        repos_update_data,
+        errors,
+        root_auth_repo,
+    )
+
     if root_error:
         raise root_error
+    return unstructure(update_data)
 
 
 def _update_named_repository(
@@ -263,7 +360,6 @@ def _update_named_repository(
     target_factory=None,
     only_validate=False,
     validate_from_commit=None,
-    error_if_unauthenticated=False,
     conf_directory_root=None,
     visited=None,
     hosts_hierarchy_per_repo=None,
@@ -330,6 +426,7 @@ def _update_named_repository(
     (
         update_status,
         auth_repo,
+        auth_repo_name,
         commits_data,
         error,
         targets_data,
@@ -345,11 +442,14 @@ def _update_named_repository(
         target_factory,
         only_validate,
         validate_from_commit,
-        error_if_unauthenticated,
         conf_directory_root,
         out_of_band_authentication,
         checkout,
     )
+    # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
+    # or info.json is missing from protected
+    if auth_repo is None:
+        raise error
 
     # if commits_data is empty, do not attempt to load the host or dependencies
     # that can happen in the repository didn't exists, but could not be validated
@@ -391,6 +491,7 @@ def _update_named_repository(
                 hosts_hierarchy_per_repo[child_auth_repo.name] = list(
                     hosts_hierarchy_per_repo[auth_repo.name]
                 )
+
                 try:
                     _update_named_repository(
                         child_auth_repo.urls[0],
@@ -404,7 +505,6 @@ def _update_named_repository(
                         target_factory,
                         only_validate,
                         validate_from_commit,
-                        error_if_unauthenticated,
                         conf_directory_root,
                         visited,
                         hosts_hierarchy_per_repo,
@@ -453,7 +553,6 @@ def _update_named_repository(
                 targets_data,
                 transient_data,
             )
-
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
             "auth_repo": auth_repo,
@@ -466,6 +565,8 @@ def _update_named_repository(
     repositoriesdb.clear_repositories_db()
     if error is not None:
         raise error
+
+    return auth_repo_name
 
 
 def _update_current_repository(
@@ -480,7 +581,6 @@ def _update_current_repository(
     target_factory,
     only_validate,
     validate_from_commit,
-    error_if_unauthenticated,
     conf_directory_root,
     out_of_band_authentication,
     checkout,
@@ -510,7 +610,11 @@ def _update_current_repository(
         else:
             commit_before_pull = commits[0] if existing_repo and len(commits) else None
             commit_after_pull = commits[-1] if update_successful else commits[0]
-            new_commits = commits[1:] if len(commits) else []
+
+            if not existing_repo:
+                new_commits = commits
+            else:
+                new_commits = commits[1:] if len(commits) else []
         return {
             "before_pull": commit_before_pull,
             "new": new_commits,
@@ -519,6 +623,20 @@ def _update_current_repository(
 
     try:
         commits = None
+        users_repo_existed = False
+
+        # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
+        # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
+        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
+        # check whether the directory that runs clone exists or contains additional files.
+        # we need to check the state of folder before running tuf. Resolves issue #22
+        # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
+        users_repo_existed = (
+            Path(clients_auth_library_dir, auth_repo_name).exists()
+            if auth_repo_name is not None
+            else True
+        )
+
         repository_updater = tuf_updater.Updater(
             auth_repo_name, repository_mirrors, GitUpdater
         )
@@ -528,65 +646,56 @@ def _update_current_repository(
         # do not return any commits data if that is the case
         # TODO in case of last validated issue, think about returning commits up to the last validated one
         # the problem is that that could indicate that the history was changed
-        users_auth_repo = AuthenticationRepository(
-            clients_auth_library_dir,
+        users_auth_repo = None
+
+        if auth_repo_name is not None:
+            users_auth_repo = AuthenticationRepository(
+                clients_auth_library_dir,
+                auth_repo_name,
+                default_branch=default_branch,
+                urls=[url],
+                conf_directory_root=conf_directory_root,
+            )
+            # make sure that all update affects are deleted if the repository did not exist
+            if not users_repo_existed:
+                shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
+                shutil.rmtree(users_auth_repo.conf_dir)
+        return (
+            Event.FAILED,
+            users_auth_repo,
             auth_repo_name,
-            default_branch=default_branch,
-            urls=[url],
-            conf_directory_root=conf_directory_root,
+            _commits_ret(None, False, False),
+            e,
+            {},
         )
-        # make sure that all update affects are deleted if the repository did not exist
-        if not users_auth_repo.is_git_repository_root:
-            shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
-            shutil.rmtree(users_auth_repo.conf_dir)
-        return Event.FAILED, users_auth_repo, _commits_ret(None, False, False), e, {}
     try:
-        # the current authentication repository is instantiated in the handler
+
         users_auth_repo = repository_updater.update_handler.users_auth_repo
         existing_repo = users_auth_repo.is_git_repository_root
-        additional_commits_per_repo = {}
 
-        # this is the repository cloned inside the temp directory
-        # we validate it before updating the actual authentication repository
-        validation_auth_repo = repository_updater.update_handler.validation_auth_repo
-        commits = repository_updater.update_handler.commits
+        (
+            commits,
+            error_msg,
+            last_validated_commit,
+        ) = _validate_authentication_repository(
+            repository_updater,
+            users_auth_repo,
+            out_of_band_authentication,
+            auth_repo_name,
+            expected_repo_type,
+        )
 
-        if (
-            out_of_band_authentication is not None
-            and users_auth_repo.last_validated_commit is None
-            and commits[0] != out_of_band_authentication
-        ):
-            raise UpdateFailedError(
-                f"First commit of repository {auth_repo_name} does not match "
-                "out of band authentication commit"
-            )
-        # used for testing purposes
-        if settings.overwrite_last_validated_commit:
-            last_validated_commit = settings.last_validated_commit
-        else:
-            last_validated_commit = users_auth_repo.last_validated_commit
+        if error_msg is not None:
+            raise error_msg
 
-        if expected_repo_type != UpdateType.EITHER:
-            # check if the repository being updated is a test repository
-            targets = validation_auth_repo.get_json(
-                commits[-1], "metadata/targets.json"
-            )
-            test_repo = "test-auth-repo" in targets["signed"]["targets"]
-            if test_repo and expected_repo_type != UpdateType.TEST:
-                raise UpdateFailedError(
-                    f"Repository {users_auth_repo.name} is a test repository. "
-                    'Call update with "--expected-repo-type" test to update a test '
-                    "repository"
-                )
-            elif not test_repo and expected_repo_type == UpdateType.TEST:
-                raise UpdateFailedError(
-                    f"Repository {users_auth_repo.name} is not a test repository,"
-                    ' but update was called with the "--expected-repo-type" test'
-                )
+        if not only_validate:
+            # fetch the latest commit or clone the repository without checkout
+            # do not merge before targets are validated as well
+            if users_auth_repo.is_git_repository_root:
+                users_auth_repo.fetch(fetch_all=True)
+            else:
+                users_auth_repo.clone()
 
-        # validate the authentication repository and fetch new commits
-        # if the validation is completed successfully, new commits are fetched (not merged yet)
-        _update_authentication_repository(repository_updater, only_validate)
         # load target repositories and validate them
         repositoriesdb.load_repositories(
             users_auth_repo,
@@ -594,6 +703,8 @@ def _update_current_repository(
             factory=target_factory,
             library_dir=targets_library_dir,
             commits=commits,
+            only_load_targets=False,
+            default_branch=default_branch,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
             users_auth_repo, commits
@@ -604,15 +715,15 @@ def _update_current_repository(
             )
         )
 
-        additional_commits_per_repo, targets_data = _update_target_repositories(
+        targets_data = _update_target_repositories(
             repositories,
             repositories_branches_and_commits,
             last_validated_commit,
             only_validate,
-            error_if_unauthenticated,
             checkout,
         )
     except Exception as e:
+
         if not existing_repo:
             shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
@@ -620,19 +731,9 @@ def _update_current_repository(
         return (
             Event.FAILED,
             users_auth_repo,
+            auth_repo_name,
             _commits_ret(commits, existing_repo, False),
             e,
-            {},
-        )
-    finally:
-        repository_updater.update_handler.cleanup()
-
-    if error_if_unauthenticated and len(additional_commits_per_repo):
-        return (
-            Event.FAILED,
-            users_auth_repo,
-            _commits_ret(commits, existing_repo, False),
-            UpdaterAdditionalCommitsError(additional_commits_per_repo),
             {},
         )
 
@@ -641,13 +742,14 @@ def _update_current_repository(
     return (
         event,
         users_auth_repo,
+        auth_repo_name,
         _commits_ret(commits, existing_repo, True),
         None,
         targets_data,
     )
 
 
-def _update_authentication_repository(repository_updater, only_validate):
+def _update_authentication_repository(repository_updater):
 
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     taf_logger.info("Validating authentication repository {}", users_auth_repo.name)
@@ -685,6 +787,7 @@ def _update_authentication_repository(repository_updater, only_validate):
             current_commit,
             e,
         )
+
         raise UpdateFailedError(
             f"Validation of authentication repository {users_auth_repo.name}"
             f" failed at revision {current_commit} due to error: {e}"
@@ -694,21 +797,12 @@ def _update_authentication_repository(repository_updater, only_validate):
         "Successfully validated authentication repository {}", users_auth_repo.name
     )
 
-    if not only_validate:
-        # fetch the latest commit or clone the repository without checkout
-        # do not merge before targets are validated as well
-        if users_auth_repo.is_git_repository_root:
-            users_auth_repo.fetch(fetch_all=True)
-        else:
-            users_auth_repo.clone(no_checkout=True)
-
 
 def _update_target_repositories(
     repositories,
     repositories_branches_and_commits,
     last_validated_commit,
     only_validate,
-    error_if_unauthenticated,
     checkout,
 ):
     taf_logger.info("Validating target repositories")
@@ -763,33 +857,16 @@ def _update_target_repositories(
             repo_branch_commits = [
                 commit_info["commit"] for commit_info in repo_branch_commits
             ]
-            if (
-                last_validated_commit is None
-                or not is_git_repository
-                or not branch_exists
-                or not len(repo_branch_commits)
-            ):
-                old_head = None
-            else:
-                # TODO what if a local target repository is missing some commits,
-                # but all existing commits are valid?
-                # top commit of any branch should be identical to commit sha
-                # defined for that branch in commit which was the top commit
-                # of the authentication repository's master branch at the time
-                # of update's invocation
-                old_head = repo_branch_commits[0]
-                if not allow_unauthenticated_for_repo:
-                    repo_old_head = repository.top_commit_of_branch(branch)
-                    if repo_old_head != old_head:
-                        taf_logger.error(
-                            "Mismatch between commits {} and {}",
-                            old_head,
-                            repo_old_head,
-                        )
-                        raise UpdateFailedError(
-                            "Mismatch between target commits specified in authentication repository"
-                            f" and target repository {repository.name} on branch {branch}"
-                        )
+
+            old_head = _set_target_old_head_and_validate(
+                repository,
+                branch,
+                branch_exists,
+                last_validated_commit,
+                is_git_repository,
+                repo_branch_commits,
+                allow_unauthenticated_for_repo,
+            )
 
             # the repository was cloned if it didn't exist
             # if it wasn't cloned, fetch the current branch
@@ -811,7 +888,6 @@ def _update_target_repositories(
                     repo_branch_commits,
                     allow_unauthenticated_for_repo,
                     branch,
-                    error_if_unauthenticated,
                 )
                 if len(additional_commits_on_branch):
                     additional_commits_per_repo.setdefault(repository.name, {})[
@@ -828,6 +904,7 @@ def _update_target_repositories(
                 raise e
 
     taf_logger.info("Successfully validated all target repositories.")
+    # do not merge commits if there there are
     if not only_validate:
         # if update is successful, merge the commits
         for path, repository in repositories.items():
@@ -844,13 +921,42 @@ def _update_target_repositories(
                     new_commits[path][branch],
                     checkout,
                 )
-
-    return additional_commits_per_repo, _set_target_repositories_data(
+    return _set_target_repositories_data(
         repositories,
         repositories_branches_and_commits,
         top_commits_of_branches_before_pull,
         additional_commits_per_repo,
     )
+
+
+def _set_target_old_head_and_validate(
+    repository,
+    branch,
+    branch_exists,
+    last_validated_commit,
+    is_git_repository,
+    repo_branch_commits,
+    allow_unauthenticated_for_repo,
+):
+    if (
+        last_validated_commit is None
+        or not is_git_repository
+        or not branch_exists
+        or not len(repo_branch_commits)
+    ):
+        old_head = None
+    else:
+        old_head = repo_branch_commits[0]
+        if not allow_unauthenticated_for_repo:
+            repo_old_head = repository.top_commit_of_branch(branch)
+            # do the same as when checking the top and last_validated_commit of the authentication repository
+            if repo_old_head != old_head:
+                commits_since = repository.all_commits_since_commit(old_head)
+                if repo_old_head not in commits_since:
+                    msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
+                    taf_logger.error(msg)
+                    raise UpdateFailedError(msg)
+    return old_head
 
 
 def _get_commits(
@@ -869,23 +975,21 @@ def _get_commits(
     if old_head is not None:
         if not only_validate:
             fetched_commits = repository.all_fetched_commits(branch=branch)
-            if not allow_unauthenticated_commits:
-                # if the local branch does not exist (the branch was not checked out locally)
-                # fetched commits will include already validated commits
-                # check which commits are newer that the previous head commit
-                if old_head in fetched_commits:
-                    new_commits_on_repo_branch = fetched_commits[
-                        fetched_commits.index(old_head) + 1 : :
-                    ]
-                else:
-                    new_commits_on_repo_branch = fetched_commits
+
+            # if the local branch does not exist (the branch was not checked out locally)
+            # fetched commits will include already validated commits
+            # check which commits are newer that the previous head commit
+            if old_head in fetched_commits:
+                new_commits_on_repo_branch = fetched_commits[
+                    fetched_commits.index(old_head) + 1 : :
+                ]
             else:
                 new_commits_on_repo_branch = repository.all_commits_since_commit(
                     old_head, branch
                 )
                 for commit in fetched_commits:
                     if commit not in new_commits_on_repo_branch:
-                        new_commits_on_repo_branch.extend(fetched_commits)
+                        new_commits_on_repo_branch.append(commit)
         else:
             new_commits_on_repo_branch = repository.all_commits_since_commit(
                 old_head, branch
@@ -909,7 +1013,7 @@ def _get_commits(
                 # check which commits are newer that the previous head commit
                 for commit in fetched_commits:
                     if commit not in new_commits_on_repo_branch:
-                        new_commits_on_repo_branch.extend(fetched_commits)
+                        new_commits_on_repo_branch.append(commit)
             except GitError:
                 pass
     return new_commits_on_repo_branch
@@ -936,12 +1040,10 @@ def _merge_branch_commits(
         last_validated_commit if not allow_unauthenticated else new_branch_commits[-1]
     )
     taf_logger.info("Merging {} into {}", commit_to_merge, repository.name)
-    _merge_commit(repository, branch, commit_to_merge, allow_unauthenticated, checkout)
+    _merge_commit(repository, branch, commit_to_merge, checkout)
 
 
-def _merge_commit(
-    repository, branch, commit_to_merge, allow_unauthenticated=False, checkout=True
-):
+def _merge_commit(repository, branch, commit_to_merge, checkout=True):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
@@ -961,10 +1063,8 @@ def _merge_commit(
 
     repository.merge_commit(commit_to_merge)
     if checkout:
-        if not allow_unauthenticated:
-            repository.checkout_commit(commit_to_merge)
-        else:
-            repository.checkout_branch(branch)
+        taf_logger.info("{}: checking out branch {}", repository.name, branch)
+        repository.checkout_branch(branch)
 
 
 def _set_target_repositories_data(
@@ -984,12 +1084,19 @@ def _set_target_repositories_data(
             previous_top_of_branch = top_commits_of_branches_before_pull[repo_name][
                 branch
             ]
+
+            branch_commits_data["before_pull"] = None
+
             if previous_top_of_branch is not None:
                 # this needs to be the same - implementation error otherwise
-                branch_commits_data["before_pull"] = commits_with_custom[0]
-            else:
-                branch_commits_data["before_pull"] = None
-            branch_commits_data["after_pull"] = commits_with_custom[-1]
+                branch_commits_data["before_pull"] = (
+                    commits_with_custom[0] if len(commits_with_custom) else None
+                )
+
+            branch_commits_data["after_pull"] = (
+                commits_with_custom[-1] if len(commits_with_custom) else None
+            )
+
             if branch_commits_data["before_pull"] is not None:
                 commits_with_custom.pop(0)
             branch_commits_data["new"] = commits_with_custom
@@ -1010,7 +1117,6 @@ def _update_target_repository(
     target_commits,
     allow_unauthenticated,
     branch,
-    error_if_unauthenticated,
 ):
     taf_logger.info(
         "Validating target repository {} {} branch", repository.name, branch
@@ -1038,13 +1144,12 @@ def _update_target_repository(
                     break
         if len(new_commits) > len(target_commits):
             additional_commits = new_commits[len(target_commits) :]
-            taf_logger.warning(
-                "Found commits {} in repository {} that are not accounted for in the authentication repo."
-                "Repository will be updated up to commit {}",
+            taf_logger.error(
+                "Found commits {} in repository {} that are not accounted for in the authentication repo. Unauthenticated commits are not allowed in this repo.",
                 additional_commits,
                 repository.name,
-                target_commits[-1],
             )
+            update_successful = False
     else:
         taf_logger.info(
             "Unauthenticated commits allowed in repository {}", repository.name
@@ -1092,7 +1197,7 @@ def _update_target_repository(
         )
     taf_logger.info("Successfully validated {}", repository.name)
 
-    if error_if_unauthenticated and len(additional_commits):
+    if len(additional_commits):
         # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
         # that does not necessarily mean that the local repository is not up to date with the remote
         # pull could've been run manually
@@ -1137,4 +1242,65 @@ def validate_repository(
         expected_repo_type=expected_repo_type,
         only_validate=True,
         validate_from_commit=validate_from_commit,
+    )
+
+
+def _validate_authentication_repository(
+    repository_updater,
+    users_auth_repo,
+    out_of_band_authentication,
+    auth_repo_name,
+    expected_repo_type,
+):
+    error_msg = None
+    # validate the authentication repository and fetch new commits
+    # if the validation is completed successfully, new commits are fetched (not merged yet)
+    try:
+        _update_authentication_repository(repository_updater)
+    except Exception as e:
+        error_msg = e
+
+    # this is the repository cloned inside the temp directory
+    # we validate it before updating the actual authentication repository
+    validation_auth_repo = repository_updater.update_handler.validation_auth_repo
+    commits = repository_updater.update_handler.commits
+
+    if (
+        out_of_band_authentication is not None
+        and users_auth_repo.last_validated_commit is None
+        and commits[0] != out_of_band_authentication
+    ):
+        error_msg = UpdateFailedError(
+            f"First commit of repository {auth_repo_name} does not match "
+            "out of band authentication commit"
+        )
+    # used for testing purposes
+    if settings.overwrite_last_validated_commit:
+        last_validated_commit = settings.last_validated_commit
+    else:
+        last_validated_commit = users_auth_repo.last_validated_commit
+
+    if expected_repo_type != UpdateType.EITHER:
+        # check if the repository being updated is a test repository
+        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
+        test_repo = "test-auth-repo" in targets["signed"]["targets"]
+        if test_repo and expected_repo_type != UpdateType.TEST:
+            error_msg = UpdateFailedError(
+                f"Repository {users_auth_repo.name} is a test repository. "
+                'Call update with "--expected-repo-type" test to update a test '
+                "repository"
+            )
+        elif not test_repo and expected_repo_type == UpdateType.TEST:
+            error_msg = UpdateFailedError(
+                f"Repository {users_auth_repo.name} is not a test repository,"
+                ' but update was called with the "--expected-repo-type" test'
+            )
+
+    # always cleanup repository updater
+    repository_updater.update_handler.cleanup()
+
+    return (
+        commits,
+        error_msg,
+        last_validated_commit,
     )

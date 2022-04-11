@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import shutil
 import subprocess
 import logging
 from collections import OrderedDict
@@ -10,6 +9,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    TAFError,
     CloneRepoException,
     FetchException,
     InvalidRepositoryError,
@@ -17,6 +17,7 @@ from taf.exceptions import (
 )
 from taf.log import taf_logger
 from taf.utils import run
+from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -61,7 +62,7 @@ class GitRepository:
             self.library_dir = library_dir.resolve()
         elif path is None:
             raise InvalidRepositoryError(
-                "Either speicfy library dir and name pair or path!"
+                "Either specify library dir and name pair or path!"
             )
         else:
             # maintain support for repositories whose names are not of significance
@@ -83,6 +84,17 @@ class GitRepository:
         self.urls = self._validate_urls(urls)
         self.default_branch = default_branch
         self.custom = custom or {}
+
+    _pygit = None
+
+    @property
+    def pygit(self):
+        if self._pygit is None:
+            try:
+                self._pygit = PyGitRepository(self)
+            except Exception:
+                pass
+        return self._pygit
 
     @classmethod
     def from_json_dict(cls, json_data):
@@ -416,10 +428,21 @@ class GitRepository:
     def clean(self):
         self._git("clean -fd")
 
+    def cleanup(self):
+        if self._pygit is not None:
+            self._pygit.cleanup()
+            self._pygit = None
+
     def clone(self, no_checkout=False, bare=False, **kwargs):
         self._log_info("cloning repository")
-        shutil.rmtree(self.path, True)
+
         self.path.mkdir(exist_ok=True, parents=True)
+        if len(os.listdir(self.path)) != 0:
+            raise GitError(
+                repo=self,
+                message=f"destination path {self.path} is not an empty directory.",
+            )
+
         if self.urls is None:
             raise GitError(
                 repo=self, message="cannot clone repository. No urls were specified"
@@ -518,9 +541,7 @@ class GitRepository:
         to check out previously checked out branch
         """
         if not self.branch_exists(branch_name, include_remotes=False):
-            current_branch = self.get_current_branch()
-            self.checkout_branch(branch_name)
-            self.checkout_branch(current_branch)
+            self._git(f"branch {branch_name} {self.remotes[0]}/{branch_name}")
 
     def checkout_commit(self, commit):
         self._git(
@@ -580,6 +601,9 @@ class GitRepository:
         self._log_debug(f"found the following commits: {commits}")
         return commits
 
+    def commit_before_commit(self, commit):
+        return self._git(f"log {commit}^ -1 --pretty=%H", log_error=True).strip()
+
     def delete_local_branch(self, branch_name, force=False):
         """Deletes local branch."""
         flag = "-D" if force else "-d"
@@ -608,7 +632,17 @@ class GitRepository:
 
     def get_file(self, commit, path, raw=False):
         path = Path(path).as_posix()
-        return self._git("show {}:{}", commit, path, raw=raw)
+        if raw:
+            return self._git("show {}:{}", commit, path, raw=raw)
+        try:
+            out = self.pygit.get_file(commit, path)
+            # if not out:
+            #     import pdb; pdb.set_trace()
+            return out
+        except TAFError as e:
+            raise e
+        except Exception:
+            return self._git("show {}:{}", commit, path, raw=raw)
 
     def get_first_commit_on_branch(self, branch=None):
         branch = branch or self.default_branch
@@ -713,6 +747,15 @@ class GitRepository:
         return False
 
     def list_files_at_revision(self, commit, path=""):
+        path = Path(path).as_posix()
+        try:
+            return self.pygit.list_files_at_revision(commit, path)
+        except TAFError as e:
+            raise e
+        except Exception:
+            return self._list_files_at_revision(commit, path)
+
+    def _list_files_at_revision(self, commit, path):
         if path is None:
             path = ""
         file_names = self._git("ls-tree -r --name-only {}", commit)
@@ -849,23 +892,25 @@ class GitRepository:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
-        branch = branch or self.default_branch
-        if url is None:
-            if self.urls is not None and len(self.urls):
-                url = self.urls[0]
-            else:
-                url = self.get_remote_url()
+        urls = (
+            [url]
+            if url is not None
+            else self.urls
+            if self.urls
+            else [self.get_remote_url()]
+        )
+        for url in urls:
+            branch = branch or self.default_branch
+            tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
+            if not tracking_branch:
+                return False
 
-        tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
-        if not tracking_branch:
-            return False
-
-        try:
-            local_commit = self._git(f"rev-parse {branch}")
-        except GitError as e:
-            if "unknown revision or path not in the working tree" not in str(e):
-                raise e
-            local_commit = None
+            try:
+                local_commit = self._git(f"rev-parse {branch}")
+            except GitError as e:
+                if "unknown revision or path not in the working tree" not in str(e):
+                    raise e
+                local_commit = None
 
         remote_commit = self.get_last_remote_commit(url, tracking_branch)
 
@@ -918,19 +963,22 @@ class GitRepository:
         )
 
     def _validate_urls(self, urls):
+        def _find_url(path, url):
+            try:
+                if (path / url).resolve().is_dir():
+                    return str((path / url).resolve())
+            except OSError:
+                pass
+            if os.path.isabs(url):
+                return url
+            return str((path).resolve())
+
         if urls is not None:
             if settings.update_from_filesystem is False:
                 for url in urls:
                     self._validate_url(url)
             else:
-                urls = [
-                    str((self.path / url).resolve())
-                    if (self.path / url).resolve().is_dir()
-                    else str((self.path).resolve())
-                    if not os.path.isabs(url)
-                    else url
-                    for url in urls
-                ]
+                urls = [_find_url(self.path, url) for url in urls]
         return urls
 
 

@@ -1,6 +1,5 @@
 import os
 import shutil
-import tempfile
 import time
 from pathlib import Path
 
@@ -93,6 +92,12 @@ class GitUpdater(handlers.MetadataUpdater):
         self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
+        validation_path = settings.validation_repo_path
+
+        self.set_validation_repo(validation_path, auth_url)
+
+        # users_auth_repo is the authentication repository
+        # located on the users machine which needs to be updated
         self.users_auth_repo = AuthenticationRepository(
             repository_directory,
             repository_name,
@@ -101,24 +106,18 @@ class GitUpdater(handlers.MetadataUpdater):
             conf_directory_root=conf_directory_root,
         )
 
-        self._clone_validation_repo(auth_url)
         repository_directory = Path(self.users_auth_repo.path)
+
         if repository_directory.exists():
             if not self.users_auth_repo.is_git_repository_root:
-                if repository_directory.glob("*"):
+                if len(list(repository_directory.glob("*"))):
                     raise UpdateFailedError(
                         f"{repository_directory} is not a git repository and is not empty"
                     )
 
-        # validation_auth_repo is a freshly cloned bare repository.
-        # It is cloned to a temporary directory that should be removed
-        # once the update is completed
-
         self._init_commits()
-        # users_auth_repo is the authentication repository
-        # located on the users machine which needs to be updated
-        self.repository_directory = str(repository_directory)
 
+        self.repository_directory = str(repository_directory)
         try:
             self._init_metadata()
         except Exception:
@@ -143,6 +142,7 @@ class GitUpdater(handlers.MetadataUpdater):
             last_validated_commit = settings.last_validated_commit
         else:
             last_validated_commit = self.users_auth_repo.last_validated_commit
+
         try:
             commits_since = self.validation_auth_repo.all_commits_since_commit(
                 last_validated_commit
@@ -157,7 +157,7 @@ class GitUpdater(handlers.MetadataUpdater):
                 raise UpdateFailedError(
                     f"Commit {last_validated_commit} is no longer contained by repository"
                     f" {self.validation_auth_repo.name}. This could "
-                    "either mean that there was an unauthorized push tot the remote "
+                    "either mean that there was an unauthorized push to the remote "
                     "repository, or that last_validated_commit file was modified."
                 )
             else:
@@ -182,20 +182,16 @@ class GitUpdater(handlers.MetadataUpdater):
                 users_head_sha = None
 
         if last_validated_commit != users_head_sha:
-            # TODO add a flag --force/f which, if provided, should force an automatic revert
-            # of the users authentication repository to the last validated commit
-            # This could be done if a user accidentally committed something to the auth repo
-            # or manually pulled the changes
-            # If the user deleted the repository or executed reset --hard, we could handle
-            # that by starting validation from the last validated commit, as opposed to the
-            # user's head sha.
-            # For now, we will raise an error
-            msg = (
-                f"Saved last validated commit {last_validated_commit} of repository {self.users_auth_repo.name} "
-                f"does not match the current head commit {users_head_sha}"
-            )
-            taf_logger.error(msg)
-            raise UpdateFailedError(msg)
+            # if a user committed something to the repo or manually pulled the changes
+            # last_validated_commit will no longer match the top commit, but the repository
+            # might still be completely valid
+            # committing without pushing is not valid
+            # user_head_sha should be newer than last validated commit
+            if users_head_sha not in commits_since:
+                msg = f"Top commit of repository {self.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
+                taf_logger.error(msg)
+                raise UpdateFailedError(msg)
+            users_head_sha = last_validated_commit
 
         # insert the current one at the beginning of the list
         if users_head_sha is not None:
@@ -222,6 +218,7 @@ class GitUpdater(handlers.MetadataUpdater):
 
         metadata_path = Path(self.repository_directory, "metadata")
         metadata_path.mkdir(parents=True, exist_ok=True)
+        self.metadata_dir_path = metadata_path
         self.current_path = Path(metadata_path, "current")
         self.current_path.mkdir()
         self.previous_path = Path(metadata_path, "previous")
@@ -239,17 +236,11 @@ class GitUpdater(handlers.MetadataUpdater):
             current_filename.write_text(metadata)
             shutil.copyfile(str(current_filename), str(previous_filename))
 
-    def _clone_validation_repo(self, url):
+    def set_validation_repo(self, path, url):
         """
-        Clones the authentication repository based on the url specified using the
-        mirrors parameter. The repository is cloned as a bare repository
-        to a the temp directory and will be deleted one the update is done.
+        Used outside of GitUpdater to access validation auth repo.
         """
-        temp_dir = tempfile.mkdtemp()
-        path = Path(temp_dir, self.users_auth_repo.name).absolute()
         self.validation_auth_repo = GitRepository(path=path, urls=[url])
-        self.validation_auth_repo.clone(bare=True)
-        self.validation_auth_repo.fetch(fetch_all=True)
 
     def cleanup(self):
         """
@@ -261,8 +252,12 @@ class GitUpdater(handlers.MetadataUpdater):
             shutil.rmtree(self.current_path)
         if self.previous_path.is_dir():
             shutil.rmtree(self.previous_path)
+        if len(list(self.metadata_dir_path.glob("*"))) == 0:
+            shutil.rmtree(self.metadata_dir_path)
+        self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
-        shutil.rmtree(str(temp_dir), onerror=on_rm_error)
+        if temp_dir.is_dir():
+            shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):
         # Only validate expiration time of the last commit
@@ -287,9 +282,12 @@ class GitUpdater(handlers.MetadataUpdater):
             )
 
     def get_current_targets(self):
-        return self.validation_auth_repo.list_files_at_revision(
-            self.current_commit, "targets"
-        )
+        try:
+            return self.validation_auth_repo.list_files_at_revision(
+                self.current_commit, "targets"
+            )
+        except GitError:
+            return []
 
     def get_mirrors(self, _file_type, _file_path):
         # pylint: disable=unused-argument
