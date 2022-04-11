@@ -147,20 +147,5 @@ class UpdateFailedError(TAFError):
     pass
 
 
-class UpdaterAdditionalCommitsError(TAFError):
-    def __init__(self, additional_commits_per_repo, message=None):
-        self.additional_commits_per_repo = additional_commits_per_repo
-        if message is None:
-            message = ""
-            for repo, branch_commits in additional_commits_per_repo.items():
-                for branch, commits in branch_commits.items():
-                    message += f"Repository {repo}: branch {branch} contains {len(commits)} additional"
-                    if len(commits) > 1:
-                        message += "commits\n"
-                    else:
-                        message += "commit\n"
-        self.message = message
-
-
 class YubikeyError(Exception):
     pass
