@@ -411,7 +411,6 @@ class GitRepository:
 
     def checkout_orphan_branch(self, branch_name):
         """Creates orphan branch"""
-        repo = self.pygit_repo
         self._git(
             f"checkout --orphan {branch_name}", log_error=True, reraise_error=True
         )
@@ -768,7 +767,7 @@ class GitRepository:
             if strip_remote:
                 tracking_branch = self.branch_local_name(tracking_branch)
             return tracking_branch
-        except GitError as e:
+        except GitError:
             return None
 
     def init_repo(self, bare=False):
