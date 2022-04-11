@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+
 ### Added
 
 ### Changed
@@ -14,6 +15,7 @@ and this project adheres to [Semantic Versioning][semver].
 - port a number of git functionalities to pygit2 ([#227])
 - change `clients-auth-path` in `taf repo update` to optional. ([#213])
 - Only clone if directory is empty ([211])
+- Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
 
 ### Fixed
 
@@ -23,8 +25,10 @@ and this project adheres to [Semantic Versioning][semver].
 [215]: https://github.com/openlawlibrary/taf/pull/216
 [213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211
+[191]: https://github.com/openlawlibrary/taf/pull/191
 
 ## [0.15.0] - 02/11/2022
+
 
 ### Added
 
@@ -34,14 +38,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- perf: re-implementing slow git cmds with pygit2 ([207])
 
+- perf: re-implementing slow git cmds with pygit2 ([207])
 - Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
 
 ### Fixed
 
 - Update handler fix: return an empty list of targets if the targets folder does not exist ([208])
-
 - pytest works when taf installed via wheel ([200])
 
 [208]: https://github.com/openlawlibrary/taf/pull/208

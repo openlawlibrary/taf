@@ -5,21 +5,27 @@ from collections import defaultdict
 from getpass import getpass
 
 import click
+from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from tuf.repository_tool import import_rsakey_from_pem
-from ykman.descriptor import list_devices, open_device
+from ykman.device import list_all_devices, connect_to_device
+from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
-    ALGO,
-    DEFAULT_MANAGEMENT_KEY,
-    PIN_POLICY,
+    KEY_TYPE,
+    MANAGEMENT_KEY_TYPE,
     SLOT,
-    PivController,
-    WrongPin,
+    PivSession,
     generate_random_management_key,
 )
-from ykman.util import TRANSPORT
+from yubikit.piv import (
+    DEFAULT_MANAGEMENT_KEY,
+    PIN_POLICY,
+    InvalidPinError,
+)
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
@@ -77,14 +83,14 @@ def raise_yubikey_err(msg=None):
 
 @contextmanager
 def _yk_piv_ctrl(serial=None, pub_key_pem=None):
-    """Context manager to open connection and instantiate piv controller.
+    """Context manager to open connection and instantiate Piv Session.
 
     Args:
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
 
     Returns:
-        - ykman.piv.PivController
+        - ykman.piv.PivSession
 
     Raises:
         - YubikeyError
@@ -92,10 +98,13 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
     # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
     # public keys.
     if pub_key_pem is not None:
-        for yk in list_devices(transports=TRANSPORT.CCID):
-            yk_ctrl = PivController(yk.driver)
+        for _, info in list_all_devices():
+            connection, _, device = connect_to_device(
+                info.serial, [SmartCardConnection]
+            )
+            session = PivSession(connection)
             device_pub_key_pem = (
-                yk_ctrl.read_certificate(SLOT.SIGNATURE)
+                session.get_certificate(SLOT.SIGNATURE)
                 .public_key()
                 .public_bytes(
                     encoding=serialization.Encoding.PEM,
@@ -109,15 +118,11 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                 or device_pub_key_pem[:-1] == pub_key_pem
             ):
                 break
-            else:
-                yk.close()
-
+            yield session, device.serial
     else:
-        yk = open_device(transports=TRANSPORT.CCID, serial=serial)
-        yk_ctrl = PivController(yk.driver)
-
-    yield yk_ctrl, yk.serial
-    yk.close()
+        connection, _, device = connect_to_device(serial, [SmartCardConnection])
+        session = PivSession(connection)
+        yield session, device.serial
 
 
 def is_inserted():
@@ -132,7 +137,7 @@ def is_inserted():
     Raises:
         - YubikeyError
     """
-    return len(list(list_devices(transports=TRANSPORT.CCID))) > 0
+    return len(list(list_all_devices())) > 0
 
 
 @raise_yubikey_err()
@@ -150,10 +155,10 @@ def is_valid_pin(pin):
     """
     with _yk_piv_ctrl() as (ctrl, _):
         try:
-            ctrl.verify(pin)
+            ctrl.verify_pin(pin)
             return True, None  # ctrl.get_pin_tries() fails if PIN is valid
-        except WrongPin:
-            return False, ctrl.get_pin_tries()
+        except InvalidPinError:
+            return False, ctrl.get_pin_attempts()
 
 
 @raise_yubikey_err("Cannot get serial number.")
@@ -190,7 +195,7 @@ def export_piv_x509(cert_format=serialization.Encoding.PEM, pub_key_pem=None):
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        x509 = ctrl.read_certificate(SLOT.SIGNATURE)
+        x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_bytes(encoding=cert_format)
 
 
@@ -210,7 +215,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        x509 = ctrl.read_certificate(SLOT.SIGNATURE)
+        x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_key().public_bytes(
             encoding=pub_key_format,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -255,8 +260,10 @@ def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        ctrl.verify(pin)
-        return ctrl.sign(SLOT.SIGNATURE, ALGO.RSA2048, data)
+        ctrl.verify_pin(pin)
+        return ctrl.sign(
+            SLOT.SIGNATURE, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
+        )
 
 
 @raise_yubikey_err("Cannot setup Yubikey.")
@@ -266,7 +273,7 @@ def setup(
     cert_exp_days=365,
     pin_retries=10,
     private_key_pem=None,
-    mgm_key=generate_random_management_key(),
+    mgm_key=generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES),
 ):
     """Use to setup inserted Yubikey, with following steps (order is important):
       - reset to factory settings
@@ -295,12 +302,13 @@ def setup(
         # Factory reset and set PINs
         ctrl.reset()
 
-        ctrl.authenticate(DEFAULT_MANAGEMENT_KEY)
-        ctrl.set_mgm_key(mgm_key)
+        ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, DEFAULT_MANAGEMENT_KEY)
+        ctrl.set_management_key(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
 
         # Generate RSA2048
         if private_key_pem is None:
-            pub_key = ctrl.generate_key(SLOT.SIGNATURE, ALGO.RSA2048, PIN_POLICY.ALWAYS)
+            private_key = rsa.generate_private_key(65537, 2048, default_backend())
+            pub_key = private_key.public_key()
         else:
             try:
                 private_key = load_pem_private_key(
@@ -314,20 +322,31 @@ def setup(
                     private_key_pem, pem_pwd, default_backend()
                 )
 
-            ctrl.import_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
+            ctrl.put_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
             pub_key = private_key.public_key()
 
-        ctrl.authenticate(mgm_key)
-        ctrl.verify(DEFAULT_PIN)
+        ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
+        ctrl.verify_pin(DEFAULT_PIN)
 
-        # Generate and import certificate
         now = datetime.datetime.now()
         valid_to = now + datetime.timedelta(days=cert_exp_days)
-        ctrl.generate_self_signed_certificate(
-            SLOT.SIGNATURE, pub_key, cert_cn, now, valid_to
+
+        name = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, cert_cn)])
+        # Generate and import certificate
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(pub_key)
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now)
+            .not_valid_after(valid_to)
+            .sign(private_key, hashes.SHA256(), default_backend())
         )
 
-        ctrl.set_pin_retries(pin_retries=pin_retries, puk_retries=pin_retries)
+        ctrl.put_certificate(SLOT.SIGNATURE, cert)
+
+        ctrl.set_pin_attempts(pin_attempts=pin_retries, puk_attempts=pin_retries)
         ctrl.change_pin(DEFAULT_PIN, pin)
         ctrl.change_puk(DEFAULT_PUK, pin)
 

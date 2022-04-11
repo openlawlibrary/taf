@@ -45,7 +45,7 @@ tests_require = [
     "jsonschema==3.2.0",
 ]
 
-yubikey_require = ["yubikey-manager==3.0.0"]
+yubikey_require = ["yubikey-manager==4.0.7"]
 
 kwargs = {
     "name": PACKAGE_NAME,
