@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- port a number of git functionalities to pygit2 ([#227])
 - change `clients-auth-path` in `taf repo update` to optional. ([#213])
 - Only clone if directory is empty ([211])
 
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fixed `_validate_urls` and local validation ([216])
 
+[227]: https://github.com/openlawlibrary/taf/pull/227
 [215]: https://github.com/openlawlibrary/taf/pull/216
 [213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211
