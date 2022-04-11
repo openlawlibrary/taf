@@ -694,7 +694,7 @@ def _update_current_repository(
             if users_auth_repo.is_git_repository_root:
                 users_auth_repo.fetch(fetch_all=True)
             else:
-                users_auth_repo.clone(no_checkout=True)
+                users_auth_repo.clone()
 
         # load target repositories and validate them
         repositoriesdb.load_repositories(
