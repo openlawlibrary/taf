@@ -1,6 +1,8 @@
 import json
+import itertools
 import os
 import re
+import pygit2
 import subprocess
 import logging
 from collections import OrderedDict
@@ -20,6 +22,8 @@ from taf.utils import run
 from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+calls = {}
 
 
 class GitRepository:
@@ -128,7 +132,8 @@ class GitRepository:
     @property
     def remotes(self):
         if self._remotes is None:
-            self._remotes = self._git("remote").split("\n")
+            repo = self.pygit_repo
+            self._remotes = [remote.name for remote in repo.remotes]
         return self._remotes
 
     @property
@@ -139,11 +144,8 @@ class GitRepository:
 
     @property
     def is_git_repository(self):
-        try:
-            self._git("rev-parse --git-dir")
-            return True
-        except GitError:
-            return False
+        repo_path = pygit2.discover_repository(str(self.path))
+        return repo_path is not None
 
     @property
     def initial_commit(self):
@@ -159,6 +161,10 @@ class GitRepository:
     def log_prefix(self):
         return f"Repo {self.name}: "
 
+    @property
+    def pygit_repo(self):
+        return self.pygit.repo
+
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
         e.g.:
@@ -170,6 +176,12 @@ class GitRepository:
         log_success_msg = kwargs.pop("log_success_msg", "")
         error_if_not_exists = kwargs.pop("error_if_not_exists", True)
 
+        global calls
+        if cmd in calls:
+            num = calls[cmd] + 1
+        else:
+            num = 1
+        calls[cmd] = num
         if len(args):
             cmd = cmd.format(*args)
         command = f"git -C {self.path} {cmd}"
@@ -226,21 +238,18 @@ class GitRepository:
         self._log(self.logging_functions[logging.CRITICAL], message)
 
     def all_commits_on_branch(self, branch=None, reverse=True):
-        """Returns a list of all commits on the specified branch. If branch is None,
-        all commits on the currently checked out branch will be returned
+        """Returns a list of all commits on the specified branch.
+        If branch is None, all commits on the currently checked out branch will be returned
         """
-        if branch is None:
-            branch = ""
-        commits = self._git("log {} --format=format:%H", branch, log_error=True)
-        if commits is not None:
-            commits = commits.strip()
-        if not commits:
-            commits = []
+        repo = self.pygit_repo
+        if branch:
+            branch = repo.branches.get(branch)
+            latest_commit_id = branch.target
         else:
-            commits = commits.split("\n")
-            if reverse:
-                commits.reverse()
+            latest_commit_id = repo[repo.head.target].id
 
+        sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
+        commits = [commit.id.hex for commit in repo.walk(latest_commit_id, sort)]
         self._log_debug(f"found the following commits: {', '.join(commits)}")
         return commits
 
@@ -250,22 +259,25 @@ class GitRepository:
         """
         if since_commit is None:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
-        if branch is None:
-            branch = "HEAD"
-        commits = self._git("rev-list {}..{}", since_commit, branch, log_error=True)
-        if commits is not None:
-            commits = commits.strip()
-        if not commits:
-            commits = []
-        else:
-            commits = commits.split("\n")
-            if reverse:
-                commits.reverse()
 
-        self._log_debug(
-            f"found the following commits after commit {since_commit}: {', '.join(commits)}"
-        )
-        return commits
+        repo = self.pygit_repo
+        if branch:
+            branch = repo.branches.get(branch)
+            latest_commit_id = branch.target
+        else:
+            latest_commit_id = repo[repo.head.target].id
+
+        shas = []
+        for commit in repo.walk(latest_commit_id):
+            sha = commit.id.hex
+            if sha == since_commit:
+                break
+            shas.insert(0, sha)
+        if not reverse:
+            shas = shas[::-1]
+        self._log_debug(f"found the following commits: {', '.join(shas)}")
+        return shas
+
 
     def all_fetched_commits(self, branch=None):
         branch = branch or self.default_branch
@@ -280,17 +292,13 @@ class GitRepository:
 
     def branches(self, remote=False, all=False, strip_remote=False):
         """Returns all branches."""
-        flag = "-r" if remote else "-a" if all else ""
-        error_msg = "remote" if remote else "all" if all else ""
-        branches = [
-            branch.strip('"').strip("'").strip()
-            for branch in self._git(
-                "branch {} --format='%(refname:short)'",
-                flag,
-                log_error_msg=f"Repo {self.name}: could not list {error_msg} branches",
-                reraise_error=True,
-            ).split("\n")
-        ]
+        repo = self.pygit_repo
+        if all:
+            branches = list(repo.branches)
+        elif remote:
+            branches = list(repo.branches.remote)
+        else:
+            branches = list(repo.branches.local)
 
         if strip_remote:
             remotes = self.remotes
@@ -305,21 +313,12 @@ class GitRepository:
 
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
-        local_branches = self._git(f"branch --contains {commit}", log_error=True).split(
-            "\n"
-        )
-        if local_branches:
-            local_branches = [
-                branch.replace("*", "").replace("+", "").strip()
-                for branch in local_branches
-            ]
-        remote_branches = self._git(
-            f"branch -r --contains {commit}", log_error=True
-        ).split("\n")
+        repo = self.pygit_repo
+        local_branches = list(repo.branches.local.with_commit(commit))
+        remote_branches = list(repo.branches.remote.with_commit(commit))
         filtered_remote_branches = []
-        if remote_branches:
+        if len(remote_branches):
             for branch in remote_branches:
-                branch = branch.strip()
                 local_name = self.branch_local_name(branch)
                 if (
                     local_name
@@ -339,25 +338,17 @@ class GitRepository:
         If include_remotes is set to True, this checks if
         a remote branch exists.
         """
-        branch = self._git(
-            f"branch --list {branch_name}", log_error=True, reraise_error=True
-        )
+        repo = self.pygit_repo
+        branch = repo.branches.get(branch_name)
         # this git command should return the branch's name if it exists
         # empty string otherwise
-        if branch:
+        if branch is not None:
             return True
         if include_remotes:
             for remote in self.remotes:
-                remote_branch = self._git(
-                    f"branch -r --list {remote}/{branch_name}",
-                    log_error_msg=f"Repo {self.name}: could not list remote branches",
-                    reraise_error=True,
-                )
-                # this command should return the branch's name if the remote tracking branch
-                # exists
-                # it will also return some warnings if there are problems with some refs
-                if branch_name in remote_branch:
-                    return True
+                remote_branch = repo.branches.remote.get(f"{remote}/{branch_name}")
+                if remote_branch is not None:
+                    return remote_branch
 
                 # finally, check remote branch
                 if self.has_remote():
@@ -369,14 +360,21 @@ class GitRepository:
 
         return False
 
-    def branch_off_commit(self, branch_name, commit):
+    def branch_off_commit(self, branch_name, commit_sha):
         """Create a new branch by branching off of the specified commit"""
-        self._git(
-            f"checkout -b {branch_name} {commit}",
-            log_error=True,
-            reraise_error=True,
-            log_success_msg=f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit}",
-        )
+        repo = self.pygit_repo
+        try:
+            commit = repo[commit_sha]
+            repo.branches.local.create(branch_name, commit)
+            branch = repo.lookup_branch(branch_name)
+            ref = repo.lookup_reference(branch.name)
+            repo.checkout(ref)
+        except Exception as e:
+            self._log_error(str(e))
+            raise
+        finally:
+            self._log_info(f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit_sha}")
+
 
     def branch_local_name(self, remote_branch_name):
         """Strip remote from the given remote branch"""
@@ -389,18 +387,23 @@ class GitRepository:
         the create parameter is set to True, create a new branch.
         If the branch does not exist and create is set to False,
         raise an exception."""
+        repo = self.pygit_repo
         try:
-            self._git(
-                "checkout {}",
-                branch_name,
-                log_success_msg=f"Repo {self.name}: checked out branch {branch_name}",
-            )
-        except GitError as e:
+            branch = repo.lookup_branch(branch_name)
+            if branch is not None:
+                ref = repo.lookup_reference(branch.name)
+                repo.checkout(ref)
+            else:
+                self._git(
+                    "checkout {}",
+                    branch_name,
+                    log_success_msg=f"Repo {self.name}: checked out branch {branch_name}",
+                )
+        except Exception as e:
             if raise_anyway:
-                raise (e)
-
+                raise GitError(repo=self, message=str(e))
             # skip worktree errors
-            if "is already checked out at" in str(e):
+            if "the current HEAD of a linked repository" in str(e):
                 return
 
             if create:
@@ -409,14 +412,14 @@ class GitRepository:
                 self._log_error(f"could not checkout branch {branch_name}")
                 raise (e)
 
-    def checkout_paths(self, commit, *args):
-        for file_path in args:
-            self._git(
-                f"checkout {commit} {file_path}", log_error=True, reraise_error=True
-            )
+    def checkout_paths(self, commit_sha, *args):
+        repo = self.pygit_repo
+        commit = repo.get(commit_sha)
+        repo.checkout_tree(commit, paths=list(args))
 
     def checkout_orphan_branch(self, branch_name):
         """Creates orphan branch"""
+        repo = self.pygit_repo
         self._git(
             f"checkout --orphan {branch_name}", log_error=True, reraise_error=True
         )
@@ -514,36 +517,56 @@ class GitRepository:
         return old_head, new_head
 
     def create_and_checkout_branch(self, branch_name, raise_error_if_exists=True):
-        flag = "-b" if raise_error_if_exists else "-B"
-        self._git(
-            "checkout {} {}",
-            flag,
-            branch_name,
-            log_success_msg=f"created and checked out branch {branch_name}",
-            log_error=True,
-            reraise_error=True,
-        )
+        repo = self.pygit_repo
+        try:
+            branch = repo.lookup_branch(branch_name)
+            if branch is not None and raise_error_if_exists:
+                raise GitError(f"Branch {branch_name} already exists")
+            try:
+                commit = repo.revparse_single('HEAD')
+                repo.branches.local.create(branch_name, commit)
+                branch = repo.lookup_branch(branch_name)
+                ref = repo.lookup_reference(branch.name)
+                repo.checkout(ref)
+            except KeyError:
+                # index = repo.index
+                # tree = index.write_tree()
+                # repo.create_reference_direct(f'refs/heads/{branch_name}', tree, False)
+                # branch = repo.lookup_branch(branch_name)
+                flag = "-b" if raise_error_if_exists else "-B"
+                self._git(
+                        "checkout {} {}",
+                        flag,
+                        branch_name,
+                        log_success_msg=f"created and checked out branch {branch_name}",
+                        log_error=True,
+                        reraise_error=True,
+                    )
+
+
+        except Exception as e:
+            self._log_error(str(e))
+            raise
+        finally:
+            self._log_info(f"Repo {self.name}: created a new branch {branch_name}")
 
     def create_branch(self, branch_name, commit=None):
-        if commit is None:
-            commit = ""
-        self._git(
-            "branch {} {}",
-            branch_name,
-            commit,
-            log_success_msg=f"created branch {branch_name}",
-            log_error=True,
-            reraise_error=True,
-        )
-
-    def create_local_branch(self, branch_name):
-        """Create local branch by checking it out if it does not exist and making sure
-        to check out previously checked out branch
-        """
-        if not self.branch_exists(branch_name, include_remotes=False):
-            self._git(f"branch {branch_name} {self.remotes[0]}/{branch_name}")
+        repo = self.pygit_repo
+        try:
+            if commit is not None:
+                branch_commit = repo[commit]
+            else:
+                branch_commit = repo.revparse_single('HEAD')
+            repo.branches.local.create(branch_name, branch_commit)
+        except Exception as e:
+            self._log_error(str(e))
+            raise
+        finally:
+            self._log_info(f"Repo {self.name}: created a new branch {branch_name}")
 
     def checkout_commit(self, commit):
+        # TODO
+        # commit reference can be passed into repo.checkout
         self._git(
             "checkout {}",
             commit,
@@ -552,32 +575,42 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def commit(self, message):
+    def commit(self, message, empty=False):
         """Create a commit with the provided message on the currently checked out branch"""
-        self._git("add -A")
+        repo = self.pygit_repo
         try:
-            self._git("diff --cached --exit-code --shortstat", reraise_error=True)
-        except GitError:
+            index = repo.index
+            if not empty:
+                index.add_all()
+                index.write()
+            tree = index.write_tree()
+            ref_name = 'HEAD'
+            parents = []
             try:
-                run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
-            except subprocess.CalledProcessError as e:
-                raise GitError(
-                    repo=self, message=f"could not commit changes due to:\n{e}"
-                )
-        return self._git("rev-parse HEAD")
+                repo.lookup_reference(repo.head.name)
+                parents = [repo.head.target]
+            except Exception:
+                pass
+            oid = repo.create_commit(
+                ref_name,
+                repo.default_signature,
+                repo.default_signature,
+                message,
+                tree,
+                parents,
+            )
+            if empty:
+                self.reset_to_head()
+            return str(oid)
+        except Exception as e:
+            raise GitError(
+                repo=self, message=f"could not commit changes due to:\n{e}"
+            )
 
     def commit_empty(self, message):
-        run(
-            "git",
-            "-C",
-            str(self.path),
-            "commit",
-            "--quiet",
-            "--allow-empty",
-            "-m",
-            message,
-        )
-        return self._git("rev-parse HEAD")
+        repo = self.pygit_repo
+        self.commit(message, True)
+        return repo.revparse_single('HEAD').id.hex
 
     def commits_on_branch_and_not_other(
         self, branch1, branch2, include_branching_commit=False
@@ -587,27 +620,31 @@ class GitRepository:
         a commit from another branch. For example, to find only commits
         on a speculative branch and not on the main branch.
         """
+        merge_base = self.get_merge_base(branch1, branch2)
+        commits = self.all_commits_since_commit(merge_base, branch1, reverse=False)
 
-        self._log_debug(
-            f"finding commits which are on branch {branch1}, but not on branch {branch2}"
-        )
-        commits = self._git(
-            "log {} --not {} --no-merges --format=format:%H", branch1, branch2
-        )
-        commits = commits.split("\n") if commits else []
-        if include_branching_commit:
-            branching_commit = self._git("rev-list -n 1 {}~1", commits[-1])
-            commits.append(branching_commit)
-        self._log_debug(f"found the following commits: {commits}")
         return commits
 
     def commit_before_commit(self, commit):
-        return self._git(f"log {commit}^ -1 --pretty=%H", log_error=True).strip()
+        repo = self.pygit_repo
+        repo_commit_id = repo.get(commit).id
+        for comm in repo.walk(repo_commit_id):
+            hex = comm.id.hex
+            if hex != commit:
+                return hex
+        return None
 
     def delete_local_branch(self, branch_name, force=False):
         """Deletes local branch."""
-        flag = "-D" if force else "-d"
-        self._git(f"branch {flag} {branch_name}", log_error=True)
+        try:
+            repo = self.pygit_repo
+            repo.branches.delete(branch_name)
+        except KeyError:
+            raise GitError(repo=self, message=f"Could not delete branch {branch_name}. Branch does not exist")
+        except Exception:
+            raise GitError(repo=self, message=f"Could not delete branch {branch_name}.")
+        # flag = "-D" if force else "-d"
+        # self._git(f"branch {flag} {branch_name}", log_error=True)
 
     def delete_remote_tracking_branch(self, remote_branch_name, force=False):
         flag = "-D" if force else "-d"
@@ -618,9 +655,11 @@ class GitRepository:
             remote = self.remotes[0]
         self._git(f"push {remote} --delete {branch_name}", log_error=True)
 
-    def get_commit_message(self, commit):
+    def get_commit_message(self, commit_sha):
         """Returns commit message of the given commit"""
-        return self._git("log --format=%B -n 1 {}", commit).strip()
+        repo = self.pygit_repo
+        commit = repo.get(commit_sha)
+        return commit.message
 
     def get_commit_sha(self, behind_head):
         """Get commit sha of HEAD~{behind_head}"""
@@ -672,13 +711,14 @@ class GitRepository:
         return self._git("diff --name-status {} {}", revision1, revision2)
 
     def has_remote(self):
-        return bool(self._git("remote"))
+        return len(self.remotes) > 0
 
     def head_commit_sha(self):
         """Finds sha of the commit to which the current HEAD points"""
+        repo = self.pygit_repo
         try:
-            return self._git("rev-parse HEAD")
-        except GitError:
+            return repo.revparse_single('HEAD').id.hex
+        except Exception:
             return None
 
     def fetch(self, fetch_all=False, branch=None, remote="origin"):
@@ -697,9 +737,13 @@ class GitRepository:
                 return path
         return None
 
-    def get_current_branch(self):
+    def get_current_branch(self, full_name=False):
         """Return current branch."""
-        return self._git("rev-parse --abbrev-ref HEAD").strip()
+        repo = self.pygit_repo
+        branch = repo.lookup_reference('HEAD').resolve()
+        if full_name:
+            return branch.name
+        return branch.shorthand
 
     def get_last_remote_commit(self, url, branch=None):
         """
@@ -718,7 +762,10 @@ class GitRepository:
 
     def get_merge_base(self, branch1, branch2):
         """Finds the best common ancestor between two branches"""
-        return self._git(f"merge-base {branch1} {branch2}", log_error=True)
+        repo = self.pygit_repo
+        commit1 = self.top_commit_of_branch(branch1)
+        commit2 = self.top_commit_of_branch(branch2)
+        return repo.merge_base(commit1, commit2).hex
 
     def get_tracking_branch(self, branch="", strip_remote=False):
         """Returns tracking branch name in format origin/branch-name or None if branch does not
@@ -729,7 +776,7 @@ class GitRepository:
             if strip_remote:
                 tracking_branch = self.branch_local_name(tracking_branch)
             return tracking_branch
-        except GitError:
+        except GitError as e:
             return None
 
     def init_repo(self, bare=False):
@@ -770,34 +817,56 @@ class GitRepository:
         return list_of_files
 
     def list_changed_files_at_revision(self, commit):
-        file_names = self._git("diff-tree --no-commit-id --name-only -r {}", commit)
-        return (file_names or []).split("\n")
+        repo = self.pygit_repo
+        commit1 = repo.get(commit)
+        commit2 = self.commit_before_commit(commit)
+        if commit2 is not None:
+            commit2 = repo.get(commit2)
 
-    def list_commits(self, branch="", **kwargs):
-        params = []
-        for name, value in kwargs.items():
-            params.append(f"--{name}={value}")
+        diff = repo.diff(commit1, commit2)
 
-        return self._git("log {} {}", branch, " ".join(params)).split("\n")
+        file_names = set()
+        for patch in diff:
+            delta = patch.delta
+            file_names.add(delta.new_file.path)
+            file_names.add(delta.old_file.path)
+        return list(file_names)
+
+
+    def list_commits(self, branch=""):
+        repo = self.pygit_repo
+        if branch:
+            branch = repo.branches.get(branch)
+            latest_commit_id = branch.target
+        else:
+            latest_commit_id = repo[repo.head.target].id
+
+        return [commit for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)]
 
     def list_commit_shas(self, branch=None):
         branch = branch or self.default_branch
-        return self.list_commits(branch, format="format:%H")
+        return self.list_commits(branch)
 
-    def list_n_commits(self, number=10, skip=None, branch=None):
+    def list_n_commits(self, number=10, start_commit_sha=None, branch=None):
         """List the specified number of top commits of the current branch
         Optionally skip a number of commits from the top"""
-        if branch is None:
-            branch = ""
-        if skip:
-            commits = self._git(
-                f"log {branch} --format=format:%H --skip={skip} -n {number}"
-            )
+        if number <= 0:
+            return []
+        repo = self.pygit_repo
+        if start_commit_sha is not None:
+            start_commit_id = repo.get(start_commit_sha).id
+        elif branch:
+            branch = repo.branches.get(branch)
+            start_commit_id = branch.target
         else:
-            commits = self._git(f"log {branch} --format=format:%H -n {number}")
-        return commits.split("\n") if commits else []
+            start_commit_id = repo[repo.head.target].id
+        commits = itertools.islice(repo.walk(start_commit_id), number + 1)
+        return [commit.hex for commit in commits if commit.hex != start_commit_sha]
 
     def list_modified_files(self, path=None, with_status=False):
+        # TODO
+        # repo.diff("HEAD")
+        # go over the returned diff object
         diff_command = "diff --name-status"
         if path is not None:
             diff_command = f"{diff_command} {path}"
@@ -840,6 +909,23 @@ class GitRepository:
     def merge_commit(self, commit):
         self._git("merge {}", commit, log_error=True)
 
+    def merge_branch(self, branch_name, allow_new_commit=False):
+        if allow_new_commit:
+            repo = self.pygit_repo
+            branch = repo.lookup_branch(branch_name)
+            oid = branch.target
+
+            for commit in repo.walk(oid):
+                message = commit.message
+                break
+
+            repo.merge(oid)
+            self.commit(message)
+            repo.state_cleanup()
+        else:
+            self._git("merge {}", branch_name, log_error=True)
+
+
     def pull(self):
         """Pull current branch"""
         self._git("pull", log_error=True)
@@ -848,11 +934,17 @@ class GitRepository:
         """Push all changes"""
         if branch is None:
             branch = self.get_current_branch()
-        upstream_flag = "-u" if set_upstream else ""
-        force_flag = "-f" if force else ""
-        self._git(
-            "push {} {} origin {}", upstream_flag, force_flag, branch, log_error=True
-        )
+        if not force and not set_upstream:
+            repo = self.pygit_repo
+            branch_ref_name = repo.branches[branch].name
+            remote = repo.remotes[self.remotes[0]]
+            remote.push([branch_ref_name])
+        else:
+            upstream_flag = "-u" if set_upstream else ""
+            force_flag = "-f" if force else ""
+            self._git(
+                "push {} {} origin {}", upstream_flag, force_flag, branch, log_error=True
+            )
 
     def rename_branch(self, old_name, new_name):
         self._git("branch -m {} {}", old_name, new_name)
@@ -904,9 +996,8 @@ class GitRepository:
             tracking_branch = self.get_tracking_branch(branch, strip_remote=True)
             if not tracking_branch:
                 return False
-
             try:
-                local_commit = self._git(f"rev-parse {branch}")
+                local_commit = self.top_commit_of_branch(branch)
             except GitError as e:
                 if "unknown revision or path not in the working tree" not in str(e):
                     raise e
@@ -916,8 +1007,10 @@ class GitRepository:
 
         return local_commit == remote_commit
 
-    def top_commit_of_branch(self, branch):
-        return self._git(f"rev-parse {branch}")
+    def top_commit_of_branch(self, branch_name):
+        repo = self.pygit_repo
+        branch = repo.branches.get(branch_name)
+        return branch.target.hex
 
     def _validate_repo_name(self, name):
         """Ensure the repo name is not malicious"""
