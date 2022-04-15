@@ -46,6 +46,8 @@ class GitRepository:
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
           default_branch (str): repository's default branch ("main" if not defined)
+          allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
+          the containing directory is owned by a different user to be ignored
         """
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
