@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `allow_unsafe` flag to git repo class as a response to a recent git security fix ([229])
 ### Changed
 
 - Remove `no_checkout=True` from `clone` ([226])
@@ -21,6 +22,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
 
+
+[229]: https://github.com/openlawlibrary/taf/pull/229
 [226]: https://github.com/openlawlibrary/taf/pull/226
 [220]: https://github.com/openlawlibrary/taf/pull/220
 [219]: https://github.com/openlawlibrary/taf/pull/219
