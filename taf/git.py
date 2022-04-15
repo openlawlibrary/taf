@@ -30,6 +30,7 @@ class GitRepository:
         urls=None,
         custom=None,
         default_branch="main",
+        allow_unsafe=False,
         path=None,
         *args,
         **kwargs,
@@ -84,6 +85,7 @@ class GitRepository:
         self.urls = self._validate_urls(urls)
         self.default_branch = default_branch
         self.custom = custom or {}
+        self.allow_unsafe = allow_unsafe
 
     _pygit = None
 
@@ -172,7 +174,10 @@ class GitRepository:
 
         if len(args):
             cmd = cmd.format(*args)
-        command = f"git -C {self.path} {cmd}"
+        if self.allow_unsafe:
+            command = f"git -C {self.path} -c safe.directory={self.path} {cmd}"
+        else:
+            command = f"git -C {self.path} {cmd}"
         result = None
         if log_error or log_error_msg:
             try:
