@@ -30,6 +30,7 @@ class GitRepository:
         urls=None,
         custom=None,
         default_branch="main",
+        allow_unsafe=False,
         path=None,
         allow_unsafe=False
         *args,
@@ -46,6 +47,8 @@ class GitRepository:
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
           default_branch (str): repository's default branch ("main" if not defined)
+          allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
+          the containing directory is owned by a different user to be ignored
         """
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
@@ -85,6 +88,7 @@ class GitRepository:
         self.urls = self._validate_urls(urls)
         self.default_branch = default_branch
         self.custom = custom or {}
+        self.allow_unsafe = allow_unsafe
 
     _pygit = None
 
@@ -173,7 +177,10 @@ class GitRepository:
 
         if len(args):
             cmd = cmd.format(*args)
-        command = f"git -C {self.path} {cmd}"
+        if self.allow_unsafe:
+            command = f"git -C {self.path} -c safe.directory={self.path} {cmd}"
+        else:
+            command = f"git -C {self.path} {cmd}"
         result = None
         if log_error or log_error_msg:
             try:
