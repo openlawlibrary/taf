@@ -32,7 +32,6 @@ class GitRepository:
         default_branch="main",
         allow_unsafe=False,
         path=None,
-        allow_unsafe=False
         *args,
         **kwargs,
     ):

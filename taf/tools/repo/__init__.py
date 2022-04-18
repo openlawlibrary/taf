@@ -1,5 +1,4 @@
 import click
-from pathlib import Path
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.updater.updater import update_repository, validate_repository, UpdateType
@@ -225,8 +224,6 @@ def attach_to_group(group):
 
         if profile:
             import cProfile
-            import pstats
-            import io
             import atexit
 
             print("Profiling...")
