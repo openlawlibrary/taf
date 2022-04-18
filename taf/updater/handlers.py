@@ -72,6 +72,8 @@ class GitUpdater(handlers.MetadataUpdater):
     def previous_commit(self):
         return self.commits[self.current_commit_index - 1]
 
+    _temp_files_cache = {}
+
     def __init__(self, mirrors, repository_directory, repository_name):
         """
         Args:

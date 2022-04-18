@@ -15,6 +15,8 @@ class PyGitRepository:
         self.path = encapsulating_repo.path
         self.repo = pygit2.Repository(str(self.path))
 
+    _files_cache = {}
+
     def _get_child(self, parent, path_part):
         """
         Return the child object of a parent object.
@@ -75,7 +77,11 @@ class PyGitRepository:
                 message=f"fatal: Path '{path}' does not exist in '{commit}'",
             )
         else:
-            return blob.read_raw().decode()
+            git_id = blob.hex
+            if git_id not in self._files_cache:
+                content = blob.read_raw().decode()
+                self._files_cache[git_id] = content
+            return git_id, self._files_cache[git_id]
 
     def _list_files_at_revision(self, tree, path="", results=None):
         """

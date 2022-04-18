@@ -1,5 +1,7 @@
+import click
 import errno
 import datetime
+import time
 import json
 import os
 import stat
@@ -8,6 +10,7 @@ import tempfile
 import shutil
 import uuid
 from getpass import getpass
+from functools import wraps
 from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -16,7 +19,6 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 from json import JSONDecoder
-import click
 import taf.settings
 from taf.exceptions import PINMissmatchError
 from taf.log import taf_logger
@@ -285,3 +287,34 @@ def to_tuf_datetime_format(start_date, interval):
     datetime_object = start_date + datetime.timedelta(interval)
     datetime_object = datetime_object.replace(microsecond=0)
     return datetime_object.isoformat() + "Z"
+
+
+class timed_run:
+    """Decorator to let us capture the elapsed time and optionally print a timer and start/end
+    messages around function calls"""
+
+    def __init__(self, start_message=None, end_message="  completed in {} seconds"):
+        self.start_message = start_message
+        self.end_message = end_message
+        self.start_time = None
+        self.elapsed_time = None
+
+    def start(self):
+        self.start_time = time.time()
+        if self.start_message is not None:
+            print(self.start_message)
+
+    def end(self):
+        self.elapsed_time = time.time() - self.start_time
+        if self.end_message is not None:
+            print(self.end_message.format(int(self.elapsed_time)))
+
+    def __call__(self, orig_func=None):
+        @wraps(orig_func)
+        def wrapper_func(*args, **kwargs):
+            self.start()
+            result = orig_func(*args, **kwargs) if orig_func else None
+            self.end()
+            return result
+
+        return wrapper_func
