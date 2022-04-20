@@ -1,5 +1,6 @@
 import json
 import os
+from sys import meta_path
 import tempfile
 from collections import defaultdict
 from contextlib import contextmanager
@@ -256,6 +257,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
+        previous_metadata = []
+        new_files = []
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
@@ -266,9 +269,18 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 continue
             repositories_at_revision = repositories_at_revision["repositories"]
 
-            # get names of all targets roles defined in the current revision
-            with self.repository_at_revision(commit):
-                roles_at_revision = self.get_all_targets_roles()
+            current_metadata = self.list_files_at_revision(
+                commit, METADATA_DIRECTORY_NAME
+            )
+            new_files = [
+                metadata_path
+                for metadata_path in current_metadata
+                if metadata_path not in previous_metadata
+            ]
+            previous_metadata = current_metadata
+            if len(new_files):
+                with self.repository_at_revision(commit):
+                    roles_at_revision = self.get_all_targets_roles()
 
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
