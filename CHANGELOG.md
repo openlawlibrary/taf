@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-
+-  Update `targets_at_revisions` - only update a list of roles if a metadata file was added ([228])
 
 ### Fixed
 

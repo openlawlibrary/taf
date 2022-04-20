@@ -1,6 +1,5 @@
 import json
 import os
-from sys import meta_path
 import tempfile
 from collections import defaultdict
 from contextlib import contextmanager
