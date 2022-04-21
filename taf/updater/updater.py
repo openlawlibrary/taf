@@ -12,6 +12,7 @@ from taf.log import taf_logger, disable_tuf_console_logging
 from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
+from taf.utils import timed_run
 import taf.settings as settings
 from taf.exceptions import (
     ScriptExecutionError,
@@ -183,6 +184,7 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
             _reset_repository(repo, branch_data)
 
 
+@timed_run("Updating repository")
 def update_repository(
     url,
     clients_auth_path,
@@ -754,12 +756,15 @@ def _update_authentication_repository(repository_updater):
     users_auth_repo = repository_updater.update_handler.users_auth_repo
     taf_logger.info("Validating authentication repository {}", users_auth_repo.name)
     try:
+        # for each commit, load that revision's metadata and target files
+        # the implementation is based on examples listed in TUF's documentation
+        # (/tuf/client/README.md)
         while not repository_updater.update_handler.update_done():
             current_commit = repository_updater.update_handler.current_commit
             repository_updater.refresh()
             # using refresh, we have updated all main roles
             # we still need to update the delegated roles (if there are any)
-            # that is handled by get_current_targets
+            # that is handled by get_one_valid_targetinfo
             current_targets = repository_updater.update_handler.get_current_targets()
             taf_logger.debug("Validated metadata files at revision {}", current_commit)
             for target_path in current_targets:
@@ -768,6 +773,7 @@ def _update_authentication_repository(repository_updater):
                 trusted_length = target["fileinfo"]["length"]
                 trusted_hashes = target["fileinfo"]["hashes"]
                 try:
+                    # just call get target to validate it instead of callind download_target
                     repository_updater._get_target_file(
                         target_filepath, trusted_length, trusted_hashes
                     )
@@ -1211,6 +1217,7 @@ def _update_target_repository(
     return additional_commits
 
 
+@timed_run("Validating repository")
 def validate_repository(
     clients_auth_path,
     clients_library_dir=None,

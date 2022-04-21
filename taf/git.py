@@ -637,15 +637,15 @@ class GitRepository:
         s = self.get_file(commit, path, raw=raw)
         return json.loads(s)
 
-    def get_file(self, commit, path, raw=False):
+    def get_file(self, commit, path, raw=False, with_id=False):
         path = Path(path).as_posix()
         if raw:
             return self._git("show {}:{}", commit, path, raw=raw)
         try:
-            out = self.pygit.get_file(commit, path)
-            # if not out:
-            #     import pdb; pdb.set_trace()
-            return out
+            git_id, content = self.pygit.get_file(commit, path)
+            if with_id:
+                return git_id, content
+            return content
         except TAFError as e:
             raise e
         except Exception:

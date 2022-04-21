@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Cache loaded git files ([228])
+- Add a flag for generating performance reports of update calls and print total update execution time ([228])
+
 ### Changed
 
+-  Update `targets_at_revisions` - only update a list of roles if a metadata file was added ([228])
+
 ### Fixed
+
+[228]: https://github.com/openlawlibrary/taf/pull/228
 
 ## [0.16.0] - 04/16/2022
 

@@ -194,7 +194,8 @@ def attach_to_group(group):
     @click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts "
                   "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
                   "to be located in scripts_root_dir/repo_name directory")
-    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, scripts_root_dir):
+    @click.option("--profile", is_flag=True)
+    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, scripts_root_dir, profile):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -220,6 +221,22 @@ def attach_to_group(group):
         """
         if clients_auth_path is None and clients_library_dir is None:
             raise click.UsageError('Must specify either authentication repository path or library directory!')
+
+        if profile:
+            import cProfile
+            import atexit
+
+            print("Profiling...")
+            pr = cProfile.Profile()
+            pr.enable()
+
+            def exit():
+                pr.disable()
+                print("Profiling completed")
+                filename = 'updater.prof'  # You can change this if needed
+                pr.dump_stats(filename)
+
+            atexit.register(exit)
 
         update_repository(url, clients_auth_path, clients_library_dir, default_branch, from_fs,
                           UpdateType(expected_repo_type), scripts_root_dir=scripts_root_dir)
