@@ -283,9 +283,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
-                targets_at_revision = self.get_json(
+                targets_at_revision = self.safely_get_json(
                     commit, get_role_metadata_path(role_name)
                 )
+                if targets_at_revision is None:
+                    continue
                 targets_at_revision = targets_at_revision["signed"]["targets"]
 
                 for target_path in targets_at_revision:
