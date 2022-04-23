@@ -844,8 +844,9 @@ class GitRepository:
             for wt in worktrees
         }
 
-    def merge_commit(self, commit):
-        self._git("merge {}", commit, log_error=True)
+    def merge_commit(self, commit, fast_forward_only=False):
+        fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
+        self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
 
     def pull(self):
         """Pull current branch"""
