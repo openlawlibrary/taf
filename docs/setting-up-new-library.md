@@ -7,46 +7,46 @@ This document describes how to create a new authentication repository with all o
 `keys-description` is a dictionary which contains information about the roles and their keys. The easiest way to specify it is to define it in a `.json` file and provide path to that file when calling various commands. For example:
 
 {
-	"roles": {
-  	"root": {
-  	  "number": 3,
-			"threshold": 1
-  	},
-  	"targets": {
-			"number": 1,
-			"threshold": 1,
-			"delegations": {
-				"delegated_role1": {
-					"paths": [
-						"dir1/*"
-						],
-					"number": 3,
-					"threshold": 2,
+ "roles": {
+   "root": {
+     "number": 3,
+   "threshold": 1
+   },
+   "targets": {
+   "number": 1,
+   "threshold": 1,
+   "delegations": {
+    "delegated_role1": {
+     "paths": [
+      "dir1/*"
+      ],
+     "number": 3,
+     "threshold": 2,
           "terminating": true
-				},
-				"delegated_role2":{
-					"paths": [
-						"dir2/*"
-					],
-					"delegations": {
-						"inner_delegated_role": {
-							"paths": [
-								"dir2/inner_delegated_role.txt"
-							],
+    },
+    "delegated_role2":{
+     "paths": [
+      "dir2/*"
+     ],
+     "delegations": {
+      "inner_delegated_role": {
+       "paths": [
+        "dir2/inner_delegated_role.txt"
+       ],
               "terminating": true
-						}
-					}
-				}
-			}
-  	},
-  	"snapshot": {
-			"scheme": "rsassa-pss-sha256"
-		},
-  	"timestamp": {
-			"scheme": "rsassa-pss-sha256"
-		}
-	},
-	"keystore": "keystore_path"
+      }
+     }
+    }
+   }
+   },
+   "snapshot": {
+   "scheme": "rsassa-pss-sha256"
+  },
+   "timestamp": {
+   "scheme": "rsassa-pss-sha256"
+  }
+ },
+ "keystore": "keystore_path"
 }
 
 NOTE: in this example, scheme of snapshot and timestamp roles was specified in order to provide
@@ -55,7 +55,7 @@ The default scheme is `"rsa-pkcs1v15-sha256`. Delegated target roles are optiona
 should be signed using the `targets` key, there is no point in defining delegated target roles.
 
 - `roles` contains information about roles and their keys, including delegations:
-  -  `number` - total number of the role's keys
+  - `number` - total number of the role's keys
   - `length` - length of the role's keys. Only needed when this json is used to generate keys.
   - `passwords` - a list of passwords of the keystore files corresponding to the current role The first entry in the list is expected to specify the first key's password.
   - `threshold` - role's keys threshold - with how many different keys must a metadata files be signed
@@ -69,6 +69,7 @@ Names of keys must follow a certain naming convention. That is,their names are c
 and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1`, `targets2`, `snapshot` etc.
 
 If a property is omitted from the specification, it will have the default value. The default values are:
+
 - `number=1`
 - `length=3072` Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
 - `passwords=[]` Meaning that the keystore files will not be password protected by default.
@@ -119,6 +120,7 @@ be updated.
 
 It is not necessary to generate keys or initialize Yubikeys prior to calling this command.
 For each role, keys can be:
+
 - loaded from the keystore files if they already exist
 - generated and stored to keystore files
 - loaded from previously initialized Yubikeys
@@ -160,18 +162,19 @@ name:
     "repositories": {
         "test/repo1: {
             "custom": {
-				"custom_property": "custom_value"
+    "custom_property": "custom_value"
             }
         },
         "test/repo2": {
             "custom": {
-				"custom_property": "custom_value",
-				"allow-unauthenticated-commits":true
+    "custom_property": "custom_value",
+    "allow-unauthenticated-commits":true
             }
         }
     }
 }
 ```
+
 It is recommended not to specify URLs in `repsositories.json`, as that has been deprecated.
 
 Notice custom property `allow-unauthenticated-commits`. If it is set to `true` the target repositories can contain unauthenticated commits in-between authenticated ones. This means that it is not necesary to sign the corresponding target files after every commit.
@@ -210,7 +213,6 @@ This is an example where there are no hierarchies, but we want to define the cur
 
 This is an example where we defined a hierarchy (define two authentication repository which are seen as the current repository's children):
 
-
 ```
 {
     "dependencies": {
@@ -224,18 +226,16 @@ This is an example where we defined a hierarchy (define two authentication repos
 }
 ```
 
-
 ### `hosts.json`
 
 This is an optional file used to specify information about the hosts. The framework will only extract this information
 from the file and does not implement anything related configuring the servers. Here is an example of this file:
 
-
 ```
 {
    "some_domain.org": {
       "auth_repos": {
-      	"test/auth_repo": {}
+       "test/auth_repo": {}
       },
       "custom": {
          "subdomains": {
@@ -244,6 +244,18 @@ from the file and does not implement anything related configuring the servers. H
          }
       }
    }
+}
+```
+
+### `protected/info.json`
+
+Optional file with authentication repository metadata. Currently, we support specifying either `library_dir` and having `info.json` metadata, or by specifying `clients-auth-path` in `taf repo update` command. When running taf update by specifying `library-dir`, `namespace/repo_name` is automatically extracted from `info.json` and appended to `library_dir`.
+Example:
+
+```
+{
+  "namespace": "some_org_name",
+  "name":  "some_repo_name"
 }
 ```
 
@@ -329,13 +341,11 @@ taf metadata update-expiration-date auth_repo_path metadata_name --keystore keys
 
 ### timestamp update
 
-
 ```bash
 taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --interval days
 ```
 
 ### snapshot update
-
 
 ```bash
 taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_path --inteval days
@@ -346,7 +356,6 @@ taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore
 ```
 
 ### targets update
-
 
 ```bash
 taf metadata update-expiration-date auth_repo_path targets --keystore keystore_path --inteval days
@@ -361,4 +370,3 @@ taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore
 ```
 
 **Don't forget to commit and push the changes**
-

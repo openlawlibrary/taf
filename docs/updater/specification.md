@@ -116,6 +116,7 @@ need to be uploaded to a developer's GitHub account, which can be compromised. S
 TUF's target role, but follow its specification otherwise.
 
 ## TUF Repository and Metadata
+
 '
 The main idea is to avoid modifying TUF specification at all and find a workaround for specifying
 repositories as targets.
@@ -145,12 +146,11 @@ snapshot file.
 The root and targets metadata files should be signed by very secure, offline key, while snapshot and
 timestamp can be signed with keys that are kept online.
 
-
 ### Repository content
-
 
 A repository which will contain the TUF metadata files should be created. It should store the following
 files and folders:
+
 ```
 - metadata
   - root.json
@@ -169,6 +169,7 @@ files and folders:
 The `targets.json` file (or the metadata file of a delegated role) requires all targets of the
 corresponding role to be listed and uniquely identified by their paths. Each path is relative to
 the targets directory. The main idea behind this directory structure is the following:
+
 - Commits are stored as content target files.
 - For each repository, there is one entry in `targets.json`, which contains data about the file where
 the commit is stored. The unique paths are of format `jurisdiction/repository_name`.
@@ -212,7 +213,7 @@ This file lists the version numbers of all metadata on the repository, excluding
 This information allows clients to know which metadata files have been updated and also prevents mix-and-match
 attacks. We need to generate this file during AppVeyor builds, which means that it is not possible to
 require an offline key. However, it is not possible to perform a malicious update unless targets is compromised
-as well. [See key compromise analysis section of PEP on PyPi](https://github.com/theupdateframework/
+as well. [See key compromise analysis section of PEP on PyPi](<https://github.com/theupdateframework/>
 pep-on-pypi-with-tuf#key-compromise-analysis)
 
 #### timestamp.json
@@ -224,7 +225,7 @@ malicious update is not possible if targets key is not compromised.
 
 ### Target files
 
-We require existance of certain target files, though there could be additional one. These include, as
+We require existence of certain target files, though there could be additional one. These include, as
 noted above, one target file per repository and a target files containing information about the repositories.
 
 If a target's path specified in `targets.json` (or target file of a delegated role) is `somejurisdiction/law-xml`, there should be a target file
@@ -237,8 +238,10 @@ commit SHA:
     "commit": "4a55ac5822bc4504673dcba43ac1959213531474"
 }
 ```
+
 They can contain other information, as needed. These targets are used to validate target
 repositories. In addition to them, the framework expects some special target files:
+
 - `repositoires.json` (required)
 - `mirrors.json` (recommended, required if URLs are not defined in `repositoires.json`, re)
 - `depoendencies.json` (optional)
@@ -255,26 +258,26 @@ of the repositories definition file:
 
 ```json
  {
- 	"repositories": {
- 		"jurisdiction/law-xml": {
-			"custom": {
-				"type": "xml"
-			},
- 			"urls": ["https://github.com/jurisdiction/law-xml"]
- 		},
- 		"cityofsanmateo/law-html": {
-			"custom": {
-				"type": "html"
-			},
- 			"urls": ["https://github.com/jurisdiction/law-html"]
- 		},
- 		"cityofsanmateo/law-xml-codified": {
-			"custom": {
-				"type": "xml-codified"
-			},
- 			"urls": ["https://github.com/jurisdiction/law-xml-codified"]
- 		}
- 	}
+  "repositories": {
+   "jurisdiction/law-xml": {
+   "custom": {
+    "type": "xml"
+   },
+    "urls": ["https://github.com/jurisdiction/law-xml"]
+   },
+   "cityofsanmateo/law-html": {
+   "custom": {
+    "type": "html"
+   },
+    "urls": ["https://github.com/jurisdiction/law-html"]
+   },
+   "cityofsanmateo/law-xml-codified": {
+   "custom": {
+    "type": "xml-codified"
+   },
+    "urls": ["https://github.com/jurisdiction/law-xml-codified"]
+   }
+  }
  }
 ```
 
@@ -295,6 +298,7 @@ organization name, so names defined in `reposiotires.json` are seen as `org_name
     ]
 }
 ```
+
 and a repository's name is `jurisdiction/law-xml`, its URLs will be set to `["http://github.com/jurisdiction/law-xml", "http://github.com/jurisdiction-backup/law-xml", "http://gitlab.com/jurisdiction/law-xml"]`.
 The framework will try to clone/pull the repository from GitHub the first URL, if that fails, try to use the second one etc.
 
@@ -315,17 +319,15 @@ Starting with version `0.9.0`, the updater supports definition of hierarchies of
     }
 }
 ```
+
 When updating the repository which contains this target file, the updater will also update `jurisdiction1/law` and `jurisdiction2/law`. Their URLs are also determined by using the `mirrors.json` file (the root repository's `mirrors.json`).
 
 `out-of-band-authenticatio` is an optional property which, if defined, it is used to check if the repository's first commit matches this property's value. This is far from perfect security measure, but adds an additional layer or protection. The safest way would still be to contact the repositories' maintainers directly.
 
-
 ### hosts.json
-
 
 This special target file is used to provide hosting information. It contains mappings of domains and authentication repositories whose content (or more precisely, content of whose target repositories) should be served through them. The framework does not actually
 handle servers configuration - it just extracts host information from the `hosts.json` file and makes it easier to consume this data later on (starting with version `0.9.0`). This is an example of `hosts.json`:
-
 
 ```
 {
@@ -354,6 +356,18 @@ handle servers configuration - it just extracts host information from the `hosts
 }
 ```
 
+### protected/info.json
+
+Stores current repository metadata. Example:
+
+```
+{
+  "namespace": "some_org_name",
+  "name":  "some_repo_name"
+}
+
+Where namespace and name map to `namespace/name` format. This data is expected to exist and used by the update process when only `library_dir` is specified. `info.json` metadata is located inside a `protected` targets folder. This folder is expected to be signed by a quorum of keys.
+
 #### Scripts
 
 Every authentication repository can contain target files inside `targets/scripts` folder which are expected to be Python scripts which will be executed after successful/failed update of that repository. Scripts can also be defined on a host level - will be executed after update of all repositories belonging to that host.
@@ -365,7 +379,9 @@ If a repository was successfully pulled and updated, `changed`, `succeeded` and
 put into a folder of the corresponding name in side `targets/scripts`. Each folder can
 contain an arbitrary number of scripts and they will be called in alphabetical order.
 Here is a sketch of the `scriprs` folder:
+
 ```
+
 /scripts
     /repo
       /succeeded - every time a repo is successfully pulled
@@ -379,6 +395,7 @@ Here is a sketch of the `scriprs` folder:
       /unchanged
       /failed - if one repository failed
       /completed  - like finally (called in both cases)
+
 ```
 
 Each script is expected to return a json containing persistent and transient data. Persistent data will automatically be saved to a file called `persistent.json` after every execution and passed to the next script, while the transient data will be passed to the next script without being stored anywhere. In addition to transient and persistent data, scripts receive information about repositories (both the auth repo and its target repositories), as well as about the update.
