@@ -9,16 +9,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `--ff-only` to git merge ([235])
 - Added format-output flag to update repo cli ([234])
 - Cache loaded git files ([228])
 - Add a flag for generating performance reports of update calls and print total update execution time ([228])
 
 ### Changed
 
--  Update `targets_at_revisions` - only update a list of roles if a metadata file was added ([228])
+- Update `targets_at_revisions` - only update a list of roles if a metadata file was added ([228])
 
 ### Fixed
 
+[235]: https://github.com/openlawlibrary/taf/pull/235
 [234]: https://github.com/openlawlibrary/taf/pull/234
 [228]: https://github.com/openlawlibrary/taf/pull/228
 
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add `allow_unsafe` flag to git repo class as a response to a recent git security fix ([229])
+
 ### Changed
 
 - Remove `no_checkout=True` from `clone` ([226])
@@ -38,7 +41,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
-
 
 [229]: https://github.com/openlawlibrary/taf/pull/229
 [226]: https://github.com/openlawlibrary/taf/pull/226
