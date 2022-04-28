@@ -256,7 +256,7 @@ def attach_to_group(group):
                 print(json.dumps({
                     'updateSuccessful': True
                 }))
-        except UpdateFailedError as e:
+        except Exception as e:
             if format_output:
                 error_data = {
                     'updateSuccessful': False,
