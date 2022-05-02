@@ -30,9 +30,9 @@ options. It is assumed that the authentication repository is also inside a names
 By default, namespace is set to the authentication repository's namespace and `library-dir` to
 the namespace directory's parent directory. If authentication repository's path is
 `E:\example\namespace2\auth-repo`, `namespace` is set to `namespace2` and `library-dir` to
-`E:\example`. If any of these assumentions is not correct (authentication and target repositoris
-do not have the same namespace authentication repository is at a completely different location),
-it is necessary to set root directory and namespace manually throug h`library-dir` and `namespace`
+`E:\example`. If any of these assumptions is not correct (authentication and target repositories
+do not have the same namespace, authentication repository is at a completely different location),
+it is necessary to set root directory and namespace manually through `library-dir` and `namespace`
 options.
 
 Full names of target repositories combine their namespace and name. These names
@@ -62,14 +62,14 @@ belongs to. With that in mind, here is an example of this option's value.
 
 ```
 {
-	"namespace/TargetRepo2": {
-		"allow-unauthenticated-commits": true
-	}
+ "namespace/TargetRepo2": {
+  "allow-unauthenticated-commits": true
+ }
 }
 ```
+
 In this example it is specified that target repository `namespace/TargetRepo2` should have a custom property
 called `allow-unauthenticated-commits` which is set to `true`.
-
 
 ### `keys-description`
 
@@ -78,46 +78,46 @@ require certain information about roles and keys easier to use, an option called
 `keys-description` was introduced. It allows passing in a json, like the following one:
 
 {
-	"roles": {
-  	"root": {
-  	  "number": 3,
-			"threshold": 1
-  	},
-  	"targets": {
-			"number": 1,
-			"threshold": 1,
-			"delegations": {
-				"delegated_role1": {
-					"paths": [
-						"dir1/*"
-						],
-					"number": 3,
-					"threshold": 2,
+ "roles": {
+   "root": {
+     "number": 3,
+   "threshold": 1
+   },
+   "targets": {
+   "number": 1,
+   "threshold": 1,
+   "delegations": {
+    "delegated_role1": {
+     "paths": [
+      "dir1/*"
+      ],
+     "number": 3,
+     "threshold": 2,
           "terminating": true
-				},
-				"delegated_role2":{
-					"paths": [
-						"dir2/*"
-					],
-					"delegations": {
-						"inner_delegated_role": {
-							"paths": [
-								"dir2/inner_delegated_role.txt"
-							],
+    },
+    "delegated_role2":{
+     "paths": [
+      "dir2/*"
+     ],
+     "delegations": {
+      "inner_delegated_role": {
+       "paths": [
+        "dir2/inner_delegated_role.txt"
+       ],
               "terminating": true
-						}
-					}
-				}
-			}
-  	},
-  	"snapshot": {
-			"scheme": "rsassa-pss-sha256"
-		},
-  	"timestamp": {
-			"scheme": "rsassa-pss-sha256"
-		}
-	},
-	"keystore": "keystore_path"
+      }
+     }
+    }
+   }
+   },
+   "snapshot": {
+   "scheme": "rsassa-pss-sha256"
+  },
+   "timestamp": {
+   "scheme": "rsassa-pss-sha256"
+  }
+ },
+ "keystore": "keystore_path"
 }
 
 NOTE: in this example, scheme of snapshot and timestamp roles was specified in order to provide
@@ -125,7 +125,7 @@ and example of how to do so. At the moment, all keys should have the same signin
 make sure that you do not set different schemes. The default scheme is `"rsa-pkcs1v15-sha256`.
 
 - `roles` contains information about roles and their keys, including delegations:
-  -  `number` - total number of the role's keys
+  - `number` - total number of the role's keys
   - `length` - length of the role's keys. Only needed when this json is used to generate keys.
   - `passwords` - a list of passwords of the keystore files corresponding to the current role The first entry in the list is expected to specify the first key's password.
   - `threshold` - role's keys threshold
@@ -139,6 +139,7 @@ Names of keys must follow a certain naming convention. That is,their names are c
 and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1`, `targets2`, `snapshot` etc.
 
 If a property is omitted from the specification, it will have the default value. The default values are:
+
 - `number=1`
 - `length=3072` Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
 - `passwords=[]` Meaning that the keystore files will not be password protected by default.
@@ -158,6 +159,7 @@ Many commands have the `scheme` optional parameter. It represents the signature 
 ## Commands
 
 Commands are separated into several subcommands:
+
 - `keystore`, containing commands for generating keystore files.
 - `metadata`, containing commands for adding a new signing key and updating a metadata file's expiration date.
 - `repo`, containing commands for creating and updating new authentication repositories.
@@ -200,14 +202,13 @@ The generated files and folders will automatically be committed if `--commit` fl
 new repository is only be meant to be used for testing, use `--test` flag. This will create a special
 target file called `test-auth-repo`.
 
-
 ### `repo update`
 
 Update and validate local authentication repository and target repositories. Remote
 authentication's repository url and its filesystem path need to be specified when calling this command. If the
 authentication repository and the target repositories are in the same root directory,
 locations of the target repositories are calculated based on the authentication repository's
-path. If that is not the case, it is necessary to redefine this default value using the
+path, using `--clients-auth-path`. If that is not the case, it is necessary to redefine this default value using the
 `--clients-library-dir` option.
 Names of target repositories (as defined in repositories.json) are appended to the root
 path thus defining the location of each target repository. If names of target repositories
@@ -221,13 +222,13 @@ flag when validating non-test repository as that will also result in an error.
 For example:
 
 ```bash
-taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_repo  --authenticate-test-repo
+taf repo update https://github.com/orgname/auth-repo --clients-auth-path E:\\root\\namespace\\auth_repo  --authenticate-test-repo
 ```
 
 In this example, all target repositories will be expected to be in `E:\root`.
 
 ```
-taf repo update https://github.com/orgname/auth-repo E:\\root\\namespace\\auth_repo --clients-library-dir E:\\target-repos
+taf repo update https://github.com/orgname/auth-repo --clients-auth-path E:\\root\\namespace\\auth_repo --clients-library-dir E:\\target-repos
 ```
 
 In this example, the target repositories will be expected to be in `E:\\target-repos`.
@@ -407,5 +408,6 @@ For example:
 ```bash
 taf metadata update-expiration-date E:\\OLL\\auth_rpeo snapshot --interval 5 --commit
 ```
+
 This will set the new expiration date of the snapshot role to 5 days after the current date
 and automatically commit the changes.

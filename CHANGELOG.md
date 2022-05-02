@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Docs: add `info.json` example ([236])
 - `Update` handler pipeline, showcase mapping dict fields to class types with `attrs` + `cattrs`. ([206])
 - Schema for update handler. ([206])
 - Add `type` tests for `attrs` structuring. ([206])
@@ -68,6 +69,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - pytest works when taf installed via wheel ([200])
 
+[236]: https://github.com/openlawlibrary/taf/pull/236
 [208]: https://github.com/openlawlibrary/taf/pull/208
 [207]: https://github.com/openlawlibrary/taf/pull/207
 [206]: https://github.com/openlawlibrary/taf/pull/206
