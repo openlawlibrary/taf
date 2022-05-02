@@ -249,7 +249,11 @@ from the file and does not implement anything related configuring the servers. H
 
 ### `protected/info.json`
 
-Optional file with authentication repository metadata. Currently, we support specifying either `library_dir` and having `info.json` metadata, or by specifying `clients-auth-path` in `taf repo update` command. When running taf update by specifying `library-dir`, `namespace/repo_name` is automatically extracted from `info.json` and appended to `library_dir`.
+Optional file with authentication repository's metadata. Currently, we support specifying either `library_dir` and
+having `info.json` metadata, or specifying `clients-auth-path` in `taf repo update` command. When running taf update
+by specifying `library-dir`, `namespace/repo_name` is automatically extracted from `info.json` and appended to
+`library_dir`.
+
 Example:
 
 ```

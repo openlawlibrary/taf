@@ -366,7 +366,7 @@ Stores current repository metadata. Example:
   "name":  "some_repo_name"
 }
 
-Where namespace and name map to `namespace/name` format. This data is expected to exist and used by the update process when only `library_dir` is specified. `info.json` metadata is located inside a `protected` targets folder. This folder is expected to be signed by a quorum of keys.
+Where namespace and name map to `namespace/name` format. This data is expected to exist and be used by the update process when only `library_dir` is specified. `info.json` metadata is located inside a `protected` targets folder. This folder is expected to be signed by a quorum of keys.
 
 #### Scripts
 
