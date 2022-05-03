@@ -209,12 +209,23 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         to it for every target repository:
         {
             target_repo1: {
-                branch1: [{"commit": commit1, "custom": {...}}, {"commit": commit2, "custom": {...}}, {"commit": commit3, "custom": {}}],
-                branch2: [{"commit": commit4, "custom: {...}}, {"commit": commit5, "custom": {}}]
+                branch1: [
+                    {"commit": commit1, "custom": {...}, "auth_commit": auth_commit1},
+                    {"commit": commit2, "custom": {...}, "auth_commit": auth_commit2},
+                    {"commit": commit3, "custom": {...}, "auth_commit": auth_commit3}
+                ],
+                branch2: [
+                    {"commit": commit4, "custom": {...}, "auth_commit": auth_commit4},
+                    {"commit": commit5, "custom": {...}, "auth_commit": auth_commit5}
+                ]
             },
             target_repo2: {
-                branch1: [{"commit": commit6, "custom": {...}}],
-                branch2: [{"commit": commit7", "custom": {...}]
+                branch1: [
+                    {"commit": commit6, "custom": {...}, "auth_commit": auth_commit6}
+                ],
+                branch2: [
+                    {"commit": commit7, "custom": {...}, "auth_commit": auth_commit7}
+                ]
             }
         }
         Keep in mind that targets metadata
@@ -244,6 +255,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                         {
                             "commit": target_commit,
                             "custom": target_data.get("custom"),
+                            "auth_commit": commit,
                         }
                     )
                 previous_commits[target_path] = target_commit
