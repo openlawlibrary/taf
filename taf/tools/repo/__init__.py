@@ -1,4 +1,5 @@
 import click
+import json
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.updater.updater import update_repository, validate_repository, UpdateType
@@ -194,8 +195,10 @@ def attach_to_group(group):
     @click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts "
                   "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
                   "to be located in scripts_root_dir/repo_name directory")
-    @click.option("--profile", is_flag=True)
-    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, scripts_root_dir, profile):
+    @click.option("--profile", is_flag=True, help="Flag used to run profiler and generate .prof file")
+    @click.option('--format-output', is_flag=True, help='Return formatted output which includes information '
+                  'on if build was successful and error message if it was raised')
+    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, scripts_root_dir, profile, format_output):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -238,8 +241,29 @@ def attach_to_group(group):
 
             atexit.register(exit)
 
-        update_repository(url, clients_auth_path, clients_library_dir, default_branch, from_fs,
-                          UpdateType(expected_repo_type), scripts_root_dir=scripts_root_dir)
+        try:
+            update_repository(
+                url,
+                clients_auth_path,
+                clients_library_dir,
+                default_branch,
+                from_fs,
+                UpdateType(expected_repo_type),
+                scripts_root_dir=scripts_root_dir
+            )
+            if format_output:
+                print(json.dumps({
+                    'updateSuccessful': True
+                }))
+        except Exception as e:
+            if format_output:
+                error_data = {
+                    'updateSuccessful': False,
+                    'error': str(e)
+                }
+                print(json.dumps(error_data))
+            else:
+                raise e
 
     @repo.command()
     @click.argument("clients-auth-path")

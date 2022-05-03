@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Add TAF's repository classes and repositoriesdb's documentation ([237])
 - Add `--ff-only` to git merge ([235])
+- Added format-output flag to update repo cli ([234])
 - Cache loaded git files ([228])
 - Add a flag for generating performance reports of update calls and print total update execution time ([228])
 
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [237]: https://github.com/openlawlibrary/taf/pull/237
 [235]: https://github.com/openlawlibrary/taf/pull/235
+[234]: https://github.com/openlawlibrary/taf/pull/234
 [228]: https://github.com/openlawlibrary/taf/pull/228
 
 ## [0.16.0] - 04/16/2022
