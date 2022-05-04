@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
+- Add auth commit to sorted_commits_and_branches_per_repositories ([240])
 - Add --version option to cli ([239])
 - Add TAF's repository classes and repositoriesdb's documentation ([237])
 - Add `--ff-only` to git merge ([235])
@@ -23,6 +25,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
+
+[240]: https://github.com/openlawlibrary/taf/pull/240
 [239]: https://github.com/openlawlibrary/taf/pull/239
 [237]: https://github.com/openlawlibrary/taf/pull/237
 [235]: https://github.com/openlawlibrary/taf/pull/235
