@@ -31,6 +31,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         urls=None,
         custom=None,
         default_branch="main",
+        allow_unsafe=False,
         conf_directory_root=None,
         out_of_band_authentication=None,
         hosts=None,
@@ -57,7 +58,15 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           attribute.
         """
         super().__init__(
-            library_dir, name, urls, custom, default_branch, path, *args, **kwargs
+            library_dir,
+            name,
+            urls,
+            custom,
+            default_branch,
+            allow_unsafe,
+            path,
+            *args,
+            **kwargs,
         )
 
         if conf_directory_root is None:
@@ -200,12 +209,23 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         to it for every target repository:
         {
             target_repo1: {
-                branch1: [{"commit": commit1, "custom": {...}}, {"commit": commit2, "custom": {...}}, {"commit": commit3, "custom": {}}],
-                branch2: [{"commit": commit4, "custom: {...}}, {"commit": commit5, "custom": {}}]
+                branch1: [
+                    {"commit": commit1, "custom": {...}, "auth_commit": auth_commit1},
+                    {"commit": commit2, "custom": {...}, "auth_commit": auth_commit2},
+                    {"commit": commit3, "custom": {...}, "auth_commit": auth_commit3}
+                ],
+                branch2: [
+                    {"commit": commit4, "custom": {...}, "auth_commit": auth_commit4},
+                    {"commit": commit5, "custom": {...}, "auth_commit": auth_commit5}
+                ]
             },
             target_repo2: {
-                branch1: [{"commit": commit6, "custom": {...}}],
-                branch2: [{"commit": commit7", "custom": {...}]
+                branch1: [
+                    {"commit": commit6, "custom": {...}, "auth_commit": auth_commit6}
+                ],
+                branch2: [
+                    {"commit": commit7, "custom": {...}, "auth_commit": auth_commit7}
+                ]
             }
         }
         Keep in mind that targets metadata
@@ -222,7 +242,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
                 target_data.setdefault("custom", {})
-
                 if previous_commit is None or target_commit != previous_commit:
                     if custom_fns is not None and target_path in custom_fns:
                         target_data["custom"].update(
@@ -235,6 +254,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                         {
                             "commit": target_commit,
                             "custom": target_data.get("custom"),
+                            "auth_commit": commit,
                         }
                     )
                 previous_commits[target_path] = target_commit
@@ -247,6 +267,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
+        previous_metadata = []
+        new_files = []
         for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
@@ -257,15 +279,26 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 continue
             repositories_at_revision = repositories_at_revision["repositories"]
 
-            # get names of all targets roles defined in the current revision
-            with self.repository_at_revision(commit):
-                roles_at_revision = self.get_all_targets_roles()
+            current_metadata = self.list_files_at_revision(
+                commit, METADATA_DIRECTORY_NAME
+            )
+            new_files = [
+                metadata_path
+                for metadata_path in current_metadata
+                if metadata_path not in previous_metadata
+            ]
+            previous_metadata = current_metadata
+            if len(new_files):
+                with self.repository_at_revision(commit):
+                    roles_at_revision = self.get_all_targets_roles()
 
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
-                targets_at_revision = self.get_json(
+                targets_at_revision = self.safely_get_json(
                     commit, get_role_metadata_path(role_name)
                 )
+                if targets_at_revision is None:
+                    continue
                 targets_at_revision = targets_at_revision["signed"]["targets"]
 
                 for target_path in targets_at_revision:

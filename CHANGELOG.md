@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
 
 ### Added
@@ -12,7 +13,46 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 - port a number of git functionalities to pygit2 ([#227])
-- change `clients-auth-path` in `taf repo update` to optional. ([#213])
+
+### Fixed
+
+[227]: https://github.com/openlawlibrary/taf/pull/227
+
+## [0.17.0] - 05/04/2022
+
+
+### Added
+
+- Add auth commit to sorted_commits_and_branches_per_repositories ([240])
+- Add --version option to cli ([239])
+- Add TAF's repository classes and repositoriesdb's documentation ([237])
+- Add `--ff-only` to git merge ([235])
+- Added format-output flag to update repo cli ([234])
+- Cache loaded git files ([228])
+- Add a flag for generating performance reports of update calls and print total update execution time ([228])
+
+### Changed
+
+- Update `targets_at_revisions` - only update a list of roles if a metadata file was added ([228])
+
+### Fixed
+
+
+[240]: https://github.com/openlawlibrary/taf/pull/240
+[239]: https://github.com/openlawlibrary/taf/pull/239
+[237]: https://github.com/openlawlibrary/taf/pull/237
+[235]: https://github.com/openlawlibrary/taf/pull/235
+[234]: https://github.com/openlawlibrary/taf/pull/234
+[228]: https://github.com/openlawlibrary/taf/pull/228
+
+## [0.16.0] - 04/16/2022
+
+### Added
+
+- Add `allow_unsafe` flag to git repo class as a response to a recent git security fix ([229])
+
+### Changed
+
 - Remove `no_checkout=True` from `clone` ([226])
 - Remove `--error-if-unauthenticated` flag ([220])
 - Change `clients-auth-path` in `taf repo update` to optional. ([213])
@@ -24,7 +64,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
 
-[227]: https://github.com/openlawlibrary/taf/pull/227
+
+[229]: https://github.com/openlawlibrary/taf/pull/229
 [226]: https://github.com/openlawlibrary/taf/pull/226
 [220]: https://github.com/openlawlibrary/taf/pull/220
 [219]: https://github.com/openlawlibrary/taf/pull/219
@@ -37,6 +78,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Docs: add `info.json` example ([236])
 - `Update` handler pipeline, showcase mapping dict fields to class types with `attrs` + `cattrs`. ([206])
 - Schema for update handler. ([206])
 - Add `type` tests for `attrs` structuring. ([206])
@@ -53,6 +95,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Update handler fix: return an empty list of targets if the targets folder does not exist ([208])
 - pytest works when taf installed via wheel ([200])
 
+[236]: https://github.com/openlawlibrary/taf/pull/236
 [208]: https://github.com/openlawlibrary/taf/pull/208
 [207]: https://github.com/openlawlibrary/taf/pull/207
 [206]: https://github.com/openlawlibrary/taf/pull/206
@@ -616,8 +659,10 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.15.0...HEAD
-[0.14.0]: https://github.com/openlawlibrary/taf/compare/v0.14.0...v0.15.0
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/openlawlibrary/taf/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/openlawlibrary/taf/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/openlawlibrary/taf/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/openlawlibrary/taf/compare/v0.13.4...v0.14.0
 [0.13.4]: https://github.com/openlawlibrary/taf/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/openlawlibrary/taf/compare/v0.13.2...v0.13.3

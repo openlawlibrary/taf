@@ -32,6 +32,7 @@ class GitRepository:
         urls=None,
         custom=None,
         default_branch="main",
+        allow_unsafe=False,
         path=None,
         *args,
         **kwargs,
@@ -47,6 +48,8 @@ class GitRepository:
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
           default_branch (str): repository's default branch ("main" if not defined)
+          allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
+          the containing directory is owned by a different user to be ignored
         """
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
@@ -86,6 +89,7 @@ class GitRepository:
         self.urls = self._validate_urls(urls)
         self.default_branch = default_branch
         self.custom = custom or {}
+        self.allow_unsafe = allow_unsafe
 
     _pygit = None
 
@@ -176,7 +180,10 @@ class GitRepository:
 
         if len(args):
             cmd = cmd.format(*args)
-        command = f"git -C {self.path} {cmd}"
+        if self.allow_unsafe:
+            command = f"git -C {self.path} -c safe.directory={self.path} {cmd}"
+        else:
+            command = f"git -C {self.path} {cmd}"
         result = None
         if log_error or log_error_msg:
             try:
@@ -660,15 +667,15 @@ class GitRepository:
         s = self.get_file(commit, path, raw=raw)
         return json.loads(s)
 
-    def get_file(self, commit, path, raw=False):
+    def get_file(self, commit, path, raw=False, with_id=False):
         path = Path(path).as_posix()
         if raw:
             return self._git("show {}:{}", commit, path, raw=raw)
         try:
-            out = self.pygit.get_file(commit, path)
-            # if not out:
-            #     import pdb; pdb.set_trace()
-            return out
+            git_id, content = self.pygit.get_file(commit, path)
+            if with_id:
+                return git_id, content
+            return content
         except TAFError as e:
             raise e
         except Exception:
@@ -896,8 +903,9 @@ class GitRepository:
             for wt in worktrees
         }
 
-    def merge_commit(self, commit):
-        self._git("merge {}", commit, log_error=True)
+    def merge_commit(self, commit, fast_forward_only=False):
+        fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
+        self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
 
     def merge_branch(self, branch_name, allow_new_commit=False):
         if allow_new_commit:

@@ -7,6 +7,7 @@ import taf.tools.yubikey as yubikey_cli
 
 
 @click.group()
+@click.version_option()
 def taf():
     """TAF Command Line Interface"""
     pass
