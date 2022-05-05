@@ -5,6 +5,7 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
 from taf.repository_tool import Repository
 from taf.constants import CAPSTONE
 from taf.exceptions import InvalidBranchError
+from taf.yubikey import is_inserted, get_piv_public_key_tuf
 
 
 def validate_branch(
@@ -46,9 +47,17 @@ def validate_branch(
 
     targets_version = None
     branch_id = None
+
+    yk_inserted = is_inserted()
+    updated_roles = [updated_role]
+    if yk_inserted:
+        pub_key = get_piv_public_key_tuf()
+        updated_roles.extend(
+            [*(set(auth_repo.find_keys_roles([pub_key])) - set(updated_roles))]
+        )
     unmodified_roles_and_versions = {
         role_name: None
-        for role_name in _get_unchanged_targets_metadata(auth_repo, updated_role)
+        for role_name in _get_unchanged_targets_metadata(auth_repo, updated_roles)
     }
 
     # Get the missing commits from the top of the merge branch
@@ -194,8 +203,8 @@ def _compare_commit_with_targets_metadata(
         )
 
 
-def _get_unchanged_targets_metadata(auth_repo, updated_role):
+def _get_unchanged_targets_metadata(auth_repo, updated_roles):
     taf_repo = Repository(auth_repo.path)
     all_roles = taf_repo.get_all_targets_roles()
-    all_roles.remove(updated_role)
+    all_roles = [*(set(all_roles) - set(updated_roles))]
     return all_roles

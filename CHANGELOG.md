@@ -5,18 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
 
 ### Changed
 
+Update `_get_unchanged_targets_metadata` - `updated_roles` is now a list ([#245])
+
 ### Fixed
 
-
 ## [0.17.0] - 05/04/2022
-
 
 ### Added
 
@@ -34,7 +33,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
+[245]: https://github.com/openlawlibrary/taf/pull/245
 [240]: https://github.com/openlawlibrary/taf/pull/240
 [239]: https://github.com/openlawlibrary/taf/pull/239
 [237]: https://github.com/openlawlibrary/taf/pull/237
