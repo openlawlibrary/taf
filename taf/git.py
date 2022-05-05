@@ -527,10 +527,7 @@ class GitRepository:
                 ref = repo.lookup_reference(branch.name)
                 repo.checkout(ref)
             except KeyError:
-                # index = repo.index
-                # tree = index.write_tree()
-                # repo.create_reference_direct(f'refs/heads/{branch_name}', tree, False)
-                # branch = repo.lookup_branch(branch_name)
+                # this will be execute if there is no HEAD pointer
                 flag = "-b" if raise_error_if_exists else "-B"
                 self._git(
                     "checkout {} {}",
@@ -562,8 +559,6 @@ class GitRepository:
             self._log_info(f"Repo {self.name}: created a new branch {branch_name}")
 
     def checkout_commit(self, commit):
-        # TODO
-        # commit reference can be passed into repo.checkout
         self._git(
             "checkout {}",
             commit,
@@ -572,40 +567,34 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def commit(self, message, empty=False):
+    def commit(self, message):
         """Create a commit with the provided message on the currently checked out branch"""
-        repo = self.pygit_repo
+        # This implementation is faster than with pygit2 because adding files to index is
+        # significantly faster with `git add -A`
+        self._git("add -A")
         try:
-            index = repo.index
-            if not empty:
-                index.add_all()
-                index.write()
-            tree = index.write_tree()
-            ref_name = "HEAD"
-            parents = []
+            self._git("diff --cached --exit-code --shortstat", reraise_error=True)
+        except GitError:
             try:
-                repo.lookup_reference(repo.head.name)
-                parents = [repo.head.target]
-            except Exception:
-                pass
-            oid = repo.create_commit(
-                ref_name,
-                repo.default_signature,
-                repo.default_signature,
-                message,
-                tree,
-                parents,
-            )
-            if empty:
-                self.reset_to_head()
-            return str(oid)
-        except Exception as e:
-            raise GitError(repo=self, message=f"could not commit changes due to:\n{e}")
+                run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
+            except subprocess.CalledProcessError as e:
+                raise GitError(
+                    repo=self, message=f"could not commit changes due to:\n{e}"
+                )
+        return self._git("rev-parse HEAD")
 
     def commit_empty(self, message):
-        repo = self.pygit_repo
-        self.commit(message, True)
-        return repo.revparse_single("HEAD").id.hex
+        run(
+            "git",
+            "-C",
+            str(self.path),
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            message,
+        )
+        return self._git("rev-parse HEAD")
 
     def commits_on_branch_and_not_other(
         self, branch1, branch2, include_branching_commit=False
@@ -629,7 +618,7 @@ class GitRepository:
                 return hex
         return None
 
-    def delete_local_branch(self, branch_name, force=False):
+    def delete_local_branch(self, branch_name):
         """Deletes local branch."""
         try:
             repo = self.pygit_repo
@@ -641,8 +630,6 @@ class GitRepository:
             )
         except Exception:
             raise GitError(repo=self, message=f"Could not delete branch {branch_name}.")
-        # flag = "-D" if force else "-d"
-        # self._git(f"branch {flag} {branch_name}", log_error=True)
 
     def delete_remote_tracking_branch(self, remote_branch_name, force=False):
         flag = "-D" if force else "-d"
