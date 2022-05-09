@@ -238,17 +238,19 @@ def load_repositories(
             urls = _get_urls(mirrors, name, repo_data)
             if name not in targets and only_load_targets:
                 continue
-
             custom = _get_custom_data(repo_data, targets.get(name))
+            allow_unsafe = False
 
             git_repo = None
             try:
                 if factory is not None:
-                    git_repo = factory(library_dir, name, urls, custom, default_branch)
+                    git_repo = factory(
+                        library_dir, name, urls, custom, default_branch, allow_unsafe
+                    )
                 else:
                     git_repo_class = _determine_repo_class(repo_classes, name)
                     git_repo = git_repo_class(
-                        library_dir, name, urls, custom, default_branch
+                        library_dir, name, urls, custom, default_branch, allow_unsafe
                     )
             except Exception as e:
                 taf_logger.error(

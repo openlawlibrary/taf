@@ -279,8 +279,8 @@ class Repository:
         Load tuf repository. Should only be called directly if a different set of metadata files
         should be loaded (and not the one located at repo path/metadata)
         """
-        # before attempting to tuf repository, create empty targets directory if it does not exist
-        # to avoid errors raised by tuf
+        # before attempting to load tuf repository, create empty targets directory if it does not
+        # exist to avoid errors raised by tuf
         targets_existed = True
         if not self.targets_path.is_dir():
             targets_existed = False
@@ -573,7 +573,7 @@ class Repository:
 
     def get_role_from_target_paths(self, target_paths):
         """
-        Find a common role that could be used to sign given target paths.
+        Find a common role that can be used to sign given target paths.
 
         NOTE: Currently each target has only one mapped role.
         """
