@@ -69,7 +69,8 @@ kwargs = {
         "loguru==0.4.0",
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
-        "pygit2==0.28.2",
+        "pygit2==0.28.2;python_version=='3.6'",
+        "pygit2==1.9.*;python_version=='3.10'",
         "cattrs==1.0.0",
     ],
     "extras_require": {
