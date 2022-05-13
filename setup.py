@@ -39,7 +39,7 @@ ci_require = [
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
-    "pytest==4.5.0",
+    "pytest==6.2.5",
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
 ]
@@ -70,7 +70,7 @@ kwargs = {
         "pyOpenSSL==20.0.1",
         "pygit2==0.28.2;python_version=='3.6'",
         "pygit2==1.9.*;python_version=='3.10'",
-        "cattrs==1.0.0",
+        "cattrs==1.*",
     ],
     "extras_require": {
         "ci": ci_require,
@@ -96,6 +96,7 @@ kwargs = {
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }
