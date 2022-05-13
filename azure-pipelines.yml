@@ -47,6 +47,23 @@ strategy:
       pythonVersion: "3.8"
       platform: x86
       winArch: "win32"
+    # py310
+    linux-ubuntu-22-04-py310:
+      imageName: "ubuntu-22.04"
+      pythonVersion: "3.10"
+    macOS-py310:
+      imageName: "macOS-10.15"
+      pythonVersion: "3.10"
+    windows-64bit-py310:
+      imageName: "windows-2022"
+      pythonVersion: "3.10"
+      platform: x64
+      winArch: "win64"
+    windows-32bit-py38:
+      imageName: "windows-2022"
+      pythonVersion: "3.10"
+      platform: x86
+      winArch: "win32"
 pool:
   vmImage: $(imageName)
 
