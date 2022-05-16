@@ -69,7 +69,7 @@ kwargs = {
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
         "pygit2==0.28.2;python_version=='3.6'",
-        "pygit2==1.9.*;python_version=='3.10'",
+        "pygit2==1.9.*;python_version>='3.7'",
         "cattrs==1.*",
     ],
     "extras_require": {
@@ -96,6 +96,9 @@ kwargs = {
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
