@@ -242,13 +242,13 @@ commit SHA:
 They can contain other information, as needed. These targets are used to validate target
 repositories. In addition to them, the framework expects some special target files:
 
-- `repositoires.json` (required)
-- `mirrors.json` (recommended, required if URLs are not defined in `repositoires.json`, re)
+- `repositories.json` (required)
+- `mirrors.json` (recommended, required if URLs are not defined in `repositories.json`, re)
 - `depoendencies.json` (optional)
 - `hosts.json` (optional)
 - scripts (optional)
 
-#### repositoires.json
+#### repositories.json
 
 `repositories.json` contains repositories' definitions. Each repository is identified by a namespace prefixed name which
 should match the corresponding name in `targets.json`. The `urls` property is now deprecated, but can still be used to specify the repository's
@@ -365,6 +365,7 @@ Stores current repository metadata. Example:
   "namespace": "some_org_name",
   "name":  "some_repo_name"
 }
+```
 
 Where namespace and name map to `namespace/name` format. This data is expected to exist and be used by the update process when only `library_dir` is specified. `info.json` metadata is located inside a `protected` targets folder. This folder is expected to be signed by a quorum of keys.
 
