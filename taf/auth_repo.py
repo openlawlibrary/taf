@@ -243,6 +243,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         previous_commits = {}
         skipped_targets = []
+        excluded_target_globs = excluded_target_globs or []
         for commit in commits:
             for target_path, target_data in targets[commit].items():
                 if target_path in skipped_targets:
