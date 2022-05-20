@@ -45,6 +45,7 @@ does and if it does exist, but the stored commit does not match the client repos
 
 import os
 import shutil
+import fnmatch
 from pathlib import Path
 from collections import defaultdict
 import json
@@ -130,6 +131,30 @@ def test_valid_update_no_client_repo(
     _update_and_check_commit_shas(
         None, repositories, origin_dir, client_dir, test_repo, auth_repo_name_exists
     )
+
+
+def test_excluded_targets_update_no_client_repo(
+    updater_repositories,
+    origin_dir,
+    client_dir,
+):
+    repositories = updater_repositories["test-updater-valid"]
+    origin_dir = origin_dir / "test-updater-valid"
+    excluded_target_globs = ["*/TargetRepo1"]
+    _update_and_check_commit_shas(
+        None,
+        repositories,
+        origin_dir,
+        client_dir,
+        UpdateType.OFFICIAL,
+        True,
+        excluded_target_globs,
+    )
+    for repository_rel_path in repositories:
+        for excluded_target_glob in excluded_target_globs:
+            if fnmatch.fnmatch(repository_rel_path, excluded_target_glob):
+                assert not Path(client_dir, repository_rel_path).is_dir()
+                break
 
 
 @pytest.mark.parametrize(
@@ -376,8 +401,20 @@ def _check_if_last_validated_commit_exists(clients_auth_repo_path):
     assert last_validated_commit is None
 
 
-def _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas=None):
+def _check_if_commits_match(
+    repositories,
+    origin_dir,
+    client_dir,
+    start_head_shas=None,
+    excluded_target_globs=None,
+):
+    excluded_target_globs = excluded_target_globs or []
     for repository_rel_path in repositories:
+        if any(
+            fnmatch.fnmatch(repository_rel_path, excluded_target_glob)
+            for excluded_target_glob in excluded_target_globs
+        ):
+            continue
         origin_repo = GitRepository(origin_dir, repository_rel_path)
         client_repo = GitRepository(client_dir, repository_rel_path)
         for branch in origin_repo.branches():
@@ -489,6 +526,7 @@ def _update_and_check_commit_shas(
     client_dir,
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
+    excluded_target_globs=None,
 ):
     start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -501,9 +539,13 @@ def _update_and_check_commit_shas(
             "master",
             True,
             expected_repo_type=expected_repo_type,
+            excluded_target_globs=excluded_target_globs,
         )
-    _check_if_commits_match(repositories, origin_dir, client_dir, start_head_shas)
-    _check_last_validated_commit(clients_auth_repo_path)
+    _check_if_commits_match(
+        repositories, origin_dir, client_dir, start_head_shas, excluded_target_globs
+    )
+    if not excluded_target_globs:
+        _check_last_validated_commit(clients_auth_repo_path)
 
 
 def _update_invalid_repos_and_check_if_remained_same(
