@@ -196,9 +196,12 @@ def attach_to_group(group):
                   "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
                   "to be located in scripts_root_dir/repo_name directory")
     @click.option("--profile", is_flag=True, help="Flag used to run profiler and generate .prof file")
-    @click.option('--format-output', is_flag=True, help='Return formatted output which includes information '
-                  'on if build was successful and error message if it was raised')
-    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type, scripts_root_dir, profile, format_output):
+    @click.option("--format-output", is_flag=True, help="Return formatted output which includes information "
+                  "on if build was successful and error message if it was raised")
+    @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
+                  "ignored during update.")
+    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type,
+               scripts_root_dir, profile, format_output, exclude_target):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -221,6 +224,10 @@ def attach_to_group(group):
 
         Scripts root directory option can be used to move scripts out of the authentication repository for
         testing purposes (avoid dirty index). Scripts will be expected  o be located in scripts_root_dir/repo_name directory
+
+        One or more target repositories can be excluded from the update process using --exclude-target.
+        In that case, the library will only be partly validated, so last_validate_commit will not be updated
+        and no scripts will be called.
         """
         if clients_auth_path is None and clients_library_dir is None:
             raise click.UsageError('Must specify either authentication repository path or library directory!')
@@ -249,7 +256,8 @@ def attach_to_group(group):
                 default_branch,
                 from_fs,
                 UpdateType(expected_repo_type),
-                scripts_root_dir=scripts_root_dir
+                scripts_root_dir=scripts_root_dir,
+                excluded_target_globs=exclude_target
             )
             if format_output:
                 print(json.dumps({

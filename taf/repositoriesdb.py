@@ -1,5 +1,6 @@
 import json
 import taf.settings as settings
+import fnmatch
 from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.auth_repo import AuthenticationRepository
@@ -160,6 +161,7 @@ def load_repositories(
     commits=None,
     roles=None,
     default_branch="main",
+    excluded_target_globs=None,
 ):
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -194,6 +196,8 @@ def load_repositories(
     global _repositories_dict
     if auth_repo.path not in _repositories_dict:
         _repositories_dict[auth_repo.path] = {}
+    if excluded_target_globs is None:
+        excluded_target_globs = []
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
@@ -216,6 +220,7 @@ def load_repositories(
     if roles is not None and len(roles):
         only_load_targets = True
 
+    skipped_targets = []
     for commit in commits:
         repositories_dict = {}
         # check if already loaded
@@ -235,6 +240,16 @@ def load_repositories(
         targets = _targets_of_roles(auth_repo, commit, roles)
 
         for name, repo_data in repositories.items():
+            if name in skipped_targets:
+                continue
+            skip_target = False
+            for excluded_target_glob in excluded_target_globs:
+                if fnmatch.fnmatch(name, excluded_target_glob):
+                    skip_target = True
+                    skipped_targets.append(name)
+                    break
+            if skip_target:
+                continue
             urls = _get_urls(mirrors, name, repo_data)
             if name not in targets and only_load_targets:
                 continue
