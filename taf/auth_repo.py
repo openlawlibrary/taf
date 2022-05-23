@@ -248,13 +248,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             for target_path, target_data in targets[commit].items():
                 if target_path in skipped_targets:
                     continue
-                skip_target = False
-                for excluded_target_glob in excluded_target_globs:
-                    if fnmatch.fnmatch(target_path, excluded_target_glob):
-                        skip_target = True
-                        skipped_targets.append(target_path)
-                        break
-                if skip_target:
+                if any(
+                    fnmatch.fnmatch(target_path, excluded_target_glob)
+                    for excluded_target_glob in excluded_target_globs
+                ):
+                    skipped_targets.append(target_path)
                     continue
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")

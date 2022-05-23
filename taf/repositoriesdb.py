@@ -242,15 +242,13 @@ def load_repositories(
         for name, repo_data in repositories.items():
             if name in skipped_targets:
                 continue
-            skip_target = False
-            for excluded_target_glob in excluded_target_globs:
-                if fnmatch.fnmatch(name, excluded_target_glob):
-                    skip_target = True
-                    skipped_targets.append(name)
-                    break
-            if skip_target:
-                continue
             if name not in targets and only_load_targets:
+                continue
+            if any(
+                fnmatch.fnmatch(name, excluded_target_glob)
+                for excluded_target_glob in excluded_target_globs
+            ):
+                skipped_targets.append(name)
                 continue
             custom = _get_custom_data(repo_data, targets.get(name))
             urls = _get_urls(mirrors, name, repo_data)
