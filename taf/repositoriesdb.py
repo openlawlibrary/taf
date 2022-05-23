@@ -1,5 +1,6 @@
 import json
 import taf.settings as settings
+import fnmatch
 from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.auth_repo import AuthenticationRepository
@@ -160,6 +161,7 @@ def load_repositories(
     commits=None,
     roles=None,
     default_branch="main",
+    excluded_target_globs=None,
 ):
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -194,6 +196,8 @@ def load_repositories(
     global _repositories_dict
     if auth_repo.path not in _repositories_dict:
         _repositories_dict[auth_repo.path] = {}
+    if excluded_target_globs is None:
+        excluded_target_globs = []
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
@@ -216,6 +220,7 @@ def load_repositories(
     if roles is not None and len(roles):
         only_load_targets = True
 
+    skipped_targets = []
     for commit in commits:
         repositories_dict = {}
         # check if already loaded
@@ -235,39 +240,29 @@ def load_repositories(
         targets = _targets_of_roles(auth_repo, commit, roles)
 
         for name, repo_data in repositories.items():
-            urls = _get_urls(mirrors, name, repo_data)
+            if name in skipped_targets:
+                continue
             if name not in targets and only_load_targets:
                 continue
+            if any(
+                fnmatch.fnmatch(name, excluded_target_glob)
+                for excluded_target_glob in excluded_target_globs
+            ):
+                skipped_targets.append(name)
+                continue
             custom = _get_custom_data(repo_data, targets.get(name))
-            allow_unsafe = False
-
-            git_repo = None
-            try:
-                if factory is not None:
-                    git_repo = factory(
-                        library_dir, name, urls, custom, default_branch, allow_unsafe
-                    )
-                else:
-                    git_repo_class = _determine_repo_class(repo_classes, name)
-                    git_repo = git_repo_class(
-                        library_dir, name, urls, custom, default_branch, allow_unsafe
-                    )
-            except Exception as e:
-                taf_logger.error(
-                    "Auth repo {}: an error occurred while instantiating repository {}: {}",
-                    auth_repo.path,
-                    name,
-                    str(e),
-                )
-                raise RepositoryInstantiationError(Path(library_dir, name), str(e))
-
-            # allows us to partially update repositories
+            urls = _get_urls(mirrors, name, repo_data)
+            git_repo = _initialize_repository(
+                factory,
+                repo_classes,
+                urls,
+                custom,
+                library_dir,
+                name,
+                default_branch,
+                auth_repo,
+            )
             if git_repo:
-                if not isinstance(git_repo, GitRepository):
-                    raise Exception(
-                        f"{type(git_repo)} is not a subclass of GitRepository"
-                    )
-
                 repositories_dict[name] = git_repo
 
         taf_logger.debug(
@@ -539,6 +534,37 @@ def get_repo_urls(auth_repo, repo_name, commit=None):
     mirrors = _load_mirrors_json(auth_repo, commit)
     if mirrors is not None:
         return _get_urls(mirrors, repo_name)
+
+
+def _initialize_repository(
+    factory, repo_classes, urls, custom, library_dir, name, default_branch, auth_repo
+):
+    git_repo = None
+
+    allow_unsafe = False
+    try:
+        if factory is not None:
+            git_repo = factory(
+                library_dir, name, urls, custom, default_branch, allow_unsafe
+            )
+        else:
+            git_repo_class = _determine_repo_class(repo_classes, name)
+            git_repo = git_repo_class(
+                library_dir, name, urls, custom, default_branch, allow_unsafe
+            )
+    except Exception as e:
+        taf_logger.error(
+            "Auth repo {}: an error occurred while instantiating repository {}: {}",
+            auth_repo.path,
+            name,
+            str(e),
+        )
+        raise RepositoryInstantiationError(Path(library_dir, name), str(e))
+    # allows us to partially update repositories
+    if git_repo:
+        if not isinstance(git_repo, GitRepository):
+            raise Exception(f"{type(git_repo)} is not a subclass of GitRepository")
+    return git_repo
 
 
 def _load_dependencies_json(auth_repo, commit=None):

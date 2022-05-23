@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-Update `_get_unchanged_targets_metadata` - `updated_roles` is now a list ([246])
+- Enable exclusion of certain target repositories from the update process ([250])
+- Update `_get_unchanged_targets_metadata` - `updated_roles` is now a list ([246])
 
 ### Fixed
 
-Fix `validate_branch` indentation error caused by [246] ([247])
+Fix `validate_branch` indentation error caused by [246] ([249])
 
 ## [0.17.0] - 05/04/2022
 
@@ -35,7 +36,8 @@ Fix `validate_branch` indentation error caused by [246] ([247])
 
 ### Fixed
 
-[247]: https://github.com/openlawlibrary/taf/pull/247
+[250]: https://github.com/openlawlibrary/taf/pull/250
+[247]: https://github.com/openlawlibrary/taf/pull/249
 [246]: https://github.com/openlawlibrary/taf/pull/246
 [240]: https://github.com/openlawlibrary/taf/pull/240
 [239]: https://github.com/openlawlibrary/taf/pull/239

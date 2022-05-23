@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import fnmatch
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -203,7 +204,12 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
     def sorted_commits_and_branches_per_repositories(
-        self, commits, target_repos=None, custom_fns=None, default_branch=None
+        self,
+        commits,
+        target_repos=None,
+        custom_fns=None,
+        default_branch=None,
+        excluded_target_globs=None,
     ):
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
@@ -236,8 +242,18 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             *commits, target_repos=target_repos, default_branch=default_branch
         )
         previous_commits = {}
+        skipped_targets = []
+        excluded_target_globs = excluded_target_globs or []
         for commit in commits:
             for target_path, target_data in targets[commit].items():
+                if target_path in skipped_targets:
+                    continue
+                if any(
+                    fnmatch.fnmatch(target_path, excluded_target_glob)
+                    for excluded_target_glob in excluded_target_globs
+                ):
+                    skipped_targets.append(target_path)
+                    continue
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_commit = previous_commits.get(target_path)
