@@ -9,14 +9,23 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add support for Python 3.10 ([247])
+
 ### Changed
+
 
 - Enable exclusion of certain target repositories from the update process ([250])
 - Update `_get_unchanged_targets_metadata` - `updated_roles` is now a list ([246])
 
 ### Fixed
 
-Fix `validate_branch` indentation error caused by [246] ([249])
+- Fix `validate_branch` indentation error caused by [246] ([249])
+
+[250]: https://github.com/openlawlibrary/taf/pull/250
+[249]: https://github.com/openlawlibrary/taf/pull/249
+[247]: https://github.com/openlawlibrary/taf/pull/247
+[246]: https://github.com/openlawlibrary/taf/pull/246
+
 
 ## [0.17.0] - 05/04/2022
 
@@ -36,9 +45,7 @@ Fix `validate_branch` indentation error caused by [246] ([249])
 
 ### Fixed
 
-[250]: https://github.com/openlawlibrary/taf/pull/250
-[247]: https://github.com/openlawlibrary/taf/pull/249
-[246]: https://github.com/openlawlibrary/taf/pull/246
+
 [240]: https://github.com/openlawlibrary/taf/pull/240
 [239]: https://github.com/openlawlibrary/taf/pull/239
 [237]: https://github.com/openlawlibrary/taf/pull/237

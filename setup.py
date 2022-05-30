@@ -24,7 +24,6 @@ try:
             _bdist_wheel.finalize_options(self)
             self.root_is_pure = False
 
-
 except ImportError:
     bdist_wheel = None
 
@@ -40,7 +39,7 @@ ci_require = [
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
-    "pytest==4.5.0",
+    "pytest==6.2.5",
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
 ]
@@ -69,8 +68,9 @@ kwargs = {
         "loguru==0.4.0",
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
-        "pygit2==0.28.2",
-        "cattrs==1.0.0",
+        "pygit2==0.28.2;python_version=='3.6'",
+        "pygit2==1.9.*;python_version>='3.7'",
+        "cattrs==1.*",
     ],
     "extras_require": {
         "ci": ci_require,
@@ -96,6 +96,10 @@ kwargs = {
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }
