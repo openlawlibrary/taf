@@ -88,15 +88,15 @@ def validate_branch(
                 if unmodified_roles_version is None:
                     unmodified_roles_and_versions[role_name] = version
 
-        branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
+            branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
 
-        for target, target_commits in targets_and_commits.items():
-            target_commit = target_commits[commit_index]
+            for target, target_commits in targets_and_commits.items():
+                target_commit = target_commits[commit_index]
 
-            # targets' commits match the target commits specified in the authentication repository
-            _compare_commit_with_targets_metadata(
-                auth_repo, auth_commit, target, target_commit
-            )
+                # targets' commits match the target commits specified in the authentication repository
+                _compare_commit_with_targets_metadata(
+                    auth_repo, auth_commit, target, target_commit
+                )
 
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
