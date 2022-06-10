@@ -62,15 +62,16 @@ kwargs = {
     "data_files": [("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
     "zip_safe": False,
     "install_requires": [
-        "click==7.1",
+        "click==7.*",
         "colorama>=0.3.9",
         "oll-tuf==0.11.2.dev9",
-        "loguru==0.4.0",
+        "loguru==0.4.*",
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
         "pygit2==0.28.2;python_version=='3.6'",
         "pygit2==1.9.*;python_version>='3.7'",
         "cattrs==1.*",
+        "pynacl==1.4",
     ],
     "extras_require": {
         "ci": ci_require,
