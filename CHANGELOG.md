@@ -13,8 +13,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Loosen dependencies and pin pynacl ([254])
 
 ### Fixed
+
+[254]: https://github.com/openlawlibrary/taf/pull/254
 
 
 ## [0.18.0] - 05/31/2022
