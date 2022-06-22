@@ -23,11 +23,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Remove pinned pynacl which is incompatible with Python 3.10 ([255])
+- Remove pinned pynacl which is incompatible with Python 3.10 ([256])
 
 ### Fixed
 
-[254]: https://github.com/openlawlibrary/taf/pull/255
+[256]: https://github.com/openlawlibrary/taf/pull/256
 
 ## [0.19.0] - 06/14/2022
 
