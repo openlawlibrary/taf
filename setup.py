@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from importlib.util import find_spec
 
 PACKAGE_NAME = "taf"
-VERSION = "0.19.0"
+VERSION = "0.20.0"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -70,8 +70,8 @@ kwargs = {
         "pyOpenSSL==20.0.1",
         "pygit2==0.28.2;python_version=='3.6'",
         "pygit2==1.9.*;python_version>='3.7'",
-        "cattrs==1.*",
-        "pynacl==1.4",
+        "cattrs==1.0.0;python_version=='3.6'",
+        "cattrs==1.*;python_version>='3.7'",
     ],
     "extras_require": {
         "ci": ci_require,
