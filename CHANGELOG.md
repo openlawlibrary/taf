@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Remove Python 3.6 support ([256])
 - Remove pinned pynacl which is incompatible with Python 3.10 ([256])
 
 ### Fixed
