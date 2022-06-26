@@ -91,16 +91,16 @@ More info in [devops document](./docs/devops.md).
 
 ## Building Wheels on Ubuntu 16.04 and 18.04
 
-**Binary wheels exists only for macOS, windows-32bit and windows-64bit platforms for python 3.6!**
+**Binary wheels exists only for macOS, windows-32bit and windows-64bit platforms for python 3.10!**
 
 - Install dependencies
 
 ```bash
-sudo add-apt-repository ppa:jonathonf/python-3.6
+sudo add-apt-repository ppa:jonathonf/python-3.10
 sudo apt-get update
-sudo apt-get install python3.6
-sudo apt-get install python3.6-venv
-sudo apt-get install python3.6-dev
+sudo apt-get install python3.10
+sudo apt-get install python3.10-venv
+sudo apt-get install python3.10-dev
 sudo apt-get install swig
 sudo apt-get install libpcsclite-dev
 sudo apt-get install libssl-dev

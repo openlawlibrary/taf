@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.20.0] - 06/22/2022
+
+### Added
+
+
+### Changed
+
+- Remove Python 3.6 support ([256])
+- Remove pinned pynacl which is incompatible with Python 3.10 ([256])
+
+### Fixed
+
+[256]: https://github.com/openlawlibrary/taf/pull/256
 
 ## [0.19.0] - 06/14/2022
 
@@ -690,7 +703,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/openlawlibrary/taf/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/openlawlibrary/taf/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/openlawlibrary/taf/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/openlawlibrary/taf/compare/v0.16.0...v0.17.0

@@ -13,23 +13,6 @@ pr:
 # PLATFORMS
 strategy:
   matrix:
-    # py36
-    linux-ubuntu-20-04-py36:
-      imageName: "ubuntu-20.04"
-      pythonVersion: "3.6"
-    macOS-py36:
-      imageName: "macOS-10.15"
-      pythonVersion: "3.6"
-    windows-64bit-py36:
-      imageName: "windows-2019"
-      pythonVersion: "3.6"
-      platform: x64
-      winArch: "win64"
-    windows-32bit-py36:
-      imageName: "windows-2019"
-      pythonVersion: "3.6"
-      platform: x86
-      winArch: "win32"
     # py37
     linux-ubuntu-20-04-py37:
       imageName: "ubuntu-20.04"
@@ -111,12 +94,12 @@ variables:
 
 # BUILD STEPS
 steps:
-  # Set python version - 64bit python 3.6
+  # Set python version - 64bit python
   - task: UsePythonVersion@0
     inputs:
       versionSpec: $(pythonVersion)
     condition: not(and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86')))
-  # Set python version - 32bit python 3.6
+  # Set python version - 32bit python
   - task: UsePythonVersion@0
     inputs:
       versionSpec: $(pythonVersion)
