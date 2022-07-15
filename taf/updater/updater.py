@@ -271,7 +271,9 @@ def update_repository(
             excluded_target_globs=excluded_target_globs,
         )
     except Exception as e:
-        root_error = UpdateFailedError(f"Update of {auth_repo_name} failed due to error {e}")
+        root_error = UpdateFailedError(
+            f"Update of {auth_repo_name} failed due to error {e}"
+        )
 
     update_data = {}
     if not excluded_target_globs:
@@ -1234,7 +1236,7 @@ def validate_repository(
     clients_library_dir=None,
     default_branch="main",
     validate_from_commit=None,
-    excluded_target_globs=None
+    excluded_target_globs=None,
 ):
 
     clients_auth_path = Path(clients_auth_path).resolve()
@@ -1264,10 +1266,12 @@ def validate_repository(
             expected_repo_type=expected_repo_type,
             only_validate=True,
             validate_from_commit=validate_from_commit,
-            excluded_target_globs=excluded_target_globs
+            excluded_target_globs=excluded_target_globs,
         )
     except Exception as e:
-        raise ValidationFailedError(f"Validation or repository {auth_repo_name} failed due to error {e}")
+        raise ValidationFailedError(
+            f"Validation or repository {auth_repo_name} failed due to error {e}"
+        )
     settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = None
 
