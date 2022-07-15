@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Document a solution to a YubiKey communication issue ([257])
 
 ### Changed
 
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[257]: https://github.com/openlawlibrary/taf/pull/257
 [256]: https://github.com/openlawlibrary/taf/pull/256
 
 ## [0.19.0] - 06/14/2022
