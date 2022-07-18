@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
+
+[259]: https://github.com/openlawlibrary/taf/pull/259
 [257]: https://github.com/openlawlibrary/taf/pull/257
 [256]: https://github.com/openlawlibrary/taf/pull/256
 
