@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- `--clients-auth-path` repo command improvements ([260])
 
 ### Fixed
 
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
 
+[260]: https://github.com/openlawlibrary/taf/pull/260
 [259]: https://github.com/openlawlibrary/taf/pull/259
 [257]: https://github.com/openlawlibrary/taf/pull/257
 [256]: https://github.com/openlawlibrary/taf/pull/256
