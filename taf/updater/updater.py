@@ -1315,16 +1315,8 @@ def _validate_authentication_repository(
                 f"Repository {users_auth_repo.name} is not a test repository,"
                 ' but update was called with the "--expected-repo-type" test'
             )
-
     # always cleanup repository updater
-    try:
-        repository_updater.update_handler.cleanup()
-    except Exception as e:
-        taf_logger.warning(
-            "Failed to clean up temporary update files: {}. This is a known issue when running TAF in a subprocess. You could consider upgrading taf to see if cleanup errors persist",
-            e,
-        )
-        pass
+    repository_updater.update_handler.cleanup()
 
     return (
         commits,

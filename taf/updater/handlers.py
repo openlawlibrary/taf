@@ -257,15 +257,7 @@ class GitUpdater(handlers.MetadataUpdater):
         self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
         if temp_dir.is_dir():
-            try:
-                shutil.rmtree(str(temp_dir), onerror=on_rm_error)
-            except (OSError, PermissionError) as e:
-                taf_logger.warning(
-                    "Could not remove temporary directory {}. Something went wrong during cleanup: {}",
-                    temp_dir,
-                    e,
-                )
-                raise e
+            shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
     def earliest_valid_expiration_time(self):
         # Only validate expiration time of the last commit
