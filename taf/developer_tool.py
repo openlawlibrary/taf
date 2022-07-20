@@ -1234,30 +1234,39 @@ def update_metadata_expiration_date(
 
     taf_repo = Repository(repo_path)
     loaded_yubikeys = {}
+    roles_to_update = []
+    shared_roles = ["snapshot", "timestamp"]
 
-    try:
-        keys, yubikeys = _load_signing_keys(
-            taf_repo,
-            role,
-            loaded_yubikeys=loaded_yubikeys,
-            keystore=keystore,
-            scheme=scheme,
-        )
+    if role not in shared_roles:
+        roles_to_update = [role, *shared_roles]
+    elif role == "snapshot":
+        roles_to_update = [*shared_roles]
+    elif role == "timestamp":
+        roles_to_update = ["timestamp"]
 
-        # sign with keystore
-        if len(keys):
-            taf_repo.update_role_keystores(
-                role, keys, start_date=start_date, interval=interval
+    for role in roles_to_update:
+        try:
+            keys, yubikeys = _load_signing_keys(
+                taf_repo,
+                role,
+                loaded_yubikeys=loaded_yubikeys,
+                keystore=keystore,
+                scheme=scheme,
             )
-        if len(yubikeys):  # sign with yubikey
-            taf_repo.update_role_yubikeys(
-                role, yubikeys, start_date=start_date, interval=interval
-            )
-    except Exception as e:
-        print(f"Could not update expiration date of {role}. {str(e)}")
-        return
-    else:
-        print(f"Updated expiration date of {role}")
+            # sign with keystore
+            if len(keys):
+                taf_repo.update_role_keystores(
+                    role, keys, start_date=start_date, interval=interval
+                )
+            if len(yubikeys):  # sign with yubikey
+                taf_repo.update_role_yubikeys(
+                    role, yubikeys, start_date=start_date, interval=interval
+                )
+        except Exception as e:
+            print(f"Could not update expiration date of {role}. {str(e)}")
+            return
+        else:
+            print(f"Updated expiration date of {role}")
 
     if commit:
         auth_repo = GitRepository(path=repo_path)

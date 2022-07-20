@@ -74,6 +74,8 @@ def attach_to_group(group):
         the keystore file, it's necessary to specify its path when calling this command. If
         that is not the case, it will be needed to either enter the signing key directly or
         sign the file using a yubikey.
+
+        If targets or other delegated role is updated, automatically sign snapshot and timestamp.
         """
         developer_tool.update_metadata_expiration_date(path, role, interval, keystore,
                                                        scheme, start_date, commit)
