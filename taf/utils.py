@@ -224,7 +224,14 @@ def on_rm_error(_func, path, _exc_info):
     are deleted.
     """
     os.chmod(path, stat.S_IWRITE)
-    os.unlink(path)
+    try:
+        os.unlink(path)
+    except (OSError, PermissionError) as e:
+        taf_logger.warning(
+            "Failed to clean up temporary update files: {}. This is a known issue when running TAF in a subprocess. You could consider upgrading taf to see if cleanup errors persist",
+            e,
+        )
+        pass
 
 
 def safely_save_json_to_disk(data, permanent_path):

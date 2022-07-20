@@ -1315,7 +1315,6 @@ def _validate_authentication_repository(
                 f"Repository {users_auth_repo.name} is not a test repository,"
                 ' but update was called with the "--expected-repo-type" test'
             )
-
     # always cleanup repository updater
     repository_updater.update_handler.cleanup()
 
