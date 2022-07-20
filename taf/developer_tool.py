@@ -1227,7 +1227,13 @@ def setup_test_yubikey(key_path=None):
 
 
 def update_metadata_expiration_date(
-    repo_path, role, interval, keystore=None, scheme=None, start_date=None, commit=False
+    repo_path,
+    role,
+    interval,
+    keystore=None,
+    scheme=None,
+    start_date=None,
+    no_commit=False,
 ):
     if start_date is None:
         start_date = datetime.datetime.now()
@@ -1268,7 +1274,9 @@ def update_metadata_expiration_date(
         else:
             print(f"Updated expiration date of {role}")
 
-    if commit:
+    if no_commit:
+        print("\nNo commit was set. Please commit manually. \n")
+    else:
         auth_repo = GitRepository(path=repo_path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)

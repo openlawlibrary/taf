@@ -57,9 +57,9 @@ def attach_to_group(group):
                   "used for signing")
     @click.option("--start-date", default=datetime.datetime.now(), help="Date to which the "
                   "interval is added", type=ISO_DATE)
-    @click.option("--commit", is_flag=True, help="Indicates if the changes should be "
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
                   "committed automatically")
-    def update_expiration_date(path, role, interval, keystore, scheme, start_date, commit):
+    def update_expiration_date(path, role, interval, keystore, scheme, start_date, no_commit):
         """
         \b
         Update expiration date of the metadata file corresponding to the specified role.
@@ -78,4 +78,4 @@ def attach_to_group(group):
         If targets or other delegated role is updated, automatically sign snapshot and timestamp.
         """
         developer_tool.update_metadata_expiration_date(path, role, interval, keystore,
-                                                       scheme, start_date, commit)
+                                                       scheme, start_date, no_commit)
