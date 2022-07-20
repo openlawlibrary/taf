@@ -20,6 +20,7 @@ from taf.exceptions import (
     GitError,
     MissingHostsError,
     InvalidHostsError,
+    ValidationFailedError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
@@ -229,7 +230,6 @@ def update_repository(
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
-
     if clients_auth_path is not None:
         clients_auth_path = Path(clients_auth_path).resolve()
 
@@ -271,7 +271,9 @@ def update_repository(
             excluded_target_globs=excluded_target_globs,
         )
     except Exception as e:
-        root_error = e
+        root_error = UpdateFailedError(
+            f"Update of {auth_repo_name} failed due to error {e}"
+        )
 
     update_data = {}
     if not excluded_target_globs:
@@ -600,9 +602,7 @@ def _update_current_repository(
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
     settings.default_branch = default_branch
-    if only_validate:
-        settings.overwrite_last_validated_commit = True
-        settings.last_validated_commit = validate_from_commit
+
     # instantiate TUF's updater
     repository_mirrors = {
         "mirror1": {
@@ -1236,6 +1236,7 @@ def validate_repository(
     clients_library_dir=None,
     default_branch="main",
     validate_from_commit=None,
+    excluded_target_globs=None,
 ):
 
     clients_auth_path = Path(clients_auth_path).resolve()
@@ -1252,17 +1253,27 @@ def validate_repository(
         if (clients_auth_path / "targets" / "test-auth-repo").exists()
         else UpdateType.OFFICIAL
     )
-    _update_named_repository(
-        str(clients_auth_path),
-        clients_auth_library_dir,
-        clients_library_dir,
-        auth_repo_name,
-        default_branch,
-        True,
-        expected_repo_type=expected_repo_type,
-        only_validate=True,
-        validate_from_commit=validate_from_commit,
-    )
+    settings.overwrite_last_validated_commit = True
+    settings.last_validated_commit = validate_from_commit
+    try:
+        _update_named_repository(
+            str(clients_auth_path),
+            clients_auth_library_dir,
+            clients_library_dir,
+            auth_repo_name,
+            default_branch,
+            True,
+            expected_repo_type=expected_repo_type,
+            only_validate=True,
+            validate_from_commit=validate_from_commit,
+            excluded_target_globs=excluded_target_globs,
+        )
+    except Exception as e:
+        raise ValidationFailedError(
+            f"Validation or repository {auth_repo_name} failed due to error {e}"
+        )
+    settings.overwrite_last_validated_commit = False
+    settings.last_validated_commit = None
 
 
 def _validate_authentication_repository(

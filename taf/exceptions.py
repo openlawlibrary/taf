@@ -147,5 +147,9 @@ class UpdateFailedError(TAFError):
     pass
 
 
+class ValidationFailedError(TAFError):
+    pass
+
+
 class YubikeyError(Exception):
     pass
