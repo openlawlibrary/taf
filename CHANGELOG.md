@@ -18,7 +18,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [227]: https://github.com/openlawlibrary/taf/pull/227
 [191]: https://github.com/openlawlibrary/taf/pull/191
 
