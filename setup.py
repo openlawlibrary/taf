@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from importlib.util import find_spec
 
 PACKAGE_NAME = "taf"
-VERSION = "0.17.0"
+VERSION = "0.20.0"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -24,7 +24,6 @@ try:
             _bdist_wheel.finalize_options(self)
             self.root_is_pure = False
 
-
 except ImportError:
     bdist_wheel = None
 
@@ -40,7 +39,7 @@ ci_require = [
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
-    "pytest==4.5.0",
+    "pytest==6.2.5",
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
 ]
@@ -63,14 +62,14 @@ kwargs = {
     "data_files": [("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
     "zip_safe": False,
     "install_requires": [
-        "click==7.1",
+        "click==7.*",
         "colorama>=0.3.9",
         "oll-tuf==0.11.2.dev9",
-        "loguru==0.4.0",
+        "loguru==0.6.*",
         "cryptography==3.2.1",
         "pyOpenSSL==20.0.1",
-        "pygit2==0.28.2",
-        "cattrs==1.0.0",
+        "pygit2==1.9.*",
+        "cattrs==1.*",
     ],
     "extras_require": {
         "ci": ci_require,
@@ -95,7 +94,10 @@ kwargs = {
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }

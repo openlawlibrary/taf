@@ -865,6 +865,9 @@ class GitRepository:
                     files.append(modified_file.split(maxsplit=1)[1])
         return files
 
+    def list_tags(self):
+        return self._git("tag -l").splitlines()
+
     def list_untracked_files(self, path=None):
         ls_command = "ls-files --others"
         if path is not None:

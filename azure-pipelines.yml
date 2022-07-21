@@ -13,21 +13,21 @@ pr:
 # PLATFORMS
 strategy:
   matrix:
-    # py36
-    linux-ubuntu-20-04-py36:
+    # py37
+    linux-ubuntu-20-04-py37:
       imageName: "ubuntu-20.04"
-      pythonVersion: "3.6"
-    macOS-py36:
+      pythonVersion: "3.7"
+    macOS-py37:
       imageName: "macOS-10.15"
-      pythonVersion: "3.6"
-    windows-64bit-py36:
+      pythonVersion: "3.7"
+    windows-64bit-py37:
       imageName: "windows-2019"
-      pythonVersion: "3.6"
+      pythonVersion: "3.7"
       platform: x64
       winArch: "win64"
-    windows-32bit-py36:
+    windows-32bit-py37:
       imageName: "windows-2019"
-      pythonVersion: "3.6"
+      pythonVersion: "3.7"
       platform: x86
       winArch: "win32"
     # py38
@@ -47,6 +47,41 @@ strategy:
       pythonVersion: "3.8"
       platform: x86
       winArch: "win32"
+    # py39
+    linux-ubuntu-20-04-py39:
+      imageName: "ubuntu-20.04"
+      pythonVersion: "3.9"
+    macOS-py39:
+      imageName: "macOS-10.15"
+      pythonVersion: "3.9"
+    windows-64bit-py39:
+      imageName: "windows-2022"
+      pythonVersion: "3.9"
+      platform: x64
+      winArch: "win64"
+    windows-32bit-py39:
+      imageName: "windows-2022"
+      pythonVersion: "3.9"
+      platform: x86
+      winArch: "win32"
+    # py310
+    linux-ubuntu-22-04-py310:
+      imageName: "ubuntu-22.04"
+      pythonVersion: "3.10"
+    macOS-py310:
+      imageName: "macOS-10.15"
+      pythonVersion: "3.10"
+    windows-64bit-py310:
+      imageName: "windows-2022"
+      pythonVersion: "3.10"
+      platform: x64
+      winArch: "win64"
+    windows-32bit-py10:
+      imageName: "windows-2022"
+      pythonVersion: "3.10"
+      platform: x86
+      winArch: "win32"
+
 pool:
   vmImage: $(imageName)
 
@@ -59,12 +94,12 @@ variables:
 
 # BUILD STEPS
 steps:
-  # Set python version - 64bit python 3.6
+  # Set python version - 64bit python
   - task: UsePythonVersion@0
     inputs:
       versionSpec: $(pythonVersion)
     condition: not(and(eq( variables['Agent.OS'], 'Windows_NT'), eq( variables['platform'], 'x86')))
-  # Set python version - 32bit python 3.6
+  # Set python version - 32bit python
   - task: UsePythonVersion@0
     inputs:
       versionSpec: $(pythonVersion)

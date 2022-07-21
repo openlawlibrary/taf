@@ -12,7 +12,7 @@ def validate_branch(
     target_repos,
     branch_name,
     merge_branches,
-    updated_role,
+    updated_roles,
     should_check_capstone=True,
 ):
     """
@@ -44,11 +44,11 @@ def validate_branch(
 
     _check_lengths_of_branches(targets_and_commits, branch_name)
 
-    targets_version = None
     branch_id = None
+
     unmodified_roles_and_versions = {
         role_name: None
-        for role_name in _get_unchanged_targets_metadata(auth_repo, updated_role)
+        for role_name in _get_unchanged_targets_metadata(auth_repo, updated_roles)
     }
 
     # Get the missing commits from the top of the merge branch
@@ -62,40 +62,41 @@ def validate_branch(
                     num_of_merged_commits, branch=merge_branches[target_repo]
                 )
             )
-
-    for commit_index, auth_commit in enumerate(auth_commits):
-        # load content of the updated role's targets metadata
-        updated_targets = auth_repo.get_json(
-            auth_commit, f"{METADATA_DIRECTORY_NAME}/{updated_role}.json"
-        )
-        targets_version = _check_updated_targets_version(
-            updated_targets, updated_role, auth_commit, targets_version
-        )
-        for (
-            role_name,
-            unmodified_roles_version,
-        ) in unmodified_roles_and_versions.items():
-            unmodified_target_metadata = auth_repo.get_json(
-                auth_commit, f"{METADATA_DIRECTORY_NAME}/{role_name}.json"
+    for updated_role in updated_roles:
+        targets_version = None
+        for commit_index, auth_commit in enumerate(auth_commits):
+            # load content of the updated role's targets metadata
+            updated_targets = auth_repo.get_json(
+                auth_commit, f"{METADATA_DIRECTORY_NAME}/{updated_role}.json"
             )
-            version = _check_if_version_unmodified(
-                unmodified_target_metadata,
+            targets_version = _check_updated_targets_version(
+                updated_targets, updated_role, auth_commit, targets_version
+            )
+            for (
                 role_name,
-                auth_commit,
                 unmodified_roles_version,
-            )
-            if unmodified_roles_version is None:
-                unmodified_roles_and_versions[role_name] = version
+            ) in unmodified_roles_and_versions.items():
+                unmodified_target_metadata = auth_repo.get_json(
+                    auth_commit, f"{METADATA_DIRECTORY_NAME}/{role_name}.json"
+                )
+                version = _check_if_version_unmodified(
+                    unmodified_target_metadata,
+                    role_name,
+                    auth_commit,
+                    unmodified_roles_version,
+                )
+                if unmodified_roles_version is None:
+                    unmodified_roles_and_versions[role_name] = version
 
-        branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
+            branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
 
-        for target, target_commits in targets_and_commits.items():
-            target_commit = target_commits[commit_index]
+            for target, target_commits in targets_and_commits.items():
+                target_commit = target_commits[commit_index]
 
-            # targets' commits match the target commits specified in the authentication repository
-            _compare_commit_with_targets_metadata(
-                auth_repo, auth_commit, target, target_commit
-            )
+                # targets' commits match the target commits specified in the authentication repository
+                _compare_commit_with_targets_metadata(
+                    auth_repo, auth_commit, target, target_commit
+                )
 
 
 def _check_lengths_of_branches(targets_and_commits, branch_name):
@@ -194,8 +195,8 @@ def _compare_commit_with_targets_metadata(
         )
 
 
-def _get_unchanged_targets_metadata(auth_repo, updated_role):
+def _get_unchanged_targets_metadata(auth_repo, updated_roles):
     taf_repo = Repository(auth_repo.path)
     all_roles = taf_repo.get_all_targets_roles()
-    all_roles.remove(updated_role)
+    all_roles = [*(set(all_roles) - set(updated_roles))]
     return all_roles

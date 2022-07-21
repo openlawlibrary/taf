@@ -136,7 +136,6 @@ class GitUpdater(handlers.MetadataUpdater):
         the initial root.json).
         """
         # TODO check if users authentication repository is clean
-
         # load the last validated commit from the conf file
         if settings.overwrite_last_validated_commit:
             last_validated_commit = settings.last_validated_commit

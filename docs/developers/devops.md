@@ -45,7 +45,7 @@ windows-32bit-{PYTHON_VERSION_JOB_NAME}:
   winArch: "win32"
 ```
 
-with replaced values of `{PYTHON_VERSION_JOB_NAME}` (e.g. py36) and `{PYTHON_VERSION}` (e.g. '3.6').
+with replaced values of `{PYTHON_VERSION_JOB_NAME}` (e.g. py310) and `{PYTHON_VERSION}` (e.g. '3.10').
 
 ### Steps explained
 

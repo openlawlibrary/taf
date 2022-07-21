@@ -10,16 +10,74 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
 ### Changed
 
-- port a number of git functionalities to pygit2 ([#227])
+- port a number of git functionalities to pygit2 ([227])
+- Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
 
 ### Fixed
 
+
 [227]: https://github.com/openlawlibrary/taf/pull/227
+[191]: https://github.com/openlawlibrary/taf/pull/191
+
+## [0.20.0] - 06/22/2022
+
+### Added
+
+- Document a solution to a YubiKey communication issue ([257])
+
+### Changed
+
+- Remove Python 3.6 support ([256])
+- Remove pinned pynacl which is incompatible with Python 3.10 ([256])
+
+### Fixed
+
+- Fix Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
+
+[259]: https://github.com/openlawlibrary/taf/pull/259
+[257]: https://github.com/openlawlibrary/taf/pull/257
+[256]: https://github.com/openlawlibrary/taf/pull/256
+
+## [0.19.0] - 06/14/2022
+
+### Added
+
+
+### Changed
+
+- Loosen dependencies and pin pynacl ([254])
+
+### Fixed
+
+[254]: https://github.com/openlawlibrary/taf/pull/254
+
+
+## [0.18.0] - 05/31/2022
+
+### Added
+
+- Add support for Python 3.10 ([247])
+
+### Changed
+
+
+- Enable exclusion of certain target repositories from the update process ([250])
+- Update `_get_unchanged_targets_metadata` - `updated_roles` is now a list ([246])
+
+### Fixed
+
+- Fix `validate_branch` indentation error caused by [246] ([249])
+
+[250]: https://github.com/openlawlibrary/taf/pull/250
+[249]: https://github.com/openlawlibrary/taf/pull/249
+[247]: https://github.com/openlawlibrary/taf/pull/247
+[246]: https://github.com/openlawlibrary/taf/pull/246
+
 
 ## [0.17.0] - 05/04/2022
-
 
 ### Added
 
@@ -45,6 +103,7 @@ and this project adheres to [Semantic Versioning][semver].
 [234]: https://github.com/openlawlibrary/taf/pull/234
 [228]: https://github.com/openlawlibrary/taf/pull/228
 
+
 ## [0.16.0] - 04/16/2022
 
 ### Added
@@ -57,7 +116,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Remove `--error-if-unauthenticated` flag ([220])
 - Change `clients-auth-path` in `taf repo update` to optional. ([213])
 - Only clone if directory is empty ([211])
-- Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
 
 ### Fixed
 
@@ -72,7 +130,6 @@ and this project adheres to [Semantic Versioning][semver].
 [216]: https://github.com/openlawlibrary/taf/pull/216
 [213]: https://github.com/openlawlibrary/taf/pull/213
 [211]: https://github.com/openlawlibrary/taf/pull/211
-[191]: https://github.com/openlawlibrary/taf/pull/191
 
 ## [0.15.0] - 02/11/2022
 
@@ -659,7 +716,10 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/openlawlibrary/taf/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/openlawlibrary/taf/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/openlawlibrary/taf/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/openlawlibrary/taf/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/openlawlibrary/taf/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/openlawlibrary/taf/compare/v0.14.0...v0.15.0
