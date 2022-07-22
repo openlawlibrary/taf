@@ -209,12 +209,16 @@ def attach_to_group(group):
         locations of the target repositories are calculated based on the authentication repository's
         path. If that is not the case, it is necessary to redefine this default value using the
         --clients-library-dir option. This means that if authentication repository's path is
-        E:\\root\\namespace\\auth-repo, it will be assumed that E:\\root is the root direcotry
+        E:\\root\\namespace\\auth-repo, it will be assumed that E:\\root is the root directory
         if clients-library-dir is not specified.
         Names of target repositories (as defined in repositories.json) are appended to the root repository's
         path thus defining the location of each target repository. If names of target repositories
         are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
         repositories will be calculated as E:\\root\\namespace\\repo1, E:\\root\\namespace\\root2 etc.
+
+        Path to authentication repository directory is set by clients-auth-path argument. If this
+        argument is not provided, it is expected that --clients-library-dir option is used. The updater
+        will raise an error if one of both isn't set.
 
         If remote repository's url is a file system path, it is necessary to call this command with
         --from-fs flag so that url validation is skipped. When updating a test repository (one that has
