@@ -433,6 +433,28 @@ def create_repository(
         auth_repo.commit(commit_message)
 
 
+def check_expiration_dates(
+    repo_path, interval=None, start_date=None, excluded_roles=None
+):
+    repo_path = Path(repo_path)
+    taf_repo = Repository(repo_path)
+
+    expired_dict, will_expire_dict = taf_repo.check_roles_expiration_dates(
+        interval, start_date, excluded_roles
+    )
+
+    if expired_dict or will_expire_dict:
+        print(
+            f"Given a {interval} day interval from today ({start_date.strftime('%Y-%m-%d')}):"
+        )
+        for role, expiry_date in expired_dict.items():
+            print(f"{role} expired on {expiry_date.strftime('%Y-%m-%d')}")
+        for role, expiry_date in will_expire_dict.items():
+            print(f"{role} will expire on {expiry_date.strftime('%Y-%m-%d')}")
+    else:
+        print(f"No roles will expire within the given {interval} day interval")
+
+
 def _create_delegations(
     roles_infos, repository, verification_keys, signing_keys, existing_roles=None
 ):

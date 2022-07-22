@@ -49,6 +49,31 @@ def attach_to_group(group):
 
     @metadata.command()
     @click.argument("path")
+    @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
+    @click.option("--start-date", default=datetime.datetime.now(datetime.timezone.utc), help="Date to which expiration interval is added", type=ISO_DATE)
+    def check_expiration_dates(path, interval, start_date):
+        """
+        Check if the expiration dates of the metadata roles is still within an interval threshold.
+        Expiration date is calculated by adding interval to start date. Interval is specified in days.
+        The default value for interval in method is set to 30 days.
+        Result contains metadata roles which have already expired and also roles which will expire (within the interval).
+        Result is printed to the console and contains the following information:
+        header:
+            - start date
+            - interval (in days)
+        information:
+            - role name
+            - expiration date
+        Example console output:
+        Given a 30 day interval from today (2022-07-22):
+            timestamp will expire on 2022-07-22
+            snapshot will expire on 2022-07-28
+            root will expire on 2022-08-19
+        """
+        developer_tool.check_expiration_dates(repo_path=path, interval=interval, start_date=start_date)
+
+    @metadata.command()
+    @click.argument("path")
     @click.argument("role")
     @click.option("--interval", default=None, help="Number of days added to the start date",
                   type=int)

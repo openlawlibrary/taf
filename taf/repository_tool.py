@@ -594,6 +594,50 @@ class Repository:
 
         return common_role.pop()
 
+    def check_roles_expiration_dates(
+        self, interval=None, start_date=None, excluded_roles=None
+    ):
+        """Determines which metadata roles have expired, or will expire within a time frame.
+        Args:
+        - interval(int): Number of days to look ahead for expiration.
+        - start_date(datetime): Start date to look for expiration.
+        - excluded_roles(list): List of roles to exclude from the search.
+
+        Returns:
+        - A dictionary of roles that have expired, or will expire within the given time frame.
+        Results are sorted by expiration date.
+        """
+        if start_date is None:
+            start_date = datetime.datetime.now(datetime.timezone.utc)
+        if interval is None:
+            interval = 30
+        expiration_threshold = start_date + datetime.timedelta(days=interval)
+
+        if excluded_roles is None:
+            excluded_roles = []
+
+        target_roles = self.get_all_targets_roles()
+        main_roles = ["root", "targets", "snapshot", "timestamp"]
+        existing_roles = list(set(target_roles + main_roles) - set(excluded_roles))
+
+        expired_dict = {}
+        will_expire_dict = {}
+        for role in existing_roles:
+            expiry_date = self.get_expiration_date(role)
+            if start_date > expiry_date:
+                expired_dict[role] = expiry_date
+            elif expiration_threshold >= expiry_date:
+                will_expire_dict[role] = expiry_date
+        # sort by expiry date
+        expired_dict = {
+            k: v for k, v in sorted(expired_dict.items(), key=lambda item: item[1])
+        }
+        will_expire_dict = {
+            k: v for k, v in sorted(will_expire_dict.items(), key=lambda item: item[1])
+        }
+
+        return expired_dict, will_expire_dict
+
     def _collect_target_paths_of_role(self, target_roles_paths):
         all_target_relpaths = []
         for target_role_path in target_roles_paths:
