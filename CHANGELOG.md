@@ -10,13 +10,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add cli metadata command that checks if metadata roles are soon to expire ([261])
 - Document a solution to a YubiKey communication issue ([257])
 
 ### Changed
 
+- If target role expiration date is being updated, sign timestamp and snapshot automatically ([261])
 - `--clients-auth-path` repo command improvements ([260])
 - port a number of git functionalities to pygit2 ([227])
-- Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
+- Migrated yubikey-manager from v3.0.0 to v4.0.* ([191])
 
 
 ### Fixed
@@ -26,6 +28,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 [263]: https://github.com/openlawlibrary/taf/pull/263
+[261]: https://github.com/openlawlibrary/taf/pull/261
 [260]: https://github.com/openlawlibrary/taf/pull/260
 [259]: https://github.com/openlawlibrary/taf/pull/259
 [257]: https://github.com/openlawlibrary/taf/pull/257
