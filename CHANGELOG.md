@@ -10,14 +10,23 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Document a solution to a YubiKey communication issue ([257])
 
 ### Changed
 
+- `--clients-auth-path` repo command improvements ([260])
 - port a number of git functionalities to pygit2 ([227])
 - Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
 
+
 ### Fixed
 
+- Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
+
+
+[260]: https://github.com/openlawlibrary/taf/pull/260
+[259]: https://github.com/openlawlibrary/taf/pull/259
+[257]: https://github.com/openlawlibrary/taf/pull/257
 [227]: https://github.com/openlawlibrary/taf/pull/227
 [191]: https://github.com/openlawlibrary/taf/pull/191
 
@@ -25,7 +34,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Document a solution to a YubiKey communication issue ([257])
 
 ### Changed
 
@@ -34,10 +42,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
-
-[259]: https://github.com/openlawlibrary/taf/pull/259
-[257]: https://github.com/openlawlibrary/taf/pull/257
 [256]: https://github.com/openlawlibrary/taf/pull/256
 
 ## [0.19.0] - 06/14/2022

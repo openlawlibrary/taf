@@ -97,7 +97,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
             repository_name = f'{info["namespace"]}/{info["name"]}'
         except Exception:
             raise UpdateFailedError(
-                "Error during info.json parse. Check if info.json exists or provide full path to auth repo"
+                "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
             )
 
     validation_auth_repo.cleanup()
