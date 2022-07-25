@@ -921,21 +921,16 @@ class GitRepository:
         """Push all changes"""
         if branch is None:
             branch = self.get_current_branch()
-        if not force and not set_upstream:
-            repo = self.pygit_repo
-            branch_ref_name = repo.branches[branch].name
-            remote = repo.remotes[self.remotes[0]]
-            remote.push([branch_ref_name])
-        else:
-            upstream_flag = "-u" if set_upstream else ""
-            force_flag = "-f" if force else ""
-            self._git(
-                "push {} {} origin {}",
-                upstream_flag,
-                force_flag,
-                branch,
-                log_error=True,
-            )
+
+        upstream_flag = "-u" if set_upstream else ""
+        force_flag = "-f" if force else ""
+        self._git(
+            "push {} {} origin {}",
+            upstream_flag,
+            force_flag,
+            branch,
+            log_error=True,
+        )
 
     def rename_branch(self, old_name, new_name):
         self._git("branch -m {} {}", old_name, new_name)
