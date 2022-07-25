@@ -72,7 +72,7 @@ TARGETS_MISMATCH_ANY = "Mismatch between target commits specified in authenticat
 NO_WORKING_MIRRORS = (
     f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
 )
-NO_REPOSITORY_INFO_JSON = "Error during info.json parse. Check if info.json exists or provide full path to auth repo"
+NO_REPOSITORY_INFO_JSON = "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
 ROOT_EXPIRED = "Metadata 'root' expired"
 REPLAYED_METADATA = "ReplayedMetadataError"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
