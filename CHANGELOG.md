@@ -10,18 +10,30 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Document a solution to a YubiKey communication issue ([257])
 
 ### Changed
 
 - `--clients-auth-path` repo command improvements ([260])
+- port a number of git functionalities to pygit2 ([227])
+- Migrated yubikey-manager from v3.0.0 to v4.0.7 ([191])
+
 
 ### Fixed
+
+- Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
+
+
+[260]: https://github.com/openlawlibrary/taf/pull/260
+[259]: https://github.com/openlawlibrary/taf/pull/259
+[257]: https://github.com/openlawlibrary/taf/pull/257
+[227]: https://github.com/openlawlibrary/taf/pull/227
+[191]: https://github.com/openlawlibrary/taf/pull/191
 
 ## [0.20.0] - 06/22/2022
 
 ### Added
 
-- Document a solution to a YubiKey communication issue ([257])
 
 ### Changed
 
@@ -30,11 +42,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
-
-[260]: https://github.com/openlawlibrary/taf/pull/260
-[259]: https://github.com/openlawlibrary/taf/pull/259
-[257]: https://github.com/openlawlibrary/taf/pull/257
 [256]: https://github.com/openlawlibrary/taf/pull/256
 
 ## [0.19.0] - 06/14/2022
@@ -99,6 +106,7 @@ and this project adheres to [Semantic Versioning][semver].
 [234]: https://github.com/openlawlibrary/taf/pull/234
 [228]: https://github.com/openlawlibrary/taf/pull/228
 
+
 ## [0.16.0] - 04/16/2022
 
 ### Added
@@ -116,6 +124,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
+
 
 [229]: https://github.com/openlawlibrary/taf/pull/229
 [226]: https://github.com/openlawlibrary/taf/pull/226
@@ -136,14 +145,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- perf: re-implementing slow git cmds with pygit2 ([207])
+### Fixed
 
+- perf: re-implementing slow git cmds with pygit2 ([207])
 - Specify a list of repositories which shouldn't contain additional commits instead of just specifying a flag ([203])
 
 ### Fixed
 
 - Update handler fix: return an empty list of targets if the targets folder does not exist ([208])
-
 - pytest works when taf installed via wheel ([200])
 
 [236]: https://github.com/openlawlibrary/taf/pull/236
