@@ -21,9 +21,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- fix git push - remove pygit2 push implementation which does not fully support ssh ([263])
 - Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
 
 
+[263]: https://github.com/openlawlibrary/taf/pull/263
 [260]: https://github.com/openlawlibrary/taf/pull/260
 [259]: https://github.com/openlawlibrary/taf/pull/259
 [257]: https://github.com/openlawlibrary/taf/pull/257
