@@ -458,13 +458,20 @@ def check_expiration_dates(
     )
 
     if expired_dict or will_expire_dict:
+        now = datetime.datetime.now(datetime.timezone.utc)
         print(
             f"Given a {interval} day interval from today ({start_date.strftime('%Y-%m-%d')}):"
         )
         for role, expiry_date in expired_dict.items():
-            print(f"{role} expired on {expiry_date.strftime('%Y-%m-%d')}")
+            delta = now - expiry_date
+            print(
+                f"{role} expired {delta.days} days ago (on {expiry_date.strftime('%Y-%m-%d')})"
+            )
         for role, expiry_date in will_expire_dict.items():
-            print(f"{role} will expire on {expiry_date.strftime('%Y-%m-%d')}")
+            delta = expiry_date - now
+            print(
+                f"{role} will expire in {delta.days} days (on {expiry_date.strftime('%Y-%m-%d')})"
+            )
     else:
         print(f"No roles will expire within the given {interval} day interval")
 
