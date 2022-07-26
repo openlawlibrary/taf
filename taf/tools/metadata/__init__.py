@@ -74,7 +74,7 @@ def attach_to_group(group):
 
     @metadata.command()
     @click.argument("path")
-    @click.argument("role")
+    @click.option("--role", multiple=True, help="A list of roles which expiration date should get updated")
     @click.option("--interval", default=None, help="Number of days added to the start date",
                   type=int)
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -102,5 +102,8 @@ def attach_to_group(group):
 
         If targets or other delegated role is updated, automatically sign snapshot and timestamp.
         """
+        if not len(role):
+            print("Specify at least one role")
+            return
         developer_tool.update_metadata_expiration_date(path, role, interval, keystore,
                                                        scheme, start_date, no_commit)

@@ -1250,7 +1250,7 @@ def setup_test_yubikey(key_path=None):
 
 def update_metadata_expiration_date(
     repo_path,
-    role,
+    roles,
     interval,
     keystore=None,
     scheme=None,
@@ -1263,14 +1263,18 @@ def update_metadata_expiration_date(
     taf_repo = Repository(repo_path)
     loaded_yubikeys = {}
     roles_to_update = []
-    shared_roles = ["snapshot", "timestamp"]
 
-    if role not in shared_roles:
-        roles_to_update = [role, *shared_roles]
-    elif role == "snapshot":
-        roles_to_update = [*shared_roles]
-    elif role == "timestamp":
-        roles_to_update = ["timestamp"]
+    if "root" in roles:
+        roles_to_update.append("root")
+    if "targets" in roles:
+        roles_to_update.append("targets")
+    for role in roles:
+        if is_delegated_role(role):
+            roles_to_update.append(role)
+
+    if len(roles_to_update) or "snapshot" in roles:
+        roles_to_update.append("snapshot")
+    roles_to_update.append("timestamp")
 
     for role in roles_to_update:
         try:
