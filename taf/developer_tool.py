@@ -436,6 +436,20 @@ def create_repository(
 def check_expiration_dates(
     repo_path, interval=None, start_date=None, excluded_roles=None
 ):
+    """
+    <Purpose>
+        Check if any metadata files (roles) are expired or will expire in the next <interval> days.
+        Prints a list of expired roles.
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        interval:
+        Number of days ahead to check for expiration
+        start_date:
+        Date from which to start checking for expiration
+        excluded_roles:
+        List of roles to exclude from the check
+    """
     repo_path = Path(repo_path)
     taf_repo = Repository(repo_path)
 
