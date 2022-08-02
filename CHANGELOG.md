@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add support for multiple branch and capstone files ([266])
 - Add cli metadata command that checks if metadata roles are soon to expire ([261])
 - Document a solution to a YubiKey communication issue ([257])
 
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
 
 
+[266]: https://github.com/openlawlibrary/taf/pull/266
 [263]: https://github.com/openlawlibrary/taf/pull/263
 [261]: https://github.com/openlawlibrary/taf/pull/261
 [260]: https://github.com/openlawlibrary/taf/pull/260
