@@ -91,7 +91,9 @@ def validate_branch(
                     unmodified_roles_and_versions[role_name] = version
 
             if updated_role in check_branch_roles:
-                branch_id = _check_branch_id(auth_repo, auth_commit, branch_id, updated_role)
+                branch_id = _check_branch_id(
+                    auth_repo, auth_commit, branch_id, updated_role
+                )
 
             for target, target_commits in targets_and_commits.items():
                 target_commit = target_commits[commit_index]
@@ -183,7 +185,7 @@ def check_capstone(auth_repo, branch, role):
     try:
         auth_repo.get_file(
             auth_repo.top_commit_of_branch(branch),
-            Path(TARGETS_DIRECTORY_NAME, role, CAPSTONE)
+            Path(TARGETS_DIRECTORY_NAME, role, CAPSTONE),
         )
     except GitError:
         try:
