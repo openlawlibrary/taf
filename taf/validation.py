@@ -1,10 +1,9 @@
-import subprocess
 from pathlib import Path
 
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
 from taf.repository_tool import Repository
 from taf.constants import CAPSTONE
-from taf.exceptions import InvalidBranchError
+from taf.exceptions import GitError, InvalidBranchError
 
 
 def validate_branch(
@@ -13,7 +12,8 @@ def validate_branch(
     branch_name,
     merge_branches,
     updated_roles,
-    should_check_capstone=True,
+    check_capstone_roles=None,
+    check_branch_roles=None,
 ):
     """
     Validates corresponding branches of the authentication repository
@@ -30,8 +30,9 @@ def validate_branch(
     that a capstone file is one of the targets specified in targets metadata)
     4. If all commits of an authentication repository's branch have the same branch ID
     """
-    if should_check_capstone:
-        check_capstone(auth_repo, branch_name)
+    if check_capstone_roles is not None:
+        for role in check_capstone_roles:
+            check_capstone(auth_repo, branch_name, role)
     targets_and_commits = {
         target_repo: target_repo.commits_on_branch_and_not_other(
             branch_name, merge_branches[target_repo]
@@ -88,7 +89,10 @@ def validate_branch(
                 if unmodified_roles_version is None:
                     unmodified_roles_and_versions[role_name] = version
 
-            branch_id = _check_branch_id(auth_repo, auth_commit, branch_id)
+            if updated_role in check_branch_roles:
+                branch_id = _check_branch_id(
+                    auth_repo, auth_commit, branch_id, updated_role
+                )
 
             for target, target_commits in targets_and_commits.items():
                 target_commit = target_commits[commit_index]
@@ -116,14 +120,19 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
         raise InvalidBranchError(msg)
 
 
-def _check_branch_id(auth_repo, auth_commit, branch_id):
+def _check_branch_id(auth_repo, auth_commit, branch_id, role):
 
     try:
         new_branch_id = auth_repo.get_file(
-            auth_commit, f"{TARGETS_DIRECTORY_NAME}/branch"
+            auth_commit, Path(TARGETS_DIRECTORY_NAME, role, "branch")
         )
-    except subprocess.CalledProcessError:
-        raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
+    except GitError:
+        try:
+            new_branch_id = auth_repo.get_file(
+                auth_commit, Path(TARGETS_DIRECTORY_NAME, "branch")
+            )
+        except GitError:
+            raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
     if branch_id is not None and new_branch_id != branch_id:
         raise InvalidBranchError(
             f"Branch ID at revision {auth_commit} is not the same as the "
@@ -165,18 +174,26 @@ def _check_if_version_unmodified(targets, role_name, auth_commit, current_versio
     return new_version
 
 
-def check_capstone(auth_repo, branch):
+def check_capstone(auth_repo, branch, role):
     """
     Check if there is a capstone file (a target file called capstone)
     at the end of the specified branch.
     """
+    if role is None:
+        role = ""
     try:
         auth_repo.get_file(
             auth_repo.top_commit_of_branch(branch),
-            Path(TARGETS_DIRECTORY_NAME, CAPSTONE),
+            Path(TARGETS_DIRECTORY_NAME, role, CAPSTONE),
         )
-    except Exception:
-        raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
+    except GitError:
+        try:
+            auth_repo.get_file(
+                auth_repo.top_commit_of_branch(branch),
+                Path(TARGETS_DIRECTORY_NAME, CAPSTONE),
+            )
+        except GitError:
+            raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
 
 
 def _compare_commit_with_targets_metadata(
