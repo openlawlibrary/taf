@@ -24,10 +24,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Do not remove authentication repository folder when running `taf repo validate` ([267])
 - fix git push - remove pygit2 push implementation which does not fully support ssh ([263])
 - Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
 
 
+[267]: https://github.com/openlawlibrary/taf/pull/267
 [266]: https://github.com/openlawlibrary/taf/pull/266
 [263]: https://github.com/openlawlibrary/taf/pull/263
 [261]: https://github.com/openlawlibrary/taf/pull/261
