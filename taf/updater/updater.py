@@ -635,11 +635,6 @@ def _update_current_repository(
 
     try:
         commits = None
-        users_repo_existed = False
-
-        # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
-        # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
-        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
         # check whether the directory that runs clone exists or contains additional files.
         # we need to check the state of folder before running tuf. Resolves issue #22
         # if auth_repo_name isn't specified then the current directory doesn't contain additional files.
@@ -648,6 +643,10 @@ def _update_current_repository(
             if auth_repo_name is not None
             else True
         )
+
+        # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
+        # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
+        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
 
         repository_updater = tuf_updater.Updater(
             auth_repo_name, repository_mirrors, GitUpdater
