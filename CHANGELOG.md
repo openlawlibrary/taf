@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.21.0] - 08/30/2022
+
+### Added
+
 - Add support for multiple branch and capstone files ([266])
 - Add cli metadata command that checks if metadata roles are soon to expire ([261])
 - Document a solution to a YubiKey communication issue ([257])
@@ -728,7 +737,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/openlawlibrary/taf/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/openlawlibrary/taf/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/openlawlibrary/taf/compare/v0.17.0...v0.18.0
