@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-### Changed
-
+### Changed 
 ### Fixed
+- Add pygit_repo error handling and fix couple of `git.py` logs ([269])
 
+
+[269]: https://github.com/openlawlibrary/taf/pull/269
 
 ## [0.21.0] - 08/30/2022
 
