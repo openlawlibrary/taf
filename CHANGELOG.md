@@ -11,10 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 ### Changed 
+
 ### Fixed
+
+- Extended `top_commit_of_branch`, support references which are not branches, like HEAD ([270])
 - Add pygit_repo error handling and fix couple of `git.py` logs ([269])
 
 
+[270]: https://github.com/openlawlibrary/taf/pull/270
 [269]: https://github.com/openlawlibrary/taf/pull/269
 
 ## [0.21.0] - 08/30/2022
