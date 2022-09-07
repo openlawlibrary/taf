@@ -167,7 +167,8 @@ class GitRepository:
     def pygit_repo(self):
         try:
             return self.pygit.repo
-        except Exception:
+        except Exception as e:
+            self._log_info(f"Unable to instantiate pygit2 repo due to error: {str(e)}")
             return None
 
     def _git(self, cmd, *args, **kwargs):
@@ -375,7 +376,7 @@ class GitRepository:
             raise
         finally:
             self._log_info(
-                f"Repo {self.name}: created a new branch {branch_name} from branching off of {commit_sha}"
+                f"Created a new branch {branch_name} from branching off of {commit_sha}"
             )
 
     def branch_local_name(self, remote_branch_name):
@@ -545,7 +546,7 @@ class GitRepository:
             self._log_error(str(e))
             raise
         finally:
-            self._log_info(f"Repo {self.name}: created a new branch {branch_name}")
+            self._log_info(f"Created a new branch {branch_name}")
 
     def create_branch(self, branch_name, commit=None):
         repo = self.pygit_repo
@@ -559,7 +560,7 @@ class GitRepository:
             self._log_error(str(e))
             raise
         finally:
-            self._log_info(f"Repo {self.name}: created a new branch {branch_name}")
+            self._log_info(f"Created a new branch {branch_name}")
 
     def checkout_commit(self, commit):
         self._git(
