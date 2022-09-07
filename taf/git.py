@@ -996,7 +996,13 @@ class GitRepository:
     def top_commit_of_branch(self, branch_name):
         repo = self.pygit_repo
         branch = repo.branches.get(branch_name)
-        return branch.target.hex
+        if branch is not None:
+            return branch.target.hex
+        # a reference like HEAD
+        try:
+            return repo.revparse_single(branch_name).id.hex
+        except Exception:
+            return None
 
     def _validate_repo_name(self, name):
         """Ensure the repo name is not malicious"""
