@@ -165,7 +165,10 @@ class GitRepository:
 
     @property
     def pygit_repo(self):
-        return self.pygit.repo
+        try:
+            return self.pygit.repo
+        except Exception:
+            return None
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
