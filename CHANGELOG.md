@@ -14,12 +14,22 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+## [0.21.1] - 09/07/2022
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Extended `top_commit_of_branch`, support references which are not branches, like HEAD ([270])
 - Add pygit_repo error handling and fix couple of `git.py` logs ([269])
 
 
 [270]: https://github.com/openlawlibrary/taf/pull/270
 [269]: https://github.com/openlawlibrary/taf/pull/269
+
 
 ## [0.21.0] - 08/30/2022
 
@@ -743,7 +753,8 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.21.1...HEAD
+[0.21.1]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.1
 [0.21.0]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/openlawlibrary/taf/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/openlawlibrary/taf/compare/v0.18.0...v0.19.0
