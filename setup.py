@@ -66,7 +66,7 @@ kwargs = {
         "colorama>=0.3.9",
         "oll-tuf==0.11.2.dev9",
         "loguru==0.6.*",
-        "cryptography==3.2.1",
+        "cryptography==38.*",
         "pyOpenSSL==20.0.1",
         "pygit2==1.9.*",
         "cattrs==1.*",
