@@ -2,46 +2,56 @@ import json
 import shutil
 import enum
 import tempfile
-import tuf
-import tuf.client.updater as tuf_updater
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
-from collections import defaultdict
-from pathlib import Path
-from taf.log import taf_logger, disable_tuf_console_logging
-from taf.git import GitRepository
-import taf.repositoriesdb as repositoriesdb
-from taf.auth_repo import AuthenticationRepository
-from taf.utils import timed_run
-import taf.settings as settings
-from taf.exceptions import (
-    ScriptExecutionError,
-    UpdateFailedError,
-    GitError,
-    MissingHostsError,
-    InvalidHostsError,
-    ValidationFailedError,
-)
-from taf.updater.handlers import GitUpdater
-from taf.utils import on_rm_error
-from taf.hosts import (
-    load_hosts_json,
-    set_hosts_of_repo,
-    load_hosts,
-    get_hosts,
-)
-from taf.updater.lifecycle_handlers import (
-    handle_repo_event,
-    handle_host_event,
-    handle_update_event,
-    Event,
-)
+# import tuf
+# import tuf.client.updater as tuf_updater
+# from tuf.repository_tool import TARGETS_DIRECTORY_NAME
+try:
+    from collections import defaultdict
+    from pathlib import Path
+    from taf.log import taf_logger
+    from taf.git import GitRepository
+    from taf.repositoriesdb import (
+        get_repository,
+        load_dependencies,
+        get_deduplicated_auth_repositories,
+        clear_repositories_db,
+        load_repositories,
+        get_deduplicated_repositories,
+    )
+    from taf.auth_repo import AuthenticationRepository
+    from taf.utils import timed_run
+    import taf.settings as settings
+    from taf.exceptions import (
+        ScriptExecutionError,
+        UpdateFailedError,
+        GitError,
+        MissingHostsError,
+        InvalidHostsError,
+        ValidationFailedError,
+    )
+    from taf.updater.handlers import GitUpdater
+    from taf.utils import on_rm_error
+    from taf.hosts import (
+        load_hosts_json,
+        set_hosts_of_repo,
+        load_hosts,
+        get_hosts,
+    )
+    from taf.updater.lifecycle_handlers import (
+        handle_repo_event,
+        handle_host_event,
+        handle_update_event,
+        Event,
+    )
+except ImportError:
+    pass
 from cattr import unstructure
 
 PROTECTED_DIRECTORY_NAME = "protected"
-INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
+INFO_JSON_PATH = f"targets/{PROTECTED_DIRECTORY_NAME}/info.json"
 
-disable_tuf_console_logging()
+# disable_tuf_console_logging()
 
 
 class UpdateType(enum.Enum):
@@ -179,7 +189,7 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
     auth_repo.set_last_validated_commit(commits_data["before_pull"])
 
     for repo_name, repo_data in targets_data.items():
-        repo = repositoriesdb.get_repository(auth_repo, repo_name)
+        repo = get_repository(auth_repo, repo_name)
         for branch, branch_data in repo_data["commits"].items():
             repo.checkout_branch(branch)
             _reset_repository(repo, branch_data)
@@ -486,7 +496,7 @@ def _update_named_repository(
         # need to handle wrong definitions and make sure that the update doesn't fail
         # for now, just take the newest commit and do not worry about updated definitions
         # latest_commit = commits[-1::]
-        repositoriesdb.load_dependencies(
+        load_dependencies(
             auth_repo,
             library_dir=targets_library_dir,
             commits=commits,
@@ -496,7 +506,7 @@ def _update_named_repository(
             errors = []
             # load the repositories from dependencies.json and update these repositories
             # we need to update the repositories before loading hosts data
-            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+            child_auth_repos = get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
             for child_auth_repo in child_auth_repos:
@@ -575,7 +585,7 @@ def _update_named_repository(
             "targets_data": targets_data,
         }
 
-    repositoriesdb.clear_repositories_db()
+    clear_repositories_db()
     if error is not None:
         raise error
 
@@ -603,16 +613,7 @@ def _update_current_repository(
     settings.conf_directory_root = conf_directory_root
     settings.default_branch = default_branch
 
-    # instantiate TUF's updater
-    repository_mirrors = {
-        "mirror1": {
-            "url_prefix": url,
-            "metadata_path": "metadata",
-            "targets_path": "targets",
-            "confined_target_dirs": [""],
-        }
-    }
-    tuf.settings.repositories_directory = clients_auth_library_dir
+    # tuf.settings.repositories_directory = clients_auth_library_dir
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -647,10 +648,10 @@ def _update_current_repository(
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
         auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
-
-        repository_updater = tuf_updater.Updater(
-            auth_repo_name, repository_mirrors, GitUpdater
-        )
+        git_updater = _run_tuf_updater(auth_repo_name, url, clients_auth_library_dir)
+        # repository_updater = tuf_updater.Updater(
+        #     auth_repo_name, repository_mirrors, GitUpdater
+        # )
     except Exception as e:
         # Instantiation of the handler failed - this can happen if the url is not correct
         # of if the saved last validated commit does not match the current head commit
@@ -681,7 +682,7 @@ def _update_current_repository(
         )
     try:
 
-        users_auth_repo = repository_updater.update_handler.users_auth_repo
+        users_auth_repo = git_updater.users_auth_repo
         existing_repo = users_auth_repo.is_git_repository_root
 
         (
@@ -689,7 +690,7 @@ def _update_current_repository(
             error_msg,
             last_validated_commit,
         ) = _validate_authentication_repository(
-            repository_updater,
+            git_updater,
             users_auth_repo,
             out_of_band_authentication,
             auth_repo_name,
@@ -708,7 +709,7 @@ def _update_current_repository(
                 users_auth_repo.clone()
 
         # load target repositories and validate them
-        repositoriesdb.load_repositories(
+        load_repositories(
             users_auth_repo,
             repo_classes=target_repo_classes,
             factory=target_factory,
@@ -718,9 +719,7 @@ def _update_current_repository(
             default_branch=default_branch,
             excluded_target_globs=excluded_target_globs,
         )
-        repositories = repositoriesdb.get_deduplicated_repositories(
-            users_auth_repo, commits
-        )
+        repositories = get_deduplicated_repositories(users_auth_repo, commits)
         repositories_branches_and_commits = (
             users_auth_repo.sorted_commits_and_branches_per_repositories(
                 commits,
@@ -760,59 +759,6 @@ def _update_current_repository(
         _commits_ret(commits, existing_repo, True),
         None,
         targets_data,
-    )
-
-
-def _update_authentication_repository(repository_updater):
-
-    users_auth_repo = repository_updater.update_handler.users_auth_repo
-    taf_logger.info("Validating authentication repository {}", users_auth_repo.name)
-    try:
-        # for each commit, load that revision's metadata and target files
-        # the implementation is based on examples listed in TUF's documentation
-        # (/tuf/client/README.md)
-        while not repository_updater.update_handler.update_done():
-            current_commit = repository_updater.update_handler.current_commit
-            repository_updater.refresh()
-            # using refresh, we have updated all main roles
-            # we still need to update the delegated roles (if there are any)
-            # that is handled by get_one_valid_targetinfo
-            current_targets = repository_updater.update_handler.get_current_targets()
-            taf_logger.debug("Validated metadata files at revision {}", current_commit)
-            for target_path in current_targets:
-                target = repository_updater.get_one_valid_targetinfo(target_path)
-                target_filepath = target["filepath"]
-                trusted_length = target["fileinfo"]["length"]
-                trusted_hashes = target["fileinfo"]["hashes"]
-                try:
-                    # just call get target to validate it instead of callind download_target
-                    repository_updater._get_target_file(
-                        target_filepath, trusted_length, trusted_hashes
-                    )
-                except tuf.exceptions.NoWorkingMirrorError as e:
-                    taf_logger.error("Could not validate file {}", target_filepath)
-                    raise e
-                taf_logger.debug(
-                    "Successfully validated target file {} at {}",
-                    target_filepath,
-                    current_commit,
-                )
-    except Exception as e:
-        # for now, useful for debugging
-        taf_logger.error(
-            "Validation of authentication repository {} failed at revision {} due to error {}",
-            users_auth_repo.name,
-            current_commit,
-            e,
-        )
-
-        raise UpdateFailedError(
-            f"Validation of authentication repository {users_auth_repo.name}"
-            f" failed at revision {current_commit} due to error: {e}"
-        )
-
-    taf_logger.info(
-        "Successfully validated authentication repository {}", users_auth_repo.name
     )
 
 
@@ -975,6 +921,67 @@ def _set_target_old_head_and_validate(
                     taf_logger.error(msg)
                     raise UpdateFailedError(msg)
     return old_head
+
+
+def _run_tuf_updater(repo_name, url, auth_library_dir):
+    from tuf.ngclient import Updater
+
+    git_updater = GitUpdater(url, auth_library_dir, repo_name)
+
+    try:
+        while not git_updater.update_done():
+            updater = Updater(
+                git_updater.metadata_dir_at_revision,
+                "metadata/",
+                git_updater.targets_dir_at_revision,
+                "targets/",
+                fetcher=git_updater,
+            )
+            current_commit = git_updater.current_commit
+            updater.refresh()
+            # using refresh, we have updated all main roles
+            # we still need to update the delegated roles (if there are any)
+            # that is handled by get_one_valid_targetinfo
+            # current_targets = repository_updater.update_handler.get_current_targets()
+            # taf_logger.debug("Validated metadata files at revision {}", current_commit)
+            # for target_path in current_targets:
+            #     target = repository_updater.get_one_valid_targetinfo(target_path)
+            #     target_filepath = target["filepath"]
+            #     trusted_length = target["fileinfo"]["length"]
+            #     trusted_hashes = target["fileinfo"]["hashes"]
+            #     try:
+            #         # just call get target to validate it instead of callind download_target
+            #         repository_updater._get_target_file(
+            #             target_filepath, trusted_length, trusted_hashes
+            #         )
+            #     except tuf.exceptions.NoWorkingMirrorError as e:
+            #         taf_logger.error("Could not validate file {}", target_filepath)
+            #         raise e
+            #     taf_logger.debug(
+            #         "Successfully validated target file {} at {}",
+            #         target_filepath,
+            #         current_commit,
+            #     )
+    except Exception as e:
+        # for now, useful for debugging
+        taf_logger.error(
+            "Validation of authentication repository {} failed at revision {} due to error {}",
+            git_updater.users_auth_repo.name,
+            current_commit,
+            e,
+        )
+
+        raise UpdateFailedError(
+            f"Validation of authentication repository {git_updater.users_auth_repo.name}"
+            f" failed at revision {current_commit} due to error: {e}"
+        )
+
+    taf_logger.info(
+        "Successfully validated authentication repository {}",
+        git_updater.users_auth_repo.name,
+    )
+
+    return git_updater
 
 
 def _get_commits(
@@ -1283,13 +1290,6 @@ def _validate_authentication_repository(
     expected_repo_type,
 ):
     error_msg = None
-    # validate the authentication repository and fetch new commits
-    # if the validation is completed successfully, new commits are fetched (not merged yet)
-    try:
-        _update_authentication_repository(repository_updater)
-    except Exception as e:
-        error_msg = e
-
     # this is the repository cloned inside the temp directory
     # we validate it before updating the actual authentication repository
     validation_auth_repo = repository_updater.update_handler.validation_auth_repo
