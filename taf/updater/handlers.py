@@ -1,10 +1,9 @@
 import os
 import shutil
-import time
+import tempfile
 from pathlib import Path
 
 import securesystemslib
-import tuf.client.handlers as handlers
 
 from taf.exceptions import GitError
 from taf.log import taf_logger
@@ -14,8 +13,11 @@ from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.utils import on_rm_error
 
+from tuf.ngclient.fetcher import FetcherInterface
+from tuf.api.exceptions import DownloadHTTPError
 
-class GitUpdater(handlers.MetadataUpdater):
+
+class GitUpdater(FetcherInterface):
     """
     This class implements parts of the update process specific to keeping
     metadata files and targets in a git repository. The vast majority of the
@@ -72,7 +74,24 @@ class GitUpdater(handlers.MetadataUpdater):
     def previous_commit(self):
         return self.commits[self.current_commit_index - 1]
 
-    def __init__(self, mirrors, repository_directory, repository_name):
+    @property
+    def metadata_dir_at_revision(self):
+        metadata_files = self.validation_auth_repo.list_files_at_revision(
+            self.current_commit, "metadata"
+        )
+        for filename in metadata_files:
+            metadata = self.validation_auth_repo.get_file(
+                self.current_commit, "metadata/" + filename
+            )
+            current_filename = self.metadata_dir_path / filename
+            current_filename.write_text(metadata)
+        return str(self.metadata_dir_path)
+
+    @property
+    def targets_dir_at_revision(self):
+        return self.targets_dir_path
+
+    def __init__(self, url, repository_directory, repository_name):
         """
         Args:
         mirrors: is a dictionary which contains information about each mirror:
@@ -85,11 +104,7 @@ class GitUpdater(handlers.MetadataUpdater):
         We use url_prefix to specify url of the git repository which we want to clone.
         repository_directory: the client's local repository's location
         """
-        super(GitUpdater, self).__init__(mirrors, repository_directory, repository_name)
-
-        auth_url = mirrors["mirror1"]["url_prefix"]
-        self.metadata_path = mirrors["mirror1"]["metadata_path"]
-        self.targets_path = mirrors["mirror1"]["targets_path"]
+        auth_url = url
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
         validation_path = settings.validation_repo_path
@@ -118,13 +133,28 @@ class GitUpdater(handlers.MetadataUpdater):
         self._init_commits()
 
         self.repository_directory = str(repository_directory)
+
+        tmp_dir = tempfile.mkdtemp()
+        metadata_path = Path(tmp_dir, "metadata")
+        metadata_path.mkdir(parents=True, exist_ok=True)
+        targets_path = Path(tmp_dir, "targets")
+        targets_path.mkdir(parents=True, exist_ok=True)
+
+        self.metadata_dir_path = metadata_path
+        self.targets_dir_path = targets_path
+
+    def _fetch(self, url):
         try:
-            self._init_metadata()
-        except Exception:
-            self.cleanup()
-            raise UpdateFailedError(
-                "Could not load metadata. Check if the URL and filesystem paths are correct."
-            )
+            return self._get_file(self.current_commit, url)
+        except GitError:
+            raise DownloadHTTPError(f"Could not find {url}", status_code=404)
+        except Exception as e:
+            raise e
+
+    def is_valid_reference_time(self):
+        if self.current_commit_index < len(self.commits) - 1:
+            return False
+        return True
 
     def _init_commits(self):
         """
@@ -200,41 +230,6 @@ class GitUpdater(handlers.MetadataUpdater):
         self.users_head_sha = users_head_sha
         self.current_commit_index = 0
 
-    def _init_metadata(self):
-        """
-        TUF updater expects the existence of two directories in the client's
-        metadata directory - current and previous. These directories store
-        the current and previous metadata files (before and after the update).
-        They must exists and contain at least root.json. Otherwise, update will
-        fail. We actually want to validate the remote authentication repository,
-        but will create the directories where TUF expects them to be in order
-        to avoid modifying the updater.
-        """
-        # create current and previous directories and copy the metadata files
-        # needed by the updater
-        # TUF's updater expects these directories to be in the client's repository
-        # read metadata of the cloned validation repo at the initial commit
-
-        metadata_path = Path(self.repository_directory, "metadata")
-        metadata_path.mkdir(parents=True, exist_ok=True)
-        self.metadata_dir_path = metadata_path
-        self.current_path = Path(metadata_path, "current")
-        self.current_path.mkdir()
-        self.previous_path = Path(metadata_path, "previous")
-        self.previous_path.mkdir()
-
-        metadata_files = self.validation_auth_repo.list_files_at_revision(
-            self.current_commit, "metadata"
-        )
-        for filename in metadata_files:
-            metadata = self.validation_auth_repo.get_file(
-                self.current_commit, "metadata/" + filename
-            )
-            current_filename = self.current_path / filename
-            previous_filename = self.previous_path / filename
-            current_filename.write_text(metadata)
-            shutil.copyfile(str(current_filename), str(previous_filename))
-
     def set_validation_repo(self, path, url):
         """
         Used outside of GitUpdater to access validation auth repo.
@@ -258,28 +253,6 @@ class GitUpdater(handlers.MetadataUpdater):
         if temp_dir.is_dir():
             shutil.rmtree(str(temp_dir), onerror=on_rm_error)
 
-    def earliest_valid_expiration_time(self):
-        # Only validate expiration time of the last commit
-        if self.current_commit_index < len(self.commits) - 1:
-            return 0
-        return int(time.time())
-
-    def ensure_not_changed(self, metadata_filename):
-        """
-        Make sure that the metadata file remained the same, as the reference metadata suggests.
-        """
-        current_file = self.get_metadata_file(
-            self.current_commit, file_name=metadata_filename
-        )
-        previous_file = self.get_metadata_file(
-            self.previous_commit, file_name=metadata_filename
-        )
-        if current_file.read() != previous_file.read():
-            raise UpdateFailedError(
-                f"Metadata file {metadata_filename} should be the same at revisions"
-                f" {self.previous_commit} and {self.current_commit}, but is not."
-            )
-
     def get_current_targets(self):
         try:
             return self.validation_auth_repo.list_files_at_revision(
@@ -288,22 +261,9 @@ class GitUpdater(handlers.MetadataUpdater):
         except GitError:
             return []
 
-    def get_mirrors(self, _file_type, _file_path):
-        # pylint: disable=unused-argument
-        # return a list containing just the current commit
-        return [self.current_commit]
-
-    def get_metadata_file(self, file_mirror, file_name, _upperbound_filelength=None):
-        return self._get_file(file_mirror, "metadata/" + file_name)
-
-    def get_target_file(self, file_mirror, _file_length, _download_safely, file_path):
-        return self._get_file(file_mirror, "targets/" + file_path)
-
     def _get_file(self, commit, filepath):
-        f = self.validation_auth_repo.get_file(commit, filepath)
-        temp_file_object = securesystemslib.util.TempFile()
-        temp_file_object.write(f.encode())
-        return temp_file_object
+        bytes = self.validation_auth_repo.get_file(commit, filepath, raw=True)
+        return [bytes]
 
     def get_file_digest(self, filepath, algorithm):
         filepath = Path(filepath).relative_to(self.validation_auth_repo.get_file)
