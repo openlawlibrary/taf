@@ -89,7 +89,16 @@ class GitUpdater(FetcherInterface):
 
     @property
     def targets_dir_at_revision(self):
-        return self.targets_dir_path
+        target_files = self.get_current_targets()
+        for target_file in target_files:
+            targetdata = self.validation_auth_repo.get_file(
+                self.current_commit, "targets/" + target_file
+            )
+            current_filename = self.targets_dir_path / target_file
+            if not current_filename.exists() and not current_filename.parent.exists():
+                current_filename.parent.mkdir(parents=True, exist_ok=True)
+            current_filename.write_text(targetdata)
+        return str(self.targets_dir_path)
 
     def __init__(self, url, repository_directory, repository_name):
         """
