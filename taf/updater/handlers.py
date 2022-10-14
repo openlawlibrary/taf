@@ -268,23 +268,6 @@ class GitUpdater(FetcherInterface):
             self.current_commit, f"targets/{filepath}", raw=raw
         )
 
-    # def _get_file(self, commit, filepath):
-    #     bytes = self.validation_auth_repo.get_file(commit, filepath, raw=True)
-    #     return [bytes]
-
-    # def get_file_digest(self, filepath, algorithm):
-    #     filepath = Path(filepath).relative_to(self.validation_auth_repo.get_file)
-    #     file_obj = self._get_file(self.current_commit, filepath)
-    #     return securesystemslib.hash.digest_fileobject(file_obj, algorithm=algorithm)
-
-    # def on_successful_update(self, filename, mirror):
-    #     # after the is successfully completed, set the
-    #     # next commit as current for the given file
-    #     taf_logger.debug("{} updated from commit {}", filename, mirror)
-
-    # def on_unsuccessful_update(self, filename):
-    #     taf_logger.error("Failed to update {}", filename)
-
     def update_done(self):
         # the only metadata file that is always updated
         # regardless of if it changed or not is timestamp
