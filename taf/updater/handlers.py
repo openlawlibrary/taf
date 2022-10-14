@@ -3,8 +3,6 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import securesystemslib
-
 from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
@@ -75,30 +73,12 @@ class GitUpdater(FetcherInterface):
         return self.commits[self.current_commit_index - 1]
 
     @property
-    def metadata_dir_at_revision(self):
-        metadata_files = self.validation_auth_repo.list_files_at_revision(
-            self.current_commit, "metadata"
-        )
-        for filename in metadata_files:
-            metadata = self.validation_auth_repo.get_file(
-                self.current_commit, "metadata/" + filename
-            )
-            current_filename = self.metadata_dir_path / filename
-            current_filename.write_text(metadata)
+    def metadata_dir(self):
         return str(self.metadata_dir_path)
 
     @property
-    def targets_dir_at_revision(self):
-        target_files = self.get_current_targets()
-        for target_file in target_files:
-            targetdata = self.validation_auth_repo.get_file(
-                self.current_commit, "targets/" + target_file
-            )
-            current_filename = self.targets_dir_path / target_file
-            if not current_filename.exists() and not current_filename.parent.exists():
-                current_filename.parent.mkdir(parents=True, exist_ok=True)
-            current_filename.write_text(targetdata)
-        return str(self.targets_dir_path)
+    def targets_dir(self):
+        return str(self.validation_auth_repo.path / "targets")
 
     def __init__(self, url, repository_directory, repository_name):
         """
@@ -146,15 +126,16 @@ class GitUpdater(FetcherInterface):
         tmp_dir = tempfile.mkdtemp()
         metadata_path = Path(tmp_dir, "metadata")
         metadata_path.mkdir(parents=True, exist_ok=True)
-        targets_path = Path(tmp_dir, "targets")
-        targets_path.mkdir(parents=True, exist_ok=True)
 
         self.metadata_dir_path = metadata_path
-        self.targets_dir_path = targets_path
+
+        self._init_metadata()
 
     def _fetch(self, url):
         try:
-            return self._get_file(self.current_commit, url)
+            return [
+                self.validation_auth_repo.get_file(self.current_commit, url, raw=True)
+            ]
         except GitError:
             raise DownloadHTTPError(f"Could not find {url}", status_code=404)
         except Exception as e:
@@ -239,13 +220,25 @@ class GitUpdater(FetcherInterface):
         self.users_head_sha = users_head_sha
         self.current_commit_index = 0
 
+    def _init_metadata(self):
+        """TODO: docstring"""
+        metadata_files = self.validation_auth_repo.list_files_at_revision(
+            self.current_commit, "metadata"
+        )
+        for filename in metadata_files:
+            metadata = self.validation_auth_repo.get_file(
+                self.current_commit, "metadata/" + filename
+            )
+            current_filename = self.metadata_dir_path / filename
+            current_filename.write_text(metadata)
+
     def set_validation_repo(self, path, url):
         """
         Used outside of GitUpdater to access validation auth repo.
         """
         self.validation_auth_repo = GitRepository(path=path, urls=[url])
 
-    def cleanup(self):
+    def cleanup(self):  # TODO: rework
         """
         Removes the bare authentication repository and current and previous
         directories. This should be called after the update is finished,
@@ -270,22 +263,27 @@ class GitUpdater(FetcherInterface):
         except GitError:
             return []
 
-    def _get_file(self, commit, filepath):
-        bytes = self.validation_auth_repo.get_file(commit, filepath, raw=True)
-        return [bytes]
+    def get_current_target_data(self, filepath, raw=False):
+        return self.validation_auth_repo.get_file(
+            self.current_commit, f"targets/{filepath}", raw=raw
+        )
 
-    def get_file_digest(self, filepath, algorithm):
-        filepath = Path(filepath).relative_to(self.validation_auth_repo.get_file)
-        file_obj = self._get_file(self.current_commit, filepath)
-        return securesystemslib.hash.digest_fileobject(file_obj, algorithm=algorithm)
+    # def _get_file(self, commit, filepath):
+    #     bytes = self.validation_auth_repo.get_file(commit, filepath, raw=True)
+    #     return [bytes]
 
-    def on_successful_update(self, filename, mirror):
-        # after the is successfully completed, set the
-        # next commit as current for the given file
-        taf_logger.debug("{} updated from commit {}", filename, mirror)
+    # def get_file_digest(self, filepath, algorithm):
+    #     filepath = Path(filepath).relative_to(self.validation_auth_repo.get_file)
+    #     file_obj = self._get_file(self.current_commit, filepath)
+    #     return securesystemslib.hash.digest_fileobject(file_obj, algorithm=algorithm)
 
-    def on_unsuccessful_update(self, filename):
-        taf_logger.error("Failed to update {}", filename)
+    # def on_successful_update(self, filename, mirror):
+    #     # after the is successfully completed, set the
+    #     # next commit as current for the given file
+    #     taf_logger.debug("{} updated from commit {}", filename, mirror)
+
+    # def on_unsuccessful_update(self, filename):
+    #     taf_logger.error("Failed to update {}", filename)
 
     def update_done(self):
         # the only metadata file that is always updated

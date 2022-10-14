@@ -648,10 +648,8 @@ def _update_current_repository(
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
         auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
-        git_updater = _run_tuf_updater(auth_repo_name, url, clients_auth_library_dir)
-        # repository_updater = tuf_updater.Updater(
-        #     auth_repo_name, repository_mirrors, GitUpdater
-        # )
+        git_updater = GitUpdater(url, clients_auth_library_dir, auth_repo_name)
+        _run_tuf_updater(git_updater)
     except Exception as e:
         # Instantiation of the handler failed - this can happen if the url is not correct
         # of if the saved last validated commit does not match the current head commit
@@ -923,22 +921,40 @@ def _set_target_old_head_and_validate(
     return old_head
 
 
-def _run_tuf_updater(repo_name, url, auth_library_dir):
+def _run_tuf_updater(git_updater):
     from tuf.ngclient import Updater
 
-    git_updater = GitUpdater(url, auth_library_dir, repo_name)
     try:
         while not git_updater.update_done():
             updater = Updater(
-                git_updater.metadata_dir_at_revision,
+                git_updater.metadata_dir,
                 "metadata/",
-                git_updater.targets_dir_at_revision,
+                git_updater.targets_dir,
                 "targets/",
                 fetcher=git_updater,
             )
+
             current_commit = git_updater.current_commit
             updater.refresh()
-            taf_logger.info("Validated metadata files at revision {}", current_commit)
+            taf_logger.debug("Validated metadata files at revision {}", current_commit)
+            # using refresh, we have updated all main roles
+            # we still need to update the delegated roles (if there are any)
+            # and validate any target files
+            current_targets = git_updater.get_current_targets()
+            for target_path in current_targets:
+                target_filepath = target_path.replace("\\", "/")
+
+                targetinfo = updater.get_targetinfo(target_filepath)
+                target_data = git_updater.get_current_target_data(
+                    target_filepath, raw=True
+                )
+                targetinfo.verify_length_and_hashes(target_data)
+
+                taf_logger.debug(
+                    "Successfully validated target file {} at {}",
+                    target_filepath,
+                    current_commit,
+                )
     except Exception as e:
         # for now, useful for debugging
         taf_logger.error(
@@ -952,12 +968,10 @@ def _run_tuf_updater(repo_name, url, auth_library_dir):
             f"Validation of authentication repository {git_updater.users_auth_repo.name}"
             f" failed at revision {current_commit} due to error: {e}"
         )
-
     taf_logger.info(
         "Successfully validated authentication repository {}",
         git_updater.users_auth_repo.name,
     )
-    return git_updater
 
 
 def _get_commits(
@@ -1309,30 +1323,3 @@ def _validate_authentication_repository(
         error_msg,
         last_validated_commit,
     )
-
-
-# def _validate_targets(git_updater):
-# using refresh, we have updated all main roles
-# we still need to update the delegated roles (if there are any)
-# that is handled by get_targetinfo
-# current_targets = git_updater.get_current_targets()
-# for target_path in current_targets:
-#     breakpoint()
-#     targetinfo = updater.get_targetinfo(target_path)
-#     updater.download_target(targetinfo)
-#     target_filepath = target["filepath"]
-#     trusted_length = target["fileinfo"]["length"]
-#     trusted_hashes = target["fileinfo"]["hashes"]
-#     try:
-#         # just call get target to validate it instead of callind download_target
-#         repository_updater._get_target_file(
-#             target_filepath, trusted_length, trusted_hashes
-#         )
-#     except tuf.exceptions.NoWorkingMirrorError as e:
-#         taf_logger.error("Could not validate file {}", target_filepath)
-#         raise e
-#     taf_logger.debug(
-#         "Successfully validated target file {} at {}",
-#         target_filepath,
-#         current_commit,
-#     )
