@@ -136,7 +136,13 @@ class GitUpdater(FetcherInterface):
 
         self.metadata_dir_path = metadata_path
 
-        self._init_metadata()
+        try:
+            self._init_metadata()
+        except Exception:
+            self.cleanup()
+            raise UpdateFailedError(
+                "Could not load metadata. Check if the URL and filesystem paths are correct."
+            )
 
     def _fetch(self, url):
         try:
@@ -228,7 +234,14 @@ class GitUpdater(FetcherInterface):
         self.current_commit_index = 0
 
     def _init_metadata(self):
-        """TODO: docstring"""
+        """
+        TUF updater expects the existence of a client
+        metadata directory. This directory stores
+        the current metadata files (which will get updated after the update).
+        Directory must exist and contain at least root.json. Otherwise, update will
+        fail. We actually want to validate the remote authentication repository,
+        but will create a Temp directory in order to avoid modifying the updater.
+        """
         metadata_files = self.validation_auth_repo.list_files_at_revision(
             self.current_commit, "metadata"
         )
