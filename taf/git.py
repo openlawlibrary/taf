@@ -660,10 +660,8 @@ class GitRepository:
 
     def get_file(self, commit, path, raw=False, with_id=False):
         path = Path(path).as_posix()
-        if raw:
-            return self._git("show {}:{}", commit, path, raw=raw)
         try:
-            git_id, content = self.pygit.get_file(commit, path)
+            git_id, content = self.pygit.get_file(commit, path, raw)
             if with_id:
                 return git_id, content
             return content

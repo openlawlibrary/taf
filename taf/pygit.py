@@ -1,4 +1,5 @@
 import pygit2
+from collections import defaultdict
 from taf.log import taf_logger as logger
 from taf.exceptions import GitError
 import os.path
@@ -15,7 +16,7 @@ class PyGitRepository:
         self.path = encapsulating_repo.path
         self.repo = pygit2.Repository(str(self.path))
 
-    _files_cache = {}
+    _files_cache = defaultdict(dict)
 
     def _get_child(self, parent, path_part):
         """
@@ -63,7 +64,7 @@ class PyGitRepository:
         """
         self.repo.free()
 
-    def get_file(self, commit, path):
+    def get_file(self, commit, path, raw=False):
         """
         for the given commit string,
         return the string contents of the blob at the
@@ -78,10 +79,14 @@ class PyGitRepository:
             )
         else:
             git_id = blob.hex
-            if git_id not in self._files_cache:
-                content = blob.read_raw().decode()
-                self._files_cache[git_id] = content
-            return git_id, self._files_cache[git_id]
+            type = "raw" if raw else "decoded"
+            if (
+                git_id not in self._files_cache
+                or type not in self._files_cache[git_id].keys()
+            ):
+                content = blob.read_raw() if raw else blob.read_raw().decode()
+                self._files_cache[git_id] |= {type: content}
+            return git_id, self._files_cache[git_id][type]
 
     def _list_files_at_revision(self, tree, path="", results=None):
         """
