@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from tuf.ngclient._internal import trusted_metadata_set
 from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
@@ -10,6 +11,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.utils import on_rm_error
+from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 
 from tuf.ngclient.fetcher import FetcherInterface
 from tuf.api.exceptions import DownloadHTTPError
@@ -93,6 +95,11 @@ class GitUpdater(FetcherInterface):
         We use url_prefix to specify url of the git repository which we want to clone.
         repository_directory: the client's local repository's location
         """
+        self._original_tuf_trusted_metadata_set = (
+            trusted_metadata_set.TrustedMetadataSet
+        )
+        self._patch_tuf_metadata_set(GitTrustedMetadataSet)
+
         auth_url = url
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
@@ -232,6 +239,13 @@ class GitUpdater(FetcherInterface):
             current_filename = self.metadata_dir_path / filename
             current_filename.write_text(metadata)
 
+    def _patch_tuf_metadata_set(self, cls):
+        """
+        Used to address TUF metadata expiration.
+        We skip validating expiration for metadata in older commits and
+        revert-back to TUF metadata validation on the latest commit"""
+        trusted_metadata_set.TrustedMetadataSet = cls
+
     def set_validation_repo(self, path, url):
         """
         Used outside of GitUpdater to access validation auth repo.
@@ -269,9 +283,11 @@ class GitUpdater(FetcherInterface):
         )
 
     def update_done(self):
-        # the only metadata file that is always updated
-        # regardless of if it changed or not is timestamp
-        # so we can check if timestamp was updated a certain
-        # number of times
+        """Used to indicate whether updater has finished with update.
+        Update is considered done when all commits have been validated"""
         self.current_commit_index += 1
+
+        if self.current_commit_index == (len(self.commits) - 1):
+            self._patch_tuf_metadata_set(self._original_tuf_trusted_metadata_set)
+
         return self.current_commit_index == len(self.commits)
