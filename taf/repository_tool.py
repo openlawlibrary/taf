@@ -9,10 +9,10 @@ from pathlib import Path
 
 import securesystemslib
 import tuf.roledb
-from securesystemslib.exceptions import Error as SSLibError, RepositoryError
+from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
-from securesystemslib.util import HASH_FUNCTION, get_file_details
-from tuf.exceptions import Error as TUFError
+from securesystemslib.util import get_file_details
+from tuf.exceptions import Error as TUFError, RepositoryError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
@@ -52,6 +52,7 @@ role_keys_cache = {}
 
 
 DISABLE_KEYS_CACHING = False
+HASH_FUNCTION = "sha256"
 
 
 def get_role_metadata_path(role):
