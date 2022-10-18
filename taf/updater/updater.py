@@ -3,55 +3,46 @@ import shutil
 import enum
 import tempfile
 
-# import tuf
-# import tuf.client.updater as tuf_updater
-# from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-try:
-    from collections import defaultdict
-    from pathlib import Path
-    from taf.log import taf_logger
-    from taf.git import GitRepository
-    from taf.repositoriesdb import (
-        get_repository,
-        load_dependencies,
-        get_deduplicated_auth_repositories,
-        clear_repositories_db,
-        load_repositories,
-        get_deduplicated_repositories,
-    )
-    from taf.auth_repo import AuthenticationRepository
-    from taf.utils import timed_run
-    import taf.settings as settings
-    from taf.exceptions import (
-        ScriptExecutionError,
-        UpdateFailedError,
-        GitError,
-        MissingHostsError,
-        InvalidHostsError,
-        ValidationFailedError,
-    )
-    from taf.updater.handlers import GitUpdater
-    from taf.utils import on_rm_error
-    from taf.hosts import (
-        load_hosts_json,
-        set_hosts_of_repo,
-        load_hosts,
-        get_hosts,
-    )
-    from taf.updater.lifecycle_handlers import (
-        handle_repo_event,
-        handle_host_event,
-        handle_update_event,
-        Event,
-    )
-except ImportError:
-    pass
+
+from tuf.ngclient.updater import Updater
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
+
+from collections import defaultdict
+from pathlib import Path
+from taf.log import taf_logger, disable_tuf_console_logging
+from taf.git import GitRepository
+import taf.repositoriesdb as repositoriesdb
+from taf.auth_repo import AuthenticationRepository
+from taf.utils import timed_run
+import taf.settings as settings
+from taf.exceptions import (
+    ScriptExecutionError,
+    UpdateFailedError,
+    GitError,
+    MissingHostsError,
+    InvalidHostsError,
+    ValidationFailedError,
+)
+from taf.updater.handlers import GitUpdater
+from taf.utils import on_rm_error
+from taf.hosts import (
+    load_hosts_json,
+    set_hosts_of_repo,
+    load_hosts,
+    get_hosts,
+)
+from taf.updater.lifecycle_handlers import (
+    handle_repo_event,
+    handle_host_event,
+    handle_update_event,
+    Event,
+)
 from cattr import unstructure
 
 PROTECTED_DIRECTORY_NAME = "protected"
-INFO_JSON_PATH = f"targets/{PROTECTED_DIRECTORY_NAME}/info.json"
+INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
-# disable_tuf_console_logging()
+disable_tuf_console_logging()
 
 
 class UpdateType(enum.Enum):
@@ -189,7 +180,7 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
     auth_repo.set_last_validated_commit(commits_data["before_pull"])
 
     for repo_name, repo_data in targets_data.items():
-        repo = get_repository(auth_repo, repo_name)
+        repo = repositoriesdb.get_repository(auth_repo, repo_name)
         for branch, branch_data in repo_data["commits"].items():
             repo.checkout_branch(branch)
             _reset_repository(repo, branch_data)
@@ -496,7 +487,7 @@ def _update_named_repository(
         # need to handle wrong definitions and make sure that the update doesn't fail
         # for now, just take the newest commit and do not worry about updated definitions
         # latest_commit = commits[-1::]
-        load_dependencies(
+        repositoriesdb.load_dependencies(
             auth_repo,
             library_dir=targets_library_dir,
             commits=commits,
@@ -506,7 +497,7 @@ def _update_named_repository(
             errors = []
             # load the repositories from dependencies.json and update these repositories
             # we need to update the repositories before loading hosts data
-            child_auth_repos = get_deduplicated_auth_repositories(
+            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
             for child_auth_repo in child_auth_repos:
@@ -585,7 +576,7 @@ def _update_named_repository(
             "targets_data": targets_data,
         }
 
-    clear_repositories_db()
+    repositoriesdb.clear_repositories_db()
     if error is not None:
         raise error
 
@@ -707,7 +698,7 @@ def _update_current_repository(
                 users_auth_repo.clone()
 
         # load target repositories and validate them
-        load_repositories(
+        repositoriesdb.load_repositories(
             users_auth_repo,
             repo_classes=target_repo_classes,
             factory=target_factory,
@@ -717,7 +708,9 @@ def _update_current_repository(
             default_branch=default_branch,
             excluded_target_globs=excluded_target_globs,
         )
-        repositories = get_deduplicated_repositories(users_auth_repo, commits)
+        repositories = repositoriesdb.get_deduplicated_repositories(
+            users_auth_repo, commits
+        )
         repositories_branches_and_commits = (
             users_auth_repo.sorted_commits_and_branches_per_repositories(
                 commits,
@@ -922,8 +915,6 @@ def _set_target_old_head_and_validate(
 
 
 def _run_tuf_updater(git_updater):
-    from tuf.ngclient import Updater
-
     try:
         while not git_updater.update_done():
             updater = Updater(
