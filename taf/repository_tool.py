@@ -236,8 +236,11 @@ class Repository:
         custom: custom target data
         """
         file_path = str(Path(file_path).absolute())
+        targets_directory_length = len(targets_obj._targets_directory) + 1
+        relative_path = file_path[targets_directory_length:].replace("\\", "/")
         normalize_file_line_endings(file_path)
-        targets_obj.add_target(file_path, custom)
+
+        targets_obj.add_target(relative_path, custom)
 
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
