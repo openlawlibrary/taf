@@ -35,7 +35,7 @@ def test_sign_piv_rsa_pkcs1v15(targets_yk):
     if targets_yk.scheme == "rsassa-pss-sha256":
         pytest.skip()
 
-    from securesystemslib.pyca_crypto_keys import verify_rsa_signature
+    from securesystemslib.rsa_keys import verify_rsa_signature
 
     message = b"Message to be signed."
     scheme = "rsa-pkcs1v15-sha256"
