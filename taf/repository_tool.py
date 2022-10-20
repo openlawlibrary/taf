@@ -142,8 +142,6 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     """
     from binascii import hexlify
 
-    data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
-
     def _check_key_and_get_pin(expected_key_id):
         try:
             inserted_key = yk.get_piv_public_key_tuf()
