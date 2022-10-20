@@ -957,7 +957,7 @@ class Repository:
         - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
         - securesystemslib.exceptions.UnknownRoleError: If role does not exist
         """
-        securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
+        securesystemslib.formats.NAME_SCHEMA.check_match(role)
 
         if public_key is None:
             public_key = yk.get_piv_public_key_tuf()
