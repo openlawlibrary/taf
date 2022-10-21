@@ -1,3 +1,9 @@
 0000000000000000000000000000000000000000 1b584d29e91d1b6ce66ee18936e3c57ee98ad979 Renata <vrenata8@gmail.com> 1585692738 +0200	commit (initial): Initial metadata
 1b584d29e91d1b6ce66ee18936e3c57ee98ad979 36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 Renata <vrenata8@gmail.com> 1585692827 +0200	commit: Added targets
 36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 ab7eb514aee426935a77e00c524aa92c892d5e96 Renata <vrenata8@gmail.com> 1585692920 +0200	commit: Updated root
+ab7eb514aee426935a77e00c524aa92c892d5e96 31ac13e3b5bf315681298ba29b44fd4aa6b9843d n-dusan <nikolic.dusan.dey@gmail.com> 1666354883 +0200	commit: Update 2.root.json
+31ac13e3b5bf315681298ba29b44fd4aa6b9843d 36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 n-dusan <nikolic.dusan.dey@gmail.com> 1666355242 +0200	reset: moving to @~2
+36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 n-dusan <nikolic.dusan.dey@gmail.com> 1666355303 +0200	reset: moving to HEAD
+36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 daf4978898dc354e430735e5f1a1bb8e828a8b19 n-dusan <nikolic.dusan.dey@gmail.com> 1666355408 +0200	commit: Update root and 2.root.json
+daf4978898dc354e430735e5f1a1bb8e828a8b19 36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 n-dusan <nikolic.dusan.dey@gmail.com> 1666356426 +0200	reset: moving to @~1
+36b48d2c5ec7ef114c18c74a7ab9cb1a7f85d7c1 dfb0c9d4bb8c3136c463e2de35361ccf3b606afd n-dusan <nikolic.dusan.dey@gmail.com> 1666356476 +0200	commit: Update root and 2.root.json
