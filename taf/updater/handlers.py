@@ -154,11 +154,6 @@ class GitUpdater(FetcherInterface):
         except Exception as e:
             raise e
 
-    def is_valid_reference_time(self):
-        if self.current_commit_index < len(self.commits) - 1:
-            return False
-        return True
-
     def _init_commits(self):
         """
         Given a client's local repository which needs to be updated, creates a list
@@ -265,17 +260,13 @@ class GitUpdater(FetcherInterface):
         """
         self.validation_auth_repo = GitRepository(path=path, urls=[url])
 
-    def cleanup(self):  # TODO: rework
+    def cleanup(self):
         """
-        Removes the bare authentication repository and current and previous
-        directories. This should be called after the update is finished,
+        Removes the bare authentication repository and metadata
+        directory. This should be called after the update is finished,
         either successfully or unsuccessfully.
         """
-        if self.current_path.is_dir():
-            shutil.rmtree(self.current_path)
-        if self.previous_path.is_dir():
-            shutil.rmtree(self.previous_path)
-        if len(list(self.metadata_dir_path.glob("*"))) == 0:
+        if self.metadata_dir_path.is_dir():
             shutil.rmtree(self.metadata_dir_path)
         self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
