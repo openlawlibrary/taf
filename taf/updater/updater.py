@@ -635,12 +635,13 @@ def _update_current_repository(
             if auth_repo_name is not None
             else True
         )
-
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
         auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
         git_updater = GitUpdater(url, clients_auth_library_dir, auth_repo_name)
         _run_tuf_updater(git_updater)
+    except UpdateFailedError as e:
+        raise e
     except Exception as e:
         # Instantiation of the handler failed - this can happen if the url is not correct
         # of if the saved last validated commit does not match the current head commit
@@ -915,17 +916,21 @@ def _set_target_old_head_and_validate(
 
 
 def _run_tuf_updater(git_updater):
-    try:
-        while not git_updater.update_done():
-            updater = Updater(
+    def _init_updater():
+        try:
+            return Updater(
                 git_updater.metadata_dir,
                 "metadata/",
                 git_updater.targets_dir,
                 "targets/",
                 fetcher=git_updater,
             )
+        except Exception as e:
+            raise e
 
-            current_commit = git_updater.current_commit
+    def _update_tuf_current_revision():
+        current_commit = git_updater.current_commit
+        try:
             updater.refresh()
             taf_logger.debug("Validated metadata files at revision {}", current_commit)
             # using refresh, we have updated all main roles
@@ -946,19 +951,24 @@ def _run_tuf_updater(git_updater):
                     target_filepath,
                     current_commit,
                 )
-    except Exception as e:
-        # for now, useful for debugging
-        taf_logger.error(
-            "Validation of authentication repository {} failed at revision {} due to error {}",
-            git_updater.users_auth_repo.name,
-            current_commit,
-            e,
-        )
+        except Exception as e:
+            # for now, useful for debugging
+            taf_logger.error(
+                "Validation of authentication repository {} failed at revision {} due to error {}",
+                git_updater.users_auth_repo.name,
+                current_commit,
+                e,
+            )
 
-        raise UpdateFailedError(
-            f"Validation of authentication repository {git_updater.users_auth_repo.name}"
-            f" failed at revision {current_commit} due to error: {e}"
-        )
+            raise UpdateFailedError(
+                f"Validation of authentication repository {git_updater.users_auth_repo.name}"
+                f" failed at revision {current_commit} due to error: {e}"
+            )
+
+    while not git_updater.update_done():
+        updater = _init_updater()
+        _update_tuf_current_revision()
+
     taf_logger.info(
         "Successfully validated authentication repository {}",
         git_updater.users_auth_repo.name,
@@ -1273,8 +1283,8 @@ def _validate_authentication_repository(
     error_msg = None
     # this is the repository cloned inside the temp directory
     # we validate it before updating the actual authentication repository
-    validation_auth_repo = repository_updater.update_handler.validation_auth_repo
-    commits = repository_updater.update_handler.commits
+    validation_auth_repo = repository_updater.validation_auth_repo
+    commits = repository_updater.commits
 
     if (
         out_of_band_authentication is not None
@@ -1307,7 +1317,7 @@ def _validate_authentication_repository(
                 ' but update was called with the "--expected-repo-type" test'
             )
     # always cleanup repository updater
-    repository_updater.update_handler.cleanup()
+    repository_updater.cleanup()
 
     return (
         commits,
