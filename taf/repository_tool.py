@@ -442,7 +442,7 @@ class Repository:
             )
         )
 
-    def get_singed_targets_with_custom_data(self, roles):
+    def get_signed_targets_with_custom_data(self, roles):
         """Return all target files signed by the specified roles and and their custom data
         as specified in the metadata files
 

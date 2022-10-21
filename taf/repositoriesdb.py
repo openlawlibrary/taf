@@ -609,7 +609,7 @@ def _load_mirrors_json(auth_repo, commit):
 def _targets_of_roles(auth_repo, commit, roles=None):
 
     with auth_repo.repository_at_revision(commit):
-        return auth_repo.get_singed_targets_with_custom_data(roles)
+        return auth_repo.get_signed_targets_with_custom_data(roles)
 
 
 def repositories_loaded(auth_repo):
