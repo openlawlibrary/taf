@@ -728,9 +728,8 @@ def _update_current_repository(
             checkout,
         )
     except Exception as e:
-
         if not existing_repo:
-            shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
+            shutil.rmtree(users_auth_repo.path, ignore_errors=True)
             shutil.rmtree(users_auth_repo.conf_dir)
             commits = None
         return (
