@@ -3,6 +3,8 @@ import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
+
+from tuf.ngclient._internal import trusted_metadata_set
 import taf.repository_tool as repository_tool
 import taf.yubikey
 import taf.repositoriesdb as repositoriesdb
@@ -42,6 +44,8 @@ UPDATE_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "upda
 REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
 HOST_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "host"
 UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "update"
+
+original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
 
 def pytest_configure(config):
@@ -147,6 +151,11 @@ def repositoriesdb_test_repositories():
     test_dir = "test-repositoriesdb"
     with origin_repos_group(test_dir) as origins:
         yield origins
+
+
+@fixture(autouse=True)
+def reset_tuf_patch():
+    trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
 
 
 @fixture
