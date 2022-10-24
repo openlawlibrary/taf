@@ -73,13 +73,10 @@ NO_WORKING_MIRRORS = (
     f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
 )
 NO_REPOSITORY_INFO_JSON = "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
-ROOT_EXPIRED = "Metadata 'root' expired"
-REPLAYED_METADATA = "ReplayedMetadataError"
+ROOT_EXPIRED = "Final root.json is expired"
+REPLAYED_METADATA = "New timestamp version 3 must be >= 4"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
 NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
-METADATA_CHANGED_BUT_SHOULDNT = (
-    "Metadata file targets.json should be the same at revisions"
-)
 LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
 
 disable_console_logging()
@@ -239,7 +236,6 @@ def test_no_update_necessary(
         ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH, True),
         ("test-updater-wrong-key", NO_WORKING_MIRRORS, True),
         ("test-updater-invalid-version-number", REPLAYED_METADATA, True),
-        ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT, True),
         ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH, True),
         ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True),
         ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS, True),
