@@ -10,10 +10,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-### Changed 
+### Changed
+
+- Upgraded our TUF fork to newer version ([273])
 
 ### Fixed
 
+- Remove pins for `cryptography`, `PyOpenSSL` ([273])
+
+[273]: https://github.com/openlawlibrary/taf/pull/273
 
 ## [0.21.1] - 09/07/2022
 
