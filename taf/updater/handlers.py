@@ -35,24 +35,22 @@ class GitUpdater(FetcherInterface):
     - The most recent commit in the client's local repository is determined. Based
     on that all new commits (newer than the client's most recent one in the
     cloned repository) are found.
-    - A commit is considered to be a TUF mirror. We keep track of the current commit.
+    - A commit is considered to be a TUF Updater instance. We keep track of the current commit.
     - This class is designed in such a way that for each subsequent call of the
-    updater's refresh method the next commit is used as a mirror. This is better than
-    instantiating this class multiple times as that seems to require less modifications
-    of TUF's code.
-    - The updater's method '_get_metadata_file' call 'get_mirrors'. It then iterates
-    through these mirrors and tries to update a metadata file by downloading them
-    from each mirror, until a valid metadata is downloaded. If none of the mirrors
-    contains valid metadata, an exception is raised. So, what we want to do is to
-    return the current commit, and just the current commit. This means that that an
-    exception will be raised if the version of the metadata file at that commit
-    is not valid.
+    updater's refresh method the metadata from next commit is used within TUF's updater.
+    - The updater's method for downloading and retrieving current metadata is overriden
+    by our own '_fetch' call. We override TUF's FetcherInterface abstract class to fetch
+    metadata from local git revisions, instead of by downloading data from another protocol,
+    like http/https. So, what we want to do is to return the current commit,
+    and just the current commit. This means that that an exception will be raised
+    if the version of the metadata file at that commit is not valid.
     - The same logic is used to handle targets.
 
 
     Attributes:
         - repository_directory: the client's local repository's location
-        - current_path: path of the 'current' directory needed by the updater
+        - metadata_dir_path: path of the metadata directory needed by the updater.
+        - targets_dir: path to targets directory needed by the updater.
         - previous_path: path of the 'previous' directory needed by the updater
         - validation_auth_repo: a fresh clone of the metadata repository. It is
         a bare git repository. An instance of the `BareGitRepo` class.
@@ -85,15 +83,9 @@ class GitUpdater(FetcherInterface):
     def __init__(self, url, repository_directory, repository_name):
         """
         Args:
-        mirrors: is a dictionary which contains information about each mirror:
-                    mirrors = {'mirror1': {'url_prefix': 'http://localhost:8001',
-                            'metadata_path': 'metadata',
-                            'targets_path': 'targets',
-                            'confined_target_dirs': ['']}}
-        This dictionary is provided by the user of the updater and used to
-        create an instance of the tuf updater.
-        We use url_prefix to specify url of the git repository which we want to clone.
+        url: repository url of the git repository which we want to clone.
         repository_directory: the client's local repository's location
+        repository_name: name of the repository in 'organization/namespace' format.
         """
         self._original_tuf_trusted_metadata_set = (
             trusted_metadata_set.TrustedMetadataSet
