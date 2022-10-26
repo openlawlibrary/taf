@@ -39,6 +39,7 @@ from taf.updater.lifecycle_handlers import (
 )
 from cattr import unstructure
 
+EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 PROTECTED_DIRECTORY_NAME = "protected"
 INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
@@ -204,6 +205,7 @@ def update_repository(
     scripts_root_dir=None,
     checkout=True,
     excluded_target_globs=None,
+    error_if_warning=False,
 ):
     """
     <Arguments>
@@ -227,7 +229,10 @@ def update_repository(
         See repositoriesdb load_repositories for more details.
     checkout:
         Whether to checkout last validated commits after update is done
+    error_if_warning:
+        Whether or not update fails if a warning is raised.
     """
+    settings.error_if_warning = error_if_warning
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
@@ -950,17 +955,22 @@ def _run_tuf_updater(git_updater):
                     current_commit,
                 )
         except Exception as e:
-            # for now, useful for debugging
-            taf_logger.error(
-                "Validation of authentication repository {} failed at revision {} due to error {}",
-                git_updater.users_auth_repo.name,
-                current_commit,
-                e,
-            )
-
-            raise UpdateFailedError(
-                f"Validation of authentication repository {git_updater.users_auth_repo.name}"
-                f" failed at revision {current_commit} due to error: {e}"
+            metadata_expired = EXPIRED_METADATA_ERROR in type(
+                e
+            ).__name__ or EXPIRED_METADATA_ERROR in str(e)
+            if not metadata_expired or settings.error_if_warning:
+                taf_logger.error(
+                    "Validation of authentication repository {} failed at revision {} due to error {}",
+                    git_updater.users_auth_repo.name,
+                    current_commit,
+                    e,
+                )
+                raise UpdateFailedError(
+                    f"Validation of authentication repository {git_updater.users_auth_repo.name}"
+                    f" failed at revision {current_commit} due to error: {e}"
+                )
+            taf_logger.warning(
+                f"WARNING: Could not validate authentication repository {git_updater.users_auth_repo.name} at revision {current_commit} due to error {e}"
             )
 
     while not git_updater.update_done():
@@ -1232,7 +1242,9 @@ def validate_repository(
     default_branch="main",
     validate_from_commit=None,
     excluded_target_globs=None,
+    error_if_warning=False,
 ):
+    settings.error_if_warning = error_if_warning
 
     clients_auth_path = Path(clients_auth_path).resolve()
 

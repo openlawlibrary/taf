@@ -116,6 +116,7 @@ def run_around_tests(client_dir):
         ("test-updater-updated-root-old-snapshot", UpdateType.OFFICIAL, True),
         ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
         ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
+        ("test-updater-expired-metadata", UpdateType.OFFICIAL, True),
     ],
 )
 def test_valid_update_no_client_repo(
@@ -291,7 +292,7 @@ def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-expired-metadata"]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, ROOT_EXPIRED, set_time=False
+        client_dir, repositories, ROOT_EXPIRED, set_time=False, error_if_warning=True
     )
     # make sure that the last validated commit does not exist
     _check_if_last_validated_commit_exists(clients_auth_repo_path)
@@ -589,6 +590,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
     expected_repo_type=UpdateType.EITHER,
     set_time=True,
     auth_repo_name_exists=True,
+    error_if_warning=False,
 ):
 
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -608,6 +610,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
                 "master",
                 True,
                 expected_repo_type=expected_repo_type,
+                error_if_warning=error_if_warning,
             ),
 
     if set_time:

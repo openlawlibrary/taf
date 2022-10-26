@@ -200,8 +200,10 @@ def attach_to_group(group):
                   "on if build was successful and error message if it was raised")
     @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
                   "ignored during update.")
+    @click.option("--error-if-warning", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
+                  "if warnings are raised ")
     def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type,
-               scripts_root_dir, profile, format_output, exclude_target):
+               scripts_root_dir, profile, format_output, exclude_target, error_if_warning):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command. If the
@@ -232,6 +234,9 @@ def attach_to_group(group):
         One or more target repositories can be excluded from the update process using --exclude-target.
         In that case, the library will only be partly validated, so last_validate_commit will not be updated
         and no scripts will be called.
+
+        Update can be in strict or no-strict mode. Strict mode is set by specifying --error-if-warning, which will raise errors
+        during update if any/all warnings are found. By default, --error-if-warning is disabled.
         """
         if clients_auth_path is None and clients_library_dir is None:
             raise click.UsageError('Must specify either authentication repository path or library directory!')
@@ -261,7 +266,8 @@ def attach_to_group(group):
                 from_fs,
                 UpdateType(expected_repo_type),
                 scripts_root_dir=scripts_root_dir,
-                excluded_target_globs=exclude_target
+                excluded_target_globs=exclude_target,
+                error_if_warning=error_if_warning
             )
             if format_output:
                 print(json.dumps({
@@ -285,10 +291,15 @@ def attach_to_group(group):
                   "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--default-branch", default="main", help="Name of the default branch, like mian or master")
     @click.option("--from-commit", default=None, help="First commit which should be validated.")
-    def validate(clients_auth_path, clients_library_dir, default_branch, from_commit):
+    @click.option("--error-if-warning", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
+                  "if warnings are raised")
+    def validate(clients_auth_path, clients_library_dir, default_branch, from_commit, error_if_warning):
         """
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
         Does not clone repositories, fetch changes or merge commits.
+
+        Validation can be in strict or no-strict mode. Strict mode is set by specifying --error-if-warning, which will raise errors
+        during validate if any/all warnings are found. By default, --error-if-warning is disabled.
         """
-        validate_repository(clients_auth_path, clients_library_dir, default_branch, from_commit)
+        validate_repository(clients_auth_path, clients_library_dir, default_branch, from_commit, error_if_warning)
