@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from functools import wraps
 from pathlib import Path
 
 from tuf.ngclient._internal import trusted_metadata_set
@@ -246,6 +247,21 @@ class GitUpdater(FetcherInterface):
         revert-back to TUF metadata validation on the latest commit"""
         trusted_metadata_set.TrustedMetadataSet = cls
 
+    def revert_tuf_patch_on_last_commit(f):
+        """
+        We only want to validate metadata expiration date for most recent commit.
+        Since we turned off metadata validation for all commits, we want to revert this patch for the most recent commit.
+        This decorator reverts our metadata expiration patch to original TUF implementation.
+        """
+        wraps(f)
+
+        def wrapper(self):
+            if self.current_commit_index + 1 == (len(self.commits) - 1):
+                self._patch_tuf_metadata_set(self._original_tuf_trusted_metadata_set)
+            return f(self)
+
+        return wrapper
+
     def set_validation_repo(self, path, url):
         """
         Used outside of GitUpdater to access validation auth repo.
@@ -278,12 +294,9 @@ class GitUpdater(FetcherInterface):
             self.current_commit, f"targets/{filepath}", raw=raw
         )
 
+    @revert_tuf_patch_on_last_commit
     def update_done(self):
         """Used to indicate whether updater has finished with update.
         Update is considered done when all commits have been validated"""
         self.current_commit_index += 1
-
-        if self.current_commit_index == (len(self.commits) - 1):
-            self._patch_tuf_metadata_set(self._original_tuf_trusted_metadata_set)
-
         return self.current_commit_index == len(self.commits)
