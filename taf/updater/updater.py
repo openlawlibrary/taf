@@ -925,6 +925,7 @@ def _run_tuf_updater(git_updater):
                 fetcher=git_updater,
             )
         except Exception as e:
+            taf_logger.error(f"Failed to instantiate TUF Updater due to error {e}")
             raise e
 
     def _update_tuf_current_revision():
