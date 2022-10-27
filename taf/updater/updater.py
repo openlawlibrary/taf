@@ -640,8 +640,6 @@ def _update_current_repository(
         auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
         git_updater = GitUpdater(url, clients_auth_library_dir, auth_repo_name)
         _run_tuf_updater(git_updater)
-    except UpdateFailedError as e:
-        raise e
     except Exception as e:
         # Instantiation of the handler failed - this can happen if the url is not correct
         # of if the saved last validated commit does not match the current head commit
@@ -729,7 +727,7 @@ def _update_current_repository(
         )
     except Exception as e:
         if not existing_repo:
-            shutil.rmtree(users_auth_repo.path, ignore_errors=True)
+            shutil.rmtree(users_auth_repo.path, onerror=on_rm_error)
             shutil.rmtree(users_auth_repo.conf_dir)
             commits = None
         return (
