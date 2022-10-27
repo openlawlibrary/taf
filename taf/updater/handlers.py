@@ -78,10 +78,10 @@ class GitUpdater(FetcherInterface):
     def targets_dir(self):
         return str(self.validation_auth_repo.path / "targets")
 
-    def __init__(self, url, repository_directory, repository_name):
+    def __init__(self, auth_url, repository_directory, repository_name):
         """
         Args:
-        url: repository url of the git repository which we want to clone.
+        auth_url: repository url of the git repository which we want to clone.
         repository_directory: the client's local repository's location
         repository_name: name of the repository in 'organization/namespace' format.
         """
@@ -90,7 +90,6 @@ class GitUpdater(FetcherInterface):
         )
         self._patch_tuf_metadata_set(GitTrustedMetadataSet)
 
-        auth_url = url
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
         validation_path = settings.validation_repo_path
