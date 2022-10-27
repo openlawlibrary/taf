@@ -56,6 +56,8 @@ from freezegun import freeze_time
 from datetime import datetime
 
 import taf.settings as settings
+
+from tuf.ngclient._internal import trusted_metadata_set
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
@@ -63,6 +65,7 @@ from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
 
 from taf.log import disable_console_logging, disable_file_logging
+from .conftest import original_tuf_trusted_metadata_set
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
@@ -280,6 +283,10 @@ def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
 
 
 def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
+    # tuf patch state is shared between tests
+    # so we manually revert to original tuf implementation
+    trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
+
     # without using freeze_time, we expect to get metadata expired error
     repositories = updater_repositories["test-updater-expired-metadata"]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH

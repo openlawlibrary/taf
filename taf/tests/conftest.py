@@ -153,11 +153,6 @@ def repositoriesdb_test_repositories():
         yield origins
 
 
-@fixture(autouse=True)
-def reset_tuf_patch():
-    trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
-
-
 @fixture
 def client_dir():
     return CLIENT_DIR_PATH
