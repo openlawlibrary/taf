@@ -141,6 +141,9 @@ class GitUpdater(FetcherInterface):
         except GitError:
             raise DownloadHTTPError(f"Could not find {url}", status_code=404)
         except Exception as e:
+            taf_logger.error(
+                f"Retrieval of data at current revision {self.current_commit} failed with error - {str(e)}"
+            )
             raise e
 
     def _init_commits(self):
