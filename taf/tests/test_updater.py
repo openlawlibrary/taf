@@ -56,6 +56,8 @@ from freezegun import freeze_time
 from datetime import datetime
 
 import taf.settings as settings
+
+from tuf.ngclient._internal import trusted_metadata_set
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
@@ -63,6 +65,7 @@ from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
 
 from taf.log import disable_console_logging, disable_file_logging
+from .conftest import original_tuf_trusted_metadata_set
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
@@ -73,13 +76,10 @@ NO_WORKING_MIRRORS = (
     f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
 )
 NO_REPOSITORY_INFO_JSON = "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
-ROOT_EXPIRED = "Metadata 'root' expired"
-REPLAYED_METADATA = "ReplayedMetadataError"
+ROOT_EXPIRED = "Final root.json is expired"
+REPLAYED_METADATA = "New timestamp version 3 must be >= 4"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
 NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
-METADATA_CHANGED_BUT_SHOULDNT = (
-    "Metadata file targets.json should be the same at revisions"
-)
 LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
 
 disable_console_logging()
@@ -239,7 +239,6 @@ def test_no_update_necessary(
         ("test-updater-missing-target-commit", TARGET1_SHA_MISMATCH, True),
         ("test-updater-wrong-key", NO_WORKING_MIRRORS, True),
         ("test-updater-invalid-version-number", REPLAYED_METADATA, True),
-        ("test-updater-just-targets-updated", METADATA_CHANGED_BUT_SHOULDNT, True),
         ("test-updater-delegated-roles-wrong-sha", TARGET2_SHA_MISMATCH, True),
         ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True),
         ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS, True),
@@ -284,6 +283,10 @@ def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
 
 
 def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
+    # tuf patch state is shared between tests
+    # so we manually revert to original tuf implementation
+    trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
+
     # without using freeze_time, we expect to get metadata expired error
     repositories = updater_repositories["test-updater-expired-metadata"]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH

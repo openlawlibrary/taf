@@ -223,7 +223,11 @@ def on_rm_error(_func, path, _exc_info):
     """Used by when calling rmtree to ensure that readonly files and folders
     are deleted.
     """
-    os.chmod(path, stat.S_IWRITE)
+    try:
+        os.chmod(path, stat.S_IWRITE)
+    except OSError as e:
+        taf_logger.debug(f"File at path {path} not found, error trace - {e}")
+        return
     try:
         os.unlink(path)
     except (OSError, PermissionError) as e:

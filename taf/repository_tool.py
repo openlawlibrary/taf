@@ -9,10 +9,10 @@ from pathlib import Path
 
 import securesystemslib
 import tuf.roledb
-from securesystemslib.exceptions import Error as SSLibError, RepositoryError
+from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
-from securesystemslib.util import HASH_FUNCTION, get_file_details
-from tuf.exceptions import Error as TUFError
+from securesystemslib.util import get_file_details
+from tuf.exceptions import Error as TUFError, RepositoryError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
     TARGETS_DIRECTORY_NAME,
@@ -52,6 +52,7 @@ role_keys_cache = {}
 
 
 DISABLE_KEYS_CACHING = False
+HASH_FUNCTION = "sha256"
 
 
 def get_role_metadata_path(role):
@@ -140,8 +141,6 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     Useful if several yubikeys need to be used at the same time
     """
     from binascii import hexlify
-
-    data = securesystemslib.formats.encode_canonical(data).encode("utf-8")
 
     def _check_key_and_get_pin(expected_key_id):
         try:
@@ -237,8 +236,11 @@ class Repository:
         custom: custom target data
         """
         file_path = str(Path(file_path).absolute())
+        targets_directory_length = len(targets_obj._targets_directory) + 1
+        relative_path = file_path[targets_directory_length:].replace("\\", "/")
         normalize_file_line_endings(file_path)
-        targets_obj.add_target(file_path, custom)
+
+        targets_obj.add_target(relative_path, custom)
 
     def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
         """Add metadata key of the provided role.
@@ -440,7 +442,7 @@ class Repository:
             )
         )
 
-    def get_singed_targets_with_custom_data(self, roles):
+    def get_signed_targets_with_custom_data(self, roles):
         """Return all target files signed by the specified roles and and their custom data
         as specified in the metadata files
 
@@ -956,7 +958,7 @@ class Repository:
         - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
         - securesystemslib.exceptions.UnknownRoleError: If role does not exist
         """
-        securesystemslib.formats.ROLENAME_SCHEMA.check_match(role)
+        securesystemslib.formats.NAME_SCHEMA.check_match(role)
 
         if public_key is None:
             public_key = yk.get_piv_public_key_tuf()

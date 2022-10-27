@@ -57,16 +57,18 @@ def _tuf_patches():
     )
 
     # Replace get_metadata_fileinfo with file-endings normalization
-    def get_metadata_fileinfo(get_metadata_fileinfo_fn):
-        @wraps(get_metadata_fileinfo_fn)
-        def normalized(filename, custom=None):
+    def get_targets_metadata_fileinfo(get_targets_metadata_fileinfo_fn):
+        @wraps(get_targets_metadata_fileinfo_fn)
+        def normalized(filename, storage_backend, custom=None):
             normalize_file_line_endings(filename)
-            return get_metadata_fileinfo_fn(filename, custom=None)
+            return get_targets_metadata_fileinfo_fn(
+                filename, storage_backend, custom=None
+            )
 
         return normalized
 
-    tuf.repository_lib.get_metadata_fileinfo = get_metadata_fileinfo(
-        tuf.repository_lib.get_metadata_fileinfo
+    tuf.repository_lib.get_targets_metadata_fileinfo = get_targets_metadata_fileinfo(
+        tuf.repository_lib.get_targets_metadata_fileinfo
     )
 
 

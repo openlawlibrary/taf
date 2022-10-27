@@ -64,10 +64,8 @@ kwargs = {
     "install_requires": [
         "click==7.*",
         "colorama>=0.3.9",
-        "oll-tuf==0.11.2.dev9",
+        "oll-tuf==0.20.0.dev1",
         "loguru==0.6.*",
-        "cryptography==3.2.1",
-        "pyOpenSSL==20.0.1",
         "pygit2==1.9.*",
         "cattrs==1.*",
     ],

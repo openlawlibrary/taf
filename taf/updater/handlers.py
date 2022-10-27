@@ -1,11 +1,10 @@
 import os
 import shutil
-import time
+import tempfile
+from functools import wraps
 from pathlib import Path
 
-import securesystemslib
-import tuf.client.handlers as handlers
-
+from tuf.ngclient._internal import trusted_metadata_set
 from taf.exceptions import GitError
 from taf.log import taf_logger
 import taf.settings as settings
@@ -13,9 +12,13 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.git import GitRepository
 from taf.utils import on_rm_error
+from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
+
+from tuf.ngclient.fetcher import FetcherInterface
+from tuf.api.exceptions import DownloadHTTPError
 
 
-class GitUpdater(handlers.MetadataUpdater):
+class GitUpdater(FetcherInterface):
     """
     This class implements parts of the update process specific to keeping
     metadata files and targets in a git repository. The vast majority of the
@@ -33,25 +36,21 @@ class GitUpdater(handlers.MetadataUpdater):
     - The most recent commit in the client's local repository is determined. Based
     on that all new commits (newer than the client's most recent one in the
     cloned repository) are found.
-    - A commit is considered to be a TUF mirror. We keep track of the current commit.
+    - A commit is considered to be a TUF Updater instance. We keep track of the current commit.
     - This class is designed in such a way that for each subsequent call of the
-    updater's refresh method the next commit is used as a mirror. This is better than
-    instantiating this class multiple times as that seems to require less modifications
-    of TUF's code.
-    - The updater's method '_get_metadata_file' call 'get_mirrors'. It then iterates
-    through these mirrors and tries to update a metadata file by downloading them
-    from each mirror, until a valid metadata is downloaded. If none of the mirrors
-    contains valid metadata, an exception is raised. So, what we want to do is to
-    return the current commit, and just the current commit. This means that that an
-    exception will be raised if the version of the metadata file at that commit
-    is not valid.
+    updater's refresh method the metadata from next commit is used within TUF's updater.
+    - The updater's method for downloading and retrieving current metadata is overriden
+    by our own '_fetch' call. We override TUF's FetcherInterface abstract class to fetch
+    metadata from local git revisions, instead of by downloading data from another protocol,
+    like http/https. So, what we want to do is to return the current commit,
+    and just the current commit. This means that that an exception will be raised
+    if the version of the metadata file at that commit is not valid.
     - The same logic is used to handle targets.
 
 
     Attributes:
         - repository_directory: the client's local repository's location
-        - current_path: path of the 'current' directory needed by the updater
-        - previous_path: path of the 'previous' directory needed by the updater
+        - metadata_dir_path: path of the metadata directory needed by the updater.
         - validation_auth_repo: a fresh clone of the metadata repository. It is
         a bare git repository. An instance of the `BareGitRepo` class.
         - users_auth_repo: an instance of the `GitRepo` class. The user's current
@@ -72,24 +71,26 @@ class GitUpdater(handlers.MetadataUpdater):
     def previous_commit(self):
         return self.commits[self.current_commit_index - 1]
 
-    def __init__(self, mirrors, repository_directory, repository_name):
+    @property
+    def metadata_dir(self):
+        return str(self.metadata_dir_path)
+
+    @property
+    def targets_dir(self):
+        return str(self.validation_auth_repo.path / "targets")
+
+    def __init__(self, auth_url, repository_directory, repository_name):
         """
         Args:
-        mirrors: is a dictionary which contains information about each mirror:
-                    mirrors = {'mirror1': {'url_prefix': 'http://localhost:8001',
-                            'metadata_path': 'metadata',
-                            'targets_path': 'targets',
-                            'confined_target_dirs': ['']}}
-        This dictionary is provided by the user of the updater and used to
-        create an instance of the tuf updater.
-        We use url_prefix to specify url of the git repository which we want to clone.
+        auth_url: repository url of the git repository which we want to clone.
         repository_directory: the client's local repository's location
+        repository_name: name of the repository in 'organization/namespace' format.
         """
-        super(GitUpdater, self).__init__(mirrors, repository_directory, repository_name)
+        self._original_tuf_trusted_metadata_set = (
+            trusted_metadata_set.TrustedMetadataSet
+        )
+        self._patch_tuf_metadata_set(GitTrustedMetadataSet)
 
-        auth_url = mirrors["mirror1"]["url_prefix"]
-        self.metadata_path = mirrors["mirror1"]["metadata_path"]
-        self.targets_path = mirrors["mirror1"]["targets_path"]
         conf_directory_root = settings.conf_directory_root
         default_branch = settings.default_branch
         validation_path = settings.validation_repo_path
@@ -118,6 +119,13 @@ class GitUpdater(handlers.MetadataUpdater):
         self._init_commits()
 
         self.repository_directory = str(repository_directory)
+
+        tmp_dir = tempfile.mkdtemp()
+        metadata_path = Path(tmp_dir, "metadata")
+        metadata_path.mkdir(parents=True, exist_ok=True)
+
+        self.metadata_dir_path = metadata_path
+
         try:
             self._init_metadata()
         except Exception:
@@ -125,6 +133,19 @@ class GitUpdater(handlers.MetadataUpdater):
             raise UpdateFailedError(
                 "Could not load metadata. Check if the URL and filesystem paths are correct."
             )
+
+    def _fetch(self, url):
+        try:
+            return [
+                self.validation_auth_repo.get_file(self.current_commit, url, raw=True)
+            ]
+        except GitError:
+            raise DownloadHTTPError(f"Could not find {url}", status_code=404)
+        except Exception as e:
+            taf_logger.error(
+                f"Retrieval of data at current revision {self.current_commit} failed with error - {str(e)}"
+            )
+            raise e
 
     def _init_commits(self):
         """
@@ -202,27 +223,13 @@ class GitUpdater(handlers.MetadataUpdater):
 
     def _init_metadata(self):
         """
-        TUF updater expects the existence of two directories in the client's
-        metadata directory - current and previous. These directories store
-        the current and previous metadata files (before and after the update).
-        They must exists and contain at least root.json. Otherwise, update will
+        TUF updater expects the existence of a client
+        metadata directory. This directory stores
+        the current metadata files (which will get deleted after the update).
+        Directory must exist and contain at least root.json. Otherwise, update will
         fail. We actually want to validate the remote authentication repository,
-        but will create the directories where TUF expects them to be in order
-        to avoid modifying the updater.
+        but will create a Temp directory in order to avoid modifying the updater.
         """
-        # create current and previous directories and copy the metadata files
-        # needed by the updater
-        # TUF's updater expects these directories to be in the client's repository
-        # read metadata of the cloned validation repo at the initial commit
-
-        metadata_path = Path(self.repository_directory, "metadata")
-        metadata_path.mkdir(parents=True, exist_ok=True)
-        self.metadata_dir_path = metadata_path
-        self.current_path = Path(metadata_path, "current")
-        self.current_path.mkdir()
-        self.previous_path = Path(metadata_path, "previous")
-        self.previous_path.mkdir()
-
         metadata_files = self.validation_auth_repo.list_files_at_revision(
             self.current_commit, "metadata"
         )
@@ -230,10 +237,30 @@ class GitUpdater(handlers.MetadataUpdater):
             metadata = self.validation_auth_repo.get_file(
                 self.current_commit, "metadata/" + filename
             )
-            current_filename = self.current_path / filename
-            previous_filename = self.previous_path / filename
+            current_filename = self.metadata_dir_path / filename
             current_filename.write_text(metadata)
-            shutil.copyfile(str(current_filename), str(previous_filename))
+
+    def _patch_tuf_metadata_set(self, cls):
+        """
+        Used to address TUF metadata expiration.
+        We skip validating expiration for metadata in older commits and
+        revert-back to TUF metadata validation on the latest commit"""
+        trusted_metadata_set.TrustedMetadataSet = cls
+
+    def revert_tuf_patch_on_last_commit(f):
+        """
+        We only want to validate metadata expiration date for most recent commit.
+        Since we turned off metadata validation for all commits, we want to revert this patch for the most recent commit.
+        This decorator reverts our metadata expiration patch to original TUF implementation.
+        """
+        wraps(f)
+
+        def wrapper(self):
+            if self.current_commit_index + 1 == (len(self.commits) - 1):
+                self._patch_tuf_metadata_set(self._original_tuf_trusted_metadata_set)
+            return f(self)
+
+        return wrapper
 
     def set_validation_repo(self, path, url):
         """
@@ -243,42 +270,16 @@ class GitUpdater(handlers.MetadataUpdater):
 
     def cleanup(self):
         """
-        Removes the bare authentication repository and current and previous
-        directories. This should be called after the update is finished,
+        Removes the bare authentication repository and metadata
+        directory. This should be called after the update is finished,
         either successfully or unsuccessfully.
         """
-        if self.current_path.is_dir():
-            shutil.rmtree(self.current_path)
-        if self.previous_path.is_dir():
-            shutil.rmtree(self.previous_path)
-        if len(list(self.metadata_dir_path.glob("*"))) == 0:
+        if self.metadata_dir_path.is_dir():
             shutil.rmtree(self.metadata_dir_path)
         self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
         if temp_dir.is_dir():
             shutil.rmtree(str(temp_dir), onerror=on_rm_error)
-
-    def earliest_valid_expiration_time(self):
-        # Only validate expiration time of the last commit
-        if self.current_commit_index < len(self.commits) - 1:
-            return 0
-        return int(time.time())
-
-    def ensure_not_changed(self, metadata_filename):
-        """
-        Make sure that the metadata file remained the same, as the reference metadata suggests.
-        """
-        current_file = self.get_metadata_file(
-            self.current_commit, file_name=metadata_filename
-        )
-        previous_file = self.get_metadata_file(
-            self.previous_commit, file_name=metadata_filename
-        )
-        if current_file.read() != previous_file.read():
-            raise UpdateFailedError(
-                f"Metadata file {metadata_filename} should be the same at revisions"
-                f" {self.previous_commit} and {self.current_commit}, but is not."
-            )
 
     def get_current_targets(self):
         try:
@@ -288,40 +289,14 @@ class GitUpdater(handlers.MetadataUpdater):
         except GitError:
             return []
 
-    def get_mirrors(self, _file_type, _file_path):
-        # pylint: disable=unused-argument
-        # return a list containing just the current commit
-        return [self.current_commit]
+    def get_current_target_data(self, filepath, raw=False):
+        return self.validation_auth_repo.get_file(
+            self.current_commit, f"targets/{filepath}", raw=raw
+        )
 
-    def get_metadata_file(self, file_mirror, file_name, _upperbound_filelength=None):
-        return self._get_file(file_mirror, "metadata/" + file_name)
-
-    def get_target_file(self, file_mirror, _file_length, _download_safely, file_path):
-        return self._get_file(file_mirror, "targets/" + file_path)
-
-    def _get_file(self, commit, filepath):
-        f = self.validation_auth_repo.get_file(commit, filepath)
-        temp_file_object = securesystemslib.util.TempFile()
-        temp_file_object.write(f.encode())
-        return temp_file_object
-
-    def get_file_digest(self, filepath, algorithm):
-        filepath = Path(filepath).relative_to(self.validation_auth_repo.get_file)
-        file_obj = self._get_file(self.current_commit, filepath)
-        return securesystemslib.hash.digest_fileobject(file_obj, algorithm=algorithm)
-
-    def on_successful_update(self, filename, mirror):
-        # after the is successfully completed, set the
-        # next commit as current for the given file
-        taf_logger.debug("{} updated from commit {}", filename, mirror)
-
-    def on_unsuccessful_update(self, filename):
-        taf_logger.error("Failed to update {}", filename)
-
+    @revert_tuf_patch_on_last_commit
     def update_done(self):
-        # the only metadata file that is always updated
-        # regardless of if it changed or not is timestamp
-        # so we can check if timestamp was updated a certain
-        # number of times
+        """Used to indicate whether updater has finished with update.
+        Update is considered done when all commits have been validated"""
         self.current_commit_index += 1
         return self.current_commit_index == len(self.commits)

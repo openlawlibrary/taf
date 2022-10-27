@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from securesystemslib.pyca_crypto_keys import create_rsa_signature
+from securesystemslib.rsa_keys import create_rsa_signature
 from tuf.repository_tool import import_rsakey_from_pem
 
 VALID_PIN = "123456"
@@ -151,8 +151,6 @@ def _yk_piv_ctrl_mock(serial=None, pub_key_pem=None):
     global INSERTED_YUBIKEY
 
     if INSERTED_YUBIKEY is None:
-        from ykman.device import NoCardException
-
-        raise NoCardException()
+        raise ValueError("No YubiKey found with the given interface(s)")
 
     yield FakePivController(INSERTED_YUBIKEY), INSERTED_YUBIKEY.serial
