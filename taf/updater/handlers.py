@@ -224,7 +224,7 @@ class GitUpdater(FetcherInterface):
         """
         TUF updater expects the existence of a client
         metadata directory. This directory stores
-        the current metadata files (which will get updated after the update).
+        the current metadata files (which will get deleted after the update).
         Directory must exist and contain at least root.json. Otherwise, update will
         fail. We actually want to validate the remote authentication repository,
         but will create a Temp directory in order to avoid modifying the updater.
