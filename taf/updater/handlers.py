@@ -50,8 +50,6 @@ class GitUpdater(FetcherInterface):
     Attributes:
         - repository_directory: the client's local repository's location
         - metadata_dir_path: path of the metadata directory needed by the updater.
-        - targets_dir: path to targets directory needed by the updater.
-        - previous_path: path of the 'previous' directory needed by the updater
         - validation_auth_repo: a fresh clone of the metadata repository. It is
         a bare git repository. An instance of the `BareGitRepo` class.
         - users_auth_repo: an instance of the `GitRepo` class. The user's current
