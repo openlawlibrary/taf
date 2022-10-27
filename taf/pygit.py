@@ -80,10 +80,7 @@ class PyGitRepository:
         else:
             git_id = blob.hex
             type = "raw" if raw else "decoded"
-            if (
-                git_id not in self._files_cache
-                or type not in self._files_cache[git_id].keys()
-            ):
+            if git_id not in self._files_cache or type not in self._files_cache[git_id]:
                 content = blob.read_raw() if raw else blob.read_raw().decode()
                 self._files_cache[git_id] |= {type: content}
             return git_id, self._files_cache[git_id][type]
