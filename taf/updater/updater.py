@@ -205,7 +205,7 @@ def update_repository(
     scripts_root_dir=None,
     checkout=True,
     excluded_target_globs=None,
-    error_if_warning=False,
+    strict=False,
 ):
     """
     <Arguments>
@@ -229,10 +229,10 @@ def update_repository(
         See repositoriesdb load_repositories for more details.
     checkout:
         Whether to checkout last validated commits after update is done
-    error_if_warning:
+    strict:
         Whether or not update fails if a warning is raised.
     """
-    settings.error_if_warning = error_if_warning
+    settings.strict = strict
     # if the repository's name is not provided, divide it in parent directory
     # and repository name, since TUF's updater expects a name
     # but set the validate_repo_name setting to False
@@ -958,7 +958,7 @@ def _run_tuf_updater(git_updater):
             metadata_expired = EXPIRED_METADATA_ERROR in type(
                 e
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
-            if not metadata_expired or settings.error_if_warning:
+            if not metadata_expired or settings.strict:
                 taf_logger.error(
                     "Validation of authentication repository {} failed at revision {} due to error {}",
                     git_updater.users_auth_repo.name,
@@ -1242,9 +1242,9 @@ def validate_repository(
     default_branch="main",
     validate_from_commit=None,
     excluded_target_globs=None,
-    error_if_warning=False,
+    strict=False,
 ):
-    settings.error_if_warning = error_if_warning
+    settings.strict = strict
 
     clients_auth_path = Path(clients_auth_path).resolve()
 

@@ -16,9 +16,9 @@ validation_repo_path = None
 
 default_branch = "main"
 
-# Strict mode enabled/disabled. If error_if_warning is enabled, any warnings
+# Strict mode enabled/disabled. If strict is enabled, any warnings
 # should raise TAF errors
-error_if_warning = False
+strict = False
 
 # Allows usage of specified commit as last validated commit
 # Useful when validating a local repository
