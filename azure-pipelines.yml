@@ -18,7 +18,7 @@ strategy:
       imageName: "ubuntu-20.04"
       pythonVersion: "3.7"
     macOS-py37:
-      imageName: "macOS-10.15"
+      imageName: "macOS-11"
       pythonVersion: "3.7"
     windows-64bit-py37:
       imageName: "windows-2019"
@@ -35,7 +35,7 @@ strategy:
       imageName: "ubuntu-20.04"
       pythonVersion: "3.8"
     macOS-py38:
-      imageName: "macOS-10.15"
+      imageName: "macOS-11"
       pythonVersion: "3.8"
     windows-64bit-py38:
       imageName: "windows-2022"
@@ -52,7 +52,7 @@ strategy:
       imageName: "ubuntu-20.04"
       pythonVersion: "3.9"
     macOS-py39:
-      imageName: "macOS-10.15"
+      imageName: "macOS-11"
       pythonVersion: "3.9"
     windows-64bit-py39:
       imageName: "windows-2022"
@@ -69,7 +69,7 @@ strategy:
       imageName: "ubuntu-22.04"
       pythonVersion: "3.10"
     macOS-py310:
-      imageName: "macOS-10.15"
+      imageName: "macOS-11"
       pythonVersion: "3.10"
     windows-64bit-py310:
       imageName: "windows-2022"
