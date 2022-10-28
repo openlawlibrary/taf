@@ -269,7 +269,7 @@ class GitRepository:
         try:
             self.commit_exists(commit_sha=since_commit)
         except GitError as e:
-            self._log_debug(f"Commit {since_commit} not found in local repository.")
+            self._log_warning(f"Commit {since_commit} not found in local repository.")
             raise e
         repo = self.pygit_repo
         if branch:
