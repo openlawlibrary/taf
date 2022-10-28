@@ -259,10 +259,18 @@ class GitRepository:
     def all_commits_since_commit(self, since_commit, branch=None, reverse=True):
         """Returns a list of all commits since the specified commit on the
         specified or currently checked out branch
+
+        Raises:
+            exceptions.GitError: An error occured with provided commit SHA
         """
         if since_commit is None:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
 
+        try:
+            self.commit_exists(commit_sha=since_commit)
+        except GitError as e:
+            self._log_warning(f"Commit {since_commit} not found in local repository.")
+            raise e
         repo = self.pygit_repo
         if branch:
             branch = repo.branches.get(branch)
@@ -599,6 +607,9 @@ class GitRepository:
             message,
         )
         return self._git("rev-parse HEAD")
+
+    def commit_exists(self, commit_sha):
+        return self._git(f"rev-parse {commit_sha}")
 
     def commits_on_branch_and_not_other(
         self, branch1, branch2, include_branching_commit=False

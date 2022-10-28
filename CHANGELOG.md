@@ -17,9 +17,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
 
 [279]: https://github.com/openlawlibrary/taf/pull/279
+[278]: https://github.com/openlawlibrary/taf/pull/278
 [273]: https://github.com/openlawlibrary/taf/pull/273
 
 ## [0.21.1] - 09/07/2022
