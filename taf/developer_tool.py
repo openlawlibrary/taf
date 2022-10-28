@@ -458,7 +458,7 @@ def check_expiration_dates(
     )
 
     if expired_dict or will_expire_dict:
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now()
         print(
             f"Given a {interval} day interval from today ({start_date.strftime('%Y-%m-%d')}):"
         )
