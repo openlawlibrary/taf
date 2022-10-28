@@ -65,6 +65,7 @@ kwargs = {
         "click==7.*",
         "colorama>=0.3.9",
         "oll-tuf==0.20.0.dev1",
+        "cryptography>=37.0.0",
         "loguru==0.6.*",
         "pygit2==1.9.*",
         "cattrs==1.*",
