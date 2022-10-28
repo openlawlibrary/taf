@@ -5,15 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
 
 ### Changed
 
-- Upgraded our TUF fork to newer version ([273])
 - Upgrade cryptography version ([279])
+- Turn expired metadata into a warning instead of an error by default ([275])
+- Upgraded our TUF fork to newer version ([273])
 
 ### Fixed
 
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [279]: https://github.com/openlawlibrary/taf/pull/279
 [278]: https://github.com/openlawlibrary/taf/pull/278
+[275]: https://github.com/openlawlibrary/taf/pull/275
 [273]: https://github.com/openlawlibrary/taf/pull/273
 
 ## [0.21.1] - 09/07/2022
@@ -35,10 +36,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Extended `top_commit_of_branch`, support references which are not branches, like HEAD ([270])
 - Add pygit_repo error handling and fix couple of `git.py` logs ([269])
 
-
 [270]: https://github.com/openlawlibrary/taf/pull/270
 [269]: https://github.com/openlawlibrary/taf/pull/269
-
 
 ## [0.21.0] - 08/30/2022
 
@@ -53,15 +52,13 @@ and this project adheres to [Semantic Versioning][semver].
 - If target role expiration date is being updated, sign timestamp and snapshot automatically ([261])
 - `--clients-auth-path` repo command improvements ([260])
 - port a number of git functionalities to pygit2 ([227])
-- Migrated yubikey-manager from v3.0.0 to v4.0.* ([191])
-
+- Migrated yubikey-manager from v3.0.0 to v4.0.\* ([191])
 
 ### Fixed
 
 - Do not remove authentication repository folder when running `taf repo validate` ([267])
 - fix git push - remove pygit2 push implementation which does not fully support ssh ([263])
 - Warn when git object cleanup fails (`idx`,`pack`) and include cleanup warning message ([259])
-
 
 [267]: https://github.com/openlawlibrary/taf/pull/267
 [266]: https://github.com/openlawlibrary/taf/pull/266
@@ -77,7 +74,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-
 ### Changed
 
 - Remove Python 3.6 support ([256])
@@ -91,7 +87,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-
 ### Changed
 
 - Loosen dependencies and pin pynacl ([254])
@@ -100,7 +95,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 [254]: https://github.com/openlawlibrary/taf/pull/254
 
-
 ## [0.18.0] - 05/31/2022
 
 ### Added
@@ -108,7 +102,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Add support for Python 3.10 ([247])
 
 ### Changed
-
 
 - Enable exclusion of certain target repositories from the update process ([250])
 - Update `_get_unchanged_targets_metadata` - `updated_roles` is now a list ([246])
@@ -121,7 +114,6 @@ and this project adheres to [Semantic Versioning][semver].
 [249]: https://github.com/openlawlibrary/taf/pull/249
 [247]: https://github.com/openlawlibrary/taf/pull/247
 [246]: https://github.com/openlawlibrary/taf/pull/246
-
 
 ## [0.17.0] - 05/04/2022
 
@@ -141,14 +133,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [240]: https://github.com/openlawlibrary/taf/pull/240
 [239]: https://github.com/openlawlibrary/taf/pull/239
 [237]: https://github.com/openlawlibrary/taf/pull/237
 [235]: https://github.com/openlawlibrary/taf/pull/235
 [234]: https://github.com/openlawlibrary/taf/pull/234
 [228]: https://github.com/openlawlibrary/taf/pull/228
-
 
 ## [0.16.0] - 04/16/2022
 
@@ -167,7 +157,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix updates of repos which only contain one commit ([219])
 - Fixed `_validate_urls` and local validation ([216])
-
 
 [229]: https://github.com/openlawlibrary/taf/pull/229
 [226]: https://github.com/openlawlibrary/taf/pull/226
@@ -761,8 +750,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-
-[Unreleased]: https://github.com/openlawlibrary/taf/compare/v0.21.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.21.1...HEAD
 [0.21.1]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.1
 [0.21.0]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/openlawlibrary/taf/compare/v0.19.0...v0.20.0

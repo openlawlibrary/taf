@@ -16,6 +16,10 @@ validation_repo_path = None
 
 default_branch = "main"
 
+# Strict mode enabled/disabled. If strict is enabled, any warnings
+# should raise TAF errors
+strict = False
+
 # Allows usage of specified commit as last validated commit
 # Useful when validating a local repository
 overwrite_last_validated_commit = False
