@@ -50,7 +50,7 @@ def attach_to_group(group):
     @metadata.command()
     @click.argument("path")
     @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
-    @click.option("--start-date", default=datetime.datetime.now(datetime.timezone.utc), help="Date to which expiration interval is added", type=ISO_DATE)
+    @click.option("--start-date", default=datetime.datetime.now(), help="Date to which expiration interval is added", type=ISO_DATE)
     def check_expiration_dates(path, interval, start_date):
         """
         Check if the expiration dates of the metadata roles is still within an interval threshold.

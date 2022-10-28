@@ -610,7 +610,7 @@ class Repository:
         Results are sorted by expiration date.
         """
         if start_date is None:
-            start_date = datetime.datetime.now(datetime.timezone.utc)
+            start_date = datetime.datetime.now()
         if interval is None:
             interval = 30
         expiration_threshold = start_date + datetime.timedelta(days=interval)
