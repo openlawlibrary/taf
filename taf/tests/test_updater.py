@@ -78,6 +78,7 @@ NO_WORKING_MIRRORS = (
 NO_REPOSITORY_INFO_JSON = "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
 ROOT_EXPIRED = "Final root.json is expired"
 REPLAYED_METADATA = "New timestamp version 3 must be >= 4"
+METADATA_FIELD_MISSING = "New snapshot is missing info for 'root.json'"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
 NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
 LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
@@ -244,6 +245,11 @@ def test_no_update_necessary(
         ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True),
         ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS, True),
         ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False),
+        (
+            "test-updater-invalid-snapshot-meta-field-missing",
+            METADATA_FIELD_MISSING,
+            False,
+        ),
     ],
 )
 def test_updater_invalid_update(
