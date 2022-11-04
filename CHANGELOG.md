@@ -17,9 +17,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix pygit2 performance regression ([283])
 - Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
 
+[283]: https://github.com/openlawlibrary/taf/pull/283
 [279]: https://github.com/openlawlibrary/taf/pull/279
 [278]: https://github.com/openlawlibrary/taf/pull/278
 [275]: https://github.com/openlawlibrary/taf/pull/275
