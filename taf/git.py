@@ -798,6 +798,9 @@ class GitRepository:
         except TAFError as e:
             raise e
         except Exception:
+            self._log_warning(
+                "Perfomance regression: Could not list files with pygit2. Reverting to git subprocess"
+            )
             return self._list_files_at_revision(commit, path)
 
     def _list_files_at_revision(self, commit, path):
