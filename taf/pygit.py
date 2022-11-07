@@ -95,9 +95,9 @@ class PyGitRepository:
 
         for entry in tree:
             new_path = os.path.join(path, entry.name)
-            if entry.type == "blob":
+            if entry.type_str == "blob":
                 results.append(new_path)
-            elif entry.type == "tree":
+            elif entry.type_str == "tree":
                 obj = self._get_child(tree, entry.name)
                 self._list_files_at_revision(obj, new_path, results)
             else:

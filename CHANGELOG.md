@@ -17,10 +17,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix pygit2 performance regression ([283])
 - Fix `taf metadata update-expiration-date --role snapshot` to include `root` ([282])
 - Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
+- Fix `all_commits_since_commit` to validate provided commit ([278])
+- Remove pin for `PyOpenSSL` ([273])
 
+[283]: https://github.com/openlawlibrary/taf/pull/283
 [282]: https://github.com/openlawlibrary/taf/pull/282
 [279]: https://github.com/openlawlibrary/taf/pull/279
 [278]: https://github.com/openlawlibrary/taf/pull/278
