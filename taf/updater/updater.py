@@ -998,7 +998,9 @@ def _get_commits(
 
     if old_head is not None:
         if not only_validate:
-            fetched_commits = repository.all_commits_on_branch(branch=f"origin/{branch}")
+            fetched_commits = repository.all_commits_on_branch(
+                branch=f"origin/{branch}"
+            )
 
             # if the local branch does not exist (the branch was not checked out locally)
             # fetched commits will include already validated commits
@@ -1031,7 +1033,9 @@ def _get_commits(
             new_commits_on_repo_branch = []
         if not only_validate:
             try:
-                fetched_commits = repository.all_commits_on_branch(branch=f"origin/{branch}")
+                fetched_commits = repository.all_commits_on_branch(
+                    branch=f"origin/{branch}"
+                )
                 # if the local branch does not exist (the branch was not checked out locally)
                 # fetched commits will include already validated commits
                 # check which commits are newer that the previous head commit

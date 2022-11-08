@@ -289,7 +289,6 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-
     def branches(self, remote=False, all=False, strip_remote=False):
         """Returns all branches."""
         repo = self.pygit_repo
