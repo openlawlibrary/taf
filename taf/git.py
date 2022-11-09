@@ -289,17 +289,6 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-    def all_fetched_commits(self, branch=None):
-        branch = branch or self.default_branch
-        commits = self._git("rev-list ..origin/{}", branch).strip()
-        if not commits:
-            commits = []
-        else:
-            commits = commits.split("\n")
-            commits.reverse()
-        self._log_debug(f"fetched the following commits {', '.join(commits)}")
-        return commits
-
     def branches(self, remote=False, all=False, strip_remote=False):
         """Returns all branches."""
         repo = self.pygit_repo
