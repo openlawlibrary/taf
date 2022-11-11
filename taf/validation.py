@@ -30,6 +30,8 @@ def validate_branch(
     that a capstone file is one of the targets specified in targets metadata)
     4. If all commits of an authentication repository's branch have the same branch ID
     """
+    if check_branch_roles is None:
+        check_branch_roles = {}
     if check_capstone_roles is not None:
         for role in check_capstone_roles:
             check_capstone(auth_repo, branch_name, role)
@@ -44,8 +46,6 @@ def validate_branch(
     )
 
     _check_lengths_of_branches(targets_and_commits, branch_name)
-
-    branch_id = None
 
     unmodified_roles_and_versions = {
         role_name: None
@@ -64,6 +64,7 @@ def validate_branch(
                 )
             )
     for updated_role in updated_roles:
+        branch_id = None
         targets_version = None
         for commit_index, auth_commit in enumerate(auth_commits):
             # load content of the updated role's targets metadata
@@ -90,8 +91,10 @@ def validate_branch(
                     unmodified_roles_and_versions[role_name] = version
 
             if updated_role in check_branch_roles:
+                no_initial_branch_id = check_branch_roles[updated_role]
                 branch_id = _check_branch_id(
-                    auth_repo, auth_commit, branch_id, updated_role
+                    auth_repo, auth_commit, branch_id, updated_role,
+                    is_first_commit=no_initial_branch_id and commit_index==len(auth_commits) - 1
                 )
 
             for target, target_commits in targets_and_commits.items():
@@ -120,7 +123,7 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
         raise InvalidBranchError(msg)
 
 
-def _check_branch_id(auth_repo, auth_commit, branch_id, role):
+def _check_branch_id(auth_repo, auth_commit, branch_id, role, is_first_commit):
 
     try:
         new_branch_id = auth_repo.get_file(
@@ -132,6 +135,8 @@ def _check_branch_id(auth_repo, auth_commit, branch_id, role):
                 auth_commit, Path(TARGETS_DIRECTORY_NAME, "branch")
             )
         except GitError:
+            if is_first_commit:
+                return None
             raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
     if branch_id is not None and new_branch_id != branch_id:
         raise InvalidBranchError(
