@@ -231,7 +231,7 @@ def on_rm_error(_func, path, _exc_info):
     try:
         os.unlink(path)
     except (OSError, PermissionError) as e:
-        taf_logger.warning(
+        taf_logger.debug(
             "WARNING: Failed to clean up temporary update files: {}. This is a known issue when running TAF in a subprocess. You could consider upgrading taf to see if cleanup errors persist",
             e,
         )

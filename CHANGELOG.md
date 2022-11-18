@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `get_role_repositories` to find common roles in both `repositories.json` and metadata ([286])
 - Replace buggy `all_fetched_commits` with `all_commits_on_branch` ([285])
 - Fix pygit2 performance regression ([283])
 - Fix `taf metadata update-expiration-date --role snapshot` to include `root` ([282])
@@ -25,7 +26,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
 
-
+[286]: https://github.com/openlawlibrary/taf/pull/286
 [285]: https://github.com/openlawlibrary/taf/pull/285
 [283]: https://github.com/openlawlibrary/taf/pull/283
 [282]: https://github.com/openlawlibrary/taf/pull/282
