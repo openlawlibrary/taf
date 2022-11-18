@@ -852,7 +852,7 @@ class Repository:
         return [
             repo
             for repo in target_repositories
-            if all([fnmatch(repo, path) for path in role_paths])
+            if any([fnmatch(repo, path) for path in role_paths])
         ]
 
     def get_delegations_info(self, role_name):
