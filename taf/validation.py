@@ -125,20 +125,17 @@ def _check_lengths_of_branches(targets_and_commits, branch_name):
 
 def _check_branch_id(auth_repo, auth_commit, branch_id, role, is_first_commit):
 
-    try:
-        new_branch_id = auth_repo.get_file(
-            auth_commit, Path(TARGETS_DIRECTORY_NAME, role, "branch")
-        )
-    except GitError:
-        try:
-            new_branch_id = auth_repo.get_file(
-                auth_commit, Path(TARGETS_DIRECTORY_NAME, "branch")
-            )
-        except GitError:
-            if is_first_commit:
-                return None
-            raise InvalidBranchError(f"No branch specified at revision {auth_commit}")
-    if branch_id is not None and new_branch_id != branch_id:
+    new_branch_id = None
+    for branch_path in (str(Path(role, "branch")), "branch"):
+        if auth_repo.get_role_from_target_paths([str(branch_path)]) == role:
+            try:
+                new_branch_id = auth_repo.get_target(auth_commit, branch_path)
+            except GitError:
+                pass
+            else:
+                break
+    if (branch_id is not None and new_branch_id is None and not is_first_commit) or \
+        branch_id is not None and new_branch_id != branch_id:
         raise InvalidBranchError(
             f"Branch ID at revision {auth_commit} is not the same as the "
             "version at the following revision"
