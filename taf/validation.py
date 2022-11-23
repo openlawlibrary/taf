@@ -93,8 +93,12 @@ def validate_branch(
             if updated_role in check_branch_roles:
                 no_initial_branch_id = check_branch_roles[updated_role]
                 branch_id = _check_branch_id(
-                    auth_repo, auth_commit, branch_id, updated_role,
-                    is_first_commit=no_initial_branch_id and commit_index==len(auth_commits) - 1
+                    auth_repo,
+                    auth_commit,
+                    branch_id,
+                    updated_role,
+                    is_first_commit=no_initial_branch_id
+                    and commit_index == len(auth_commits) - 1,
                 )
 
             for target, target_commits in targets_and_commits.items():
@@ -134,8 +138,11 @@ def _check_branch_id(auth_repo, auth_commit, branch_id, role, is_first_commit):
                 pass
             else:
                 break
-    if (branch_id is not None and new_branch_id is None and not is_first_commit) or \
-        branch_id is not None and new_branch_id != branch_id:
+    if (
+        (branch_id is not None and new_branch_id is None and not is_first_commit)
+        or branch_id is not None
+        and new_branch_id != branch_id
+    ):
         raise InvalidBranchError(
             f"Branch ID at revision {auth_commit} is not the same as the "
             "version at the following revision"
