@@ -609,8 +609,6 @@ def _update_current_repository(
     settings.conf_directory_root = conf_directory_root
     settings.default_branch = default_branch
 
-    # tuf.settings.repositories_directory = clients_auth_library_dir
-
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
             commit_before_pull = None
