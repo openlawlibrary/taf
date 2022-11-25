@@ -1076,16 +1076,21 @@ def _merge_commit(repository, branch, commit_to_merge, checkout=True):
     taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
     try:
         repository.checkout_branch(branch, raise_anyway=True)
-    except GitError:
-        # in order to merge a commit into a branch we need to check it out
-        # but that cannot be done if it is checked out in a different worktree
-        # it should be fine to update that other worktree if there are no uncommitted changes
-        # or no commits that have not been pushed yet
-        worktree = GitRepository(path=repository.find_worktree_path_by_branch(branch))
-        if worktree is None:
-            return False
-        repository = worktree
-        checkout = False
+    except GitError as e:
+        # two scenarios:
+        # current git repository is in an inconsistent state:
+        # - .git/index.lock exists (git partial update got applied)
+        # should get addressed in https://github.com/openlawlibrary/taf/issues/210
+        # current git repository has uncommitted changes:
+        # we do not want taf to lose any repo data, so we do not reset the repository.
+        # for now, raise an update error and let the user manually reset the repository
+        taf_logger.error(
+            "Could not checkout branch {} during commit merge. Error {}", branch, e
+        )
+        raise UpdateFailedError(
+            f"Repository {repository.name} should contain only committed changes. \n"
+            + f"Please update the repository at {repository.path} manually and try again."
+        )
 
     repository.merge_commit(commit_to_merge)
     if checkout:
