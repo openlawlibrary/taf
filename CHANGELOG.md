@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Support first commits on branches with a missing branch file ([292])
 - Upgrade cryptography version ([279])
 - Turn expired metadata into a warning instead of an error by default ([275])
 - Upgraded our TUF fork to newer version ([273])
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
 
+[292]: https://github.com/openlawlibrary/taf/pull/292
 [286]: https://github.com/openlawlibrary/taf/pull/286
 [285]: https://github.com/openlawlibrary/taf/pull/285
 [283]: https://github.com/openlawlibrary/taf/pull/283
