@@ -82,6 +82,9 @@ METADATA_FIELD_MISSING = "New snapshot is missing info for 'root.json'"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
 NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
 LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
+UNCOMMITTED_TARGET_CHANGES = (
+    f"Repository {TARGET_REPO_REL_PATH} should contain only committed changes."
+)
 
 disable_console_logging()
 disable_file_logging()
@@ -394,6 +397,29 @@ def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, NOT_A_TEST_REPO, UpdateType.TEST
+    )
+
+
+def test_update_repo_target_in_indeterminate_state(
+    updater_repositories, origin_dir, client_dir
+):
+    repositories = updater_repositories[
+        "test-updater-target-repository-has-indeterminate-state"
+    ]
+    origin_dir = origin_dir / "test-updater-target-repository-has-indeterminate-state"
+
+    targets_repo_path = client_dir / TARGET_REPO_REL_PATH
+
+    _update_and_check_commit_shas(
+        None, repositories, origin_dir, client_dir, UpdateType.OFFICIAL
+    )
+    # Create an `index.lock` file, indicating that an incomplete git operation took place
+    # index.lock is created by git when a git operation is interrupted.
+    with open(str(Path(targets_repo_path, ".git", "index.lock")), "w"):
+        pass
+
+    _update_invalid_repos_and_check_if_repos_exist(
+        client_dir, repositories, UNCOMMITTED_TARGET_CHANGES
     )
 
 
