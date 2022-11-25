@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
-from taf.repository_tool import Repository
+from taf.repository_tool import Repository, get_target_path
 from taf.constants import CAPSTONE
 from taf.exceptions import GitError, InvalidBranchError
 
@@ -188,21 +188,24 @@ def check_capstone(auth_repo, branch, role):
     Check if there is a capstone file (a target file called capstone)
     at the end of the specified branch.
     """
-    if role is None:
-        role = ""
-    try:
-        auth_repo.get_file(
-            auth_repo.top_commit_of_branch(branch),
-            Path(TARGETS_DIRECTORY_NAME, role, CAPSTONE),
+
+    auth_commit = auth_repo.top_commit_of_branch(branch)
+    found = False
+
+    for capstone_path in (str(Path(role, CAPSTONE).as_posix()), CAPSTONE):
+        if auth_repo.get_role_from_target_paths([capstone_path]) == role:
+            try:
+                target_path = get_target_path(capstone_path)
+                auth_repo.get_file(auth_commit, target_path)
+                found = True
+            except GitError:
+                pass
+            else:
+                break
+    if not found:
+        raise InvalidBranchError(
+            f"No capstone at the end of branch {branch} for role {role}!!!"
         )
-    except GitError:
-        try:
-            auth_repo.get_file(
-                auth_repo.top_commit_of_branch(branch),
-                Path(TARGETS_DIRECTORY_NAME, CAPSTONE),
-            )
-        except GitError:
-            raise InvalidBranchError(f"No capstone at the end of branch {branch}!!!")
 
 
 def _compare_commit_with_targets_metadata(
