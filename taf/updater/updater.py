@@ -430,7 +430,7 @@ def _update_named_repository(
     that TUF skips mirrors which do not have valid and/or current metadata files. Also, we
     do not simply want to find the latest metadata, we want to validate everything in-between.
     That is why the idea is to call refresh multiple times, until the last commit is reached.
-    The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
+    The 'GitUpdater' updater is designed in such a way that for each new call it
     loads data from a most recent commit.
     """
     if visited is None:
