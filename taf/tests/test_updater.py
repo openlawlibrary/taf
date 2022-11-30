@@ -415,8 +415,8 @@ def test_update_repo_target_in_indeterminate_state(
     )
     # Create an `index.lock` file, indicating that an incomplete git operation took place
     # index.lock is created by git when a git operation is interrupted.
-    with open(str(Path(targets_repo_path, ".git", "index.lock")), "w"):
-        pass
+    index_lock = Path(targets_repo_path, ".git", "index.lock")
+    index_lock.touch()
 
     _update_invalid_repos_and_check_if_repos_exist(
         client_dir, repositories, UNCOMMITTED_TARGET_CHANGES
