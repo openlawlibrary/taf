@@ -2,6 +2,8 @@ import json
 import os
 import tempfile
 import fnmatch
+
+from typing import Union, Optional
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -27,7 +29,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
-    _dependencies = {}
+    _dependencies = {}  # type: ignore
 
     def __init__(
         self,
@@ -164,7 +166,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         else:
             return self.get_json(commit, target_path)
 
-    def get_protected_info(self, commit: str = None) -> Info | None:
+    def get_protected_info(self, commit: Optional[str] = None) -> Union[Info, None]:
         if commit is None:
             commit = self.head_commit_sha()
         try:
