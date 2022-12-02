@@ -1,0 +1,34 @@
+[project]
+name = "taf"
+version = "0.21.1"
+description = "Implementation of archival authentication"
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.7"
+authors = [{ name = "Open Law Library" }, { email = "info@openlawlib.org" }]
+keywords = ["update", "updater", "secure", "authentication", "archival"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Security",
+    "Topic :: Software Development",
+]
+dependencies = ["requests>=2.19.1", "securesystemslib>=0.22.0"]
+
+[project.urls]
+Issues = "https://github.com/openlawlibrary/taf/issues"
+Source = "https://github.com/openlawlibrary/taf"
