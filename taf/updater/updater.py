@@ -5,12 +5,10 @@ import tempfile
 
 
 from tuf.ngclient.updater import Updater
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 from collections import defaultdict
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
-from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.utils import timed_run
@@ -40,8 +38,6 @@ from taf.updater.lifecycle_handlers import (
 from cattr import unstructure
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
-PROTECTED_DIRECTORY_NAME = "protected"
-INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
 disable_tuf_console_logging()
 
@@ -75,35 +71,21 @@ def _check_update_status(repos_update_data, auth_repo_name, host_update_status, 
     return update_update_status, errors
 
 
-def _clone_validation_repo(url, repository_name, default_branch):
+def _clone_validation_repo(url: str) -> None:
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
     to a the temp directory and will be deleted one the update is done.
-
-    If repository_name isn't provided (default value), extract it from info.json.
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = GitRepository(path=path, urls=[url])
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
     settings.validation_repo_path = validation_auth_repo.path
 
-    validation_head_sha = validation_auth_repo.top_commit_of_branch(default_branch)
-
-    if repository_name is None:
-        try:
-            info = validation_auth_repo.get_json(validation_head_sha, INFO_JSON_PATH)
-            repository_name = f'{info["namespace"]}/{info["name"]}'
-        except Exception:
-            raise UpdateFailedError(
-                "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
-            )
-
     validation_auth_repo.cleanup()
-    return repository_name
 
 
 def _execute_repo_handlers(
@@ -639,8 +621,11 @@ def _update_current_repository(
             else True
         )
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
-        # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
-        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
+        # and in the right format (separated by '/'). this approach covers a case where we don't know authentication repo path upfront.
+        _clone_validation_repo(url)
+        if auth_repo_name is None:
+            auth_repo_name = _get_repository_name(default_branch)
+
         git_updater = GitUpdater(url, clients_auth_library_dir, auth_repo_name)
         _run_tuf_updater(git_updater)
     except Exception as e:
@@ -1043,6 +1028,18 @@ def _get_commits(
             except GitError:
                 pass
     return new_commits_on_repo_branch
+
+
+def _get_repository_name(default_branch: str) -> str:
+    """Returns the name of the repository extracted from info.json."""
+    validation_auth_repo = AuthenticationRepository(path=settings.validation_repo_path)
+    validation_head_sha = validation_auth_repo.top_commit_of_branch(default_branch)
+    info = validation_auth_repo.get_protected_info(validation_head_sha)
+    if info is None:
+        raise UpdateFailedError(
+            "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
+        )
+    return f"{info.namespace}/{info.name}"
 
 
 def _merge_branch_commits(

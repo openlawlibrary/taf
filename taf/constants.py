@@ -3,3 +3,5 @@
 DEFAULT_RSA_SIGNATURE_SCHEME = "rsa-pkcs1v15-sha256"
 
 CAPSTONE = "capstone"
+
+PROTECTED_DIR_NAME = "protected"

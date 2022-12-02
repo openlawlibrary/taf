@@ -5,13 +5,17 @@ import fnmatch
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from tuf.repository_tool import METADATA_DIRECTORY_NAME
+from tuf.repository_tool import METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
 from taf.git import GitRepository
 from taf.repository_tool import (
     Repository as TAFRepository,
     get_role_metadata_path,
     get_target_path,
 )
+from taf.updater.types.info import Info
+from taf.constants import PROTECTED_DIR_NAME
+
+INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIR_NAME}/info.json"
 
 
 class AuthenticationRepository(GitRepository, TAFRepository):
@@ -159,6 +163,15 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return self.safely_get_json(commit, target_path)
         else:
             return self.get_json(commit, target_path)
+
+    def get_protected_info(self, commit: str = None) -> Info | None:
+        if commit is None:
+            commit = self.head_commit_sha()
+        try:
+            info = self.get_json(commit, INFO_JSON_PATH)
+        except Exception:
+            return None
+        return Info(namespace=info["namespace"], name=info["name"])
 
     def is_commit_authenticated(self, target_name, commit):
         """Checks if passed commit is ever authenticated for given target name."""

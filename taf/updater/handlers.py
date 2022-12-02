@@ -10,7 +10,6 @@ from taf.log import taf_logger
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
-from taf.git import GitRepository
 from taf.utils import on_rm_error
 from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 
@@ -39,7 +38,7 @@ class GitUpdater(FetcherInterface):
     - A commit is considered to be a TUF Updater instance. We keep track of the current commit.
     - This class is designed in such a way that for each subsequent call of the
     updater's refresh method the metadata from next commit is used within TUF's updater.
-    - The updater's method for downloading and retrieving current metadata is overriden
+    - The updater's method for downloading and retrieving current metadata is overridden
     by our own '_fetch' call. We override TUF's FetcherInterface abstract class to fetch
     metadata from local git revisions, instead of by downloading data from another protocol,
     like http/https. So, what we want to do is to return the current commit,
@@ -266,7 +265,7 @@ class GitUpdater(FetcherInterface):
         """
         Used outside of GitUpdater to access validation auth repo.
         """
-        self.validation_auth_repo = GitRepository(path=path, urls=[url])
+        self.validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
 
     def cleanup(self):
         """

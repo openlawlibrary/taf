@@ -654,7 +654,7 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
-    def get_json(self, commit, path, raw=False):
+    def get_json(self, commit: str, path: str, raw=False):
         s = self.get_file(commit, path, raw=raw)
         return json.loads(s)
 
