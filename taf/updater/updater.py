@@ -10,7 +10,6 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from collections import defaultdict
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
-from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.utils import timed_run
@@ -85,7 +84,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = GitRepository(path=path, urls=[url])
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
@@ -1320,15 +1319,16 @@ def _validate_authentication_repository(
 
     if expected_repo_type != UpdateType.EITHER:
         # check if the repository being updated is a test repository
-        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
-        test_repo = "test-auth-repo" in targets["signed"]["targets"]
-        if test_repo and expected_repo_type != UpdateType.TEST:
+        if validation_auth_repo.is_test_repo and expected_repo_type != UpdateType.TEST:
             error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is a test repository. "
                 'Call update with "--expected-repo-type" test to update a test '
                 "repository"
             )
-        elif not test_repo and expected_repo_type == UpdateType.TEST:
+        elif (
+            not validation_auth_repo.is_test_repo
+            and expected_repo_type == UpdateType.TEST
+        ):
             error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is not a test repository,"
                 ' but update was called with the "--expected-repo-type" test'
