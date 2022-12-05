@@ -2,6 +2,8 @@ import json
 import os
 import tempfile
 import fnmatch
+
+from typing import Optional
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -126,8 +128,17 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._dependencies = value
 
     @property
-    def is_test_repo(self):
-        return Path(self.path, self.targets_path, self.TEST_REPO_FLAG_FILE).is_file()
+    def is_test_repo(self, branch: Optional[str] = None) -> bool:
+        try:
+            if branch is not None:
+                commit = self.top_commit_of_branch(branch)
+            else:
+                commit = self.head_commit_sha()
+            targets_data = self.get_metadata("targets", commit)
+            return self.TEST_REPO_FLAG_FILE in targets_data["signed"]["targets"]
+        except Exception as e:
+            self._log_debug(f"Could not get targets.json metadata: {e}")
+            return False
 
     @property
     def last_validated_commit(self):
@@ -159,6 +170,17 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return self.safely_get_json(commit, target_path)
         else:
             return self.get_json(commit, target_path)
+
+    def get_metadata(
+        self, role: str, commit: Optional[str] = None, safely: bool = True
+    ):
+        if commit is None:
+            commit = self.head_commit_sha()
+        metadata_path = get_role_metadata_path(role)
+        if safely:
+            return self.safely_get_json(commit, metadata_path)
+        else:
+            return self.get_json(commit, metadata_path)
 
     def is_commit_authenticated(self, target_name, commit):
         """Checks if passed commit is ever authenticated for given target name."""
