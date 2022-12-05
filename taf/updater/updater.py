@@ -10,7 +10,6 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from collections import defaultdict
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
-from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.utils import timed_run
@@ -85,7 +84,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = GitRepository(path=path, urls=[url])
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
