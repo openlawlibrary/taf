@@ -1319,15 +1319,16 @@ def _validate_authentication_repository(
 
     if expected_repo_type != UpdateType.EITHER:
         # check if the repository being updated is a test repository
-        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
-        test_repo = "test-auth-repo" in targets["signed"]["targets"]
-        if test_repo and expected_repo_type != UpdateType.TEST:
+        if validation_auth_repo.is_test_repo and expected_repo_type != UpdateType.TEST:
             error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is a test repository. "
                 'Call update with "--expected-repo-type" test to update a test '
                 "repository"
             )
-        elif not test_repo and expected_repo_type == UpdateType.TEST:
+        elif (
+            not validation_auth_repo.is_test_repo
+            and expected_repo_type == UpdateType.TEST
+        ):
             error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is not a test repository,"
                 ' but update was called with the "--expected-repo-type" test'
