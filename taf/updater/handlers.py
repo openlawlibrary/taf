@@ -10,7 +10,6 @@ from taf.log import taf_logger
 import taf.settings as settings
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
-from taf.git import GitRepository
 from taf.utils import on_rm_error
 from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 
@@ -266,7 +265,7 @@ class GitUpdater(FetcherInterface):
         """
         Used outside of GitUpdater to access validation auth repo.
         """
-        self.validation_auth_repo = GitRepository(path=path, urls=[url])
+        self.validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
 
     def cleanup(self):
         """

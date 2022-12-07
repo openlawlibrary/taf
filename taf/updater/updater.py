@@ -10,7 +10,6 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from collections import defaultdict
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
-from taf.git import GitRepository
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.utils import timed_run
@@ -85,7 +84,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = GitRepository(path=path, urls=[url])
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
@@ -430,7 +429,7 @@ def _update_named_repository(
     that TUF skips mirrors which do not have valid and/or current metadata files. Also, we
     do not simply want to find the latest metadata, we want to validate everything in-between.
     That is why the idea is to call refresh multiple times, until the last commit is reached.
-    The 'GitMetadataUpdater' updater is designed in such a way that for each new call it
+    The 'GitUpdater' updater is designed in such a way that for each new call it
     loads data from a most recent commit.
     """
     if visited is None:
@@ -608,8 +607,6 @@ def _update_current_repository(
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
     settings.default_branch = default_branch
-
-    # tuf.settings.repositories_directory = clients_auth_library_dir
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -1078,16 +1075,21 @@ def _merge_commit(repository, branch, commit_to_merge, checkout=True):
     taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
     try:
         repository.checkout_branch(branch, raise_anyway=True)
-    except GitError:
-        # in order to merge a commit into a branch we need to check it out
-        # but that cannot be done if it is checked out in a different worktree
-        # it should be fine to update that other worktree if there are no uncommitted changes
-        # or no commits that have not been pushed yet
-        worktree = GitRepository(path=repository.find_worktree_path_by_branch(branch))
-        if worktree is None:
-            return False
-        repository = worktree
-        checkout = False
+    except GitError as e:
+        # two scenarios:
+        # current git repository is in an inconsistent state:
+        # - .git/index.lock exists (git partial update got applied)
+        # should get addressed in https://github.com/openlawlibrary/taf/issues/210
+        # current git repository has uncommitted changes:
+        # we do not want taf to lose any repo data, so we do not reset the repository.
+        # for now, raise an update error and let the user manually reset the repository
+        taf_logger.error(
+            "Could not checkout branch {} during commit merge. Error {}", branch, e
+        )
+        raise UpdateFailedError(
+            f"Repository {repository.name} should contain only committed changes. \n"
+            + f"Please update the repository at {repository.path} manually and try again."
+        )
 
     repository.merge_commit(commit_to_merge)
     if checkout:
@@ -1317,15 +1319,16 @@ def _validate_authentication_repository(
 
     if expected_repo_type != UpdateType.EITHER:
         # check if the repository being updated is a test repository
-        targets = validation_auth_repo.get_json(commits[-1], "metadata/targets.json")
-        test_repo = "test-auth-repo" in targets["signed"]["targets"]
-        if test_repo and expected_repo_type != UpdateType.TEST:
+        if validation_auth_repo.is_test_repo and expected_repo_type != UpdateType.TEST:
             error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is a test repository. "
                 'Call update with "--expected-repo-type" test to update a test '
                 "repository"
             )
-        elif not test_repo and expected_repo_type == UpdateType.TEST:
+        elif (
+            not validation_auth_repo.is_test_repo
+            and expected_repo_type == UpdateType.TEST
+        ):
             error_msg = UpdateFailedError(
                 f"Repository {users_auth_repo.name} is not a test repository,"
                 ' but update was called with the "--expected-repo-type" test'

@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Use `is_test_repo` AuthRepository property in updater ([293])
+- Remove leftover git worktree code in error handling ([291])
 - Fix `get_role_repositories` to find common roles in both `repositories.json` and metadata ([286])
 - Replace buggy `all_fetched_commits` with `all_commits_on_branch` ([285])
 - Fix pygit2 performance regression ([283])
@@ -27,7 +29,10 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
 
+
+[293]: https://github.com/openlawlibrary/taf/pull/293
 [292]: https://github.com/openlawlibrary/taf/pull/292
+[291]: https://github.com/openlawlibrary/taf/pull/291
 [286]: https://github.com/openlawlibrary/taf/pull/286
 [285]: https://github.com/openlawlibrary/taf/pull/285
 [283]: https://github.com/openlawlibrary/taf/pull/283
