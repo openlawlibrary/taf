@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Fixed
+
+## [0.22.0] - 12/09/2022
+
+### Added
+
+### Changed
+
 - Support first commits on branches with a missing branch file ([292])
 - Upgrade cryptography version ([279])
 - Turn expired metadata into a warning instead of an error by default ([275])
@@ -769,7 +777,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.21.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/openlawlibrary/taf/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.1
 [0.21.0]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/openlawlibrary/taf/compare/v0.19.0...v0.20.0
