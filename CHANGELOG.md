@@ -12,11 +12,30 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Fixed
+
+## [0.22.2] - 12/14/2022
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Remove _tuf_patches in `__init__.py` ([297])
+
+
+[297]: https://github.com/openlawlibrary/taf/pull/297
+
+### Added
+
+### Changed
+
 
 ### Fixed
 
 
-## [0.22.1] - 12/09/2022
+## [0.22.1] - 12/14/2022
 
 ### Added
 
@@ -794,7 +813,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.22.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.22.2...HEAD
+[0.22.2]: https://github.com/openlawlibrary/taf/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/openlawlibrary/taf/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/openlawlibrary/taf/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/openlawlibrary/taf/compare/v0.20.0...v0.21.1
