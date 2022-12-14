@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
@@ -13,6 +12,17 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
+
+## [0.22.3] - 12/14/2022
+
+### Added
+
+### Changed
+
+### Fixed
+ - Add missing tuf import in `log.py` ([298])
+
+[298]: https://github.com/openlawlibrary/taf/pull/298
 
 ## [0.22.2] - 12/14/2022
 
@@ -813,7 +823,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.22.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.22.3...HEAD
+[0.22.3]: https://github.com/openlawlibrary/taf/compare/v0.22.2...v0.22.3
 [0.22.2]: https://github.com/openlawlibrary/taf/compare/v0.22.1...v0.22.2
 [0.22.1]: https://github.com/openlawlibrary/taf/compare/v0.22.0...v0.22.1
 [0.22.0]: https://github.com/openlawlibrary/taf/compare/v0.21.1...v0.22.0
