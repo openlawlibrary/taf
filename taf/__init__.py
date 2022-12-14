@@ -42,34 +42,3 @@ elif _PLATFORM == "win32":
         _set_env("PATH", _PLATFORM_LIBS)
 else:
     raise Exception(f'Platform "{_PLATFORM}" is not supported!')
-
-
-def _tuf_patches():
-    from functools import wraps
-    import tuf.repository_lib
-    import tuf.repository_tool
-
-    from taf.utils import normalize_file_line_endings
-
-    # Replace staging metadata directory name
-    tuf.repository_tool.METADATA_STAGED_DIRECTORY_NAME = (
-        tuf.repository_tool.METADATA_DIRECTORY_NAME
-    )
-
-    # Replace get_metadata_fileinfo with file-endings normalization
-    def get_targets_metadata_fileinfo(get_targets_metadata_fileinfo_fn):
-        @wraps(get_targets_metadata_fileinfo_fn)
-        def normalized(filename, storage_backend, custom=None):
-            normalize_file_line_endings(filename)
-            return get_targets_metadata_fileinfo_fn(
-                filename, storage_backend, custom=None
-            )
-
-        return normalized
-
-    tuf.repository_lib.get_targets_metadata_fileinfo = get_targets_metadata_fileinfo(
-        tuf.repository_lib.get_targets_metadata_fileinfo
-    )
-
-
-_tuf_patches()
