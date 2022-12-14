@@ -5,6 +5,7 @@ import securesystemslib
 from pathlib import Path
 
 import tuf.log
+import tuf.repository_tool
 import tuf.exceptions
 from loguru import logger as taf_logger
 
