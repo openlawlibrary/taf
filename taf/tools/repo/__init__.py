@@ -186,7 +186,7 @@ def attach_to_group(group):
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
-    @click.option("--default-branch", default="main", help="Name of the default branch, like mian or master")
+    @click.option("--default-branch", default=None, help="Name of the default branch, like main or master")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
                   "repository from the filesystem")
     @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
@@ -289,7 +289,7 @@ def attach_to_group(group):
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
-    @click.option("--default-branch", default="main", help="Name of the default branch, like mian or master")
+    @click.option("--default-branch", default=None, help="Name of the default branch, like mian or master")
     @click.option("--from-commit", default=None, help="First commit which should be validated.")
     @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
                   "ignored during update.")

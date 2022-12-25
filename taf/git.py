@@ -19,6 +19,7 @@ from taf.exceptions import (
 )
 from taf.log import taf_logger
 from taf.utils import run
+from typing import Optional
 from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -31,7 +32,7 @@ class GitRepository:
         name=None,
         urls=None,
         custom=None,
-        default_branch="main",
+        default_branch=None,
         allow_unsafe=False,
         path=None,
         *args,
@@ -87,9 +88,11 @@ class GitRepository:
             self.path = self._validate_repo_path(path, None)
 
         self.urls = self._validate_urls(urls)
-        self.default_branch = default_branch
-        self.custom = custom or {}
         self.allow_unsafe = allow_unsafe
+        self.custom = custom or {}
+        if default_branch is None:
+            default_branch = self._determine_default_branch()
+        self.default_branch = default_branch
 
     _pygit = None
 
@@ -168,7 +171,7 @@ class GitRepository:
         try:
             return self.pygit.repo
         except Exception as e:
-            self._log_info(f"Unable to instantiate pygit2 repo due to error: {str(e)}")
+            self._log_debug(f"Unable to instantiate pygit2 repo due to error: {str(e)}")
             return None
 
     def _git(self, cmd, *args, **kwargs):
@@ -221,6 +224,30 @@ class GitRepository:
             if log_success_msg:
                 self._log_debug(log_success_msg)
         return result
+
+    def _get_default_branch_from_local(self) -> str:
+        try:
+            branch = self._git(
+                "symbolic-ref refs/remotes/origin/HEAD --short", reraise_error=True
+            )
+            return _local_branch_re.sub("", branch)
+        except GitError as e:
+            self._log_debug(f"Could not get remote HEAD at {self.path}: {e}")
+            pass
+        # NOTE: will not work if local repository is in a detached HEAD
+        branch = self._git("symbolic-ref HEAD --short", reraise_error=True)
+        return branch
+
+    def _get_default_branch_from_remote(self, url: str) -> str:
+        branch = self._git(
+            f"ls-remote --symref {url} HEAD",
+            log_error=True,
+            log_error_msg="Unable to get default branch from remote",
+            reraise_error=True,
+        )
+        branch = branch.split("\t", 1)[0]
+        branch = branch.split()[-1]
+        return _remote_branch_re.sub("", branch)
 
     def _log(self, log_func, message):
         log_func(self.log_template, self.log_prefix, message)
@@ -485,6 +512,9 @@ class GitRepository:
         if not cloned:
             raise CloneRepoException(self)
 
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
+
     def clone_or_pull(self, branches=None, only_fetch=False, **kwargs):
         """
         Clone or fetch the specified branch for the given repo.
@@ -653,6 +683,15 @@ class GitRepository:
     def get_commit_sha(self, behind_head):
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
+
+    def get_default_branch(self, url: Optional[str] = None) -> str:
+        """Get the default branch of the repository. If url is provided, return the
+        default branch from the remote. Otherwise, return the default
+        branch from the local repository."""
+        if url is not None:
+            url = url.strip()
+            return self._get_default_branch_from_remote(url)
+        return self._get_default_branch_from_local()
 
     def get_json(self, commit, path, raw=False):
         s = self.get_file(commit, path, raw=raw)
@@ -1009,6 +1048,30 @@ class GitRepository:
         except Exception:
             return None
 
+    def _determine_default_branch(self) -> Optional[str]:
+        """Determine the default branch of the repository"""
+        # try to get the default branch from the local repository
+        errors = []
+        try:
+            return self.get_default_branch()
+        except GitError as e:
+            errors.append(e)
+            pass
+
+        # if the local repository does not exist or doesn't have a default branch, try to get the default branch from remote
+        if self.urls:
+            for url in self.urls:
+                try:
+                    return self.get_default_branch(url)
+                except GitError as e:
+                    errors.append(e)
+                    pass
+
+        self._log_debug(
+            f"Cannot determine default branch with git -C at {self.path}: {errors}"
+        )
+        return None
+
     def _validate_repo_name(self, name):
         """Ensure the repo name is not malicious"""
         match = _repo_name_re.match(name)
@@ -1071,6 +1134,10 @@ class GitRepository:
                 urls = [_find_url(self.path, url) for url in urls]
         return urls
 
+
+_remote_branch_re = re.compile(r"^(refs/heads/)")
+
+_local_branch_re = re.compile(r"^(origin/)")
 
 _repo_name_re = re.compile(r"^\w[\w_-]*/\w[\w_-]*$")
 

@@ -160,7 +160,6 @@ def load_repositories(
     only_load_targets=True,
     commits=None,
     roles=None,
-    default_branch="main",
     excluded_target_globs=None,
 ):
     """
@@ -178,7 +177,7 @@ def load_repositories(
             'name2': GitRepo2,
             'default': GitRepo3
         }
-        When determening a target's class, in case when targets_classes is a dictionary,
+        When determining a target's class, in case when targets_classes is a dictionary,
         it is first checked if its name is in a key in the dictionary. If it is not found,
         it is checked if default class is set, by looking up value of 'default'. If nothing
         is found, the class is set to TAF's GitRepository.
@@ -252,6 +251,7 @@ def load_repositories(
                 continue
             custom = _get_custom_data(repo_data, targets.get(name))
             urls = _get_urls(mirrors, name, repo_data)
+            default_branch = _get_target_default_branch(auth_repo, name, commit)
             git_repo = _initialize_repository(
                 factory,
                 repo_classes,
@@ -329,6 +329,24 @@ def _get_urls(mirrors, repo_name, repo_data=None):
         )
 
     return [mirror.format(org_name=org_name, repo_name=repo_name) for mirror in mirrors]
+
+
+def _get_target_default_branch(
+    auth_repo: AuthenticationRepository, name: str, commit: str
+) -> str:
+    """
+    Gets signed name of branch for a target repository by loading json at specified <commit>.
+    If successful, signed branch name is considered a default branch when instantiating a target git repository.
+    Otherwise, when no branch key is found under signed targets, the default branch is inherited from authentication repository.
+    """
+    try:
+        default_branch = auth_repo.get_target(name, commit).get("branch")
+    except (KeyError, AttributeError):
+        default_branch = None
+
+    if default_branch is None:
+        default_branch = auth_repo.default_branch
+    return default_branch
 
 
 def get_repositories_paths_by_custom_data(auth_repo, commit=None, **custom):

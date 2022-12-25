@@ -84,13 +84,17 @@ def _clone_validation_repo(url, repository_name, default_branch):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
+    validation_auth_repo = AuthenticationRepository(
+        path=path, urls=[url], default_branch=default_branch
+    )
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
     settings.validation_repo_path = validation_auth_repo.path
 
-    validation_head_sha = validation_auth_repo.top_commit_of_branch(default_branch)
+    validation_head_sha = validation_auth_repo.top_commit_of_branch(
+        validation_auth_repo.default_branch
+    )
 
     if repository_name is None:
         try:
@@ -191,7 +195,7 @@ def update_repository(
     url,
     clients_auth_path,
     clients_library_dir=None,
-    default_branch="main",
+    default_branch=None,
     update_from_filesystem=False,
     expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
@@ -706,7 +710,6 @@ def _update_current_repository(
             library_dir=targets_library_dir,
             commits=commits,
             only_load_targets=False,
-            default_branch=default_branch,
             excluded_target_globs=excluded_target_globs,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
@@ -1245,7 +1248,7 @@ def _update_target_repository(
 def validate_repository(
     clients_auth_path,
     clients_library_dir=None,
-    default_branch="main",
+    default_branch=None,
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
