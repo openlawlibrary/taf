@@ -451,7 +451,9 @@ def _check_if_commits_match(
             for excluded_target_glob in excluded_target_globs
         ):
             continue
-        origin_repo = GitRepository(origin_dir, repository_rel_path)
+        origin_repo = GitRepository(
+            origin_dir, repository_rel_path, default_branch="master"
+        )
         client_repo = GitRepository(client_dir, repository_rel_path)
         for branch in origin_repo.branches():
             # ensures that git log will work
