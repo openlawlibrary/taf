@@ -108,6 +108,7 @@ def load_dependencies(
 
             out_of_band_authentication = repo_data.get("out-of-band-authentication")
             custom = _get_custom_data(repo_data, None)
+            default_branch = repo_data.get("branch") or auth_repo.default_branch
 
             if auth_class is None:
                 auth_class = AuthenticationRepository
@@ -125,6 +126,7 @@ def load_dependencies(
                     name=name,
                     urls=urls,
                     out_of_band_authentication=out_of_band_authentication,
+                    default_branch=default_branch,
                     custom=custom,
                 )
             except Exception as e:
