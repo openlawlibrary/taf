@@ -84,7 +84,6 @@ kwargs = {
             "taf = taf.tools.cli.taf:main",
             "olc = taf.tools.cli.olc:main",
         ],
-        "pytest11": ["taf_yubikey_utils = taf.tests.yubikey_utils"],
     },
     "classifiers": [
         "Development Status :: 2 - Pre-Alpha",
