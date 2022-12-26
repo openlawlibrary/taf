@@ -520,7 +520,7 @@ def _update_named_repository(
                         targets_library_dir,
                         child_auth_repo.name,
                         default_branch,
-                        False,
+                        update_from_filesystem,
                         expected_repo_type,
                         target_repo_classes,
                         target_factory,
