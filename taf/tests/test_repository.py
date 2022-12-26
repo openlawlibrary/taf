@@ -1,4 +1,5 @@
 import pytest
+import tempfile
 from pathlib import Path
 
 from taf.exceptions import InvalidRepositoryError
@@ -197,3 +198,20 @@ def test_to_from_json_roundtrip():
         auth_repo = AuthenticationRepository.from_json_dict(auth_data)
         output_data = auth_repo.to_json_dict()
         _check_values(auth_data, output_data)
+
+
+def test_autodetect_default_branch_expect_none():
+    names = ["namespace/repo1", "namespace1/repo1"]
+    for name in names:
+        repo = GitRepository(path=Path("path", name))
+        assert repo.default_branch is None
+
+
+def test_autodetect_default_branch_with_git_init_bare_expect_autodetected():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo = GitRepository(path=Path(temp_dir))
+        repo._git("init --bare")
+        default_branch = repo._determine_default_branch()
+        assert default_branch is not None
+        # depends on git defaultBranch config on users' machine
+        assert default_branch in ("main", "master")
