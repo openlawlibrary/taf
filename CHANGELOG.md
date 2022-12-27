@@ -9,9 +9,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Auto-detect default branch ([300])
+
 ### Changed
 
 ### Fixed
+
+- Remove pytest11 default entrypoint ([301])
+
+
+[301]: https://github.com/openlawlibrary/taf/pull/301
+[300]: https://github.com/openlawlibrary/taf/pull/300
 
 ## [0.22.4] - 12/15/2022
 
@@ -834,7 +842,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.22.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/openlawlibrary/taf/compare/v0.22.4...v0.23.0
 [0.22.4]: https://github.com/openlawlibrary/taf/compare/v0.22.3...v0.22.4
 [0.22.3]: https://github.com/openlawlibrary/taf/compare/v0.22.2...v0.22.3
 [0.22.2]: https://github.com/openlawlibrary/taf/compare/v0.22.1...v0.22.2
