@@ -14,7 +14,7 @@ validate_repo_name = True
 
 validation_repo_path = None
 
-default_branch = "main"
+default_branch = None
 
 # Strict mode enabled/disabled. If strict is enabled, any warnings
 # should raise TAF errors

@@ -33,7 +33,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         name=None,
         urls=None,
         custom=None,
-        default_branch="main",
+        default_branch=None,
         allow_unsafe=False,
         conf_directory_root=None,
         out_of_band_authentication=None,
