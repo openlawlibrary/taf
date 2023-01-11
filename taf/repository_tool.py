@@ -12,6 +12,7 @@ import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
 from securesystemslib.util import get_file_details
+from securesystemslib.signer import SSlibSigner
 from tuf.exceptions import Error as TUFError, RepositoryError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
@@ -20,6 +21,7 @@ from tuf.repository_tool import (
     load_repository,
 )
 from tuf.roledb import get_roleinfo
+from tuf.api.metadata import Targets, Metadata
 
 from taf import YubikeyMissingLibrary
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -38,6 +40,7 @@ from taf.exceptions import (
 )
 from taf.git import GitRepository
 from taf.utils import normalize_file_line_endings, on_rm_error
+
 
 try:
     import taf.yubikey as yk
@@ -381,7 +384,7 @@ class Repository:
         - None
         Returns:
         - Dict of added/modified files and dict of removed target files (inputs for
-          `modify_targets` method.)
+        `modify_targets` method.)
 
         Raises:
         - None
@@ -462,6 +465,36 @@ class Repository:
                 target_files.setdefault(target_file, {}).update(custom_data)
         return target_files
 
+
+    def modify_targets_merkle_dag(self, added_data=None, removed_data=None, targets_key=None, snapshot_key=None, timestamp_key=None):
+
+        added_data = {} if added_data is None else added_data
+        removed_data = {} if removed_data is None else removed_data
+        combined_data = dict(added_data, **removed_data)
+        targets_role = self.get_role_from_target_paths(combined_data)
+        target_paths = list(combined_data.keys()) 
+        if targets_role is None:
+            raise TargetsError(
+                f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
+            )
+
+        target_metadata_path = Path(self.path, METADATA_DIRECTORY_NAME, f"{targets_role}.json")
+        data = Path(self.path, METADATA_DIRECTORY_NAME, f"{targets_role}.json").read_bytes()
+        metadata_targets = Metadata[Targets].from_bytes(data)
+        for path, target_data in added_data.items():
+            if isinstance(target_data, dict):
+                path = target_data["target"].pop("path", "")
+                if path.startswith("git"):
+                    commit = target_data["target"].pop("commit")
+                    local_path = target_data["target"].pop("local_path")
+                    metadata_targets.signed.add_target(path=path, merkle_dag_identifier=commit, local_path=local_path, overwrite=True, scheme="git")
+        if targets_key is not None:
+            signer = SSlibSigner(targets_key)
+            metadata_targets.sign(signer)
+            metadata_targets.to_file(str(target_metadata_path))
+
+
+
     def modify_targets(self, added_data=None, removed_data=None):
         """Creates a target.json file containing a repository's commit for each repository.
         Adds those files to the tuf repository.
@@ -478,9 +511,9 @@ class Repository:
                                 }
                             }
         - removed_data(dict): Dictionary of the old data whose keys are target paths of
-                              repositories
-                              (as specified in targets.json, relative to the targets dictionary).
-                              The values are not needed. This is just for consistency.
+                            repositories
+                            (as specified in targets.json, relative to the targets dictionary).
+                            The values are not needed. This is just for consistency.
 
         Content of the target file can be a dictionary, in which case a json file will be created.
         If that is not the case, an ordinary textual file will be created.
@@ -506,6 +539,7 @@ class Repository:
                 f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
             )
         targets_obj = self._role_obj(targets_role)
+
         # add new target files
         for path, target_data in added_data.items():
             target_path = (self.targets_path / path).absolute()
@@ -1149,7 +1183,7 @@ class Repository:
 
         Raises:
         - InvalidKeyError: If at least one of the provided keys cannot be used to sign the
-                          role's metadata
+                        role's metadata
         - SigningError: If the number of signing keys is insufficient
         """
         threshold = self.get_role_threshold(role_name)
@@ -1180,15 +1214,15 @@ class Repository:
         - signature_provider: Signature provider used for signing
         - write(bool): If True timestmap metadata will be signed and written
         - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
-                      provided, pins will either be loaded from the global pins dictionary
-                      (if it was previously populated) or the user will have to manually enter
-                      it.
+                    provided, pins will either be loaded from the global pins dictionary
+                    (if it was previously populated) or the user will have to manually enter
+                    it.
         Returns:
         None
 
         Raises:
         - InvalidKeyError: If at least one of the provided keys cannot be used to sign the
-                          role's metadata
+                        role's metadata
         - SigningError: If the number of signing keys is insufficient
         """
         role_obj = self._role_obj(role_name)
@@ -1228,7 +1262,7 @@ class Repository:
         - target_filenames: List of relative paths of target files
         Returns:
         - A dictionary mapping roles to a list of target files belonging
-          to the provided target_filenames list delegated to the role
+        to the provided target_filenames list delegated to the role
         """
         targets_roles_mapping = self.map_signing_roles(target_filenames)
         roles_targets_mapping = {}
@@ -1269,7 +1303,7 @@ class Repository:
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
         - interval(int): Number of days added to the start date. If not provided,
-                         the default expiration interval of the specified role is used
+                        the default expiration interval of the specified role is used
         - write(bool): If True metadata will be signed and written
 
         Returns:
@@ -1278,7 +1312,7 @@ class Repository:
         Raises:
         - InvalidKeyError: If a wrong key is used to sign metadata
         - MetadataUpdateError: If any other error happened while updating and signing
-                               the metadata file
+                            the metadata file
         """
         try:
             self.set_metadata_expiration_date(role_name, start_date, interval)
@@ -1307,20 +1341,20 @@ class Repository:
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
         - interval(int): Number of days added to the start date. If not provided,
-                         the default expiration interval of the specified role is used
+                        the default expiration interval of the specified role is used
         - write(bool): If True timestamp metadata will be signed and written
         - signature_provider: Signature provider used for signing
         - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
-                      provided, pins will either be loaded from the global pins dictionary
-                      (if it was previously populated) or the user will have to manually enter
-                      it.
+                    provided, pins will either be loaded from the global pins dictionary
+                    (if it was previously populated) or the user will have to manually enter
+                    it.
         Returns:
         None
 
         Raises:
         - InvalidKeyError: If a wrong key is used to sign metadata
         - MetadataUpdateError: If any other error happened while updating and signing
-                               the metadata file
+                            the metadata file
         """
         try:
             self.set_metadata_expiration_date(role_name, start_date, interval)
@@ -1348,7 +1382,7 @@ class Repository:
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
         - interval(int): Number of days added to the start date. If not provided,
-                         the default timestamp expiration interval is used (1 day)
+                        the default timestamp expiration interval is used (1 day)
         - write(bool): If True timestamp metadata will be signed and written
 
         Returns:
@@ -1384,12 +1418,12 @@ class Repository:
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
         - interval(int): Number of days added to the start date. If not provided,
-                         the default timestamp expiration interval is used (1 day)
+                        the default timestamp expiration interval is used (1 day)
         - write(bool): If True timestamp metadata will be signed and written
         - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
-                      provided, pins will either be loaded from the global pins dictionary
-                      (if it was previously populated) or the user will have to manually enter
-                      it.
+                    provided, pins will either be loaded from the global pins dictionary
+                    (if it was previously populated) or the user will have to manually enter
+                    it.
 
         Returns:
         None
@@ -1425,7 +1459,7 @@ class Repository:
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
         - interval(int): Number of days added to the start date. If not provided,
-                         the default snapshot expiration interval is used (7 days)
+                        the default snapshot expiration interval is used (7 days)
         - write(bool): If True snapshot metadata will be signed and written
 
         Returns:
@@ -1434,7 +1468,7 @@ class Repository:
         Raises:
         - InvalidKeyError: If a wrong key is used to sign metadata
         - SnapshotMetadataUpdateError: If any other error happened while updating and signing
-                                       the metadata file
+                                    the metadata file
         """
         try:
             self.update_role_keystores(
@@ -1461,12 +1495,12 @@ class Repository:
                                 calculating expiration date. If no value is provided,
                                 it is set to the current time
         - interval(int): Number of days added to the start date. If not provided,
-                         the default snapshot expiration interval is used (7 days)
+                        the default snapshot expiration interval is used (7 days)
         - write(bool): If True snapshot metadata will be signed and written
         - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
-                      provided, pins will either be loaded from the global pins dictionary
-                      (if it was previously populated) or the user will have to manually enter
-                      it.
+                    provided, pins will either be loaded from the global pins dictionary
+                    (if it was previously populated) or the user will have to manually enter
+                    it.
 
         Returns:
         None
@@ -1474,7 +1508,7 @@ class Repository:
         Raises:
         - InvalidKeyError: If a wrong key is used to sign metadata
         - SnapshotMetadataUpdateError: If any other error happened while updating and signing
-                                       the metadata file
+                                    the metadata file
         """
         try:
             self.update_role_yubikeys(
@@ -1511,7 +1545,7 @@ class Repository:
         - added_targets_data(dict): Dictionary containing targets data that should be added
         - removed_targets_data(dict): Dictionary containing targets data that should be removed
         - interval(int): Number of days added to the start date. If not provided,
-                         the default targets expiration interval is used (90 days)
+                        the default targets expiration interval is used (90 days)
         - write(bool): If True targets metadata will be signed and written
 
         Returns:
@@ -1519,7 +1553,7 @@ class Repository:
 
         Raises:
         - TargetsMetadataUpdateError: If any other error happened while updating and signing
-                                      the metadata file
+                                    the metadata file
         """
         try:
             targets_role = self.modify_targets(added_targets_data, removed_targets_data)
@@ -1553,19 +1587,19 @@ class Repository:
         - added_targets_data(dict): Dictionary containing targets data that should be added
         - removed_targets_data(dict): Dictionary containing targets data that should be removed
         - interval(int): Number of days added to the start date. If not provided,
-                         the default targets expiration interval is used (90 days in case of
-                         "targets", 1 in case of delegated roles)
+                        the default targets expiration interval is used (90 days in case of
+                        "targets", 1 in case of delegated roles)
         - write(bool): If True targets metadata will be signed and written
         - pins(dict): A dictionary mapping serial numbers of Yubikeys to their pins. If not
-                      provided, pins will either be loaded from the global pins dictionary
-                      (if it was previously populated) or the user will have to manually enter
-                      it.
+                    provided, pins will either be loaded from the global pins dictionary
+                    (if it was previously populated) or the user will have to manually enter
+                    it.
         Returns:
         None
 
         Raises:
         - TargetsMetadataUpdateError: If error happened while updating and signing
-                                      the metadata file
+                                    the metadata file
         """
         try:
             targets_role = self.modify_targets(added_targets_data, removed_targets_data)
@@ -1620,8 +1654,8 @@ def _tuf_patches():
         return normalized
 
     tuf.repository_lib.get_targets_metadata_fileinfo = get_targets_metadata_fileinfo(
-        tuf.repository_lib.get_targets_metadata_fileinfo
-    )
+    tuf.repository_lib.get_targets_metadata_fileinfo
+)
 
 
 _tuf_patches()

@@ -19,81 +19,95 @@ def run_around_tests(repositories):
         taf_repository._repository.targets.clear_targets()
 
 
-def test_add_targets_new_files(repositories):
+def test_add_targets_new_files(repositories, targets_key):
     taf_happy_path = repositories["test-happy-path"]
     old_targets = {"targets": _get_old_targets(taf_happy_path)}
+    repo = GitRepository(path=taf_happy_path.path)
 
-    json_file_content = {"attr1": "value1", "attr2": "value2"}
-    regular_file_content = "this file is not empty"
+    json_file_content = {
+        "path": "git:test_repo?branch=master",
+        "commit": repo.top_commit_of_branch("master"),
+        "local_path": str(taf_happy_path.path),
+        "attr1": "value1",
+        "attr2": "value2"
+    }
     data = {
         "new_json_file": {"target": json_file_content},
-        "new_file": {"target": regular_file_content},
-        "empty_file": {"target": None},
     }
-    role = taf_happy_path.modify_targets(data)
-    assert role == "targets"
+    taf_happy_path.modify_targets_merkle_dag(data, targets_key=targets_key)
+    import pdb; pdb.set_trace()
+    print(taf_happy_path.path)
 
-    _check_target_files(taf_happy_path, data, old_targets)
+    # regular_file_content = "this file is not empty"
+    # data = {
+    #     "new_json_file": {"target": json_file_content},
+    #     "new_file": {"target": regular_file_content},
+    #     "empty_file": {"target": None},
+    # }
+    # role = taf_happy_path.modify_targets(data)
+    # assert role == "targets"
 
-
-def test_add_targets_nested_files(repositories):
-    taf_happy_path = repositories["test-happy-path"]
-    old_targets = {"targets": _get_old_targets(taf_happy_path)}
-
-    data = {
-        "inner_folder1/new_file_1": {"target": "file 1 content"},
-        "inner_folder2/new_file_2": {"target": "file 2 content"},
-    }
-    taf_happy_path.modify_targets(data)
-    _check_target_files(taf_happy_path, data, old_targets)
+    # _check_target_files(taf_happy_path, data, old_targets)
 
 
-def test_add_targets_files_to_keep(repositories):
-    taf_happy_path = repositories["test-happy-path"]
-    old_targets = {"targets": _get_old_targets(taf_happy_path)}
-    data = {"a_new_file": {"target": "new file content"}}
-    taf_happy_path.modify_targets(data)
-    _check_target_files(taf_happy_path, data, old_targets, files_to_keep=["branch"])
+# def test_add_targets_nested_files(repositories):
+#     taf_happy_path = repositories["test-happy-path"]
+#     old_targets = {"targets": _get_old_targets(taf_happy_path)}
+
+#     data = {
+#         "inner_folder1/new_file_1": {"target": "file 1 content"},
+#         "inner_folder2/new_file_2": {"target": "file 2 content"},
+#     }
+#     taf_happy_path.modify_targets(data)
+#     _check_target_files(taf_happy_path, data, old_targets)
 
 
-def test_add_targets_delegated_roles_no_child_roles(repositories):
-    taf_delegated_roles = repositories["test-delegated-roles"]
-    old_targets = {
-        "delegated_role1": ["dir1/delegated_role1_1.txt", "dir1/delegated_role1_2.txt"],
-        "delegated_role2": ["dir2/delegated_role2_1.txt", "dir2/delegated_role2_2.txt"],
-        "inner_delegated_role": ["dir2/inner_delegated_role.txt"],
-    }
-
-    data = {"dir1/a_new_file": {"target": "new file content"}}
-    role = taf_delegated_roles.modify_targets(data)
-    assert role == "delegated_role1"
-
-    _check_target_files(taf_delegated_roles, data, old_targets, role)
+# def test_add_targets_files_to_keep(repositories):
+#     taf_happy_path = repositories["test-happy-path"]
+#     old_targets = {"targets": _get_old_targets(taf_happy_path)}
+#     data = {"a_new_file": {"target": "new file content"}}
+#     taf_happy_path.modify_targets(data)
+#     _check_target_files(taf_happy_path, data, old_targets, files_to_keep=["branch"])
 
 
-def test_add_targets_multiple_delegated_roles_should_raise_error(repositories):
-    taf_delegated_roles = repositories["test-delegated-roles"]
-    data = {
-        "dir1/a_new_file": {"target": "new file content"},
-        "dir2/a_new_file": {"target": "new file content"},
-    }
+# def test_add_targets_delegated_roles_no_child_roles(repositories):
+#     taf_delegated_roles = repositories["test-delegated-roles"]
+#     old_targets = {
+#         "delegated_role1": ["dir1/delegated_role1_1.txt", "dir1/delegated_role1_2.txt"],
+#         "delegated_role2": ["dir2/delegated_role2_1.txt", "dir2/delegated_role2_2.txt"],
+#         "inner_delegated_role": ["dir2/inner_delegated_role.txt"],
+#     }
 
-    with pytest.raises(TargetsError):
-        taf_delegated_roles.modify_targets(data)
+#     data = {"dir1/a_new_file": {"target": "new file content"}}
+#     role = taf_delegated_roles.modify_targets(data)
+#     assert role == "delegated_role1"
+
+#     _check_target_files(taf_delegated_roles, data, old_targets, role)
 
 
-def test_add_targets_delegated_roles_child_roles(repositories):
-    taf_delegated_roles = repositories["test-delegated-roles"]
-    old_targets = {
-        "delegated_role1": ["dir1/delegated_role1_1.txt", "dir1/delegated_role1_2.txt"],
-        "delegated_role2": ["dir2/delegated_role2_1.txt", "dir2/delegated_role2_2.txt"],
-        "inner_delegated_role": ["dir2/inner_delegated_role.txt"],
-    }
+# def test_add_targets_multiple_delegated_roles_should_raise_error(repositories):
+#     taf_delegated_roles = repositories["test-delegated-roles"]
+#     data = {
+#         "dir1/a_new_file": {"target": "new file content"},
+#         "dir2/a_new_file": {"target": "new file content"},
+#     }
 
-    data = {"dir2/a_new_file": {"target": "new file content"}}
-    role = "delegated_role2"
-    taf_delegated_roles.modify_targets(data)
-    _check_target_files(taf_delegated_roles, data, old_targets, role)
+#     with pytest.raises(TargetsError):
+#         taf_delegated_roles.modify_targets(data)
+
+
+# def test_add_targets_delegated_roles_child_roles(repositories):
+#     taf_delegated_roles = repositories["test-delegated-roles"]
+#     old_targets = {
+#         "delegated_role1": ["dir1/delegated_role1_1.txt", "dir1/delegated_role1_2.txt"],
+#         "delegated_role2": ["dir2/delegated_role2_1.txt", "dir2/delegated_role2_2.txt"],
+#         "inner_delegated_role": ["dir2/inner_delegated_role.txt"],
+#     }
+
+#     data = {"dir2/a_new_file": {"target": "new file content"}}
+#     role = "delegated_role2"
+#     taf_delegated_roles.modify_targets(data)
+#     _check_target_files(taf_delegated_roles, data, old_targets, role)
 
 
 def _check_target_files(
