@@ -520,15 +520,16 @@ class GitRepository:
         Clone or fetch the specified branch for the given repo.
         Return old and new HEAD.
         """
-        if branches is None:
-            branches = [self.default_branch]
-        self._log_debug(f"cloning or pulling branches {', '.join(branches)}")
 
         old_head = self.head_commit_sha()
         if old_head is None:
+            self._log_debug(f"cloning {self.name}")
             self._log_debug(f"old head sha is {old_head}")
             self.clone(**kwargs)
         else:
+            if branches is None:
+                branches = [self.default_branch]
+            self._log_debug(f"pulling branches {', '.join(branches)}")
             try:
                 for branch in branches:
                     if only_fetch:
