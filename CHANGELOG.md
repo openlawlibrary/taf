@@ -15,9 +15,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `clone_or_pull` method ([303])
 - Remove pytest11 default entrypoint ([301])
 
 
+[303]: https://github.com/openlawlibrary/taf/pull/303
 [301]: https://github.com/openlawlibrary/taf/pull/301
 [300]: https://github.com/openlawlibrary/taf/pull/300
 
