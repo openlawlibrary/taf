@@ -254,23 +254,29 @@ def _load_signing_keys(
     return keys, yubikeys
 
 
-def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
+def _update_target_repos(repo_path, target_repo_path, keystore):
     """Updates target repo's commit sha and branch"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:
         return
+    auth_repo = AuthenticationRepository(path=repo_path)
     target_repo = GitRepository(path=target_repo_path)
     if target_repo.is_git_repository:
-        data = {"commit": target_repo.head_commit_sha()}
-        if add_branch:
-            data["branch"] = target_repo.get_current_branch()
-        target_repo_name = target_repo_path.name
-        path = targets_dir / target_repo_name
-        path.write_text(json.dumps(data, indent=4))
-        print(f"Updated {path}")
+        branch = target_repo.get_current_branch()
+        content = {
+            "path": f"git:{target_repo.name}?branch={branch}",
+            "commit": target_repo.top_commit_of_branch(branch),
+            "local_path": str(target_repo_path),
+        }
+        data = {
+            "file_content": {"target": content},
+        }
 
+        targets_role = auth_repo.get_role_from_target_paths(target_repo.name)
+        targets_key = read_private_key_from_keystore(keystore, targets_role)
+        auth_repo.modify_targets_merkle_dag(data, targets_key=targets_key)
 
 def update_target_repos_from_fs(
-    repo_path, library_dir=None, namespace=None, add_branch=True
+    repo_path, library_dir=None, namespace=None, keystore=True
 ):
     """
     <Purpose>
@@ -297,12 +303,12 @@ def update_target_repos_from_fs(
         auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
     for target_repo_path in targets_directory.glob("*"):
         _update_target_repos(
-            repo_path, auth_repo_targets_dir, target_repo_path, add_branch
+            repo_path, target_repo_path, keystore,
         )
 
 
 def update_target_repos_from_repositories_json(
-    repo_path, library_dir, namespace, add_branch=True
+    repo_path, library_dir, namespace, keystore=None
 ):
     """
     <Purpose>
@@ -334,7 +340,8 @@ def update_target_repos_from_repositories_json(
             namespace, _ = namespace_and_name
             targets_dir = auth_repo_targets_dir / namespace
         targets_dir.mkdir(parents=True, exist_ok=True)
-        _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
+        _update_target_repos(repo_path, target_repo_path, keystore)
+
 
 
 def _check_if_can_create_repository(auth_repo):

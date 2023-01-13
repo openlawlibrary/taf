@@ -64,9 +64,8 @@ def attach_to_group(group):
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")
-    @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
-                  "the current branch to target files")
-    def update_repos_from_fs(path, library_dir, namespace, add_branch):
+    @click.option("--keystore", default=None, help="Keystore path")
+    def update_repos_from_fs(path, library_dir, namespace, keystore):
         """
         Update target files corresponding to target repositories by traversing through the root
         directory. Does not automatically sign the metadata files.
@@ -94,7 +93,7 @@ def attach_to_group(group):
         namespace1/target1, a file called target1 is created inside the targets/namespace1 authentication
         repository's direcotry.
         """
-        developer_tool.update_target_repos_from_fs(path, library_dir, namespace, add_branch)
+        developer_tool.update_target_repos_from_fs(path, library_dir, namespace, keystore)
 
     @targets.command()
     @click.argument("path")
@@ -105,9 +104,8 @@ def attach_to_group(group):
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")
-    @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
-                  "the current branch to target files")
-    def update_repos_from_repositories_json(path, library_dir, namespace, add_branch):
+    @click.option("--keystore", default=None, is_flag=True, help="Keystore path")
+    def update_repos_from_repositories_json(path, library_dir, namespace, keystore):
         """
         Update target files corresponding to target repositories by traversing through repositories
         specified in repositories.json which are located inside the specified targets directory without
@@ -135,4 +133,4 @@ def attach_to_group(group):
         namespace1/target1, a file called target1 is created inside the targets/namespace1
         authentication repo direcotry.
         """
-        developer_tool.update_target_repos_from_repositories_json(path, library_dir, namespace, add_branch)
+        developer_tool.update_target_repos_from_repositories_json(path, library_dir, namespace, keystore)

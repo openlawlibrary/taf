@@ -8,6 +8,7 @@ from functools import partial, reduce
 from pathlib import Path
 
 import securesystemslib
+from tuf.api.serialization.json import JSONSerializer
 import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
@@ -21,7 +22,7 @@ from tuf.repository_tool import (
     load_repository,
 )
 from tuf.roledb import get_roleinfo
-from tuf.api.metadata import Targets, Metadata
+from tuf.api.metadata import Snapshot, Targets, Metadata
 
 from taf import YubikeyMissingLibrary
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -466,7 +467,10 @@ class Repository:
         return target_files
 
 
-    def modify_targets_merkle_dag(self, added_data=None, removed_data=None, targets_key=None, snapshot_key=None, timestamp_key=None):
+    def modify_targets_merkle_dag(self, added_data=None, removed_data=None, targets_key=None):
+
+
+        # targets_key=None, snapshot_key=None, timestamp_key=None):
 
         added_data = {} if added_data is None else added_data
         removed_data = {} if removed_data is None else removed_data
@@ -488,10 +492,12 @@ class Repository:
                     commit = target_data["target"].pop("commit")
                     local_path = target_data["target"].pop("local_path")
                     metadata_targets.signed.add_target(path=path, merkle_dag_identifier=commit, local_path=local_path, overwrite=True, scheme="git")
+
         if targets_key is not None:
             signer = SSlibSigner(targets_key)
+            serializer = JSONSerializer(compact=False)
             metadata_targets.sign(signer)
-            metadata_targets.to_file(str(target_metadata_path))
+            metadata_targets.to_file(str(target_metadata_path), serializer=serializer)
 
 
 
