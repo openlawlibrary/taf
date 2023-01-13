@@ -9,17 +9,34 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.23.1] - 01/13/2022
+
+### Added
+
+### Changed
+
+### Fixed
+- Fix `clone_or_pull` method ([303])
+
+
+[303]: https://github.com/openlawlibrary/taf/pull/303
+
+## [0.23.0] - 12/27/2022
+
+### Added
+
 - Auto-detect default branch ([300])
 
 ### Changed
 
 ### Fixed
 
-- Fix `clone_or_pull` method ([303])
 - Remove pytest11 default entrypoint ([301])
 
-
-[303]: https://github.com/openlawlibrary/taf/pull/303
 [301]: https://github.com/openlawlibrary/taf/pull/301
 [300]: https://github.com/openlawlibrary/taf/pull/300
 
@@ -844,7 +861,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.23.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.23.1...HEAD
+[0.23.1]: https://github.com/openlawlibrary/taf/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/openlawlibrary/taf/compare/v0.22.4...v0.23.0
 [0.22.4]: https://github.com/openlawlibrary/taf/compare/v0.22.3...v0.22.4
 [0.22.3]: https://github.com/openlawlibrary/taf/compare/v0.22.2...v0.22.3
