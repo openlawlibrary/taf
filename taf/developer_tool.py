@@ -271,9 +271,13 @@ def _update_target_repos(repo_path, target_repo_path, keystore):
             "file_content": {"target": content},
         }
 
-        targets_role = auth_repo.get_role_from_target_paths(target_repo.name)
+        import pdb
+
+        pdb.set_trace()
+        targets_role = auth_repo.get_role_from_target_paths([target_repo.name])
         targets_key = read_private_key_from_keystore(keystore, targets_role)
         auth_repo.modify_targets_merkle_dag(data, targets_key=targets_key)
+
 
 def update_target_repos_from_fs(
     repo_path, library_dir=None, namespace=None, keystore=True
@@ -303,7 +307,9 @@ def update_target_repos_from_fs(
         auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
     for target_repo_path in targets_directory.glob("*"):
         _update_target_repos(
-            repo_path, target_repo_path, keystore,
+            repo_path,
+            target_repo_path,
+            keystore,
         )
 
 
@@ -341,7 +347,6 @@ def update_target_repos_from_repositories_json(
             targets_dir = auth_repo_targets_dir / namespace
         targets_dir.mkdir(parents=True, exist_ok=True)
         _update_target_repos(repo_path, target_repo_path, keystore)
-
 
 
 def _check_if_can_create_repository(auth_repo):
