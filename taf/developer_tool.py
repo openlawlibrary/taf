@@ -14,6 +14,7 @@ from tuf.repository_tool import (
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
     generate_and_write_rsa_keypair,
+    generate_and_write_unencrypted_rsa_keypair,
     generate_rsa_key,
 )
 
@@ -685,8 +686,8 @@ def _setup_keystore_key(
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
                 )
-            generate_and_write_rsa_keypair(
-                str(Path(keystore) / key_name), bits=length, password=""
+            generate_and_write_unencrypted_rsa_keypair(
+                filepath=str(Path(keystore) / key_name), bits=length
             )
             public_key = read_public_key_from_keystore(keystore, key_name, scheme)
             private_key = read_private_key_from_keystore(
@@ -951,7 +952,9 @@ def generate_keys(keystore, roles_key_infos):
                 password = passwords[key_num]
                 path = str(Path(keystore, key_name))
                 print(f"Generating {path}")
-                generate_and_write_rsa_keypair(path, bits=bits, password=password)
+                generate_and_write_rsa_keypair(
+                    filepath=path, bits=bits, password=password
+                )
         if "delegations" in key_info:
             generate_keys(keystore, key_info["delegations"])
 
