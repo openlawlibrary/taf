@@ -475,7 +475,6 @@ class Repository:
         added_data = {} if added_data is None else added_data
         removed_data = {} if removed_data is None else removed_data
         combined_data = dict(added_data, **removed_data)
-        import pdb; pdb.set_trace()
         targets_role = self.get_role_from_target_paths(combined_data)
         target_paths = list(combined_data.keys()) 
         if targets_role is None:
