@@ -216,7 +216,15 @@ def _compare_commit_with_targets_metadata(
     specified target value in its target file.
     """
     repo_name = f"{TARGETS_DIRECTORY_NAME}/{target_repo.name}"
-    targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
+    try:
+        targets_head_sha = tuf_repo.get_json(tuf_commit, repo_name)["commit"]
+    except GitError:
+        if target_repo_commit is not None:
+            raise InvalidBranchError(
+                f"Target file {repo_name} does not exist in revision {tuf_commit}"
+            )
+        targets_head_sha = None
+
     if target_repo_commit != targets_head_sha:
         raise InvalidBranchError(
             f"Commit {target_repo_commit} of repository {target_repo.name} does "
