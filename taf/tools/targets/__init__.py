@@ -79,8 +79,8 @@ def attach_to_group(group):
         """
 
         if not len(target_type):
-          click.echo("Specify at least one target type")
-          return
+            click.echo("Specify at least one target type")
+            return
         try:
             developer_tool.update_and_sign_targets(
                 path,
@@ -94,8 +94,6 @@ def attach_to_group(group):
             click.echo()
             click.echo(str(e))
             click.echo()
-
-
 
     @targets.command()
     @click.argument("path")
