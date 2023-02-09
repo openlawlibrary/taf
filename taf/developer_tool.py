@@ -329,13 +329,23 @@ def update_target_repos_from_repositories_json(
         "and specified in repositories.json"
     )
     for repo_name in repositories_json.get("repositories"):
-        target_repo_path = library_dir / repo_name
-        namespace_and_name = repo_name.rsplit("/", 1)
-        if len(namespace_and_name) > 1:
-            namespace, _ = namespace_and_name
-            targets_dir = auth_repo_targets_dir / namespace
-        targets_dir.mkdir(parents=True, exist_ok=True)
-        _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch)
+        _save_top_commit_of_repo_to_target(
+            library_dir, repo_name, repo_path, add_branch
+        )
+
+
+def _save_top_commit_of_repo_to_target(
+    library_dir: Path, repo_name: str, auth_repo_path: Path, add_branch: bool = True
+):
+    auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
+    target_repo_path = library_dir / repo_name
+    namespace_and_name = repo_name.rsplit("/", 1)
+    targets_dir = auth_repo_targets_dir
+    if len(namespace_and_name) > 1:
+        namespace, _ = namespace_and_name
+        targets_dir = auth_repo_targets_dir / namespace
+    targets_dir.mkdir(parents=True, exist_ok=True)
+    _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
 
 
 def _check_if_can_create_repository(auth_repo):
@@ -908,7 +918,7 @@ def export_targets_history(repo_path, commit=None, output=None, target_repos=Non
         print(commits_json)
 
 
-def _get_namespace_and_root(repo_path, namespace, library_dir):
+def _get_namespace_and_root(repo_path, namespace=None, library_dir=None):
     repo_path = Path(repo_path).resolve()
     if namespace is None:
         namespace = repo_path.parent.name
@@ -1270,6 +1280,61 @@ def setup_test_yubikey(key_path=None):
     print("\nPrivate key successfully imported.\n")
     print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
     print("Pin: {}\n".format(pin))
+
+
+def update_and_sign_targets(
+    repo_path: str,
+    library_dir: str,
+    target_types: list,
+    keystore: str,
+    roles_key_infos: str,
+    no_commit: bool,
+    scheme: str,
+):
+    """
+    <Purpose>
+        Save the top commit of specified target repositories to the corresponding target files and sign
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        library_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
+        targets:
+        Types of target repositories whose corresponding target files should be updated and signed
+        keystore:
+        Location of the keystore files
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys
+        no_commit:
+        Indicates that the changes should bot get committed automatically
+        scheme:
+        A signature scheme used for signing
+
+    """
+    auth_path = Path(repo_path).resolve()
+    auth_repo = AuthenticationRepository(path=auth_path)
+    if library_dir is None:
+        library_dir = auth_path.parent.parent
+    repositoriesdb.load_repositories(auth_repo)
+    signed_targets = []
+    for target_type in target_types:
+        try:
+            target_name = repositoriesdb.get_repositories_paths_by_custom_data(
+                auth_repo, type=target_type
+            )[0]
+        except Exception:
+            print(
+                f"Skipping {target_type}. Type listed in repositories.json as a target repository"
+            )
+            continue
+        _save_top_commit_of_repo_to_target(library_dir, target_name, auth_path, True)
+        print(f"Updated {target_name} target file")
+        signed_targets.append(target_name)
+
+    if len(signed_targets):
+        register_target_files(
+            auth_path, keystore, roles_key_infos, not no_commit, scheme
+        )
 
 
 def update_metadata_expiration_date(

@@ -22,6 +22,8 @@ def attach_to_group(group):
                   "keys or a path to a json file which stores the needed information")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
+                  "committed automatically")
     def add_signing_key(path, role, pub_key_path, keystore, keys_description, scheme):
         """
         Add a new signing key. This will make it possible to a sign metadata files
