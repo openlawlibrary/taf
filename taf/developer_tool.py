@@ -66,7 +66,6 @@ def add_roles(
     roles_key_infos=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
-
     yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=repo_path)
     repo_path = Path(repo_path)
@@ -157,7 +156,6 @@ def add_signing_key(
 
     parent_roles = set()
     for role in roles:
-
         if taf_repo.is_valid_metadata_key(role, pub_key_pem):
             print(f"Key already registered as signing key of role {role}")
             continue
@@ -609,7 +607,6 @@ def _load_sorted_keys_of_new_roles(
 def _setup_roles_keys(
     role_name, key_info, repository, certs_dir=None, keystore=None, yubikeys=None
 ):
-
     yubikey_keys = []
     keystore_keys = []
 
@@ -1288,7 +1285,6 @@ def update_and_sign_targets(
     target_types: list,
     keystore: str,
     roles_key_infos: str,
-    no_commit: bool,
     scheme: str,
 ):
     """
@@ -1316,25 +1312,28 @@ def update_and_sign_targets(
     if library_dir is None:
         library_dir = auth_path.parent.parent
     repositoriesdb.load_repositories(auth_repo)
-    signed_targets = []
+    nonexistent_target_types = []
+    target_names = []
     for target_type in target_types:
         try:
             target_name = repositoriesdb.get_repositories_paths_by_custom_data(
                 auth_repo, type=target_type
             )[0]
+            target_names.append(target_name)
         except Exception:
-            print(
-                f"Skipping {target_type}. Type listed in repositories.json as a target repository"
-            )
+            nonexistent_target_types.append(target_type)
             continue
+    if len(nonexistent_target_types):
+        print(
+            f"Target types {'.'.join(nonexistent_target_types)} not in repositories.json. Targets not updated"
+        )
+        return
+
+    # only update target files if all specified types are valid
+    for target_name in target_names:
         _save_top_commit_of_repo_to_target(library_dir, target_name, auth_path, True)
         print(f"Updated {target_name} target file")
-        signed_targets.append(target_name)
-
-    if len(signed_targets):
-        register_target_files(
-            auth_path, keystore, roles_key_infos, not no_commit, scheme
-        )
+    register_target_files(auth_path, keystore, roles_key_infos, True, scheme)
 
 
 def update_metadata_expiration_date(

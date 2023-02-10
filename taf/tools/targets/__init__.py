@@ -67,15 +67,13 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
-                  "committed automatically")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
-    def update_and_sign_targets(path, library_dir, target_type, keystore, keys_description, no_commit, scheme):
+    def update_and_sign_targets(path, library_dir, target_type, keystore, keys_description, scheme):
         """
         Update target files corresponding to target repositories specified through the target type parameter
         by writing the current top commit and branch name to the target files. Sign the updated files
-        and then commit, unless the no-commit flag is provided.
+        and then commit.
         """
 
         if not len(target_type):
@@ -88,7 +86,6 @@ def attach_to_group(group):
                 target_type,
                 keystore=keystore,
                 roles_key_infos=keys_description,
-                no_commit=no_commit,
                 scheme=scheme)
         except TAFError as e:
             click.echo()
