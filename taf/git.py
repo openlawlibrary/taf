@@ -316,6 +316,13 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
+    def add_remote(self, upstream_name, upstream_url):
+        try:
+            self._git("remote add {} {}", upstream_name, upstream_url)
+        except GitError as e:
+            if "already exists" not in str(e):
+                raise
+
     def branches(self, remote=False, all=False, strip_remote=False):
         """Returns all branches."""
         repo = self.pygit_repo
@@ -938,9 +945,18 @@ class GitRepository:
             for wt in worktrees
         }
 
-    def merge_commit(self, commit, fast_forward_only=False):
+    def merge_commit(
+        self, commit, fast_forward_only=False, check_if_merge_completed=False
+    ):
         fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
         self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
+        if check_if_merge_completed:
+            try:
+                self._git("rev-parse -q --verify MERGE_HEAD")
+                return False
+            except GitError:
+                pass
+        return True
 
     def merge_branch(self, branch_name, allow_new_commit=False):
         if allow_new_commit:
@@ -975,6 +991,7 @@ class GitRepository:
             force_flag,
             branch,
             log_error=True,
+            reraise_error=True,
         )
 
     def rename_branch(self, old_name, new_name):
