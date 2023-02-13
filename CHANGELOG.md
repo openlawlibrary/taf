@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a command for updating and signing targets of specified typed ([308])
+
 ### Changed
 
 ### Fixed
+
 - Use `generate_and_write_unencrypted_rsa_keypair` for no provided password ([305])
 
+[308]: https://github.com/openlawlibrary/taf/pull/308
 [305]: https://github.com/openlawlibrary/taf/pull/305
 
 ## [0.23.1] - 01/13/2022
