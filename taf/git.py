@@ -994,6 +994,13 @@ class GitRepository:
             reraise_error=True,
         )
 
+    def remove_remote(self, remote_name):
+        try:
+            self._git("remote remove {}", remote_name)
+        except GitError as e:
+            if "No such remote" not in str(e):
+                raise
+
     def rename_branch(self, old_name, new_name):
         self._git("branch -m {} {}", old_name, new_name)
 
