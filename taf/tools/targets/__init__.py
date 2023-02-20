@@ -61,6 +61,43 @@ def attach_to_group(group):
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
+    @click.option("--target-type", multiple=True, help="Types of target repositories whose corresponding "
+                  "target files should be updated and signed. Should match a target type defined in "
+                  "repositories.json")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores the needed information")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
+                  "used for signing")
+    def update_and_sign_targets(path, library_dir, target_type, keystore, keys_description, scheme):
+        """
+        Update target files corresponding to target repositories specified through the target type parameter
+        by writing the current top commit and branch name to the target files. Sign the updated files
+        and then commit.
+        """
+
+        if not len(target_type):
+            click.echo("Specify at least one target type")
+            return
+        try:
+            developer_tool.update_and_sign_targets(
+                path,
+                library_dir,
+                target_type,
+                keystore=keystore,
+                roles_key_infos=keys_description,
+                scheme=scheme)
+        except TAFError as e:
+            click.echo()
+            click.echo(str(e))
+            click.echo()
+
+    @targets.command()
+    @click.argument("path")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--namespace", default=None, help="Namespace of the target repositories. "
                   "If omitted, it will be assumed that namespace matches the name of the "
                   "directory which contains the authentication repository")

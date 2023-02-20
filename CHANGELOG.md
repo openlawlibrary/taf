@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add git methods for adding an remove remotes and check if merge conflicts occurred ([309])
+- Add a command for updating and signing targets of specified typed ([308])
 
 ### Changed
 
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 [309]: https://github.com/openlawlibrary/taf/pull/309
+[308]: https://github.com/openlawlibrary/taf/pull/308
 [305]: https://github.com/openlawlibrary/taf/pull/305
 
 ## [0.23.1] - 01/13/2022
