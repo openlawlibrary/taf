@@ -316,7 +316,7 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-    def add_remote(self, upstream_name, upstream_url):
+    def add_remote(self, upstream_name: str, upstream_url: str) -> None:
         try:
             self._git("remote add {} {}", upstream_name, upstream_url)
         except GitError as e:
@@ -946,8 +946,8 @@ class GitRepository:
         }
 
     def merge_commit(
-        self, commit, fast_forward_only=False, check_if_merge_completed=False
-    ):
+        self, commit: str, fast_forward_only=False, check_if_merge_completed=False
+    ) -> bool:
         fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
         self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
         if check_if_merge_completed:
@@ -994,7 +994,7 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def remove_remote(self, remote_name):
+    def remove_remote(self, remote_name: str) -> None:
         try:
             self._git("remote remove {}", remote_name)
         except GitError as e:
