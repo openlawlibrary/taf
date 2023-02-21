@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.23.2] - 02/21/2022
+
+### Added
+
 - Add git methods for adding an remove remotes and check if merge conflicts occurred ([309])
 - Add a command for updating and signing targets of specified typed ([308])
 
@@ -871,7 +880,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.23.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/openlawlibrary/taf/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/openlawlibrary/taf/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/openlawlibrary/taf/compare/v0.22.4...v0.23.0
 [0.22.4]: https://github.com/openlawlibrary/taf/compare/v0.22.3...v0.22.4
