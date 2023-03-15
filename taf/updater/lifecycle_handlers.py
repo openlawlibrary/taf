@@ -98,7 +98,6 @@ def _handle_event(
         event, transient_data, persistent_data, library_dir, *args, **kwargs
     )
 
-
     def _execute_scripts(repos_and_data, lifecycle_stage, event):
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
         # this will update data
@@ -166,7 +165,9 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
         script_paths = glob.glob(f"{path}/*.py")
     else:
         try:
-            script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
+            script_names = auth_repo.list_files_at_revision(
+                last_commit, scripts_rel_path
+            )
             script_rel_paths = [
                 (scripts_rel_path / script_name).as_posix()
                 for script_name in script_names
@@ -181,7 +182,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             taf_logger.debug(f"{scripts_rel_path} does not contain any scripts")
             script_paths = []
 
-    for script_path in sorted(script_paths) :
+    for script_path in sorted(script_paths):
         taf_logger.info("Executing script {}", script_path)
         json_data = json.dumps(data)
         try:
