@@ -45,6 +45,16 @@ def clear_dependencies_db():
     _dependencies_dict.clear()
 
 
+def check_if_repositories_json_exists(auth_repo, commit=None):
+    if commit is None:
+        commit = auth_repo.head_commit_sha()
+    try:
+        auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
+        return True
+    except GitError:
+        return False
+
+
 def load_dependencies(
     auth_repo,
     auth_class=AuthenticationRepository,

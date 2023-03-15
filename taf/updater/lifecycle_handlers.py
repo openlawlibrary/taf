@@ -2,6 +2,7 @@ import enum
 import glob
 import json
 import subprocess
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from taf.utils import (
     safely_save_json_to_disk,
     extract_json_objects_from_trusted_stdout,
 )
-from taf.exceptions import ScriptExecutionError
+from taf.exceptions import GitError, ScriptExecutionError
 from taf.log import taf_logger
 from taf.updater.types.update import Update
 from cattr import structure
@@ -97,6 +98,7 @@ def _handle_event(
         event, transient_data, persistent_data, library_dir, *args, **kwargs
     )
 
+
     def _execute_scripts(repos_and_data, lifecycle_stage, event):
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
         # this will update data
@@ -163,23 +165,27 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             path = Path(auth_repo.path) / scripts_rel_path
         script_paths = glob.glob(f"{path}/*.py")
     else:
-        script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
-        script_rel_paths = [
-            (scripts_rel_path / script_name).as_posix()
-            for script_name in script_names
-            if Path(script_name).suffix == ".py"
-        ]
-        auth_repo.checkout_paths(last_commit, *script_rel_paths)
-        script_paths = [
-            str(auth_repo.path / script_rel_path)
-            for script_rel_path in script_rel_paths
-        ]
+        try:
+            script_names = auth_repo.list_files_at_revision(last_commit, scripts_rel_path)
+            script_rel_paths = [
+                (scripts_rel_path / script_name).as_posix()
+                for script_name in script_names
+                if Path(script_name).suffix == ".py"
+            ]
+            auth_repo.checkout_paths(last_commit, *script_rel_paths)
+            script_paths = [
+                str(auth_repo.path / script_rel_path)
+                for script_rel_path in script_rel_paths
+            ]
+        except GitError:
+            taf_logger.debug(f"{scripts_rel_path} does not contain any scripts")
+            script_paths = []
 
-    for script_path in sorted(script_paths):
+    for script_path in sorted(script_paths) :
         taf_logger.info("Executing script {}", script_path)
         json_data = json.dumps(data)
         try:
-            output = run("py", script_path, input=json_data)
+            output = run(sys.executable, script_path, input=json_data)
         except subprocess.CalledProcessError as e:
             taf_logger.error(
                 "An error occurred while executing {}: {}", script_path, e.output
