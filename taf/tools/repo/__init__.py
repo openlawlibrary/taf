@@ -1,6 +1,7 @@
 import click
 import json
 import taf.developer_tool as developer_tool
+from taf.api import targets
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
@@ -10,6 +11,7 @@ def attach_to_group(group):
     @group.group()
     def repo():
         pass
+
 
     @repo.command()
     @click.argument("path")
@@ -135,6 +137,32 @@ def attach_to_group(group):
         developer_tool.generate_repositories_json(
             path, library_dir, namespace, targets_rel_dir, custom, use_mirrors
         )
+
+
+    @repo.command()
+    @click.argument("path")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
+    def list_target_repositories(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors, add_branch, keystore,
+                   keys_description, commit, test, scheme):
+        """
+        \b
+        Create and initialize a new authentication repository:
+            1. Create an authentication repository (generate initial metadata files)
+            2. Commit initial metadata files if commit == True
+            3. Add target files corresponding to target repositories
+            4. Generate repositories.json
+            5. Update metadata files
+            6. Commit the changes if commit == True
+        Combines create, generate_repositories_json, update_repos and targets sign commands.
+        In order to have greater control over individual steps and be able to review files created
+        in the initialization process, execute the mentioned commands separately.
+        """
+        targets.list_target_repositories(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors,
+                                 add_branch, keystore, keys_description, commit, test, scheme)
+
 
     @repo.command()
     @click.argument("path")
