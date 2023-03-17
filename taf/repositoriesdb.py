@@ -393,11 +393,14 @@ def get_deduplicated_auth_repositories(auth_repo, commits):
     return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
 
-def get_deduplicated_repositories(auth_repo, commits):
+def get_deduplicated_repositories(auth_repo, commits=None):
     return _get_deduplicated_target_or_auth_repositories(auth_repo, commits)
 
 
 def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=False):
+    if commits is None:
+        commits = [auth_repo.head_commit_sha()]
+
     loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
     auth_msg = "included authentication " if load_auth else ""
     repositories_msg = (

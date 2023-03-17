@@ -1,5 +1,6 @@
 import click
 import taf.developer_tool as developer_tool
+from taf.api.targets import list_targets
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 
@@ -29,6 +30,21 @@ def attach_to_group(group):
         console.
         """
         developer_tool.export_targets_history(repo_path, commit, output, repo)
+
+
+
+    @targets.command()
+    @click.argument("path")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
+    def list(path, library_dir):
+        """
+        List targets
+        """
+        list_targets(path, library_dir)
+
 
     @targets.command()
     @click.argument("path")

@@ -827,6 +827,9 @@ class GitRepository:
                 return True
         return False
 
+    def is_bare_repository(self):
+        return self.pygit_repo.is_bare
+
     def list_files_at_revision(self, commit, path=""):
         path = Path(path).as_posix()
         try:
