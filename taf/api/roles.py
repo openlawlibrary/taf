@@ -1,16 +1,24 @@
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
-from taf.api.keys import load_sorted_keys_of_roles
+from taf.api.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
 from taf.api.metadata import update_snapshot_and_timestamp
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.developer_tool import YUBIKEY_EXPIRATION_DATE, _get_key_name, _load_signing_keys
+from taf.constants import YUBIKEY_EXPIRATION_DATE
 from taf.repository_tool import Repository, yubikey_signature_provider
 
 
-
-def add_role(auth_path: str, role: str, parent_role: str, paths: list, keys_number: int, threshold: int, yubikey: bool, keystore: str, scheme: str):
+def add_role(
+    auth_path: str,
+    role: str,
+    parent_role: str,
+    paths: list,
+    keys_number: int,
+    threshold: int,
+    yubikey: bool,
+    keystore: str,
+    scheme: str,
+):
 
     yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=auth_path)
@@ -22,7 +30,6 @@ def add_role(auth_path: str, role: str, parent_role: str, paths: list, keys_numb
     if role in existing_roles:
         print("All roles already set up")
         return
-
 
     roles_infos = {
         parent_role: {
@@ -38,7 +45,6 @@ def add_role(auth_path: str, role: str, parent_role: str, paths: list, keys_numb
             }
         }
     }
-
 
     signing_keys, verification_keys = load_sorted_keys_of_roles(
         auth_repo, roles_infos, taf_repo, keystore, yubikeys, existing_roles
@@ -94,7 +100,6 @@ def _create_delegations(
             )
 
 
-
 def _role_obj(role, repository, parent=None):
     repository = repository._tuf_repository
     if role == "targets":
@@ -110,7 +115,6 @@ def _role_obj(role, repository, parent=None):
         if parent is None:
             return repository.targets(role)
         return parent(role)
-
 
 
 def _setup_role(
@@ -130,7 +134,7 @@ def _setup_role(
             role_obj.load_signing_key(private_key)
     else:
         for key_num, key in enumerate(verification_keys):
-            key_name = _get_key_name(role_name, key_num, len(verification_keys))
+            key_name = get_key_name(role_name, key_num, len(verification_keys))
             role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
             role_obj.add_external_signature_provider(
                 key, partial(yubikey_signature_provider, key_name, key["keyid"])
@@ -138,13 +142,10 @@ def _setup_role(
 
 
 def _update_role(taf_repo, role, keystore, roles_infos, scheme):
-    keystore_keys, yubikeys = _load_signing_keys(
+    keystore_keys, yubikeys = load_signing_keys(
         taf_repo, role, keystore, roles_infos, scheme=scheme
     )
     if len(keystore_keys):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
         taf_repo.update_role_yubikeys(role, yubikeys, write=False)
-
-
-

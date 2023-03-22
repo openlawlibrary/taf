@@ -11,6 +11,29 @@ def attach_to_group(group):
     def targets():
         pass
 
+
+    @targets.command()
+    @click.argument("auth_path")
+    @click.argument("target_path")
+    @click.option("--role", default="targets")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    def add_repo(auth_path, target_path, role, library_dir, keystore):
+        """Export lists of sorted commits, grouped by branches and target repositories, based
+        on target files stored in the authentication repository. If commit is specified,
+        only return changes made at that revision and all subsequent revisions. If it is not,
+        start from the initial authentication repository commit.
+        Repositories which will be taken into consideration when collecting targets historical
+        data can be defined using the repo option. If no repositories are passed in, historical
+        data will include all target repositories.
+        to a file whose location is specified using the output option, or print it to
+        console.
+        """
+        targets.add_repo(auth_path, target_path, role, library_dir, keystore)
+
     @targets.command()
     @click.argument("repo_path")
     @click.option("--commit", default=None, help="Starting authentication repository commit")

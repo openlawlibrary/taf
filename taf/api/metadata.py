@@ -1,5 +1,5 @@
+from taf.api.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.developer_tool import _load_signing_keys
 
 
 def update_snapshot_and_timestamp(
@@ -8,7 +8,7 @@ def update_snapshot_and_timestamp(
     loaded_yubikeys = {}
 
     for role in ("snapshot", "timestamp"):
-        keystore_keys, yubikeys = _load_signing_keys(
+        keystore_keys, yubikeys = load_signing_keys(
             taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
         )
         if len(yubikeys):
