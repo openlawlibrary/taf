@@ -2,7 +2,7 @@ from collections import defaultdict
 import json
 from pathlib import Path
 from taf.api.metadata import update_snapshot_and_timestamp
-from taf.api.roles import add_role_paths
+from taf.api.roles import add_role, add_role_paths
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
@@ -37,6 +37,21 @@ def add_target_repo(
     else:
         raise TAFError("Cannot add new target repository. Specify either target name (and library dir) or target path")
 
+
+    existing_roles = auth_repo.get_all_targets_roles()
+    if role not in existing_roles:
+        parent_role = input("Enter new role's parent role: ")
+        paths = input("Enter a comma separated list of path delegated to the new role: ")
+        paths = paths.split(",")
+        keys_number = input("Enter the number of signing keys of the new role: ")
+        keys_number = int(keys_number)
+        threshold = input("Enter signatures threshold of the new role: ")
+        threshold = int(threshold)
+        yubikey = input("Should the new role's metadata be signed using yubikeys? [y/n]: ")
+        yubikey = yubikey == "y"
+        add_role(
+            auth_path, role, parent_role, paths, keys_number, threshold, yubikey, keystore, DEFAULT_RSA_SIGNATURE_SCHEME, commit=False
+        )
 
     # target repo should be added to repositories.json
     # delegation paths should be extended if role != targets

@@ -18,10 +18,13 @@ def add_role(
     yubikey: bool,
     keystore: str,
     scheme: str,
+    auth_repo: AuthenticationRepository=None,
+    commit=True,
 ):
 
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepository(path=auth_path)
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=auth_path)
     auth_path = Path(auth_path)
     existing_roles = auth_repo.get_all_targets_roles()
     main_roles = ["root", "snapshot", "timestamp", "targets"]
@@ -52,9 +55,10 @@ def add_role(
         roles_infos, auth_repo, verification_keys, signing_keys, existing_roles
     )
     _update_role(auth_repo, parent_role, keystore, roles_infos, scheme=scheme)
-    update_snapshot_and_timestamp(auth_repo, keystore, roles_infos, scheme=scheme)
-    commit_message = input("\nEnter commit message and press ENTER\n\n")
-    auth_repo.commit(commit_message)
+    if commit:
+        update_snapshot_and_timestamp(auth_repo, keystore, roles_infos, scheme=scheme)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
 
 
 def add_role_paths(paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None):
