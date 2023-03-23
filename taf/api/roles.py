@@ -4,8 +4,8 @@ from pathlib import Path
 from taf.api.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
 from taf.api.metadata import update_snapshot_and_timestamp
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import YUBIKEY_EXPIRATION_DATE
-from taf.repository_tool import Repository, yubikey_signature_provider
+from taf.constants import YUBIKEY_EXPIRATION_DATE, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.repository_tool import yubikey_signature_provider
 
 
 def add_role(
@@ -23,8 +23,7 @@ def add_role(
     yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=auth_path)
     auth_path = Path(auth_path)
-    taf_repo = Repository(auth_path)
-    existing_roles = taf_repo.get_all_targets_roles()
+    existing_roles = auth_repo.get_all_targets_roles()
     main_roles = ["root", "snapshot", "timestamp", "targets"]
     existing_roles.extend(main_roles)
     if role in existing_roles:
@@ -47,15 +46,28 @@ def add_role(
     }
 
     signing_keys, verification_keys = load_sorted_keys_of_roles(
-        auth_repo, roles_infos, taf_repo, keystore, yubikeys, existing_roles
+        auth_repo, roles_infos, auth_repo, keystore, yubikeys, existing_roles
     )
     _create_delegations(
-        roles_infos, taf_repo, verification_keys, signing_keys, existing_roles
+        roles_infos, auth_repo, verification_keys, signing_keys, existing_roles
     )
-    _update_role(taf_repo, parent_role, keystore, roles_infos, scheme=scheme)
-    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
+    _update_role(auth_repo, parent_role, keystore, roles_infos, scheme=scheme)
+    update_snapshot_and_timestamp(auth_repo, keystore, roles_infos, scheme=scheme)
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
+
+
+def add_role_paths(paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None):
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=auth_path)
+    parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
+    parent_role_obj = _role_obj(parent_role, auth_repo)
+    parent_role_obj.add_paths(paths, delegated_role)
+    _update_role(auth_repo, parent_role, keystore)
+    if commit:
+        update_snapshot_and_timestamp(auth_repo, keystore, None, None)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
 
 
 def _create_delegations(
@@ -141,7 +153,7 @@ def _setup_role(
             )
 
 
-def _update_role(taf_repo, role, keystore, roles_infos, scheme):
+def _update_role(taf_repo, role, keystore, roles_infos=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     keystore_keys, yubikeys = load_signing_keys(
         taf_repo, role, keystore, roles_infos, scheme=scheme
     )

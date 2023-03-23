@@ -1,6 +1,6 @@
 import click
 import taf.developer_tool as developer_tool
-from taf.api.targets import list_targets
+from taf.api.targets import list_targets, add_target_repo
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 
@@ -12,16 +12,21 @@ def attach_to_group(group):
         pass
 
 
-    @targets.command()
+    @targets.command(context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    ))
     @click.argument("auth_path")
-    @click.argument("target_path")
+    @click.option("--target-name")
+    @click.option("--target_path")
     @click.option("--role", default="targets")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    def add_repo(auth_path, target_path, role, library_dir, keystore):
+    @click.pass_context
+    def add_repo(ctx, auth_path, target_path, target_name, role, library_dir, keystore):
         """Export lists of sorted commits, grouped by branches and target repositories, based
         on target files stored in the authentication repository. If commit is specified,
         only return changes made at that revision and all subsequent revisions. If it is not,
@@ -32,7 +37,8 @@ def attach_to_group(group):
         to a file whose location is specified using the output option, or print it to
         console.
         """
-        targets.add_repo(auth_path, target_path, role, library_dir, keystore)
+        custom = {ctx.args[i][2:]: ctx.args[i+1] for i in range(0, len(ctx.args), 2)}
+        add_target_repo(auth_path, target_path, target_name, role, library_dir, keystore, custom)
 
     @targets.command()
     @click.argument("repo_path")

@@ -89,11 +89,11 @@ def load_dependencies(
 
         _dependencies_dict[auth_repo.path][commit] = dependencies_dict
 
-        dependencies = _load_dependencies_json(auth_repo, commit)
+        dependencies = load_dependencies_json(auth_repo, commit)
         if dependencies is None:
             continue
 
-        mirrors = _load_mirrors_json(auth_repo, commit)
+        mirrors = load_mirrors_json(auth_repo, commit)
         dependencies = dependencies["dependencies"]
 
         for name, repo_data in dependencies.items():
@@ -148,7 +148,7 @@ def load_dependencies(
     # we don't need to set auth_repo dependencies for each commit,
     # just the latest version
     latest_commit = commits[-1]
-    dependencies = _load_dependencies_json(auth_repo, latest_commit)
+    dependencies = load_dependencies_json(auth_repo, latest_commit)
     auth_repo.dependencies = (
         dependencies["dependencies"] if dependencies is not None else {}
     )
@@ -230,11 +230,11 @@ def load_repositories(
 
         _repositories_dict[auth_repo.path][commit] = repositories_dict
 
-        repositories = _load_repositories_json(auth_repo, commit)
+        repositories = load_repositories_json(auth_repo, commit)
         if repositories is None:
             continue
 
-        mirrors = _load_mirrors_json(auth_repo, commit)
+        mirrors = load_mirrors_json(auth_repo, commit)
 
         # target repositories are defined in both repositories.json and targets.json
         repositories = repositories["repositories"]
@@ -554,7 +554,7 @@ def get_repositories_by_custom_data(auth_repo, commit=None, **custom_data):
 def get_repo_urls(auth_repo, repo_name, commit=None):
     if commit is None:
         commit = auth_repo.head_commit_sha()
-    mirrors = _load_mirrors_json(auth_repo, commit)
+    mirrors = load_mirrors_json(auth_repo, commit)
     if mirrors is not None:
         return _get_urls(mirrors, repo_name)
 
@@ -590,7 +590,7 @@ def _initialize_repository(
     return git_repo
 
 
-def _load_dependencies_json(auth_repo, commit=None):
+def load_dependencies_json(auth_repo, commit=None):
     try:
         return _get_json_file(auth_repo, DEPENDENCIES_JSON_PATH, commit)
     except InvalidOrMissingMetadataError as e:
@@ -599,13 +599,15 @@ def _load_dependencies_json(auth_repo, commit=None):
         return None
 
 
-def _load_hosts_json(auth_repo, commit=None):
+def load_hosts_json(auth_repo, commit=None):
     if commit is None:
         commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
     return _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
 
 
-def _load_repositories_json(auth_repo, commit):
+def load_repositories_json(auth_repo, commit=None):
+    if commit is None:
+        commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
     try:
         return _get_json_file(auth_repo, REPOSITORIES_JSON_PATH, commit)
     except InvalidOrMissingMetadataError as e:
@@ -616,7 +618,7 @@ def _load_repositories_json(auth_repo, commit):
             raise
 
 
-def _load_mirrors_json(auth_repo, commit):
+def load_mirrors_json(auth_repo, commit):
     try:
         return _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get("mirrors")
     except InvalidOrMissingMetadataError:

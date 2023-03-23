@@ -1,9 +1,70 @@
 from collections import defaultdict
 import json
 from pathlib import Path
+from taf.api.metadata import update_snapshot_and_timestamp
+from taf.api.roles import add_role_paths
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
+from taf.git import GitRepository
+from taf.hosts import REPOSITORIES_JSON_PATH
 
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
+
+
+
+def add_target_repo(
+    auth_path: str,
+    target_path: str,
+    target_name: str,
+    role: str,
+    library_dir: str,
+    keystore: str,
+    custom,
+):
+    # assumes that role exists for now
+    # TODO figure out how to specify all of the data if adding a new role too
+    # enter using input?
+    auth_repo = AuthenticationRepository(path=auth_path)
+    if library_dir is None:
+        library_dir = auth_repo.path.parent.parent
+
+    if target_name is not None:
+        target_repo = GitRepository(library_dir, target_name)
+    elif target_path is not None:
+        target_repo = GitRepository(path=target_path)
+    else:
+        raise TAFError("Cannot add new target repository. Specify either target name (and library dir) or target path")
+
+
+    # target repo should be added to repositories.json
+    # delegation paths should be extended if role != targets
+    # if the repository already exists, create a target file
+    repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    if target_repo.name in repositories_json:
+        print(f"{target_repo.name} already added to repositories.json. Overwriting")
+    repositories_json[target_repo.name] = {}
+    if custom:
+        repositories_json[target_name]["custom"] = custom
+
+    if role != "targets":
+        add_role_paths([target_repo.name], role, keystore, commit=False, auth_repo=auth_repo)
+
+
+    # update content of repositories.json before updating targets metadata
+    Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(json.dumps(repositories_json, indent=4))
+
+    if target_repo.is_git_repository_root:
+        _save_top_commit_of_repo_to_target(library_dir, target_repo.name, auth_repo.path)
+
+
+    # update snapshot and timestamp calls write_all, so targets updates will be saved too
+    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME)
+    # commit_message = input("\nEnter commit message and press ENTER\n\n")
+    # auth_repo.commit(commit_message)
+
+
 
 
 # data: up to date with remote, uncommitted targets,
@@ -72,11 +133,31 @@ def list_targets(
     print(json.dumps(output, indent=4))
 
 
-def add_repo(
-    auth_path: str,
-    target_path: str,
-    role: str,
-    library_dir: str,
-    keystore: str,
+def _save_top_commit_of_repo_to_target(
+    library_dir: Path, repo_name: str, auth_repo_path: Path, add_branch: bool = True
 ):
-    auth_repo = AuthenticationRepository(path=auth_path)
+    auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
+    target_repo_path = library_dir / repo_name
+    namespace_and_name = repo_name.rsplit("/", 1)
+    targets_dir = auth_repo_targets_dir
+    if len(namespace_and_name) > 1:
+        namespace, _ = namespace_and_name
+        targets_dir = auth_repo_targets_dir / namespace
+    targets_dir.mkdir(parents=True, exist_ok=True)
+    _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
+
+
+def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
+    """Updates target repo's commit sha and branch"""
+    if not target_repo_path.is_dir() or target_repo_path == repo_path:
+        return
+    target_repo = GitRepository(path=target_repo_path)
+    if target_repo.is_git_repository:
+        data = {"commit": target_repo.head_commit_sha()}
+        if add_branch:
+            data["branch"] = target_repo.get_current_branch()
+        target_repo_name = target_repo_path.name
+        path = targets_dir / target_repo_name
+        path.write_text(json.dumps(data, indent=4))
+        print(f"Updated {path}")
+

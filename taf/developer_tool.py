@@ -11,6 +11,8 @@ import click
 import securesystemslib
 import securesystemslib.exceptions
 from taf.api.keys import export_yk_certificate, get_key_name, load_signing_keys, setup_roles_keys
+from taf.api.metadata import update_snapshot_and_timestamp
+from taf.api.targets import _save_top_commit_of_repo_to_target, _update_target_repos
 from tuf.repository_tool import (
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
@@ -159,21 +161,6 @@ def add_signing_key(
     update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
 
 
-def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
-    """Updates target repo's commit sha and branch"""
-    if not target_repo_path.is_dir() or target_repo_path == repo_path:
-        return
-    target_repo = GitRepository(path=target_repo_path)
-    if target_repo.is_git_repository:
-        data = {"commit": target_repo.head_commit_sha()}
-        if add_branch:
-            data["branch"] = target_repo.get_current_branch()
-        target_repo_name = target_repo_path.name
-        path = targets_dir / target_repo_name
-        path.write_text(json.dumps(data, indent=4))
-        print(f"Updated {path}")
-
-
 def update_target_repos_from_fs(
     repo_path, library_dir=None, namespace=None, add_branch=True
 ):
@@ -236,20 +223,6 @@ def update_target_repos_from_repositories_json(
         _save_top_commit_of_repo_to_target(
             library_dir, repo_name, repo_path, add_branch
         )
-
-
-def _save_top_commit_of_repo_to_target(
-    library_dir: Path, repo_name: str, auth_repo_path: Path, add_branch: bool = True
-):
-    auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
-    target_repo_path = library_dir / repo_name
-    namespace_and_name = repo_name.rsplit("/", 1)
-    targets_dir = auth_repo_targets_dir
-    if len(namespace_and_name) > 1:
-        namespace, _ = namespace_and_name
-        targets_dir = auth_repo_targets_dir / namespace
-    targets_dir.mkdir(parents=True, exist_ok=True)
-    _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
 
 
 def _check_if_can_create_repository(auth_repo):
@@ -1162,25 +1135,6 @@ def _update_role(taf_repo, role, keystore, roles_infos, scheme):
     if len(yubikeys):
         taf_repo.update_role_yubikeys(role, yubikeys, write=False)
 
-
-def update_snapshot_and_timestamp(
-    taf_repo, keystore, roles_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
-):
-    loaded_yubikeys = {}
-
-    for role in ("snapshot", "timestamp"):
-        keystore_keys, yubikeys = load_signing_keys(
-            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
-        )
-        if len(yubikeys):
-            update_method = taf_repo.roles_yubikeys_update_method(role)
-            update_method(yubikeys, write=False)
-        if len(keystore_keys):
-            update_method = taf_repo.roles_keystore_update_method(role)
-            update_method(keystore_keys, write=False)
-
-    if write_all:
-        taf_repo.writeall()
 
 
 def _update_target_roles(
