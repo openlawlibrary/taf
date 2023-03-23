@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix execution of scripts ([311])
+
+
+[311]: https://github.com/openlawlibrary/taf/pull/311
+
 
 ## [0.23.2] - 02/21/2022
 
