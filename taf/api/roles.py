@@ -17,6 +17,8 @@ from taf.repository_tool import (
 from taf.utils import get_key_size, read_input_dict
 
 
+MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
+
 def add_role(
     auth_path: str,
     role: str,
@@ -36,8 +38,7 @@ def add_role(
         auth_repo = AuthenticationRepository(path=auth_path)
     auth_path = Path(auth_path)
     existing_roles = auth_repo.get_all_targets_roles()
-    main_roles = ["root", "snapshot", "timestamp", "targets"]
-    existing_roles.extend(main_roles)
+    existing_roles.extend(MAIN_ROLES)
     if role in existing_roles:
         print("All roles already set up")
         return
@@ -337,6 +338,33 @@ def _role_obj(role, repository, parent=None):
         return parent(role)
 
 
+def remove_role(
+    auth_path: str,
+    role: str,
+    keystore: str,
+    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
+    auth_repo: AuthenticationRepository = None,
+    commit=True,
+):
+    if role in MAIN_ROLES:
+        print(f"Cannot remove role {role}. It is one of the roles required by the TUF specification")
+        return
+
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=auth_path)
+
+    parent_role = auth_repo.find_delegated_roles_parent(role)
+
+    parent_role_obj = _role_obj(parent_role, auth_repo)
+    parent_role_obj.revoke(role)
+
+    _update_role(auth_repo, parent_role, keystore)
+    if commit:
+        update_snapshot_and_timestamp(auth_repo, keystore, None, scheme)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
+
+
 def remove_paths(
     paths, keystore, commit=True, auth_repo=None, auth_path=None
 ):
@@ -368,8 +396,6 @@ def _remove_path_from_role_info(path, parent_role, delegated_role, auth_repo):
                 print(f"{path} not in delegated paths")
     tuf.roledb.update_roleinfo(parent_role, roleinfo,
         repository_name= auth_repo.name)
-
-
 
 
 def _setup_role(
