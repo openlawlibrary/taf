@@ -353,13 +353,6 @@ def _create_delegations(
             )
 
 
-def _get_roles_key_size(role, keystore, keys_num):
-    pub_key_name = f"{get_key_name(role, 1, keys_num)}.pub"
-    key_path = str(Path(keystore, pub_key_name))
-    return get_key_size(key_path)
-
-
-
 def _load_sorted_keys_of_new_roles(
     auth_repo, roles_infos, repository, keystore, yubikeys, existing_roles=None
 ):
@@ -413,79 +406,6 @@ def _load_sorted_keys_of_new_roles(
     except KeystoreError as e:
         print(f"Creation of repository failed: {e}")
         return
-
-
-
-def _enter_role_info(role, is_targets_role, keystore):
-    def _read_val(input_type, name, param=None, required=False):
-        default_value_msg = ""
-        if param is not None:
-            default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
-            if default is not None:
-                default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
-
-        while True:
-            try:
-                val = input(f"Enter {name} and press ENTER {default_value_msg}")
-                if not val:
-                    if not required:
-                        return DEFAULT_ROLE_SETUP_PARAMS.get(param)
-                    else:
-                        continue
-                return input_type(val)
-            except ValueError:
-                pass
-
-    role_info = {}
-    keys_num = _read_val(int, f"number of {role} keys", "number")
-    if keys_num is not None:
-        role_info["number"] = keys_num
-
-    role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
-    if role_info["yubikey"]:
-        # in case of yubikeys, length and shceme have to have specific values
-        role_info["length"] = 2048
-        role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
-    else:
-        # if keystore is specified and contain keys corresponding to this role
-        # get key size based on the public key
-        keystore_length = _get_roles_key_size(role, keystore, keys_num)
-        if keystore_length == 0:
-            key_length = _read_val(int, f"{role} key length", "length")
-            if key_length is not None:
-                role_info["length"] = key_length
-        else:
-            role_info["length"] = keystore_length
-        scheme = _read_val(str, f"{role} signature scheme", "scheme")
-        if scheme is not None:
-            role_info["scheme"] = scheme
-
-    threshold = _read_val(int, f"{role} signature threshold", "threshold")
-    if threshold is not None:
-        role_info["threshold"] = threshold
-
-    if is_targets_role:
-        delegated_roles = defaultdict(dict)
-        while click.confirm(
-            f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
-        ):
-            role_name = _read_val(str, "role name", True)
-            delegated_paths = []
-            while not len(delegated_paths) or click.confirm("Enter another path?"):
-                delegated_paths.append(
-                    _read_val(
-                        str, f"path or glob pattern delegated to {role_name}", True
-                    )
-                )
-            delegated_roles[role_name]["paths"] = delegated_paths
-            is_terminating = click.confirm(f"Is {role_name} terminating?")
-            delegated_roles[role_name]["terminating"] = is_terminating
-            delegated_roles[role_name].update(
-                _enter_role_info(role_name, True, keystore)
-            )
-        role_info["delegations"] = delegated_roles
-
-    return role_info
 
 
 def export_yk_public_pem(path=None):

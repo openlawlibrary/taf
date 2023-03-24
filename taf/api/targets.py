@@ -1,8 +1,9 @@
 from collections import defaultdict
 import json
+import os
 from pathlib import Path
 from taf.api.metadata import update_snapshot_and_timestamp
-from taf.api.roles import add_role, add_role_paths
+from taf.api.roles import add_role, add_role_paths, remove_paths
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
@@ -22,9 +23,6 @@ def add_target_repo(
     keystore: str,
     custom,
 ):
-    # assumes that role exists for now
-    # TODO figure out how to specify all of the data if adding a new role too
-    # enter using input?
     auth_repo = AuthenticationRepository(path=auth_path)
     if library_dir is None:
         library_dir = auth_repo.path.parent.parent
@@ -95,8 +93,9 @@ def add_target_repo(
     update_snapshot_and_timestamp(
         auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
-    # commit_message = input("\nEnter commit message and press ENTER\n\n")
-    # auth_repo.commit(commit_message)
+    commit_message = input("\nEnter commit message and press ENTER\n\n")
+    auth_repo.commit(commit_message)
+
 
 
 # data: up to date with remote, uncommitted targets,
@@ -163,6 +162,44 @@ def list_targets(
             repo_output["uncommitted"] = repo.something_to_commit()
 
     print(json.dumps(output, indent=4))
+
+
+def remove_target_repo(
+    auth_path: str,
+    target_name: str,
+    keystore: str,
+):
+    auth_repo = AuthenticationRepository(path=auth_path)
+    repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    repositories = repositories_json["repositories"]
+    if target_name not in repositories:
+        print(f"{target_name} not in repositories.json")
+    else:
+        repositories.pop(target_name)
+        # update content of repositories.json before updating targets metadata
+        Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+            json.dumps(repositories_json, indent=4)
+        )
+
+    remove_paths(
+        [target_name], keystore, commit=False, auth_repo=auth_repo
+    )
+    remove_target_file(target_name, auth_path)
+    # update snapshot and timestamp calls write_all, so targets updates will be saved too
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    )
+    commit_message = input("\nEnter commit message and press ENTER\n\n")
+    auth_repo.commit(commit_message)
+
+
+def remove_target_file(repo_name: str, auth_repo_path: str):
+    auth_repo_targets_dir = Path(auth_repo_path, TARGETS_DIRECTORY_NAME)
+    target_file_path = auth_repo_targets_dir / repo_name
+    if target_file_path.is_dir():
+        os.unlink(str(target_file_path))
+    else:
+        print(f"{target_file_path} target file does not exist")
 
 
 def _save_top_commit_of_repo_to_target(

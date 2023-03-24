@@ -1,19 +1,20 @@
+import click
 from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
-from taf.developer_tool import _enter_role_info
+import tuf.roledb
 from taf.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
 from taf.api.metadata import update_snapshot_and_timestamp
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import YUBIKEY_EXPIRATION_DATE, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, YUBIKEY_EXPIRATION_DATE, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.keystore import _default_keystore_path, new_public_key_cmd_prompt
 from taf.repository_tool import (
     Repository,
     is_delegated_role,
     yubikey_signature_provider,
 )
-from taf.utils import read_input_dict
+from taf.utils import get_key_size, read_input_dict
 
 
 def add_role(
@@ -184,6 +185,77 @@ def _enter_roles_infos(keystore, roles_key_infos):
     return infos_json
 
 
+def _enter_role_info(role, is_targets_role, keystore):
+    def _read_val(input_type, name, param=None, required=False):
+        default_value_msg = ""
+        if param is not None:
+            default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
+            if default is not None:
+                default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
+
+        while True:
+            try:
+                val = input(f"Enter {name} and press ENTER {default_value_msg}")
+                if not val:
+                    if not required:
+                        return DEFAULT_ROLE_SETUP_PARAMS.get(param)
+                    else:
+                        continue
+                return input_type(val)
+            except ValueError:
+                pass
+
+    role_info = {}
+    keys_num = _read_val(int, f"number of {role} keys", "number")
+    if keys_num is not None:
+        role_info["number"] = keys_num
+
+    role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
+    if role_info["yubikey"]:
+        # in case of yubikeys, length and shceme have to have specific values
+        role_info["length"] = 2048
+        role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
+    else:
+        # if keystore is specified and contain keys corresponding to this role
+        # get key size based on the public key
+        keystore_length = _get_roles_key_size(role, keystore, keys_num)
+        if keystore_length == 0:
+            key_length = _read_val(int, f"{role} key length", "length")
+            if key_length is not None:
+                role_info["length"] = key_length
+        else:
+            role_info["length"] = keystore_length
+        scheme = _read_val(str, f"{role} signature scheme", "scheme")
+        if scheme is not None:
+            role_info["scheme"] = scheme
+
+    threshold = _read_val(int, f"{role} signature threshold", "threshold")
+    if threshold is not None:
+        role_info["threshold"] = threshold
+
+    if is_targets_role:
+        delegated_roles = defaultdict(dict)
+        while click.confirm(
+            f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
+        ):
+            role_name = _read_val(str, "role name", True)
+            delegated_paths = []
+            while not len(delegated_paths) or click.confirm("Enter another path?"):
+                delegated_paths.append(
+                    _read_val(
+                        str, f"path or glob pattern delegated to {role_name}", True
+                    )
+                )
+            delegated_roles[role_name]["paths"] = delegated_paths
+            is_terminating = click.confirm(f"Is {role_name} terminating?")
+            delegated_roles[role_name]["terminating"] = is_terminating
+            delegated_roles[role_name].update(
+                _enter_role_info(role_name, True, keystore)
+            )
+        role_info["delegations"] = delegated_roles
+
+    return role_info
+
 def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     """
     Read or enter roles information and try to extract keystore path from
@@ -242,6 +314,12 @@ def _create_delegations(
             )
 
 
+def _get_roles_key_size(role, keystore, keys_num):
+    pub_key_name = f"{get_key_name(role, 1, keys_num)}.pub"
+    key_path = str(Path(keystore, pub_key_name))
+    return get_key_size(key_path)
+
+
 def _role_obj(role, repository, parent=None):
     repository = repository._tuf_repository
     if role == "targets":
@@ -257,6 +335,41 @@ def _role_obj(role, repository, parent=None):
         if parent is None:
             return repository.targets(role)
         return parent(role)
+
+
+def remove_paths(
+    paths, keystore, commit=True, auth_repo=None, auth_path=None
+):
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=auth_path)
+    for path in paths:
+        delegated_role = auth_repo.get_role_from_target_paths([path])
+        if delegated_role != "targets":
+            parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
+            # parent_role_obj = _role_obj(parent_role, auth_repo)
+            _remove_path_from_role_info(path, parent_role, delegated_role, auth_repo)
+            _update_role(auth_repo, parent_role, keystore)
+    if commit:
+        update_snapshot_and_timestamp(auth_repo, keystore, None, None)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_repo.commit(commit_message)
+
+
+def _remove_path_from_role_info(path, parent_role, delegated_role, auth_repo):
+    # Update the role's 'roledb' entry and avoid duplicates.
+    auth_repo.reload_tuf_repository()
+    roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
+    for delegations_data in roleinfo["delegations"]["roles"]:
+        if delegations_data["name"] == delegated_role:
+            delegations_paths = delegations_data["paths"]
+            if path in delegations_paths:
+                delegations_paths.remove(path)
+            else:
+                print(f"{path} not in delegated paths")
+    tuf.roledb.update_roleinfo(parent_role, roleinfo,
+        repository_name= auth_repo.name)
+
+
 
 
 def _setup_role(

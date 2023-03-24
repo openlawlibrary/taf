@@ -1,6 +1,6 @@
 import click
 import taf.developer_tool as developer_tool
-from taf.api.targets import list_targets, add_target_repo
+from taf.api.targets import list_targets, add_target_repo, remove_target_repo
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 
@@ -73,6 +73,24 @@ def attach_to_group(group):
         List targets
         """
         list_targets(path, library_dir)
+
+
+    @targets.command()
+    @click.argument("auth_path")
+    @click.option("--target-name")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    def remove_repo(auth_path, target_name, keystore):
+        """Export lists of sorted commits, grouped by branches and target repositories, based
+        on target files stored in the authentication repository. If commit is specified,
+        only return changes made at that revision and all subsequent revisions. If it is not,
+        start from the initial authentication repository commit.
+        Repositories which will be taken into consideration when collecting targets historical
+        data can be defined using the repo option. If no repositories are passed in, historical
+        data will include all target repositories.
+        to a file whose location is specified using the output option, or print it to
+        console.
+        """
+        remove_target_repo(auth_path, target_name, keystore)
 
 
     @targets.command()
