@@ -1,3 +1,5 @@
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+
 import click
 
 from pathlib import Path

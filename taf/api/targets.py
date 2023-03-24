@@ -13,7 +13,6 @@ from taf.auth_repo import AuthenticationRepository
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
-
 def add_target_repo(
     auth_path: str,
     target_path: str,
@@ -35,22 +34,36 @@ def add_target_repo(
     elif target_path is not None:
         target_repo = GitRepository(path=target_path)
     else:
-        raise TAFError("Cannot add new target repository. Specify either target name (and library dir) or target path")
-
+        raise TAFError(
+            "Cannot add new target repository. Specify either target name (and library dir) or target path"
+        )
 
     existing_roles = auth_repo.get_all_targets_roles()
     if role not in existing_roles:
         parent_role = input("Enter new role's parent role: ")
-        paths = input("Enter a comma separated list of path delegated to the new role: ")
+        paths = input(
+            "Enter a comma separated list of path delegated to the new role: "
+        )
         paths = paths.split(",")
         keys_number = input("Enter the number of signing keys of the new role: ")
         keys_number = int(keys_number)
         threshold = input("Enter signatures threshold of the new role: ")
         threshold = int(threshold)
-        yubikey = input("Should the new role's metadata be signed using yubikeys? [y/n]: ")
+        yubikey = input(
+            "Should the new role's metadata be signed using yubikeys? [y/n]: "
+        )
         yubikey = yubikey == "y"
         add_role(
-            auth_path, role, parent_role, paths, keys_number, threshold, yubikey, keystore, DEFAULT_RSA_SIGNATURE_SCHEME, commit=False
+            auth_path,
+            role,
+            parent_role,
+            paths,
+            keys_number,
+            threshold,
+            yubikey,
+            keystore,
+            DEFAULT_RSA_SIGNATURE_SCHEME,
+            commit=False,
         )
 
     # target repo should be added to repositories.json
@@ -64,22 +77,26 @@ def add_target_repo(
         repositories_json[target_name]["custom"] = custom
 
     if role != "targets":
-        add_role_paths([target_repo.name], role, keystore, commit=False, auth_repo=auth_repo)
-
+        add_role_paths(
+            [target_repo.name], role, keystore, commit=False, auth_repo=auth_repo
+        )
 
     # update content of repositories.json before updating targets metadata
-    Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(json.dumps(repositories_json, indent=4))
+    Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+        json.dumps(repositories_json, indent=4)
+    )
 
     if target_repo.is_git_repository_root:
-        _save_top_commit_of_repo_to_target(library_dir, target_repo.name, auth_repo.path)
-
+        _save_top_commit_of_repo_to_target(
+            library_dir, target_repo.name, auth_repo.path
+        )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME)
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    )
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
     # auth_repo.commit(commit_message)
-
-
 
 
 # data: up to date with remote, uncommitted targets,
@@ -175,4 +192,3 @@ def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):
         path = targets_dir / target_repo_name
         path.write_text(json.dumps(data, indent=4))
         print(f"Updated {path}")
-

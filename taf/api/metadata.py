@@ -1,4 +1,7 @@
-from taf.api.keys import load_signing_keys
+from taf.keys import load_signing_keys
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+
+
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 

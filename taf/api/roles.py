@@ -1,11 +1,19 @@
 from collections import defaultdict
 from functools import partial
+import json
 from pathlib import Path
-from taf.api.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
+from taf.developer_tool import _enter_role_info
+from taf.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
 from taf.api.metadata import update_snapshot_and_timestamp
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE, DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.repository_tool import yubikey_signature_provider
+from taf.keystore import _default_keystore_path, new_public_key_cmd_prompt
+from taf.repository_tool import (
+    Repository,
+    is_delegated_role,
+    yubikey_signature_provider,
+)
+from taf.utils import read_input_dict
 
 
 def add_role(
@@ -18,7 +26,7 @@ def add_role(
     yubikey: bool,
     keystore: str,
     scheme: str,
-    auth_repo: AuthenticationRepository=None,
+    auth_repo: AuthenticationRepository = None,
     commit=True,
 ):
 
@@ -61,7 +69,9 @@ def add_role(
         auth_repo.commit(commit_message)
 
 
-def add_role_paths(paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None):
+def add_role_paths(
+    paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None
+):
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=auth_path)
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
@@ -72,6 +82,122 @@ def add_role_paths(paths, delegated_role, keystore, commit=True, auth_repo=None,
         update_snapshot_and_timestamp(auth_repo, keystore, None, None)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
+
+
+def add_signing_key(
+    repo_path,
+    roles,
+    pub_key_path=None,
+    keystore=None,
+    roles_key_infos=None,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+):
+    """
+    Adds a new signing key to the listed roles. Automatically updates timestamp and
+    snapshot.
+    """
+    taf_repo = Repository(repo_path)
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore, enter_info=False
+    )
+    roles_infos = roles_key_infos.get("roles")
+
+    pub_key_pem = None
+    if pub_key_path is not None:
+        pub_key_path = Path(pub_key_path)
+        if pub_key_path.is_file():
+            pub_key_pem = Path(pub_key_path).read_text()
+
+    if pub_key_pem is None:
+        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+
+    parent_roles = set()
+    for role in roles:
+        if taf_repo.is_valid_metadata_key(role, pub_key_pem):
+            print(f"Key already registered as signing key of role {role}")
+            continue
+
+        taf_repo.add_metadata_key(role, pub_key_pem, scheme)
+
+        if is_delegated_role(role):
+            parent_role = taf_repo.find_delegated_roles_parent(role)
+        else:
+            parent_role = "root"
+
+        parent_roles.add(parent_role)
+
+    if not len(parent_roles):
+        return
+
+    taf_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
+    for parent_role in parent_roles:
+        _update_role(taf_repo, parent_role, keystore, roles_infos, scheme)
+
+    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
+
+
+def _enter_roles_infos(keystore, roles_key_infos):
+    """
+    Ask the user to enter information taf roles and keys, including the location
+    of keystore direcotry if not entered through an input parameter
+    """
+    mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
+    role_key_infos = defaultdict(dict)
+    infos_json = {}
+
+    for role in mandatory_roles:
+        role_key_infos[role] = _enter_role_info(role, role == "targets", keystore)
+    infos_json["roles"] = role_key_infos
+
+    while keystore is None:
+        keystore = input(
+            "Enter keystore location if keys should be loaded from or generated to keystore files (leave empty otherwise): "
+        )
+        if len(keystore):
+            if not Path(keystore).is_dir():
+                print(f"{keystore} does not exist")
+                keystore = None
+
+    if keystore:
+        infos_json["keystore"] = keystore
+
+    def _print_roles_key_infos(infos_json_str):
+        print("------------------")
+        print(
+            "Configuration json - save it in order to make creation of repositories quicker"
+        )
+        print(json.dumps(infos_json, indent=4))
+        print("------------------")
+
+    infos_json_str = json.dumps(infos_json, indent=4)
+    if isinstance(roles_key_infos, str):
+        try:
+            path = Path(roles_key_infos)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            Path(roles_key_infos).write_text(infos_json_str)
+            print(f"Configuration json written to {Path(roles_key_infos).absolute()}")
+        except Exception as e:
+            print(e)
+            _print_roles_key_infos(infos_json_str)
+    else:
+        print(infos_json_str)
+    return infos_json
+
+
+def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
+    """
+    Read or enter roles information and try to extract keystore path from
+    that json
+    """
+    roles_key_infos_dict = read_input_dict(roles_key_infos)
+    if keystore is None:
+        keystore = roles_key_infos_dict.get("keystore") or _default_keystore_path()
+
+    if enter_info and not len(roles_key_infos_dict):
+        # ask the user to enter roles, number of keys etc.
+        roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
+
+    return roles_key_infos_dict, keystore
 
 
 def _create_delegations(
@@ -157,7 +283,9 @@ def _setup_role(
             )
 
 
-def _update_role(taf_repo, role, keystore, roles_infos=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def _update_role(
+    taf_repo, role, keystore, roles_infos=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+):
     keystore_keys, yubikeys = load_signing_keys(
         taf_repo, role, keystore, roles_infos, scheme=scheme
     )

@@ -1,5 +1,5 @@
 import click
-import taf.developer_tool as developer_tool
+from taf.api.roles import add_signing_key as add_roles_sining_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
@@ -35,7 +35,7 @@ def attach_to_group(group):
         if not len(role):
             print("Specify at least one role")
             return
-        developer_tool.add_signing_key(path, role, pub_key_path, keystore,
+        add_roles_sining_key(path, role, pub_key_path, keystore,
                                        keys_description, scheme)
 
     @metadata.command()
