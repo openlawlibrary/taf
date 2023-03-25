@@ -97,7 +97,6 @@ def add_target_repo(
     auth_repo.commit(commit_message)
 
 
-
 # data: up to date with remote, uncommitted targets,
 # unsigned targets, which targets are cloned/not
 # cloned locally, bare/normal; display in pretty tree
@@ -181,9 +180,7 @@ def remove_target_repo(
             json.dumps(repositories_json, indent=4)
         )
 
-    remove_paths(
-        [target_name], keystore, commit=False, auth_repo=auth_repo
-    )
+    remove_paths([target_name], keystore, commit=False, auth_repo=auth_repo)
     remove_target_file(target_name, auth_path)
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
     update_snapshot_and_timestamp(
@@ -196,7 +193,7 @@ def remove_target_repo(
 def remove_target_file(repo_name: str, auth_repo_path: str):
     auth_repo_targets_dir = Path(auth_repo_path, TARGETS_DIRECTORY_NAME)
     target_file_path = auth_repo_targets_dir / repo_name
-    if target_file_path.is_dir():
+    if target_file_path.is_file():
         os.unlink(str(target_file_path))
     else:
         print(f"{target_file_path} target file does not exist")

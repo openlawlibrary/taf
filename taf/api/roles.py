@@ -1,13 +1,19 @@
+import os
 import click
 from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
 from taf.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
 from taf.api.metadata import update_snapshot_and_timestamp
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, YUBIKEY_EXPIRATION_DATE, DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import (
+    DEFAULT_ROLE_SETUP_PARAMS,
+    YUBIKEY_EXPIRATION_DATE,
+    DEFAULT_RSA_SIGNATURE_SCHEME,
+)
 from taf.keystore import _default_keystore_path, new_public_key_cmd_prompt
 from taf.repository_tool import (
     Repository,
@@ -18,6 +24,7 @@ from taf.utils import get_key_size, read_input_dict
 
 
 MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
+
 
 def add_role(
     auth_path: str,
@@ -257,6 +264,7 @@ def _enter_role_info(role, is_targets_role, keystore):
 
     return role_info
 
+
 def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     """
     Read or enter roles information and try to extract keystore path from
@@ -343,17 +351,34 @@ def remove_role(
     role: str,
     keystore: str,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: bool = True,
+    remove_targets: bool = False,
     auth_repo: AuthenticationRepository = None,
-    commit=True,
 ):
     if role in MAIN_ROLES:
-        print(f"Cannot remove role {role}. It is one of the roles required by the TUF specification")
+        print(
+            f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
+        )
         return
 
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=auth_path)
 
     parent_role = auth_repo.find_delegated_roles_parent(role)
+    if parent_role is None:
+        print("Role is not among delegated roles")
+        return
+
+    if remove_targets:
+        roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
+        for delegations_data in roleinfo["delegations"]["roles"]:
+            if delegations_data["name"] == role:
+                paths = delegations_data["paths"]
+                for path in paths:
+                    target_file_path = Path(auth_path, TARGETS_DIRECTORY_NAME, path)
+                    if target_file_path.is_file():
+                        os.unlink(str(target_file_path))
+                break
 
     parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.revoke(role)
@@ -365,9 +390,7 @@ def remove_role(
         auth_repo.commit(commit_message)
 
 
-def remove_paths(
-    paths, keystore, commit=True, auth_repo=None, auth_path=None
-):
+def remove_paths(paths, keystore, commit=True, auth_repo=None, auth_path=None):
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=auth_path)
     for path in paths:
@@ -394,8 +417,8 @@ def _remove_path_from_role_info(path, parent_role, delegated_role, auth_repo):
                 delegations_paths.remove(path)
             else:
                 print(f"{path} not in delegated paths")
-    tuf.roledb.update_roleinfo(parent_role, roleinfo,
-        repository_name= auth_repo.name)
+            break
+    tuf.roledb.update_roleinfo(parent_role, roleinfo, repository_name=auth_repo.name)
 
 
 def _setup_role(

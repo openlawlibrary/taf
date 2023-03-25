@@ -41,7 +41,9 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                     "used for signing")
-    def remove(auth_path, role, keystore, scheme):
+    @click.option("--remove-targets", is_flag=True, default=None, help="Should targets delegated to this "
+                   "role also be remove")
+    def remove(auth_path, role, keystore, scheme, remove_targets):
         """Remove a delegated target role
         """
-        remove_role(auth_path, role, keystore, scheme)
+        remove_role(auth_path, role, keystore, scheme, remove_targets=remove_targets)
