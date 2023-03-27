@@ -380,6 +380,8 @@ def remove_role(
                         os.unlink(str(target_file_path))
                 break
 
+    # TODO otherwise, sign again (a different role should sign)
+
     parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.revoke(role)
 

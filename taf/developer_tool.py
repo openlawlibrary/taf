@@ -11,9 +11,19 @@ import click
 import securesystemslib
 import securesystemslib.exceptions
 from taf.api.roles import _initialize_roles_and_keystore
-from taf.keys import export_yk_certificate, get_key_name, load_signing_keys, setup_roles_keys
+from taf.keys import (
+    export_yk_certificate,
+    get_key_name,
+    load_signing_keys,
+    setup_roles_keys,
+)
 from taf.api.metadata import update_snapshot_and_timestamp
-from taf.api.targets import _save_top_commit_of_repo_to_target, _update_target_repos
+from taf.api.targets import (
+    _get_namespace_and_root,
+    _save_top_commit_of_repo_to_target,
+    _update_target_repos,
+    generate_repositories_json,
+)
 from tuf.repository_tool import (
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
@@ -22,17 +32,18 @@ from tuf.repository_tool import (
 
 from taf import YubikeyMissingLibrary
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME, YUBIKEY_EXPIRATION_DATE
+from taf.constants import (
+    DEFAULT_ROLE_SETUP_PARAMS,
+    DEFAULT_RSA_SIGNATURE_SCHEME,
+    YUBIKEY_EXPIRATION_DATE,
+)
 from taf.exceptions import KeystoreError, TargetsMetadataUpdateError
 from taf.git import GitRepository
-\
 from taf.repository_tool import (
     Repository,
     yubikey_signature_provider,
-    is_delegated_role,
 )
 import taf.repositoriesdb as repositoriesdb
-from taf.utils import get_key_size, read_input_dict
 
 try:
     import taf.yubikey as yk
@@ -105,7 +116,6 @@ def add_roles(
     for parent_role in parent_roles:
         _update_role(taf_repo, parent_role, keystore, roles_infos, scheme=scheme)
     update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
-
 
 
 def update_target_repos_from_fs(
@@ -268,49 +278,6 @@ def create_repository(
         auth_repo.commit(commit_message)
 
 
-def check_expiration_dates(
-    repo_path, interval=None, start_date=None, excluded_roles=None
-):
-    """
-    <Purpose>
-        Check if any metadata files (roles) are expired or will expire in the next <interval> days.
-        Prints a list of expired roles.
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        interval:
-        Number of days ahead to check for expiration
-        start_date:
-        Date from which to start checking for expiration
-        excluded_roles:
-        List of roles to exclude from the check
-    """
-    repo_path = Path(repo_path)
-    taf_repo = Repository(repo_path)
-
-    expired_dict, will_expire_dict = taf_repo.check_roles_expiration_dates(
-        interval, start_date, excluded_roles
-    )
-
-    if expired_dict or will_expire_dict:
-        now = datetime.datetime.now()
-        print(
-            f"Given a {interval} day interval from today ({start_date.strftime('%Y-%m-%d')}):"
-        )
-        for role, expiry_date in expired_dict.items():
-            delta = now - expiry_date
-            print(
-                f"{role} expired {delta.days} days ago (on {expiry_date.strftime('%Y-%m-%d')})"
-            )
-        for role, expiry_date in will_expire_dict.items():
-            delta = expiry_date - now
-            print(
-                f"{role} will expire in {delta.days} days (on {expiry_date.strftime('%Y-%m-%d')})"
-            )
-    else:
-        print(f"No roles will expire within the given {interval} day interval")
-
-
 def _create_delegations(
     roles_infos, repository, verification_keys, signing_keys, existing_roles=None
 ):
@@ -425,49 +392,6 @@ def export_yk_public_pem(path=None):
         path.write_text(pub_key_pem)
 
 
-def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
-    auth_repo = AuthenticationRepository(path=repo_path)
-    commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
-    if not len(target_repos):
-        target_repos = None
-    else:
-        repositoriesdb.load_repositories(auth_repo)
-        invalid_targets = []
-        for target_repo in target_repos:
-            if repositoriesdb.get_repository(auth_repo, target_repo) is None:
-                invalid_targets.append(target_repo)
-        if len(invalid_targets):
-            print(
-                f"The following target repositories are not defined: {', '.join(invalid_targets)}"
-            )
-            return
-
-    commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
-        commits, target_repos
-    )
-    commits_json = json.dumps(commits_on_branches, indent=4)
-    if output is not None:
-        output = Path(output).resolve()
-        if output.suffix != ".json":
-            output = output.with_suffix(".json")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(commits_json)
-        print(f"Result written to {output}")
-    else:
-        print(commits_json)
-
-
-def _get_namespace_and_root(repo_path, namespace=None, library_dir=None):
-    repo_path = Path(repo_path).resolve()
-    if namespace is None:
-        namespace = repo_path.parent.name
-    if library_dir is None:
-        library_dir = repo_path.parent.parent
-    else:
-        library_dir = Path(library_dir).resolve()
-    return namespace, library_dir
-
-
 def generate_keys(keystore, roles_key_infos):
     """
     <Purpose>
@@ -506,95 +430,6 @@ def generate_keys(keystore, roles_key_infos):
                 )
         if "delegations" in key_info:
             generate_keys(keystore, key_info["delegations"])
-
-
-def generate_repositories_json(
-    repo_path,
-    library_dir=None,
-    namespace=None,
-    targets_relative_dir=None,
-    custom_data=None,
-    use_mirrors=True,
-):
-    """
-    <Purpose>
-        Generatesinitial repositories.json
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        library_dir:
-        Directory where target repositories and, optionally, authentication repository are locate
-        namespace:
-        Namespace used to form the full name of the target repositories. Each target repository
-        is expected to be library_dir/namespace directory
-        targets_relative_dir:
-        Directory relative to which urls of the target repositories are set, if they do not have remote set
-        custom_data:
-        Dictionary or path to a json file containing additional information about the repositories that
-        should be added to repositories.json
-        use_mirrors:
-        Determines whether to generate mirror.json, which contains a list of mirror templates, or
-        to generate url elements in repositories.json
-    """
-
-    custom_data = read_input_dict(custom_data)
-    repositories = {}
-    mirrors = []
-    repo_path = Path(repo_path).resolve()
-    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
-    # if targets directory is not specified, assume that target repositories
-    # and the authentication repository are in the same parent direcotry
-    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
-    targets_directory = library_dir / namespace
-    if targets_relative_dir is not None:
-        targets_relative_dir = Path(targets_relative_dir).resolve()
-
-    print(f"Adding all repositories from {targets_directory}")
-
-    for target_repo_dir in targets_directory.glob("*"):
-        if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
-            continue
-        target_repo = GitRepository(path=target_repo_dir.resolve())
-        if not target_repo.is_git_repository:
-            continue
-        target_repo_name = target_repo_dir.name
-        target_repo_namespaced_name = (
-            target_repo_name if not namespace else f"{namespace}/{target_repo_name}"
-        )
-        # determine url to specify in initial repositories.json
-        # if the repository has a remote set, use that url
-        # otherwise, set url to the repository's absolute or relative path (relative
-        # to targets_relative_dir if it is specified)
-        url = target_repo.get_remote_url()
-        if url is None:
-            if targets_relative_dir is not None:
-                url = Path(os.path.relpath(target_repo.path, targets_relative_dir))
-            else:
-                url = Path(target_repo.path).resolve()
-            # convert to posix path
-            url = str(url.as_posix())
-
-        if use_mirrors:
-            url = url.replace(namespace, "{org_name}").replace(
-                target_repo_name, "{repo_name}"
-            )
-            mirrors.append(url)
-            repositories[target_repo_namespaced_name] = {}
-        else:
-            repositories[target_repo_namespaced_name] = {"urls": [url]}
-
-        if target_repo_namespaced_name in custom_data:
-            repositories[target_repo_namespaced_name]["custom"] = custom_data[
-                target_repo_namespaced_name
-            ]
-
-    file_path = auth_repo_targets_dir / "repositories.json"
-    file_path.write_text(json.dumps({"repositories": repositories}, indent=4))
-    print(f"Generated {file_path}")
-    if use_mirrors:
-        mirrors_path = auth_repo_targets_dir / "mirrors.json"
-        mirrors_path.write_text(json.dumps({"mirrors": mirrors}, indent=4))
-        print(f"Generated {mirrors_path}")
 
 
 def init_repo(
@@ -871,66 +706,6 @@ def update_and_sign_targets(
     register_target_files(auth_path, keystore, roles_key_infos, True, scheme)
 
 
-def update_metadata_expiration_date(
-    repo_path,
-    roles,
-    interval,
-    keystore=None,
-    scheme=None,
-    start_date=None,
-    no_commit=False,
-):
-    if start_date is None:
-        start_date = datetime.datetime.now()
-
-    taf_repo = Repository(repo_path)
-    loaded_yubikeys = {}
-    roles_to_update = []
-
-    if "root" in roles:
-        roles_to_update.append("root")
-    if "targets" in roles:
-        roles_to_update.append("targets")
-    for role in roles:
-        if is_delegated_role(role):
-            roles_to_update.append(role)
-
-    if len(roles_to_update) or "snapshot" in roles:
-        roles_to_update.append("snapshot")
-    roles_to_update.append("timestamp")
-
-    for role in roles_to_update:
-        try:
-            keys, yubikeys = load_signing_keys(
-                taf_repo,
-                role,
-                loaded_yubikeys=loaded_yubikeys,
-                keystore=keystore,
-                scheme=scheme,
-            )
-            # sign with keystore
-            if len(keys):
-                taf_repo.update_role_keystores(
-                    role, keys, start_date=start_date, interval=interval
-                )
-            if len(yubikeys):  # sign with yubikey
-                taf_repo.update_role_yubikeys(
-                    role, yubikeys, start_date=start_date, interval=interval
-                )
-        except Exception as e:
-            print(f"Could not update expiration date of {role}. {str(e)}")
-            return
-        else:
-            print(f"Updated expiration date of {role}")
-
-    if no_commit:
-        print("\nNo commit was set. Please commit manually. \n")
-    else:
-        auth_repo = GitRepository(path=repo_path)
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_repo.commit(commit_message)
-
-
 def _update_role(taf_repo, role, keystore, roles_infos, scheme):
     keystore_keys, yubikeys = load_signing_keys(
         taf_repo, role, keystore, roles_infos, scheme=scheme
@@ -939,7 +714,6 @@ def _update_role(taf_repo, role, keystore, roles_infos, scheme):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
         taf_repo.update_role_yubikeys(role, yubikeys, write=False)
-
 
 
 def _update_target_roles(

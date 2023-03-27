@@ -11,6 +11,7 @@ from taf.hosts import REPOSITORIES_JSON_PATH
 
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
+from taf.utils import read_input_dict
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
@@ -97,10 +98,136 @@ def add_target_repo(
     auth_repo.commit(commit_message)
 
 
-# data: up to date with remote, uncommitted targets,
-# unsigned targets, which targets are cloned/not
-# cloned locally, bare/normal; display in pretty tree
-# with optional json output, list dependencies
+def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
+    auth_repo = AuthenticationRepository(path=repo_path)
+    commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
+    if not len(target_repos):
+        target_repos = None
+    else:
+        repositoriesdb.load_repositories(auth_repo)
+        invalid_targets = []
+        for target_repo in target_repos:
+            if repositoriesdb.get_repository(auth_repo, target_repo) is None:
+                invalid_targets.append(target_repo)
+        if len(invalid_targets):
+            print(
+                f"The following target repositories are not defined: {', '.join(invalid_targets)}"
+            )
+            return
+
+    commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
+        commits, target_repos
+    )
+    commits_json = json.dumps(commits_on_branches, indent=4)
+    if output is not None:
+        output = Path(output).resolve()
+        if output.suffix != ".json":
+            output = output.with_suffix(".json")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(commits_json)
+        print(f"Result written to {output}")
+    else:
+        print(commits_json)
+
+
+def generate_repositories_json(
+    repo_path,
+    library_dir=None,
+    namespace=None,
+    targets_relative_dir=None,
+    custom_data=None,
+    use_mirrors=True,
+):
+    """
+    <Purpose>
+        Generates initial repositories.json
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        library_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
+        namespace:
+        Namespace used to form the full name of the target repositories. Each target repository
+        is expected to be library_dir/namespace directory
+        targets_relative_dir:
+        Directory relative to which urls of the target repositories are set, if they do not have remote set
+        custom_data:
+        Dictionary or path to a json file containing additional information about the repositories that
+        should be added to repositories.json
+        use_mirrors:
+        Determines whether to generate mirror.json, which contains a list of mirror templates, or
+        to generate url elements in repositories.json
+    """
+
+    custom_data = read_input_dict(custom_data)
+    repositories = {}
+    mirrors = []
+    repo_path = Path(repo_path).resolve()
+    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
+    # if targets directory is not specified, assume that target repositories
+    # and the authentication repository are in the same parent direcotry
+    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
+    targets_directory = library_dir / namespace
+    if targets_relative_dir is not None:
+        targets_relative_dir = Path(targets_relative_dir).resolve()
+
+    print(f"Adding all repositories from {targets_directory}")
+
+    for target_repo_dir in targets_directory.glob("*"):
+        if not target_repo_dir.is_dir() or target_repo_dir == repo_path:
+            continue
+        target_repo = GitRepository(path=target_repo_dir.resolve())
+        if not target_repo.is_git_repository:
+            continue
+        target_repo_name = target_repo_dir.name
+        target_repo_namespaced_name = (
+            target_repo_name if not namespace else f"{namespace}/{target_repo_name}"
+        )
+        # determine url to specify in initial repositories.json
+        # if the repository has a remote set, use that url
+        # otherwise, set url to the repository's absolute or relative path (relative
+        # to targets_relative_dir if it is specified)
+        url = target_repo.get_remote_url()
+        if url is None:
+            if targets_relative_dir is not None:
+                url = Path(os.path.relpath(target_repo.path, targets_relative_dir))
+            else:
+                url = Path(target_repo.path).resolve()
+            # convert to posix path
+            url = str(url.as_posix())
+
+        if use_mirrors:
+            url = url.replace(namespace, "{org_name}").replace(
+                target_repo_name, "{repo_name}"
+            )
+            mirrors.append(url)
+            repositories[target_repo_namespaced_name] = {}
+        else:
+            repositories[target_repo_namespaced_name] = {"urls": [url]}
+
+        if target_repo_namespaced_name in custom_data:
+            repositories[target_repo_namespaced_name]["custom"] = custom_data[
+                target_repo_namespaced_name
+            ]
+
+    file_path = auth_repo_targets_dir / "repositories.json"
+    file_path.write_text(json.dumps({"repositories": repositories}, indent=4))
+    print(f"Generated {file_path}")
+    if use_mirrors:
+        mirrors_path = auth_repo_targets_dir / "mirrors.json"
+        mirrors_path.write_text(json.dumps({"mirrors": mirrors}, indent=4))
+        print(f"Generated {mirrors_path}")
+
+
+def _get_namespace_and_root(repo_path, namespace=None, library_dir=None):
+    repo_path = Path(repo_path).resolve()
+    if namespace is None:
+        namespace = repo_path.parent.name
+    if library_dir is None:
+        library_dir = repo_path.parent.parent
+    else:
+        library_dir = Path(library_dir).resolve()
+    return namespace, library_dir
 
 
 def list_targets(
