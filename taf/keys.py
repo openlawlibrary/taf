@@ -3,6 +3,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 import click
 
 from pathlib import Path
+from taf.yubikey import export_yk_certificate
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
@@ -25,18 +26,6 @@ def get_key_name(role_name, key_num, num_of_keys):
         return role_name
     else:
         return role_name + str(key_num + 1)
-
-
-def export_yk_certificate(certs_dir, key):
-    if certs_dir is None:
-        certs_dir = Path.home()
-    else:
-        certs_dir = Path(certs_dir)
-    certs_dir.mkdir(parents=True, exist_ok=True)
-    cert_path = certs_dir / f"{key['keyid']}.cert"
-    print(f"Exporting certificate to {cert_path}")
-    with open(cert_path, "wb") as f:
-        f.write(yk.export_piv_x509())
 
 
 def load_sorted_keys_of_roles(

@@ -93,49 +93,6 @@ def attach_to_group(group):
 
 
     @repo.command()
-    @click.argument("path")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
-                  "optionally, authentication repository are located. If omitted it is "
-                  "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
-    @click.option("--namespace", default=None, help="Namespace of the target repositories. "
-                  "If omitted, it will be assumed that namespace matches the name of the "
-                  "directory which contains the authentication repository")
-    @click.option("--targets-rel-dir", default=None, help="Directory relative to which "
-                  "urls of the target repositories are calculated. Only useful when "
-                  "the target repositories do not have remotes set")
-    @click.option("--custom", default=None, help="A dictionary containing custom "
-                  "targets info which will be added to repositories.json")
-    @click.option("--use-mirrors", is_flag=True, help="Whether to generate mirrors.json or not")
-    @click.option("--add-branch", default=False, is_flag=True, help="Whether to add name of "
-                  "the current branch to target files")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores the needed information")
-    @click.option("--commit", is_flag=True, help="Indicates if the changes should be "
-                  "committed automatically")
-    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
-                  "is a test authentication repository")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing.")
-    def initialize(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors, add_branch, keystore,
-                   keys_description, commit, test, scheme):
-        """
-        \b
-        Create and initialize a new authentication repository:
-            1. Create an authentication repository (generate initial metadata files)
-            2. Commit initial metadata files if commit == True
-            3. Add target files corresponding to target repositories
-            4. Generate repositories.json
-            5. Update metadata files
-            6. Commit the changes if commit == True
-        Combines create, generate_repositories_json, update_repos and targets sign commands.
-        In order to have greater control over individual steps and be able to review files created
-        in the initialization process, execute the mentioned commands separately.
-        """
-        developer_tool.init_repo(path, library_dir, namespace, targets_rel_dir, custom, use_mirrors,
-                                 add_branch, keystore, keys_description, commit, test, scheme)
-
-    @repo.command()
     @click.argument("url")
     @click.argument("clients-auth-path", default=None, required=False)
     @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "

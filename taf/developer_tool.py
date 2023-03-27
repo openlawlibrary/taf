@@ -10,9 +10,8 @@ from pathlib import Path
 import click
 import securesystemslib
 import securesystemslib.exceptions
-from taf.api.roles import _initialize_roles_and_keystore
+from taf.api.roles import _create_delegations, _initialize_roles_and_keystore, _role_obj
 from taf.keys import (
-    export_yk_certificate,
     get_key_name,
     load_signing_keys,
     setup_roles_keys,
@@ -24,6 +23,7 @@ from taf.api.targets import (
     _update_target_repos,
     generate_repositories_json,
 )
+from taf.yubikey import export_yk_certificate
 from tuf.repository_tool import (
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
@@ -278,47 +278,6 @@ def create_repository(
         auth_repo.commit(commit_message)
 
 
-def _create_delegations(
-    roles_infos, repository, verification_keys, signing_keys, existing_roles=None
-):
-    if existing_roles is None:
-        existing_roles = []
-    for role_name, role_info in roles_infos.items():
-        if "delegations" in role_info:
-            parent_role_obj = _role_obj(role_name, repository)
-            delegations_info = role_info["delegations"]["roles"]
-            for delegated_role_name, delegated_role_info in delegations_info.items():
-                if delegated_role_name in existing_roles:
-                    print(f"Role {delegated_role_name} already set up.")
-                    continue
-                paths = delegated_role_info.get("paths", [])
-                roles_verification_keys = verification_keys[delegated_role_name]
-                # if yubikeys are used for signing, signing keys are not loaded
-                roles_signing_keys = signing_keys.get(delegated_role_name)
-                threshold = delegated_role_info.get("threshold", 1)
-                terminating = delegated_role_info.get("terminating", False)
-                parent_role_obj.delegate(
-                    delegated_role_name,
-                    roles_verification_keys,
-                    paths,
-                    threshold=threshold,
-                    terminating=terminating,
-                )
-                is_yubikey = delegated_role_info.get("yubikey", False)
-                _setup_role(
-                    delegated_role_name,
-                    threshold,
-                    is_yubikey,
-                    repository,
-                    roles_verification_keys,
-                    roles_signing_keys,
-                    parent=parent_role_obj,
-                )
-                print(f"Setting up delegated role {delegated_role_name}")
-            _create_delegations(
-                delegations_info, repository, verification_keys, signing_keys
-            )
-
 
 def _load_sorted_keys_of_new_roles(
     auth_repo, roles_infos, repository, keystore, yubikeys, existing_roles=None
@@ -432,75 +391,6 @@ def generate_keys(keystore, roles_key_infos):
             generate_keys(keystore, key_info["delegations"])
 
 
-def init_repo(
-    repo_path,
-    library_dir=None,
-    namespace=None,
-    targets_relative_dir=None,
-    custom_data=None,
-    use_mirrors=True,
-    add_branch=None,
-    keystore=None,
-    roles_key_infos=None,
-    commit=False,
-    test=False,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-):
-    """
-    <Purpose>
-        Generate initial repository:
-        1. Crete tuf authentication repository
-        2. Commit initial metadata files if commit == True
-        3. Add target repositories
-        4. Generate repositories.json
-        5. Update tuf metadata
-        6. Commit the changes if commit == True
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        library_dir:
-        Directory where target repositories and, optionally, authentication repository are locate
-        namespace:
-        Namespace used to form the full name of the target repositories. Each target repository
-        is expected to be library_dir/namespace directory
-        targets_relative_dir:
-        Directory relative to which urls of the target repositories are set, if they do not have remote set
-        custom_data:
-        Dictionary or path to a json file containing additional information about the repositories that
-        should be added to repositories.json
-        use_mirrors:
-        Determines whether to generate mirror.json, which contains a list of mirror templates, or
-        to generate url elements in repositories.json.
-        add_branch:
-        Indicates whether to add the current branch's name to the target file
-        keystore:
-        Location of the keystore files
-        roles_key_infos:
-        A dictionary whose keys are role names, while values contain information about the keys.
-        test:
-        Indicates if the created repository is a test authentication repository
-        scheme:
-        A signature scheme used for signing.
-    """
-    # read the key infos here, no need to read the file multiple times
-    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
-    targets_directory = library_dir / namespace
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
-        roles_key_infos, keystore
-    )
-
-    create_repository(repo_path, keystore, roles_key_infos, commit, test)
-    update_target_repos_from_fs(repo_path, targets_directory, namespace, add_branch)
-    generate_repositories_json(
-        repo_path,
-        library_dir,
-        namespace,
-        targets_relative_dir,
-        custom_data,
-        use_mirrors,
-    )
-    register_target_files(repo_path, keystore, roles_key_infos, commit, scheme=scheme)
-
 
 def register_target_files(
     repo_path,
@@ -554,22 +444,6 @@ def register_target_files(
         auth_git_repo = GitRepository(path=taf_repo.path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_git_repo.commit(commit_message)
-
-
-def _role_obj(role, repository, parent=None):
-    if role == "targets":
-        return repository.targets
-    elif role == "snapshot":
-        return repository.snapshot
-    elif role == "timestamp":
-        return repository.timestamp
-    elif role == "root":
-        return repository.root
-    else:
-        # return delegated role
-        if parent is None:
-            return repository.targets(role)
-        return parent(role)
 
 
 def signature_provider(key_id, cert_cn, key, data):  # pylint: disable=W0613
