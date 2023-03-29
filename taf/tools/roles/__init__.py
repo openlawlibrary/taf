@@ -42,10 +42,11 @@ def attach_to_group(group):
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                     "used for signing")
     @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this "
-                   "role also be remove")
+                   "role also be removed. If not removed, they are signed by the parent role")
     def remove(auth_path, role, keystore, scheme, remove_targets):
-        """Remove a delegated target role, target files of that role, sign all metadata files and commit.
+        """Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
+        If targets should also be deleted, target files are remove and their corresponding entires are removed
+        from repositoires.json. If targets should not get removed, the target files are signed using the
+        removed role's parent role
         """
-        # TODO add the option to keep target files, but make sure that they are signed using the
-        # parent role's key
         remove_role(auth_path, role, keystore, scheme=scheme, remove_targets=remove_targets, commit=True)

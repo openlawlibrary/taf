@@ -4,8 +4,10 @@ from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
+from taf.hosts import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
+import taf.repositoriesdb as repositoriesdb
 from taf.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.auth_repo import AuthenticationRepository
@@ -371,6 +373,7 @@ def remove_role(
 
     roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
     added_targets_data = {}
+    removed_targets = []
     for delegations_data in roleinfo["delegations"]["roles"]:
         if delegations_data["name"] == role:
             paths = delegations_data["paths"]
@@ -379,6 +382,7 @@ def remove_role(
                 if target_file_path.is_file():
                     if remove_targets:
                         os.unlink(str(target_file_path))
+                        removed_targets.append(path)
                     else:
                         added_targets_data[path] = {}
             break
@@ -398,6 +402,20 @@ def remove_role(
             write=False,
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         )
+
+    # if targets should be deleted, also removed them from repositories.json
+    if len(removed_targets):
+        repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+        repositories = repositories_json["repositories"]
+        for removed_target in removed_targets:
+            if removed_target in repositories:
+                repositories.pop(removed_target)
+
+            # update content of repositories.json before updating targets metadata
+            Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+                json.dumps(repositories_json, indent=4)
+            )
+
     update_snapshot_and_timestamp(auth_repo, keystore, None, scheme)
     if commit:
         commit_message = input("\nEnter commit message and press ENTER\n\n")

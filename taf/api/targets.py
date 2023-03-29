@@ -27,6 +27,10 @@ def add_target_repo(
     custom=None,
 ):
     auth_repo = AuthenticationRepository(path=auth_path)
+    auth_repo = AuthenticationRepository(path=auth_path)
+    if not auth_repo.is_git_repository_root:
+        print(f"{auth_path} is not a git repository!")
+        return
     if library_dir is None:
         library_dir = auth_repo.path.parent.parent
 
@@ -99,12 +103,12 @@ def add_target_repo(
             keystore,
             roles_infos=None,
             write=False,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+            scheme=scheme,
         )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
     update_snapshot_and_timestamp(
-        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo, keystore, None, scheme=scheme
     )
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
@@ -308,6 +312,9 @@ def remove_target_repo(
     keystore: str,
 ):
     auth_repo = AuthenticationRepository(path=auth_path)
+    if not auth_repo.is_git_repository_root:
+        print(f"{auth_path} is not a git repository!")
+        return
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
     repositories = repositories_json["repositories"]
     if target_name not in repositories:

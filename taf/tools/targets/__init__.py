@@ -164,25 +164,27 @@ def attach_to_group(group):
                   "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     def list(path, library_dir):
         """
-        List targets
+        List target repositories of the specified authentication repository. All target repositories
+        are expected to be inside the same library root dir. Only repositories that are listed in
+        repositories.json and whose corresponding target files exist (files whose name matched the
+        name defined in repositories.json located inside the targets directory). For each repository,
+        print:
+        - if unauthenticated commits are allowed
+        - if they exist on the user's local machine inside the library root dir (if they were cloned)
+        - if they are bare
+        - if there are unsigned changes (commits not registered in the authentication repository)
+        - if they are up-to-date with remote
+        - if there are uncommitted changes
         """
         list_targets(path, library_dir)
 
 
     @targets.command()
     @click.argument("auth_path")
-    @click.option("--target-name")
+    @click.argument("target-name")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     def remove_repo(auth_path, target_name, keystore):
-        """Export lists of sorted commits, grouped by branches and target repositories, based
-        on target files stored in the authentication repository. If commit is specified,
-        only return changes made at that revision and all subsequent revisions. If it is not,
-        start from the initial authentication repository commit.
-        Repositories which will be taken into consideration when collecting targets historical
-        data can be defined using the repo option. If no repositories are passed in, historical
-        data will include all target repositories.
-        to a file whose location is specified using the output option, or print it to
-        console.
+        """Remove a target repository (from repsoitories.json and target file) and sign
         """
         remove_target_repo(auth_path, target_name, keystore)
 
