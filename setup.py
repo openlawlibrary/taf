@@ -59,7 +59,7 @@ kwargs = {
     "packages": packages,
     "cmdclass": {"bdist_wheel": bdist_wheel},
     "include_package_data": True,
-    "data_files": [("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
+    "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,
     "install_requires": [
         "click==7.*",
@@ -91,7 +91,7 @@ kwargs = {
         "Intended Audience :: Information Technology",
         "Topic :: Security",
         "Topic :: Software Development",
-        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
