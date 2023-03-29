@@ -59,7 +59,7 @@ kwargs = {
     "packages": packages,
     "cmdclass": {"bdist_wheel": bdist_wheel},
     "include_package_data": True,
-    "data_files": [("lib/site-packages/taf", ["./LICENSE.txt", "./README.md"])],
+    "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,
     "install_requires": [
         "click==7.*",
