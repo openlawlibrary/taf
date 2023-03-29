@@ -7,7 +7,7 @@ from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
 from taf.keys import get_key_name, load_signing_keys, load_sorted_keys_of_roles
-from taf.api.metadata import update_snapshot_and_timestamp
+from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
@@ -369,25 +369,37 @@ def remove_role(
         print("Role is not among delegated roles")
         return
 
-    if remove_targets:
-        roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
-        for delegations_data in roleinfo["delegations"]["roles"]:
-            if delegations_data["name"] == role:
-                paths = delegations_data["paths"]
-                for path in paths:
-                    target_file_path = Path(auth_path, TARGETS_DIRECTORY_NAME, path)
-                    if target_file_path.is_file():
+    roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
+    added_targets_data = {}
+    for delegations_data in roleinfo["delegations"]["roles"]:
+        if delegations_data["name"] == role:
+            paths = delegations_data["paths"]
+            for path in paths:
+                target_file_path = Path(auth_path, TARGETS_DIRECTORY_NAME, path)
+                if target_file_path.is_file():
+                    if remove_targets:
                         os.unlink(str(target_file_path))
-                break
-
-    # TODO otherwise, sign again (a different role should sign)
+                    else:
+                        added_targets_data[path] = {}
+            break
 
     parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.revoke(role)
 
     _update_role(auth_repo, parent_role, keystore)
+    if len(added_targets_data):
+        removed_targets_data = {}
+        update_target_metadata(
+            auth_repo,
+            added_targets_data,
+            removed_targets_data,
+            keystore,
+            roles_infos=None,
+            write=False,
+            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        )
+    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme)
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore, None, scheme)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 

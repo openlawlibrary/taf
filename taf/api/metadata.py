@@ -130,3 +130,57 @@ def update_snapshot_and_timestamp(
 
     if write_all:
         taf_repo.writeall()
+
+
+def update_target_metadata(
+    taf_repo,
+    added_targets_data,
+    removed_targets_data,
+    keystore,
+    roles_infos,
+    write=False,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+):
+    """Update given targets data with an appropriate role, as well as snapshot and
+    timestamp roles.
+    """
+    added_targets_data = {} if added_targets_data is None else added_targets_data
+    removed_targets_data = {} if removed_targets_data is None else removed_targets_data
+
+    roles_targets = taf_repo.roles_targets_for_filenames(
+        list(added_targets_data.keys()) + list(removed_targets_data.keys())
+    )
+
+    if not roles_targets:
+        raise TargetsMetadataUpdateError(
+            "There are no added/modified/removed target files."
+        )
+
+    # update targets
+    loaded_yubikeys = {}
+    for role, target_paths in roles_targets.items():
+        keystore_keys, yubikeys = load_signing_keys(
+            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
+        )
+        targets_data = dict(
+            added_targets_data={
+                path: val
+                for path, val in added_targets_data.items()
+                if path in target_paths
+            },
+            removed_targets_data={
+                path: val
+                for path, val in removed_targets_data.items()
+                if path in target_paths
+            },
+        )
+
+        if len(yubikeys):
+            taf_repo.update_targets_yubikeys(yubikeys, write=False, **targets_data)
+        if len(keystore_keys):
+            taf_repo.update_targets_keystores(
+                keystore_keys, write=False, **targets_data
+            )
+
+    if write:
+        update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)

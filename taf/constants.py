@@ -22,5 +22,3 @@ EXPIRATION_INTERVAL = 36500
 YUBIKEY_EXPIRATION_DATE = datetime.datetime.now() + datetime.timedelta(
     days=EXPIRATION_INTERVAL
 )
-
-

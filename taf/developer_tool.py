@@ -1,6 +1,4 @@
-import datetime
 import json
-import os
 from binascii import hexlify
 from collections import defaultdict
 from functools import partial
@@ -16,12 +14,11 @@ from taf.keys import (
     load_signing_keys,
     setup_roles_keys,
 )
-from taf.api.metadata import update_snapshot_and_timestamp
+from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.api.targets import (
     _get_namespace_and_root,
     _save_top_commit_of_repo_to_target,
     _update_target_repos,
-    generate_repositories_json,
 )
 from taf.yubikey import export_yk_certificate
 from tuf.repository_tool import (
@@ -431,7 +428,7 @@ def register_target_files(
     # find files that should be added/modified/removed
     added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
 
-    _update_target_roles(
+    update_target_metadata(
         taf_repo,
         added_targets_data,
         removed_targets_data,
@@ -588,61 +585,3 @@ def _update_role(taf_repo, role, keystore, roles_infos, scheme):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
         taf_repo.update_role_yubikeys(role, yubikeys, write=False)
-
-
-def _update_target_roles(
-    taf_repo,
-    added_targets_data,
-    removed_targets_data,
-    keystore,
-    roles_infos,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-):
-    """Update given targets data with an appropriate role, as well as snapshot and
-    timestamp roles.
-    """
-    added_targets_data = {} if added_targets_data is None else added_targets_data
-    removed_targets_data = {} if removed_targets_data is None else removed_targets_data
-
-    roles_targets = taf_repo.roles_targets_for_filenames(
-        list(added_targets_data.keys()) + list(removed_targets_data.keys())
-    )
-
-    if not roles_targets:
-        raise TargetsMetadataUpdateError(
-            "There are no added/modified/removed target files."
-        )
-
-    # update targets
-    loaded_yubikeys = {}
-    for role, target_paths in roles_targets.items():
-        keystore_keys, yubikeys = load_signing_keys(
-            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
-        )
-        targets_data = dict(
-            added_targets_data={
-                path: val
-                for path, val in added_targets_data.items()
-                if path in target_paths
-            },
-            removed_targets_data={
-                path: val
-                for path, val in removed_targets_data.items()
-                if path in target_paths
-            },
-        )
-
-        if len(yubikeys):
-            taf_repo.update_targets_yubikeys(yubikeys, write=False, **targets_data)
-        if len(keystore_keys):
-            taf_repo.update_targets_keystores(
-                keystore_keys, write=False, **targets_data
-            )
-
-    # update other roles and writeall
-    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
-
-
-# TODO Implement update of repositories.json (updating urls, custom data, adding new repository, removing
-# repository etc.)
-# TODO create tests for this

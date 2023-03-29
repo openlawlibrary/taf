@@ -86,7 +86,7 @@ def attach_to_group(group):
                   "interval is added", type=ISO_DATE)
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
                   "committed automatically")
-    def update_expiration_date(path, role, interval, keystore, scheme, start_date, no_commit):
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit):
         """
         \b
         Update expiration date of the metadata file corresponding to the specified role.

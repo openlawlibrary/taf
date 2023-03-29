@@ -1,8 +1,9 @@
-from collections import defaultdict
-import json
+import click
 import os
+import json
+from collections import defaultdict
 from pathlib import Path
-from taf.api.metadata import update_snapshot_and_timestamp
+from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.api.roles import add_role, add_role_paths, remove_paths
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -22,7 +23,8 @@ def add_target_repo(
     role: str,
     library_dir: str,
     keystore: str,
-    custom,
+    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
+    custom=None,
 ):
     auth_repo = AuthenticationRepository(path=auth_path)
     if library_dir is None:
@@ -48,10 +50,9 @@ def add_target_repo(
         keys_number = int(keys_number)
         threshold = input("Enter signatures threshold of the new role: ")
         threshold = int(threshold)
-        yubikey = input(
+        yubikey = click.confirm(
             "Should the new role's metadata be signed using yubikeys? [y/n]: "
         )
-        yubikey = yubikey == "y"
         add_role(
             auth_path,
             role,
@@ -88,6 +89,17 @@ def add_target_repo(
     if target_repo.is_git_repository_root:
         _save_top_commit_of_repo_to_target(
             library_dir, target_repo.name, auth_repo.path
+        )
+        added_targets_data = {target_repo.name: {}}
+        removed_targets_data = {}
+        update_target_metadata(
+            auth_repo,
+            added_targets_data,
+            removed_targets_data,
+            keystore,
+            roles_infos=None,
+            write=False,
+            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too

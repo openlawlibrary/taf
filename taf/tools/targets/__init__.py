@@ -22,32 +22,46 @@ def attach_to_group(group):
         allow_extra_args=True,
     ))
     @click.argument("auth_path")
-    @click.option("--target-name")
-    @click.option("--target_path")
-    @click.option("--role", default="targets")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
-                  "optionally, authentication repository are located. If omitted it is "
-                  "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
+    @click.option("--target-name", default=None, help="Namespace prefixed name of the target repository")
+    @click.option("--target-path", default=None, help="Target repository's filesystem path")
+    @click.option("--role", default="targets", help="Signing role of the corresponding target file. "
+                  "Can be a new role, in which case it will be necessary to enter its information when prompted")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.pass_context
-    def add_repo(ctx, auth_path, target_path, target_name, role, library_dir, keystore):
-        """Export lists of sorted commits, grouped by branches and target repositories, based
-        on target files stored in the authentication repository. If commit is specified,
-        only return changes made at that revision and all subsequent revisions. If it is not,
-        start from the initial authentication repository commit.
-        Repositories which will be taken into consideration when collecting targets historical
-        data can be defined using the repo option. If no repositories are passed in, historical
-        data will include all target repositories.
-        to a file whose location is specified using the output option, or print it to
-        console.
+    def add_repo(ctx, auth_path, target_path, target_name, role, keystore):
+        """Add a new repository by adding it to repositories.json, creating a delegation (if targets is not
+        its signing role) and adding and signing initial target files if the repository is found on the filesystem.
+        All additional information that should be saved as the repository's custom content in `repositories.json`
+        is specified by providing additional options. If the signing role does not exist, it will be created.
+        E.g.
+
+        `taf targets add-repo auth-path --target-name namespace1/repo` --serve latest --role role1`
+
+        In this case, serve: latest will be added to the custom part of the target repository's entry in
+        repositories.json.
+
+
+        If the repository does ot exists, it is sufficient to provide its namespace prefixed name
+        instead of the full filesystem path. If the repository's path is not provided, it is expected
+        to be located in the same library root directory as the authentication repository,
+        in a directory whose name corresponds to its name. If authentication repository's path
+        is `E:\\examples\\root\\namespace\\auth`, and the target's namespace prefixed name is
+        `namespace1\\repo1`, the target's path will be set to `E:\\examples\\root\\namespace1\\repo1`.
         """
-        custom = {ctx.args[i][2:]: ctx.args[i+1] for i in range(0, len(ctx.args), 2)}
-        add_target_repo(auth_path, target_path, target_name, role, library_dir, keystore, custom)
+        custom = {ctx.args[i][2:]: ctx.args[i+1] for i in range(0, len(ctx.args), 2)} if len(ctx.args) else {}
+        add_target_repo(
+            auth_path=auth_path,
+            target_path=target_path,
+            target_name=target_name,
+            library_dir=None,
+            role=role,
+            keystore=keystore,
+            custom=custom
+        )
 
 
 
-    @repo.command()
+    @targets.command()
     @click.argument("path")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
