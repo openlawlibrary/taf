@@ -27,7 +27,6 @@ def add_target_repo(
     custom=None,
 ):
     auth_repo = AuthenticationRepository(path=auth_path)
-    auth_repo = AuthenticationRepository(path=auth_path)
     if not auth_repo.is_git_repository_root:
         print(f"{auth_path} is not a git repository!")
         return
@@ -45,22 +44,25 @@ def add_target_repo(
 
     existing_roles = auth_repo.get_all_targets_roles()
     if role not in existing_roles:
-        parent_role = input("Enter new role's parent role: ")
+        parent_role = input("Enter new role's parent role (targets): ")
         paths = input(
             "Enter a comma separated list of path delegated to the new role: "
         )
-        paths = paths.split(",")
-        keys_number = input("Enter the number of signing keys of the new role: ")
-        keys_number = int(keys_number)
-        threshold = input("Enter signatures threshold of the new role: ")
-        threshold = int(threshold)
+        paths = [path.strip() for path in paths.split(",") if len(path.strip())]
+        keys_number = input("Enter the number of signing keys of the new role (1): ")
+        keys_number = int(keys_number or 1)
+        threshold = input("Enter signatures threshold of the new role (1): ")
+        threshold = int(threshold or 1)
         yubikey = click.confirm(
-            "Should the new role's metadata be signed using yubikeys? [y/n]: "
+            "Sign the new role's metadata using yubikeys? "
         )
+        if target_name not in paths:
+            paths.append(target_name)
+
         add_role(
             auth_path,
             role,
-            parent_role,
+            parent_role or "targets",
             paths,
             keys_number,
             threshold,
@@ -68,6 +70,7 @@ def add_target_repo(
             keystore,
             DEFAULT_RSA_SIGNATURE_SCHEME,
             commit=False,
+            auth_repo=auth_repo,
         )
 
     # target repo should be added to repositories.json
@@ -80,10 +83,6 @@ def add_target_repo(
     if custom:
         repositories_json[target_name]["custom"] = custom
 
-    if role != "targets":
-        add_role_paths(
-            [target_repo.name], role, keystore, commit=False, auth_repo=auth_repo
-        )
 
     # update content of repositories.json before updating targets metadata
     Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
