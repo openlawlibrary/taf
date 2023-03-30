@@ -38,7 +38,7 @@ def attach_to_group(group):
             print("Specify at least one role")
             return
         add_roles_sining_key(path, role, pub_key_path, keystore,
-                                       keys_description, scheme)
+                             keys_description, scheme)
 
     @metadata.command()
     @click.argument("path")

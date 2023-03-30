@@ -11,7 +11,6 @@ from taf.git import GitRepository
 
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from taf.utils import read_input_dict
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 

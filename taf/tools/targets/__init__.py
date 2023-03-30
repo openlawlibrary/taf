@@ -46,7 +46,7 @@ def attach_to_group(group):
         is `E:\\examples\\root\\namespace\\auth`, and the target's namespace prefixed name is
         `namespace1\\repo1`, the target's path will be set to `E:\\examples\\root\\namespace1\\repo1`.
         """
-        custom = {ctx.args[i][2:]: ctx.args[i+1] for i in range(0, len(ctx.args), 2)} if len(ctx.args) else {}
+        custom = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)} if len(ctx.args) else {}
         add_target_repo(
             auth_path=auth_path,
             target_path=target_path,

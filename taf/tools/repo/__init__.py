@@ -1,8 +1,6 @@
 import click
 import json
 import taf.developer_tool as developer_tool
-from taf.api import targets
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
