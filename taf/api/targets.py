@@ -52,9 +52,7 @@ def add_target_repo(
         keys_number = int(keys_number or 1)
         threshold = input("Enter signatures threshold of the new role (1): ")
         threshold = int(threshold or 1)
-        yubikey = click.confirm(
-            "Sign the new role's metadata using yubikeys? "
-        )
+        yubikey = click.confirm("Sign the new role's metadata using yubikeys? ")
         if target_name not in paths:
             paths.append(target_name)
 
@@ -111,9 +109,7 @@ def add_target_repo(
     )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, None, scheme=scheme
-    )
+    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme=scheme)
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
 
@@ -148,17 +144,6 @@ def export_targets_history(repo_path, commit=None, output=None, target_repos=Non
         print(f"Result written to {output}")
     else:
         print(commits_json)
-
-
-def _get_namespace_and_root(repo_path, namespace=None, library_dir=None):
-    repo_path = Path(repo_path).resolve()
-    if namespace is None:
-        namespace = repo_path.parent.name
-    if library_dir is None:
-        library_dir = repo_path.parent.parent
-    else:
-        library_dir = Path(library_dir).resolve()
-    return namespace, library_dir
 
 
 def list_targets(
@@ -239,10 +224,10 @@ def remove_target_repo(
     else:
         repositories.pop(target_name)
         # update content of repositories.json before updating targets metadata
-        Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+        Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH).write_text(
             json.dumps(repositories_json, indent=4)
         )
-        added_targets_data[REPOSITORIES_JSON_NAME] = {}
+        added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
 
     auth_repo_targets_dir = Path(auth_repo.path, TARGETS_DIRECTORY_NAME)
     target_file_path = auth_repo_targets_dir / target_name
@@ -265,14 +250,14 @@ def remove_target_repo(
     update_snapshot_and_timestamp(
         auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
-    auth_repo.commit( f"Remove {target_name} target")
+    auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
     remove_paths([target_name], keystore, commit=False, auth_repo=auth_repo)
     update_snapshot_and_timestamp(
         auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
-    auth_repo.commit( f"Remove {target_name} from delegated paths")
+    auth_repo.commit(f"Remove {target_name} from delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
 
 

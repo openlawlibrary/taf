@@ -16,9 +16,7 @@ from taf.keys import (
 )
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.api.targets import (
-    _get_namespace_and_root,
     _save_top_commit_of_repo_to_target,
-    _update_target_repos,
 )
 from taf.yubikey import export_yk_certificate
 from tuf.repository_tool import (
@@ -115,40 +113,12 @@ def add_roles(
     update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
 
 
-def update_target_repos_from_fs(
-    repo_path, library_dir=None, namespace=None, add_branch=True
-):
-    """
-    <Purpose>
-        Create or update target files by reading the latest commits of the provided target repositories
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        library_dir:
-        Directory where target repositories and, optionally, authentication repository are locate
-        namespace:
-        Namespace used to form the full name of the target repositories. Each target repository
-        add_branch:
-        Indicates whether to add the current branch's name to the target file
-    """
-    repo_path = Path(repo_path).resolve()
-    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
-    targets_directory = library_dir / namespace
-    print(
-        f"Updating target files corresponding to repos located at {targets_directory}"
-    )
-    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
-    if namespace:
-        auth_repo_targets_dir = auth_repo_targets_dir / namespace
-        auth_repo_targets_dir.mkdir(parents=True, exist_ok=True)
-    for target_repo_path in targets_directory.glob("*"):
-        _update_target_repos(
-            repo_path, auth_repo_targets_dir, target_repo_path, add_branch
-        )
-
-
 def update_target_repos_from_repositories_json(
-    repo_path, library_dir, namespace, add_branch=True
+    repo_path,
+    library_dir,
+    keystore,
+    add_branch=True,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
     <Purpose>
@@ -164,19 +134,19 @@ def update_target_repos_from_repositories_json(
         Indicates whether to add the current branch's name to the target file
     """
     repo_path = Path(repo_path).resolve()
+    if library_dir is None:
+        library_dir = repo_path.parent.parent
+    else:
+        library_dir = Path(library_dir)
     auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     repositories_json = json.loads(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
-    )
-    namespace, library_dir = _get_namespace_and_root(repo_path, namespace, library_dir)
-    print(
-        f"Updating target files corresponding to repos located at {(library_dir / namespace)}"
-        "and specified in repositories.json"
     )
     for repo_name in repositories_json.get("repositories"):
         _save_top_commit_of_repo_to_target(
             library_dir, repo_name, repo_path, add_branch
         )
+    register_target_files(repo_path, keystore, None, True, scheme)
 
 
 def _check_if_can_create_repository(auth_repo):
@@ -273,7 +243,6 @@ def create_repository(
         auth_repo.init_repo()
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
-
 
 
 def _load_sorted_keys_of_new_roles(
@@ -386,7 +355,6 @@ def generate_keys(keystore, roles_key_infos):
                 )
         if "delegations" in key_info:
             generate_keys(keystore, key_info["delegations"])
-
 
 
 def register_target_files(

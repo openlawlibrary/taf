@@ -1,10 +1,8 @@
 import datetime
 from pathlib import Path
+from taf.exceptions import TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-
-
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.repository_tool import Repository, is_delegated_role
 

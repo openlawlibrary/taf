@@ -12,7 +12,6 @@ def attach_to_group(group):
     def repo():
         pass
 
-
     @repo.command()
     @click.argument("path")
     @click.option("--keys-description", help="A dictionary containing information about the "
@@ -66,7 +65,6 @@ def attach_to_group(group):
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """
         developer_tool.create_repository(path, keystore, keys_description, commit, test)
-
 
     @repo.command()
     @click.argument("url")
