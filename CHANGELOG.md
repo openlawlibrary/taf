@@ -13,13 +13,25 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+## [0.25.0] - 03/31/2023
+
+### Added
+
+### Changed
+
+- Update license, release under agpl ([313])
+
+### Fixed
+
 - Fix execution of scripts ([311])
 
 
+[313]: https://github.com/openlawlibrary/taf/pull/313
 [311]: https://github.com/openlawlibrary/taf/pull/311
 
 
-## [0.23.2] - 02/21/2022
+## [0.24.0] - 02/21/2023
 
 ### Added
 
@@ -37,7 +49,7 @@ and this project adheres to [Semantic Versioning][semver].
 [308]: https://github.com/openlawlibrary/taf/pull/308
 [305]: https://github.com/openlawlibrary/taf/pull/305
 
-## [0.23.1] - 01/13/2022
+## [0.23.1] - 01/13/2023
 
 ### Added
 
@@ -886,6 +898,7 @@ and this project adheres to [Semantic Versioning][semver].
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
 [unreleased]: https://github.com/openlawlibrary/taf/compare/v0.24.0...HEAD
+[0.25.0]: https://github.com/openlawlibrary/taf/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/openlawlibrary/taf/compare/v0.23.1...v0.24.0
 [0.23.1]: https://github.com/openlawlibrary/taf/compare/v0.23.0...v0.23.1
 [0.23.0]: https://github.com/openlawlibrary/taf/compare/v0.22.4...v0.23.0
