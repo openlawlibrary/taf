@@ -2,7 +2,8 @@
 
 TAF provides a number of commands for creating and updating the authentication repositories.
 Some of them focus on creation and initial setup of the repositories, while the others
-provide an easy way of updating information about target repositories.
+provide an easy way to update information about authentication repository's target repositories
+and roles.
 
 ## Arguments
 
@@ -51,25 +52,6 @@ If `targets-rel-dir` is specified, the url is calculated as the repository's pat
 It is useful when creating test repositories, when we do not want to use absolute paths. Since
 `repositories.json` is also a target file, its content cannot just be modified prior to executing a test.
 
-### `repos-custom`
-
-`repositories.json` must contain a list of urls for each target repository and, optionally, additional
-custom data. This option allows specification of that data. Similarly to `keys-description`, `repos-custom`
-can either directly contain a valid json, or represent a path to a file which contains it. Since any data
-can be inside `repositories.json`'s `custom` attribute, the mention json does not have to contain any
-specific information. However, it is necessary to specify to which target repository the custom data
-belongs to. With that in mind, here is an example of this option's value.
-
-```
-{
- "namespace/TargetRepo2": {
-  "allow-unauthenticated-commits": true
- }
-}
-```
-
-In this example it is specified that target repository `namespace/TargetRepo2` should have a custom property
-called `allow-unauthenticated-commits` which is set to `true`.
 
 ### `keys-description`
 
@@ -161,9 +143,13 @@ Many commands have the `scheme` optional parameter. It represents the signature 
 Commands are separated into several subcommands:
 
 - `keystore`, containing commands for generating keystore files.
-- `metadata`, containing commands for adding a new signing key and updating a metadata file's expiration date.
-- `repo`, containing commands for creating and updating new authentication repositories.
-- `targets`, containing commands for updating target files (files in the `targets` directory of the authentication repository), as well for signing `targets.json` metadata file.
+- `metadata`, containing commands for updating metadata - adding signing keys and checking and updating expiration
+dates of metadata files.
+- `repo`, containing commands for creating, validating and updating new authentication repositories.
+- `targets`, containing commands for listing, adding and removing target repositories and signing targets (updating
+target files corresponding to target repositories and signing all metadata files that need to be updated in order
+to make sure that the authentication repository stays valid)
+- `roles` , containing commands for adding and removing roles
 - `yubikey`, containing commands for setting up a new Yubikey and exporting public keys from Yubikeys
 
 Here are some of the most important commands. Use the `--help` flag to see more information
@@ -204,8 +190,8 @@ target file called `test-auth-repo`.
 
 ### `repo update`
 
-Update and validate local authentication repository and target repositories. Remote
-authentication's repository url and its filesystem path need to be specified when calling this command. If the
+Update and validate local authentication repository, its child authentication repositories (specified in `dependencies.json` )
+and target repositories. Remote authentication's repository url and its filesystem path need to be specified when calling this command. If the
 authentication repository and the target repositories are in the same root directory,
 locations of the target repositories are calculated based on the authentication repository's
 path, using `--clients-auth-path`. If that is not the case, it is necessary to redefine this default value using the
@@ -261,99 +247,46 @@ taf repo validate E:\\root\\namespace\\auth_repo
 taf repo validate E:\\root\\namespace\\auth_repo --from-commit d0d0fafdc9a6b8c6dd8829635698ac75774b8eb3
 ```
 
-### `targets update-repos-from-fs`
+### `targets update_and_sign_targets`
 
-Update target files corresponding to target repositories by traversing through the root
-directory. Does not automatically sign the metadata files.
-Note: if `repositories.json` exists, it is better to call update_repos_from_repositories_json
+Update target files corresponding to target repositories specified through the target type parameter
+by writing the current top commit and branch name to target files corresponding to the listed repositories.
+Sign the updated files and then commit. Types are expected to be defined in `reposoitories.json`,
+as a part of custom data. This is expected to be generalized in the future since TAF should not
+expect a certain custom property to exist. If types are not specified, update all repositories specified
+in `repositories.json`.
 
-Target repositories are expected to be inside a directory whose name is equal to the specified
-namespace and which is located inside the root directory. If root directory is `E:\examples\\root`
-and namespace is namespace1, target repositories should be in `E:\examples\root\namespace1`.
-If the authentication repository and the target repositories are in the same root directory and
-the authentication repository is also directly inside a namespace directory, then the root
-directory is calculated as two repositories up from the authetication repository's directory.
-Authentication repository's namespace can, but does not have to be equal to the namespace or target,
-repositories. If the authentication repository's path is `E:\root\namespace\auth-repo`, root
-directory will be determined as `E:\root`. If this default value is not correct, it can be redefined
-through the `--library-dir` option. If the `--namespace` option's value is not provided, it is assumed
-that the namespace of target repositories is equal to the authentication repository's namespace,
-determined based on the repository's path. E.g. Namespace of `E:\root\namespace2\auth-repo`
-is `namespace2`.
+All target repositories are expected to be inside the same root directory, but do not necessarily have
+to be inside the same root directory as the authentication repository. However, if all of these
+repositories are in the same root directory, this directory does not have to be specified and is calculated
+as two directories up from the authentication repository's directory. Location of target repositories
+is then determined by appending namespace prefixed name of a repository, as listed in `repositories.json`
+to the root directory. For example, if `namespace1\repo1` is listed in `repositories.json` and
+the root directory is `E:\OLL\example`, this command will expect `E:\OLL\example\namespace1\repo1` to contain a
+target repository. The repository's current top commit and branch will then be written to the corresponding
+target file - `targets\namespace\repo1`. Once all target files are updated (for each all repositories of
+listed types, or all repositories listed in `repositories.json` if type is not provided), all corresponding target
+metadata files, as well as snapshot and timestamp are automatically signed.
 
-Once the directory containing all target directories is determined, it is traversed through all
-git repositories in that directory, apart from the authentication repository if it is found.
-For each found repository the current top commit and branch (if called with the
---add-branch flag) are written to the corresponding target files. Target files are files
-inside the authentication repository's target directory. For example, for a target repository
-namespace1/target1, a file called target1 is created inside the `targets/namespace` authentication repository's directory.
-
-For example, let's say that we have the following repositories:
-
- ```
-E:\OLL\example\namespace
-|-- TargetRepository1
-|-- TargetRepository2
-|-- TargetRepository3
-|-- AuthenticationRepository
-```
-
-If we call the command as follows
+For example,
 
 ```bash
-taf targets update-repos-from-fs E:\\OLL\\examples\\auth_repo --add-branch
+taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore  --target-type html
 ```
 
-there is no need to directly set `namespace` and `library-dir` and  three target files will be created or
-updated. The resulting directory structure will be as seen below:
+will update target files corresponding to target repositories whose `custom\type` attribute in `repositories.json`
+is equal to `html`. NOTE - should be updated to be made more generic.
 
-```
-E:\OLL\example\namespace\AuthenticationRepository
-|-- targets
-     |-- namespace
-         |-- TargetsRepository1
-         |-- TargetsRepository2
-         |-- TargetsRepository3
-```
+> **_NOTE:_**  This command should be used with caution and primarily while initializing an authentication
+repository. If the target file contained additional data, that information will not be persisted. Make sure
+that the target repositories are on the correct branch before running the command.
 
-A directory named after the repositories' namespace will be created inside the `targets` directory.
-For each target repository, a target file of the same name is created and populated with the
-repository's current head SHA. For example,
-
-```
-{
-    "commit": "248f82dbd2a2ba3555d0803b0377c1065d5b03d9",
-    "branch": "branch1"
-}
-```
-
-On the other hand, if we have a directory structure like this:
-
- ```
-E:\OLL\example
-    |--namespace1
-        |-- TargetRepository1
-        |-- TargetRepository2
-        |-- TargetRepository3
-    |--namespace2
-        |-- AuthenticationRepository
-```
-
-to get the same end result as in the previous case, the command would be called like this:
 
 ```bash
-taf targets update-repos-from-fs E:\\OLL\\examples\\auth_repo --namespace namespace1 --add-branch
+taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore
 ```
 
-That is because the authentication repository and the target repositories share are in the same
-root directory, but do not have the same namespace.
-
-### `targets update-repos-from-repositories-json`
-
-This command is very similar to the previous command, but it will only update target files
-corresponding to repositories which are listed in `repositories.json`.
-
-It is recommended to use this command if `repositories.json` exists.
+will sign all target repositories listed in `repositories.json`
 
 ### `targets sign`
 
@@ -398,7 +331,7 @@ By default, start date is today's date, while interval depends on the role and i
 
 - 365 in case of root
 - 90  in case of targets
-- 7 in case of shapshot
+- 7 in case of snapshot
 - 1 in case of timestamp and all other roles
 
 If the changes should be automatically committed, use the `commit` flag.

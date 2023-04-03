@@ -130,41 +130,15 @@ commits differ by more than one!
 
 ## Update targets
 
-To update authentication repository's target files based on the current state of the target repositories, use one of the two
-`update-repos` commands. If `repositories.json` exists, use the `targets update-repos-from-repositories-json`
-command. If that is not the case, call `targets update-repos-from-fs`. They both iterate through the
-directory where target repositories are located. `update-repos-from-repositories-json` skips all repositories
-which are not listed in `repositories.json`, while `update-repos-from-fs` only skips the authentication
-repository if it is inside the same directory as the the target repositories.
+To update authentication repository's target files based on the current state of the target repositories use
+`taf targets update-and-sign-targets`.  This command writes the current top commit and branch name of all
+repositories listed in `repositories.json` to appropriate target files and automatically signs all updated
+targets metadata files, as well as snapshot and timestamp.
 
 ```bash
-taf targets update-repos-from-fs auth_path --root-dir library_dir_path --namespace namespace --add-branch
+taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore
 ```
 
-```bash
-taf targets update-repos-from-repositories-json auth_path --root-dir library_dir_path --namespace namespace --add-branch
-```
-
-- `root-dir` is the directory which contains the target repositories. Its default value is set to two
-directory's up from the authentication repository's path
-- `namespace` corresponds to the name of the directory inside `root-dir` which directly contains target
-repositories. Its default value is name of the authentication repository's parent directory.
-- `add-branch` is a flag which determines if name of the current branch of the target repositories
-will be noted in the corresponding target file.
-
-If the authentication repository and the target repositories are inside the same directory, there is
-no need to set `root-dir` and `namespace`. This command does not automatically sign metadata files.
-
-## Sign metadata files
-
-To sign updated `targets` metadata file call the `targets sign` command. It updates all targets
-metadata files corresponding to roles responsible for modified target files, `snapshot`
-and `timestamp.json`
-
-```bash
-taf targets sign auth_path --keys-description keys_description.json --commit
-```
-
-- `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
-- `keystore` defines location of the keystore files and should be used when keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
-- `commit` flag determines if the changes should be automatically committed
+`keystore` defines location of the keystore files. If a key is not in the provided keystore, or if keystore
+location is not specified when calling the command, it will be necessary to either use previously set up
+Yubikey for signing, or directly paste key values.
