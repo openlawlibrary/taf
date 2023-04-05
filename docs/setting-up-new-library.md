@@ -98,8 +98,8 @@ To set up new YubiKyes, call
 
 `taf yubikey setup_signing_key`
 
-WARNING: This command will delete the YubiKey's existing data. New repositories can be created using already set
-up YubiKeys.
+**_WARNING:_**: This command will delete the YubiKey's existing data. New repositories can be created using already
+set up YubiKeys.
 
 ## Create a repository
 
@@ -130,11 +130,11 @@ IMPORTANT: If the command was run without the commit flag, commit the changes be
 or adding targets. The updater will raise and error if version numbers of metadata files in two subsequent
 commits differ by more than one!
 
-## Set up a remote repositories
+## Set up remote repositories
 
 Create new repositories in your GitHub organization - an authentication repository and one for each target repository.
 DO NOT ADD THE INITIAL FILES when creating authentication repository's remote repository. The first commit should contain initial metadata files. If something is added
-to the targe repositories, thus creating the initial commit, do not commit anything else before signing the initial commit. Set remote of the locally created authentication repository, commit initial metadata and target files and push them. E.g:
+to the target repositories, thus creating the initial commit, do not commit anything else before signing the initial commit (unless that target repository can contain unauthenticated commits and the initial commit does not need to be authenticated, which is determined by the `allow-unauthenticated-commits` property specified per target repo in `repositories.json`). Set remote of the locally created authentication repository, commit initial metadata and target files and push them. E.g:
 
 ```
 cd test\auth_repo
@@ -288,37 +288,33 @@ If hosts were defined, make sure that there is not message saying that that is n
 
 ## Add targets corresponding to target repositories
 
-Next, register the target repositories by creating target files corresponding to target repositories. This can be done manually, but the easiest way to add initial target files and
-update them is to use another one of available commands. Make sure that the filesystem structure matches the state defined in `repositories.json` - that each target repository is
-in `library-dir/namespace/repo_name`. The authentication repository should also be in the same parent directory (`library-dir/namespace`).
+Information about target repositories of an authentication repository is listed in  `repositories.json`.
+However, data used to validate these repositories (most importantly commit and branch) is stored in target files.
+That is, files inside authentication repository's `targets` folder named after the target repositories.
+Names of target repositories are keys in `repositories.json`. Files inside this `targets` folder are protected by
+TUF. TAF might ignore a repository if there is no corresponding target file in `targets`.
 
-Once that is all set up, make the planned changes and commit them. Unless `allow-unauthenticated-commits` is set to `true` in `repositories.json` for a target repository,
-it is necessary to update the corresponding target files of the authentication repository after every commit.
+Initial creation of these target files can be done manually, or through an automated process implemented
+outside of TAF. To create them using TAF and sign initial commits of target repositories, use
+`targets update_and_sign_targets`. Unless `allow-unauthenticated-commits` is set to `true` in `repositories.json`
+for a target repository, it is necessary to update the corresponding target files of the authentication repository
+after every commit.
 
-WARNING: If you added initial REDME or lincese using the GitHub interface, register thos commits before making further changes.
+**_WARNING:_**: If you added initial README or license using the GitHub interface, register those commits before making further changes.
 
-Next, create or update the target files by running:
+```bash
+taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore
+```
 
-`taf targets update-repos-from-repositories-json auth_repo_path --add-branch`
+will sign all target repositories listed in `repositories.json`
 
-This command will analyze `repositories.json`, determine path of all target repositories,
-determine their latest commits and create target files in the auth repo matching the format that the updater expects. Verify that everything looks good and sign the target files by running. If all repositroies are in the same library root directory and have the same namsepace, there is no need to specify additional options. A complete list of options contains:
-
-- `library-dir` is the directory which contains the target repositories. Its default value is set to two
-directory's up from the authentication repository's path.
-- `namespace` corresponds to the name of the directory inside `library-dir` which directly contains target
-repositories. Its default value is name of the authentication repository's parent directory.
-- `add-branch` is a flag which determines if name of the current branch of the target repositories
-will be noted in the corresponding target file.
-
-Push all changes made to both the authentication repository and the target repositories.
 
 ## Run the updater
 
 Run the updater to make sure that everything has been set up correctly. If errors occur, you
 might have not pushed everything. Read the update log and make sure that every repository
 was recognized as a target repository (that the names and ulrs are correct throughout the
-special target files). The updater will create a direcotry called `_auth_repo_name` in the
+special target files). The updater will create a directory called `_auth_repo_name` in the
 library root directory and write the last validated commit in a file directly inside it.
 
 **To trigger validation from the first commit should that sound useful, delete this directory**
@@ -329,37 +325,22 @@ For more information about the updater and how to use it, see [the update proces
 
 ## Update metadata files if they expired
 
-*This will be rework to make the update process easeir. An automate job can be set up to sign the metadata files. For testing purposes, sign them once and set a really long inteval*
-
-By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. The updater will raise an error if the top metadata file has expired. To resign a metadata files, run:
+By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. The updater will raise an error if the top metadata file has expired. To resign metadata files, run:
 
 ```bash
-taf metadata update-expiration-date auth_repo_path metadata_name --keystore keystore_path --interval days
+taf metadata update-expiration-date auth_repo_path role --keystore keystore_path --interval days
 ```
 
-- `metadata_name` represents a metadata file - root, targets, snapshot, timestamp, delegated_targets_role
-- `keystore path` is the location of the keystore files. Can be ommitted if YubiKeys should be used instead
+- `role` represents a role whose metadata's expiration date should be updated - `root`, `targets`, `snapshot`, `timestamp`, delegated targets role
+- `keystore path` is the location of the keystore files. Can be omitted if YubiKeys should be used instead
 - `interval` refers to the number of days added to today's date to calculate the expiration date
 
-**The order in which the files are signed is important**
+When a metadata file is updated, all other metadata files which need to be updated according to TUF specification
+are updated as well. So, when `snapshot` is updated, `timestamp` is updated is well. When `root`, `targets` or a
+delegated target role is updated, both `snapshot` and `timestamp` are updated too. This is done automatically
+to ensure that the repository will stay valid.
 
-### timestamp update
-
-```bash
-taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --interval days
-```
-
-### snapshot update
-
-```bash
-taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_path --inteval days
-```
-
-```bash
-taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --inteval days
-```
-
-### targets update
+A few examples:
 
 ```bash
 taf metadata update-expiration-date auth_repo_path targets --keystore keystore_path --inteval days
@@ -373,4 +354,10 @@ taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_
 taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --inteval days
 ```
 
-**Don't forget to commit and push the changes**
+Unless explicitly specified, changes are committed automatically.
+
+**_WARNING:_**: If the command is run twice without committing, and both changes are committed
+afterwards, the repository will end up in an invalid state. `snapshot` and `timestamp` version
+will be increased by 2 between subsequent commits, which is not valid.
+
+

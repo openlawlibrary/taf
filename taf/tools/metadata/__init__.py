@@ -1,5 +1,5 @@
 import click
-from taf.api.roles import add_signing_key as add_roles_sining_key
+from taf.api.roles import add_signing_key as add_roles_signing_key
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -37,8 +37,8 @@ def attach_to_group(group):
         if not len(role):
             print("Specify at least one role")
             return
-        add_roles_sining_key(path, role, pub_key_path, keystore,
-                             keys_description, scheme)
+        add_roles_signing_key(path, role, pub_key_path, keystore,
+                              keys_description, scheme)
 
     @metadata.command()
     @click.argument("path")
