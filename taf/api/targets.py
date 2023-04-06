@@ -200,7 +200,7 @@ def list_targets(
                             ] = top_commit in repo.all_commits_since_commit(
                                 last_signed_commit, branch
                             )
-            repo_output["uncommitted"] = repo.something_to_commit()
+            repo_output["something-to-commit"] = repo.something_to_commit()
 
     print(json.dumps(output, indent=4))
 
