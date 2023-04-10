@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add command for adding/removing roles ([314])
+
 ### Changed
+
+- Split a part of `developer_tool` into separate modules ([314])
 
 ### Fixed
 

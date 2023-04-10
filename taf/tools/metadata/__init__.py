@@ -1,4 +1,6 @@
 import click
+from taf.api.roles import add_signing_key as add_roles_signing_key
+from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
@@ -35,8 +37,8 @@ def attach_to_group(group):
         if not len(role):
             print("Specify at least one role")
             return
-        developer_tool.add_signing_key(path, role, pub_key_path, keystore,
-                                       keys_description, scheme)
+        add_roles_signing_key(path, role, pub_key_path, keystore,
+                              keys_description, scheme)
 
     @metadata.command()
     @click.argument("path")
@@ -70,7 +72,7 @@ def attach_to_group(group):
             snapshot will expire on 2022-07-28
             root will expire on 2022-08-19
         """
-        developer_tool.check_expiration_dates(repo_path=path, interval=interval, start_date=start_date)
+        check_metadata_expiration_dates(repo_path=path, interval=interval, start_date=start_date)
 
     @metadata.command()
     @click.argument("path")
@@ -84,7 +86,7 @@ def attach_to_group(group):
                   "interval is added", type=ISO_DATE)
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
                   "committed automatically")
-    def update_expiration_date(path, role, interval, keystore, scheme, start_date, no_commit):
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit):
         """
         \b
         Update expiration date of the metadata file corresponding to the specified role.
@@ -105,5 +107,5 @@ def attach_to_group(group):
         if not len(role):
             print("Specify at least one role")
             return
-        developer_tool.update_metadata_expiration_date(path, role, interval, keystore,
-                                                       scheme, start_date, no_commit)
+        update_metadata_expiration_date(path, role, interval, keystore,
+                                        scheme, start_date, no_commit)

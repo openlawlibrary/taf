@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from functools import wraps
 from collections import defaultdict
 from getpass import getpass
+from pathlib import Path
 
 import click
 from cryptography import x509
@@ -220,6 +221,19 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
             encoding=pub_key_format,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+
+
+@raise_yubikey_err("Cannot export yk certificate.")
+def export_yk_certificate(certs_dir, key):
+    if certs_dir is None:
+        certs_dir = Path.home()
+    else:
+        certs_dir = Path(certs_dir)
+    certs_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = certs_dir / f"{key['keyid']}.cert"
+    print(f"Exporting certificate to {cert_path}")
+    with open(cert_path, "wb") as f:
+        f.write(export_piv_x509())
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
