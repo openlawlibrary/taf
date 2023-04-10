@@ -281,6 +281,8 @@ is equal to `html`. NOTE - should be updated to be made more generic.
 repository. If the target file contained additional data, that information will not be persisted. Make sure
 that the target repositories are on the correct branch before running the command.
 
+ TAF can be used to implement an automated process which will update all repositories in accordance with a specific project's needs.
+
 
 ```bash
 taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore

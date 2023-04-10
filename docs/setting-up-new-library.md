@@ -343,15 +343,15 @@ to ensure that the repository will stay valid.
 A few examples:
 
 ```bash
-taf metadata update-expiration-date auth_repo_path targets --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path targets --keystore keystore_path --interval days
 ```
 
 ```bash
-taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path snapshot --keystore keystore_path --interval days
 ```
 
 ```bash
-taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --inteval days
+taf metadata update-expiration-date auth_repo_path timestamp --keystore keystore_path --interval days
 ```
 
 Unless explicitly specified, changes are committed automatically.
