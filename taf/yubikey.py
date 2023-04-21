@@ -404,6 +404,7 @@ def yubikey_prompt(
     pin_confirm=True,
     pin_repeat=True,
     prompt_message=None,
+    retry_on_failure=True,
 ):
     def _read_and_check_yubikey(
         key_name,
@@ -415,11 +416,13 @@ def yubikey_prompt(
         pin_confirm,
         pin_repeat,
         prompt_message,
+        retrying
     ):
 
-        if prompt_message is None:
-            prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
-        input(prompt_message)
+        if retrying:
+            if prompt_message is None:
+                prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
+            input(prompt_message)
         # make sure that YubiKey is inserted
         try:
             serial_num = get_serial_num()
@@ -464,6 +467,7 @@ def yubikey_prompt(
 
         return True, public_key, serial_num
 
+    retry_counter = 0
     while True:
         success, key, serial_num = _read_and_check_yubikey(
             key_name,
@@ -475,6 +479,10 @@ def yubikey_prompt(
             pin_confirm,
             pin_repeat,
             prompt_message,
+            retrying=retry_counter > 0
         )
+        if not success and not retry_on_failure:
+            return None, None
         if success:
             return key, serial_num
+        retry_counter += 1

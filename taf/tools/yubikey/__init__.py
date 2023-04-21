@@ -1,5 +1,6 @@
 import click
 import json
+from taf.api.yubikey import export_yk_public_pem, setup_signing_yubikey, setup_test_yubikey
 import taf.developer_tool as developer_tool
 from taf.exceptions import YubikeyError
 
@@ -35,7 +36,7 @@ def attach_to_group(group):
         """
         Export the inserted Yubikey's public key and save it to the specified location.
         """
-        developer_tool.export_yk_public_pem(output)
+        export_yk_public_pem(output)
 
     @yubikey.command()
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved."
@@ -45,11 +46,11 @@ def attach_to_group(group):
         to the specified directory.
         WARNING - this will delete everything from the inserted key.
         """
-        developer_tool.setup_signing_yubikey(certs_dir)
+        setup_signing_yubikey(certs_dir)
 
     @yubikey.command()
     @click.argument("key-path")
     def setup_test_key(key_path):
         """Copies the specified key onto the inserted YubiKey
         WARNING - this will reset the inserted key."""
-        developer_tool.setup_test_yubikey(key_path)
+        setup_test_yubikey(key_path)

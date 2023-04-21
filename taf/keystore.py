@@ -85,7 +85,6 @@ def new_public_key_cmd_prompt(scheme):
 def read_private_key_from_keystore(
     keystore,
     key_name,
-    roles_key_info=None,
     key_num=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     password=None,
@@ -93,11 +92,6 @@ def read_private_key_from_keystore(
     key_path = Path(keystore, key_name)
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
-
-    if password is not None and roles_key_info is not None:
-        passwords = roles_key_info.get("passwords")
-        if passwords is not None and len(passwords):
-            password = passwords[key_num]
 
     def _read_key(path, password, scheme):
         def _read_key_or_keystore_error(path, password, scheme):

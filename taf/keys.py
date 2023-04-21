@@ -85,7 +85,6 @@ def load_signing_keys(
     taf_repo,
     role,
     keystore=None,
-    role_infos=None,
     loaded_yubikeys=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
@@ -102,32 +101,37 @@ def load_signing_keys(
     keys = []
     yubikeys = []
 
-    # check if it is specified in role key infos that key is stored on yubikey
-    # in such a case, do not attempt to load the key from keystore
-    is_yubikey = None
-    if role_infos is not None and role in role_infos:
-        is_yubikey = role_infos[role].get("yubikey")
+    # first try to sign using yubikey
+    # if that is not possible, try to load key from a keystore file
+    # if the keystore file is not found, ask the user if they want to sign
+    # using yubikey and to insert it if that is the case
 
-    if not is_yubikey and keystore is not None:
-        # try loading files from the keystore first
-        # does not assume that all keys of a role are stored in keystore files just
-        # because one of them is
-        keystore = Path(keystore)
-        # names of keys are expected to be role or role + counter
-        key_names = [f"{role}{counter}" for counter in range(1, signing_keys_num + 1)]
-        key_names.insert(0, role)
-        for key_name in key_names:
-            if (keystore / key_name).is_file():
-                try:
-                    key = read_private_key_from_keystore(
-                        keystore, key_name, role_infos, num_of_signatures, scheme
-                    )
-                    # load only valid keys
-                    if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
-                        keys.append(key)
-                        num_of_signatures += 1
-                except KeystoreError:
-                    pass
+    keystore = Path(keystore)
+    def _load_from_keystore(key_name):
+        if (keystore / key_name).is_file():
+            try:
+                key = read_private_key_from_keystore(
+                    keystore, key_name, num_of_signatures, scheme
+                )
+                # load only valid keys
+                if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
+                    return key
+            except KeystoreError:
+                pass
+        return None
+
+
+    def _laod_and_append_yubikeys(key_name, role, retry_on_failure):
+        public_key, _ = yk.yubikey_prompt(
+            key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys, retry_on_failure=retry_on_failure
+        )
+
+        if public_key is not None:
+            yubikeys.append(public_key)
+            print(f"Successfully loaded {key_name} from inserted YubiKey")
+
+        return public_key is not None
+
 
     while not all_loaded and num_of_signatures < signing_keys_num:
         if signing_keys_num == 1:
@@ -141,17 +145,26 @@ def load_signing_keys(
                 )
             )
         if not all_loaded:
-            if is_yubikey is None:
-                is_yubikey = click.confirm(f"Sign {role} using YubiKey(s)?")
-            if is_yubikey:
-                public_key, _ = yk.yubikey_prompt(
-                    key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys
-                )
-                yubikeys.append(public_key)
-            else:
-                key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+            if _laod_and_append_yubikeys(key_name, role, False):
+                num_of_signatures += 1
+                continue
+
+            print("Attempting to load from keystore")
+            key = _load_from_keystore(key_name)
+            if key is not None:
                 keys.append(key)
-        num_of_signatures += 1
+                num_of_signatures += 1
+                continue
+
+            if click.confirm(f"Sign {role} using YubiKey(s)?"):
+                _laod_and_append_yubikeys(key_name, role, True)
+                num_of_signatures += 1
+                continue
+
+            key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+            keys.append(key)
+            num_of_signatures += 1
+
     return keys, yubikeys
 
 
