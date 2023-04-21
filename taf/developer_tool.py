@@ -18,11 +18,16 @@ from taf.api.metadata import update_snapshot_and_timestamp, update_target_metada
 from taf.api.targets import (
     _save_top_commit_of_repo_to_target,
 )
-from taf.yubikey import export_yk_certificate
+
+try:
+    import taf.yubikey as yk
+except ImportError:
+    yk = YubikeyMissingLibrary()
+
+
 from tuf.repository_tool import (
     TARGETS_DIRECTORY_NAME,
     create_new_repository,
-    generate_and_write_rsa_keypair,
 )
 
 from taf import YubikeyMissingLibrary
@@ -39,11 +44,6 @@ from taf.repository_tool import (
     yubikey_signature_provider,
 )
 import taf.repositoriesdb as repositoriesdb
-
-try:
-    import taf.yubikey as yk
-except ImportError:
-    yk = YubikeyMissingLibrary()
 
 
 def add_roles(
@@ -300,63 +300,6 @@ def _load_sorted_keys_of_new_roles(
         return
 
 
-def export_yk_public_pem(path=None):
-    try:
-        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
-    except Exception:
-        print("Could not export the public key. Check if a YubiKey is inserted")
-        return
-    if path is None:
-        print(pub_key_pem)
-    else:
-        if not path.endswith(".pub"):
-            path = f"{path}.pub"
-        path = Path(path)
-        parent = path.parent
-        parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(pub_key_pem)
-
-
-def generate_keys(keystore, roles_key_infos):
-    """
-    <Purpose>
-        Generate public and private keys and writes them to disk. Names of keys correspond to names
-        of the TUF roles. If more than one key should be generated per role, a counter is appended
-        to the role's name. E.g. root1, root2, root3 etc.
-    <Arguments>
-        keystore:
-        Location where the generated files should be saved
-        roles_key_infos:
-        A dictionary whose keys are role names, while values contain information about the keys.
-        This includes:
-            - passwords of the keystore files
-            - number of keys per role (optional, defaults to one if not provided)
-            - key length (optional, defaults to TUF's default value, which is 3072)
-        Names of the keys are set to names of the roles plus a counter, if more than one key
-        should be generated.
-    """
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
-        roles_key_infos, keystore
-    )
-
-    for role_name, key_info in roles_key_infos["roles"].items():
-        num_of_keys = key_info.get("number", DEFAULT_ROLE_SETUP_PARAMS["number"])
-        bits = key_info.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"])
-        passwords = key_info.get("passwords", [""] * num_of_keys)
-        is_yubikey = key_info.get("yubikey", DEFAULT_ROLE_SETUP_PARAMS["yubikey"])
-        for key_num in range(num_of_keys):
-            if not is_yubikey:
-                key_name = get_key_name(role_name, key_num, num_of_keys)
-                password = passwords[key_num]
-                path = str(Path(keystore, key_name))
-                print(f"Generating {path}")
-                generate_and_write_rsa_keypair(
-                    filepath=path, bits=bits, password=password
-                )
-        if "delegations" in key_info:
-            generate_keys(keystore, key_info["delegations"])
-
-
 def register_target_files(
     repo_path,
     keystore=None,
@@ -451,41 +394,6 @@ def _setup_role(
             role_obj.add_external_signature_provider(
                 key, partial(yubikey_signature_provider, key_name, key["keyid"])
             )
-
-
-def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-    if not click.confirm(
-        "WARNING - this will delete everything from the inserted key. Proceed?"
-    ):
-        return
-    _, serial_num = yk.yubikey_prompt(
-        "new Yubikey",
-        creating_new_key=True,
-        pin_confirm=True,
-        pin_repeat=True,
-        prompt_message="Please insert the new Yubikey and press ENTER",
-    )
-    key = yk.setup_new_yubikey(serial_num)
-    export_yk_certificate(certs_dir, key)
-
-
-def setup_test_yubikey(key_path=None):
-    """
-    Resets the inserted yubikey, sets default pin and copies the specified key
-    onto it.
-    """
-    if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
-        return
-    key_path = Path(key_path)
-    key_pem = key_path.read_bytes()
-
-    print(f"Importing RSA private key from {key_path} to Yubikey...")
-    pin = yk.DEFAULT_PIN
-
-    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem)
-    print("\nPrivate key successfully imported.\n")
-    print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
-    print("Pin: {}\n".format(pin))
 
 
 def update_and_sign_targets(

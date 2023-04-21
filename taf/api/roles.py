@@ -150,7 +150,7 @@ def add_signing_key(
 def _enter_roles_infos(keystore, roles_key_infos):
     """
     Ask the user to enter information taf roles and keys, including the location
-    of keystore direcotry if not entered through an input parameter
+    of keystore directory if not entered through an input parameter
     """
     mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
     role_key_infos = defaultdict(dict)
