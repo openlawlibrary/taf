@@ -22,7 +22,7 @@ TAF's implementation strongly relies on [The Update Framework (TUF)](https://the
 Further reading:
 
 1. [UELMA whitepaper](whitepapers/UELMA-Open-Law-White-Paper.pdf)
-1. [TAF implementation and integration with TUF](docs/TUF/tuf-specification.md)
+1. [TAF implementation and integration with TUF](docs/updater/specification.md)
 
 ## Installation Steps
 
