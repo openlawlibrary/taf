@@ -107,6 +107,7 @@ def load_signing_keys(
     # using yubikey and to insert it if that is the case
 
     keystore = Path(keystore)
+
     def _load_from_keystore(key_name):
         if (keystore / key_name).is_file():
             try:
@@ -120,10 +121,13 @@ def load_signing_keys(
                 pass
         return None
 
-
     def _laod_and_append_yubikeys(key_name, role, retry_on_failure):
         public_key, _ = yk.yubikey_prompt(
-            key_name, role, taf_repo, loaded_yubikeys=loaded_yubikeys, retry_on_failure=retry_on_failure
+            key_name,
+            role,
+            taf_repo,
+            loaded_yubikeys=loaded_yubikeys,
+            retry_on_failure=retry_on_failure,
         )
 
         if public_key is not None:
@@ -131,7 +135,6 @@ def load_signing_keys(
             print(f"Successfully loaded {key_name} from inserted YubiKey")
 
         return public_key is not None
-
 
     while not all_loaded and num_of_signatures < signing_keys_num:
         if signing_keys_num == 1:

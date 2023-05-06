@@ -117,7 +117,7 @@ def update_snapshot_and_timestamp(
 
     for role in ("snapshot", "timestamp"):
         keystore_keys, yubikeys = load_signing_keys(
-            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
+            taf_repo, role, keystore, loaded_yubikeys, scheme=scheme
         )
         if len(yubikeys):
             update_method = taf_repo.roles_yubikeys_update_method(role)
@@ -158,7 +158,7 @@ def update_target_metadata(
     loaded_yubikeys = {}
     for role, target_paths in roles_targets.items():
         keystore_keys, yubikeys = load_signing_keys(
-            taf_repo, role, keystore, roles_infos, loaded_yubikeys, scheme=scheme
+            taf_repo, role, keystore, loaded_yubikeys, scheme=scheme
         )
         targets_data = dict(
             added_targets_data={

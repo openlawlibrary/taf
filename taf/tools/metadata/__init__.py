@@ -1,5 +1,4 @@
 import click
-from taf.api.roles import add_signing_key as add_roles_signing_key
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME

@@ -416,7 +416,7 @@ def yubikey_prompt(
         pin_confirm,
         pin_repeat,
         prompt_message,
-        retrying
+        retrying,
     ):
 
         if retrying:
@@ -479,7 +479,7 @@ def yubikey_prompt(
             pin_confirm,
             pin_repeat,
             prompt_message,
-            retrying=retry_counter > 0
+            retrying=retry_counter > 0,
         )
         if not success and not retry_on_failure:
             return None, None

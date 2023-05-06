@@ -48,7 +48,6 @@ def attach_to_group(group):
         """
         remove_role(auth_path, role, keystore, scheme=scheme, remove_targets=remove_targets, commit=True)
 
-
     @roles.command()
     @click.argument("path")
     @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys "

@@ -18,6 +18,7 @@ from taf.api.metadata import update_snapshot_and_timestamp, update_target_metada
 from taf.api.targets import (
     _save_top_commit_of_repo_to_target,
 )
+from taf import YubikeyMissingLibrary
 
 try:
     import taf.yubikey as yk
@@ -30,10 +31,9 @@ from tuf.repository_tool import (
     create_new_repository,
 )
 
-from taf import YubikeyMissingLibrary
+
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
-    DEFAULT_ROLE_SETUP_PARAMS,
     DEFAULT_RSA_SIGNATURE_SCHEME,
     YUBIKEY_EXPIRATION_DATE,
 )
@@ -109,8 +109,8 @@ def add_roles(
         roles_infos, repository, verification_keys, signing_keys, existing_roles
     )
     for parent_role in parent_roles:
-        _update_role(taf_repo, parent_role, keystore, roles_infos, scheme=scheme)
-    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
+        _update_role(taf_repo, parent_role, keystore, scheme=scheme)
+    update_snapshot_and_timestamp(taf_repo, keystore, scheme=scheme)
 
 
 def update_target_repos_from_repositories_json(
@@ -453,10 +453,8 @@ def update_and_sign_targets(
     register_target_files(auth_path, keystore, roles_key_infos, True, scheme)
 
 
-def _update_role(taf_repo, role, keystore, roles_infos, scheme):
-    keystore_keys, yubikeys = load_signing_keys(
-        taf_repo, role, keystore, roles_infos, scheme=scheme
-    )
+def _update_role(taf_repo, role, keystore, scheme):
+    keystore_keys, yubikeys = load_signing_keys(taf_repo, role, keystore, scheme=scheme)
     if len(keystore_keys):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):

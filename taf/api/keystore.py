@@ -1,5 +1,8 @@
 from pathlib import Path
-from tuf.repository_tool import generate_and_write_rsa_keypair, generate_and_write_unencrypted_rsa_keypair
+from tuf.repository_tool import (
+    generate_and_write_rsa_keypair,
+    generate_and_write_unencrypted_rsa_keypair,
+)
 
 from taf.api.roles import _initialize_roles_and_keystore
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
@@ -48,13 +51,7 @@ def generate_keys(keystore, roles_key_infos, delegated_roles_key_infos=None):
                         filepath=path, bits=bits, password=password
                     )
                 else:
-                    generate_and_write_unencrypted_rsa_keypair(
-                        filepath=path, bits=bits
-                    )
+                    generate_and_write_unencrypted_rsa_keypair(filepath=path, bits=bits)
         if key_info.get("delegations"):
-            delegations_info = {
-                "roles": key_info["delegations"]
-            }
+            delegations_info = {"roles": key_info["delegations"]}
             generate_keys(keystore, roles_key_infos, delegations_info)
-
-

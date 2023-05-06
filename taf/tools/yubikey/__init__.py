@@ -1,7 +1,6 @@
 import click
 import json
 from taf.api.yubikey import export_yk_public_pem, setup_signing_yubikey, setup_test_yubikey
-import taf.developer_tool as developer_tool
 from taf.exceptions import YubikeyError
 
 

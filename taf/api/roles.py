@@ -480,9 +480,7 @@ def _setup_role(
 def _update_role(
     taf_repo, role, keystore, roles_infos=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
-    keystore_keys, yubikeys = load_signing_keys(
-        taf_repo, role, keystore, roles_infos, scheme=scheme
-    )
+    keystore_keys, yubikeys = load_signing_keys(taf_repo, role, keystore, scheme=scheme)
     if len(keystore_keys):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
