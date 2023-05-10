@@ -150,7 +150,7 @@ def add_signing_key(
 def _enter_roles_infos(keystore, roles_key_infos):
     """
     Ask the user to enter information taf roles and keys, including the location
-    of keystore direcotry if not entered through an input parameter
+    of keystore directory if not entered through an input parameter
     """
     mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
     role_key_infos = defaultdict(dict)
@@ -480,9 +480,7 @@ def _setup_role(
 def _update_role(
     taf_repo, role, keystore, roles_infos=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
-    keystore_keys, yubikeys = load_signing_keys(
-        taf_repo, role, keystore, roles_infos, scheme=scheme
-    )
+    keystore_keys, yubikeys = load_signing_keys(taf_repo, role, keystore, scheme=scheme)
     if len(keystore_keys):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):

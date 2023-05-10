@@ -1,5 +1,4 @@
 import click
-from taf.api.roles import add_signing_key as add_roles_signing_key
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
 import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -12,33 +11,6 @@ def attach_to_group(group):
     @group.group()
     def metadata():
         pass
-
-    @metadata.command()
-    @click.argument("path")
-    @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys "
-                  "the new key should be added")
-    @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to "
-                  "the private key which should be registered as the role's signing key")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores the needed information")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
-                  "used for signing")
-    def add_signing_key(path, role, pub_key_path, keystore, keys_description, scheme):
-        """
-        Add a new signing key. This will make it possible to a sign metadata files
-        corresponding to the specified roles with another key. Although private keys are
-        used for signing, key identifiers are calculated based on the public keys. This
-        means that it's necessary to enter the public key in order to register
-        a new signing key. Public key can be loaded from a file, in which case it is
-        necessary to specify its path as the pub_key parameter's value. If this option
-        is not used when calling this command, the key can be directly entered later.
-        """
-        if not len(role):
-            print("Specify at least one role")
-            return
-        add_roles_signing_key(path, role, pub_key_path, keystore,
-                              keys_description, scheme)
 
     @metadata.command()
     @click.argument("path")
