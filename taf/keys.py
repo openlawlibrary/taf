@@ -121,7 +121,7 @@ def load_signing_keys(
                 pass
         return None
 
-    def _laod_and_append_yubikeys(key_name, role, retry_on_failure):
+    def _load_and_append_yubikeys(key_name, role, retry_on_failure):
         public_key, _ = yk.yubikey_prompt(
             key_name,
             role,
@@ -148,7 +148,7 @@ def load_signing_keys(
                 )
             )
         if not all_loaded:
-            if _laod_and_append_yubikeys(key_name, role, False):
+            if _load_and_append_yubikeys(key_name, role, False):
                 num_of_signatures += 1
                 continue
 
@@ -160,7 +160,7 @@ def load_signing_keys(
                 continue
 
             if click.confirm(f"Sign {role} using YubiKey(s)?"):
-                _laod_and_append_yubikeys(key_name, role, True)
+                _load_and_append_yubikeys(key_name, role, True)
                 num_of_signatures += 1
                 continue
 

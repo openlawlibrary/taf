@@ -8,15 +8,15 @@
 2. `taf targets update-repos-from-fs ./law --library-dir ./data/targets --namespace test`
 3. `taf targets generate-repositories-json ./law --library-dir ./data/targets --namespace test --custom data/custom_data.json`
 4. `taf targets sign ./law`
-5. `taf metadata add-signing-key ./law --role targets`
+5. `taf roles add-signing-key ./law --role targets`
 
 ### Yubikey + Keystore flow
 
-1. `taf repo create ./law --keys-description ./data/keys.json --commit-msg "Generated initial metadata" --keystore ./data/keystore/`
+1. `taf repo create ./law --keys-description ./data/keys.json --commit-msg "Generated initial roles" --keystore ./data/keystore/`
 1. `taf targets update-repos-from-fs ./law --library-dir ./data/targets --namespace test`
 1. `taf targets generate-repositories-json ./law --library-dir ./data/targets --namespace test --custom data/custom_data.json`
 1. `taf targets sign --keystore ./data/keystore/`
-1. `taf metadata add-signing-key ./law --role targets`
+1. `taf roles add-signing-key ./law --role targets`
 
 ### keys.json
 
