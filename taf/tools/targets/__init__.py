@@ -1,4 +1,5 @@
 import click
+from taf.api.repository import register_target_files
 import taf.developer_tool as developer_tool
 from taf.api.targets import (
     list_targets,
@@ -125,9 +126,9 @@ def attach_to_group(group):
         by manually entering the key or by using a Yubikey.
         """
         try:
-            developer_tool.register_target_files(path, keystore=keystore,
-                                                 roles_key_infos=keys_description,
-                                                 scheme=scheme)
+            register_target_files(path, keystore=keystore,
+                                  roles_key_infos=keys_description,
+                                  scheme=scheme)
         except TAFError as e:
             click.echo()
             click.echo(str(e))

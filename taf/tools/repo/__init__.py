@@ -1,6 +1,6 @@
 import click
 import json
-import taf.developer_tool as developer_tool
+from taf.api.repository import create_repository
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
@@ -62,7 +62,7 @@ def attach_to_group(group):
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """
-        developer_tool.create_repository(path, keystore, keys_description, commit, test)
+        create_repository(path, keystore, keys_description, commit, test)
 
     @repo.command()
     @click.argument("url")
