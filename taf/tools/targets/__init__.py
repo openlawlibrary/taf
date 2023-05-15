@@ -1,11 +1,12 @@
 import click
-from taf.api.repository import register_target_files
-import taf.developer_tool as developer_tool
 from taf.api.targets import (
     list_targets,
     add_target_repo,
+    register_target_files,
     remove_target_repo,
     export_targets_history,
+    update_and_sign_targets,
+    update_target_repos_from_repositories_json,
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -148,7 +149,7 @@ def attach_to_group(group):
                   "keys or a path to a json file which stores the needed information")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
-    def update_and_sign_targets(path, library_dir, target_type, keystore, keys_description, scheme):
+    def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme):
         """
         Update target files corresponding to target repositories specified through the target type parameter
         by writing the current top commit and branch name to the target files. Sign the updated files
@@ -174,7 +175,7 @@ def attach_to_group(group):
         # TODO make more generic (type in custom is not something that TAF should handle)
         try:
             if len(target_type):
-                developer_tool.update_and_sign_targets(
+                update_and_sign_targets(
                     path,
                     library_dir,
                     target_type,
@@ -182,7 +183,7 @@ def attach_to_group(group):
                     roles_key_infos=keys_description,
                     scheme=scheme)
             else:
-                developer_tool.update_target_repos_from_repositories_json(
+                update_target_repos_from_repositories_json(
                     path, library_dir, add_branch=True, keystore=keystore, scheme=scheme)
         except TAFError as e:
             click.echo()

@@ -3,13 +3,12 @@ import click
 
 from collections import defaultdict
 from pathlib import Path
-from taf.api.metadata import update_target_metadata
 from taf.api.roles import _create_delegations, _initialize_roles_and_keystore, _role_obj
+from taf.api.targets import register_target_files
 
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, YUBIKEY_EXPIRATION_DATE
+from taf.constants import YUBIKEY_EXPIRATION_DATE
 from taf.exceptions import TargetsMetadataUpdateError
-from taf.git import GitRepository
 from taf.keys import get_key_name, load_sorted_keys_of_new_roles
 from taf.repository_tool import Repository, yubikey_signature_provider
 from tuf.repository_tool import create_new_repository
@@ -93,6 +92,7 @@ def create_repository(
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
+
 def _check_if_can_create_repository(auth_repo):
     repo_path = Path(auth_repo.path)
     if repo_path.is_dir():
@@ -108,60 +108,6 @@ def _check_if_can_create_repository(auth_repo):
             ):
                 return False
     return True
-
-
-def register_target_files(
-    repo_path,
-    keystore=None,
-    roles_key_infos=None,
-    commit=False,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    taf_repo=None,
-):
-    """
-    <Purpose>
-        Register all files found in the target directory as targets - updates the targets
-        metadata file, snapshot and timestamp. Sign targets
-        with yubikey if keystore is not provided
-    <Arguments>
-        repo_path:
-        Authentication repository's path
-        keystore:
-        Location of the keystore files
-        roles_key_infos:
-        A dictionary whose keys are role names, while values contain information about the keys.
-        commit_msg:
-        Commit message. If specified, the changes made to the authentication are committed.
-        scheme:
-        A signature scheme used for signing.
-        taf_repo:
-        If taf repository is already initialized, it can be passed and used.
-    """
-    print("Signing target files")
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
-        roles_key_infos, keystore, enter_info=False
-    )
-    roles_infos = roles_key_infos.get("roles")
-    if taf_repo is None:
-        repo_path = Path(repo_path).resolve()
-        taf_repo = Repository(str(repo_path))
-
-    # find files that should be added/modified/removed
-    added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
-
-    update_target_metadata(
-        taf_repo,
-        added_targets_data,
-        removed_targets_data,
-        keystore,
-        roles_infos,
-        scheme,
-    )
-
-    if commit:
-        auth_git_repo = GitRepository(path=taf_repo.path)
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_git_repo.commit(commit_message)
 
 
 def _setup_role(
@@ -186,4 +132,3 @@ def _setup_role(
             role_obj.add_external_signature_provider(
                 key, partial(yubikey_signature_provider, key_name, key["keyid"])
             )
-

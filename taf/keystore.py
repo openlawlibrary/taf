@@ -15,7 +15,7 @@ from taf.exceptions import KeystoreError
 from taf.log import taf_logger
 
 
-def _default_keystore_path():
+def default_keystore_path():
     keystore_path = str(Path(getcwd(), "keystore"))
     taf_logger.info(f"Keystore path is not passed, using default one: {keystore_path}")
     return keystore_path

@@ -14,14 +14,14 @@ def attach_to_group(group):
     @click.argument("path")
     @click.argument("role")
     @click.option("--parent-role", default="targets", help="Parent targets role of this role. Defaults to targets")
-    @click.option("--path", multiple=True, help="Paths associated with the delegated role")
+    @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--keys-number", default=1, help="Number of signing keys. Defaults to 1")
     @click.option("--threshold", default=1, help="An integer number of keys of that "
                   "role whose signatures are required in order to consider a file as being properly signed by that role")
     @click.option("--yubikey", is_flag=True, default=None, help="A flag determining if the new role should be signed using a Yubikey")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    def add(path, role, parent_role, path, keystore, keys_number, threshold, yubikey, scheme):
+    def add(path, role, parent_role, delegated_path, keystore, keys_number, threshold, yubikey, scheme):
         """Add a new delegated target role, specifying which paths are delegated to the new role.
         Its parent role, number of signing keys and signatures threshold can also be defined.
         Update and sign all metadata files and commit.
@@ -30,7 +30,7 @@ def attach_to_group(group):
             print("Specify at least one path")
             return
 
-        add_role(path, role, parent_role, path, keys_number, threshold, yubikey, keystore, scheme)
+        add_role(path, role, parent_role, delegated_path, keys_number, threshold, yubikey, keystore, scheme)
 
     @roles.command()
     @click.argument("path")
