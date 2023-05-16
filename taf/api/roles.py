@@ -355,7 +355,9 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
             if roles_key_infos_path.is_file() and "keystore" in roles_key_infos_dict:
                 keystore_path = Path(roles_key_infos_dict["keystore"])
                 if not keystore_path.is_absolute():
-                    keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
+                    keystore_path = (
+                        roles_key_infos_path.parent / keystore_path
+                    ).resolve()
                     keystore = str(keystore_path)
 
     if enter_info and not len(roles_key_infos_dict):
