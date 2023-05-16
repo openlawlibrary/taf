@@ -21,7 +21,7 @@ from taf.constants import (
     YUBIKEY_EXPIRATION_DATE,
     DEFAULT_RSA_SIGNATURE_SCHEME,
 )
-from taf.keystore import _default_keystore_path, new_public_key_cmd_prompt
+from taf.keystore import default_keystore_path, new_public_key_cmd_prompt
 from taf.repository_tool import (
     Repository,
     is_delegated_role,
@@ -346,7 +346,17 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
     """
     roles_key_infos_dict = read_input_dict(roles_key_infos)
     if keystore is None:
-        keystore = roles_key_infos_dict.get("keystore") or _default_keystore_path()
+        # if keystore path is specified in roles_key_infos and is a relative path
+        # it should be relative to the location of the file
+        # roles_key_infos can either be path to a json file, or a dictionary (or not provided)
+        keystore = roles_key_infos_dict.get("keystore") or default_keystore_path()
+        if roles_key_infos is not None and type(roles_key_infos) == str:
+            roles_key_infos_path = Path(roles_key_infos)
+            if roles_key_infos_path.is_file() and "keystore" in roles_key_infos_dict:
+                keystore_path = Path(roles_key_infos_dict["keystore"])
+                if not keystore_path.is_absolute():
+                    keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
+                    keystore = str(keystore_path)
 
     if enter_info and not len(roles_key_infos_dict):
         # ask the user to enter roles, number of keys etc.
