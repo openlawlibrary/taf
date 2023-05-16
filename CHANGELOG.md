@@ -13,10 +13,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Split a part of `developer_tool` into separate modules ([314])
+- Keystore path in roles_key_info calculated relative to where the json file is ([321])
+- Try to sign using a yubikey before asking the user if they want to use a yubikey ([320])
+- Split a`developer_tool` into separate modules ([314], [321])
 
 ### Fixed
 
+
+[321]: https://github.com/openlawlibrary/taf/pull/321
+[320]: https://github.com/openlawlibrary/taf/pull/320
+[314]: https://github.com/openlawlibrary/taf/pull/314
 
 ## [0.25.0] - 03/31/2023
 
