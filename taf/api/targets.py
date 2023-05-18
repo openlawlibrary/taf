@@ -4,13 +4,19 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
-from taf.api.roles import add_role, add_role_paths, remove_paths
+from taf.api.roles import (
+    _initialize_roles_and_keystore,
+    add_role,
+    add_role_paths,
+    remove_paths,
+)
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
+from taf.repository_tool import Repository
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
@@ -205,6 +211,60 @@ def list_targets(
     print(json.dumps(output, indent=4))
 
 
+def register_target_files(
+    repo_path,
+    keystore=None,
+    roles_key_infos=None,
+    commit=False,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    taf_repo=None,
+):
+    """
+    <Purpose>
+        Register all files found in the target directory as targets - updates the targets
+        metadata file, snapshot and timestamp. Sign targets
+        with yubikey if keystore is not provided
+    <Arguments>
+        repo_path:
+        Authentication repository's path
+        keystore:
+        Location of the keystore files
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys.
+        commit_msg:
+        Commit message. If specified, the changes made to the authentication are committed.
+        scheme:
+        A signature scheme used for signing.
+        taf_repo:
+        If taf repository is already initialized, it can be passed and used.
+    """
+    print("Signing target files")
+    roles_key_infos, keystore = _initialize_roles_and_keystore(
+        roles_key_infos, keystore, enter_info=False
+    )
+    roles_infos = roles_key_infos.get("roles")
+    if taf_repo is None:
+        repo_path = Path(repo_path).resolve()
+        taf_repo = Repository(str(repo_path))
+
+    # find files that should be added/modified/removed
+    added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
+
+    update_target_metadata(
+        taf_repo,
+        added_targets_data,
+        removed_targets_data,
+        keystore,
+        roles_infos,
+        scheme,
+    )
+
+    if commit:
+        auth_git_repo = GitRepository(path=taf_repo.path)
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+        auth_git_repo.commit(commit_message)
+
+
 def remove_target_repo(
     auth_path: str,
     target_name: str,
@@ -272,6 +332,99 @@ def _save_top_commit_of_repo_to_target(
         targets_dir = auth_repo_targets_dir / namespace
     targets_dir.mkdir(parents=True, exist_ok=True)
     _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
+
+
+def update_target_repos_from_repositories_json(
+    repo_path,
+    library_dir,
+    keystore,
+    add_branch=True,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+):
+    """
+    <Purpose>
+        Create or update target files by reading the latest commit's repositories.json
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        library_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
+        namespace:
+        Namespace used to form the full name of the target repositories. Each target repository
+        add_branch:
+        Indicates whether to add the current branch's name to the target file
+    """
+    repo_path = Path(repo_path).resolve()
+    if library_dir is None:
+        library_dir = repo_path.parent.parent
+    else:
+        library_dir = Path(library_dir)
+    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
+    repositories_json = json.loads(
+        Path(auth_repo_targets_dir / "repositories.json").read_text()
+    )
+    for repo_name in repositories_json.get("repositories"):
+        _save_top_commit_of_repo_to_target(
+            library_dir, repo_name, repo_path, add_branch
+        )
+    register_target_files(repo_path, keystore, None, True, scheme)
+
+
+def update_and_sign_targets(
+    repo_path: str,
+    library_dir: str,
+    target_types: list,
+    keystore: str,
+    roles_key_infos: str,
+    scheme: str,
+):
+    """
+    <Purpose>
+        Save the top commit of specified target repositories to the corresponding target files and sign
+    <Arguments>
+        repo_path:
+        Authentication repository's location
+        library_dir:
+        Directory where target repositories and, optionally, authentication repository are locate
+        targets:
+        Types of target repositories whose corresponding target files should be updated and signed
+        keystore:
+        Location of the keystore files
+        roles_key_infos:
+        A dictionary whose keys are role names, while values contain information about the keys
+        no_commit:
+        Indicates that the changes should bot get committed automatically
+        scheme:
+        A signature scheme used for signing
+
+    """
+    auth_path = Path(repo_path).resolve()
+    auth_repo = AuthenticationRepository(path=auth_path)
+    if library_dir is None:
+        library_dir = auth_path.parent.parent
+    repositoriesdb.load_repositories(auth_repo)
+    nonexistent_target_types = []
+    target_names = []
+    for target_type in target_types:
+        try:
+            target_name = repositoriesdb.get_repositories_paths_by_custom_data(
+                auth_repo, type=target_type
+            )[0]
+            target_names.append(target_name)
+        except Exception:
+            nonexistent_target_types.append(target_type)
+            continue
+    if len(nonexistent_target_types):
+        print(
+            f"Target types {'.'.join(nonexistent_target_types)} not in repositories.json. Targets not updated"
+        )
+        return
+
+    # only update target files if all specified types are valid
+    for target_name in target_names:
+        _save_top_commit_of_repo_to_target(library_dir, target_name, auth_path, True)
+        print(f"Updated {target_name} target file")
+    register_target_files(auth_path, keystore, roles_key_infos, True, scheme)
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):

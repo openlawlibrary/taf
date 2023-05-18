@@ -1,6 +1,5 @@
 import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
-import taf.developer_tool as developer_tool
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
@@ -11,15 +10,6 @@ def attach_to_group(group):
     @group.group()
     def metadata():
         pass
-
-    @metadata.command()
-    @click.argument("path")
-    @click.argument("keys-description")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
-                  "used for signing")
-    def add_roles(path, keystore, keys_description, scheme):
-        developer_tool.add_roles(path, keystore, keys_description, scheme)
 
     @metadata.command()
     @click.argument("path")
