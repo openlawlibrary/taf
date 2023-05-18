@@ -31,7 +31,7 @@ def load_sorted_keys_of_roles(
 ):
     def _sort_roles(key_info, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
-        # if there is somethig wrong with keystore files
+        # if there is something wrong with keystore files
         keystore_roles = []
         yubikey_roles = []
         for role_name, role_key_info in key_info.items():

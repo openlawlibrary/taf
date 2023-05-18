@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Keystore path in roles_key_info calculated relative to where the json file is ([321])
 - Try to sign using a yubikey before asking the user if they want to use a yubikey ([320])
-- Split a`developer_tool` into separate modules ([314], [321])
+- Split `developer_tool` into separate modules ([314], [321])
 
 ### Fixed
 

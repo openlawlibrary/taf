@@ -106,6 +106,10 @@ def add_roles(
     roles_key_infos=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
+    """
+    Add new target roles and sign all metadata files given information stored in roles_key_infos
+    dictionary or .json file
+    """
     yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=repo_path)
     repo_path = Path(repo_path)

@@ -39,6 +39,36 @@ def attach_to_group(group):
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
                   "used for signing")
     def add_multiple(path, keystore, keys_description, scheme):
+        """Add one or more target roles. Information about the roles
+        can be provided through a dictionary - either specified directly or contained
+        by a .json file whose path is specified when calling this command. This allows
+        definition of:
+            - total number of keys per role
+            - threshold of signatures per role
+            - should keys of a role be on Yubikeys or should keystore files be used
+            - scheme (the default scheme is rsa-pkcs1v15-sha256)
+            - keystore path, if not specified via keystore option
+
+        \b
+        For example:
+        {
+            "roles": {
+                "root": {
+                    "number": 3,
+                    "length": 2048,
+                    "passwords": ["password1", "password2", "password3"],
+                    "threshold": 2,
+                    "yubikey": true
+                },
+                "targets": {
+                    "length": 2048
+                },
+                "snapshot": {},
+                "timestamp": {}
+            },
+            "keystore": "keystore_path"
+        }
+        """
         add_roles(path, keystore, keys_description, scheme)
 
     @roles.command()
