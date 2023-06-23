@@ -80,7 +80,7 @@ def add_role(
     )
     _update_role(auth_repo, parent_role, keystore, roles_infos, scheme=scheme)
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore, roles_infos, scheme=scheme)
+        update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
@@ -95,7 +95,7 @@ def add_role_paths(
     parent_role_obj.add_paths(paths, delegated_role)
     _update_role(auth_repo, parent_role, keystore)
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore, None, None)
+        update_snapshot_and_timestamp(auth_repo, keystore)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
@@ -220,7 +220,7 @@ def add_signing_key(
     for parent_role in parent_roles:
         _update_role(taf_repo, parent_role, keystore, roles_infos, scheme)
 
-    update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
+    update_snapshot_and_timestamp(taf_repo, keystore, scheme=scheme)
 
 
 def _enter_roles_infos(keystore, roles_key_infos):
@@ -486,7 +486,6 @@ def remove_role(
             added_targets_data,
             removed_targets_data,
             keystore,
-            roles_infos=None,
             write=False,
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         )
@@ -504,7 +503,7 @@ def remove_role(
                 json.dumps(repositories_json, indent=4)
             )
 
-    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme)
+    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
     if commit:
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
@@ -521,7 +520,7 @@ def remove_paths(paths, keystore, commit=True, auth_repo=None, auth_path=None):
             _remove_path_from_role_info(path, parent_role, delegated_role, auth_repo)
             _update_role(auth_repo, parent_role, keystore)
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore, None, None)
+        update_snapshot_and_timestamp(auth_repo, keystore)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 

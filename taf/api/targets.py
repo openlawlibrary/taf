@@ -108,13 +108,12 @@ def add_target_repo(
         added_targets_data,
         removed_targets_data,
         keystore,
-        roles_infos=None,
         write=False,
         scheme=scheme,
     )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme=scheme)
+    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
 
@@ -255,8 +254,7 @@ def register_target_files(
         added_targets_data,
         removed_targets_data,
         keystore,
-        roles_infos,
-        scheme,
+        scheme=scheme,
     )
 
     if commit:
@@ -302,19 +300,18 @@ def remove_target_repo(
         added_targets_data,
         removed_targets_data,
         keystore,
-        roles_infos=None,
         write=False,
     )
 
     update_snapshot_and_timestamp(
-        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
     auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
     remove_paths([target_name], keystore, commit=False, auth_repo=auth_repo)
     update_snapshot_and_timestamp(
-        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
     auth_repo.commit(f"Remove {target_name} from delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
