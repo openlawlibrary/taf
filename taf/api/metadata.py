@@ -1,7 +1,7 @@
 import datetime
 from logging import DEBUG, ERROR, INFO
 from pathlib import Path
-from logdecorator import log_on_end, log_on_error, log_on_start
+from logdecorator import log_on_end, log_on_error
 from taf.exceptions import TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
