@@ -265,12 +265,12 @@ def _setup_keystore_key(
         extension = ".pub" if is_public else ""
         key_path = Path(keystore, f"{key_name}{extension}")
         if key_path.is_file():
-            print(f"{key_path} is not a file!")
-        else:
             if is_public:
                 print(f"Could not load public key {key_path}")
             else:
                 print(f"Could not load private key {key_path}")
+        else:
+            print(f"{key_path} is not a file!")
 
     if keystore is not None:
         while public_key is None and private_key is None:
