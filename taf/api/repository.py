@@ -1,7 +1,7 @@
 from functools import partial
-from logging import INFO
+from logging import DEBUG, INFO
 import click
-from logdecorator import log_on_start, log_on_end
+from logdecorator import log_on_end
 
 from collections import defaultdict
 from pathlib import Path
@@ -17,22 +17,22 @@ from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
 
-@log_on_end(INFO, "Created new authentication repository", logger=taf_logger)
+@log_on_end(DEBUG, "Creating a new authentication repository", logger=taf_logger)
+@log_on_end(DEBUG, "Created of a new repository finished", logger=taf_logger)
 def create_repository(
     repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
     """
-    Purpose:
-        Create a new authentication repository. Generate initial metadata files.
-        If target files already exist, add corresponding targets information to
-        targets metadata files.
+    Create a new authentication repository. Generate initial metadata files.
+    If target files already exist, add corresponding targets information to
+    targets metadata files.
 
     Arguments:
         repo_path: Authentication repository's location.
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
-        commit: Indicates if the changes should be automatically committed.
-        test: Indicates if the created repository is a test authentication repository.
+        commit: Specifies if the changes should be automatically committed.
+        test: Specifies if the created repository is a test authentication repository.
 
     Side Effects:
         Creates a new authentication repository (initializes a new git repository and generates tuf metadata)
@@ -98,10 +98,9 @@ def create_repository(
 
 def _check_if_can_create_repository(auth_repo):
     """
-    Purpose:
-       Check if a new authentication repository can be created at the specified location.
-       A repository can be created if there is not directory at the repository's location
-       or if it does exists, is not the root of a git repository.
+    Check if a new authentication repository can be created at the specified location.
+    A repository can be created if there is not directory at the repository's location
+    or if it does exists, is not the root of a git repository.
 
     Arguments:
         auth_repo: Authentication repository.
@@ -139,9 +138,8 @@ def _setup_role(
     parent=None,
 ):
     """
-    Purpose:
-        Set up a role, which can wither be one of the main TUF roles, or a delegated role.
-        Define threshold and signing and verification keys of the role and link it with the repository.
+    Set up a role, which can wither be one of the main TUF roles, or a delegated role.
+    Define threshold and signing and verification keys of the role and link it with the repository.
 
     Arguments:
         role_name: Role's name, either one of the main TUF roles or a delegated role.
