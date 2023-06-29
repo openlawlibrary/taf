@@ -54,7 +54,7 @@ def create_repository(
     repository = create_new_repository(str(auth_repo.path))
     roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_infos, repository, keystore, yubikeys
+        auth_repo, roles_infos, repository.certs_dir, keystore, yubikeys
     )
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
