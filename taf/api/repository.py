@@ -1,5 +1,5 @@
 from functools import partial
-from logging import DEBUG, INFO
+from logging import INFO
 import click
 from logdecorator import log_on_end, log_on_start
 
