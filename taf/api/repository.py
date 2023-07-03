@@ -1,5 +1,5 @@
 from functools import partial
-from logging import DEBUG
+from logging import DEBUG, INFO
 import click
 from logdecorator import log_on_end, log_on_start
 
@@ -17,8 +17,10 @@ from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
 
-@log_on_start(DEBUG, "Creating a new authentication repository", logger=taf_logger)
-@log_on_end(DEBUG, "Created of a new repository finished", logger=taf_logger)
+@log_on_start(
+    INFO, "Creating a new authentication repository {repo_path:s}", logger=taf_logger
+)
+@log_on_end(INFO, "Finished creating a new repository", logger=taf_logger)
 def create_repository(
     repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
@@ -54,7 +56,7 @@ def create_repository(
     repository = create_new_repository(str(auth_repo.path))
     roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_infos, repository.certs_dir, keystore, yubikeys
+        auth_repo, roles_infos, keystore, yubikeys
     )
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
@@ -84,7 +86,12 @@ def create_repository(
         taf_repository = Repository(repo_path)
         taf_repository._tuf_repository = repository
         register_target_files(
-            repo_path, keystore, roles_key_infos, commit=commit, taf_repo=taf_repository
+            repo_path,
+            keystore,
+            roles_key_infos,
+            commit=False,
+            taf_repo=taf_repository,
+            write=True,
         )
     except TargetsMetadataUpdateError:
         # if there are no target files

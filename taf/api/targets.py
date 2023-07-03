@@ -267,6 +267,7 @@ def register_target_files(
     commit=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     taf_repo=None,
+    write=False,
 ):
     """
     Register all files found in the target directory as targets - update the targets
@@ -278,6 +279,7 @@ def register_target_files(
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         taf_repo (optional): If taf repository is already initialized, it can be passed and used.
+        write (optional): Write metadata updates to disk if set to True
 
     Side Effects:
        Updates metadata files, writes changes to disk and optionally commits changes.
@@ -303,10 +305,12 @@ def register_target_files(
         scheme=scheme,
     )
 
-    if commit:
-        auth_git_repo = GitRepository(path=taf_repo.path)
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_git_repo.commit(commit_message)
+    if write:
+        taf_repo.writeall()
+        if commit:
+            auth_git_repo = GitRepository(path=taf_repo.path)
+            commit_message = input("\nEnter commit message and press ENTER\n\n")
+            auth_git_repo.commit(commit_message)
 
 
 @log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)
@@ -436,7 +440,7 @@ def update_target_repos_from_repositories_json(
         _save_top_commit_of_repo_to_target(
             library_dir, repo_name, auth_path, add_branch
         )
-    register_target_files(auth_path, keystore, None, True, scheme)
+    register_target_files(auth_path, keystore, None, True, scheme, write=True)
 
 
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
@@ -492,7 +496,9 @@ def update_and_sign_targets(
     for target_name in target_names:
         _save_top_commit_of_repo_to_target(library_dir, target_name, auth_path, True)
         print(f"Updated {target_name} target file")
-    register_target_files(auth_path, keystore, roles_key_infos, True, scheme)
+    register_target_files(
+        auth_path, keystore, roles_key_infos, True, scheme, write=True
+    )
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):

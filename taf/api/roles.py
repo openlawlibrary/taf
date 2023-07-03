@@ -230,7 +230,7 @@ def add_roles(
     repository = auth_repo._repository
     roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_infos, auth_repo, keystore, yubikeys, existing_roles
+        auth_repo, roles_infos, keystore, yubikeys, existing_roles
     )
     _create_delegations(
         roles_infos, repository, verification_keys, signing_keys, existing_roles
@@ -575,7 +575,8 @@ def _role_obj(role, repository, parent=None):
     """
     Return role TUF object based on its name
     """
-    repository = repository._tuf_repository
+    if isinstance(repository, Repository):
+        repository = repository._repository
     if role == "targets":
         return repository.targets
     elif role == "snapshot":
