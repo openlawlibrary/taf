@@ -5,7 +5,7 @@ from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
-from logdecorator import log_on_end
+from logdecorator import log_on_end, log_on_start
 from taf.hosts import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
@@ -36,7 +36,7 @@ from taf.log import taf_logger
 MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
 
 
-@log_on_end(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
+@log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
 def add_role(
     auth_path: str,
@@ -112,7 +112,7 @@ def add_role(
         auth_repo.commit(commit_message)
 
 
-@log_on_end(DEBUG, "Adding new paths to role {role:s}", logger=taf_logger)
+@log_on_start(DEBUG, "Adding new paths to role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new paths to role", logger=taf_logger)
 def add_role_paths(
     paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None
@@ -148,7 +148,7 @@ def add_role_paths(
         auth_repo.commit(commit_message)
 
 
-@log_on_end(DEBUG, "Adding new roles", logger=taf_logger)
+@log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new roles", logger=taf_logger)
 def add_roles(
     auth_path,
@@ -240,7 +240,7 @@ def add_roles(
     update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
 
 
-@log_on_end(DEBUG, "Adding new signing key to roles", logger=taf_logger)
+@log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
 def add_signing_key(
     auth_path,
@@ -592,7 +592,7 @@ def _role_obj(role, repository, parent=None):
         return parent(role)
 
 
-@log_on_end(DEBUG, "Removing role {role:s}", logger=taf_logger)
+@log_on_start(DEBUG, "Removing role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing the role", logger=taf_logger)
 def remove_role(
     auth_path: str,
@@ -688,7 +688,7 @@ def remove_role(
         auth_repo.commit(commit_message)
 
 
-@log_on_end(DEBUG, "Removing paths", logger=taf_logger)
+@log_on_start(DEBUG, "Removing paths", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing paths", logger=taf_logger)
 def remove_paths(paths, keystore, commit=True, auth_repo=None, auth_path=None):
     """
@@ -765,9 +765,12 @@ def _setup_role(
             )
 
 
-def _update_role(
-    taf_repo, role, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-):
+def _update_role(taf_repo, role, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+    """
+    Update the specified role's metadata's expiration date, load the signing keys
+    from either a keystore file or yubikey and sign the file without updating
+    snapshot and timestamp and writing changes to disk
+    """
     keystore_keys, yubikeys = load_signing_keys(taf_repo, role, keystore, scheme=scheme)
     if len(keystore_keys):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)

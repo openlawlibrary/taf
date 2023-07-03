@@ -6,6 +6,19 @@ import taf.yubikey as yk
 
 
 def export_yk_public_pem(path=None):
+    """
+    Export public key from a YubiKey and save it to a file or print to console.
+
+    Arguments:
+        path (optional): Path to a file to which the public key should be written.
+        The key is printed to console if file path is not provided.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
+    """
     try:
         pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
     except Exception:
@@ -22,7 +35,20 @@ def export_yk_public_pem(path=None):
         path.write_text(pub_key_pem)
 
 
-def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def setup_signing_yubikey(certs_dir=None):
+    """
+    Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
+    Optionally export and save the certificate to a file.
+
+    Arguments:
+        certs_dir (optional): Path to a directory where the exported certificate should be stored.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
+    """
     if not click.confirm(
         "WARNING - this will delete everything from the inserted key. Proceed?"
     ):
@@ -38,10 +64,19 @@ def setup_signing_yubikey(certs_dir=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     yk.export_yk_certificate(certs_dir, key)
 
 
-def setup_test_yubikey(key_path=None):
+def setup_test_yubikey(key_path):
     """
-    Resets the inserted yubikey, sets default pin and copies the specified key
-    onto it.
+    Reset the inserted yubikey, set default pin and copy the specified key
+    to it.
+
+    Arguments:
+        key_path: Path to a key which should be copied to a YubiKey.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
     """
     if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
         return
