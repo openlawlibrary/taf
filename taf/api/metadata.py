@@ -1,5 +1,5 @@
 import datetime
-from logging import DEBUG, ERROR, INFO
+from logging import ERROR, INFO
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error
 from taf.exceptions import TargetsMetadataUpdateError
@@ -111,7 +111,7 @@ def update_metadata_expiration_date(
             _update_expiration_date_of_role(
                 taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
             )
-        except Exception as e:
+        except Exception:
             return
 
     if no_commit:

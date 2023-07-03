@@ -1,4 +1,4 @@
-from logging import DEBUG, INFO
+from logging import DEBUG
 import os
 import click
 from collections import defaultdict
@@ -280,7 +280,6 @@ def add_signing_key(
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
-    roles_infos = roles_key_infos.get("roles")
 
     pub_key_pem = None
     if pub_key_path is not None:

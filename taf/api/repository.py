@@ -1,7 +1,7 @@
 from functools import partial
-from logging import DEBUG, INFO
+from logging import DEBUG
 import click
-from logdecorator import log_on_end
+from logdecorator import log_on_end, log_on_start
 
 from collections import defaultdict
 from pathlib import Path
@@ -17,7 +17,7 @@ from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
 
-@log_on_end(DEBUG, "Creating a new authentication repository", logger=taf_logger)
+@log_on_start(DEBUG, "Creating a new authentication repository", logger=taf_logger)
 @log_on_end(DEBUG, "Created of a new repository finished", logger=taf_logger)
 def create_repository(
     repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
