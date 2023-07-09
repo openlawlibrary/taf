@@ -13,13 +13,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Docstirngs logging improvements ([325])
 - Keystore path in roles_key_info calculated relative to where the json file is ([321])
 - Try to sign using a yubikey before asking the user if they want to use a yubikey ([320])
 - Split `developer_tool` into separate modules ([314], [321])
 
 ### Fixed
 
+- Fix create repository ([325])
 
+
+[325]: https://github.com/openlawlibrary/taf/pull/325
 [321]: https://github.com/openlawlibrary/taf/pull/321
 [320]: https://github.com/openlawlibrary/taf/pull/320
 [314]: https://github.com/openlawlibrary/taf/pull/314

@@ -145,7 +145,7 @@ def _setup_role(
     parent=None,
 ):
     """
-    Set up a role, which can wither be one of the main TUF roles, or a delegated role.
+    Set up a role, which can either be one of the main TUF roles, or a delegated role.
     Define threshold and signing and verification keys of the role and link it with the repository.
 
     Arguments:

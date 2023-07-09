@@ -43,7 +43,7 @@ def add_target_repo(
     Arguments:
         auth_path: Path to the authentication repository.
         target_path: Path to the target repository which is to be added.
-        target_name (optional): Target repository's name. If ot provided, it is determined based on the target path (the last two directories).
+        target_name (optional): Target repository's name. If not provided, it is determined based on the target path (the last two directories).
         role: Name of the role which will be responsible for signing the new target file.
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         threshold: Signature's threshold.
