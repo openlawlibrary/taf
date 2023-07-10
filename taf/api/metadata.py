@@ -1,28 +1,33 @@
 import datetime
+from logging import ERROR, INFO
 from pathlib import Path
+from logdecorator import log_on_end, log_on_error
 from taf.exceptions import TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.repository_tool import Repository, is_delegated_role
+from taf.log import taf_logger
 
 
 def check_expiration_dates(
     repo_path, interval=None, start_date=None, excluded_roles=None
 ):
     """
-    <Purpose>
-        Check if any metadata files (roles) are expired or will expire in the next <interval> days.
-        Prints a list of expired roles.
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        interval:
-        Number of days ahead to check for expiration
-        start_date:
-        Date from which to start checking for expiration
-        excluded_roles:
-        List of roles to exclude from the check
+    Check if any metadata files (roles) are expired or will expire in the next <interval> days.
+    Prints a list of expired roles.
+
+    Arguments:
+        repo_path: Authentication repository's location.
+        interval: Number of days ahead to check for expiration.
+        start_date: Date from which to start checking for expiration.
+        excluded_roles: List of roles to exclude from the check.
+
+    Side Effects:
+        Prints lists of roles that expired or are about to expire.
+
+    Returns:
+        None
     """
     repo_path = Path(repo_path)
     taf_repo = Repository(repo_path)
@@ -59,6 +64,29 @@ def update_metadata_expiration_date(
     start_date=None,
     no_commit=False,
 ):
+    """
+    Update expiration dates of the specified roles and all other roles that need
+    to be signed in order to guarantee validity of the repository e.g. snapshot
+    and timestamp need to be signed after a targets role is updated.
+
+    Arguments:
+        repo_path: Authentication repository's location.
+        roles: A list of roles whose expiration dates should be updated.
+        interval: Number of days added to the start date in order to calculate the
+            expiration date.
+        keystore (optional): Keystore directory's path
+        scheme (optional): Signature scheme.
+        start_date (optional): Date to which expiration interval is added.
+            Set to today if not specified.
+        no_commit (optional): Prevents automatic commit if set to True
+
+    Side Effects:
+        Updates metadata files, saves changes to disk and commits changes
+        unless no_commit is set to True.
+
+    Returns:
+        None
+    """
     if start_date is None:
         start_date = datetime.datetime.now()
 
@@ -80,27 +108,11 @@ def update_metadata_expiration_date(
 
     for role in roles_to_update:
         try:
-            keys, yubikeys = load_signing_keys(
-                taf_repo,
-                role,
-                loaded_yubikeys=loaded_yubikeys,
-                keystore=keystore,
-                scheme=scheme,
+            _update_expiration_date_of_role(
+                taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
             )
-            # sign with keystore
-            if len(keys):
-                taf_repo.update_role_keystores(
-                    role, keys, start_date=start_date, interval=interval
-                )
-            if len(yubikeys):  # sign with yubikey
-                taf_repo.update_role_yubikeys(
-                    role, yubikeys, start_date=start_date, interval=interval
-                )
-        except Exception as e:
-            print(f"Could not update expiration date of {role}. {str(e)}")
+        except Exception:
             return
-        else:
-            print(f"Updated expiration date of {role}")
 
     if no_commit:
         print("\nNo commit was set. Please commit manually. \n")
@@ -110,9 +122,53 @@ def update_metadata_expiration_date(
         auth_repo.commit(commit_message)
 
 
-def update_snapshot_and_timestamp(
-    taf_repo, keystore, roles_infos, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
+@log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "Could not update expiration date of {role:s} {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+def _update_expiration_date_of_role(
+    taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
 ):
+    keys, yubikeys = load_signing_keys(
+        taf_repo,
+        role,
+        loaded_yubikeys=loaded_yubikeys,
+        keystore=keystore,
+        scheme=scheme,
+    )
+    # sign with keystore
+    if len(keys):
+        taf_repo.update_role_keystores(
+            role, keys, start_date=start_date, interval=interval
+        )
+    if len(yubikeys):  # sign with yubikey
+        taf_repo.update_role_yubikeys(
+            role, yubikeys, start_date=start_date, interval=interval
+        )
+
+
+def update_snapshot_and_timestamp(
+    taf_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
+):
+    """
+    Sign snapshot and timestamp metadata files.
+
+    Arguments:
+        taf_repo: Authentication repository.
+        keystore: Keystore directory's path.
+        scheme (optional): Signature scheme.
+        write_all (optional): If True, writes authentication repository's
+            changes to disk.
+
+    Side Effects:
+        Updates metadata files, saves changes to disk if write_all is True
+
+    Returns:
+        None
+    """
     loaded_yubikeys = {}
 
     for role in ("snapshot", "timestamp"):
@@ -135,13 +191,30 @@ def update_target_metadata(
     added_targets_data,
     removed_targets_data,
     keystore,
-    roles_infos,
     write=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
-    """Update given targets data with an appropriate role, as well as snapshot and
-    timestamp roles.
+    """Given dictionaries containing targets that should be added and targets that should
+    be removed, update and sign target metadata files and, if write is True, also
+    sign snapshot and timestamp.
+
+    Sing snapshot and timestamp metadata files
+
+    Arguments:
+        taf_repo: Authentication repository.
+        added_targets_data(dict): Dictionary containing targets data that should be added.
+        removed_targets_data(dict): Dictionary containing targets data that should be removed.
+        keystore: Keystore directory's path.
+        write (optional): If True, updates snapshot and timestamp and write changes to disk.
+        scheme (optional): Signature scheme.
+
+    Side Effects:
+        Updates metadata files, saves changes to disk if write_all is True
+
+    Returns:
+        None
     """
+
     added_targets_data = {} if added_targets_data is None else added_targets_data
     removed_targets_data = {} if removed_targets_data is None else removed_targets_data
 
@@ -181,4 +254,4 @@ def update_target_metadata(
             )
 
     if write:
-        update_snapshot_and_timestamp(taf_repo, keystore, roles_infos, scheme=scheme)
+        update_snapshot_and_timestamp(taf_repo, keystore, scheme=scheme)

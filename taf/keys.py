@@ -70,7 +70,6 @@ def load_sorted_keys_of_roles(
             _, yubikey_keys = setup_roles_keys(
                 role_name,
                 key_info,
-                repository,
                 certs_dir=auth_repo.certs_dir,
                 yubikeys=yubikeys,
             )
@@ -82,7 +81,7 @@ def load_sorted_keys_of_roles(
 
 
 def load_sorted_keys_of_new_roles(
-    auth_repo, roles_infos, repository, keystore, yubikeys, existing_roles=None
+    auth_repo, roles_infos, keystore, yubikeys, existing_roles=None
 ):
     def _sort_roles(key_info, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
@@ -106,14 +105,14 @@ def load_sorted_keys_of_new_roles(
     if existing_roles is None:
         existing_roles = []
     try:
-        keystore_roles, yubikey_roles = _sort_roles(roles_infos, repository)
+        keystore_roles, yubikey_roles = _sort_roles(roles_infos, auth_repo)
         signing_keys = {}
         verification_keys = {}
         for role_name, key_info in keystore_roles:
             if role_name in existing_roles:
                 continue
             keystore_keys, _ = setup_roles_keys(
-                role_name, key_info, repository, keystore=keystore
+                role_name, key_info, auth_repo.path, keystore=keystore
             )
             for public_key, private_key in keystore_keys:
                 signing_keys.setdefault(role_name, []).append(private_key)
@@ -125,7 +124,6 @@ def load_sorted_keys_of_new_roles(
             _, yubikey_keys = setup_roles_keys(
                 role_name,
                 key_info,
-                repository,
                 certs_dir=auth_repo.certs_dir,
                 yubikeys=yubikeys,
             )

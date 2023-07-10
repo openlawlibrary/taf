@@ -1,8 +1,10 @@
+from logging import DEBUG, INFO
 import click
 import os
 import json
 from collections import defaultdict
 from pathlib import Path
+from logdecorator import log_on_end, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.api.roles import (
     _initialize_roles_and_keystore,
@@ -15,11 +17,14 @@ from taf.exceptions import TAFError
 from taf.git import GitRepository
 
 import taf.repositoriesdb as repositoriesdb
+from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
 from taf.repository_tool import Repository
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
+@log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
+@log_on_end(DEBUG, "Finished adding target repository", logger=taf_logger)
 def add_target_repo(
     auth_path: str,
     target_path: str,
@@ -30,6 +35,29 @@ def add_target_repo(
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom=None,
 ):
+    """
+    Add a new target repository by adding it to repositories.json, creating a delegation (if targets is not
+    its signing role) and adding and signing initial target files if the repository already exists on the filesystem.
+    Also saves custom information about the repositories to repositories.json if it is provided.
+
+    Arguments:
+        auth_path: Path to the authentication repository.
+        target_path: Path to the target repository which is to be added.
+        target_name (optional): Target repository's name. If not provided, it is determined based on the target path (the last two directories).
+        role: Name of the role which will be responsible for signing the new target file.
+        library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+        threshold: Signature's threshold.
+        keystore: Location of the keystore files.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        custom (optional): Additional data that will be added to repositories.json if specified.
+
+    Side Effects:
+        Updates metadata and repositories.json, adds a new target file if repository exists and writes changes to disk
+        and commits changes.
+
+    Returns:
+        None
+    """
     auth_repo = AuthenticationRepository(path=auth_path)
     if not auth_repo.is_git_repository_root:
         print(f"{auth_path} is not a git repository!")
@@ -108,19 +136,35 @@ def add_target_repo(
         added_targets_data,
         removed_targets_data,
         keystore,
-        roles_infos=None,
         write=False,
         scheme=scheme,
     )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(auth_repo, keystore, None, scheme=scheme)
+    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
 
 
-def export_targets_history(repo_path, commit=None, output=None, target_repos=None):
-    auth_repo = AuthenticationRepository(path=repo_path)
+def export_targets_history(auth_path, commit=None, output=None, target_repos=None):
+    """
+    Form a dictionary consisting of branches and commits belonging to it for every target repository
+    and either save it to a file or write to console.
+
+    Arguments:
+        auth_path: Path to the authentication repository.
+        commit (optional): Authentication repository's commit which marks the first commit for which the data should be generated.
+        output (optional): File to which the exported history should be written.
+        target_repos (optional): A list of target repository names whose history should be generated. All target repositories
+        will be included if not provided.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
+    """
+    auth_repo = AuthenticationRepository(path=auth_path)
     commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
     if not len(target_repos):
         target_repos = None
@@ -152,19 +196,23 @@ def export_targets_history(repo_path, commit=None, output=None, target_repos=Non
 
 
 def list_targets(
-    repo_path: str,
-    library_dir: str,
+    auth_path: str,
+    library_dir: str = None,
 ):
     """
-    <Purpose>
-        Save the top commit of specified target repositories to the corresponding target files and sign
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        library_dir:
-        Directory where target repositories and, optionally, authentication repository are locate
+    Save the top commit of specified target repositories to the corresponding target files and sign
+
+    Arguments:
+        auth_path: Authentication repository's location
+        library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
     """
-    auth_path = Path(repo_path).resolve()
+    auth_path = Path(auth_path).resolve()
     auth_repo = AuthenticationRepository(path=auth_path)
     top_commit = [auth_repo.head_commit_sha()]
     if library_dir is None:
@@ -211,41 +259,40 @@ def list_targets(
     print(json.dumps(output, indent=4))
 
 
+@log_on_start(INFO, "Signing target files", logger=taf_logger)
 def register_target_files(
-    repo_path,
+    auth_path,
     keystore=None,
     roles_key_infos=None,
     commit=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     taf_repo=None,
+    write=False,
 ):
     """
-    <Purpose>
-        Register all files found in the target directory as targets - updates the targets
-        metadata file, snapshot and timestamp. Sign targets
-        with yubikey if keystore is not provided
-    <Arguments>
-        repo_path:
-        Authentication repository's path
-        keystore:
-        Location of the keystore files
-        roles_key_infos:
-        A dictionary whose keys are role names, while values contain information about the keys.
-        commit_msg:
-        Commit message. If specified, the changes made to the authentication are committed.
-        scheme:
-        A signature scheme used for signing.
-        taf_repo:
-        If taf repository is already initialized, it can be passed and used.
+    Register all files found in the target directory as targets - update the targets
+    metadata file, snapshot and timestamp and sign them. Commit changes if commit is set to True.
+
+    Arguments:
+        auth_path: Authentication repository's path.
+        keystore: Location of the keystore files.
+        roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        taf_repo (optional): If taf repository is already initialized, it can be passed and used.
+        write (optional): Write metadata updates to disk if set to True
+
+    Side Effects:
+       Updates metadata files, writes changes to disk and optionally commits changes.
+
+    Returns:
+        None
     """
-    print("Signing target files")
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
-    roles_infos = roles_key_infos.get("roles")
     if taf_repo is None:
-        repo_path = Path(repo_path).resolve()
-        taf_repo = Repository(str(repo_path))
+        auth_path = Path(auth_path).resolve()
+        taf_repo = Repository(str(auth_path))
 
     # find files that should be added/modified/removed
     added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
@@ -255,21 +302,39 @@ def register_target_files(
         added_targets_data,
         removed_targets_data,
         keystore,
-        roles_infos,
-        scheme,
+        scheme=scheme,
     )
 
-    if commit:
-        auth_git_repo = GitRepository(path=taf_repo.path)
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_git_repo.commit(commit_message)
+    if write:
+        taf_repo.writeall()
+        if commit:
+            auth_git_repo = GitRepository(path=taf_repo.path)
+            commit_message = input("\nEnter commit message and press ENTER\n\n")
+            auth_git_repo.commit(commit_message)
 
 
+@log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)
+@log_on_end(DEBUG, "Finished removing target repository", logger=taf_logger)
 def remove_target_repo(
     auth_path: str,
     target_name: str,
     keystore: str,
 ):
+    """
+    Remove target repository from repositories.json, remove delegation, and target files and
+    commit changes.
+
+    Arguments:
+        auth_path: Authentication repository's path.
+        target_name: Name of the target name which is to be removed.
+        keystore: Location of the keystore files.
+
+    Side Effects:
+       Updates metadata files, writes changes to disk and optionally commits changes.
+
+    Returns:
+        None
+    """
     auth_repo = AuthenticationRepository(path=auth_path)
     removed_targets_data = {}
     added_targets_data = {}
@@ -302,19 +367,18 @@ def remove_target_repo(
         added_targets_data,
         removed_targets_data,
         keystore,
-        roles_infos=None,
         write=False,
     )
 
     update_snapshot_and_timestamp(
-        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
     auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
     remove_paths([target_name], keystore, commit=False, auth_repo=auth_repo)
     update_snapshot_and_timestamp(
-        auth_repo, keystore, None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
     auth_repo.commit(f"Remove {target_name} from delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
@@ -323,6 +387,10 @@ def remove_target_repo(
 def _save_top_commit_of_repo_to_target(
     library_dir: Path, repo_name: str, auth_repo_path: Path, add_branch: bool = True
 ):
+    """
+    Determine the top commit of a target repository and write it to the corresponding
+    target file.
+    """
     auth_repo_targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
     target_repo_path = library_dir / repo_name
     namespace_and_name = repo_name.rsplit("/", 1)
@@ -334,44 +402,51 @@ def _save_top_commit_of_repo_to_target(
     _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
 
 
+@log_on_start(DEBUG, "Updating target files", logger=taf_logger)
+@log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 def update_target_repos_from_repositories_json(
-    repo_path,
+    auth_path,
     library_dir,
     keystore,
     add_branch=True,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
 ):
     """
-    <Purpose>
-        Create or update target files by reading the latest commit's repositories.json
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        library_dir:
-        Directory where target repositories and, optionally, authentication repository are locate
-        namespace:
-        Namespace used to form the full name of the target repositories. Each target repository
-        add_branch:
-        Indicates whether to add the current branch's name to the target file
+    Create or update target files by reading the latest commit's repositories.json
+
+    Arguments:
+        auth_path: Authentication repository's location.
+        library_dir: Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+        keystore: Location of the keystore files.
+        add_branch: Indicates whether to add the current branch's name to the target file.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+
+    Side Effects:
+       Update target and metadata files and writes changes to disk.
+
+    Returns:
+        None
     """
-    repo_path = Path(repo_path).resolve()
+    auth_path = Path(auth_path).resolve()
     if library_dir is None:
-        library_dir = repo_path.parent.parent
+        library_dir = auth_path.parent.parent
     else:
         library_dir = Path(library_dir)
-    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
+    auth_repo_targets_dir = auth_path / TARGETS_DIRECTORY_NAME
     repositories_json = json.loads(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
     for repo_name in repositories_json.get("repositories"):
         _save_top_commit_of_repo_to_target(
-            library_dir, repo_name, repo_path, add_branch
+            library_dir, repo_name, auth_path, add_branch
         )
-    register_target_files(repo_path, keystore, None, True, scheme)
+    register_target_files(auth_path, keystore, None, True, scheme, write=True)
 
 
+@log_on_start(DEBUG, "Updating target files", logger=taf_logger)
+@log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 def update_and_sign_targets(
-    repo_path: str,
+    auth_path: str,
     library_dir: str,
     target_types: list,
     keystore: str,
@@ -379,26 +454,23 @@ def update_and_sign_targets(
     scheme: str,
 ):
     """
-    <Purpose>
-        Save the top commit of specified target repositories to the corresponding target files and sign
-    <Arguments>
-        repo_path:
-        Authentication repository's location
-        library_dir:
-        Directory where target repositories and, optionally, authentication repository are locate
-        targets:
-        Types of target repositories whose corresponding target files should be updated and signed
-        keystore:
-        Location of the keystore files
-        roles_key_infos:
-        A dictionary whose keys are role names, while values contain information about the keys
-        no_commit:
-        Indicates that the changes should bot get committed automatically
-        scheme:
-        A signature scheme used for signing
+    Save the top commit of specified target repositories to the corresponding target files and sign.
 
+    Arguments:
+        auth_path: Authentication repository's location.
+        library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+        target_types: Types of target repositories whose corresponding target files should be updated and signed.
+        keystore: Location of the keystore files.
+        roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+
+    Side Effects:
+       Update target and metadata files and writes changes to disk.
+
+    Returns:
+        None
     """
-    auth_path = Path(repo_path).resolve()
+    auth_path = Path(auth_path).resolve()
     auth_repo = AuthenticationRepository(path=auth_path)
     if library_dir is None:
         library_dir = auth_path.parent.parent
@@ -424,7 +496,9 @@ def update_and_sign_targets(
     for target_name in target_names:
         _save_top_commit_of_repo_to_target(library_dir, target_name, auth_path, True)
         print(f"Updated {target_name} target file")
-    register_target_files(auth_path, keystore, roles_key_infos, True, scheme)
+    register_target_files(
+        auth_path, keystore, roles_key_infos, True, scheme, write=True
+    )
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):

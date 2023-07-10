@@ -71,6 +71,7 @@ kwargs = {
         "pygit2==1.9.*",
         "pyOpenSSL==22.1.*",
         "cattrs==1.*",
+        "logdecorator==2.*",
     ],
     "extras_require": {
         "ci": ci_require,
