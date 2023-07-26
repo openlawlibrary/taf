@@ -20,9 +20,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
-    HOSTS_FILE = "hosts.json"
     SCRIPTS_PATH = "scripts"
-    AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
     _conf_dir = None
     _dependencies = {}
@@ -37,7 +35,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         allow_unsafe=False,
         conf_directory_root=None,
         out_of_band_authentication=None,
-        hosts=None,
         path=None,
         *args,
         **kwargs,
@@ -54,11 +51,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           custom (dict): a dictionary containing other data
           default_branch (str): repository's default branch ("main" if not defined)
           out_of_band_authentication (str): manually specified initial commit
-          hosts (dict): host data is specified using the hosts.json file. Hosts of the current repo
-          can be specified in its parent's repo (meaning that this repo is listed in the parent's dependencies.json),
-          or it can be specified in hosts.json contained by the repo itself. If hosts data is defined in the parent,
-          it can be propagated to the contained repos. `load_hosts` function of the `hosts` module sets this
-          attribute.
         """
         super().__init__(
             library_dir,
@@ -76,11 +68,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             conf_directory_root = Path(self.path).parent
         self.conf_directory_root = Path(conf_directory_root).resolve()
         self.out_of_band_authentication = out_of_band_authentication
-        # host data can be specified in the current authentication repository or in its parent
-        # the input parameter hosts is expected to contain hosts data specified outside of
-        # this repository's hosts file specifying its hosts
-        # in other words, propagate hosts data from parent to the child repository
-        self.hosts = hosts
 
     # TODO rework conf_dir
 
@@ -91,7 +78,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             {
                 "conf_directory_root": str(self.conf_directory_root),
                 "out_of_band_authentication": self.out_of_band_authentication,
-                "hosts": self.hosts,
                 "dependencies": self.dependencies,
             }
         )
@@ -149,14 +135,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text().strip()
         except FileNotFoundError:
             return None
-
-    _hosts_conf = None
-
-    @property
-    def hosts_conf(self):
-        if self._hosts_conf is None:
-            self._hosts_conf = self.get_target(self.HOSTS_FILE)
-        return self._hosts_conf
 
     @property
     def log_prefix(self):
