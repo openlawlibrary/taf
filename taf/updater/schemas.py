@@ -75,25 +75,6 @@ auth_repo_schema = {
                     "description": "Commit used to check the authentication repository's validity. Supposed to be equal to the first commit",
                     "type": ["string", "null"],
                 },
-                "hosts": {
-                    "description": "A dictionary mapping host names to additional information about them.",
-                    "title": "Hosts",
-                    "type": "object",
-                    "patternProperties": {
-                        "^.*$": {
-                            "title": "Host Name with Custom Info",
-                            "type": "object",
-                            "properties": {
-                                "custom": {
-                                    "title": "Custom",
-                                    "description": "Any information required for futher processing. Not used by the framework",
-                                    "type": "object",
-                                }
-                            },
-                            "additionalProperties": False,
-                        },
-                    },
-                },
             },
             "required": ["library_dir", "name", "urls"],
             "additionalProperties": False,
@@ -263,79 +244,6 @@ repo_update_schema = {
     "additionalProperties": False,
 }
 
-
-host_update_schema = {
-    "type": "object",
-    "$id": "host_update.schema.json",
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Host Handlers Input",
-    "properties": {
-        "update": {
-            "description": "All information related to the update process of a host (containing all authentication repositories linked to that host)",
-            "type": "object",
-            "title": "Update data",
-            "properties": {
-                "changed": {
-                    "title": "Change Indicator",
-                    "description": "Indicates if at least one of the host's repositories was updated (will be false if pull was successful, but there were no new commits)",
-                    "type": "boolean",
-                },
-                "event": {
-                    "title": "Update Event",
-                    "description": "Event type - succeeded, changed, unchanged, failed, completed",
-                    "type": "string",
-                },
-                "host_name": {
-                    "title": "Name",
-                    "description": "Name of the host whose update was attempted",
-                    "type": "string",
-                },
-                "error_msg": {
-                    "title": "Error message",
-                    "description": "Error message that was raised while updating the host's repositories",
-                    "type": "string",
-                },
-                "auth_repos": {
-                    "title": "Authentication Repositories",
-                    "type": "array",
-                    "items": {"$ref": "repo_update.schema.json#"},
-                },
-                "custom": {
-                    "title": "Custom",
-                    "description": "Additional host data. Not used by the framework",
-                    "type": "object",
-                },
-            },
-            "required": ["changed", "event", "host_name", "error_msg", "auth_repos"],
-            "additionalProperties": False,
-        },
-        "state": {
-            "title": "State",
-            "description": "Persistent and transient states",
-            "type": "object",
-            "properties": {
-                "transient": {
-                    "title": "Transient",
-                    "type": "object",
-                    "description": "Transient data is arbitrary data passed from one script execution to the next one. It is discarded at the end of the process",
-                },
-                "persistent": {
-                    "title": "Persistent",
-                    "type": "object",
-                    "description": "Persistent data is arbitrary date passed from one script execution the next one and stored to disk (to a file called persistent.json directly inside the library root)",
-                },
-            },
-        },
-        "config": {
-            "title": "Configuration data",
-            "description": "Additional configuration, loaded from config.json located inside the library root",
-            "type": "object",
-        },
-    },
-    "required": ["update"],
-    "additionalProperties": False,
-}
-
 update_update_schema = {
     "type": "object",
     "$id": "update_update.schema.json",
@@ -343,13 +251,13 @@ update_update_schema = {
     "title": "Update Handlers Input",
     "properties": {
         "update": {
-            "description": "All information related to the update process of update - last handler (containing all authentication repositories linked to all host)",
+            "description": "All information related to the update process of update - last handler (containing all authentication repositories linked to all repositories)",
             "type": "object",
             "title": "Update data",
             "properties": {
                 "changed": {
                     "title": "Change Indicator",
-                    "description": "Indicates if at least one of the host's repositories was updated (will be false if pull was successful, but there were no new commits)",
+                    "description": "Indicates if at least one of the repositories was updated (will be false if pull was successful, but there were no new commits)",
                     "type": "boolean",
                 },
                 "event": {
@@ -359,20 +267,8 @@ update_update_schema = {
                 },
                 "error_msg": {
                     "title": "Error message",
-                    "description": "Error message that was raised while updating the host's repositories",
+                    "description": "Error message that was raised while updating the repositories",
                     "type": "string",
-                },
-                "hosts": {
-                    "title": "Hosts",
-                    "description": "Dictionary of hosts whose update was attempted",
-                    "type": "object",
-                    "patternProperties": {
-                        "^.*$": {
-                            "title": "Single Host",
-                            "type": "object",
-                            "items": {"$ref": "update_update.schema.json#"},
-                        }
-                    },
                 },
                 "auth_repos": {
                     "title": "Authentication Repositories with a flat structure",
@@ -388,7 +284,6 @@ update_update_schema = {
             "required": [
                 "changed",
                 "event",
-                "hosts",
                 "error_msg",
                 "auth_repos",
                 "auth_repo_name",
