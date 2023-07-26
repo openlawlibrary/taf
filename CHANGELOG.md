@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
+- Add missing `write` flag to `taf targets sign` ([329])
 
+[329]: https://github.com/openlawlibrary/taf/pull/329
 ## [0.26.0] - 07/12/2023
 
 ### Added
