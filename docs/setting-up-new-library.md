@@ -196,10 +196,9 @@ in `repositories.json`. E.g. `test` and `repo1` for the first repo, `test` and `
 
 ### `dependencies.json`
 
-This target files is optional, but needs to be defined if the authentication repository references other authentication repositories (to define hierarchies), to make a use of the out-of-band authentication check and/or if the framework
-is to be used to handle information about the hosts.
+This target files is optional, but needs to be defined if the authentication repository references other authentication repositories (to define hierarchies), to make a use of the out-of-band authentication check.
 
-This is an example where there are no hierarchies, but we want to define the current repository's expected commit and want to make use of the hosts handlers.
+This is an example where there are no hierarchies, but we want to define the current repository's expected commit and want to make use of the update handlers.
 
 ```
 {
@@ -223,27 +222,6 @@ This is an example where we defined a hierarchy (define two authentication repos
             "out-of-band-authentication": "333bcd15812635f89001fea0fef794b7c271f456"
         }
     }
-}
-```
-
-### `hosts.json`
-
-This is an optional file used to specify information about the hosts. The framework will only extract this information
-from the file and does not implement anything related configuring the servers. Here is an example of this file:
-
-```
-{
-   "some_domain.org": {
-      "auth_repos": {
-       "test/auth_repo": {}
-      },
-      "custom": {
-         "subdomains": {
-            "development": {},
-            "preview: {},
-         }
-      }
-   }
 }
 ```
 
@@ -283,8 +261,6 @@ Commit and push the changes. Having pushed the changes, run local validation to 
 ```bash
 taf repo validate auth_path
 ```
-
-If hosts were defined, make sure that there is not message saying that that is not the case - that can suggest that names of the repositories defined in different files do not match.
 
 ## Add targets corresponding to target repositories
 
