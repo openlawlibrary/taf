@@ -3,6 +3,7 @@ import shutil
 import enum
 import tempfile
 
+from typing import Dict, Tuple, Any
 
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -18,21 +19,13 @@ from taf.exceptions import (
     ScriptExecutionError,
     UpdateFailedError,
     GitError,
-    MissingHostsError,
-    InvalidHostsError,
     ValidationFailedError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hosts import (
-    load_hosts_json,
-    set_hosts_of_repo,
-    load_hosts,
-    get_hosts,
-)
+
 from taf.updater.lifecycle_handlers import (
     handle_repo_event,
-    handle_host_event,
     handle_update_event,
     Event,
 )
@@ -51,27 +44,28 @@ class UpdateType(enum.Enum):
     EITHER = "either"
 
 
-def _check_update_status(repos_update_data, auth_repo_name, host_update_status, errors):
-    # helper function to set update status of update handler based on repo or host status.
-    # if either hosts or repo handlers event status changed,
+def _check_update_status(
+    repos_update_data: Dict[str, Any]
+) -> Tuple[Dict[str, Any], str]:
+    # helper function to set update status of update handler based on repo status.
+    # if repo handlers event status changed,
     # change the update handler status
-    repo_status = repos_update_data[auth_repo_name]["update_status"]
-    repo_error = repos_update_data[auth_repo_name]["error"]
+    update_status = Event.UNCHANGED
+    errors = ""
 
-    update_update_status = Event.UNCHANGED
-
-    if (
-        repo_status != update_update_status
-        and update_update_status == host_update_status
-    ):
-        update_update_status = repo_status
-
-        if repos_update_data[auth_repo_name]["error"] is not None:
-            repo_error = repos_update_data[auth_repo_name]["error"]
+    for auth_repo_name in repos_update_data:
+        repo_update_data = repos_update_data[auth_repo_name]
+        repo_update_status = repo_update_data["update_status"]
+        if update_status != repo_update_status and update_status != Event.FAILED:
+            # if one failed, then failed
+            # else if one changed, then changed
+            # else unchanged
+            update_status = repo_update_status
+        repo_error = repo_update_data["error"]
+        if repo_error is not None:
             errors += str(repo_error)
-    else:
-        update_update_status = host_update_status
-    return update_update_status, errors
+
+    return update_status, errors
 
 
 def _clone_validation_repo(url, repository_name, default_branch):
@@ -135,17 +129,6 @@ def _execute_repo_handlers(
         if settings.development_mode:
             _reset_to_commits_before_pull(auth_repo, commits_data, targets_data)
             error = e
-
-
-def _load_hosts_json(auth_repo):
-    try:
-        return load_hosts_json(auth_repo)
-    except MissingHostsError as e:
-        # if a there is no host file, the update should not fail
-        taf_logger.info(str(e))
-        return {}
-    except InvalidHostsError as e:
-        raise UpdateFailedError(str(e))
 
 
 # TODO config path should be configurable
@@ -286,7 +269,7 @@ def update_repository(
 
     update_data = {}
     if not excluded_target_globs:
-        # after all repositories have been updated, sort them by hosts and call hosts handlers
+        # after all repositories have been updated
         # update information is in repos_update_data
         if auth_repo_name not in repos_update_data:
             # this must mean that an error occurred
@@ -295,68 +278,17 @@ def update_repository(
             else:
                 raise UpdateFailedError(f"Update of {auth_repo_name} failed")
         root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
-        repos_and_commits = {
-            auth_repo_name: repo_data["commits_data"].get("after_pull")
-            for auth_repo_name, repo_data in repos_update_data.items()
-        }
-        try:
-            load_hosts(root_auth_repo, repos_and_commits)
-        except InvalidHostsError as e:
-            raise UpdateFailedError(str(e))
 
-        hosts = get_hosts()
-        host_update_status = Event.UNCHANGED
-        errors = ""
-        update_transient_data = {}
-
-        for host in hosts:
-            # check if host update was successful - meaning that all repositories
-            # of that host were updated successfully
-            host_transient_data = {}
-            for host_data in host.data_by_auth_repo.values():
-                for host_repo_dict in host_data["auth_repos"]:
-                    for host_repo_name in host_repo_dict:
-                        host_repo_update_data = repos_update_data[host_repo_name]
-                        update_status = host_repo_update_data["update_status"]
-                        if (
-                            host_update_status != update_status
-                            and host_update_status != Event.FAILED
-                        ):
-                            # if one failed, then failed
-                            # else if one changed, then changed
-                            # else unchanged
-                            host_update_status = update_status
-                        repo_error = host_repo_update_data["error"]
-                        if repo_error is not None:
-                            errors += str(repo_error)
-                    if host_repo_name in transient_data:
-                        host_transient_data[host_repo_name] = transient_data[
-                            host_repo_name
-                        ]
-                        update_transient_data[host_repo_name] = host_transient_data[
-                            host_repo_name
-                        ]
-
-            handle_host_event(
-                host_update_status,
-                host_transient_data,
-                root_auth_repo.library_dir,
-                scripts_root_dir,
-                host,
-                repos_update_data,
-                errors,
-            )
-
-        update_update_status, errors = _check_update_status(
-            repos_update_data, auth_repo_name, host_update_status, errors
+        update_status, errors = _check_update_status(repos_update_data)
+        update_transient_data = _update_transient_data(
+            transient_data, repos_update_data
         )
 
         update_data = handle_update_event(
-            update_update_status,
+            update_status,
             update_transient_data,
             root_auth_repo.library_dir,
             scripts_root_dir,
-            hosts,
             repos_update_data,
             errors,
             root_auth_repo,
@@ -381,7 +313,6 @@ def _update_named_repository(
     validate_from_commit=None,
     conf_directory_root=None,
     visited=None,
-    hosts_hierarchy_per_repo=None,
     repos_update_data=None,
     transient_data=None,
     out_of_band_authentication=None,
@@ -472,7 +403,7 @@ def _update_named_repository(
     if auth_repo is None:
         raise error
 
-    # if commits_data is empty, do not attempt to load the host or dependencies
+    # if commits_data is empty, do not attempt to load the dependencies
     # that can happen in the repository didn't exists, but could not be validated
     # and was therefore deleted
     # or if the last validated commit is not equal to the top commit, meaning that
@@ -481,13 +412,6 @@ def _update_named_repository(
     # but treat the repository as invalid for now
     commits = []
     if commits_data["after_pull"] is not None:
-        if hosts_hierarchy_per_repo is None:
-            hosts_hierarchy_per_repo = {auth_repo.name: [_load_hosts_json(auth_repo)]}
-        else:
-            # some repositories might not contain hosts.json and their host is defined
-            # in their parent authentication repository
-            hosts_hierarchy_per_repo[auth_repo.name] += [_load_hosts_json(auth_repo)]
-
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
@@ -504,15 +428,10 @@ def _update_named_repository(
         if update_status != Event.FAILED:
             errors = []
             # load the repositories from dependencies.json and update these repositories
-            # we need to update the repositories before loading hosts data
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
             for child_auth_repo in child_auth_repos:
-                hosts_hierarchy_per_repo[child_auth_repo.name] = list(
-                    hosts_hierarchy_per_repo[auth_repo.name]
-                )
-
                 try:
                     _update_named_repository(
                         child_auth_repo.urls[0],
@@ -528,7 +447,6 @@ def _update_named_repository(
                         validate_from_commit,
                         conf_directory_root,
                         visited,
-                        hosts_hierarchy_per_repo,
                         repos_update_data,
                         transient_data,
                         child_auth_repo.out_of_band_authentication,
@@ -551,7 +469,6 @@ def _update_named_repository(
                 update_status = Event.FAILED
         # TODO which commit to load if the commit top commit does not match the last validated commit
         # use last validated commit - if the repository contains it
-        set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
 
         # all repositories that can be updated will be updated
         if not only_validate and len(commits) and update_status == Event.CHANGED:
@@ -885,6 +802,16 @@ def _update_target_repositories(
         top_commits_of_branches_before_pull,
         additional_commits_per_repo,
     )
+
+
+def _update_transient_data(
+    transient_data, repos_update_data: Dict[str, str]
+) -> Dict[str, Any]:
+    update_transient_data = {}
+    for auth_repo_name in repos_update_data:
+        if auth_repo_name in transient_data:
+            update_transient_data[auth_repo_name] = transient_data[auth_repo_name]
+    return update_transient_data
 
 
 def _set_target_old_head_and_validate(
