@@ -31,12 +31,9 @@ _dependencies_dict = {}
 REPOSITORIES_JSON_NAME = "repositories.json"
 DEPENDENCIES_JSON_NAME = "dependencies.json"
 MIRRORS_JSON_NAME = "mirrors.json"
-HOSTS_JSON_NAME = "hosts.json"
 DEPENDENCIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{DEPENDENCIES_JSON_NAME}"
 MIRRORS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{MIRRORS_JSON_NAME}"
 REPOSITORIES_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{REPOSITORIES_JSON_NAME}"
-HOSTS_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{HOSTS_JSON_NAME}"
-AUTH_REPOS_HOSTS_KEY = "auth_repos"
 
 
 def clear_repositories_db():
@@ -83,14 +80,6 @@ def load_dependencies(
         auth_repo.path,
         ", ".join(commits),
     )
-
-    # host of a repo can defined in its own hosts.json
-    # or in hosts.json of its parent
-    # there can be multiple repos with the same host
-    # so the host could be the same in the parent and child repos
-    # additionally, multiple repos can be specified under one host
-    # in the same hosts file
-    # also, one repo can have more than one host
 
     if library_dir is None:
         library_dir = Path(auth_repo.path).parent.parent
@@ -611,12 +600,6 @@ def load_dependencies_json(auth_repo, commit=None):
         if f"{DEPENDENCIES_JSON_PATH} not available at revision" in str(e):
             taf_logger.debug("Skipping commit {} due to: {}", commit, str(e))
         return None
-
-
-def load_hosts_json(auth_repo, commit=None):
-    if commit is None:
-        commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
-    return _get_json_file(auth_repo, HOSTS_JSON_PATH, commit)
 
 
 def load_repositories_json(auth_repo, commit=None):
