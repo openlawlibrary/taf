@@ -13,7 +13,6 @@ def test_update_structure_valid(types_update_valid_inputs):
                 changed=result.changed,
                 error_msg=result.error_msg,
                 event=result.event,
-                hosts=result.hosts,
                 auth_repos=result.auth_repos,
                 auth_repo_name="openlawlibrary/law",
             )
@@ -30,7 +29,6 @@ def test_update_structure_invalid(types_update_invalid_inputs):
                 changed=False,
                 event="",
                 error_msg="",
-                hosts={},
                 auth_repos={},
                 auth_repo_name="",
             )
