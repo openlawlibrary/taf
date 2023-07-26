@@ -225,7 +225,7 @@ def get_script_repo_and_commit_repo(auth_repo, commits_data, *args):
     return auth_repo, commits_data["after_pull"]
 
 
-def get_script_repo_and_commit_host(auth_repo, commits_data, *args):
+def get_script_repo_and_commit_update(auth_repo, commits_data, *args):
     pass
 
 
