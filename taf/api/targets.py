@@ -303,6 +303,7 @@ def register_target_files(
         removed_targets_data,
         keystore,
         scheme=scheme,
+        write=write,
     )
 
     if write:

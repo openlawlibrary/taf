@@ -129,7 +129,7 @@ def attach_to_group(group):
         try:
             register_target_files(path, keystore=keystore,
                                   roles_key_infos=keys_description,
-                                  scheme=scheme)
+                                  scheme=scheme, write=True)
         except TAFError as e:
             click.echo()
             click.echo(str(e))
