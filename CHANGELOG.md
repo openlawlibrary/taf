@@ -11,10 +11,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Remove hosts and hosts.json ([330])
+
 ### Fixed
+
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[330]: https://github.com/openlawlibrary/taf/pull/330
 [329]: https://github.com/openlawlibrary/taf/pull/329
+
 ## [0.26.0] - 07/12/2023
 
 ### Added
