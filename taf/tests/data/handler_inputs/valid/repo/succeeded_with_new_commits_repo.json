@@ -14,33 +14,7 @@
                 "default_branch": "master",
                 "custom": {},
                 "conf_directory_root": "E:\\oll\\library\\test-update\\portland",
-                "out_of_band_authentication": null,
-                "hosts": {
-                    "portland.oregon.open.law.vagrant": {
-                        "custom": {
-                            "subdomains": {
-                                "development": {
-                                    "portland/law-html": {
-                                        "repo-name": "portland/law-html-development"
-                                    }
-                                },
-                                "preview": {
-                                    "portland/law-xml-codified": {
-                                        "repo-name": "portland/law-html-preview"
-                                    },
-                                    "portland/law-html": {
-                                        "repo-name": "portland/law-html-preview",
-                                        "pull": "authenticated"
-                                    },
-                                    "portland/law-docs": {
-                                        "repo-name": "portland/law-docs-preview",
-                                        "pull": "latest"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                "out_of_band_authentication": null
             },
             "commits": {
                 "before_pull": "e4fef5d9d801a16c005646b75a6243ac674a29bc",

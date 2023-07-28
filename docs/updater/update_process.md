@@ -35,7 +35,7 @@ This flags raises an error if the repository allows unauthenticated commits and 
 
 ### Hooks
 
-Every authentication repository can contain target files inside `targets/scripts` folder which are expected to be Python scripts which will be executed after successful/failed update of that repository. Scripts can also be defined on a host level - will be executed after update of all repositories belonging to that host.
+Every authentication repository can contain target files inside `targets/scripts` folder which are expected to be Python scripts which will be executed after successful/failed update of that repository.
 
 If a repository was successfully pulled and updated, `changed`, `succeeded` and
 `completed` handlers will be called. If there were no new changes, `unchanged`,
@@ -52,8 +52,8 @@ Here is a sketch of the `scriprs` folder:
       /unchanged
       /failed - every time a repo is not successfully pulled
       /completed  - like finally (called in both cases)
-    /host
-      /succeeded - once for each host, after host's repositories have been successfully pulled
+    /update
+      /succeeded - once after all authentication's repositories have been successfully pulled
       /changed
       /unchanged
       /failed - if one repository failed

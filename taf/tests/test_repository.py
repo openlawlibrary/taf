@@ -93,11 +93,7 @@ def test_from_json_dict():
 
     auth_data = data.copy()
     auth_data.update(
-        {
-            "conf_directory_root": "path",
-            "out_of_band_authentication": "123456789",
-            "hosts": {"host1": "something"},
-        }
+        {"conf_directory_root": "path", "out_of_band_authentication": "123456789"}
     )
     auth_repo = AuthenticationRepository.from_json_dict(auth_data)
     _check_values(auth_repo, auth_data)
@@ -120,7 +116,6 @@ def test_to_json_dict():
     custom = {"a": "b"}
     conf_directory_root = Path("path").resolve()
     out_of_band_authentication = ("123456789",)
-    hosts = ({"host1": "something"},)
 
     def _check_values(repo, json_data):
         for attr_name, attr_value in json_data.items():
@@ -146,7 +141,6 @@ def test_to_json_dict():
             custom=custom,
             conf_directory_root=conf_directory_root,
             out_of_band_authentication=out_of_band_authentication,
-            hosts=hosts,
             path=repo_path,
         )
         _check_values(repo, json_data)
@@ -168,7 +162,6 @@ def test_to_from_json_roundtrip():
         {
             "conf_directory_root": Path("path").resolve(),
             "out_of_band_authentication": "123456789",
-            "hosts": {"host1": "something"},
         }
     )
     path_data = library_dir_data.copy()

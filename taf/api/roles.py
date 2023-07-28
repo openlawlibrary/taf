@@ -6,7 +6,7 @@ from functools import partial
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_start
-from taf.hosts import REPOSITORIES_JSON_PATH
+from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
 import taf.repositoriesdb as repositoriesdb

@@ -15,33 +15,7 @@
                 "custom": {},
                 "conf_directory_root": false,
                 "out_of_band_authentication": null,
-                "dependencies": {},
-                "hosts": {
-                    "houston.texas.us.open.law.vagrant": {
-                        "custom": {
-                            "subdomains": {
-                                "development": {
-                                    "houstontexas/law-html": {
-                                        "repo-name": "houstontexas/law-html-development"
-                                    }
-                                },
-                                "preview": {
-                                    "houstontexas/law-xml-codified": {
-                                        "repo-name": "houstontexas/law-html-preview"
-                                    },
-                                    "houstontexas/law-html": {
-                                        "repo-name": "houstontexas/law-html-preview",
-                                        "pull": "authenticated"
-                                    },
-                                    "houstontexas/law-docs": {
-                                        "repo-name": "houstontexas/law-docs-preview",
-                                        "pull": "latest"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                "dependencies": {}
             },
             "commits": {
                 "before_pull": "317a88ad9e3812aaa5f0c241c470f7952eaa6938",

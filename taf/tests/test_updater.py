@@ -37,7 +37,7 @@ The update is expected to fail.
 8. A metadata file's version number is not valid (this test case was created by swapping commits using
 git rebase) - test-updater-invalid-version-number. The update is expected to fail.
 9. A metadata file which should have remained the same changed (this test case was created by updating targets
-and not updating snaphost) - test-updater-just-targets-updated. The update is expected to fail.
+and not updating snapshot) - test-updater-just-targets-updated. The update is expected to fail.
 
 On top of that, it is tested that update fails if last_validated_commit does not exist, while the client's repository
 does and if it does exist, but the stored commit does not match the client repository's head commit.
