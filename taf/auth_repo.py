@@ -258,7 +258,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 target_commit = target_data.get("commit")
                 previous_data = previous_commits.get(target_path)
                 target_data.setdefault("custom", {})
-                if previous_data is None or (target_commit, target_branch) != previous_data:
+                if (
+                    previous_data is None
+                    or (target_commit, target_branch) != previous_data
+                ):
                     if custom_fns is not None and target_path in custom_fns:
                         target_data["custom"].update(
                             custom_fns[target_path](target_commit)
