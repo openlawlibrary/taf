@@ -256,9 +256,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     continue
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
-                previous_commit = previous_commits.get(target_path)
+                previous_data = previous_commits.get(target_path)
                 target_data.setdefault("custom", {})
-                if previous_commit is None or target_commit != previous_commit:
+                if previous_data is None or (target_commit, target_branch) != previous_data:
                     if custom_fns is not None and target_path in custom_fns:
                         target_data["custom"].update(
                             custom_fns[target_path](target_commit)
@@ -273,7 +273,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                             "auth_commit": commit,
                         }
                     )
-                previous_commits[target_path] = target_commit
+                previous_commits[target_path] = (target_commit, target_branch)
         self._log_debug(
             f"new commits per repositories according to target files: {repositories_commits}"
         )
