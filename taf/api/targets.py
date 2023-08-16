@@ -56,8 +56,9 @@ def add_target_repo(
         and commits changes.
 
     Returns:
-        None
+        TAFError if the dependency cannot be instantiated or the default branch cannot be determined
     """
+
     auth_repo = AuthenticationRepository(path=auth_path)
     if not auth_repo.is_git_repository_root:
         print(f"{auth_path} is not a git repository!")
@@ -71,7 +72,7 @@ def add_target_repo(
         target_repo = GitRepository(path=target_path)
     else:
         raise TAFError(
-            "Cannot add new target repository. Specify either target name (and library dir) or target path"
+            "Specify either target name (and library dir) or target path"
         )
 
     existing_roles = auth_repo.get_all_targets_roles()

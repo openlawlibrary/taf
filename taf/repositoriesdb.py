@@ -594,6 +594,8 @@ def _initialize_repository(
 
 
 def load_dependencies_json(auth_repo, commit=None):
+    if commit is None:
+        commit = auth_repo.top_commit_of_branch(auth_repo.default_branch)
     try:
         return _get_json_file(auth_repo, DEPENDENCIES_JSON_PATH, commit)
     except InvalidOrMissingMetadataError as e:
