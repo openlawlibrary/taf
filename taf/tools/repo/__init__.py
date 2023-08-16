@@ -5,7 +5,6 @@ from taf.api.repository import (
     add_dependency as add_dependency_to_dependencies_json,
     remove_dependency as remove_dependency_to_dependencies_json
 )
-from taf.tools import targets
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
@@ -109,7 +108,6 @@ def attach_to_group(group):
         """
         create_repository(path, keystore, keys_description, commit, test)
 
-
     @repo.command()
     @click.argument("auth_path")
     @click.argument("dependency-name")
@@ -117,7 +115,6 @@ def attach_to_group(group):
     def remove_dependency(auth_path, dependency_name, keystore):
         """Remove a dependency from depdendencies.json"""
         remove_dependency_to_dependencies_json(auth_path, dependency_name, keystore)
-
 
     @repo.command()
     @click.argument("url")

@@ -2,7 +2,6 @@ from functools import partial
 import json
 from logging import DEBUG, INFO
 import click
-from git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 
