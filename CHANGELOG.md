@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[337]: https://github.com/openlawlibrary/taf/pull/337
 [330]: https://github.com/openlawlibrary/taf/pull/330
 [329]: https://github.com/openlawlibrary/taf/pull/329
 
