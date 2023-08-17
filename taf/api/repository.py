@@ -66,8 +66,6 @@ def add_dependency(
     """
     if auth_path is None:
         raise TAFError("Authentication repository's path not provided")
-    if branch_name is None or out_of_band_commit is None:
-        raise TAFError("Branch name and out-of-band commit must be specified")
 
     auth_repo = AuthenticationRepository(path=auth_path)
     if not auth_repo.is_git_repository_root:
@@ -82,19 +80,45 @@ def add_dependency(
         dependency = GitRepository(library_dir, dependency_name)
 
     if dependency.is_git_repository:
-        if not dependency.branch_exists(branch_name):
-            raise TAFError(f"Branch {branch_name} does not exists in {dependency.name}")
-        try:
-            branches = dependency.branches_containing_commit(
-                out_of_band_commit, strip_remote=True
-            )
-        except TAFError:
-            raise TAFError("Specified out-of-band authentication commit does not exist")
-        if branch_name not in branches:
-            raise TAFError(
-                f"Commit {out_of_band_commit} not on branch {dependency.branch_name}"
-            )
+
+        is_branch_specified = branch_name is not None
+        is_commit_specified = out_of_band_commit is not None
+
+        if branch_name is None:
+            branch_name = dependency.default_branch
+        else:
+            if not dependency.branch_exists(branch_name):
+                raise TAFError(
+                    f"Branch {branch_name} does not exists in {dependency.name}"
+                )
+
+        if out_of_band_commit is None:
+            out_of_band_commit = dependency.get_first_commit_on_branch(branch_name)
+        else:
+            try:
+                branches = dependency.branches_containing_commit(
+                    out_of_band_commit, strip_remote=True
+                )
+            except TAFError:
+                raise TAFError(
+                    "Specified out-of-band authentication commit does not exist"
+                )
+            if branch_name not in branches:
+                raise TAFError(
+                    f"Commit {out_of_band_commit} not on branch {dependency.branch_name}"
+                )
+
+        if not is_branch_specified or not is_commit_specified:
+            if not click.confirm(
+                f"Branch and out-of-band authentication commit will be set to {branch_name} and {out_of_band_commit}. Proceed?"
+            ):
+                return
+
     else:
+        if branch_name is None or out_of_band_commit is None:
+            raise TAFError(
+                "Branch name and out-of-band commit must be specified if repository does not exist on disk"
+            )
         if not click.confirm(
             "Dependency not on disk. Proceed without validating branch and commit?"
         ):

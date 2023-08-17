@@ -17,8 +17,8 @@ def attach_to_group(group):
     ))
     @click.argument("auth_path")
     @click.argument("dependency_name")
-    @click.argument("branch_name")
-    @click.argument("out_of_band_commit")
+    @click.option("--branch-name", default=None, help="Name of the branch which contains the out-of-band commit")
+    @click.option("--out-of-band-commit", default=None, help="Out-of-band commit SHA")
     @click.option("--dependency-path", default=None, help="Dependency's filesystem path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.pass_context
