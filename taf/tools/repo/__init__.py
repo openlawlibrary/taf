@@ -65,8 +65,8 @@ def attach_to_group(group):
         create_repository(path, keystore, keys_description, commit, test)
 
     @repo.command()
-    @click.argument("url")
     @click.argument("clients-auth-path", default=None, required=False)
+    @click.option("--url", default=None, help="Authentication repository's url")
     @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
@@ -87,7 +87,7 @@ def attach_to_group(group):
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised ")
-    def update(url, clients_auth_path, clients_library_dir, default_branch, from_fs, expected_repo_type,
+    def update(clients_auth_path, url, clients_library_dir, default_branch, from_fs, expected_repo_type,
                scripts_root_dir, profile, format_output, exclude_target, strict):
         """
         Update and validate local authentication repository and target repositories. Remote
@@ -141,6 +141,7 @@ def attach_to_group(group):
                 pr.dump_stats(filename)
 
             atexit.register(exit)
+
 
         try:
             update_repository(
