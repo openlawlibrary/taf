@@ -10,15 +10,18 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add functions for adding/updating/removing dependencies to/from dependencies.json ([338])
+
 ### Changed
 
 - Remove hosts and hosts.json ([330])
 
 ### Fixed
 
+- fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
 [338]: https://github.com/openlawlibrary/taf/pull/338
+[337]: https://github.com/openlawlibrary/taf/pull/337
 [330]: https://github.com/openlawlibrary/taf/pull/330
 [329]: https://github.com/openlawlibrary/taf/pull/329
 
