@@ -1,4 +1,5 @@
 import click
+import taf.tools.dependencies as dependencies_cli
 import taf.tools.keystore as keystore_cli
 import taf.tools.repo as repo_cli
 import taf.tools.targets as targets_cli
@@ -14,6 +15,7 @@ def taf():
     pass
 
 
+dependencies_cli.attach_to_group(taf)
 keystore_cli.attach_to_group(taf)
 repo_cli.attach_to_group(taf)
 targets_cli.attach_to_group(taf)
