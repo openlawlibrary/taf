@@ -80,40 +80,9 @@ def add_dependency(
         dependency = GitRepository(library_dir, dependency_name)
 
     if dependency.is_git_repository:
-
-        is_branch_specified = branch_name is not None
-        is_commit_specified = out_of_band_commit is not None
-
-        if branch_name is None:
-            branch_name = dependency.default_branch
-        else:
-            if not dependency.branch_exists(branch_name):
-                raise TAFError(
-                    f"Branch {branch_name} does not exists in {dependency.name}"
-                )
-
-        if out_of_band_commit is None:
-            out_of_band_commit = dependency.get_first_commit_on_branch(branch_name)
-        else:
-            try:
-                branches = dependency.branches_containing_commit(
-                    out_of_band_commit, strip_remote=True
-                )
-            except TAFError:
-                raise TAFError(
-                    "Specified out-of-band authentication commit does not exist"
-                )
-            if branch_name not in branches:
-                raise TAFError(
-                    f"Commit {out_of_band_commit} not on branch {dependency.branch_name}"
-                )
-
-        if not is_branch_specified or not is_commit_specified:
-            if not click.confirm(
-                f"Branch and out-of-band authentication commit will be set to {branch_name} and {out_of_band_commit}. Proceed?"
-            ):
-                return
-
+        branch_name, out_of_band_commit = _determine_out_of_band_data(
+            dependency, branch_name, out_of_band_commit
+        )
     else:
         if branch_name is None or out_of_band_commit is None:
             raise TAFError(
@@ -128,8 +97,9 @@ def add_dependency(
     dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
 
     # if dependencies.json does not exist, initialize it
-    if dependencies_json is None:
-        dependencies_json = {}
+    if not dependencies_json:
+        dependencies_json = {"dependencies": {}}
+
     dependencies = dependencies_json["dependencies"]
     if dependency_name in dependencies:
         print(f"{dependency_name} already added to dependencies.json. Overwriting")
@@ -280,6 +250,44 @@ def _check_if_can_create_repository(auth_repo):
     return True
 
 
+def _determine_out_of_band_data(dependency, branch_name, out_of_band_commit):
+    """
+    Determines values of out-of-band branch and commit as a part of adding a new
+    dependency to dependencies.json. If not defined, branch is set to the default branch
+    of the repository and commit to the first commit of that branch.
+    """
+    is_branch_specified = branch_name is not None
+    is_commit_specified = out_of_band_commit is not None
+
+    if branch_name is None:
+        branch_name = dependency.default_branch
+    else:
+        if not dependency.branch_exists(branch_name):
+            raise TAFError(f"Branch {branch_name} does not exists in {dependency.name}")
+
+    if out_of_band_commit is None:
+        out_of_band_commit = dependency.get_first_commit_on_branch(branch_name)
+    else:
+        try:
+            branches = dependency.branches_containing_commit(
+                out_of_band_commit, strip_remote=True
+            )
+        except TAFError:
+            raise TAFError("Specified out-of-band authentication commit does not exist")
+        if branch_name not in branches:
+            raise TAFError(
+                f"Commit {out_of_band_commit} not on branch {dependency.branch_name}"
+            )
+
+    if not is_branch_specified or not is_commit_specified:
+        if not click.confirm(
+            f"Branch and out-of-band authentication commit will be set to {branch_name} and {out_of_band_commit}. Proceed?"
+        ):
+            return
+
+    return branch_name, out_of_band_commit
+
+
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
 def remove_dependency(
@@ -315,8 +323,7 @@ def remove_dependency(
     # add to dependencies.json or update the entry
     dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
 
-    # if dependencies.json does not exist, initialize it
-    if dependencies_json is None:
+    if not dependencies_json:
         print("dependencies.json does not exist")
         return
 
