@@ -142,7 +142,6 @@ def attach_to_group(group):
 
             atexit.register(exit)
 
-
         try:
             update_repository(
                 url,
