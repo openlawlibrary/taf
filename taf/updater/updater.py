@@ -4,6 +4,7 @@ import enum
 import tempfile
 
 from typing import Dict, Tuple, Any
+from taf.git import GitRepository
 
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -194,29 +195,40 @@ def update_repository(
     strict=False,
 ):
     """
-    <Arguments>
-    url:
-        URL of the remote authentication repository
-    clients_auth_path:
-        Client's authentication repository's full path
-    clients_library_dir:
-        Directory where client's target repositories are located.
-    update_from_filesystem:
-        A flag which indicates if the URL is actually a file system path
-    expected_repo_type:
-        Indicates if the authentication repository which needs to be updated is
-        a test repository, official repository, or if the type is not important
-        and should not be validated
-    target_repo_classes:
-        A class or a dictionary used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
-    target_factory:
-        A git repositories factory used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
-    checkout:
-        Whether to checkout last validated commits after update is done
-    strict:
-        Whether or not update fails if a warning is raised.
+    Validate and update an authentication repository and it's target repositories, as well
+    as its dependencies (linked authentication repositories and their targets) recursively.
+
+    Arguments:
+        url: URL of the remote authentication repository
+        clients_auth_path: Client's authentication repository's full path
+        clients_library_dir (optional): Directory where client's target repositories are located.
+        default_branch (optional): authentication repository's default branch. It is assumed that all
+            target repositories have the same default branch if it is specified
+        update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
+        expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
+            a test repository, official repository, or if the type is not important
+            and should not be validated
+        target_repo_classes (optional): A class or a dictionary used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        target_factory: A git repositories factory used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        only_validate (optional): a flag that specifies if the repositories should only be validated without
+            being updated
+        validate_from_commit (optional): commit from which the validation should start, allowing shorter
+            execution time
+        out_of_band_authentication (optional): out-of-band authentication commit's sha
+        scripts_root_dir (optional): local directory which does not have to be contained by the authentication
+            repository. Used for testing purposes while developing the scripts
+        checkout (optional): Whether to checkout last validated commits after update is done
+        excluded_target_globs (options): globs specifying target repositories which should not get validated and updated.
+        strict (optional): Whether or not update fails if a warning is raised
+
+    Side Effects:
+        If only_validate is not set to True, updates authentication repository (pulls new changes) and its target
+        repositories and dependencies
+
+    Returns:
+        None
     """
     settings.strict = strict
     # if the repository's name is not provided, divide it in parent directory
@@ -240,6 +252,18 @@ def update_repository(
     repos_update_data = {}
     transient_data = {}
     root_error = None
+
+    if url is None:
+        # if the authentication repository already exists on disk, determine
+        # the urls based on its remote
+        auth_repo = GitRepository(clients_auth_library_dir, auth_repo_name)
+        if not auth_repo.path.is_dir() or not auth_repo.is_git_repository:
+            raise UpdateFailedError(
+                "URL needs to be provided when running the updater for the first time"
+            )
+        url = auth_repo.get_remote_url()
+        if url is None:
+            raise UpdateFailedError("URL cannot be determined. Please specify it")
 
     try:
         auth_repo_name = _update_named_repository(
@@ -321,25 +345,32 @@ def _update_named_repository(
     excluded_target_globs=None,
 ):
     """
-    <Arguments>
-        url:
-        URL of the remote authentication repository
-        clients_directory:
-        Directory where the client's authentication repository is located
-        repo_name:
-        Name of the authentication repository. Can be namespace prefixed
-        targets_dir:
-        Directory where the target repositories are located
-        update_from_filesystem:
-        A flag which indicates if the URL is actually a file system path
-        authenticate_test_repo:
-        A flag which indicates that the repository to be updated is a test repository
-        target_repo_classes:
-        A class or a dictionary used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
-        target_factory:
-        A git repositories factory used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
+    Arguments:
+        url: URL of the remote authentication repository
+        clients_library_dir: Directory where client's target repositories are located.
+        auth_repo_name: Authentication repository's name
+        default_branch (optional): authentication repository's default branch. It is assumed that all
+            target repositories have the same default branch if it is specified
+        update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
+        expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
+            a test repository, official repository, or if the type is not important
+            and should not be validated
+        target_repo_classes (optional): A class or a dictionary used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        target_factory: A git repositories factory used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        only_validate (optional): a flag that specifies if the repositories should only be validated without
+            being updated
+        validate_from_commit (optional): commit from which the validation should start, allowing shorter
+            execution time
+        visited (optional): Authentication repositories which were already processed
+        repos_update_data (optional): update status, commits data, targets data of the repository which was updated
+        out_of_band_authentication (optional): out-of-band authentication commit's sha
+        scripts_root_dir (optional): local directory which does not have to be contained by the authentication
+            repository. Used for testing purposes while developing the scripts
+        checkout (optional): Whether to checkout last validated commits after update is done
+        excluded_target_globs (options): globs specifying target repositories which should not get validated and updated.
+        strict (optional): Whether or not update fails if a warning is raised
 
     The general idea of the updater is the following:
     - We have a git repository which contains the metadata files. These metadata files
