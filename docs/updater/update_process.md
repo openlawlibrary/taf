@@ -7,7 +7,7 @@ The purpose of the updater is to securely pull the authentication repository and
 
 To invoke the updater, install the package and call the following command:
 
-```olc repo update auth_repo_url filesystem_path --clients-root-dir root-dir --scripts-root-dir scripts-root-dir  --error-if-unauthenticated```
+```olc repo update  filesystem_path --url auth_repo_url --clients-root-dir root-dir --scripts-root-dir scripts-root-dir  --error-if-unauthenticated```
 
 ### Names of the repositories and the root directory
 
@@ -17,7 +17,7 @@ path with no further input. If that is not the case, it is necessary to redefine
 Names of target repositories (as defined in `repositories.json`) are appended to the root
 path (think of it as library root) thus defining the location of each target repository. If names of target repositories
 are `namespace/repo1`, `namespace/repo2` etc. (the names have to be in the `namespace/repo_name` format and the root directory is `E:\\root`, paths of the target
-repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.
+repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.)
 
 If the authentication repository's path is, say `E:\\root\\namespace\\auth_repo`, it will be assumed that its name is `namespace/auth_repo` and that the root directory is `E:\\root`.
 
@@ -105,7 +105,7 @@ def do_something(data):
 
 def send_state(state):
     # printed data will be sent from the script back to the updater
-    print(json.dumps(do_something(data)
+    print(json.dumps(do_something(data)))
 
 
 if __name__ == '__main__':
