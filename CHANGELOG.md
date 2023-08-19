@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Updater: only load repositories defined in the newest version of repositories.json ([341])
 - Updater: automatically determined url if local repository exists ([340])
 - Remove hosts and hosts.json ([330])
 
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 - fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[341]: https://github.com/openlawlibrary/taf/pull/341
 [340]: https://github.com/openlawlibrary/taf/pull/340
 [337]: https://github.com/openlawlibrary/taf/pull/337
 [330]: https://github.com/openlawlibrary/taf/pull/330
