@@ -274,6 +274,11 @@ class GitRepository:
         repo = self.pygit_repo
         if branch:
             branch = repo.branches.get(branch)
+            if branch is None:
+                raise GitError(
+                    self,
+                    message=f"Error occurred while getting commits of branch {branch}. Branch does not exist",
+                )
             latest_commit_id = branch.target
         else:
             latest_commit_id = repo[repo.head.target].id

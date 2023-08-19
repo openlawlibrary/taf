@@ -661,7 +661,7 @@ def _update_current_repository(
             excluded_target_globs=excluded_target_globs,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
-            users_auth_repo, commits
+            users_auth_repo, commits[-1::]
         )
         repositories_branches_and_commits = (
             users_auth_repo.sorted_commits_and_branches_per_repositories(
@@ -748,7 +748,7 @@ def _update_target_repositories(
         for branch in repositories_branches_and_commits[path]:
             taf_logger.info("Validating branch {}", branch)
             # if last_validated_commit is None or if the target repository didn't exist prior
-            # to calling update, start the update from the beggining
+            # to calling update, start the update from the beginning
             # otherwise, for each branch, start with the last validated commit of the local
             # branch
             branch_exists = repository.branch_exists(branch, include_remotes=False)
