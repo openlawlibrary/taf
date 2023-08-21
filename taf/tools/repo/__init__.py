@@ -91,7 +91,8 @@ def attach_to_group(group):
                scripts_root_dir, profile, format_output, exclude_target, strict):
         """
         Update and validate local authentication repository and target repositories. Remote
-        authentication's repository url needs to be specified when calling this command. If the
+        authentication's repository url needs to be specified when calling this command when
+        calling the updater for the first time for the given repository. If the
         authentication repository and the target repositories are in the same root directory,
         locations of the target repositories are calculated based on the authentication repository's
         path. If that is not the case, it is necessary to redefine this default value using the

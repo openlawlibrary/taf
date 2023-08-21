@@ -247,7 +247,7 @@ taf repo validate E:\\root\\namespace\\auth_repo
 taf repo validate E:\\root\\namespace\\auth_repo --from-commit d0d0fafdc9a6b8c6dd8829635698ac75774b8eb3
 ```
 
-### `targets update_and_sign_targets`
+### `targets update-and-sign-targets`
 
 Update target files corresponding to target repositories specified through the target type parameter
 by writing the current top commit and branch name to target files corresponding to the listed repositories.
@@ -346,3 +346,35 @@ taf metadata update-expiration-date E:\\OLL\\auth_rpeo snapshot --interval 5 --c
 
 This will set the new expiration date of the snapshot role to 5 days after the current date
 and automatically commit the changes.
+
+### dependencies add
+
+A dependency is an authentication repository which has a parent-child relationship with another authentication repository.
+When updating a parent authentication repository, its dependencies are recursively updated as well. Dependencies are
+specified in a special target file called `dependencies.json`. In addition to storing names of dependencies, it is
+necessary to also store a commit which can then be used for out-of-band validation, as well as the branch which contains
+this commit (one commit can belong to multiple branches, so storing just commit sha is not sufficient). This out-of-band authentication commit represents a commit including and following which state of the authentication repository is expected to be valid at every revision. Someone who wants to host an authentication repository can contact the owner and confirm
+the validity of this commit. If additional information that is not required by TAF should also be stored in `dependencies.json`,
+it is specified by providing additional options when calling the command. Here is an example:
+
+`taf dependencies add auth-path namespace1/auth --branch-name main --out-of-band-commit d4d768da4e8f74f54c644923b7ed0e19a0faf3c5 --custom-property some-value --keystore keystore-path`
+
+In this case, custom-property: some-value will be added to the custom part of the dependency dependencies.json.
+
+If branch-name and out-of-band-commit are omitted, the default branch and its first commit will be written to dependencies.json.
+
+Dependency does not have to exist on the filesystem, but if it does, provided branch name and out-of-band commit sha
+will be validated, so it is recommended to run the updater first and update/clone and validate the dependency first.
+If the dependency's full path is not provided, it is expected to be located in the same library root directory as the
+authentication repository, in a directory whose name corresponds to its name. If dependency's parent authentication repository's
+path is `E:\\examples\\root\\namespace\\auth`, and the dependency's namespace prefixed name is `namespace1\\auth`, the target's path
+will be set to `E:\\examples\\root\\namespace1\\auth`.
+
+
+### dependencies remove
+
+To remove a dependency from dependencies.json, run
+
+`taf dependencies remove auth-path namespace1/auth --keystore keystore-path`
+
+This will also update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.

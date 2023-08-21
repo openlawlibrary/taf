@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add functions for adding/updating/removing dependencies to/from dependencies.json ([338])
+
 ### Changed
 
 - Updater: automatically determined url if local repository exists ([340])
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Add missing `write` flag to `taf targets sign` ([329])
 
 [340]: https://github.com/openlawlibrary/taf/pull/340
+[338]: https://github.com/openlawlibrary/taf/pull/338
 [337]: https://github.com/openlawlibrary/taf/pull/337
 [330]: https://github.com/openlawlibrary/taf/pull/330
 [329]: https://github.com/openlawlibrary/taf/pull/329

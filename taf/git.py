@@ -347,8 +347,11 @@ class GitRepository:
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
         repo = self.pygit_repo
-        local_branches = list(repo.branches.local.with_commit(commit))
-        remote_branches = list(repo.branches.remote.with_commit(commit))
+        try:
+            local_branches = list(repo.branches.local.with_commit(commit))
+            remote_branches = list(repo.branches.remote.with_commit(commit))
+        except KeyError:
+            raise TAFError(f"Commit {commit} does not exist")
         filtered_remote_branches = []
         if len(remote_branches):
             for branch in remote_branches:
@@ -445,6 +448,20 @@ class GitRepository:
             else:
                 self._log_error(f"could not checkout branch {branch_name}")
                 raise (e)
+
+    def check_if_clean_and_synced(self, branch=None):
+        """
+        Check if repository's worktree is clean and if the
+        specified (or default) branch is synced with remote
+        (if the repository has a remote set)
+        """
+        branch = branch or self.default_branch
+        if self.something_to_commit():
+            return False
+        if not self.has_remote():
+            return True
+        if not self.synced_with_remote(branch):
+            return False
 
     def checkout_paths(self, commit_sha, *args):
         repo = self.pygit_repo

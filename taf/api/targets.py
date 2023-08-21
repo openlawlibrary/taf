@@ -55,9 +55,12 @@ def add_target_repo(
         Updates metadata and repositories.json, adds a new target file if repository exists and writes changes to disk
         and commits changes.
 
+    Raises:
+        TAFError if the dependency cannot be instantiated or the default branch cannot be determined
     Returns:
         None
     """
+
     auth_repo = AuthenticationRepository(path=auth_path)
     if not auth_repo.is_git_repository_root:
         print(f"{auth_path} is not a git repository!")
