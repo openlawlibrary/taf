@@ -1,7 +1,6 @@
 import click
 
 from pathlib import Path
-from taf.yubikey import export_yk_certificate
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
@@ -12,10 +11,15 @@ from taf.keystore import (
 )
 from taf import YubikeyMissingLibrary
 from tuf.sig import generate_rsa_signature
+from taf.log import taf_logger
 
 try:
     import taf.yubikey as yk
+    from taf.yubikey import export_yk_certificate
 except ImportError:
+    taf_logger.warning(
+        "WARNING: yubikey-manager dependency not installed. You will not be able to use YubiKeys."
+    )
     yk = YubikeyMissingLibrary()
 
 
@@ -201,14 +205,13 @@ def load_signing_keys(
                 )
             )
         if not all_loaded:
-            if _load_and_append_yubikeys(key_name, role, False):
-                num_of_signatures += 1
-                continue
-
-            print("Attempting to load from keystore")
             key = _load_from_keystore(key_name)
             if key is not None:
                 keys.append(key)
+                num_of_signatures += 1
+                continue
+
+            if _load_and_append_yubikeys(key_name, role, False):
                 num_of_signatures += 1
                 continue
 
