@@ -214,7 +214,7 @@ def test_autodetect_default_branch_with_git_init_bare_expect_autodetected():
     "test_name, branch",
     [
         ("test-repository-main-branch", "main"),
-        ("test-repository-master-branch", "master")
+        ("test-repository-master-branch", "master"),
     ],
 )
 def test_load_repositories(test_name, branch, repository_test_repositories):
