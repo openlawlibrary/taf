@@ -71,6 +71,10 @@ class RepositoryInstantiationError(TAFError):
         self.message = message
 
 
+class RepositoryNotCleanError(TAFError):
+    pass
+
+
 class ScriptExecutionError(TAFError):
     def __init__(self, script, error_msg):
         message = (

@@ -1,11 +1,12 @@
-from logging import DEBUG
+from logging import DEBUG, ERROR
 import os
 import click
 from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
-from logdecorator import log_on_end, log_on_start
+from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.utils import check_if_clean
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
@@ -38,6 +39,13 @@ MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while adding a new role {role:s}: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def add_role(
     path: str,
     role: str,
@@ -114,6 +122,13 @@ def add_role(
 
 @log_on_start(DEBUG, "Adding new paths to role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new paths to role", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while adding new paths to role {role:s}: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def add_role_paths(
     paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None
 ):
@@ -150,6 +165,13 @@ def add_role_paths(
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new roles", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while adding new roles: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def add_roles(
     path,
     keystore=None,
@@ -242,6 +264,13 @@ def add_roles(
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "AAdding new signing key to roles: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def add_signing_key(
     path,
     roles,
@@ -594,6 +623,13 @@ def _role_obj(role, repository, parent=None):
 
 @log_on_start(DEBUG, "Removing role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing the role", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while removing role {role:s}: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def remove_role(
     path: str,
     role: str,
@@ -688,8 +724,16 @@ def remove_role(
         auth_repo.commit(commit_message)
 
 
+# TODO this resolve this auth_path
 @log_on_start(DEBUG, "Removing paths", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing paths", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while removing roles: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def remove_paths(paths, keystore, commit=True, auth_repo=None, auth_path=None):
     """
     Remove delegated paths. Update parent roles of the roles associated with the removed paths,

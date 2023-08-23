@@ -1,9 +1,10 @@
 from functools import partial
 import json
-from logging import DEBUG, INFO
+from logging import DEBUG, ERROR, INFO
 import click
-from logdecorator import log_on_end, log_on_start
+from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
+from taf.api.utils import check_if_clean
 
 import taf.repositoriesdb as repositoriesdb
 from collections import defaultdict
@@ -25,6 +26,13 @@ from taf.log import taf_logger
     DEBUG, "Adding or updating dependency {dependency_name:s}", logger=taf_logger
 )
 @log_on_end(DEBUG, "Finished adding or updating dependency", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while adding a new dependency: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def add_dependency(
     path: str,
     dependency_name: str,
@@ -136,6 +144,12 @@ def add_dependency(
     INFO, "Creating a new authentication repository {repo_path:s}", logger=taf_logger
 )
 @log_on_end(INFO, "Finished creating a new repository", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while creating a new repository: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
 def create_repository(
     path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
@@ -290,6 +304,13 @@ def _determine_out_of_band_data(dependency, branch_name, out_of_band_commit):
 
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while removing a dependency: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def remove_dependency(
     path: str,
     dependency_name: str,

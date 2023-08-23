@@ -441,9 +441,7 @@ def update_target_repos_from_repositories_json(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
     for repo_name in repositories_json.get("repositories"):
-        _save_top_commit_of_repo_to_target(
-            library_dir, repo_name, path, add_branch
-        )
+        _save_top_commit_of_repo_to_target(library_dir, repo_name, path, add_branch)
     register_target_files(path, keystore, None, True, scheme, write=True)
 
 
@@ -500,9 +498,7 @@ def update_and_sign_targets(
     for target_name in target_names:
         _save_top_commit_of_repo_to_target(library_dir, target_name, path, True)
         print(f"Updated {target_name} target file")
-    register_target_files(
-        path, keystore, roles_key_infos, True, scheme, write=True
-    )
+    register_target_files(path, keystore, roles_key_infos, True, scheme, write=True)
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):

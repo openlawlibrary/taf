@@ -2,6 +2,7 @@ import datetime
 from logging import ERROR, INFO
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error
+from taf.api.utils import check_if_clean
 from taf.exceptions import TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
@@ -10,9 +11,13 @@ from taf.repository_tool import Repository, is_delegated_role
 from taf.log import taf_logger
 
 
-def check_expiration_dates(
-    path, interval=None, start_date=None, excluded_roles=None
-):
+@log_on_error(
+    ERROR,
+    "An error occurred while checking expiration dates: {e!r}",
+    logger=taf_logger,
+    reraise=False,
+)
+def check_expiration_dates(path, interval=None, start_date=None, excluded_roles=None):
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
     Prints a list of expired roles.
@@ -55,6 +60,7 @@ def check_expiration_dates(
         print(f"No roles will expire within the given {interval} day interval")
 
 
+@check_if_clean
 def update_metadata_expiration_date(
     path,
     roles,
@@ -125,7 +131,7 @@ def update_metadata_expiration_date(
 @log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "Could not update expiration date of {role:s} {e!r}",
+    "Could not update expiration date of {role:s}: {e!r}",
     logger=taf_logger,
     reraise=True,
 )
@@ -150,6 +156,13 @@ def _update_expiration_date_of_role(
         )
 
 
+@log_on_end(INFO, "Updated snapshot and timestamp", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "Could not update snapshot and timestamp: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
 def update_snapshot_and_timestamp(
     taf_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
 ):
@@ -186,6 +199,13 @@ def update_snapshot_and_timestamp(
         taf_repo.writeall()
 
 
+@log_on_end(INFO, "Updated target metadata", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "Could not update target metadata: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
 def update_target_metadata(
     taf_repo,
     added_targets_data,
