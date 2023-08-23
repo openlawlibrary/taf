@@ -49,7 +49,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           path (Path): repository's full filesystem path, which can be specified instead of name and library dir
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
-          default_branch (str): repository's default branch ("main" if not defined)
+          default_branch (str): repository's default branch, automatically determined if not specified
           out_of_band_authentication (str): manually specified initial commit
         """
         super().__init__(

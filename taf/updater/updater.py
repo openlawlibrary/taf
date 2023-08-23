@@ -69,7 +69,7 @@ def _check_update_status(
     return update_status, errors
 
 
-def _clone_validation_repo(url, repository_name, default_branch):
+def _clone_validation_repo(url, repository_name):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
@@ -79,9 +79,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(
-        path=path, urls=[url], default_branch=default_branch
-    )
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
@@ -179,7 +177,6 @@ def update_repository(
     url,
     clients_auth_path,
     clients_library_dir=None,
-    default_branch=None,
     update_from_filesystem=False,
     expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
@@ -202,8 +199,6 @@ def update_repository(
         url: URL of the remote authentication repository
         clients_auth_path: Client's authentication repository's full path
         clients_library_dir (optional): Directory where client's target repositories are located.
-        default_branch (optional): authentication repository's default branch. It is assumed that all
-            target repositories have the same default branch if it is specified
         update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
         expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
             a test repository, official repository, or if the type is not important
@@ -271,7 +266,6 @@ def update_repository(
             clients_auth_library_dir,
             clients_library_dir,
             auth_repo_name,
-            default_branch,
             update_from_filesystem,
             expected_repo_type,
             target_repo_classes,
@@ -328,7 +322,6 @@ def _update_named_repository(
     clients_auth_library_dir,
     targets_library_dir,
     auth_repo_name,
-    default_branch,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes=None,
@@ -349,8 +342,6 @@ def _update_named_repository(
         url: URL of the remote authentication repository
         clients_library_dir: Directory where client's target repositories are located.
         auth_repo_name: Authentication repository's name
-        default_branch (optional): authentication repository's default branch. It is assumed that all
-            target repositories have the same default branch if it is specified
         update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
         expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
             a test repository, official repository, or if the type is not important
@@ -417,7 +408,6 @@ def _update_named_repository(
         clients_auth_library_dir,
         targets_library_dir,
         auth_repo_name,
-        default_branch,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -469,7 +459,6 @@ def _update_named_repository(
                         clients_auth_library_dir,
                         targets_library_dir,
                         child_auth_repo.name,
-                        default_branch,
                         update_from_filesystem,
                         expected_repo_type,
                         target_repo_classes,
@@ -544,7 +533,6 @@ def _update_current_repository(
     clients_auth_library_dir,
     targets_library_dir,
     auth_repo_name,
-    default_branch,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes,
@@ -558,7 +546,6 @@ def _update_current_repository(
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
-    settings.default_branch = default_branch
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -591,7 +578,7 @@ def _update_current_repository(
         )
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
-        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
+        auth_repo_name = _clone_validation_repo(url, auth_repo_name)
         git_updater = GitUpdater(url, clients_auth_library_dir, auth_repo_name)
         _run_tuf_updater(git_updater)
     except Exception as e:
@@ -606,7 +593,6 @@ def _update_current_repository(
             users_auth_repo = AuthenticationRepository(
                 clients_auth_library_dir,
                 auth_repo_name,
-                default_branch=default_branch,
                 urls=[url],
                 conf_directory_root=conf_directory_root,
             )
@@ -666,7 +652,7 @@ def _update_current_repository(
         repositories_branches_and_commits = (
             users_auth_repo.sorted_commits_and_branches_per_repositories(
                 commits,
-                default_branch=default_branch,
+                default_branch=users_auth_repo.default_branch,
                 excluded_target_globs=excluded_target_globs,
             )
         )
@@ -1206,7 +1192,6 @@ def _update_target_repository(
 def validate_repository(
     clients_auth_path,
     clients_library_dir=None,
-    default_branch=None,
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
@@ -1235,7 +1220,6 @@ def validate_repository(
             clients_auth_library_dir,
             clients_library_dir,
             auth_repo_name,
-            default_branch,
             True,
             expected_repo_type=expected_repo_type,
             only_validate=True,

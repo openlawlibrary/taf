@@ -48,7 +48,7 @@ class GitRepository:
           path (Path): repository's full filesystem path, which can be specified instead of name and library dir
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
-          default_branch (str): repository's default branch ("main" if not defined)
+          default_branch (str): repository's default branch, automatically determined if not specified
           allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
           the containing directory is owned by a different user to be ignored
         """
