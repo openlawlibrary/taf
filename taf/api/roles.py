@@ -39,7 +39,7 @@ MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
 def add_role(
-    auth_path: str,
+    path: str,
     role: str,
     parent_role: str,
     paths: list,
@@ -56,7 +56,7 @@ def add_role(
     Automatically commit the changes if commit is set to True.
 
     Arguments:
-        auth_path: Path to the authentication repository.
+        path: Path to the authentication repository.
         role: Name of the role which is to be added.
         parent_role: Name of the target role that is the new role's parent. Can be targets or another delegated role.
         paths: A list of target paths that are delegated to the new role.
@@ -76,8 +76,8 @@ def add_role(
     """
     yubikeys = defaultdict(dict)
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=auth_path)
-    auth_path = Path(auth_path)
+        auth_repo = AuthenticationRepository(path=path)
+    path = Path(path)
     existing_roles = auth_repo.get_all_targets_roles()
     existing_roles.extend(MAIN_ROLES)
     if role in existing_roles:
@@ -151,7 +151,7 @@ def add_role_paths(
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new roles", logger=taf_logger)
 def add_roles(
-    auth_path,
+    path,
     keystore=None,
     roles_key_infos=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -161,7 +161,7 @@ def add_roles(
     dictionary or .json file
 
     Arguments:
-        auth_path: Path to the authentication repository.
+        path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
         roles_key_infos (optional): A dictionary containing information about the roles:
             - total number of keys per role
@@ -181,8 +181,8 @@ def add_roles(
         None
     """
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepository(path=auth_path)
-    auth_path = Path(auth_path)
+    auth_repo = AuthenticationRepository(path=path)
+    path = Path(path)
 
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
@@ -243,7 +243,7 @@ def add_roles(
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
 def add_signing_key(
-    auth_path,
+    path,
     roles,
     pub_key_path=None,
     keystore=None,
@@ -255,7 +255,7 @@ def add_signing_key(
     parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
 
     Arguments:
-        auth_path: Path to the authentication repository.
+        path: Path to the authentication repository.
         roles: A list of roles whose signing keys need to be extended.
         pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
             it will be necessary to ender the key when prompted.
@@ -276,7 +276,7 @@ def add_signing_key(
     Returns:
         None
     """
-    taf_repo = Repository(auth_path)
+    taf_repo = Repository(path)
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
@@ -595,7 +595,7 @@ def _role_obj(role, repository, parent=None):
 @log_on_start(DEBUG, "Removing role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing the role", logger=taf_logger)
 def remove_role(
-    auth_path: str,
+    path: str,
     role: str,
     keystore: str,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -609,7 +609,7 @@ def remove_role(
     It is not possible to remove any of the main TUF roles
 
     Arguments:
-        auth_path: Path to the authentication repository.
+        path: Path to the authentication repository.
         role: Name of the role which is to be removed.
         keystore: Location of the keystore files.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
@@ -631,7 +631,7 @@ def remove_role(
         return
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=auth_path)
+        auth_repo = AuthenticationRepository(path=path)
 
     parent_role = auth_repo.find_delegated_roles_parent(role)
     if parent_role is None:
@@ -645,7 +645,7 @@ def remove_role(
         if delegations_data["name"] == role:
             paths = delegations_data["paths"]
             for path in paths:
-                target_file_path = Path(auth_path, TARGETS_DIRECTORY_NAME, path)
+                target_file_path = Path(path, TARGETS_DIRECTORY_NAME, path)
                 if target_file_path.is_file():
                     if remove_targets:
                         os.unlink(str(target_file_path))

@@ -12,7 +12,7 @@ def attach_to_group(group):
         pass
 
     @metadata.command()
-    @click.argument("path")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
     @click.option("--start-date", default=datetime.datetime.now(), help="Date to which expiration interval is added", type=ISO_DATE)
     def check_expiration_dates(path, interval, start_date):
@@ -34,10 +34,10 @@ def attach_to_group(group):
             snapshot will expire on 2022-07-28
             root will expire on 2022-08-19
         """
-        check_metadata_expiration_dates(repo_path=path, interval=interval, start_date=start_date)
+        check_metadata_expiration_dates(path=path, interval=interval, start_date=start_date)
 
     @metadata.command()
-    @click.argument("path")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles which expiration date should get updated")
     @click.option("--interval", default=None, help="Number of days added to the start date",
                   type=int)

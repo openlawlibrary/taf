@@ -11,14 +11,14 @@ from taf.log import taf_logger
 
 
 def check_expiration_dates(
-    repo_path, interval=None, start_date=None, excluded_roles=None
+    path, interval=None, start_date=None, excluded_roles=None
 ):
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
     Prints a list of expired roles.
 
     Arguments:
-        repo_path: Authentication repository's location.
+        path: Authentication repository's location.
         interval: Number of days ahead to check for expiration.
         start_date: Date from which to start checking for expiration.
         excluded_roles: List of roles to exclude from the check.
@@ -29,8 +29,8 @@ def check_expiration_dates(
     Returns:
         None
     """
-    repo_path = Path(repo_path)
-    taf_repo = Repository(repo_path)
+    path = Path(path)
+    taf_repo = Repository(path)
 
     expired_dict, will_expire_dict = taf_repo.check_roles_expiration_dates(
         interval, start_date, excluded_roles
@@ -56,7 +56,7 @@ def check_expiration_dates(
 
 
 def update_metadata_expiration_date(
-    repo_path,
+    path,
     roles,
     interval,
     keystore=None,
@@ -70,7 +70,7 @@ def update_metadata_expiration_date(
     and timestamp need to be signed after a targets role is updated.
 
     Arguments:
-        repo_path: Authentication repository's location.
+        path: Authentication repository's location.
         roles: A list of roles whose expiration dates should be updated.
         interval: Number of days added to the start date in order to calculate the
             expiration date.
@@ -90,7 +90,7 @@ def update_metadata_expiration_date(
     if start_date is None:
         start_date = datetime.datetime.now()
 
-    taf_repo = Repository(repo_path)
+    taf_repo = Repository(path)
     loaded_yubikeys = {}
     roles_to_update = []
 
@@ -117,7 +117,7 @@ def update_metadata_expiration_date(
     if no_commit:
         print("\nNo commit was set. Please commit manually. \n")
     else:
-        auth_repo = GitRepository(path=repo_path)
+        auth_repo = GitRepository(path=path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 

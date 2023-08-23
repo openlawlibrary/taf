@@ -26,7 +26,7 @@ from taf.log import taf_logger
 )
 @log_on_end(DEBUG, "Finished adding or updating dependency", logger=taf_logger)
 def add_dependency(
-    auth_path: str,
+    path: str,
     dependency_name: str,
     branch_name: str,
     out_of_band_commit: str,
@@ -44,7 +44,7 @@ def add_dependency(
     commit belongs to the specified branch.
 
     Arguments:
-        auth_path: Path to the authentication repository.
+        path: Path to the authentication repository.
         dependency_name: Name of the dependency.
         branch_name: Name of the branch which contains the out-of-band authentication commit.
         out_of_band_commit: SHA of out-of-band authentication commit.
@@ -64,12 +64,12 @@ def add_dependency(
     Returns:
         None
     """
-    if auth_path is None:
+    if path is None:
         raise TAFError("Authentication repository's path not provided")
 
-    auth_repo = AuthenticationRepository(path=auth_path)
+    auth_repo = AuthenticationRepository(path=path)
     if not auth_repo.is_git_repository_root:
-        print(f"{auth_path} is not a git repository!")
+        print(f"{path} is not a git repository!")
         return
     if library_dir is None:
         library_dir = auth_repo.path.parent.parent
@@ -137,7 +137,7 @@ def add_dependency(
 )
 @log_on_end(INFO, "Finished creating a new repository", logger=taf_logger)
 def create_repository(
-    repo_path, keystore=None, roles_key_infos=None, commit=False, test=False
+    path, keystore=None, roles_key_infos=None, commit=False, test=False
 ):
     """
     Create a new authentication repository. Generate initial metadata files.
@@ -145,7 +145,7 @@ def create_repository(
     targets metadata files.
 
     Arguments:
-        repo_path: Authentication repository's location.
+        path: Authentication repository's location.
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
         commit: Specifies if the changes should be automatically committed.
@@ -158,8 +158,8 @@ def create_repository(
         None
     """
     yubikeys = defaultdict(dict)
-    auth_repo = AuthenticationRepository(path=repo_path)
-    repo_path = Path(repo_path)
+    auth_repo = AuthenticationRepository(path=path)
+    path = Path(path)
 
     if not _check_if_can_create_repository(auth_repo):
         return
@@ -198,10 +198,10 @@ def create_repository(
 
     # register and sign target files (if any)
     try:
-        taf_repository = Repository(repo_path)
+        taf_repository = Repository(path)
         taf_repository._tuf_repository = repository
         register_target_files(
-            repo_path,
+            path,
             keystore,
             roles_key_infos,
             commit=False,
@@ -234,17 +234,17 @@ def _check_if_can_create_repository(auth_repo):
     Returns:
         True if a new authentication repository can be created, False otherwise.
     """
-    repo_path = Path(auth_repo.path)
-    if repo_path.is_dir():
+    path = Path(auth_repo.path)
+    if path.is_dir():
         # check if there is non-empty metadata directory
         if auth_repo.metadata_path.is_dir() and any(auth_repo.metadata_path.iterdir()):
             if auth_repo.is_git_repository:
                 print(
-                    f'"{repo_path}" is a git repository containing the metadata directory. Generating new metadata files could make the repository invalid. Aborting.'
+                    f'"{path}" is a git repository containing the metadata directory. Generating new metadata files could make the repository invalid. Aborting.'
                 )
                 return False
             if not click.confirm(
-                f'Metadata directory found inside "{repo_path}". Recreate metadata files?'
+                f'Metadata directory found inside "{path}". Recreate metadata files?'
             ):
                 return False
     return True
@@ -291,7 +291,7 @@ def _determine_out_of_band_data(dependency, branch_name, out_of_band_commit):
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
 def remove_dependency(
-    auth_path: str,
+    path: str,
     dependency_name: str,
     keystore: str,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -300,7 +300,7 @@ def remove_dependency(
     Remove a dependency (an authentication repository) from dependencies.json
 
     Arguments:
-        auth_path: Path to the authentication repository.
+        path: Path to the authentication repository.
         dependency_name: Name of the dependency which should be removed.
         keystore: Location of the keystore files.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
@@ -312,12 +312,12 @@ def remove_dependency(
     Returns:
         None
     """
-    if auth_path is None:
+    if path is None:
         raise TAFError("Authentication repository's path not provided")
 
-    auth_repo = AuthenticationRepository(path=auth_path)
+    auth_repo = AuthenticationRepository(path=path)
     if not auth_repo.is_git_repository_root:
-        print(f"{auth_path} is not a git repository!")
+        print(f"{path} is not a git repository!")
         return
 
     # add to dependencies.json or update the entry
