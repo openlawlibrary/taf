@@ -208,3 +208,16 @@ def test_autodetect_default_branch_with_git_init_bare_expect_autodetected():
         assert default_branch is not None
         # depends on git defaultBranch config on users' machine
         assert default_branch in ("main", "master")
+
+
+@pytest.mark.parametrize(
+    "test_name, branch",
+    [
+        ("test-repository-main-branch", "main"),
+        ("test-repository-master-branch", "master")
+    ],
+)
+def test_load_repositories(test_name, branch, repository_test_repositories):
+    repository_path = repository_test_repositories["test-default-branch"][test_name]
+    repo = GitRepository(path=repository_path)
+    assert repo.default_branch == branch
