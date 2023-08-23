@@ -451,9 +451,7 @@ def _check_if_commits_match(
             for excluded_target_glob in excluded_target_globs
         ):
             continue
-        origin_repo = GitRepository(
-            origin_dir, repository_rel_path, default_branch="master"
-        )
+        origin_repo = GitRepository(origin_dir, repository_rel_path)
         client_repo = GitRepository(client_dir, repository_rel_path)
         for branch in origin_repo.branches():
             # ensures that git log will work
@@ -574,7 +572,6 @@ def _update_and_check_commit_shas(
             str(origin_auth_repo_path),
             str(clients_auth_repo_path) if auth_repo_name_exists else None,
             str(client_dir),
-            "master",
             True,
             expected_repo_type=expected_repo_type,
             excluded_target_globs=excluded_target_globs,
@@ -604,7 +601,6 @@ def _update_invalid_repos_and_check_if_remained_same(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path),
                 str(client_dir),
-                "master",
                 True,
                 expected_repo_type=expected_repo_type,
             )
@@ -641,7 +637,6 @@ def _update_invalid_repos_and_check_if_repos_exist(
                 str(origin_auth_repo_path),
                 str(clients_auth_repo_path) if auth_repo_name_exists else None,
                 str(client_dir),
-                "master",
                 True,
                 expected_repo_type=expected_repo_type,
                 strict=strict,

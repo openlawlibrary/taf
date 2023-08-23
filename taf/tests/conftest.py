@@ -151,6 +151,13 @@ def repositoriesdb_test_repositories():
         yield origins
 
 
+@fixture(scope="session", autouse=True)
+def repository_test_repositories():
+    test_dir = "test-repository"
+    with origin_repos_group(test_dir) as origins:
+        yield origins
+
+
 @fixture
 def client_dir():
     return CLIENT_DIR_PATH
