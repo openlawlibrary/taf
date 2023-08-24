@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Bump `cattrs` ([349])
 - Improve CLI error handling ([346])
 - Update signing keys loading. Add a flag for specifying if the user will be asked to manually enter a key ([346])
 - Remove default branch specification from updater ([343])
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[349]: https://github.com/openlawlibrary/taf/pull/349
 [346]: https://github.com/openlawlibrary/taf/pull/346
 [343]: https://github.com/openlawlibrary/taf/pull/343
 [342]: https://github.com/openlawlibrary/taf/pull/342
