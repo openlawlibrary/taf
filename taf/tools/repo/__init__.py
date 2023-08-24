@@ -65,7 +65,7 @@ def attach_to_group(group):
         create_repository(path, keystore, keys_description, commit, test)
 
     @repo.command()
-    @click.argument("clients-auth-path", default=None, required=False)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--url", default=None, help="Authentication repository's url")
     @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
@@ -86,7 +86,7 @@ def attach_to_group(group):
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised ")
-    def update(clients_auth_path, url, clients_library_dir, from_fs, expected_repo_type,
+    def update(path, url, clients_library_dir, from_fs, expected_repo_type,
                scripts_root_dir, profile, format_output, exclude_target, strict):
         """
         Update and validate local authentication repository and target repositories. Remote
@@ -123,7 +123,7 @@ def attach_to_group(group):
         Update can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during update if any/all warnings are found. By default, --strict is disabled.
         """
-        if clients_auth_path is None and clients_library_dir is None:
+        if path is None and clients_library_dir is None:
             raise click.UsageError('Must specify either authentication repository path or library directory!')
 
         if profile:
@@ -145,7 +145,7 @@ def attach_to_group(group):
         try:
             update_repository(
                 url,
-                clients_auth_path,
+                path,
                 clients_library_dir,
                 from_fs,
                 UpdateType(expected_repo_type),
@@ -168,7 +168,7 @@ def attach_to_group(group):
                 raise e
 
     @repo.command()
-    @click.argument("clients-auth-path")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
                   "calculated based on authentication repository's path. "
@@ -178,7 +178,7 @@ def attach_to_group(group):
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
-    def validate(clients_auth_path, clients_library_dir, from_commit, exclude_target, strict):
+    def validate(path, clients_library_dir, from_commit, exclude_target, strict):
         """
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
@@ -187,4 +187,4 @@ def attach_to_group(group):
         Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during validate if any/all warnings are found. By default, --strict is disabled.
         """
-        validate_repository(clients_auth_path, clients_library_dir, from_commit, exclude_target, strict)
+        validate_repository(path, clients_library_dir, from_commit, exclude_target, strict)
