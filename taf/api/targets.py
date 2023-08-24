@@ -1,10 +1,10 @@
-from logging import DEBUG, INFO
+from logging import DEBUG, ERROR, INFO
 import click
 import os
 import json
 from collections import defaultdict
 from pathlib import Path
-from logdecorator import log_on_end, log_on_start
+from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.api.roles import (
     _initialize_roles_and_keystore,
@@ -12,6 +12,7 @@ from taf.api.roles import (
     add_role_paths,
     remove_paths,
 )
+from taf.api.utils import check_if_clean
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
@@ -25,6 +26,13 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding target repository", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while adding a new target repository {target_name:s}: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def add_target_repo(
     path: str,
     target_path: str,
@@ -149,6 +157,7 @@ def add_target_repo(
     auth_repo.commit(commit_message)
 
 
+@check_if_clean
 def export_targets_history(path, commit=None, output=None, target_repos=None):
     """
     Form a dictionary consisting of branches and commits belonging to it for every target repository
@@ -198,12 +207,14 @@ def export_targets_history(path, commit=None, output=None, target_repos=None):
         print(commits_json)
 
 
+@check_if_clean
 def list_targets(
     path: str,
     library_dir: str = None,
 ):
     """
-    Save the top commit of specified target repositories to the corresponding target files and sign
+    Prints a list of target repositories of an authentication repository and their states (are the work directories clean, are there
+    remove changes that have not yed been pulled, are there commits that have not yet been signed).
 
     Arguments:
         path: Authentication repository's location
@@ -263,6 +274,12 @@ def list_targets(
 
 
 @log_on_start(INFO, "Signing target files", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while signing target files: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
 def register_target_files(
     path,
     keystore=None,
@@ -319,6 +336,13 @@ def register_target_files(
 
 @log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing target repository", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while removing target repository {target_name:s}: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def remove_target_repo(
     path: str,
     target_name: str,
@@ -380,7 +404,7 @@ def remove_target_repo(
     auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
-    remove_paths([target_name], keystore, commit=False, auth_repo=auth_repo)
+    remove_paths(path, [target_name], keystore, commit=False)
     update_snapshot_and_timestamp(
         auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
     )
@@ -408,6 +432,13 @@ def _save_top_commit_of_repo_to_target(
 
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while updating target files: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def update_target_repos_from_repositories_json(
     path,
     library_dir,
@@ -447,6 +478,13 @@ def update_target_repos_from_repositories_json(
 
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while updating target files: {e!r}",
+    logger=taf_logger,
+    reraise=True,
+)
+@check_if_clean
 def update_and_sign_targets(
     path: str,
     library_dir: str,
