@@ -265,7 +265,7 @@ def add_roles(
 @log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "AAdding new signing key to roles: {e!r}",
+    ""An error occurred while adding new signing key to roles: {e!r}",
     logger=taf_logger,
     reraise=True,
 )
