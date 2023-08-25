@@ -28,8 +28,9 @@ from taf.log import taf_logger
 @log_on_end(DEBUG, "Finished adding or updating dependency", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding a new dependency: {e!r}",
+    "An error occurred while adding a new dependency: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -146,8 +147,9 @@ def add_dependency(
 @log_on_end(INFO, "Finished creating a new repository", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while creating a new repository: {e!r}",
+    "An error occurred while creating a new repository: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def create_repository(
@@ -306,8 +308,9 @@ def _determine_out_of_band_data(dependency, branch_name, out_of_band_commit):
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while removing a dependency: {e!r}",
+    "An error occurred while removing a dependency: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean

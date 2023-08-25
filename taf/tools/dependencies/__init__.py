@@ -3,6 +3,8 @@ from taf.api.repository import (
     add_dependency,
     remove_dependency
 )
+from taf.exceptions import TAFError
+from taf.tools.cli import catch_cli_exception
 
 
 def attach_to_group(group):
@@ -15,6 +17,7 @@ def attach_to_group(group):
         ignore_unknown_options=True,
         allow_extra_args=True,
     ))
+    @catch_cli_exception(handle=TAFError)
     @click.argument("dependency_name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--branch-name", default=None, help="Name of the branch which contains the out-of-band commit")
@@ -61,6 +64,7 @@ def attach_to_group(group):
         )
 
     @dependencies.command()
+    @catch_cli_exception(handle=TAFError)
     @click.argument("dependency-name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keystore", default=None, help="Location of the keystore files")

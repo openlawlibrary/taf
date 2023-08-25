@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean
+from taf.exceptions import TAFError
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
@@ -41,8 +42,9 @@ MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding a new role {role:s}: {e!r}",
+    "An error occurred while adding a new role {role:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -124,8 +126,9 @@ def add_role(
 @log_on_end(DEBUG, "Finished adding new paths to role", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new paths to role {role:s}: {e!r}",
+    "An error occurred while adding new paths to role {role:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def add_role_paths(
@@ -166,8 +169,9 @@ def add_role_paths(
 @log_on_end(DEBUG, "Finished adding new roles", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new roles: {e!r}",
+    "An error occurred while adding new roles: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -265,8 +269,9 @@ def add_roles(
 @log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
 @log_on_error(
     ERROR,
-    ""An error occurred while adding new signing key to roles: {e!r}",
+    "An error occurred while adding new signing key to roles: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -624,8 +629,9 @@ def _role_obj(role, repository, parent=None):
 @log_on_end(DEBUG, "Finished removing the role", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while removing role {role:s}: {e!r}",
+    "An error occurred while removing role {role:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -727,8 +733,9 @@ def remove_role(
 @log_on_end(DEBUG, "Finished removing delegated paths", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while removing roles: {e!r}",
+    "An error occurred while removing roles: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def remove_paths(path, paths, keystore, commit=True):

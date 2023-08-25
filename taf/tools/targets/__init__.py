@@ -10,6 +10,7 @@ from taf.api.targets import (
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
+from taf.tools.cli import catch_cli_exception
 
 
 def attach_to_group(group):
@@ -22,6 +23,7 @@ def attach_to_group(group):
         ignore_unknown_options=True,
         allow_extra_args=True,
     ))
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--target-name", default=None, help="Namespace prefixed name of the target repository")
     @click.option("--target-path", default=None, help="Target repository's filesystem path")
@@ -102,6 +104,7 @@ def attach_to_group(group):
         list_targets(path, library_dir)
 
     @targets.command()
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("target-name")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -111,6 +114,7 @@ def attach_to_group(group):
         remove_target_repo(path, target_name, keystore)
 
     @targets.command()
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--keys-description", help="A dictionary containing information about the "
@@ -136,6 +140,7 @@ def attach_to_group(group):
             click.echo()
 
     @targets.command()
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "

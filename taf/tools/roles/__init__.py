@@ -2,6 +2,8 @@ import click
 from taf.api.roles import add_role, add_roles, remove_role, add_signing_key as add_roles_signing_key
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
+from taf.tools.cli import catch_cli_exception
 
 
 def attach_to_group(group):
@@ -11,6 +13,7 @@ def attach_to_group(group):
         pass
 
     @roles.command()
+    @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--parent-role", default="targets", help="Parent targets role of this role. Defaults to targets")
@@ -33,6 +36,7 @@ def attach_to_group(group):
         add_role(path, role, parent_role, delegated_path, keys_number, threshold, yubikey, keystore, scheme)
 
     @roles.command()
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("keys-description")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -72,6 +76,7 @@ def attach_to_group(group):
         add_roles(path, keystore, keys_description, scheme)
 
     @roles.command()
+    @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -88,6 +93,7 @@ def attach_to_group(group):
         remove_role(path, role, keystore, scheme=scheme, remove_targets=remove_targets, commit=True)
 
     @roles.command()
+    @catch_cli_exception(handle=TAFError)
     @click.argument("path")
     @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys "
                   "the new key should be added")

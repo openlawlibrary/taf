@@ -3,7 +3,7 @@ import click
 from pathlib import Path
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError
+from taf.exceptions import KeystoreError, SigningError
 from taf.keystore import (
     key_cmd_prompt,
     read_private_key_from_keystore,
@@ -220,9 +220,12 @@ def load_signing_keys(
                 num_of_signatures += 1
                 continue
 
-            key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
-            keys.append(key)
-            num_of_signatures += 1
+            if click.confirm(f"Manually enter {role} key?"):
+                key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+                keys.append(key)
+                num_of_signatures += 1
+            else:
+                raise SigningError(f"Cannot load keys of role {role}")
 
     return keys, yubikeys
 

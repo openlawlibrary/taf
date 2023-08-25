@@ -3,7 +3,7 @@ from logging import ERROR, INFO
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error
 from taf.api.utils import check_if_clean
-from taf.exceptions import TargetsMetadataUpdateError
+from taf.exceptions import TAFError, TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -15,6 +15,7 @@ from taf.log import taf_logger
     ERROR,
     "An error occurred while checking expiration dates: {e!r}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=False,
 )
 def check_expiration_dates(path, interval=None, start_date=None, excluded_roles=None):
@@ -112,13 +113,9 @@ def update_metadata_expiration_date(
         roles_to_update.append("snapshot")
     roles_to_update.append("timestamp")
 
-    for role in roles_to_update:
-        try:
-            _update_expiration_date_of_role(
-                taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
-            )
-        except Exception:
-            return
+    _update_expiration_date_of_role(
+        taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
+    )
 
     if no_commit:
         print("\nNo commit was set. Please commit manually. \n")
@@ -131,8 +128,9 @@ def update_metadata_expiration_date(
 @log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "Could not update expiration date of {role:s}: {e!r}",
+    "Error: could not update expiration date: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def _update_expiration_date_of_role(
@@ -159,8 +157,9 @@ def _update_expiration_date_of_role(
 @log_on_end(INFO, "Updated snapshot and timestamp", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "Could not update snapshot and timestamp: {e!r}",
+    "Could not update snapshot and timestamp: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def update_snapshot_and_timestamp(
@@ -202,8 +201,9 @@ def update_snapshot_and_timestamp(
 @log_on_end(INFO, "Updated target metadata", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "Could not update target metadata: {e!r}",
+    "Could not update target metadata: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def update_target_metadata(

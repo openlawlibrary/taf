@@ -1,6 +1,8 @@
 import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import SigningError
+from taf.tools.cli import catch_cli_exception
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
@@ -37,6 +39,7 @@ def attach_to_group(group):
         check_metadata_expiration_dates(path=path, interval=interval, start_date=start_date)
 
     @metadata.command()
+    @catch_cli_exception(handle=SigningError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles which expiration date should get updated")
     @click.option("--interval", default=None, help="Number of days added to the start date",

@@ -28,8 +28,9 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 @log_on_end(DEBUG, "Finished adding target repository", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding a new target repository {target_name:s}: {e!r}",
+    "An error occurred while adding a new target repository {target_name:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -276,8 +277,9 @@ def list_targets(
 @log_on_start(INFO, "Signing target files", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while signing target files: {e!r}",
+    "An error occurred while signing target files: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def register_target_files(
@@ -338,8 +340,9 @@ def register_target_files(
 @log_on_end(DEBUG, "Finished removing target repository", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while removing target repository {target_name:s}: {e!r}",
+    "An error occurred while removing target repository {target_name:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -434,8 +437,9 @@ def _save_top_commit_of_repo_to_target(
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while updating target files: {e!r}",
+    "An error occurred while updating target files: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -480,8 +484,9 @@ def update_target_repos_from_repositories_json(
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while updating target files: {e!r}",
+    "An error occurred while updating target files: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
