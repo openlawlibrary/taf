@@ -11,7 +11,7 @@ def catch_cli_exception(func=None, *, handle, print_error=False):
         try:
             return func(*args, **kwargs)
         except handle as e:
-           if (print_error):
-            click.echo(e)
+            if print_error:
+                click.echo(e)
 
     return wrapper
