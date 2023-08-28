@@ -99,7 +99,7 @@ def load_sorted_keys_of_new_roles(
                 yubikey_roles.append((role_name, role_key_info))
             if "delegations" in role_key_info:
                 delegations = role_key_info["delegations"]
-                if not "roles" in delegations:
+                if "roles" not in delegations:
                     continue
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
                     role_key_info["delegations"]["roles"], repository

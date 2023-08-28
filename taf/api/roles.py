@@ -551,7 +551,9 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
         if roles_key_infos is not None and type(roles_key_infos) == str:
             roles_key_infos_path = Path(roles_key_infos)
             if roles_key_infos_path.is_file() and "keystore" in roles_key_infos_dict:
-                keystore_path = Path(roles_key_infos_dict["keystore"]).expanduser().resolve()
+                keystore_path = (
+                    Path(roles_key_infos_dict["keystore"]).expanduser().resolve()
+                )
                 if not keystore_path.is_absolute():
                     keystore_path = (
                         roles_key_infos_path.parent / keystore_path
@@ -595,7 +597,7 @@ def _create_delegations(
     for role_name, role_info in roles_infos.items():
         if "delegations" in role_info:
             delegations = role_info["delegations"]
-            if not "roles" in delegations:
+            if "roles" not in delegations:
                 continue
             parent_role_obj = _role_obj(role_name, repository)
             delegations_info = role_info["delegations"]["roles"]

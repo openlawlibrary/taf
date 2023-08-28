@@ -65,7 +65,7 @@ class GitRepository:
         if name is not None:
             self.name = self._validate_repo_name(name)
             self.path = self._validate_repo_path(library_dir, name, path)
-            self.library_dir = library_dir.resolve().expand()
+            self.library_dir = library_dir.expanduser().resolve()
         elif path is None:
             raise InvalidRepositoryError(
                 "Either specify library dir and name pair or path!"
