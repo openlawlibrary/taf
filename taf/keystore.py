@@ -89,7 +89,7 @@ def read_private_key_from_keystore(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     password=None,
 ):
-    key_path = Path(keystore, key_name)
+    key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
 
@@ -129,7 +129,7 @@ def read_private_key_from_keystore(
 def read_public_key_from_keystore(
     keystore, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ):
-    pub_key_path = Path(keystore, f"{key_name}.pub")
+    pub_key_path = Path(keystore, f"{key_name}.pub").expanduser().resolve()
     if not pub_key_path.is_file():
         raise KeystoreError(f"{str(pub_key_path)} does not exist")
     try:

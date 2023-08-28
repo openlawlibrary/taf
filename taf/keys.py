@@ -98,6 +98,9 @@ def load_sorted_keys_of_new_roles(
             else:
                 yubikey_roles.append((role_name, role_key_info))
             if "delegations" in role_key_info:
+                delegations = role_key_info["delegations"]
+                if not "roles" in delegations:
+                    continue
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
                     role_key_info["delegations"]["roles"], repository
                 )
@@ -164,7 +167,7 @@ def load_signing_keys(
     # if the keystore file is not found, ask the user if they want to sign
     # using yubikey and to insert it if that is the case
 
-    keystore = Path(keystore)
+    keystore = Path(keystore).expanduser().resolve()
 
     def _load_from_keystore(key_name):
         if (keystore / key_name).is_file():
@@ -278,6 +281,7 @@ def _setup_keystore_key(
             print(f"{key_path} is not a file!")
 
     if keystore is not None:
+        keystore = Path(keystore).expanduser().resolve()
         while public_key is None and private_key is None:
             try:
                 public_key = read_public_key_from_keystore(keystore, key_name, scheme)

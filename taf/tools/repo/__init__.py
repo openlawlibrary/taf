@@ -68,7 +68,7 @@ def attach_to_group(group):
         create_repository(
             path=path,
             keystore=keystore,
-            keys_description=keys_description,
+            roles_key_infos=keys_description,
             commit=commit,
             test=test,
         )

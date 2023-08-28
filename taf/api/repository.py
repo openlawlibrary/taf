@@ -146,7 +146,7 @@ def add_dependency(
 
 
 @log_on_start(
-    INFO, "Creating a new authentication repository {repo_path:s}", logger=taf_logger
+    INFO, "Creating a new authentication repository {path:s}", logger=taf_logger
 )
 @log_on_end(INFO, "Finished creating a new repository", logger=taf_logger)
 @log_on_error(
