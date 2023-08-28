@@ -60,6 +60,7 @@ def add_role(
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
     auth_repo: AuthenticationRepository = None,
     commit=True,
+    prompt_for_keys=False,
 ):
     """
     Add a new delegated target role and update and sign metadata files.
@@ -115,9 +116,13 @@ def add_role(
     _create_delegations(
         roles_infos, auth_repo, verification_keys, signing_keys, existing_roles
     )
-    _update_role(auth_repo, parent_role, keystore, scheme=scheme)
+    _update_role(
+        auth_repo, parent_role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
+        update_snapshot_and_timestamp(
+            auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        )
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
@@ -132,7 +137,13 @@ def add_role(
     reraise=True,
 )
 def add_role_paths(
-    paths, delegated_role, keystore, commit=True, auth_repo=None, auth_path=None
+    paths,
+    delegated_role,
+    keystore,
+    commit=True,
+    auth_repo=None,
+    auth_path=None,
+    prompt_for_keys=False,
 ):
     """
     Adds additional delegated target paths to the specified role. That means that
@@ -158,9 +169,11 @@ def add_role_paths(
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.add_paths(paths, delegated_role)
-    _update_role(auth_repo, parent_role, keystore)
+    _update_role(auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys)
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore)
+        update_snapshot_and_timestamp(
+            auth_repo, keystore, prompt_for_keys=prompt_for_keys
+        )
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
@@ -180,6 +193,7 @@ def add_roles(
     keystore=None,
     roles_key_infos=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys=False,
 ):
     """
     Add new target roles and sign all metadata files given information stored in roles_key_infos
@@ -261,8 +275,16 @@ def add_roles(
         roles_infos, repository, verification_keys, signing_keys, existing_roles
     )
     for parent_role in parent_roles:
-        _update_role(auth_repo, parent_role, keystore, scheme=scheme)
-    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
+        _update_role(
+            auth_repo,
+            parent_role,
+            keystore,
+            scheme=scheme,
+            prompt_for_keys=prompt_for_keys,
+        )
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
 
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
@@ -282,6 +304,7 @@ def add_signing_key(
     keystore=None,
     roles_key_infos=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys=False,
 ):
     """
     Add a new signing key to the listed roles. Update root metadata if one or more roles is one of the main TUF roles,
@@ -343,9 +366,17 @@ def add_signing_key(
 
     taf_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
     for parent_role in parent_roles:
-        _update_role(taf_repo, parent_role, keystore, scheme=scheme)
+        _update_role(
+            taf_repo,
+            parent_role,
+            keystore,
+            scheme=scheme,
+            prompt_for_keys=prompt_for_keys,
+        )
 
-    update_snapshot_and_timestamp(taf_repo, keystore, scheme=scheme)
+    update_snapshot_and_timestamp(
+        taf_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
 
 
 def _enter_roles_infos(keystore, roles_key_infos):
@@ -643,6 +674,7 @@ def remove_role(
     commit: bool = True,
     remove_targets: bool = False,
     auth_repo: AuthenticationRepository = None,
+    prompt_for_keys: bool = False,
 ):
     """
     Remove a delegated target role and update and sign metadata files.
@@ -698,7 +730,7 @@ def remove_role(
     parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.revoke(role)
 
-    _update_role(auth_repo, parent_role, keystore)
+    _update_role(auth_repo, parent_role, keystore, prompt_for_keys)
     if len(added_targets_data):
         removed_targets_data = {}
         update_target_metadata(
@@ -708,6 +740,8 @@ def remove_role(
             keystore,
             write=False,
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+            update_target_metadata=update_target_metadata,
+            prompt_for_keys=prompt_for_keys,
         )
 
     # if targets should be deleted, also removed them from repositories.json
@@ -723,7 +757,9 @@ def remove_role(
                 json.dumps(repositories_json, indent=4)
             )
 
-    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
     if commit:
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
@@ -738,7 +774,7 @@ def remove_role(
     on_exceptions=TAFError,
     reraise=True,
 )
-def remove_paths(path, paths, keystore, commit=True):
+def remove_paths(path, paths, keystore, commit=True, prompt_for_keys=False):
     """
     Remove delegated paths. Update parent roles of the roles associated with the removed paths,
     as well as snapshot and timestamp. Optionally commit the changes.
@@ -764,9 +800,13 @@ def remove_paths(path, paths, keystore, commit=True):
             _remove_path_from_role_info(
                 path_to_remove, parent_role, delegated_role, auth_repo
             )
-            _update_role(auth_repo, parent_role, keystore)
+            _update_role(
+                auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys
+            )
     if commit:
-        update_snapshot_and_timestamp(auth_repo, keystore)
+        update_snapshot_and_timestamp(
+            auth_repo, keystore, prompt_for_keys=prompt_for_keys
+        )
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
@@ -813,13 +853,17 @@ def _setup_role(
             )
 
 
-def _update_role(taf_repo, role, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def _update_role(
+    taf_repo, role, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, prompt_for_keys=False
+):
     """
     Update the specified role's metadata's expiration date, load the signing keys
     from either a keystore file or yubikey and sign the file without updating
     snapshot and timestamp and writing changes to disk
     """
-    keystore_keys, yubikeys = load_signing_keys(taf_repo, role, keystore, scheme=scheme)
+    keystore_keys, yubikeys = load_signing_keys(
+        taf_repo, role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
     if len(keystore_keys):
         taf_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):

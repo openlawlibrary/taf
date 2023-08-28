@@ -44,6 +44,7 @@ def add_dependency(
     library_dir: str = None,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom=None,
+    prompt_for_keys=False,
 ):
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
@@ -133,10 +134,13 @@ def add_dependency(
         keystore,
         write=False,
         scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
     )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
 
@@ -319,6 +323,7 @@ def remove_dependency(
     dependency_name: str,
     keystore: str,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: bool = False,
 ):
     """
     Remove a dependency (an authentication repository) from dependencies.json
@@ -373,10 +378,13 @@ def remove_dependency(
         keystore,
         write=False,
         scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
     )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
 

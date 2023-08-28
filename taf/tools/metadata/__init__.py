@@ -51,7 +51,9 @@ def attach_to_group(group):
                   "interval is added", type=ISO_DATE)
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
                   "committed automatically")
-    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit):
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
+                  "located inside the keystore directory")
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys):
         """
         \b
         Update expiration date of the metadata file corresponding to the specified role.
@@ -72,5 +74,13 @@ def attach_to_group(group):
         if not len(role):
             print("Specify at least one role")
             return
-        update_metadata_expiration_date(path, role, interval, keystore,
-                                        scheme, start_date, no_commit)
+        update_metadata_expiration_date(
+            path=path,
+            roles=role,
+            interval=interval,
+            keystore=keystore,
+            scheme=scheme,
+            start_date=start_date,
+            no_commit=no_commit,
+            prompt_for_keys=prompt_for_keys
+        )

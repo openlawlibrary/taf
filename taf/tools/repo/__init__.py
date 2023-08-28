@@ -65,7 +65,14 @@ def attach_to_group(group):
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """
-        create_repository(path, keystore, keys_description, commit, test)
+        create_repository(
+            path=path,
+            keystore=keystore,
+            keys_description=keys_description,
+            commit=commit,
+            test=test,
+        )
+
 
     @repo.command()
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")

@@ -144,6 +144,7 @@ def load_signing_keys(
     keystore=None,
     loaded_yubikeys=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys=False,
 ):
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
@@ -220,7 +221,7 @@ def load_signing_keys(
                 num_of_signatures += 1
                 continue
 
-            if click.confirm(f"Manually enter {role} key?"):
+            if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
                 key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
                 keys.append(key)
                 num_of_signatures += 1
