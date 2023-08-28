@@ -73,7 +73,6 @@ def attach_to_group(group):
             test=test,
         )
 
-
     @repo.command()
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--url", default=None, help="Authentication repository's url")
