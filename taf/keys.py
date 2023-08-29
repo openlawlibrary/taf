@@ -167,9 +167,14 @@ def load_signing_keys(
     # if the keystore file is not found, ask the user if they want to sign
     # using yubikey and to insert it if that is the case
 
-    keystore = Path(keystore).expanduser().resolve()
+    if keystore is not None:
+        keystore = Path(keystore).expanduser().resolve()
+    else:
+        print("Keystore location not provided")
 
     def _load_from_keystore(key_name):
+        if keystore is None:
+            return None
         if (keystore / key_name).is_file():
             try:
                 key = read_private_key_from_keystore(

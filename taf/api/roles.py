@@ -127,11 +127,11 @@ def add_role(
         auth_repo.commit(commit_message)
 
 
-@log_on_start(DEBUG, "Adding new paths to role {role:s}", logger=taf_logger)
+@log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new paths to role", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new paths to role {role:s}: {e}",
+    "An error occurred while adding new paths to role {delegated_role:s}: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,

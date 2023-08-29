@@ -4,7 +4,7 @@ from taf.api.repository import (
     remove_dependency
 )
 from taf.exceptions import TAFError
-from taf.tools.cli import catch_cli_exception
+from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
 
 
 def attach_to_group(group):
@@ -55,7 +55,7 @@ def attach_to_group(group):
 
 
         """
-        custom = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)} if len(ctx.args) else {}
+        custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
             dependency_name=dependency_name,

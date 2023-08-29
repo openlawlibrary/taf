@@ -1,5 +1,10 @@
 import click
 from functools import partial, wraps
+from logging import ERROR
+from logdecorator import log_on_error
+
+from taf.exceptions import TAFError
+from taf.log import taf_logger
 
 
 def catch_cli_exception(func=None, *, handle, print_error=False):
@@ -15,3 +20,34 @@ def catch_cli_exception(func=None, *, handle, print_error=False):
                 click.echo(e)
 
     return wrapper
+
+
+@log_on_error(
+    ERROR,
+    "{e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
+def process_custom_command_line_args(ctx):
+    def _convert_value(value):
+        if value.lower() == "true":
+            return True
+        if value.lower() == "false":
+            return False
+        return value
+
+    if len(ctx.args) % 2 == 1:
+        raise TAFError(
+            "Custom parameters invalid. Check if there are spaces round each parameter/value"
+        )
+
+    custom = (
+        {
+            ctx.args[i][2:]: _convert_value(ctx.args[i + 1])
+            for i in range(0, len(ctx.args), 2)
+        }
+        if len(ctx.args)
+        else {}
+    )
+    return custom
