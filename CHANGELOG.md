@@ -11,7 +11,30 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Bump `cattrs` ([349])
+- Improve CLI error handling ([346])
+- Update signing keys loading. Add a flag for specifying if the user will be asked to manually enter a key ([346])
+- Remove default branch specification from updater ([343])
+- Updater: only load repositories defined in the newest version of repositories.json ([341])
+- Updater: automatically determine url if local repository exists ([340])
+- Remove hosts and hosts.json ([330])
+
 ### Fixed
+
+- Make it possible to execute commands that don't require yubikey without installing yubikey-manager ([342])
+- Fix commits per repositories function when same target commits are on different branches ([337])
+- Add missing `write` flag to `taf targets sign` ([329])
+
+[349]: https://github.com/openlawlibrary/taf/pull/349
+[346]: https://github.com/openlawlibrary/taf/pull/346
+[343]: https://github.com/openlawlibrary/taf/pull/343
+[342]: https://github.com/openlawlibrary/taf/pull/342
+[341]: https://github.com/openlawlibrary/taf/pull/341
+[340]: https://github.com/openlawlibrary/taf/pull/340
+[338]: https://github.com/openlawlibrary/taf/pull/338
+[337]: https://github.com/openlawlibrary/taf/pull/337
+[330]: https://github.com/openlawlibrary/taf/pull/330
+[329]: https://github.com/openlawlibrary/taf/pull/329
 
 ## [0.26.0] - 07/12/2023
 
