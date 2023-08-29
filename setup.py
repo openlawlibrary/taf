@@ -62,6 +62,7 @@ kwargs = {
     "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,
     "install_requires": [
+        "cattrs>=23.1.2",
         "click==7.*",
         "colorama>=0.3.9",
         "oll-tuf==0.20.0.dev2",
@@ -70,7 +71,6 @@ kwargs = {
         "loguru==0.6.*",
         "pygit2==1.9.*",
         "pyOpenSSL==22.1.*",
-        "cattrs==1.*",
         "logdecorator==2.*",
     ],
     "extras_require": {
