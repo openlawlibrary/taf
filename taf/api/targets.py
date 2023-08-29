@@ -422,16 +422,17 @@ def remove_target_repo(
     auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
-    remove_paths(
+    delegation_existed = remove_paths(
         path, [target_name], keystore, commit=False, prompt_for_keys=prompt_for_keys
     )
-    update_snapshot_and_timestamp(
-        auth_repo,
-        keystore,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-        prompt_for_keys=prompt_for_keys,
-    )
-    auth_repo.commit(f"Remove {target_name} from delegated paths")
+    if delegation_existed:
+        update_snapshot_and_timestamp(
+            auth_repo,
+            keystore,
+            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+            prompt_for_keys=prompt_for_keys,
+        )
+        auth_repo.commit(f"Remove {target_name} from delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
 
 
