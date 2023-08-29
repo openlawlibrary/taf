@@ -2,7 +2,8 @@ import datetime
 from logging import ERROR, INFO
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error
-from taf.exceptions import TargetsMetadataUpdateError
+from taf.api.utils import check_if_clean
+from taf.exceptions import TAFError, TargetsMetadataUpdateError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -10,15 +11,20 @@ from taf.repository_tool import Repository, is_delegated_role
 from taf.log import taf_logger
 
 
-def check_expiration_dates(
-    repo_path, interval=None, start_date=None, excluded_roles=None
-):
+@log_on_error(
+    ERROR,
+    "An error occurred while checking expiration dates: {e!r}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=False,
+)
+def check_expiration_dates(path, interval=None, start_date=None, excluded_roles=None):
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
     Prints a list of expired roles.
 
     Arguments:
-        repo_path: Authentication repository's location.
+        path: Authentication repository's location.
         interval: Number of days ahead to check for expiration.
         start_date: Date from which to start checking for expiration.
         excluded_roles: List of roles to exclude from the check.
@@ -29,8 +35,8 @@ def check_expiration_dates(
     Returns:
         None
     """
-    repo_path = Path(repo_path)
-    taf_repo = Repository(repo_path)
+    path = Path(path)
+    taf_repo = Repository(path)
 
     expired_dict, will_expire_dict = taf_repo.check_roles_expiration_dates(
         interval, start_date, excluded_roles
@@ -55,14 +61,16 @@ def check_expiration_dates(
         print(f"No roles will expire within the given {interval} day interval")
 
 
+@check_if_clean
 def update_metadata_expiration_date(
-    repo_path,
+    path,
     roles,
     interval,
     keystore=None,
     scheme=None,
     start_date=None,
     no_commit=False,
+    prompt_for_keys=False,
 ):
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -70,7 +78,7 @@ def update_metadata_expiration_date(
     and timestamp need to be signed after a targets role is updated.
 
     Arguments:
-        repo_path: Authentication repository's location.
+        path: Authentication repository's location.
         roles: A list of roles whose expiration dates should be updated.
         interval: Number of days added to the start date in order to calculate the
             expiration date.
@@ -90,7 +98,7 @@ def update_metadata_expiration_date(
     if start_date is None:
         start_date = datetime.datetime.now()
 
-    taf_repo = Repository(repo_path)
+    taf_repo = Repository(path)
     loaded_yubikeys = {}
     roles_to_update = []
 
@@ -107,17 +115,21 @@ def update_metadata_expiration_date(
     roles_to_update.append("timestamp")
 
     for role in roles_to_update:
-        try:
-            _update_expiration_date_of_role(
-                taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
-            )
-        except Exception:
-            return
+        _update_expiration_date_of_role(
+            taf_repo,
+            role,
+            loaded_yubikeys,
+            keystore,
+            start_date,
+            interval,
+            scheme,
+            prompt_for_keys,
+        )
 
     if no_commit:
         print("\nNo commit was set. Please commit manually. \n")
     else:
-        auth_repo = GitRepository(path=repo_path)
+        auth_repo = GitRepository(path=path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
 
@@ -125,12 +137,20 @@ def update_metadata_expiration_date(
 @log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "Could not update expiration date of {role:s} {e!r}",
+    "Error: could not update expiration date: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def _update_expiration_date_of_role(
-    taf_repo, role, loaded_yubikeys, keystore, start_date, interval, scheme
+    taf_repo,
+    role,
+    loaded_yubikeys,
+    keystore,
+    start_date,
+    interval,
+    scheme,
+    prompt_for_keys,
 ):
     keys, yubikeys = load_signing_keys(
         taf_repo,
@@ -138,6 +158,7 @@ def _update_expiration_date_of_role(
         loaded_yubikeys=loaded_yubikeys,
         keystore=keystore,
         scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
     )
     # sign with keystore
     if len(keys):
@@ -150,8 +171,20 @@ def _update_expiration_date_of_role(
         )
 
 
+@log_on_end(INFO, "Updated snapshot and timestamp", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "Could not update snapshot and timestamp: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def update_snapshot_and_timestamp(
-    taf_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, write_all=True
+    taf_repo,
+    keystore,
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    write_all=True,
+    prompt_for_keys=False,
 ):
     """
     Sign snapshot and timestamp metadata files.
@@ -173,7 +206,12 @@ def update_snapshot_and_timestamp(
 
     for role in ("snapshot", "timestamp"):
         keystore_keys, yubikeys = load_signing_keys(
-            taf_repo, role, keystore, loaded_yubikeys, scheme=scheme
+            taf_repo,
+            role,
+            keystore,
+            loaded_yubikeys,
+            scheme=scheme,
+            prompt_for_keys=prompt_for_keys,
         )
         if len(yubikeys):
             update_method = taf_repo.roles_yubikeys_update_method(role)
@@ -186,6 +224,14 @@ def update_snapshot_and_timestamp(
         taf_repo.writeall()
 
 
+@log_on_end(INFO, "Updated target metadata", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "Could not update target metadata: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def update_target_metadata(
     taf_repo,
     added_targets_data,
@@ -193,6 +239,7 @@ def update_target_metadata(
     keystore,
     write=False,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys=False,
 ):
     """Given dictionaries containing targets that should be added and targets that should
     be removed, update and sign target metadata files and, if write is True, also
@@ -231,7 +278,12 @@ def update_target_metadata(
     loaded_yubikeys = {}
     for role, target_paths in roles_targets.items():
         keystore_keys, yubikeys = load_signing_keys(
-            taf_repo, role, keystore, loaded_yubikeys, scheme=scheme
+            taf_repo,
+            role,
+            keystore,
+            loaded_yubikeys,
+            scheme=scheme,
+            prompt_for_keys=prompt_for_keys,
         )
         targets_data = dict(
             added_targets_data={
@@ -254,4 +306,6 @@ def update_target_metadata(
             )
 
     if write:
-        update_snapshot_and_timestamp(taf_repo, keystore, scheme=scheme)
+        update_snapshot_and_timestamp(
+            taf_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        )

@@ -19,32 +19,6 @@
                     "custom": {},
                     "conf_directory_root": "C:\\OLL\\test1\\cityofsanmateo",
                     "out_of_band_authentication": null,
-                    "hosts": {
-                        "sanmateo.ca.us.open.law.vagrant": {
-                            "custom": {
-                                "subdomains": {
-                                    "development": {
-                                        "cityofsanmateo/law-html": {
-                                            "repo-name": "cityofsanmateo/law-html-development"
-                                        }
-                                    },
-                                    "preview": {
-                                        "cityofsanmateo/law-xml-codified": {
-                                            "repo-name": "cityofsanmateo/law-html-preview"
-                                        },
-                                        "cityofsanmateo/law-html": {
-                                            "repo-name": "cityofsanmateo/law-html-preview",
-                                            "pull": "authenticated"
-                                        },
-                                        "cityofsanmateo/law-docs": {
-                                            "repo-name": "cityofsanmateo/law-docs-preview",
-                                            "pull": "latest"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
                     "dependencies": {}
                 },
                 "commits": {
@@ -268,9 +242,6 @@
                     "custom": {},
                     "conf_directory_root": "C:\\OLL\\test1\\sanipueblo",
                     "out_of_band_authentication": null,
-                    "hosts": {
-                        "san-ildefonso.nsn.us.open.law.vagrant": {}
-                    },
                     "dependencies": {}
                 },
                 "commits": {
@@ -404,7 +375,6 @@
                     "custom": {},
                     "conf_directory_root": "C:\\OLL\\test1\\openlawlibrary",
                     "out_of_band_authentication": null,
-                    "hosts": {},
                     "dependencies": {
                         "cityofsanmateo/law": {
                             "out-of-band-authentication": "bfcbc7db7adc3f43291a64b0572b6b114e63e98a"

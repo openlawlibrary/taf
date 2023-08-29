@@ -3,6 +3,8 @@ import shutil
 import enum
 import tempfile
 
+from typing import Dict, Tuple, Any
+from taf.git import GitRepository
 
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -18,21 +20,13 @@ from taf.exceptions import (
     ScriptExecutionError,
     UpdateFailedError,
     GitError,
-    MissingHostsError,
-    InvalidHostsError,
     ValidationFailedError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.utils import on_rm_error
-from taf.hosts import (
-    load_hosts_json,
-    set_hosts_of_repo,
-    load_hosts,
-    get_hosts,
-)
+
 from taf.updater.lifecycle_handlers import (
     handle_repo_event,
-    handle_host_event,
     handle_update_event,
     Event,
 )
@@ -51,30 +45,31 @@ class UpdateType(enum.Enum):
     EITHER = "either"
 
 
-def _check_update_status(repos_update_data, auth_repo_name, host_update_status, errors):
-    # helper function to set update status of update handler based on repo or host status.
-    # if either hosts or repo handlers event status changed,
+def _check_update_status(
+    repos_update_data: Dict[str, Any]
+) -> Tuple[Dict[str, Any], str]:
+    # helper function to set update status of update handler based on repo status.
+    # if repo handlers event status changed,
     # change the update handler status
-    repo_status = repos_update_data[auth_repo_name]["update_status"]
-    repo_error = repos_update_data[auth_repo_name]["error"]
+    update_status = Event.UNCHANGED
+    errors = ""
 
-    update_update_status = Event.UNCHANGED
-
-    if (
-        repo_status != update_update_status
-        and update_update_status == host_update_status
-    ):
-        update_update_status = repo_status
-
-        if repos_update_data[auth_repo_name]["error"] is not None:
-            repo_error = repos_update_data[auth_repo_name]["error"]
+    for auth_repo_name in repos_update_data:
+        repo_update_data = repos_update_data[auth_repo_name]
+        repo_update_status = repo_update_data["update_status"]
+        if update_status != repo_update_status and update_status != Event.FAILED:
+            # if one failed, then failed
+            # else if one changed, then changed
+            # else unchanged
+            update_status = repo_update_status
+        repo_error = repo_update_data["error"]
+        if repo_error is not None:
             errors += str(repo_error)
-    else:
-        update_update_status = host_update_status
-    return update_update_status, errors
+
+    return update_status, errors
 
 
-def _clone_validation_repo(url, repository_name, default_branch):
+def _clone_validation_repo(url, repository_name):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
@@ -84,9 +79,7 @@ def _clone_validation_repo(url, repository_name, default_branch):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(
-        path=path, urls=[url], default_branch=default_branch
-    )
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
@@ -137,17 +130,6 @@ def _execute_repo_handlers(
             error = e
 
 
-def _load_hosts_json(auth_repo):
-    try:
-        return load_hosts_json(auth_repo)
-    except MissingHostsError as e:
-        # if a there is no host file, the update should not fail
-        taf_logger.info(str(e))
-        return {}
-    except InvalidHostsError as e:
-        raise UpdateFailedError(str(e))
-
-
 # TODO config path should be configurable
 
 
@@ -195,7 +177,6 @@ def update_repository(
     url,
     clients_auth_path,
     clients_library_dir=None,
-    default_branch=None,
     update_from_filesystem=False,
     expected_repo_type=UpdateType.EITHER,
     target_repo_classes=None,
@@ -211,29 +192,38 @@ def update_repository(
     strict=False,
 ):
     """
-    <Arguments>
-    url:
-        URL of the remote authentication repository
-    clients_auth_path:
-        Client's authentication repository's full path
-    clients_library_dir:
-        Directory where client's target repositories are located.
-    update_from_filesystem:
-        A flag which indicates if the URL is actually a file system path
-    expected_repo_type:
-        Indicates if the authentication repository which needs to be updated is
-        a test repository, official repository, or if the type is not important
-        and should not be validated
-    target_repo_classes:
-        A class or a dictionary used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
-    target_factory:
-        A git repositories factory used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
-    checkout:
-        Whether to checkout last validated commits after update is done
-    strict:
-        Whether or not update fails if a warning is raised.
+    Validate and update an authentication repository and it's target repositories, as well
+    as its dependencies (linked authentication repositories and their targets) recursively.
+
+    Arguments:
+        url: URL of the remote authentication repository
+        clients_auth_path: Client's authentication repository's full path
+        clients_library_dir (optional): Directory where client's target repositories are located.
+        update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
+        expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
+            a test repository, official repository, or if the type is not important
+            and should not be validated
+        target_repo_classes (optional): A class or a dictionary used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        target_factory: A git repositories factory used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        only_validate (optional): a flag that specifies if the repositories should only be validated without
+            being updated
+        validate_from_commit (optional): commit from which the validation should start, allowing shorter
+            execution time
+        out_of_band_authentication (optional): out-of-band authentication commit's sha
+        scripts_root_dir (optional): local directory which does not have to be contained by the authentication
+            repository. Used for testing purposes while developing the scripts
+        checkout (optional): Whether to checkout last validated commits after update is done
+        excluded_target_globs (options): globs specifying target repositories which should not get validated and updated.
+        strict (optional): Whether or not update fails if a warning is raised
+
+    Side Effects:
+        If only_validate is not set to True, updates authentication repository (pulls new changes) and its target
+        repositories and dependencies
+
+    Returns:
+        None
     """
     settings.strict = strict
     # if the repository's name is not provided, divide it in parent directory
@@ -258,13 +248,24 @@ def update_repository(
     transient_data = {}
     root_error = None
 
+    if url is None:
+        # if the authentication repository already exists on disk, determine
+        # the urls based on its remote
+        auth_repo = GitRepository(clients_auth_library_dir, auth_repo_name)
+        if not auth_repo.path.is_dir() or not auth_repo.is_git_repository:
+            raise UpdateFailedError(
+                "URL needs to be provided when running the updater for the first time"
+            )
+        url = auth_repo.get_remote_url()
+        if url is None:
+            raise UpdateFailedError("URL cannot be determined. Please specify it")
+
     try:
         auth_repo_name = _update_named_repository(
             url,
             clients_auth_library_dir,
             clients_library_dir,
             auth_repo_name,
-            default_branch,
             update_from_filesystem,
             expected_repo_type,
             target_repo_classes,
@@ -286,7 +287,7 @@ def update_repository(
 
     update_data = {}
     if not excluded_target_globs:
-        # after all repositories have been updated, sort them by hosts and call hosts handlers
+        # after all repositories have been updated
         # update information is in repos_update_data
         if auth_repo_name not in repos_update_data:
             # this must mean that an error occurred
@@ -295,68 +296,17 @@ def update_repository(
             else:
                 raise UpdateFailedError(f"Update of {auth_repo_name} failed")
         root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
-        repos_and_commits = {
-            auth_repo_name: repo_data["commits_data"].get("after_pull")
-            for auth_repo_name, repo_data in repos_update_data.items()
-        }
-        try:
-            load_hosts(root_auth_repo, repos_and_commits)
-        except InvalidHostsError as e:
-            raise UpdateFailedError(str(e))
 
-        hosts = get_hosts()
-        host_update_status = Event.UNCHANGED
-        errors = ""
-        update_transient_data = {}
-
-        for host in hosts:
-            # check if host update was successful - meaning that all repositories
-            # of that host were updated successfully
-            host_transient_data = {}
-            for host_data in host.data_by_auth_repo.values():
-                for host_repo_dict in host_data["auth_repos"]:
-                    for host_repo_name in host_repo_dict:
-                        host_repo_update_data = repos_update_data[host_repo_name]
-                        update_status = host_repo_update_data["update_status"]
-                        if (
-                            host_update_status != update_status
-                            and host_update_status != Event.FAILED
-                        ):
-                            # if one failed, then failed
-                            # else if one changed, then changed
-                            # else unchanged
-                            host_update_status = update_status
-                        repo_error = host_repo_update_data["error"]
-                        if repo_error is not None:
-                            errors += str(repo_error)
-                    if host_repo_name in transient_data:
-                        host_transient_data[host_repo_name] = transient_data[
-                            host_repo_name
-                        ]
-                        update_transient_data[host_repo_name] = host_transient_data[
-                            host_repo_name
-                        ]
-
-            handle_host_event(
-                host_update_status,
-                host_transient_data,
-                root_auth_repo.library_dir,
-                scripts_root_dir,
-                host,
-                repos_update_data,
-                errors,
-            )
-
-        update_update_status, errors = _check_update_status(
-            repos_update_data, auth_repo_name, host_update_status, errors
+        update_status, errors = _check_update_status(repos_update_data)
+        update_transient_data = _update_transient_data(
+            transient_data, repos_update_data
         )
 
         update_data = handle_update_event(
-            update_update_status,
+            update_status,
             update_transient_data,
             root_auth_repo.library_dir,
             scripts_root_dir,
-            hosts,
             repos_update_data,
             errors,
             root_auth_repo,
@@ -372,7 +322,6 @@ def _update_named_repository(
     clients_auth_library_dir,
     targets_library_dir,
     auth_repo_name,
-    default_branch,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes=None,
@@ -381,7 +330,6 @@ def _update_named_repository(
     validate_from_commit=None,
     conf_directory_root=None,
     visited=None,
-    hosts_hierarchy_per_repo=None,
     repos_update_data=None,
     transient_data=None,
     out_of_band_authentication=None,
@@ -390,25 +338,30 @@ def _update_named_repository(
     excluded_target_globs=None,
 ):
     """
-    <Arguments>
-        url:
-        URL of the remote authentication repository
-        clients_directory:
-        Directory where the client's authentication repository is located
-        repo_name:
-        Name of the authentication repository. Can be namespace prefixed
-        targets_dir:
-        Directory where the target repositories are located
-        update_from_filesystem:
-        A flag which indicates if the URL is actually a file system path
-        authenticate_test_repo:
-        A flag which indicates that the repository to be updated is a test repository
-        target_repo_classes:
-        A class or a dictionary used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
-        target_factory:
-        A git repositories factory used when instantiating target repositories.
-        See repositoriesdb load_repositories for more details.
+    Arguments:
+        url: URL of the remote authentication repository
+        clients_library_dir: Directory where client's target repositories are located.
+        auth_repo_name: Authentication repository's name
+        update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
+        expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
+            a test repository, official repository, or if the type is not important
+            and should not be validated
+        target_repo_classes (optional): A class or a dictionary used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        target_factory: A git repositories factory used when instantiating target repositories.
+            See repositoriesdb load_repositories for more details
+        only_validate (optional): a flag that specifies if the repositories should only be validated without
+            being updated
+        validate_from_commit (optional): commit from which the validation should start, allowing shorter
+            execution time
+        visited (optional): Authentication repositories which were already processed
+        repos_update_data (optional): update status, commits data, targets data of the repository which was updated
+        out_of_band_authentication (optional): out-of-band authentication commit's sha
+        scripts_root_dir (optional): local directory which does not have to be contained by the authentication
+            repository. Used for testing purposes while developing the scripts
+        checkout (optional): Whether to checkout last validated commits after update is done
+        excluded_target_globs (options): globs specifying target repositories which should not get validated and updated.
+        strict (optional): Whether or not update fails if a warning is raised
 
     The general idea of the updater is the following:
     - We have a git repository which contains the metadata files. These metadata files
@@ -455,7 +408,6 @@ def _update_named_repository(
         clients_auth_library_dir,
         targets_library_dir,
         auth_repo_name,
-        default_branch,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -472,7 +424,7 @@ def _update_named_repository(
     if auth_repo is None:
         raise error
 
-    # if commits_data is empty, do not attempt to load the host or dependencies
+    # if commits_data is empty, do not attempt to load the dependencies
     # that can happen in the repository didn't exists, but could not be validated
     # and was therefore deleted
     # or if the last validated commit is not equal to the top commit, meaning that
@@ -481,13 +433,6 @@ def _update_named_repository(
     # but treat the repository as invalid for now
     commits = []
     if commits_data["after_pull"] is not None:
-        if hosts_hierarchy_per_repo is None:
-            hosts_hierarchy_per_repo = {auth_repo.name: [_load_hosts_json(auth_repo)]}
-        else:
-            # some repositories might not contain hosts.json and their host is defined
-            # in their parent authentication repository
-            hosts_hierarchy_per_repo[auth_repo.name] += [_load_hosts_json(auth_repo)]
-
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
@@ -504,22 +449,16 @@ def _update_named_repository(
         if update_status != Event.FAILED:
             errors = []
             # load the repositories from dependencies.json and update these repositories
-            # we need to update the repositories before loading hosts data
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
             for child_auth_repo in child_auth_repos:
-                hosts_hierarchy_per_repo[child_auth_repo.name] = list(
-                    hosts_hierarchy_per_repo[auth_repo.name]
-                )
-
                 try:
                     _update_named_repository(
                         child_auth_repo.urls[0],
                         clients_auth_library_dir,
                         targets_library_dir,
                         child_auth_repo.name,
-                        default_branch,
                         update_from_filesystem,
                         expected_repo_type,
                         target_repo_classes,
@@ -528,7 +467,6 @@ def _update_named_repository(
                         validate_from_commit,
                         conf_directory_root,
                         visited,
-                        hosts_hierarchy_per_repo,
                         repos_update_data,
                         transient_data,
                         child_auth_repo.out_of_band_authentication,
@@ -551,7 +489,6 @@ def _update_named_repository(
                 update_status = Event.FAILED
         # TODO which commit to load if the commit top commit does not match the last validated commit
         # use last validated commit - if the repository contains it
-        set_hosts_of_repo(auth_repo, hosts_hierarchy_per_repo[auth_repo.name])
 
         # all repositories that can be updated will be updated
         if not only_validate and len(commits) and update_status == Event.CHANGED:
@@ -596,7 +533,6 @@ def _update_current_repository(
     clients_auth_library_dir,
     targets_library_dir,
     auth_repo_name,
-    default_branch,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes,
@@ -610,7 +546,6 @@ def _update_current_repository(
 ):
     settings.update_from_filesystem = update_from_filesystem
     settings.conf_directory_root = conf_directory_root
-    settings.default_branch = default_branch
 
     def _commits_ret(commits, existing_repo, update_successful):
         if commits is None:
@@ -643,7 +578,7 @@ def _update_current_repository(
         )
         # first clone the validation repository in temp. this is needed because tuf expects auth_repo_name to be valid (not None)
         # and in the right format (seperated by '/'). this approach covers a case where we don't know authentication repo path upfront.
-        auth_repo_name = _clone_validation_repo(url, auth_repo_name, default_branch)
+        auth_repo_name = _clone_validation_repo(url, auth_repo_name)
         git_updater = GitUpdater(url, clients_auth_library_dir, auth_repo_name)
         _run_tuf_updater(git_updater)
     except Exception as e:
@@ -658,7 +593,6 @@ def _update_current_repository(
             users_auth_repo = AuthenticationRepository(
                 clients_auth_library_dir,
                 auth_repo_name,
-                default_branch=default_branch,
                 urls=[url],
                 conf_directory_root=conf_directory_root,
             )
@@ -713,12 +647,12 @@ def _update_current_repository(
             excluded_target_globs=excluded_target_globs,
         )
         repositories = repositoriesdb.get_deduplicated_repositories(
-            users_auth_repo, commits
+            users_auth_repo, commits[-1::]
         )
         repositories_branches_and_commits = (
             users_auth_repo.sorted_commits_and_branches_per_repositories(
                 commits,
-                default_branch=default_branch,
+                default_branch=users_auth_repo.default_branch,
                 excluded_target_globs=excluded_target_globs,
             )
         )
@@ -800,7 +734,7 @@ def _update_target_repositories(
         for branch in repositories_branches_and_commits[path]:
             taf_logger.info("Validating branch {}", branch)
             # if last_validated_commit is None or if the target repository didn't exist prior
-            # to calling update, start the update from the beggining
+            # to calling update, start the update from the beginning
             # otherwise, for each branch, start with the last validated commit of the local
             # branch
             branch_exists = repository.branch_exists(branch, include_remotes=False)
@@ -885,6 +819,16 @@ def _update_target_repositories(
         top_commits_of_branches_before_pull,
         additional_commits_per_repo,
     )
+
+
+def _update_transient_data(
+    transient_data, repos_update_data: Dict[str, str]
+) -> Dict[str, Any]:
+    update_transient_data = {}
+    for auth_repo_name in repos_update_data:
+        if auth_repo_name in transient_data:
+            update_transient_data[auth_repo_name] = transient_data[auth_repo_name]
+    return update_transient_data
 
 
 def _set_target_old_head_and_validate(
@@ -1248,7 +1192,6 @@ def _update_target_repository(
 def validate_repository(
     clients_auth_path,
     clients_library_dir=None,
-    default_branch=None,
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
@@ -1277,7 +1220,6 @@ def validate_repository(
             clients_auth_library_dir,
             clients_library_dir,
             auth_repo_name,
-            default_branch,
             True,
             expected_repo_type=expected_repo_type,
             only_validate=True,

@@ -1,6 +1,8 @@
 import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates as check_metadata_expiration_dates
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import SigningError
+from taf.tools.cli import catch_cli_exception
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
@@ -12,7 +14,7 @@ def attach_to_group(group):
         pass
 
     @metadata.command()
-    @click.argument("path")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
     @click.option("--start-date", default=datetime.datetime.now(), help="Date to which expiration interval is added", type=ISO_DATE)
     def check_expiration_dates(path, interval, start_date):
@@ -34,10 +36,11 @@ def attach_to_group(group):
             snapshot will expire on 2022-07-28
             root will expire on 2022-08-19
         """
-        check_metadata_expiration_dates(repo_path=path, interval=interval, start_date=start_date)
+        check_metadata_expiration_dates(path=path, interval=interval, start_date=start_date)
 
     @metadata.command()
-    @click.argument("path")
+    @catch_cli_exception(handle=SigningError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles which expiration date should get updated")
     @click.option("--interval", default=None, help="Number of days added to the start date",
                   type=int)
@@ -48,7 +51,9 @@ def attach_to_group(group):
                   "interval is added", type=ISO_DATE)
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
                   "committed automatically")
-    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit):
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
+                  "located inside the keystore directory")
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys):
         """
         \b
         Update expiration date of the metadata file corresponding to the specified role.
@@ -69,5 +74,13 @@ def attach_to_group(group):
         if not len(role):
             print("Specify at least one role")
             return
-        update_metadata_expiration_date(path, role, interval, keystore,
-                                        scheme, start_date, no_commit)
+        update_metadata_expiration_date(
+            path=path,
+            roles=role,
+            interval=interval,
+            keystore=keystore,
+            scheme=scheme,
+            start_date=start_date,
+            no_commit=no_commit,
+            prompt_for_keys=prompt_for_keys
+        )

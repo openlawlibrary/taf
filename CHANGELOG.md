@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add functions for adding/updating/removing dependencies to/from dependencies.json ([338])
+
 ### Changed
 
 - Improve CLI error handling ([346])

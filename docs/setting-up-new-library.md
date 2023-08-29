@@ -106,13 +106,12 @@ set up YubiKeys.
 Use the `repo create` command to create a new authentication repository:
 
 ```bash
-taf repo create auth_path --keystore keystore_path --keys-description keys-description.json --commit --test
+taf repo create --path auth_path --keystore keystore_path --keys-description keys-description.json --test
 ```
 
-- `auth-path` is the only argument and is required. It should point to a folder where the new authentication repository's content should be stored to e.g. `test/auth_repo`.
+- `path` is an optional parameter which represents a path to a folder where the new authentication repository's content should be stored to e.g. `test/law`. If not specified, the repository will be created inside the current working directory.
 - `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
 - `keystore` is the location of the keystore files. Use this options if the keystore files were previously generated and not all metadata files should be signed using Yubikeys. This location can also be defined using the `keystore` property of the `keys-description` json.
-- `commit` flag determines if the changes should be automatically committed
 - `test`  flag determines if a special target file called `test-auth-repo` will be created. That
 signalizes that an authentication repository is a test repository. When calling the updater,
 it's necessary to use a flag which makes it clear that it is a test repository which is to
@@ -126,8 +125,9 @@ For each role, keys can be:
 - loaded from previously initialized Yubikeys
 - generated and stored on a Yubikey (this deletes all existing data from that key)
 
-IMPORTANT: If the command was run without the commit flag, commit the changes before updating metadata files
-or adding targets. The updater will raise and error if version numbers of metadata files in two subsequent
+Changes will be committed automatically, unless the `--no-commit` flag is provided.
+If changes are not committed automatically, it's important to commit manually before updating metadata files
+or adding targets. The updater will raise an error if version numbers of metadata files in two subsequent
 commits differ by more than one!
 
 ## Set up remote repositories
@@ -196,10 +196,9 @@ in `repositories.json`. E.g. `test` and `repo1` for the first repo, `test` and `
 
 ### `dependencies.json`
 
-This target files is optional, but needs to be defined if the authentication repository references other authentication repositories (to define hierarchies), to make a use of the out-of-band authentication check and/or if the framework
-is to be used to handle information about the hosts.
+This target files is optional, but needs to be defined if the authentication repository references other authentication repositories (to define hierarchies), to make a use of the out-of-band authentication check.
 
-This is an example where there are no hierarchies, but we want to define the current repository's expected commit and want to make use of the hosts handlers.
+This is an example where there are no hierarchies, but we want to define the current repository's expected commit and want to make use of the update handlers.
 
 ```
 {
@@ -223,27 +222,6 @@ This is an example where we defined a hierarchy (define two authentication repos
             "out-of-band-authentication": "333bcd15812635f89001fea0fef794b7c271f456"
         }
     }
-}
-```
-
-### `hosts.json`
-
-This is an optional file used to specify information about the hosts. The framework will only extract this information
-from the file and does not implement anything related configuring the servers. Here is an example of this file:
-
-```
-{
-   "some_domain.org": {
-      "auth_repos": {
-       "test/auth_repo": {}
-      },
-      "custom": {
-         "subdomains": {
-            "development": {},
-            "preview: {},
-         }
-      }
-   }
 }
 ```
 
@@ -271,20 +249,26 @@ metadata files corresponding to roles responsible for modified target files, `sn
 and `timestamp.json`
 
 ```bash
-taf targets sign auth_path --keys-description keys_description.json --commit
+taf targets sign --path auth_path --keys-description keys_description.json
 ```
 
+or
+
+```bash
+taf targets sign --keys-description keys_description.json
+```
+
+- `path` is an optional parameter which represents authentication repository's path. If not specified, the repository will be expected to be inside the current working directory.
 - `keys-description` is the previously described dictionary containing information about roles, keys and optionally keystore location. If one or more keys should be loaded from the disk their location can be determined based on `keystore` property of this json.
 - `keystore` defines location of the keystore files and should be used when keystore location is not specified in `keys-description` or when not using `keys-description` option, but one or more keys should be loaded from the disk.
-- `commit` flag determines if the changes should be automatically committed
 
-Commit and push the changes. Having pushed the changes, run local validation to be sure that the authentication repository is in a valid state:
+Unless the `--no-commit` flag is specified, changes will be committed automatically. If you want to be on the safe side, run local validation to be sure that the authentication repository is in a valid state:
 
 ```bash
 taf repo validate auth_path
 ```
 
-If hosts were defined, make sure that there is not message saying that that is not the case - that can suggest that names of the repositories defined in different files do not match.
+Finally, push the changes.
 
 ## Add targets corresponding to target repositories
 
@@ -303,7 +287,13 @@ after every commit.
 **_WARNING:_**: If you added initial README or license using the GitHub interface, register those commits before making further changes.
 
 ```bash
-taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore
+taf targets update-and-sign --path E:\\root\\namespace\\auth_repo --keystore E:\\keystore
+```
+
+or
+
+```bash
+taf targets update-and-sign --keystore E:\\keystore
 ```
 
 will sign all target repositories listed in `repositories.json`
@@ -328,16 +318,23 @@ For more information about the updater and how to use it, see [the update proces
 By default, timestamp needs to be resigned every day, while snapshot expires a week after being signed. The updater will raise an error if the top metadata file has expired. To resign metadata files, run:
 
 ```bash
-taf metadata update-expiration-date auth_repo_path role --keystore keystore_path --interval days
+taf metadata update-expiration-dates --path auth_repo_path --keystore keystore_path --role targets1 --role targets2 --interval days
 ```
 
-- `role` represents a role whose metadata's expiration date should be updated - `root`, `targets`, `snapshot`, `timestamp`, delegated targets role
-- `keystore path` is the location of the keystore files. Can be omitted if YubiKeys should be used instead
-- `interval` refers to the number of days added to today's date to calculate the expiration date
+or
+
+```bash
+taf metadata update-expiration-dates --keystore keystore_path --role targets1 --role targets2 --interval days
+```
+
+- `path` is an optional parameter which represents authentication repository's path. If not specified, the repository will be expected to be inside the current working directory.
+- `role` represents a role whose metadata's expiration date should be updated - `root`, `targets`, `snapshot`, `timestamp`, delegated targets role.
+- `keystore path` is the location of the keystore files. Can be omitted if YubiKeys should be used instead.
+- `interval` refers to the number of days added to today's date to calculate the expiration date.
 
 When a metadata file is updated, all other metadata files which need to be updated according to TUF specification
-are updated as well. So, when `snapshot` is updated, `timestamp` is updated is well. When `root`, `targets` or a
-delegated target role is updated, both `snapshot` and `timestamp` are updated too. This is done automatically
+are updated as well. So, when `snapshot` is updated, `timestamp` is updated too. When `root`, `targets` or a
+delegated target role is updated, both `snapshot` and `timestamp` are updated as. This is done automatically
 to ensure that the repository will stay valid.
 
 A few examples:

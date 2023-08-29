@@ -52,14 +52,6 @@ class InvalidKeyError(TAFError):
         )
 
 
-class MissingHostsError(TAFError):
-    pass
-
-
-class InvalidHostsError(TAFError):
-    pass
-
-
 class InvalidOrMissingMetadataError(TAFError):
     pass
 
@@ -77,6 +69,10 @@ class RepositoryInstantiationError(TAFError):
         super().__init__(f"Could not instantiate repository {repo_path}\n\n: {message}")
         self.repo_path = repo_path
         self.message = message
+
+
+class RepositoryNotCleanError(TAFError):
+    pass
 
 
 class ScriptExecutionError(TAFError):

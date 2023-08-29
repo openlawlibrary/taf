@@ -111,10 +111,6 @@ Instances of the `AuthenticationRepository` are created by passing the same argu
 the authentication repository that was pulled and validated. Instead of validating the entire commit history when
 re-running the update process, updater starts from `last_validated_commit`.
 - `out_of_band_authentication` - manually specified initial commit, used during the update process to validate the first commit
-- `hosts` -  host data, specified using the `hosts.json` file. Hosts of the current repo can be specified in its
-parent's repo (meaning that this repo is listed in the parent's `dependencies.json`), or it can be specified in hosts.
-json contained by the repo itself. If hosts data is defined in the parent, it can be propagated to the contained
-repos.
 
 While in TAF's `Repository` class target files have no special meaning (it is only important that their actual states
 match the information listed in the corresponding metadata file), `AuthenticationRepository`'s target file consist

@@ -1,10 +1,9 @@
 import click
 
 from pathlib import Path
-from taf.yubikey import export_yk_certificate
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError
+from taf.exceptions import KeystoreError, SigningError
 from taf.keystore import (
     key_cmd_prompt,
     read_private_key_from_keystore,
@@ -12,10 +11,15 @@ from taf.keystore import (
 )
 from taf import YubikeyMissingLibrary
 from tuf.sig import generate_rsa_signature
+from taf.log import taf_logger
 
 try:
     import taf.yubikey as yk
+    from taf.yubikey import export_yk_certificate
 except ImportError:
+    taf_logger.warning(
+        "WARNING: yubikey-manager dependency not installed. You will not be able to use YubiKeys."
+    )
     yk = YubikeyMissingLibrary()
 
 
@@ -94,6 +98,9 @@ def load_sorted_keys_of_new_roles(
             else:
                 yubikey_roles.append((role_name, role_key_info))
             if "delegations" in role_key_info:
+                delegations = role_key_info["delegations"]
+                if "roles" not in delegations:
+                    continue
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
                     role_key_info["delegations"]["roles"], repository
                 )
@@ -140,6 +147,7 @@ def load_signing_keys(
     keystore=None,
     loaded_yubikeys=None,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys=False,
 ):
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
@@ -159,7 +167,7 @@ def load_signing_keys(
     # if the keystore file is not found, ask the user if they want to sign
     # using yubikey and to insert it if that is the case
 
-    keystore = Path(keystore)
+    keystore = Path(keystore).expanduser().resolve()
 
     def _load_from_keystore(key_name):
         if (keystore / key_name).is_file():
@@ -201,14 +209,13 @@ def load_signing_keys(
                 )
             )
         if not all_loaded:
-            if _load_and_append_yubikeys(key_name, role, False):
-                num_of_signatures += 1
-                continue
-
-            print("Attempting to load from keystore")
             key = _load_from_keystore(key_name)
             if key is not None:
                 keys.append(key)
+                num_of_signatures += 1
+                continue
+
+            if _load_and_append_yubikeys(key_name, role, False):
                 num_of_signatures += 1
                 continue
 
@@ -217,9 +224,12 @@ def load_signing_keys(
                 num_of_signatures += 1
                 continue
 
-            key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
-            keys.append(key)
-            num_of_signatures += 1
+            if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
+                key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+                keys.append(key)
+                num_of_signatures += 1
+            else:
+                raise SigningError(f"Cannot load keys of role {role}")
 
     return keys, yubikeys
 
@@ -271,6 +281,7 @@ def _setup_keystore_key(
             print(f"{key_path} is not a file!")
 
     if keystore is not None:
+        keystore = Path(keystore).expanduser().resolve()
         while public_key is None and private_key is None:
             try:
                 public_key = read_public_key_from_keystore(keystore, key_name, scheme)

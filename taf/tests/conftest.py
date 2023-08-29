@@ -39,10 +39,8 @@ UPDATE_TYPES_DIR = TYPES_DIR / "update"
 UPDATE_TYPES_VALID_INPUT_DIR = UPDATE_TYPES_DIR / "valid"
 UPDATE_TYPES_INVALID_INPUT_DIR = UPDATE_TYPES_DIR / "invalid"
 REPO_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "repo"
-HOST_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "host"
 UPDATE_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "update"
 REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
-HOST_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "host"
 UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "update"
 
 original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
@@ -153,6 +151,13 @@ def repositoriesdb_test_repositories():
         yield origins
 
 
+@fixture(scope="session", autouse=True)
+def repository_test_repositories():
+    test_dir = "test-repository"
+    with origin_repos_group(test_dir) as origins:
+        yield origins
+
+
 @fixture
 def client_dir():
     return CLIENT_DIR_PATH
@@ -196,14 +201,6 @@ def repo_handlers_valid_inputs():
 
 
 @fixture
-def host_handlers_valid_inputs():
-    """Paths to the host handler's input json files"""
-    return [
-        input_path for input_path in HOST_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
-    ]
-
-
-@fixture
 def update_handlers_valid_inputs():
     """Paths to the update handler's input json files"""
     return [
@@ -216,14 +213,6 @@ def repo_handlers_invalid_inputs():
     """Paths to the repo handler's input json files"""
     return [
         input_path for input_path in REPO_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
-    ]
-
-
-@fixture
-def host_handlers_invalid_inputs():
-    """Paths to the host handler's input json files"""
-    return [
-        input_path for input_path in HOST_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
     ]
 
 

@@ -244,8 +244,7 @@ repositories. In addition to them, the framework expects some special target fil
 
 - `repositories.json` (required)
 - `mirrors.json` (recommended, required if URLs are not defined in `repositories.json`, re)
-- `depoendencies.json` (optional)
-- `hosts.json` (optional)
+- `dependencies.json` (optional)
 - scripts (optional)
 
 #### repositories.json
@@ -324,38 +323,6 @@ When updating the repository which contains this target file, the updater will a
 
 `out-of-band-authenticatio` is an optional property which, if defined, it is used to check if the repository's first commit matches this property's value. This is far from perfect security measure, but adds an additional layer or protection. The safest way would still be to contact the repositories' maintainers directly.
 
-### hosts.json
-
-This special target file is used to provide hosting information. It contains mappings of domains and authentication repositories whose content (or more precisely, content of whose target repositories) should be served through them. The framework does not actually
-handle servers configuration - it just extracts host information from the `hosts.json` file and makes it easier to consume this data later on (starting with version `0.9.0`). This is an example of `hosts.json`:
-
-```
-{
-   "some_domain.org": {
-      "auth_repos": {
-         "jurisdiction1/law": {}
-      },
-      "custom": {
-         "subdomains": {
-            "development": {},
-            "preview: {},
-         }
-      }
-   },
-   "another_domain.org": {
-      "auth_repos": {
-      "jurisdiction2/law": {}
-      },
-      "custom": {
-         "subdomains": {
-            "development": {},
-            "preview: {},
-         }
-      }
-   }
-}
-```
-
 ### protected/info.json
 
 Stores current repository metadata. Example:
@@ -371,7 +338,7 @@ Where namespace and name map to `namespace/name` format. This data is expected t
 
 #### Scripts
 
-Every authentication repository can contain target files inside `targets/scripts` folder which are expected to be Python scripts which will be executed after successful/failed update of that repository. Scripts can also be defined on a host level - will be executed after update of all repositories belonging to that host.
+Every authentication repository can contain target files inside `targets/scripts` folder which are expected to be Python scripts which will be executed after successful/failed update of that repository.
 
 If a repository was successfully pulled and updated, `changed`, `succeeded` and
 `completed` handlers will be called. If there were no new changes, `unchanged`,
@@ -379,7 +346,7 @@ If a repository was successfully pulled and updated, `changed`, `succeeded` and
 `completed` handlers will be invoked. Scripts are linked to the mentioned events by being
 put into a folder of the corresponding name in side `targets/scripts`. Each folder can
 contain an arbitrary number of scripts and they will be called in alphabetical order.
-Here is a sketch of the `scriprs` folder:
+Here is a sketch of the `scripts` folder:
 
 ```
 
@@ -390,8 +357,8 @@ Here is a sketch of the `scriprs` folder:
       /unchanged
       /failed - every time a repo is not successfully pulled
       /completed  - like finally (called in both cases)
-    /host
-      /succeeded - once for each host, after host's repositories have been successfully pulled
+    /update
+      /succeeded - once after all authentication's repositories have been successfully pulled
       /changed
       /unchanged
       /failed - if one repository failed

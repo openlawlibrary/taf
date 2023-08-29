@@ -48,7 +48,7 @@ class GitRepository:
           path (Path): repository's full filesystem path, which can be specified instead of name and library dir
           urls (list): repository's urls
           custom (dict): a dictionary containing other data
-          default_branch (str): repository's default branch ("main" if not defined)
+          default_branch (str): repository's default branch, automatically determined if not specified
           allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
           the containing directory is owned by a different user to be ignored
         """
@@ -65,7 +65,7 @@ class GitRepository:
         if name is not None:
             self.name = self._validate_repo_name(name)
             self.path = self._validate_repo_path(library_dir, name, path)
-            self.library_dir = library_dir.resolve()
+            self.library_dir = library_dir.expanduser().resolve()
         elif path is None:
             raise InvalidRepositoryError(
                 "Either specify library dir and name pair or path!"
@@ -274,6 +274,11 @@ class GitRepository:
         repo = self.pygit_repo
         if branch:
             branch = repo.branches.get(branch)
+            if branch is None:
+                raise GitError(
+                    self,
+                    message=f"Error occurred while getting commits of branch {branch}. Branch does not exist",
+                )
             latest_commit_id = branch.target
         else:
             latest_commit_id = repo[repo.head.target].id
@@ -347,8 +352,11 @@ class GitRepository:
     def branches_containing_commit(self, commit, strip_remote=False, sort_key=None):
         """Finds all branches that contain the given commit"""
         repo = self.pygit_repo
-        local_branches = list(repo.branches.local.with_commit(commit))
-        remote_branches = list(repo.branches.remote.with_commit(commit))
+        try:
+            local_branches = list(repo.branches.local.with_commit(commit))
+            remote_branches = list(repo.branches.remote.with_commit(commit))
+        except KeyError:
+            raise TAFError(f"Commit {commit} does not exist")
         filtered_remote_branches = []
         if len(remote_branches):
             for branch in remote_branches:
@@ -445,6 +453,20 @@ class GitRepository:
             else:
                 self._log_error(f"could not checkout branch {branch_name}")
                 raise (e)
+
+    def check_if_clean_and_synced(self, branch=None):
+        """
+        Check if repository's worktree is clean and if the
+        specified (or default) branch is synced with remote
+        (if the repository has a remote set)
+        """
+        branch = branch or self.default_branch
+        if self.something_to_commit():
+            return False
+        if not self.has_remote():
+            return True
+        if not self.synced_with_remote(branch):
+            return False
 
     def checkout_paths(self, commit_sha, *args):
         repo = self.pygit_repo
@@ -1125,7 +1147,7 @@ class GitRepository:
             raise InvalidRepositoryError(
                 f"Repository path/name {library_dir}/{name} is not valid"
             )
-        repo_dir = Path(repo_dir).resolve()
+        repo_dir = Path(repo_dir).expanduser().resolve()
         if path is not None and path != repo_dir:
             raise InvalidRepositoryError(
                 "Both library dir and name pair and path specified and are not equal. Omit the path."

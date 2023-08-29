@@ -43,15 +43,6 @@ corresponding to the targets repository. If a repository's namespaced name is
 placed inside `namespace` directory inside `targets`. Namespace can be left empty. In that case the
 target file will be directly inside `targets`.
 
-### `targets-rel-dir`
-
-This option is used when generating `repositories.json`. More precisely, for determining the
-repository's url. If a repository does not have a remote set, the url
-which is to be saved in `repositories.json` is set based on the target repository's path on the filesystem.
-If `targets-rel-dir` is specified, the url is calculated as the repository's path relative to this path.
-It is useful when creating test repositories, when we do not want to use absolute paths. Since
-`repositories.json` is also a target file, its content cannot just be modified prior to executing a test.
-
 
 ### `keys-description`
 
@@ -142,14 +133,16 @@ Many commands have the `scheme` optional parameter. It represents the signature 
 
 Commands are separated into several subcommands:
 
+- `dependencies`, containing command for adding, updating and removing authentication repository's dependencies (other
+authentication repositories which are linked with them)
 - `keystore`, containing commands for generating keystore files.
 - `metadata`, containing commands for updating metadata - adding signing keys and checking and updating expiration
 dates of metadata files.
 - `repo`, containing commands for creating, validating and updating new authentication repositories.
+- `roles` , containing commands for adding and removing roles
 - `targets`, containing commands for listing, adding and removing target repositories and signing targets (updating
 target files corresponding to target repositories and signing all metadata files that need to be updated in order
 to make sure that the authentication repository stays valid)
-- `roles` , containing commands for adding and removing roles
 - `yubikey`, containing commands for setting up a new Yubikey and exporting public keys from Yubikeys
 
 Here are some of the most important commands. Use the `--help` flag to see more information
@@ -172,10 +165,11 @@ This command can be used to generate the initial authentication repository. The 
 of all metadata files are created, but no targets are added.
 
 ```bash
-taf repo create E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --commit --test
+taf repo create --path E:\\OLL\\auth_repo_path --keystore E:\\OLL\\keystore --keys-description E:\\OLL\\data\\keys.json --test
 ```
 
-will generate a new authentication repository at `E:\OLL\auth_repo_path`. There are several options
+will generate a new authentication repository at `E:\OLL\auth_repo_path`, if `path` is provide, or inside
+the current working directory, in case this parameter is omitted. There are several options
 for signing metadata files - from keystore, by directly entering the key when prompted and by using
 Yubikeys. If one or more keys are stored in the keystore, keystore path should be specified
 when calling this command. If `keystore` is specified in `keys-description`, it is not necessary
@@ -184,18 +178,19 @@ execution of this command. Keys can generated on the Yubikeys, but that will del
 stored on that key and will require new pins to be set. It is possible to reuse existing keys
 stored on Yubikeys.
 
-The generated files and folders will automatically be committed if `--commit` flag is present. If the
+The generated files and folders will automatically be committed unless `--no-commit` unless flag is present. If the
 new repository is only be meant to be used for testing, use `--test` flag. This will create a special
 target file called `test-auth-repo`.
 
 ### `repo update`
 
 Update and validate local authentication repository, its child authentication repositories (specified in `dependencies.json` )
-and target repositories. Remote authentication's repository url and its filesystem path need to be specified when calling this command. If the
-authentication repository and the target repositories are in the same root directory,
+and target repositories. When running the updater for the first time, it is necessary to specify the repository's remote url.
+When updating an existing authentication repository, the url is automatically determined. Similarly, the repository's filesystem
+path can, but does have to be specified. If it is omitted, it will be assumed that the repository is located inside the current
+working directory. If the authentication repository and the target repositories are in the same root directory,
 locations of the target repositories are calculated based on the authentication repository's
-path, using `--clients-auth-path`. If that is not the case, it is necessary to redefine this default value using the
-`--clients-library-dir` option.
+path. If that is not the case, it is necessary to redefine this default value using the `--clients-library-dir` option.
 Names of target repositories (as defined in repositories.json) are appended to the root
 path thus defining the location of each target repository. If names of target repositories
 are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
@@ -208,16 +203,26 @@ flag when validating non-test repository as that will also result in an error.
 For example:
 
 ```bash
-taf repo update https://github.com/orgname/auth-repo --clients-auth-path E:\\root\\namespace\\auth_repo  --authenticate-test-repo
+taf repo update --path E:\\root\\namespace\\auth_repo --url https://github.com/orgname/auth-repo   --authenticate-test-repo
 ```
 
 In this example, all target repositories will be expected to be in `E:\root`.
 
-```
-taf repo update https://github.com/orgname/auth-repo --clients-auth-path E:\\root\\namespace\\auth_repo --clients-library-dir E:\\target-repos
+
+```bash
+taf repo update E:\\root\\namespace\\auth_repo --url https://github.com/orgname/auth-repo --clients-library-dir E:\\target-repos
 ```
 
 In this example, the target repositories will be expected to be in `E:\\target-repos`.
+
+or just
+
+```bash
+taf repo update
+```
+
+if repository already exists and is located inside the current working directory.
+
 
 If remote repository's url is a file system path, it is necessary to call this command with
 `--from-fs` flag so that url validation is skipped. This option is mostly of interest to the
@@ -232,22 +237,28 @@ to make sure that the recent updates of the authentication repository and its ta
 before pushing them.
 
 Locations of target repositories are calculated in the same way as when updating repositories.
-Unlike the update command, this command does not have the `url` argument or the `--authenticate-test-repoparameter` flag among its inputs. Additionally,
-it allows specification of the firs commit which should be validated through the `--from-commit`
+Unlike the update command, this command does not have the `url` argument or the `--authenticate-test-repo`
+flag among its inputs. Additionally, it allows specification of the firs commit which should be validated through the `--from-commit`
 option. That means that we can only validate new authentication repository's commits. This
 command does not store information about the last validated commit. See updater documentation
 for more information about how it works.
 Here are a few examples:
 
 ```bash
-taf repo validate E:\\root\\namespace\\auth_repo
+taf repo validate --path E:\\root\\namespace\\auth_repo
 ```
 
 ```bash
 taf repo validate E:\\root\\namespace\\auth_repo --from-commit d0d0fafdc9a6b8c6dd8829635698ac75774b8eb3
 ```
 
-### `targets update_and_sign_targets`
+```bash
+taf repo validate
+```
+
+if repository is located inside the current working directory.
+
+### `targets update-and-sign-targets`
 
 Update target files corresponding to target repositories specified through the target type parameter
 by writing the current top commit and branch name to target files corresponding to the listed repositories.
@@ -271,8 +282,14 @@ metadata files, as well as snapshot and timestamp are automatically signed.
 For example,
 
 ```bash
-taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore  --target-type html
+taf targets update-and-sign --path E:\\root\\namespace\\auth_repo --keystore E:\\keystore --target-type html
 ```
+
+```bash
+taf targets update-and-sign --keystore E:\\keystore --target-type html
+```
+
+If `path` option is omitted, the repository will be expected to be located inside the current working directory.
 
 will update target files corresponding to target repositories whose `custom\type` attribute in `repositories.json`
 is equal to `html`. NOTE - should be updated to be made more generic.
@@ -283,9 +300,8 @@ that the target repositories are on the correct branch before running the comman
 
  TAF can be used to implement an automated process which will update all repositories in accordance with a specific project's needs.
 
-
 ```bash
-taf targets update-and-sign-targets E:\\root\\namespace\\auth_repo --keystore E:\\keystore
+taf targets update-and-sign --path E:\\root\\namespace\\auth_repo --keystore E:\\keystore
 ```
 
 will sign all target repositories listed in `repositories.json`
@@ -315,13 +331,16 @@ will update `targets.json` and `delegated_role1.json` metadata files by modifyin
 about the updated targets. Once the targets metadata files are updated, so are `snapshot` and `timestamp`. Metadata files can be signed using the keystore files, Yubikeys or by directly entering keys. If one or more of the mentioned metadata files should be
 signed with keys stored on disk, it's necessary to provide the keystore pat, by either using the `--keystore` option or providing a `--keys-description` json which contains the `keystore` property.
 
-If the changes should be committed automatically, use the `commit` flag.
+Unless `no-commit` flag is specified, changes will be committed automatically.
 
 ```bash
-taf targets sign E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore --commit
+taf targets sign --path E:\\OLL\\auth_rpeo --keystore E:\\OLL\\keystore
 ```
 
-### `metadata update-expiration-date`
+If `path` option is omitted, the repository will be expected to be located inside the current working directory.
+
+
+### `metadata update-expiration-dates`
 
 This command updates expiration date of the given role's metadata file. The metadata file
 can be signed by directly entering the key when prompted to do so, by loading the key
@@ -336,13 +355,62 @@ By default, start date is today's date, while interval depends on the role and i
 - 7 in case of snapshot
 - 1 in case of timestamp and all other roles
 
-If the changes should be automatically committed, use the `commit` flag.
+Unless `no-commit` flag is specified, changes will be committed automatically.
 
 For example:
 
 ```bash
-taf metadata update-expiration-date E:\\OLL\\auth_rpeo snapshot --interval 5 --commit
+taf metadata update-expiration-dates --path E:\\OLL\\auth_rpeo --role targets1 --role targets2 --interval 5 --keystore E:\\OLL\\keystore
 ```
 
-This will set the new expiration date of the snapshot role to 5 days after the current date
+or
+
+```bash
+taf metadata update-expiration-dates --interval 5 --role targets1 --role targets2 --interval 5 --keystore E:\\OLL\\keystore
+```
+
+If `path` option is omitted, the repository will be expected to be located inside the current working directory.
+At least one role needs to be specified. All metadata files that need to be updated in order to ensure the validity
+of the repository will be updated automatically (snapshot and timestamp are updated after a targets role is updated, and
+timestamp is updated after snapshot is updated).
+
+This will set the new expiration date of the targets1 and targets2 roles to 5 days after the current date
 and automatically commit the changes.
+
+### dependencies add
+
+A dependency is an authentication repository which has a parent-child relationship with another authentication repository.
+When updating a parent authentication repository, its dependencies are recursively updated as well. Dependencies are
+specified in a special target file called `dependencies.json`. In addition to storing names of dependencies, it is
+necessary to also store a commit which can then be used for out-of-band validation, as well as the branch which contains
+this commit (one commit can belong to multiple branches, so storing just commit sha is not sufficient). This out-of-band authentication commit represents a commit including and following which state of the authentication repository is expected to be valid at every revision. Someone who wants to host an authentication repository can contact the owner and confirm
+the validity of this commit. If additional information that is not required by TAF should also be stored in `dependencies.json`,
+it is specified by providing additional options when calling the command. Here is an example:
+
+```bash
+taf dependencies add --path auth-path namespace1/auth --branch-name main --out-of-band-commit d4d768da4e8f74f54c644923b7ed0e19a0faf3c5 --custom-property some-value --keystore keystore-path
+```
+
+In this case, custom-property: some-value will be added to the custom part of the dependency dependencies.json. If `path` option is
+omitted, the repository will be expected to be located inside the current working directory.
+
+If branch-name and out-of-band-commit are omitted, the default branch and its first commit will be written to dependencies.json.
+
+Dependency does not have to exist on the filesystem, but if it does, provided branch name and out-of-band commit sha
+will be validated, so it is recommended to run the updater first and update/clone and validate the dependency first.
+If the dependency's full path is not provided, it is expected to be located in the same library root directory as the
+authentication repository, in a directory whose name corresponds to its name. If dependency's parent authentication repository's
+path is `E:\\examples\\root\\namespace\\auth`, and the dependency's namespace prefixed name is `namespace1\\auth`, the target's path
+will be set to `E:\\examples\\root\\namespace1\\auth`.
+
+
+### dependencies remove
+
+To remove a dependency from dependencies.json, run
+
+```bash
+taf dependencies remove --path auth-path namespace1/auth --keystore keystore-path
+```
+
+This will also update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore
+location.  If `path` option is omitted, the repository will be expected to be located inside the current working directory.
