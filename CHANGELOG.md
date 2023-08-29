@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Minor add/remove target repository improvements [(351)]
 - Bump `cattrs` ([349])
 - Improve CLI error handling ([346])
 - Update signing keys loading. Add a flag for specifying if the user will be asked to manually enter a key ([346])
@@ -23,10 +24,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix repositories.json update when adding new target repository [(351)]
+- Fix error when keystore path is not provided [(351)]
 - Make it possible to execute commands that don't require yubikey without installing yubikey-manager ([342])
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[351]: https://github.com/openlawlibrary/taf/pull/351
 [349]: https://github.com/openlawlibrary/taf/pull/349
 [346]: https://github.com/openlawlibrary/taf/pull/346
 [343]: https://github.com/openlawlibrary/taf/pull/343
