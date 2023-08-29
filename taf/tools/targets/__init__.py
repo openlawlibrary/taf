@@ -40,7 +40,13 @@ def attach_to_group(group):
         is specified by providing additional options. If the signing role does not exist, it will be created.
         E.g.
 
-        `taf targets add-repo auth-path --target-name namespace1/repo` --serve latest --role role1`
+        `taf targets add-repo --path auth-path --target-name namespace1/repo` --serve latest --role role1`
+
+        or
+
+        `taf targets add-repo --target-name namespace1/repo` --serve latest --role role1`
+
+        if directly inside the authentication repository.
 
         In this case, serve: latest will be added to the custom part of the target repository's entry in
         repositories.json.
