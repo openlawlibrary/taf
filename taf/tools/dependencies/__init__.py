@@ -3,6 +3,8 @@ from taf.api.repository import (
     add_dependency,
     remove_dependency
 )
+from taf.exceptions import TAFError
+from taf.tools.cli import catch_cli_exception
 
 
 def attach_to_group(group):
@@ -15,14 +17,18 @@ def attach_to_group(group):
         ignore_unknown_options=True,
         allow_extra_args=True,
     ))
+    @catch_cli_exception(handle=TAFError)
     @click.argument("dependency_name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--branch-name", default=None, help="Name of the branch which contains the out-of-band commit")
     @click.option("--out-of-band-commit", default=None, help="Out-of-band commit SHA")
     @click.option("--dependency-path", default=None, help="Dependency's filesystem path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
+                  "located inside the keystore directory")
     @click.pass_context
-    def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore):
+    def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore, prompt_for_keys):
         """Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
         Update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.
         Information that is added to dependencies.json includes out-of-band authentication commit and name
@@ -57,18 +63,27 @@ def attach_to_group(group):
             out_of_band_commit=out_of_band_commit,
             dependency_path=dependency_path,
             keystore=keystore,
-            custom=custom
+            custom=custom,
+            prompt_for_keys=prompt_for_keys,
         )
 
     @dependencies.command()
+    @catch_cli_exception(handle=TAFError)
     @click.argument("dependency-name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    def remove(dependency_name, path, keystore):
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
+                  "located inside the keystore directory")
+    def remove(dependency_name, path, keystore, prompt_for_keys):
         """Remove a dependency from dependencies.json.
         Update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.
 
         `taf dependencies remove auth-path namespace1/auth --keystore keystore-path`
 
         """
-        remove_dependency(path, dependency_name, keystore)
+        remove_dependency(
+            path=path,
+            dependency_name=dependency_name,
+            keystore=keystore,
+            prompt_for_keys=prompt_for_keys,
+        )

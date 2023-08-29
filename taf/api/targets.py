@@ -28,8 +28,9 @@ from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 @log_on_end(DEBUG, "Finished adding target repository", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding a new target repository {target_name:s}: {e!r}",
+    "An error occurred while adding a new target repository {target_name:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -42,6 +43,7 @@ def add_target_repo(
     keystore: str,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom=None,
+    prompt_for_keys=False,
 ):
     """
     Add a new target repository by adding it to repositories.json, creating a delegation (if targets is not
@@ -68,7 +70,6 @@ def add_target_repo(
     Returns:
         None
     """
-
     auth_repo = AuthenticationRepository(path=path)
     if not auth_repo.is_git_repository_root:
         print(f"{path} is not a git repository!")
@@ -101,21 +102,29 @@ def add_target_repo(
             paths.append(target_name)
 
         add_role(
-            path,
-            role,
-            parent_role or "targets",
-            paths,
-            keys_number,
-            threshold,
-            yubikey,
-            keystore,
-            DEFAULT_RSA_SIGNATURE_SCHEME,
+            path=path,
+            role=role,
+            parent_role=parent_role or "targets",
+            paths=paths,
+            keys_number=keys_number,
+            threshold=threshold,
+            yubikey=yubikey,
+            keystore=keystore,
+            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
             commit=False,
             auth_repo=auth_repo,
+            prompt_for_keys=prompt_for_keys,
         )
     else:
         print("Role already exists")
-        add_role_paths([target_name], role, keystore, commit=False, auth_repo=auth_repo)
+        add_role_paths(
+            paths=[target_name],
+            delegated_role=role,
+            keystore=keystore,
+            commit=False,
+            auth_repo=auth_repo,
+            prompt_for_keys=prompt_for_keys,
+        )
 
     # target repo should be added to repositories.json
     # delegation paths should be extended if role != targets
@@ -149,10 +158,13 @@ def add_target_repo(
         keystore,
         write=False,
         scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
     )
 
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(auth_repo, keystore, scheme=scheme)
+    update_snapshot_and_timestamp(
+        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    )
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
 
@@ -276,8 +288,9 @@ def list_targets(
 @log_on_start(INFO, "Signing target files", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while signing target files: {e!r}",
+    "An error occurred while signing target files: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 def register_target_files(
@@ -288,6 +301,7 @@ def register_target_files(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
     taf_repo=None,
     write=False,
+    prompt_for_keys=False,
 ):
     """
     Register all files found in the target directory as targets - update the targets
@@ -324,6 +338,7 @@ def register_target_files(
         keystore,
         scheme=scheme,
         write=write,
+        prompt_for_keys=prompt_for_keys,
     )
 
     if write:
@@ -338,15 +353,14 @@ def register_target_files(
 @log_on_end(DEBUG, "Finished removing target repository", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while removing target repository {target_name:s}: {e!r}",
+    "An error occurred while removing target repository {target_name:s}: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
 def remove_target_repo(
-    path: str,
-    target_name: str,
-    keystore: str,
+    path: str, target_name: str, keystore: str, prompt_for_keys: bool = False
 ):
     """
     Remove target repository from repositories.json, remove delegation, and target files and
@@ -396,17 +410,26 @@ def remove_target_repo(
         removed_targets_data,
         keystore,
         write=False,
+        prompt_for_keys=prompt_for_keys,
     )
 
     update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo,
+        keystore,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=prompt_for_keys,
     )
     auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
-    remove_paths(path, [target_name], keystore, commit=False)
+    remove_paths(
+        path, [target_name], keystore, commit=False, prompt_for_keys=prompt_for_keys
+    )
     update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+        auth_repo,
+        keystore,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=prompt_for_keys,
     )
     auth_repo.commit(f"Remove {target_name} from delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
@@ -434,8 +457,9 @@ def _save_top_commit_of_repo_to_target(
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while updating target files: {e!r}",
+    "An error occurred while updating target files: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -445,6 +469,7 @@ def update_target_repos_from_repositories_json(
     keystore,
     add_branch=True,
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys=False,
 ):
     """
     Create or update target files by reading the latest commit's repositories.json
@@ -473,15 +498,18 @@ def update_target_repos_from_repositories_json(
     )
     for repo_name in repositories_json.get("repositories"):
         _save_top_commit_of_repo_to_target(library_dir, repo_name, path, add_branch)
-    register_target_files(path, keystore, None, True, scheme, write=True)
+    register_target_files(
+        path, keystore, None, True, scheme, write=True, prompt_for_keys=prompt_for_keys
+    )
 
 
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while updating target files: {e!r}",
+    "An error occurred while updating target files: {e}",
     logger=taf_logger,
+    on_exceptions=TAFError,
     reraise=True,
 )
 @check_if_clean
@@ -492,6 +520,7 @@ def update_and_sign_targets(
     keystore: str,
     roles_key_infos: str,
     scheme: str,
+    prompt_for_keys: bool = False,
 ):
     """
     Save the top commit of specified target repositories to the corresponding target files and sign.
@@ -536,7 +565,15 @@ def update_and_sign_targets(
     for target_name in target_names:
         _save_top_commit_of_repo_to_target(library_dir, target_name, path, True)
         print(f"Updated {target_name} target file")
-    register_target_files(path, keystore, roles_key_infos, True, scheme, write=True)
+    register_target_files(
+        path,
+        keystore,
+        roles_key_infos,
+        True,
+        scheme,
+        write=True,
+        prompt_for_keys=prompt_for_keys,
+    )
 
 
 def _update_target_repos(repo_path, targets_dir, target_repo_path, add_branch):

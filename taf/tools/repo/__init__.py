@@ -1,6 +1,8 @@
 import click
 import json
 from taf.api.repository import create_repository
+from taf.exceptions import TAFError
+from taf.tools.cli import catch_cli_exception
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
@@ -11,6 +13,7 @@ def attach_to_group(group):
         pass
 
     @repo.command()
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
@@ -62,7 +65,13 @@ def attach_to_group(group):
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """
-        create_repository(path, keystore, keys_description, commit, test)
+        create_repository(
+            path=path,
+            keystore=keystore,
+            roles_key_infos=keys_description,
+            commit=commit,
+            test=test,
+        )
 
     @repo.command()
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
