@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Bump `cattrs` ([349])
 - Improve CLI error handling ([346])
 - Update signing keys loading. Add a flag for specifying if the user will be asked to manually enter a key ([346])
 - Remove default branch specification from updater ([343])
@@ -27,7 +26,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
-[349]: https://github.com/openlawlibrary/taf/pull/349
 [346]: https://github.com/openlawlibrary/taf/pull/346
 [343]: https://github.com/openlawlibrary/taf/pull/343
 [342]: https://github.com/openlawlibrary/taf/pull/342
@@ -37,6 +35,18 @@ and this project adheres to [Semantic Versioning][semver].
 [337]: https://github.com/openlawlibrary/taf/pull/337
 [330]: https://github.com/openlawlibrary/taf/pull/330
 [329]: https://github.com/openlawlibrary/taf/pull/329
+
+## [0.26.1] - 08/29/2023
+
+### Added
+
+### Changed
+
+- Bump `cattrs` ([349])
+
+### Fixed
+
+[349]: https://github.com/openlawlibrary/taf/pull/349
 
 ## [0.26.0] - 07/12/2023
 
@@ -944,7 +954,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.26.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.26.1...HEAD
+[0.26.1]: https://github.com/openlawlibrary/taf/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/openlawlibrary/taf/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/openlawlibrary/taf/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/openlawlibrary/taf/compare/v0.23.1...v0.24.0
