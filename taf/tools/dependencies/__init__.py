@@ -4,7 +4,7 @@ from taf.api.repository import (
     remove_dependency
 )
 from taf.exceptions import TAFError
-from taf.tools.cli import catch_cli_exception
+from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
 
 
 def attach_to_group(group):
@@ -40,7 +40,13 @@ def attach_to_group(group):
         All additional information that should be saved as the dependency's custom content in `dependencies.json`
         is specified by providing additional options. Here is an example:
 
-        `taf dependencies add auth-path namespace1/auth --branch-name main --out-of-band-commit d4d768da4e8f74f54c644923b7ed0e19a0faf3c5 --custom-property some-value --keystore keystore-path`
+        `taf dependencies add --path auth-path dependency-name --branch-name main --out-of-band-commit d4d768da4e8f74f54c644923b7ed0e19a0faf3c5 --custom-property some-value --keystore keystore-path`
+
+        or
+
+        ``taf dependencies add dependency-name --branch-name main --out-of-band-commit d4d768da4e8f74f54c644923b7ed0e19a0faf3c5 --custom-property some-value --keystore keystore-path`
+
+        if inside an authentication repository
 
         In this case, custom-property: some-value will be added to the custom part of the dependency dependencies.json.
 
@@ -55,7 +61,7 @@ def attach_to_group(group):
 
 
         """
-        custom = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)} if len(ctx.args) else {}
+        custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
             dependency_name=dependency_name,
@@ -78,7 +84,13 @@ def attach_to_group(group):
         """Remove a dependency from dependencies.json.
         Update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.
 
-        `taf dependencies remove auth-path namespace1/auth --keystore keystore-path`
+        `taf dependencies remove --path auth-path dependency-name --keystore keystore-path`
+
+        or
+
+        `taf dependencies remove dependency-name --keystore keystore-path`
+
+        if inside an authentication repository
 
         """
         remove_dependency(

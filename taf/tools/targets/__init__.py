@@ -10,7 +10,7 @@ from taf.api.targets import (
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.tools.cli import catch_cli_exception
+from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
 
 
 def attach_to_group(group):
@@ -40,7 +40,13 @@ def attach_to_group(group):
         is specified by providing additional options. If the signing role does not exist, it will be created.
         E.g.
 
-        `taf targets add-repo auth-path --target-name namespace1/repo` --serve latest --role role1`
+        `taf targets add-repo --path auth-path --target-name namespace1/repo` --serve latest --role role1`
+
+        or
+
+        `taf targets add-repo --target-name namespace1/repo` --serve latest --role role1`
+
+        if directly inside the authentication repository.
 
         In this case, serve: latest will be added to the custom part of the target repository's entry in
         repositories.json.
@@ -52,7 +58,7 @@ def attach_to_group(group):
         is `E:\\examples\\root\\namespace\\auth`, and the target's namespace prefixed name is
         `namespace1\\repo1`, the target's path will be set to `E:\\examples\\root\\namespace1\\repo1`.
         """
-        custom = {ctx.args[i][2:]: ctx.args[i + 1] for i in range(0, len(ctx.args), 2)} if len(ctx.args) else {}
+        custom = process_custom_command_line_args(ctx)
         add_target_repo(
             path=path,
             target_path=target_path,

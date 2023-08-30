@@ -138,7 +138,7 @@ def add_target_repo(
         repositories[target_name]["custom"] = custom
 
     # update content of repositories.json before updating targets metadata
-    Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_NAME).write_text(
+    Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH).write_text(
         json.dumps(repositories_json, indent=4)
     )
 
@@ -150,7 +150,7 @@ def add_target_repo(
         added_targets_data[target_repo.name] = {}
 
     removed_targets_data = {}
-    added_targets_data[repositoriesdb.REPOSITORIES_JSON_PATH] = {}
+    added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
     update_target_metadata(
         auth_repo,
         added_targets_data,
@@ -422,16 +422,17 @@ def remove_target_repo(
     auth_repo.commit(f"Remove {target_name} target")
     # commit_message = input("\nEnter commit message and press ENTER\n\n")
 
-    remove_paths(
+    delegation_existed = remove_paths(
         path, [target_name], keystore, commit=False, prompt_for_keys=prompt_for_keys
     )
-    update_snapshot_and_timestamp(
-        auth_repo,
-        keystore,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-        prompt_for_keys=prompt_for_keys,
-    )
-    auth_repo.commit(f"Remove {target_name} from delegated paths")
+    if delegation_existed:
+        update_snapshot_and_timestamp(
+            auth_repo,
+            keystore,
+            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+            prompt_for_keys=prompt_for_keys,
+        )
+        auth_repo.commit(f"Remove {target_name} from delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
 
 

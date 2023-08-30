@@ -127,11 +127,11 @@ def add_role(
         auth_repo.commit(commit_message)
 
 
-@log_on_start(DEBUG, "Adding new paths to role {role:s}", logger=taf_logger)
+@log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new paths to role", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new paths to role {role:s}: {e}",
+    "An error occurred while adding new paths to role {delegated_role:s}: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,
@@ -797,38 +797,69 @@ def remove_paths(path, paths, keystore, commit=True, prompt_for_keys=False):
         None
     """
     auth_repo = AuthenticationRepository(path=path)
+    delegation_existed = False
     for path_to_remove in paths:
         delegated_role = auth_repo.get_role_from_target_paths([path_to_remove])
         if delegated_role != "targets":
             parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
             # parent_role_obj = _role_obj(parent_role, auth_repo)
-            _remove_path_from_role_info(
+            current_delegation_existed = _remove_path_from_role_info(
                 path_to_remove, parent_role, delegated_role, auth_repo
             )
-            _update_role(
-                auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys
-            )
-    if commit:
+            delegation_existed = delegation_existed or current_delegation_existed
+            if current_delegation_existed:
+                _update_role(
+                    auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys
+                )
+    if delegation_existed and commit:
         update_snapshot_and_timestamp(
             auth_repo, keystore, prompt_for_keys=prompt_for_keys
         )
         commit_message = input("\nEnter commit message and press ENTER\n\n")
         auth_repo.commit(commit_message)
+    return delegation_existed
 
 
 def _remove_path_from_role_info(path_to_remove, parent_role, delegated_role, auth_repo):
-    # Update the role's 'roledb' entry and avoid duplicates.
+    """
+    Remove path from delegated paths if directly listed.
+
+    E.g. if delegated paths are
+
+    "paths": [
+      "namespace/repo1",
+      "namespace/repo2"
+    ]
+
+    Arguments:
+        path_to_remove:  path to be removed from delegated paths
+        parent_role: Parent role's name
+        delegated_role: Delegated role's name
+        auth_repo: Authentication repository
+
+    and namespace/repo1 is being removed
+
+    Returns:
+        True if path was directly specified as a delegated path, False otherwise
+    """
+
     auth_repo.reload_tuf_repository()
+    delegation_exists = False
     roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
     for delegations_data in roleinfo["delegations"]["roles"]:
         if delegations_data["name"] == delegated_role:
             delegations_paths = delegations_data["paths"]
             if path_to_remove in delegations_paths:
                 delegations_paths.remove(path_to_remove)
+                delegation_exists = True
             else:
                 print(f"{path_to_remove} not in delegated paths")
             break
-    tuf.roledb.update_roleinfo(parent_role, roleinfo, repository_name=auth_repo.name)
+    if delegation_exists:
+        tuf.roledb.update_roleinfo(
+            parent_role, roleinfo, repository_name=auth_repo.name
+        )
+    return delegation_exists
 
 
 def _setup_role(
