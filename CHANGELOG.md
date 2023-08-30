@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add test for repo initialization when it is directly inside drive's root ([352])
 - Add functions for adding/updating/removing dependencies to/from dependencies.json ([338])
 
 ### Changed
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[352]: https://github.com/openlawlibrary/taf/pull/352
 [351]: https://github.com/openlawlibrary/taf/pull/351
 [349]: https://github.com/openlawlibrary/taf/pull/349
 [346]: https://github.com/openlawlibrary/taf/pull/346
