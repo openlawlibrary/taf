@@ -64,6 +64,14 @@ def test_url_invalid_urls():
         GitRepository("path", "namespace/repo", urls=urls)
 
 
+def test_create_repo_when_in_directory_root():
+    drive_root = Path("/").resolve()
+    path = drive_root / "repo_name"
+    repo = GitRepository(path=path)
+    assert repo.name == "repo_name"
+    assert repo.library_dir == drive_root
+
+
 def test_from_json_dict():
     data = {
         "library_dir": "path",
