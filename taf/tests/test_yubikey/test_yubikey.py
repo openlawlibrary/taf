@@ -2,6 +2,7 @@ import pytest
 
 from taf import YubikeyMissingLibrary
 from taf.tests import TEST_WITH_REAL_YK
+from taf.tests.test_yubikey.conftest import targets_yk
 
 try:
     import taf.yubikey as yk

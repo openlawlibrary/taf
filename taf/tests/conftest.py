@@ -4,22 +4,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-from tuf.ngclient._internal import trusted_metadata_set
-import taf.repository_tool as repository_tool
 import taf.yubikey
-import taf.repositoriesdb as repositoriesdb
 from pytest import fixture
-from securesystemslib.interface import (
-    import_rsa_privatekey_from_file,
-    import_rsa_publickey_from_file,
-)
-from taf.repository_tool import Repository
 from taf.tests import TEST_WITH_REAL_YK
 from taf.tests.yubikey_utils import (
-    Root1YubiKey,
-    Root2YubiKey,
-    Root3YubiKey,
-    TargetYubiKey,
     _yk_piv_ctrl_mock,
 )
 from taf.utils import on_rm_error
@@ -34,16 +22,6 @@ WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
 DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
-TYPES_DIR = TEST_DATA_PATH / "types"
-UPDATE_TYPES_DIR = TYPES_DIR / "update"
-UPDATE_TYPES_VALID_INPUT_DIR = UPDATE_TYPES_DIR / "valid"
-UPDATE_TYPES_INVALID_INPUT_DIR = UPDATE_TYPES_DIR / "invalid"
-REPO_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "repo"
-UPDATE_HANDLERS_DATA_VALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "valid" / "update"
-REPO_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "repo"
-UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR = HANDLERS_DATA_INPUT_DIR / "invalid" / "update"
-
-original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
 
 def pytest_configure(config):
@@ -96,66 +74,12 @@ def _copy_repos(test_dir_path, test_name):
     return paths
 
 
-def _load_key(keystore_path, key_name, scheme):
-    """Load private and public keys of the given name"""
-    key = import_rsa_publickey_from_file(
-        str(keystore_path / f"{key_name}.pub"), scheme=scheme
-    )
-    priv_key = import_rsa_privatekey_from_file(
-        str(keystore_path / key_name), scheme=scheme
-    )
-    key["keyval"]["private"] = priv_key["keyval"]["private"]
-    return key
-
-
 @fixture(scope="session", autouse=True)
 def output_path():
     shutil.rmtree(TEST_OUTPUT_PATH, ignore_errors=True)
     TEST_OUTPUT_PATH.mkdir()
     yield TEST_OUTPUT_PATH
     shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
-
-
-@fixture(scope="session", autouse=True)
-def repositories(request, pytestconfig):
-    """TAF repositories for testing."""
-    repository_tool.DISABLE_KEYS_CACHING = True
-
-    scheme = request.param
-    pytestconfig.option.signature_scheme = scheme
-    if scheme not in ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"]:
-        raise ValueError(f"Invalid test config. Invalid scheme: {scheme}")
-
-    scheme_suffix = scheme.split("-")[1]
-    test_dir = "test-repository-tool"
-    with origin_repos_group(test_dir, scheme_suffix) as origins:
-        yield {
-            repo_name.rsplit("-", 1)[0]: Repository(
-                repos_origin_paths["taf"], repo_name=repo_name
-            )
-            for repo_name, repos_origin_paths in origins.items()
-        }
-
-
-@fixture(scope="session", autouse=True)
-def updater_repositories():
-    test_dir = "test-updater"
-    with origin_repos_group(test_dir) as origins:
-        yield origins
-
-
-@fixture(scope="session", autouse=True)
-def repositoriesdb_test_repositories():
-    test_dir = "test-repositoriesdb"
-    with origin_repos_group(test_dir) as origins:
-        yield origins
-
-
-@fixture(scope="session", autouse=True)
-def repository_test_repositories():
-    test_dir = "test-repository"
-    with origin_repos_group(test_dir) as origins:
-        yield origins
 
 
 @fixture
@@ -178,148 +102,3 @@ def keystore():
 def wrong_keystore():
     """Path of the wrong keystore"""
     return str(WRONG_KEYSTORE_PATH)
-
-
-@fixture
-def types_update_valid_inputs():
-    """Paths to the type update's input json files"""
-    return [input_path for input_path in UPDATE_TYPES_VALID_INPUT_DIR.glob("*.json")]
-
-
-@fixture
-def types_update_invalid_inputs():
-    """Paths to the type update's input json files"""
-    return [input_path for input_path in UPDATE_TYPES_INVALID_INPUT_DIR.glob("*.json")]
-
-
-@fixture
-def repo_handlers_valid_inputs():
-    """Paths to the repo handler's input json files"""
-    return [
-        input_path for input_path in REPO_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
-    ]
-
-
-@fixture
-def update_handlers_valid_inputs():
-    """Paths to the update handler's input json files"""
-    return [
-        input_path for input_path in UPDATE_HANDLERS_DATA_VALID_INPUT_IDR.glob("*.json")
-    ]
-
-
-@fixture
-def repo_handlers_invalid_inputs():
-    """Paths to the repo handler's input json files"""
-    return [
-        input_path for input_path in REPO_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
-    ]
-
-
-@fixture
-def update_handlers_invalid_inputs():
-    """Paths to the update handler's input json files"""
-    return [
-        input_path
-        for input_path in UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
-    ]
-
-
-@fixture
-def delegated_roles_keystore():
-    """Path of the keystore with keys of delegated roles"""
-    return str(DELEGATED_ROLES_KEYSTORE_PATH)
-
-
-@fixture
-def targets_yk(pytestconfig):
-    """Targets YubiKey."""
-    return TargetYubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def root1_yk(pytestconfig):
-    """Root1 YubiKey."""
-    return Root1YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def root2_yk(pytestconfig):
-    """Root2 YubiKey."""
-    return Root2YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def root3_yk(pytestconfig):
-    """Root3 YubiKey."""
-    return Root3YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def snapshot_key(pytestconfig):
-    """Snapshot key."""
-    return _load_key(KEYSTORE_PATH, "snapshot", pytestconfig.option.signature_scheme)
-
-
-@fixture
-def timestamp_key(pytestconfig):
-    """Timestamp key."""
-    return _load_key(KEYSTORE_PATH, "timestamp", pytestconfig.option.signature_scheme)
-
-
-@fixture
-def targets_key(pytestconfig):
-    """Targets key."""
-    return _load_key(KEYSTORE_PATH, "targets", pytestconfig.option.signature_scheme)
-
-
-@fixture
-def delegated_role11_key(pytestconfig):
-    return _load_key(
-        DELEGATED_ROLES_KEYSTORE_PATH,
-        "delegated_role11",
-        pytestconfig.option.signature_scheme,
-    )
-
-
-@fixture
-def delegated_role12_key(pytestconfig):
-    return _load_key(
-        DELEGATED_ROLES_KEYSTORE_PATH,
-        "delegated_role12",
-        pytestconfig.option.signature_scheme,
-    )
-
-
-@fixture
-def delegated_role13_key(pytestconfig):
-    return _load_key(
-        DELEGATED_ROLES_KEYSTORE_PATH,
-        "delegated_role13",
-        pytestconfig.option.signature_scheme,
-    )
-
-
-@fixture
-def delegated_role2_key(pytestconfig):
-    return _load_key(
-        DELEGATED_ROLES_KEYSTORE_PATH,
-        "delegated_role2",
-        pytestconfig.option.signature_scheme,
-    )
-
-
-@fixture
-def inner_delegated_role_key(pytestconfig):
-    return _load_key(
-        DELEGATED_ROLES_KEYSTORE_PATH,
-        "inner_delegated_role",
-        pytestconfig.option.signature_scheme,
-    )
-
-
-@contextmanager
-def load_repositories(auth_repo, **kwargs):
-    repositoriesdb.load_repositories(auth_repo, **kwargs)
-    yield
-    repositoriesdb.clear_repositories_db()

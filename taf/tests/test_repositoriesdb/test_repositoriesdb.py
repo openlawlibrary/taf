@@ -2,7 +2,7 @@ import pytest
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 import taf.settings as settings
-from taf.tests.conftest import load_repositories
+from taf.tests.test_repositoriesdb.conftest import load_repositories
 
 AUTH_REPO_NAME = "organization/auth_repo"
 
