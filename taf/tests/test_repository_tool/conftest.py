@@ -1,5 +1,4 @@
 import taf.repository_tool as repository_tool
-import taf.yubikey
 from pytest import fixture
 from securesystemslib.interface import (
     import_rsa_privatekey_from_file,

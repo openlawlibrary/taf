@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from taf.tests.conftest import origin_repos_group
 
 from pytest import fixture

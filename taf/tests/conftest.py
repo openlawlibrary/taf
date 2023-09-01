@@ -4,12 +4,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-import taf.yubikey
 from pytest import fixture
 from taf.tests import TEST_WITH_REAL_YK
-from taf.tests.yubikey_utils import (
-    _yk_piv_ctrl_mock,
-)
 from taf.utils import on_rm_error
 
 TEST_DATA_PATH = Path(__file__).parent / "data"
@@ -22,11 +18,6 @@ WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
 DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
-
-
-def pytest_configure(config):
-    if not TEST_WITH_REAL_YK:
-        taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
 
 
 def pytest_generate_tests(metafunc):
