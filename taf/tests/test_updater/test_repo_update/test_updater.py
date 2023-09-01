@@ -65,7 +65,9 @@ from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
 
 from taf.log import disable_console_logging, disable_file_logging
-from .conftest import original_tuf_trusted_metadata_set
+from taf.tests.test_updater.test_repo_update.conftest import (
+    original_tuf_trusted_metadata_set,
+)
 
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"

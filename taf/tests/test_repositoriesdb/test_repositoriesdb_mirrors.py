@@ -1,6 +1,6 @@
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from taf.tests.conftest import load_repositories
+from taf.tests.test_repositoriesdb.conftest import load_repositories
 
 AUTH_REPO_NAME = "organization/auth_repo"
 

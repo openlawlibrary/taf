@@ -39,7 +39,7 @@ ci_require = [
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
-    "pytest==6.2.5",
+    "pytest==7.*",
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
 ]
