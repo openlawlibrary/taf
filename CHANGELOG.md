@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Split tests into separate packages [(353)]
 - Minor add/remove target repository improvements [(351)]
 - Bump `cattrs` ([349])
 - Improve CLI error handling ([346])
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[353]: https://github.com/openlawlibrary/taf/pull/353
 [352]: https://github.com/openlawlibrary/taf/pull/352
 [351]: https://github.com/openlawlibrary/taf/pull/351
 [349]: https://github.com/openlawlibrary/taf/pull/349
