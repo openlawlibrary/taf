@@ -177,7 +177,6 @@ def create_repository(
     Returns:
         None
     """
-    yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=path)
     path = Path(path)
 
@@ -188,10 +187,15 @@ def create_repository(
         roles_key_infos, keystore
     )
 
+    users_yubikeys_details = roles_key_infos.get("yubikeys")
+
     repository = create_new_repository(str(auth_repo.path))
     roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_infos, keystore, yubikeys
+        auth_repo=auth_repo,
+        roles_infos=roles_infos,
+        keystore=keystore,
+        users_yubikeys_details=users_yubikeys_details,
     )
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
