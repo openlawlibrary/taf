@@ -56,6 +56,7 @@ class Role:
     yubikeys: list[str]
     scheme: str
     name: str
+    length: int
 
     @number.validator
     def check_number(self, attribute, value):
@@ -92,8 +93,9 @@ class Role:
                 "threshold", DEFAULT_ROLE_SETUP_PARAMS["threshold"]
             ),
             yubikeys=yubikeys,
-            scheme=data_dict.get("scheme"),
+            scheme=data_dict.get("scheme", DEFAULT_ROLE_SETUP_PARAMS["scheme"]),
             name=data_dict.get("name"),
+            length=data_dict.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"]),
         )
 
 
@@ -123,8 +125,9 @@ class DelegatedRole(Role):
                 "threshold", DEFAULT_ROLE_SETUP_PARAMS["threshold"]
             ),
             yubikeys=yubikeys,
-            scheme=data_dict.get("scheme"),
+            scheme=data_dict.get("scheme", DEFAULT_ROLE_SETUP_PARAMS["scheme"]),
             name=data_dict.get("name"),
+            length=data_dict.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"]),
             paths=data_dict.get("paths", []),
             terminating=data_dict.get("terminating"),
         )
@@ -136,6 +139,21 @@ class MainRoles:
     targets: Role
     snapshot: Role
     timestamp: Role
+
+    def __iter__(self):
+        self.index = 0
+        return self
+
+    def __next__(self):
+        roles = [self.root, self.targets, self.snapshot, self.timestamp]
+
+        if self.index < len(roles):
+            role = roles[self.index]
+            self.index += 1
+            return role
+        else:
+            raise StopIteration
+
 
     @classmethod
     def from_dict(cls, data_dict) -> "MainRoles":
@@ -156,28 +174,19 @@ class MainRoles:
         )
 
 
-@attr.s(auto_attribs=True)
-class DelegatedRoles:
-    roles: dict[str:DelegatedRole]
-
-    @classmethod
-    def from_dict(cls, data_dict) -> "DelegatedRoles":
-        return cls(
-            roles={
-                key: DelegatedRole.from_dict(_insert_name_to_dict(value, key))
-                for key, value in data_dict.items()
-            }
-        )
-
 
 @attr.s(auto_attribs=True)
 class TargetsRole(Role):
-    delegations: DelegatedRoles
+    delegations: list[DelegatedRole]
 
     @classmethod
     def from_dict(cls, data_dict) -> "TargetsRole":
         _check_additional_keys(cls, data_dict)
         yubikeys = yubikeys = data_dict.get("yubikeys", [])
+        delegations=[
+            DelegatedRole.from_dict(_insert_name_to_dict(value, key))
+            for key, value in data_dict.get("delegations", {}).get("roles", {}).items()
+        ]
         return cls(
             number=data_dict.get(
                 "number", len(yubikeys) or DEFAULT_ROLE_SETUP_PARAMS["number"]
@@ -186,16 +195,15 @@ class TargetsRole(Role):
                 "threshold", DEFAULT_ROLE_SETUP_PARAMS["threshold"]
             ),
             yubikeys=yubikeys,
-            scheme=data_dict.get("scheme"),
+            scheme=data_dict.get("scheme", DEFAULT_ROLE_SETUP_PARAMS["scheme"]),
             name=data_dict.get("name"),
-            delegations=DelegatedRoles.from_dict(
-                data_dict.get("delegations", {}).get("roles", {})
-            ),
+            length=data_dict.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"]),
+            delegations=delegations,
         )
 
 
 @attr.s(auto_attribs=True)
-class Data:
+class RolesKeysData:
     keystore: str = attr.field()
     yubikeys: dict[str, UserKeyData]
     roles: MainRoles
@@ -206,7 +214,7 @@ class Data:
             raise RepositorySpecificationError(f"{attribute.name} path does not exist")
 
     @classmethod
-    def from_dict(cls, data_dict) -> "Data":
+    def from_dict(cls, data_dict) -> "RolesKeysData":
         _check_additional_keys(cls, data_dict)
         return cls(
             keystore=data_dict.get("keystore"),
@@ -218,13 +226,13 @@ class Data:
         )
 
 
-# Load the JSON file
-with open("D:\\oll\\library\\oll-test-repos\\keys-description.json", "r") as file:
-    data_dict = json.load(file)
+# # Load the JSON file
+# with open("D:\\oll\\library\\oll-test-repos\\keys-description.json", "r") as file:
+#     data_dict = json.load(file)
 
-# Validate the JSON data using the defined class
-data = Data.from_dict(data_dict)
-import pdb
+# # Validate the JSON data using the defined class
+# data = RolesKeysData.from_dict(data_dict)
+# import pdb
 
-pdb.set_trace()
-print("JSON is valid!")
+# pdb.set_trace()
+# print("JSON is valid!")

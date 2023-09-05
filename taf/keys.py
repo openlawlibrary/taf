@@ -2,6 +2,7 @@ from collections import defaultdict
 import click
 
 from pathlib import Path
+from taf.api.roles_keys_data import TargetsRole
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, RepositorySpecificationError, SigningError
@@ -87,32 +88,28 @@ def load_sorted_keys_of_roles(
 
 def load_sorted_keys_of_new_roles(
     auth_repo,
-    roles_infos,
+    roles_keys_data,
     keystore,
     yubikeys=None,
     existing_roles=None,
-    users_yubikeys_details=None,
 ):
-    def _sort_roles(key_info, repository):
+    def _sort_roles(roles, repository):
         # load keys not stored on YubiKeys first, to avoid entering pins
         # if there is somethig wrong with keystore files
         keystore_roles = []
         yubikey_roles = []
-        for role_name, role_key_info in key_info.items():
+        for role in roles:
             # yubikeys is a list of key ids and users_yubikeys_details contains
             # a mapping of each key id to additional detail
             # if additional details contain the public key, a user will not have to insert
             # that yubikey (provided that it's not necessary given the threshold of signing keys)
-            if "yubikeys" in role_key_info:
-                keystore_roles.append((role_name, role_key_info))
+            if len(role.yubikeys):
+                yubikey_roles.append(role)
             else:
-                yubikey_roles.append((role_name, role_key_info))
-            if "delegations" in role_key_info:
-                delegations = role_key_info["delegations"]
-                if "roles" not in delegations:
-                    continue
+                keystore_roles.append(role)
+            if isinstance(role, TargetsRole):
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
-                    role_key_info["delegations"]["roles"], repository
+                    role.delegations, repository
                 )
                 keystore_roles.extend(delegated_keystore_role)
                 yubikey_roles.extend(delegated_yubikey_roles)
@@ -124,30 +121,29 @@ def load_sorted_keys_of_new_roles(
     if existing_roles is None:
         existing_roles = []
     try:
-        keystore_roles, yubikey_roles = _sort_roles(roles_infos, auth_repo)
+        keystore_roles, yubikey_roles = _sort_roles(roles_keys_data.roles, auth_repo)
         signing_keys = {}
         verification_keys = {}
-        for role_name, key_info in keystore_roles:
-            if role_name in existing_roles:
+        for role in keystore_roles:
+            if role.name in existing_roles:
                 continue
             keystore_keys, _ = setup_roles_keys(
-                role_name, key_info, auth_repo.path, keystore=keystore
+                role, auth_repo.path, keystore=keystore
             )
             for public_key, private_key in keystore_keys:
-                signing_keys.setdefault(role_name, []).append(private_key)
-                verification_keys.setdefault(role_name, []).append(public_key)
+                signing_keys.setdefault(role.name, []).append(private_key)
+                verification_keys.setdefault(role.name, []).append(public_key)
 
-        for role_name, key_info in yubikey_roles:
-            if role_name in existing_roles:
+        for role in yubikey_roles:
+            if role.name in existing_roles:
                 continue
             _, yubikey_keys = setup_roles_keys(
-                role_name,
-                key_info,
+                role,
                 certs_dir=auth_repo.certs_dir,
                 yubikeys=yubikeys,
-                users_yubikeys_details=users_yubikeys_details,
+                users_yubikeys_details=roles_keys_data.yubikeys,
             )
-            verification_keys[role_name] = yubikey_keys
+            verification_keys[role.name] = yubikey_keys
         return signing_keys, verification_keys
     except KeystoreError as e:
         print(f"Creation of repository failed: {e}")
@@ -253,8 +249,7 @@ def load_signing_keys(
 
 
 def setup_roles_keys(
-    role_name,
-    key_info,
+    role,
     certs_dir=None,
     keystore=None,
     yubikeys=None,
@@ -263,65 +258,43 @@ def setup_roles_keys(
     yubikey_keys = []
     keystore_keys = []
 
-    yubikey_ids = key_info.get("yubikeys")
+    yubikey_ids = role.yubikeys
 
-    num_of_keys = key_info.get("number")
-    threshold = key_info.get("threshold", threshold)
-    if num_of_keys is not None:
-        if num_of_keys < 1:
-            raise RepositorySpecificationError(
-                f"Role {role_name} is not valid: number must be an integer greater than 1"
-            )
-        if num_of_keys < threshold:
-            raise RepositorySpecificationError(
-                f"Role {role_name} is not valid: number of signing keys ({num_of_keys}) is lower than the threshold ({threshold})"
-            )
-        if yubikey_ids and len(yubikey_ids) and len(yubikey_ids) != num_of_keys:
-            raise RepositorySpecificationError(
-                f"Role {role_name} is not valid: number of signing keys ({num_of_keys}) is not the same as the number of specified yubikeys. "
-                "Omit the number property if specifying yubikeys or make sure these values match"
-            )
-    elif yubikey_ids:
-        num_of_keys = len(yubikey_ids)
-    else:
-        num_of_keys = DEFAULT_ROLE_SETUP_PARAMS["number"]
     if yubikey_ids:
         if not len(yubikey_ids):
-            RepositorySpecificationError(
-                "Role {role_name} is not valid: yubikeys list is provided, but empty"
+            raise RepositorySpecificationError(
+                "Role {role.name} is not valid: yubikeys list is provided, but empty"
+            )
+        if not users_yubikeys_details:
+            raise RepositorySpecificationError(
+                f"Role {role.name} references yubikey ids {', '.join(yubikey_ids)}, but yubikeys list is not specified"
             )
         for yubikey_id in yubikey_ids:
             if yubikey_id not in users_yubikeys_details:
-                RepositorySpecificationError(
-                    "Role {role_name} is not valid: {yubikey_id} not specified"
+                raise RepositorySpecificationError(
+                    f"Role {role.name} is not valid: {yubikey_id} not specified"
                 )
 
     # is_yubikey = key_info.get("yubikey", DEFAULT_ROLE_SETUP_PARAMS["yubikey"])
     is_yubikey = bool(yubikey_ids)
-    scheme = key_info.get("scheme", DEFAULT_ROLE_SETUP_PARAMS["scheme"])
-    length = key_info.get("length", DEFAULT_ROLE_SETUP_PARAMS["length"])
-    passwords = key_info.get("passwords", DEFAULT_ROLE_SETUP_PARAMS["passwords"])
 
-    for key_num in range(num_of_keys):
+    for key_num in range(role.number):
         if yubikey_ids:
             key_name = yubikey_ids[key_num]
         else:
-            key_name = get_key_name(role_name, key_num, num_of_keys)
+            key_name = get_key_name(role.name, key_num, role.number)
 
         if is_yubikey:
-            public_key = users_yubikeys_details[key_name].get("public")
+            public_key = users_yubikeys_details[key_name].public
             if not public_key:
-                key_scheme = users_yubikeys_details[key_name].get("scheme") or scheme
+                key_scheme = users_yubikeys_details[key_name].scheme or role.scheme
                 public_key = _setup_yubikey(
-                    yubikeys, role_name, key_name, key_scheme, certs_dir
+                    yubikeys, role.name, key_name, key_scheme, certs_dir
                 )
             yubikey_keys.append(public_key)
         else:
-            password = None
-            if passwords is not None and len(passwords) > key_num:
-                password = passwords[key_num]
             public_key, private_key = _setup_keystore_key(
-                keystore, role_name, key_name, key_num, scheme, length, password
+                keystore, role.name, key_name, key_num, role.scheme, role.length, None
             )
             keystore_keys.append((public_key, private_key))
     return keystore_keys, yubikey_keys
