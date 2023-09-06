@@ -16,7 +16,6 @@ from taf.keys import (
     get_key_name,
     load_signing_keys,
     load_sorted_keys_of_new_roles,
-    load_sorted_keys_of_roles,
 )
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
 from taf.auth_repo import AuthenticationRepository
@@ -110,8 +109,12 @@ def add_role(
         }
     }
 
-    signing_keys, verification_keys = load_sorted_keys_of_roles(
-        auth_repo, roles_infos, auth_repo, keystore, yubikeys, existing_roles
+    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
+
+    signing_keys, verification_keys = load_sorted_keys_of_new_roles(
+        auth_repo=auth_repo,
+        roles_keys_data=roles_keys_data,
+        keystore=keystore,
     )
     _create_delegations(
         roles_infos, auth_repo, verification_keys, signing_keys, existing_roles

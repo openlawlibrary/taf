@@ -1,18 +1,22 @@
 from typing import Iterator
 
 
+# TODO make this more intuitive
 class RolesIterator:
-    def __init__(self, main_roles):
-        self.main_roles = main_roles
+    def __init__(self, roles):
+        self.roles = roles
 
     def __iter__(self) -> Iterator:
         # Define the order of roles
-        roles = [
-            self.main_roles.root,
-            self.main_roles.targets,
-            self.main_roles.snapshot,
-            self.main_roles.timestamp,
-        ]
+        if hasattr(self.roles, "root"):
+            roles = [
+                self.roles.root,
+                self.roles.targets,
+                self.roles.snapshot,
+                self.roles.timestamp,
+            ]
+        else:
+            roles = [self.roles]
 
         # Iterate over roles and their delegations
         for role in roles:

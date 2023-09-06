@@ -1,3 +1,5 @@
+from __future__ import annotations
+import json
 from typing import Optional
 import attrs
 from pathlib import Path
@@ -52,6 +54,10 @@ class Role:
         )
 
 
+class RootRole(Role):
+    name: str = "root"
+
+
 @attrs.define
 class DelegatedRole(Role):
     name: Optional[str] = attrs.field(default=None, kw_only=True)
@@ -60,28 +66,22 @@ class DelegatedRole(Role):
         validator=optional_type_validator(bool),
         default=DEFAULT_ROLE_SETUP_PARAMS["terminating"],
     )
-
-
-class RootRole(Role):
-    name: str = "root"
-
-
-# TODO make these iterable...
-# standardize targets role and main roles
+    delegations: Optional[dict[str, DelegatedRole]] = attrs.field(
+        kw_only=True, default={}
+    )
 
 
 @attrs.define
 class TargetsRole(Role, IterableRoles):
     name: str = "targets"
-    delegations: Optional[dict[str, DelegatedRole]] = attrs.field(kw_only=True)
+    delegations: Optional[dict[str, DelegatedRole]] = attrs.field(
+        kw_only=True, default={}
+    )
 
     def __attrs_post_init__(self):
         if self.delegations:
             for role_name, delegated_role in self.delegations.items():
                 delegated_role.name = role_name
-
-    def roles_list(self):
-        return self.delegations.values()
 
 
 class SnapshotRole(Role):
@@ -98,9 +98,6 @@ class MainRoles(IterableRoles):
     targets: TargetsRole
     snapshot: SnapshotRole
     timestamp: TimestampRole
-
-    def roles_list(self):
-        return [self.root, self.targets, self.snapshot, self.timestamp]
 
 
 @attrs.define
