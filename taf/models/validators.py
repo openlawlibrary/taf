@@ -1,3 +1,4 @@
+from pathlib import Path
 import attrs
 from typing import Any
 
@@ -57,12 +58,23 @@ def role_number_validator(
 def role_paths_validator(
     instance: Any,
     attribute: "attrs.Attribute[list[str]]",
-    value: int,
+    value: list[str],
 ) -> bool:
     for path in value:
         sanitized_path = sanitize_filepath(path)
         if sanitized_path != path:
             raise ValueError(f"{path} is not a valid Unix path")
+    return True
+
+
+def filepath_validator(
+    instance: Any,
+    attribute: "attrs.Attribute[list[str]]",
+    value: str,
+) -> bool:
+    if value is not None and not Path(value).resolve().exists():
+        raise ValueError(f"{value} does not exist")
+    return True
 
 
 def optional_type_validator(type):

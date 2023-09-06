@@ -139,10 +139,6 @@ class RepositoriesNotFoundError(TAFError):
     pass
 
 
-class RepositorySpecificationError(TAFError):
-    pass
-
-
 class UpdateFailedError(TAFError):
     pass
 

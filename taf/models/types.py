@@ -3,13 +3,19 @@ import attrs
 from pathlib import Path
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
-from taf.exceptions import RepositorySpecificationError
+from taf.models.iterators import RolesIterator
 from taf.models.validators import (
+    filepath_validator,
     integer_validator,
     optional_type_validator,
     role_number_validator,
     role_paths_validator,
 )
+
+
+class IterableRoles:
+    def roles_list(self):
+        raise NotImplementedError
 
 
 @attrs.define
@@ -60,8 +66,12 @@ class RootRole(Role):
     name: str = "root"
 
 
+# TODO make these iterable...
+# standardize targets role and main roles
+
+
 @attrs.define
-class TargetsRole(Role):
+class TargetsRole(Role, IterableRoles):
     name: str = "targets"
     delegations: Optional[dict[str, DelegatedRole]] = attrs.field(kw_only=True)
 
@@ -83,7 +93,7 @@ class TimestampRole(Role):
 
 
 @attrs.define
-class MainRoles:
+class MainRoles(IterableRoles):
     root: RootRole
     targets: TargetsRole
     snapshot: SnapshotRole
@@ -96,12 +106,19 @@ class MainRoles:
 @attrs.define
 class RolesKeysData:
     roles: MainRoles
-    keystore: Optional[str] = attrs.field(
-        validator=attrs.validators.instance_of(str), default=None
-    )
+    keystore: Optional[str] = attrs.field(validator=filepath_validator, default=None)
     yubikeys: Optional[dict[str, UserKeyData]] = attrs.field(default=None)
 
-    @keystore.validator
-    def check_keystore(instance, attribute, value):
-        if not Path(value).resolve().exists():
-            raise RepositorySpecificationError(f"{attribute.name} path does not exist")
+    def __attrs_post_init__(self):
+        for role in RolesIterator(self.roles):
+            if role.yubikeys:
+                if not self.yubikeys:
+                    raise ValueError(
+                        f"yubikeys of role {role.name} are listed, but yubikeys are not defined"
+                    )
+
+                for key_id in role.yubikeys:
+                    if key_id not in self.yubikeys:
+                        raise ValueError(
+                            f"role {role.name} references yubikey {key_id}, but it is not specified"
+                        )

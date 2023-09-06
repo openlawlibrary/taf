@@ -2,10 +2,10 @@ from collections import defaultdict
 import click
 
 from pathlib import Path
-from taf.models.types import TargetsRole
+from taf.models.iterators import RolesIterator
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
-from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError, RepositorySpecificationError, SigningError
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import KeystoreError, SigningError, YubikeyError
 from taf.keystore import (
     key_cmd_prompt,
     read_private_key_from_keystore,
@@ -93,12 +93,12 @@ def load_sorted_keys_of_new_roles(
     yubikeys=None,
     existing_roles=None,
 ):
-    def _sort_roles(roles, repository):
+    def _sort_roles(roles):
         # load keys not stored on YubiKeys first, to avoid entering pins
         # if there is somethig wrong with keystore files
         keystore_roles = []
         yubikey_roles = []
-        for role in roles:
+        for role in RolesIterator(roles):
             # yubikeys is a list of key ids and users_yubikeys_details contains
             # a mapping of each key id to additional detail
             # if additional details contain the public key, a user will not have to insert
@@ -107,12 +107,6 @@ def load_sorted_keys_of_new_roles(
                 yubikey_roles.append(role)
             else:
                 keystore_roles.append(role)
-            if isinstance(role, TargetsRole):
-                delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
-                    role.roles_list(), repository
-                )
-                keystore_roles.extend(delegated_keystore_role)
-                yubikey_roles.extend(delegated_yubikey_roles)
         return keystore_roles, yubikey_roles
 
     if yubikeys is None:
@@ -121,9 +115,7 @@ def load_sorted_keys_of_new_roles(
     if existing_roles is None:
         existing_roles = []
     try:
-        keystore_roles, yubikey_roles = _sort_roles(
-            roles_keys_data.roles.roles_list(), auth_repo
-        )
+        keystore_roles, yubikey_roles = _sort_roles(roles_keys_data.roles)
         signing_keys = {}
         verification_keys = {}
         for role in keystore_roles:
@@ -260,21 +252,6 @@ def setup_roles_keys(
 
     yubikey_ids = role.yubikeys
 
-    if yubikey_ids:
-        if not len(yubikey_ids):
-            raise RepositorySpecificationError(
-                "Role {role.name} is not valid: yubikeys list is provided, but empty"
-            )
-        if not users_yubikeys_details:
-            raise RepositorySpecificationError(
-                f"Role {role.name} references yubikey ids {', '.join(yubikey_ids)}, but yubikeys list is not specified"
-            )
-        for yubikey_id in yubikey_ids:
-            if yubikey_id not in users_yubikeys_details:
-                raise RepositorySpecificationError(
-                    f"Role {role.name} is not valid: {yubikey_id} not specified"
-                )
-
     # is_yubikey = key_info.get("yubikey", DEFAULT_ROLE_SETUP_PARAMS["yubikey"])
     is_yubikey = bool(yubikey_ids)
 
@@ -383,6 +360,8 @@ def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
             if not click.confirm(
                 "WARNING - this will delete everything from the inserted key. Proceed?"
             ):
+                if click.confirm("Cancel?"):
+                    raise YubikeyError("Yubikey setup canceled")
                 continue
         key, serial_num = yk.yubikey_prompt(
             key_name,
@@ -397,5 +376,6 @@ def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
 
         if not use_existing:
             key = yk.setup_new_yubikey(serial_num, scheme)
+
         export_yk_certificate(certs_dir, key)
         return key
