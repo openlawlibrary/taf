@@ -2,7 +2,7 @@ from collections import defaultdict
 import click
 
 from pathlib import Path
-from taf.api.roles_keys_data import TargetsRole
+from taf.models.types import TargetsRole
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS, DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, RepositorySpecificationError, SigningError
@@ -103,13 +103,13 @@ def load_sorted_keys_of_new_roles(
             # a mapping of each key id to additional detail
             # if additional details contain the public key, a user will not have to insert
             # that yubikey (provided that it's not necessary given the threshold of signing keys)
-            if len(role.yubikeys):
+            if role.yubikeys:
                 yubikey_roles.append(role)
             else:
                 keystore_roles.append(role)
             if isinstance(role, TargetsRole):
                 delegated_keystore_role, delegated_yubikey_roles = _sort_roles(
-                    role.delegations, repository
+                    role.roles_list(), repository
                 )
                 keystore_roles.extend(delegated_keystore_role)
                 yubikey_roles.extend(delegated_yubikey_roles)
@@ -121,15 +121,15 @@ def load_sorted_keys_of_new_roles(
     if existing_roles is None:
         existing_roles = []
     try:
-        keystore_roles, yubikey_roles = _sort_roles(roles_keys_data.roles, auth_repo)
+        keystore_roles, yubikey_roles = _sort_roles(
+            roles_keys_data.roles.roles_list(), auth_repo
+        )
         signing_keys = {}
         verification_keys = {}
         for role in keystore_roles:
             if role.name in existing_roles:
                 continue
-            keystore_keys, _ = setup_roles_keys(
-                role, auth_repo.path, keystore=keystore
-            )
+            keystore_keys, _ = setup_roles_keys(role, auth_repo.path, keystore=keystore)
             for public_key, private_key in keystore_keys:
                 signing_keys.setdefault(role.name, []).append(private_key)
                 verification_keys.setdefault(role.name, []).append(public_key)

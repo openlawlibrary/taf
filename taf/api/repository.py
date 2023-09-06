@@ -4,7 +4,9 @@ from logging import DEBUG, ERROR, INFO
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
+from taf.models.types import RolesKeysData
 from taf.api.utils import check_if_clean
+from taf.models.converter import from_dict
 
 import taf.repositoriesdb as repositoriesdb
 from collections import defaultdict
@@ -187,31 +189,29 @@ def create_repository(
         roles_key_infos, keystore
     )
 
-    users_yubikeys_details = roles_key_infos.get("yubikeys")
+    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
 
     repository = create_new_repository(str(auth_repo.path))
-    roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
-        roles_infos=roles_infos,
+        roles_keys_data=roles_keys_data,
         keystore=keystore,
-        users_yubikeys_details=users_yubikeys_details,
     )
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
-    for role_name, role_key_info in roles_infos.items():
-        threshold = role_key_info.get("threshold", 1)
-        is_yubikey = role_key_info.get("yubikey", False)
-        _setup_role(
-            role_name,
-            threshold,
-            is_yubikey,
-            repository,
-            verification_keys[role_name],
-            signing_keys.get(role_name),
-        )
+    # for role_name, role_key_info in roles_infos.items():
+    #     threshold = role_key_info.get("threshold", 1)
+    #     is_yubikey = role_key_info.get("yubikey", False)
+    #     _setup_role(
+    #         role_name,
+    #         threshold,
+    #         is_yubikey,
+    #         repository,
+    #         verification_keys[role_name],
+    #         signing_keys.get(role_name),
+    #     )
 
-    _create_delegations(roles_infos, repository, verification_keys, signing_keys)
+    # _create_delegations(roles_infos, repository, verification_keys, signing_keys)
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
