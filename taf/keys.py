@@ -1,7 +1,9 @@
 from collections import defaultdict
+from logging import INFO
 import click
-
 from pathlib import Path
+from logdecorator import log_on_start
+from taf.log import taf_logger
 from taf.models.iterators import RolesIterator
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -13,7 +15,7 @@ from taf.keystore import (
 )
 from taf import YubikeyMissingLibrary
 from tuf.sig import generate_rsa_signature
-from taf.log import taf_logger
+from securesystemslib import keys
 
 try:
     import taf.yubikey as yk
@@ -88,6 +90,7 @@ def load_sorted_keys_of_new_roles(
         return
 
 
+@log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
 def load_signing_keys(
     taf_repo,
     role,
@@ -101,7 +104,6 @@ def load_signing_keys(
     loaded, but allow loading more keys (so that a metadata file can be signed
     by all of the role's keys if the user wants that)
     """
-    print(f"Loading signing keys of role {role}")
     threshold = taf_repo.get_role_threshold(role)
     signing_keys_num = len(taf_repo.get_role_keys(role))
     all_loaded = False
@@ -214,6 +216,9 @@ def setup_roles_keys(
                 public_key = _setup_yubikey(
                     yubikeys, role.name, key_name, key_scheme, certs_dir
                 )
+            else:
+                scheme = users_yubikeys_details[key_name].scheme
+                public_key = keys.import_rsakey_from_public_pem(public_key, scheme)
             yubikey_keys.append(public_key)
         else:
             public_key, private_key = _setup_keystore_key(

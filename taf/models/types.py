@@ -1,8 +1,6 @@
 from __future__ import annotations
-import json
 from typing import Optional
 import attrs
-from pathlib import Path
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
 from taf.models.iterators import RolesIterator
@@ -14,10 +12,6 @@ from taf.models.validators import (
     role_paths_validator,
 )
 
-
-class IterableRoles:
-    def roles_list(self):
-        raise NotImplementedError
 
 
 @attrs.define
@@ -53,6 +47,10 @@ class Role:
             len(self.yubikeys) if self.yubikeys else DEFAULT_ROLE_SETUP_PARAMS["number"]
         )
 
+    @property
+    def is_yubikey(self):
+        return bool(self.yubikeys is not None and len(self.yubikeys))
+
 
 class RootRole(Role):
     name: str = "root"
@@ -61,6 +59,7 @@ class RootRole(Role):
 @attrs.define
 class DelegatedRole(Role):
     name: Optional[str] = attrs.field(default=None, kw_only=True)
+    parent_name: Optional[str] = attrs.field(default=None, kw_only=True)
     paths: list[str] = attrs.field(kw_only=True, validator=role_paths_validator)
     terminating: Optional[bool] = attrs.field(
         validator=optional_type_validator(bool),
@@ -72,16 +71,22 @@ class DelegatedRole(Role):
 
 
 @attrs.define
-class TargetsRole(Role, IterableRoles):
+class TargetsRole(Role):
     name: str = "targets"
     delegations: Optional[dict[str, DelegatedRole]] = attrs.field(
         kw_only=True, default={}
     )
 
     def __attrs_post_init__(self):
-        if self.delegations:
-            for role_name, delegated_role in self.delegations.items():
+
+        def _update_delegations(role):
+            for role_name, delegated_role in role.delegations.items():
                 delegated_role.name = role_name
+                delegated_role.parent_name = role.name
+                _update_delegations(delegated_role)
+
+        if self.delegations:
+            _update_delegations(self)
 
 
 class SnapshotRole(Role):
@@ -93,7 +98,7 @@ class TimestampRole(Role):
 
 
 @attrs.define
-class MainRoles(IterableRoles):
+class MainRoles():
     root: RootRole
     targets: TargetsRole
     snapshot: SnapshotRole

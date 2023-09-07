@@ -1,10 +1,18 @@
 from typing import Iterator
 
 
-# TODO make this more intuitive
 class RolesIterator:
-    def __init__(self, roles):
+    """
+    Given an instance of MainRoles (which contains root, targets, snapshot or timestamp)
+    or a targets (or delegated targets), iterate over all roles in the roles hierarchy.
+    In case of MainRoles, iterate over root, targets, all delegated targets, snapshot and
+    timestamp in that order. In case of a targets role, iterate over all of its nested
+    targets roles
+    """
+    def __init__(self, roles, include_delegations=True, skip_top_role=False):
         self.roles = roles
+        self.include_delegations = include_delegations
+        self.skip_top_role = skip_top_role
 
     def __iter__(self) -> Iterator:
         # Define the order of roles
@@ -18,11 +26,13 @@ class RolesIterator:
         else:
             roles = [self.roles]
 
-        # Iterate over roles and their delegations
-        for role in roles:
-            yield role
+        def _dfs_delegations(role, skip_top_role=False):
+            if not skip_top_role:
+                yield role
 
-            # Check if the role has delegations
-            if hasattr(role, "delegations"):
+            if self.include_delegations and hasattr(role, "delegations"):
                 for delegation in role.delegations.values():
-                    yield delegation
+                    yield from _dfs_delegations(delegation)
+
+        for role in roles:
+            yield from _dfs_delegations(role, self.skip_top_role)
