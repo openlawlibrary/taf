@@ -868,9 +868,10 @@ def setup_role(
     else:
         for key_name, key in zip(role.yubikeys, verification_keys):
             role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-            role_obj.add_external_signature_provider(
-                key, partial(yubikey_signature_provider, key_name, key["keyid"])
-            )
+            if click.confirm(f"Use {key_name} for signing?"):
+                role_obj.add_external_signature_provider(
+                    key, partial(yubikey_signature_provider, key_name, key["keyid"])
+                )
 
 
 def _update_role(

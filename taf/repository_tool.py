@@ -162,7 +162,7 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
         pin = _check_key_and_get_pin(key_id)
         if pin is not None:
             break
-        input(f"Insert {name} and press enter")
+        input(f"\nInsert {name} and press enter")
 
     signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}

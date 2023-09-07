@@ -217,19 +217,17 @@ def create_repository(
         test_auth_file.touch()
 
     # register and sign target files (if any)
-    try:
-        taf_repository = Repository(path)
-        taf_repository._tuf_repository = repository
-        register_target_files(
-            path,
-            keystore,
-            roles_key_infos,
-            commit=False,
-            taf_repo=taf_repository,
-            write=True,
-        )
-    except TargetsMetadataUpdateError:
-        # if there are no target files
+    taf_repository = Repository(path)
+    taf_repository._tuf_repository = repository
+    updated = register_target_files(
+        path,
+        keystore,
+        roles_key_infos,
+        commit=False,
+        taf_repo=taf_repository,
+        write=True,
+    )
+    if not updated:
         repository.writeall()
 
     if commit:

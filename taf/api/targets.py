@@ -319,7 +319,7 @@ def register_target_files(
        Updates metadata files, writes changes to disk and optionally commits changes.
 
     Returns:
-        None
+        True if there were targets that were updated, False otherwise
     """
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
@@ -331,7 +331,7 @@ def register_target_files(
     # find files that should be added/modified/removed
     added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
 
-    update_target_metadata(
+    updated = update_target_metadata(
         taf_repo,
         added_targets_data,
         removed_targets_data,
@@ -347,6 +347,8 @@ def register_target_files(
             auth_git_repo = GitRepository(path=taf_repo.path)
             commit_message = input("\nEnter commit message and press ENTER\n\n")
             auth_git_repo.commit(commit_message)
+
+    return updated
 
 
 @log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)
