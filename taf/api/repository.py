@@ -12,7 +12,12 @@ from taf.models.converter import from_dict
 import taf.repositoriesdb as repositoriesdb
 from collections import defaultdict
 from pathlib import Path
-from taf.api.roles import create_delegations, _initialize_roles_and_keystore, _role_obj, setup_role
+from taf.api.roles import (
+    create_delegations,
+    _initialize_roles_and_keystore,
+    _role_obj,
+    setup_role,
+)
 from taf.api.targets import register_target_files
 
 from taf.auth_repo import AuthenticationRepository
@@ -207,7 +212,9 @@ def create_repository(
             signing_keys.get(role.name),
         )
 
-    create_delegations(roles_keys_data.roles.targets, repository, verification_keys, signing_keys)
+    create_delegations(
+        roles_keys_data.roles.targets, repository, verification_keys, signing_keys
+    )
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
@@ -385,4 +392,3 @@ def remove_dependency(
     )
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
-

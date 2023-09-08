@@ -224,7 +224,6 @@ def update_snapshot_and_timestamp(
         taf_repo.writeall()
 
 
-
 @log_on_start(DEBUG, "Updating target metadata", logger=taf_logger)
 @log_on_end(DEBUG, "Updated target metadata", logger=taf_logger)
 @log_on_error(

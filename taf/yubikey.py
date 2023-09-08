@@ -39,6 +39,12 @@ EXPIRATION_INTERVAL = 36500
 _yks_data_dict = defaultdict(dict)
 
 
+def add_key_id_mapping(serial_num, keyid):
+    if "ids" not in _yks_data_dict:
+        _yks_data_dict["ids"] = defaultdict(dict)
+    _yks_data_dict["ids"][keyid] = serial_num
+
+
 def add_key_pin(serial_num, pin):
     _yks_data_dict[serial_num]["pin"] = pin
 
@@ -51,6 +57,10 @@ def get_key_pin(serial_num):
     if serial_num in _yks_data_dict:
         return _yks_data_dict.get(serial_num).get("pin")
     return None
+
+
+def get_key_serial_by_id(keyid):
+    return _yks_data_dict.get("ids", {}).get(keyid)
 
 
 def get_key_public_key(serial_num):
@@ -458,6 +468,7 @@ def yubikey_prompt(
 
         if get_key_public_key(serial_num) is None and public_key is not None:
             add_key_public_key(serial_num, public_key)
+            add_key_id_mapping(serial_num, key_name)
 
         if role is not None:
             if loaded_yubikeys is None:

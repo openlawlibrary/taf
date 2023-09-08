@@ -5,6 +5,7 @@ from pathlib import Path
 from logdecorator import log_on_start
 from taf.log import taf_logger
 from taf.models.iterators import RolesIterator
+from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError, SigningError, YubikeyError
@@ -66,6 +67,7 @@ def load_sorted_keys_of_new_roles(
         keystore_roles, yubikey_roles = _sort_roles(roles_keys_data.roles)
         signing_keys = {}
         verification_keys = {}
+
         for role in keystore_roles:
             if role.name in existing_roles:
                 continue
@@ -200,27 +202,50 @@ def setup_roles_keys(
 
     yubikey_ids = role.yubikeys
 
-    # is_yubikey = key_info.get("yubikey", DEFAULT_ROLE_SETUP_PARAMS["yubikey"])
     is_yubikey = bool(yubikey_ids)
 
-    for key_num in range(role.number):
-        if yubikey_ids:
-            key_name = yubikey_ids[key_num]
-        else:
-            key_name = get_key_name(role.name, key_num, role.number)
-
-        if is_yubikey:
-            public_key = users_yubikeys_details[key_name].public
-            if not public_key:
-                key_scheme = users_yubikeys_details[key_name].scheme or role.scheme
-                public_key = _setup_yubikey(
-                    yubikeys, role.name, key_name, key_scheme, certs_dir
-                )
-            else:
-                scheme = users_yubikeys_details[key_name].scheme
+    if is_yubikey:
+        loaded_keys_num = 0
+        yk_with_public_key = {}
+        for key_id in yubikey_ids:
+            public_key = users_yubikeys_details[key_id].public
+            if public_key:
+                scheme = users_yubikeys_details[key_id].scheme
                 public_key = keys.import_rsakey_from_public_pem(public_key, scheme)
+                # check if signing key already loaded too
+                if not get_key_serial_by_id(key_id):
+                    yk_with_public_key[key_id] = public_key
+                else:
+                    loaded_keys_num += 1
+            else:
+                key_scheme = users_yubikeys_details[key_id].scheme or role.scheme
+                public_key = _setup_yubikey(
+                    yubikeys, role.name, key_id, key_scheme, certs_dir
+                )
+                loaded_keys_num += 1
             yubikey_keys.append(public_key)
-        else:
+        if loaded_keys_num < role.threshold:
+            print(f"Threshold of role {role.name} is {role.threshold}")
+            while loaded_keys_num < role.threshold:
+                loaded_keys = []
+                for key_id, public_key in yk_with_public_key.items():
+                    if _load_and_verify_yubikey(
+                        yubikeys, role.name, key_id, public_key
+                    ):
+                        loaded_keys_num += 1
+                        loaded_keys.append(key_id)
+                    if loaded_keys_num == role.threshold:
+                        break
+                if loaded_keys_num < role.threshold:
+                    if not click.confirm(
+                        f"Threshold of sining keys of role {role.name} not reached. Continue?"
+                    ):
+                        raise SigningError("Not enough signing keys")
+                    for key_id in loaded_keys:
+                        yk_with_public_key.pop(key_id)
+    else:
+        for key_num in range(role.number):
+            key_name = get_key_name(role.name, key_num, role.number)
             public_key, private_key = _setup_keystore_key(
                 keystore, role.name, key_name, key_num, role.scheme, role.length, None
             )
@@ -330,3 +355,25 @@ def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
 
         export_yk_certificate(certs_dir, key)
         return key
+
+
+def _load_and_verify_yubikey(yubikeys, role_name, key_name, public_key):
+    if not click.confirm(f"Sign using {key_name} Yubikey?"):
+        return False
+    while True:
+        yk_public_key, _ = yk.yubikey_prompt(
+            key_name,
+            role_name,
+            taf_repo=None,
+            registering_new_key=True,
+            creating_new_key=False,
+            loaded_yubikeys=yubikeys,
+            pin_confirm=True,
+            pin_repeat=True,
+        )
+
+        if yk_public_key["keyid"] != public_key["keyid"]:
+            print("Public key of the inserted key is not equal to the specified one.")
+            if not click.confirm("Try again?"):
+                return False
+        return True

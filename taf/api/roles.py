@@ -10,6 +10,7 @@ from taf.api.utils import check_if_clean
 from taf.exceptions import TAFError
 from taf.models.iterators import RolesIterator
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
+from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
 import taf.repositoriesdb as repositoriesdb
@@ -868,7 +869,8 @@ def setup_role(
     else:
         for key_name, key in zip(role.yubikeys, verification_keys):
             role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-            if click.confirm(f"Use {key_name} for signing?"):
+            # check if yubikey loaded
+            if get_key_serial_by_id(key_name):
                 role_obj.add_external_signature_provider(
                     key, partial(yubikey_signature_provider, key_name, key["keyid"])
                 )
