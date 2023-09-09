@@ -3,8 +3,10 @@ from logging import INFO
 import click
 from pathlib import Path
 from logdecorator import log_on_start
+from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
 from taf.models.iterators import RolesIterator
+from taf.models.types import DelegatedRole, MainRoles, UserKeyData
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -36,11 +38,12 @@ def get_key_name(role_name, key_num, num_of_keys):
 
 
 def load_sorted_keys_of_new_roles(
-    auth_repo,
-    roles_keys_data,
-    keystore,
-    yubikeys=None,
-    existing_roles=None,
+    auth_repo: AuthenticationRepository,
+    roles: MainRoles | DelegatedRole,
+    yubikeys_data: dict[str, UserKeyData],
+    keystore: str,
+    yubikeys: dict[str, dict] = None,
+    existing_roles: list[str] = None,
 ):
     def _sort_roles(roles):
         # load keys not stored on YubiKeys first, to avoid entering pins
@@ -52,7 +55,7 @@ def load_sorted_keys_of_new_roles(
             # a mapping of each key id to additional detail
             # if additional details contain the public key, a user will not have to insert
             # that yubikey (provided that it's not necessary given the threshold of signing keys)
-            if role.yubikeys:
+            if role.is_yubikey:
                 yubikey_roles.append(role)
             else:
                 keystore_roles.append(role)
@@ -64,7 +67,7 @@ def load_sorted_keys_of_new_roles(
     if existing_roles is None:
         existing_roles = []
     try:
-        keystore_roles, yubikey_roles = _sort_roles(roles_keys_data.roles)
+        keystore_roles, yubikey_roles = _sort_roles(roles)
         signing_keys = {}
         verification_keys = {}
 
@@ -83,7 +86,7 @@ def load_sorted_keys_of_new_roles(
                 role,
                 certs_dir=auth_repo.certs_dir,
                 yubikeys=yubikeys,
-                users_yubikeys_details=roles_keys_data.yubikeys,
+                users_yubikeys_details=yubikeys_data,
             )
             verification_keys[role.name] = yubikey_keys
         return signing_keys, verification_keys

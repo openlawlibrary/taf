@@ -1,4 +1,3 @@
-from functools import partial
 import json
 from logging import DEBUG, ERROR, INFO
 import click
@@ -21,11 +20,11 @@ from taf.api.roles import (
 from taf.api.targets import register_target_files
 
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, YUBIKEY_EXPIRATION_DATE
-from taf.exceptions import TAFError, TargetsMetadataUpdateError
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
 from taf.git import GitRepository
-from taf.keys import get_key_name, load_sorted_keys_of_new_roles
-from taf.repository_tool import Repository, yubikey_signature_provider
+from taf.keys import load_sorted_keys_of_new_roles
+from taf.repository_tool import Repository
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
@@ -199,7 +198,8 @@ def create_repository(
     repository = create_new_repository(str(auth_repo.path))
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
-        roles_keys_data=roles_keys_data,
+        roles=roles_keys_data.roles,
+        yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
     )
     # set threshold and register keys of main roles

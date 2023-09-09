@@ -13,7 +13,6 @@ from taf.models.validators import (
 )
 
 
-
 @attrs.define
 class UserKeyData:
     public: Optional[str] = attrs.field(
@@ -40,6 +39,8 @@ class Role:
     )
     yubikeys: Optional[list[str]] = attrs.field(default=None)
     number: int = attrs.field(validator=role_number_validator)
+    # TODO remove after reworking add role/storing yubikey ids in the repo
+    yubikey: Optional[bool] = attrs.field(default=None)
 
     @number.default
     def _number_factory(self):
@@ -49,7 +50,9 @@ class Role:
 
     @property
     def is_yubikey(self):
-        return bool(self.yubikeys is not None and len(self.yubikeys))
+        return bool(
+            self.yubikey == True or (self.yubikeys is not None and len(self.yubikeys))
+        )
 
 
 class RootRole(Role):
@@ -59,7 +62,7 @@ class RootRole(Role):
 @attrs.define
 class DelegatedRole(Role):
     name: Optional[str] = attrs.field(default=None, kw_only=True)
-    parent_name: Optional[str] = attrs.field(default=None, kw_only=True)
+    parent: Optional[Role] = attrs.field(default=None, kw_only=True)
     paths: list[str] = attrs.field(kw_only=True, validator=role_paths_validator)
     terminating: Optional[bool] = attrs.field(
         validator=optional_type_validator(bool),
@@ -78,11 +81,10 @@ class TargetsRole(Role):
     )
 
     def __attrs_post_init__(self):
-
         def _update_delegations(role):
             for role_name, delegated_role in role.delegations.items():
                 delegated_role.name = role_name
-                delegated_role.parent_name = role.name
+                delegated_role.parent = role
                 _update_delegations(delegated_role)
 
         if self.delegations:
@@ -98,7 +100,7 @@ class TimestampRole(Role):
 
 
 @attrs.define
-class MainRoles():
+class MainRoles:
     root: RootRole
     targets: TargetsRole
     snapshot: SnapshotRole

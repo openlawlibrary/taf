@@ -9,6 +9,7 @@ class RolesIterator:
     timestamp in that order. In case of a targets role, iterate over all of its nested
     targets roles
     """
+
     def __init__(self, roles, include_delegations=True, skip_top_role=False):
         self.roles = roles
         self.include_delegations = include_delegations

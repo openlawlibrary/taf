@@ -8,7 +8,9 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean
 from taf.exceptions import TAFError
+from taf.models.converter import from_dict
 from taf.models.iterators import RolesIterator
+from taf.models.types import DelegatedRole, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -34,6 +36,7 @@ from taf.repository_tool import (
 )
 from taf.utils import get_key_size, read_input_dict
 from taf.log import taf_logger
+from taf.models.types import RolesKeysData
 
 
 MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
@@ -86,7 +89,6 @@ def add_role(
     Returns:
         None
     """
-    yubikeys = defaultdict(dict)
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=path)
     path = Path(path)
@@ -96,30 +98,23 @@ def add_role(
         print("All roles already set up")
         return
 
-    roles_infos = {
-        parent_role: {
-            "delegations": {
-                "roles": {
-                    role: {
-                        "paths": paths,
-                        "number": keys_number,
-                        "threshold": threshold,
-                        "yubikey": yubikey,
-                    }
-                }
-            }
-        }
-    }
-
-    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
+    new_role = DelegatedRole(
+        parent_name=parent_role,
+        name=role,
+        paths=paths,
+        number=keys_number,
+        threshold=threshold,
+        yubikey=yubikey,
+    )
 
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
-        roles_keys_data=roles_keys_data,
+        roles=new_role,
+        yubikeys_data=None,
         keystore=keystore,
     )
     create_delegations(
-        roles_infos, auth_repo, verification_keys, signing_keys, existing_roles
+        new_role, auth_repo, verification_keys, signing_keys, existing_roles
     )
     _update_role(
         auth_repo, parent_role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
@@ -232,57 +227,36 @@ def add_roles(
         roles_key_infos, keystore
     )
 
+    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
+
     new_roles = []
     existing_roles = auth_repo.get_all_targets_roles()
     main_roles = ["root", "snapshot", "timestamp", "targets"]
     existing_roles.extend(main_roles)
 
-    # allow specification of roles without putting them inside targets delegations map
-    # ensuring that it is possible to specify only delegated roles
-    # since creation of delegations expects that structure, place the roles inside targets/delegations
-    delegations_info = {}
-    for role_name, role_data in dict(roles_key_infos["roles"]).items():
-        if role_name not in main_roles:
-            roles_key_infos["roles"].pop(role_name)
-            delegations_info[role_name] = role_data
-    roles_key_infos["roles"].setdefault("targets", {"delegations": {}})[
-        "delegations"
-    ].update(delegations_info)
-
-    # find all existing roles which are parents of the newly added roles
-    # they should be signed after the delegations are created
-    roles = [
-        (role_name, role_data)
-        for role_name, role_data in roles_key_infos["roles"].items()
+    new_roles = [
+        role
+        for role in RolesIterator(roles_keys_data.roles.targets, skip_top_role=True)
+        if role.name not in existing_roles
     ]
-    parent_roles = set()
-    while len(roles):
-        role_name, role_data = roles.pop()
-        for delegated_role, delegated_role_data in role_data.get(
-            "delegations", {}
-        ).items():
-            if delegated_role not in existing_roles:
-                if role_name not in new_roles:
-                    parent_roles.add(role_name)
-                new_roles.append(delegated_role)
-            roles.append((delegated_role, delegated_role_data))
+
+    parent_roles = {role.parent for role in new_roles}
 
     if not len(new_roles):
         print("All roles already set up")
         return
 
     repository = auth_repo._repository
-    roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_infos, keystore, yubikeys, existing_roles
+        auth_repo, roles_keys_data, keystore, yubikeys, existing_roles
     )
     create_delegations(
-        roles_infos, repository, verification_keys, signing_keys, existing_roles
+        roles_keys_data, repository, verification_keys, signing_keys, existing_roles
     )
     for parent_role in parent_roles:
         _update_role(
             auth_repo,
-            parent_role,
+            parent_role.name,
             keystore,
             scheme=scheme,
             prompt_for_keys=prompt_for_keys,
@@ -595,8 +569,9 @@ def create_delegations(
     """
     if existing_roles is None:
         existing_roles = []
-    for delegated_role in RolesIterator(role, skip_top_role=True):
-        parent_role_obj = _role_obj(delegated_role.parent_name, repository)
+    skip_top_role = isinstance(role, TargetsRole)
+    for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
+        parent_role_obj = _role_obj(delegated_role.parent.name, repository)
         if delegated_role.name in existing_roles:
             print(f"Role {delegated_role.name} already set up.")
             continue
