@@ -3,7 +3,7 @@ from logging import DEBUG, ERROR, INFO
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean
-from taf.exceptions import TAFError, TargetsMetadataUpdateError
+from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME

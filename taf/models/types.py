@@ -51,7 +51,7 @@ class Role:
     @property
     def is_yubikey(self):
         return bool(
-            self.yubikey == True or (self.yubikeys is not None and len(self.yubikeys))
+            self.yubikey is True or (self.yubikeys is not None and len(self.yubikeys))
         )
 
 

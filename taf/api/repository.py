@@ -9,12 +9,10 @@ from taf.api.utils import check_if_clean
 from taf.models.converter import from_dict
 
 import taf.repositoriesdb as repositoriesdb
-from collections import defaultdict
 from pathlib import Path
 from taf.api.roles import (
     create_delegations,
     _initialize_roles_and_keystore,
-    _role_obj,
     setup_role,
 )
 from taf.api.targets import register_target_files

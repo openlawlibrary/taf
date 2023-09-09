@@ -1,8 +1,6 @@
 import attrs
 import cattrs
-from typing import ForwardRef
 from cattrs.gen import make_dict_structure_fn
-from taf.models.types import DelegatedRole
 
 converter = cattrs.Converter()
 converter.register_structure_hook_factory(
