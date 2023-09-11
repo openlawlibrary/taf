@@ -98,8 +98,13 @@ def add_role(
         print("All roles already set up")
         return
 
+    if parent_role == "targets":
+        parent_role = TargetsRole()
+    else:
+        parent_role = DelegatedRole(name=parent_role)
+
     new_role = DelegatedRole(
-        parent_name=parent_role,
+        parent=parent_role,
         name=role,
         paths=paths,
         number=keys_number,
@@ -117,7 +122,11 @@ def add_role(
         new_role, auth_repo, verification_keys, signing_keys, existing_roles
     )
     _update_role(
-        auth_repo, parent_role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        auth_repo,
+        parent_role.name,
+        keystore,
+        scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
     )
     if commit:
         update_snapshot_and_timestamp(
@@ -240,7 +249,7 @@ def add_roles(
         if role.name not in existing_roles
     ]
 
-    parent_roles = {role.parent for role in new_roles}
+    parent_roles_names = {role.parent.name for role in new_roles}
 
     if not len(new_roles):
         print("All roles already set up")
@@ -248,15 +257,24 @@ def add_roles(
 
     repository = auth_repo._repository
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_keys_data, keystore, yubikeys, existing_roles
+        auth_repo=auth_repo,
+        roles=roles_keys_data.roles,
+        keystore=keystore,
+        yubikeys_data=roles_keys_data.yubikeys,
+        existing_roles=existing_roles,
     )
+
     create_delegations(
-        roles_keys_data, repository, verification_keys, signing_keys, existing_roles
+        roles_keys_data.roles.targets,
+        repository,
+        verification_keys,
+        signing_keys,
+        existing_roles,
     )
-    for parent_role in parent_roles:
+    for parent_role_name in parent_roles_names:
         _update_role(
             auth_repo,
-            parent_role.name,
+            parent_role_name,
             keystore,
             scheme=scheme,
             prompt_for_keys=prompt_for_keys,
