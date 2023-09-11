@@ -228,7 +228,6 @@ def add_roles(
     Returns:
         None
     """
-    yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=path)
     path = Path(path)
 
