@@ -17,6 +17,7 @@ INVALID_KEYS_NUMBER_INPUT = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_keys_number.json"
 )
 INVALID_PATH_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_path.json"
+OLD_YUBIKEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_old_yubikey.json"
 
 
 original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
@@ -54,3 +55,8 @@ def invalid_keys_number_json_input():
 @fixture
 def invalid_path_input():
     return _read_json(INVALID_PATH_INPUT)
+
+
+@fixture
+def with_old_yubikey():
+    return _read_json(OLD_YUBIKEY_INPUT)

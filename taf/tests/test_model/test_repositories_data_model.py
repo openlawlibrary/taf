@@ -67,6 +67,20 @@ def test_no_yubikeys(no_yubikeys_json_input):
     assert Path(roles_keys_data.keystore).resolve().is_dir()
 
 
+def test_old_yubikey(with_old_yubikey):
+    roles_keys_data = from_dict(with_old_yubikey, RolesKeysData)
+    assert roles_keys_data
+    assert isinstance(roles_keys_data, RolesKeysData)
+    assert roles_keys_data.yubikeys is None
+    _check_main_roles(roles_keys_data)
+    assert roles_keys_data.roles.root.is_yubikey is True
+    assert roles_keys_data.roles.targets.is_yubikey is True
+    assert roles_keys_data.roles.targets.delegations == {}
+
+    assert roles_keys_data.keystore == "../data/keystores/keystore"
+    assert Path(roles_keys_data.keystore).resolve().is_dir()
+
+
 def test_with_delegations_delegations(with_delegations_json_input):
     roles_keys_data = from_dict(with_delegations_json_input, RolesKeysData)
     assert roles_keys_data
