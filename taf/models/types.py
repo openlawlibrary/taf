@@ -3,11 +3,13 @@ from typing import Optional
 import attrs
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
+from taf.exceptions import RolesKeyDataConversionError
 from taf.models.iterators import RolesIterator
 from taf.models.validators import (
     filepath_validator,
     integer_validator,
     optional_type_validator,
+    public_key_validator,
     role_number_validator,
     role_paths_validator,
 )
@@ -15,9 +17,7 @@ from taf.models.validators import (
 
 @attrs.define
 class UserKeyData:
-    public: Optional[str] = attrs.field(
-        validator=optional_type_validator(str), default=None
-    )
+    public: Optional[str] = attrs.field(validator=public_key_validator, default=None)
     scheme: Optional[str] = attrs.field(
         validator=optional_type_validator(str),
         default=DEFAULT_ROLE_SETUP_PARAMS["scheme"],
@@ -117,12 +117,16 @@ class RolesKeysData:
         for role in RolesIterator(self.roles):
             if role.yubikeys:
                 if not self.yubikeys:
-                    raise ValueError(
-                        f"yubikeys of role {role.name} are listed, but yubikeys are not defined"
+                    raise RolesKeyDataConversionError(
+                        exceptions=[
+                            f"yubikeys of role {role.name} are listed, but yubikeys are not defined"
+                        ]
                     )
 
                 for key_id in role.yubikeys:
                     if key_id not in self.yubikeys:
-                        raise ValueError(
-                            f"role {role.name} references yubikey {key_id}, but it is not specified"
+                        raise RolesKeyDataConversionError(
+                            exceptions=[
+                                f"role {role.name} references yubikey {key_id}, but it is not specified"
+                            ]
                         )

@@ -29,19 +29,13 @@
           "delegations": {
             "delegated_role": {
               "paths": [
-                "dir1/*",
-                "dir2/path1"
+                "dir1\\part1",
+                "dir2\\path2"
                 ],
               "threshold": 1,
               "yubikeys": [
                 "user1", "user2"
-              ],
-              "delegations": {
-                "inner_role": {
-                  "paths": ["dir2/path2"],
-                  "yubikeys": ["user1", "user2"]
-                }
-              }
+              ]
             }
           }
         },

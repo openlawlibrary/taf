@@ -1,4 +1,6 @@
+import pytest
 from pathlib import Path
+from taf.exceptions import RolesKeyDataConversionError
 from taf.models.converter import from_dict
 from taf.models.types import RolesKeysData
 
@@ -35,7 +37,7 @@ def _check_main_roles(roles_keys_data):
     assert roles_keys_data.roles.timestamp.is_yubikey is False
 
 
-def test_no_delegations_input(no_delegations_json_input):
+def test_no_delegations(no_delegations_json_input):
     roles_keys_data = from_dict(no_delegations_json_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
@@ -51,7 +53,7 @@ def test_no_delegations_input(no_delegations_json_input):
     assert Path(roles_keys_data.keystore).resolve().is_dir()
 
 
-def test_no_yubikeys_input(no_yubikeys_json_input):
+def test_no_yubikeys(no_yubikeys_json_input):
     roles_keys_data = from_dict(no_yubikeys_json_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
@@ -65,7 +67,7 @@ def test_no_yubikeys_input(no_yubikeys_json_input):
     assert Path(roles_keys_data.keystore).resolve().is_dir()
 
 
-def test_with_delegations_delegations_input(with_delegations_json_input):
+def test_with_delegations_delegations(with_delegations_json_input):
     roles_keys_data = from_dict(with_delegations_json_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
@@ -78,7 +80,7 @@ def test_with_delegations_delegations_input(with_delegations_json_input):
     assert len(roles_keys_data.roles.targets.delegations) == 1
     assert "delegated_role" in roles_keys_data.roles.targets.delegations
     assert roles_keys_data.roles.targets.delegations["delegated_role"].paths == [
-        "dir1/path1",
+        "dir1/*",
         "dir2/path1",
     ]
     assert roles_keys_data.roles.targets.delegations["delegated_role"].number == 2
@@ -109,3 +111,27 @@ def test_with_delegations_delegations_input(with_delegations_json_input):
 
     assert roles_keys_data.keystore == "../data/keystores/keystore"
     assert Path(roles_keys_data.keystore).resolve().is_dir()
+
+
+def test_invalid_yubikeys(invalid_keys_number_json_input):
+    with pytest.raises(RolesKeyDataConversionError) as error:
+        from_dict(invalid_keys_number_json_input, RolesKeysData)
+    assert (
+        str(error.value)
+        == "root definition error: number of signing keys (3) is not the same as the number of specified yubikeys. Omit the number property if specifying yubikeys or make sure these values match"
+    )
+
+
+def test_invalidkeys_number(invalid_public_key_json_input):
+    with pytest.raises(RolesKeyDataConversionError) as error:
+        from_dict(invalid_public_key_json_input, RolesKeysData)
+    assert str(error.value) == "Public key must start with '-----BEGIN PUBLIC KEY-----'"
+
+
+def test_invalid_path(invalid_path_input):
+    with pytest.raises(RolesKeyDataConversionError) as error:
+        from_dict(invalid_path_input, RolesKeysData)
+    assert (
+        str(error.value)
+        == "dir1\\part1 is not a valid delegated path. Delegated paths are valid directory names or * separated by /"
+    )

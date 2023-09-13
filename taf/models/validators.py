@@ -1,8 +1,7 @@
+import re
 from pathlib import Path
 import attrs
 from typing import Any
-
-from pathvalidate import sanitize_filepath
 
 
 def integer_validator(
@@ -24,7 +23,7 @@ def public_key_validator(
     attribute: "attrs.Attribute[str]",
     value: Any,
 ) -> bool:
-    if value is not None and not value.startswith("-----BEGIN PUBLIC KEY-----"):
+    if value and not value.startswith("-----BEGIN PUBLIC KEY-----"):
         raise ValueError("Public key must start with '-----BEGIN PUBLIC KEY-----'")
     return True
 
@@ -60,10 +59,17 @@ def role_paths_validator(
     attribute: "attrs.Attribute[list[str]]",
     value: list[str],
 ) -> bool:
+    word_pattern = r"^[A-Za-z0-9_.-]*$"
+
     for path in value:
-        sanitized_path = sanitize_filepath(path)
-        if sanitized_path != path:
-            raise ValueError(f"{path} is not a valid Unix path")
+        words = path.split("/")
+
+        for word in words:
+            if not re.match(word_pattern, word) and word != "*":
+                raise ValueError(
+                    f"{path} is not a valid delegated path. Delegated paths are valid directory names or * separated by /"
+                )
+
     return True
 
 

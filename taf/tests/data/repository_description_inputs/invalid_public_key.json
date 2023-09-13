@@ -1,7 +1,8 @@
+
 {
     "yubikeys": {
       "user1": {
-        "public": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtdvJF1Q7fRNTQfgGMH/W\n2Sb4O/PemLHKcBj6Q1Nadvii+lF+lfsD/VqzEuNaM2fpJpostWzJR1jdeyjRZS9G\ndToEA9iSD0MczHRLWa9a1NMcPBC/Edts1oXogk23+NSL/Ugc5H+WikDuwMMYhA3o\nNgVgAtfDfJQJFkbI033DwcYjbBmlt/gnTVNUSHuoG8M2EurchMnZZIqSawEaL82Q\nIFUhEuGSljcb/WRj6XHY7upCvjJOMN2kH/zz4kGR8j5t61TKiLiepjunuQMGg+fl\njEm4v0fandpwWLdx7kYSbftmbQjnuPhBd3g3BQ721O4dYkLA/ncca9XryLqN8Cac\ngQIDAQAB\n-----END PUBLIC KEY-----",
+        "public": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtdvJF1Q7fRNTQfgGMH/W\n2Sb4O/PemLHKcBj6Q1Nadvii+lF+lfsD/VqzEuNaM2fpJpostWzJR1jdeyjRZS9G\ndToEA9iSD0MczHRLWa9a1NMcPBC/Edts1oXogk23+NSL/Ugc5H+WikDuwMMYhA3o\nNgVgAtfDfJQJFkbI033DwcYjbBmlt/gnTVNUSHuoG8M2EurchMnZZIqSawEaL82Q\nIFUhEuGSljcb/WRj6XHY7upCvjJOMN2kH/zz4kGR8j5t61TKiLiepjunuQMGg+fl\njEm4v0fandpwWLdx7kYSbftmbQjnuPhBd3g3BQ721O4dYkLA/ncca9XryLqN8Cac\ngQIDAQAB",
         "scheme": "rsa-pkcs1v15-sha256"
       },
       "user2": {
@@ -14,7 +15,6 @@
     },
     "roles": {
         "root": {
-          "number": 3,
           "threshold": 2,
           "yubikeys": [
             "user1", "user2", "userYK"
@@ -25,25 +25,7 @@
           "threshold": 1,
           "yubikeys": [
             "user1", "user2"
-          ],
-          "delegations": {
-            "delegated_role": {
-              "paths": [
-                "dir1/*",
-                "dir2/path1"
-                ],
-              "threshold": 1,
-              "yubikeys": [
-                "user1", "user2"
-              ],
-              "delegations": {
-                "inner_role": {
-                  "paths": ["dir2/path2"],
-                  "yubikeys": ["user1", "user2"]
-                }
-              }
-            }
-          }
+          ]
         },
         "snapshot": {
           "number": 1,
@@ -51,9 +33,8 @@
           "scheme": "rsa-pkcs1v15-sha256"
         },
         "timestamp": {
-  
         }
       },
-      "keystore": "../data/keystores/keystore"
+    "keystore": "../data/keystores/keystore"
   }
   

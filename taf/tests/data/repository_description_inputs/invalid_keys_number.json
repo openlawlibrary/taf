@@ -1,3 +1,4 @@
+
 {
     "yubikeys": {
       "user1": {
@@ -17,7 +18,7 @@
           "number": 3,
           "threshold": 2,
           "yubikeys": [
-            "user1", "user2", "userYK"
+            "user1", "user2"
           ]
         },
         "targets": {
@@ -25,25 +26,7 @@
           "threshold": 1,
           "yubikeys": [
             "user1", "user2"
-          ],
-          "delegations": {
-            "delegated_role": {
-              "paths": [
-                "dir1/*",
-                "dir2/path1"
-                ],
-              "threshold": 1,
-              "yubikeys": [
-                "user1", "user2"
-              ],
-              "delegations": {
-                "inner_role": {
-                  "paths": ["dir2/path2"],
-                  "yubikeys": ["user1", "user2"]
-                }
-              }
-            }
-          }
+          ]
         },
         "snapshot": {
           "number": 1,
@@ -51,9 +34,8 @@
           "scheme": "rsa-pkcs1v15-sha256"
         },
         "timestamp": {
-  
         }
       },
-      "keystore": "../data/keystores/keystore"
+    "keystore": "../data/keystores/keystore"
   }
   
