@@ -56,7 +56,7 @@ def role_number_validator(
 
 def role_paths_validator(
     instance: Any,
-    attribute: "attrs.Attribute[list[str]]",
+    attribute: "attrs.Attribute[List[str]]",
     value: List[str],
 ) -> bool:
     word_pattern = r"^[A-Za-z0-9_.-]*$"
@@ -75,7 +75,7 @@ def role_paths_validator(
 
 def filepath_validator(
     instance: Any,
-    attribute: "attrs.Attribute[list[str]]",
+    attribute: "attrs.Attribute[List[str]]",
     value: str,
 ) -> bool:
     if value is not None and not Path(value).resolve().exists():

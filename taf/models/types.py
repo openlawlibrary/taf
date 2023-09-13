@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Dict
+from typing import List, Optional, Dict
 import attrs
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
@@ -37,7 +37,7 @@ class Role:
         validator=optional_type_validator(int),
         default=DEFAULT_ROLE_SETUP_PARAMS["length"],
     )
-    yubikeys: Optional[list[str]] = attrs.field(default=None)
+    yubikeys: Optional[List[str]] = attrs.field(default=None)
     number: int = attrs.field(validator=role_number_validator)
     # TODO remove after reworking add role/storing yubikey ids in the repo
     yubikey: Optional[bool] = attrs.field(default=None)
@@ -63,7 +63,7 @@ class RootRole(Role):
 class DelegatedRole(Role):
     name: Optional[str] = attrs.field(default=None, kw_only=True)
     parent: Optional[Role] = attrs.field(default=None, kw_only=True)
-    paths: list[str] = attrs.field(kw_only=True, validator=role_paths_validator)
+    paths: List[str] = attrs.field(kw_only=True, validator=role_paths_validator)
     terminating: Optional[bool] = attrs.field(
         validator=optional_type_validator(bool),
         default=DEFAULT_ROLE_SETUP_PARAMS["terminating"],
