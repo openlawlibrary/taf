@@ -76,7 +76,7 @@ mapped to a custom name (like `user1`, `user2`, `userYK`) and these names will b
 while setting up a role, instead of the generic names derived from names of the roles. Additional information
 includes:
   - `public`- public key exported from the YubiKey. The specified key will be registered as the role's verification
-  key and it will not be necessary to insert the YubiKye (unless the threshold of sining keys is not reached, like when
+  key and it will not be necessary to insert the YubiKey (unless the threshold of signing keys is not reached, like when
   public keys of all used YubiKeys are specified)
   - `scheme` - signing scheme (can be ommitted, default scheme is `rsa-pkcs1v15-sha256`)
 - `roles` contains information about roles and their keys, including delegations:
