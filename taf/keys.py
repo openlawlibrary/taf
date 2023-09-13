@@ -67,6 +67,7 @@ def load_sorted_keys_of_new_roles(
     Returns:
         Signing and verification keys of roles
     """
+
     def _sort_roles(roles):
         keystore_roles = []
         yubikey_roles = []
