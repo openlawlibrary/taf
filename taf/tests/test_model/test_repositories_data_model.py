@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 from taf.exceptions import RolesKeyDataConversionError
 from taf.models.converter import from_dict
 from taf.models.types import RolesKeysData
