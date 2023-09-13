@@ -45,16 +45,32 @@ def load_sorted_keys_of_new_roles(
     yubikeys: dict[str, dict] = None,
     existing_roles: list[str] = None,
 ):
+    """
+    Load signing keys of roles - first those stored on YubiKeys to avoid entering pins
+    if there is something wrong with keystore files, then from keystore files.
+    Recursively load keys of all delegated roles of target roles.
+
+    Arguments:
+        auth_repo: Authentication repository's instance
+        roles: MainRoles object (including root, targets, snapshot and timestamp) or a particular delegated role
+        yubikeys_data: Contains a mapping of a YubiKey's name to additional details. There names
+            are used to link roles to YubiKeys that are used to sign the corresponding metadata.
+            If additional details contain the public key, a user will not have to insert that YubiKey
+            (provided that it's not necessary given the threshold of signing keys)
+        keystore: keystore path
+        yubikeys:(optional): A dictionary containing previously loaded YubiKeys used to save already entered pins
+        existing_roles (optional): A list of roles whose keys were already loaded
+
+    Side Effects:
+        Populates loaded YubiKeys database located in `yubikey.py`
+
+    Returns:
+        Signing and verification keys of roles
+    """
     def _sort_roles(roles):
-        # load keys not stored on YubiKeys first, to avoid entering pins
-        # if there is somethig wrong with keystore files
         keystore_roles = []
         yubikey_roles = []
         for role in RolesIterator(roles):
-            # yubikeys is a list of key ids and users_yubikeys_details contains
-            # a mapping of each key id to additional detail
-            # if additional details contain the public key, a user will not have to insert
-            # that yubikey (provided that it's not necessary given the threshold of signing keys)
             if role.is_yubikey:
                 yubikey_roles.append(role)
             else:

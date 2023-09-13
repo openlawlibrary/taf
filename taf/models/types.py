@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Dict
 import attrs
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
@@ -68,7 +68,7 @@ class DelegatedRole(Role):
         validator=optional_type_validator(bool),
         default=DEFAULT_ROLE_SETUP_PARAMS["terminating"],
     )
-    delegations: Optional[dict[str, DelegatedRole]] = attrs.field(
+    delegations: Optional[Dict[str, DelegatedRole]] = attrs.field(
         kw_only=True, default={}
     )
 
@@ -76,7 +76,7 @@ class DelegatedRole(Role):
 @attrs.define
 class TargetsRole(Role):
     name: str = "targets"
-    delegations: Optional[dict[str, DelegatedRole]] = attrs.field(
+    delegations: Optional[Dict[str, DelegatedRole]] = attrs.field(
         kw_only=True, default={}
     )
 
@@ -111,7 +111,7 @@ class MainRoles:
 class RolesKeysData:
     roles: MainRoles
     keystore: Optional[str] = attrs.field(validator=filepath_validator, default=None)
-    yubikeys: Optional[dict[str, UserKeyData]] = attrs.field(default=None)
+    yubikeys: Optional[Dict[str, UserKeyData]] = attrs.field(default=None)
 
     def __attrs_post_init__(self):
         for role in RolesIterator(self.roles):

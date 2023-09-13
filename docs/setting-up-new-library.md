@@ -34,7 +34,7 @@ This document describes how to create a new authentication repository with all o
           "user1", "user2"
         ],
         "delegations": {
-          "law": {
+          "delegated_role": {
             "paths": [
               "dir1/*",
               "path1",
@@ -87,6 +87,7 @@ includes:
   - `yubikeys` - a list of names of YubiKeys listed in the `yubikeys` section
   - `scheme` - signing scheme
   - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
+  In this example, `delegated_role` is a delegated role of the `targets` role and `inner_role` is a delegated role of `delegated_role`
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
 - `keystore` - location of the keystore files. This path can also be specified through an input parameter. This is the location where the keys will be saved to when being generated and where they will be read from when signing metadata files.
 

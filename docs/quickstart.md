@@ -34,7 +34,7 @@ This documents describes the most useful commands. See [this overview](repo-crea
           "user1", "user2"
         ],
         "delegations": {
-          "law": {
+          "delegated_role": {
             "paths": [
               "dir1/*",
               "path1",
