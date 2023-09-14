@@ -165,13 +165,8 @@ def attach_to_group(group):
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def list_keys(role, path):
         """
-        Add a new signing key. This will make it possible to a sign metadata files
-        corresponding to the specified roles with another key. Although private keys are
-        used for signing, key identifiers are calculated based on the public keys. This
-        means that it's necessary to enter the public key in order to register
-        a new signing key. Public key can be loaded from a file, in which case it is
-        necessary to specify its path as the pub_key parameter's value. If this option
-        is not used when calling this command, the key can be directly entered later.
+        List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
+        include additional information read from these certificates, like name or organization.
         """
         list_keys_of_role(
             path=path,
