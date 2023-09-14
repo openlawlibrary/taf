@@ -1,9 +1,25 @@
+from logging import DEBUG, ERROR
 import click
 
 from pathlib import Path
+from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.exceptions import TAFError
+from tuf.repository_tool import import_rsakey_from_pem
+
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.log import taf_logger
 import taf.yubikey as yk
 
 
+@log_on_start(DEBUG, "Exporting public pem from YubiKey", logger=taf_logger)
+@log_on_end(DEBUG, "Exported public pem from YubuKey", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while exporting public pem from YubiKey: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def export_yk_public_pem(path=None):
     """
     Export public key from a YubiKey and save it to a file or print to console.
@@ -13,7 +29,7 @@ def export_yk_public_pem(path=None):
         The key is printed to console if file path is not provided.
 
     Side Effects:
-       None
+       Write public key to a file if path is specified
 
     Returns:
         None
@@ -34,6 +50,48 @@ def export_yk_public_pem(path=None):
         path.write_text(pub_key_pem)
 
 
+@log_on_start(DEBUG, "Exporting certificate from YubiKey", logger=taf_logger)
+@log_on_end(DEBUG, "Exported certificate from YubuKey", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while exporting certificate from YubiKey: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
+def export_yk_certificate(path=None):
+    """
+    Export certificate from the YubiKey.
+
+    Arguments:
+        path (optional): Path to a file to which the certificate key should be written.
+        Will be written to the user's home directory by default
+
+    Side Effects:
+       Write certificate to a file
+
+    Returns:
+        None
+    """
+    try:
+        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+        scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+        key = import_rsakey_from_pem(pub_key_pem, scheme)
+        yk.export_yk_certificate(path, key)
+    except Exception:
+        print("Could not export certificate. Check if a YubiKey is inserted")
+        return
+
+
+@log_on_start(DEBUG, "Setting up a new signing YubiKey", logger=taf_logger)
+@log_on_end(DEBUG, "Finished setting up a new signing YubiKey", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while setting up a new YubiKey: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def setup_signing_yubikey(certs_dir=None):
     """
     Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
@@ -63,6 +121,15 @@ def setup_signing_yubikey(certs_dir=None):
     yk.export_yk_certificate(certs_dir, key)
 
 
+@log_on_start(DEBUG, "Setting up a new test YubiKey", logger=taf_logger)
+@log_on_end(DEBUG, "Finished setting up a test YubiKey", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while setting up a test YubiKey: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def setup_test_yubikey(key_path):
     """
     Reset the inserted yubikey, set default pin and copy the specified key

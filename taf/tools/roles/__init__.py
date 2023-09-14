@@ -1,5 +1,5 @@
 import click
-from taf.api.roles import add_role, add_roles, remove_role, add_signing_key as add_roles_signing_key
+from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key as add_roles_signing_key
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -159,3 +159,24 @@ def attach_to_group(group):
             scheme=scheme,
             prompt_for_keys=prompt_for_keys
         )
+
+
+    @roles.command()
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("role")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    def list_keys(role, path):
+        """
+        Add a new signing key. This will make it possible to a sign metadata files
+        corresponding to the specified roles with another key. Although private keys are
+        used for signing, key identifiers are calculated based on the public keys. This
+        means that it's necessary to enter the public key in order to register
+        a new signing key. Public key can be loaded from a file, in which case it is
+        necessary to specify its path as the pub_key parameter's value. If this option
+        is not used when calling this command, the key can be directly entered later.
+        """
+        list_keys_of_role(
+            path=path,
+            role=role,
+        )
+

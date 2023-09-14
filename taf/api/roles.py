@@ -18,6 +18,7 @@ import tuf.roledb
 import taf.repositoriesdb as repositoriesdb
 from taf.keys import (
     get_key_name,
+    get_metadata_key_info,
     load_signing_keys,
     load_sorted_keys_of_new_roles,
 )
@@ -637,6 +638,24 @@ def _role_obj(role, repository, parent=None):
         if parent is None:
             return repository.targets(role)
         return parent(role)
+
+
+@log_on_error(
+    ERROR,
+    "Could not list keys of {role:s}: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
+@check_if_clean
+def list_keys_of_role(
+    path: str,
+    role: str,
+):
+    auth_repo = AuthenticationRepository(path=path)
+    key_ids = auth_repo.get_role_keys(role=role)
+    for key_id in key_ids:
+        print(get_metadata_key_info(auth_repo.certs_dir, key_id))
 
 
 @log_on_start(DEBUG, "Removing role {role:s}", logger=taf_logger)
