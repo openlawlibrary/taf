@@ -18,11 +18,11 @@ def attach_to_group(group):
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--commit", is_flag=True, default=False, help="Indicates if the changes should be "
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be "
                   "committed automatically")
     @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
                   "is a test authentication repository")
-    def create(path, keys_description, keystore, commit, test):
+    def create(path, keys_description, keystore, no_commit, test):
         """
         \b
         Create a new authentication repository at the specified location by registering
@@ -69,7 +69,7 @@ def attach_to_group(group):
             path=path,
             keystore=keystore,
             roles_key_infos=keys_description,
-            commit=commit,
+            commit=not no_commit,
             test=test,
         )
 

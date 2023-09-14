@@ -1,0 +1,23 @@
+{
+  "roles": {
+    "root": {
+        "number": 3,
+        "threshold": 2,
+        "yubikey": true
+
+    },
+    "targets": {
+      "number": 2,
+      "threshold": 1,
+      "yubikey": true
+    },
+    "snapshot": {
+      "number": 1,
+      "threshold": 1,
+      "scheme": "rsa-pkcs1v15-sha256"
+    },
+    "timestamp": {
+    }
+  }
+}
+  

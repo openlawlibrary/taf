@@ -6,60 +6,85 @@ This documents describes the most useful commands. See [this overview](repo-crea
 
 `keys-description` is a dictionary which contains information about the roles and their keys. The easiest way to specify it is to define it in a `.json` file and provide path to that file when calling various commands. For example:
 
+```
 {
-	"roles": {
-  	"root": {
-  	  "number": 3,
-			"threshold": 1
-  	},
-  	"targets": {
-			"number": 1,
-			"threshold": 1,
-			"delegations": {
-				"delegated_role1": {
-					"paths": [
-						"dir1/*"
-						],
-					"number": 3,
-					"threshold": 2,
-          "terminating": true
-				},
-				"delegated_role2":{
-					"paths": [
-						"dir2/*"
-					],
-					"delegations": {
-						"inner_delegated_role": {
-							"paths": [
-								"dir2/inner_delegated_role.txt"
-							],
-              "terminating": true
-						}
-					}
-				}
-			}
-  	},
-  	"snapshot": {
-			"scheme": "rsassa-pss-sha256"
-		},
-  	"timestamp": {
-			"scheme": "rsassa-pss-sha256"
-		}
-	},
-	"keystore": "keystore_path"
-}
+  "yubikeys": {
+    "user1": {
+      "public": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtdvJF1Q7fRNTQfgGMH/W\n2Sb4O/PemLHKcBj6Q1Nadvii+lF+lfsD/VqzEuNaM2fpJpostWzJR1jdeyjRZS9G\ndToEA9iSD0MczHRLWa9a1NMcPBC/Edts1oXogk23+NSL/Ugc5H+WikDuwMMYhA3o\nNgVgAtfDfJQJFkbI033DwcYjbBmlt/gnTVNUSHuoG8M2EurchMnZZIqSawEaL82Q\nIFUhEuGSljcb/WRj6XHY7upCvjJOMN2kH/zz4kGR8j5t61TKiLiepjunuQMGg+fl\njEm4v0fandpwWLdx7kYSbftmbQjnuPhBd3g3BQ721O4dYkLA/ncca9XryLqN8Cac\ngQIDAQAB\n-----END PUBLIC KEY-----",
+      "scheme": "rsa-pkcs1v15-sha256"
+    },
+    "user2": {
+      "public": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA95lvROpv0cjcXM4xBYe1\nhNYajb/lfM+57UhTteJsTsUgFefLKJmvXLZ7gFVroHTRzMeU0UvCaEWAxFWJiPOr\nxYBOtClSiPs4e0a/safLKDX0zBwT776CqA/EJ/P6+rPc2E2fawmq1k8RzalJj+0W\nz/xr9fKyMpZU7RQjJmuLcyqfUYTdnZHADn0CDM54gBZ4dYDGGQ70Pjmc1otq4jzh\nI390O4W9Gj9yXd6SyxW2Wpj2CI3g4J0pLl2c2Wjf7Jd4PVNxLGAFOU2YLoI4F3Ri\nsACFUWjfT7p6AagSPStzIMik1YfLq+qFUlhn3KbNMAY9afkvdbTPWT+vajjsoc4c\nOAex1y/uZ2npn/5Q0lT7gMH/JxB3GmAYHCew5W6GmO2mRfNO3J8A+hqS3nKGEbfR\ncb7V176O/tdRM0HguIWAuV75khrCpGLx/fZNAMFf3Q9p0iJsx9p6gCAHERi5e4BJ\nSCBkbtVGGsQ7JM7ptSiLLgi79hIXWehZFUIjuU7a2y4xAgMBAAE=\n-----END PUBLIC KEY-----",
+      "scheme": "rsa-pkcs1v15-sha256"
+    },
+    "userYK": {
+      "scheme": "rsa-pkcs1v15-sha256"
+    }
+  },
+  "roles": {
+      "root": {
+        "threshold": 1,
+        "yubikeys": [
+          "user1", "user2"
+        ]
+      },
+      "targets": {
+        "threshold": 1,
+        "yubikeys": [
+          "user1", "user2"
+        ],
+        "delegations": {
+          "delegated_role": {
+            "paths": [
+              "dir1/*",
+              "path1",
+              "path2"
+              ],
+            "threshold": 1,
+            "yubikeys": [
+              "user1", "user2"
+            ],
+            "delegations": {
+              "inner_role": {
+                "paths": ["path3"],
+                "yubikeys": ["user1", "user2"]
+              }
+            }
+          }
+        }
+      },
+      "snapshot": {
+        "number": 1,
+        "threshold": 1,
+        "scheme": "rsa-pkcs1v15-sha256"
+      },
+      "timestamp": {
 
-NOTE: in this example, scheme of snapshot and timestamp roles was specified in order to provide
-an example of how to do so. At the moment, all keys should have the same signing scheme.
-The default scheme is `"rsa-pkcs1v15-sha256`. Delegated target roles are optional - if all target files
+      }
+    },
+  "keystore": "D:\\oll\\library\\oll-test-repos\\keystore-dev\\keystore-dev"
+}
+```
+
+NOTE: in this example, schemes were specified in order to provide an example of how to do so.
+At the moment, all keys should have the same signing scheme.
+The default scheme is `rsa-pkcs1v15-sha256`. Delegated target roles are optional - if all target files
 should be signed using the `targets` key, there is no point in defining delegated target roles.
 
+-`yubikeys` contains information about YubiKeys which can be references when specifying role's keys. Each key is
+mapped to a custom name (like `user1`, `user2`, `userYK`) and these names will be used to reference these keys
+while setting up a role, instead of the generic names derived from names of the roles. Additional information
+includes:
+  - `public`- public key exported from the YubiKey. The specified key will be registered as the role's verification
+  key and it will not be necessary to insert the YubiKye (unless the threshold of sining keys is not reached, like when
+  public keys of all used YubiKeys are specified)
+  - `scheme` - signing scheme (can be ommitted, default scheme is `rsa-pkcs1v15-sha256`)
 - `roles` contains information about roles and their keys, including delegations:
   -  `number` - total number of the role's keys
   - `length` - length of the role's keys. Only needed when this json is used to generate keys.
-  - `passwords` - a list of passwords of the keystore files corresponding to the current role The first entry in the list is expected to specify the first key's password.
   - `threshold` - role's keys threshold - with how many different keys must a metadata files be signed
-  - `yubikey` - a flag which signalizes that the keys should be on YubiKeys
+  - `yubikey` - a flag which signalizes that the keys should be on YubiKeys (deprecated)
+  - `yubikeys` - a list of names of YubiKeys listed in the `yubikeys` section
   - `scheme` - signing scheme
   - `delegations` and `paths` - delegated roles of a targets role. For each delegated role, it is necessary to specify `paths`. That is, files or directories that the delegated role can sign. Paths are specified using glob expressions. In addition to paths, it is possible to specify the same properties of delegated roles as of main roles (number or keys, threshold, delegations etc.).
   - `terminating` - specifies if a delegated role is terminating (as defined in TUF - if a role is trusted with a certain file which is not found in that role an exceptions is raised if terminating is `True`. Affects the updater).
@@ -71,7 +96,6 @@ and a counter (if there is more than one key). E.g. `root1`', `root2`, `targets1
 If a property is omitted from the specification, it will have the default value. The default values are:
 - `number=1`
 - `length=3072` Note: If the generated key should be moved to a YubiKey 4, this value must not exceed 2048
-- `passwords=[]` Meaning that the keystore files will not be password protected by default.
 - `threshold=1`
 - `scheme=rsa-pkcs1v15-sha256`
 

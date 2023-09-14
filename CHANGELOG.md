@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add signing keys given a public key when creating a new authentication repository ([354])
+- Allow specification of names of YubiKeys in repository description json ([354])
+- Model repository description json input using `attrs` and `cattrs` and its validation ([354])
 - Add test for repo initialization when it is directly inside drive's root ([352])
 - Add functions for adding/updating/removing dependencies to/from dependencies.json ([338])
 
@@ -32,6 +35,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])
 
+[354]: https://github.com/openlawlibrary/taf/pull/354
 [353]: https://github.com/openlawlibrary/taf/pull/353
 [352]: https://github.com/openlawlibrary/taf/pull/352
 [351]: https://github.com/openlawlibrary/taf/pull/351

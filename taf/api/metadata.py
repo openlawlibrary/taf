@@ -1,9 +1,9 @@
 import datetime
-from logging import ERROR, INFO
+from logging import DEBUG, ERROR, INFO
 from pathlib import Path
-from logdecorator import log_on_end, log_on_error
+from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean
-from taf.exceptions import TAFError, TargetsMetadataUpdateError
+from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -224,7 +224,8 @@ def update_snapshot_and_timestamp(
         taf_repo.writeall()
 
 
-@log_on_end(INFO, "Updated target metadata", logger=taf_logger)
+@log_on_start(DEBUG, "Updating target metadata", logger=taf_logger)
+@log_on_end(DEBUG, "Updated target metadata", logger=taf_logger)
 @log_on_error(
     ERROR,
     "Could not update target metadata: {e}",
@@ -259,7 +260,7 @@ def update_target_metadata(
         Updates metadata files, saves changes to disk if write_all is True
 
     Returns:
-        None
+        True if there were targets that were updated, False otherwise
     """
 
     added_targets_data = {} if added_targets_data is None else added_targets_data
@@ -270,9 +271,8 @@ def update_target_metadata(
     )
 
     if not roles_targets:
-        raise TargetsMetadataUpdateError(
-            "There are no added/modified/removed target files."
-        )
+        taf_logger.info("No target files to sign")
+        return False
 
     # update targets
     loaded_yubikeys = {}
@@ -309,3 +309,4 @@ def update_target_metadata(
         update_snapshot_and_timestamp(
             taf_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
         )
+    return True

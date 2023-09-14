@@ -14,6 +14,7 @@ DEFAULT_ROLE_SETUP_PARAMS = {
     "scheme": DEFAULT_RSA_SIGNATURE_SCHEME,
     "length": 3072,
     "passwords": None,
+    "terminating": True,
 }
 
 # Yubikey x509 certificate expiration interval

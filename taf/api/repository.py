@@ -1,23 +1,28 @@
-from functools import partial
 import json
 from logging import DEBUG, ERROR, INFO
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
+from taf.models.iterators import RolesIterator
+from taf.models.types import RolesKeysData
 from taf.api.utils import check_if_clean
+from taf.models.converter import from_dict
 
 import taf.repositoriesdb as repositoriesdb
-from collections import defaultdict
 from pathlib import Path
-from taf.api.roles import _create_delegations, _initialize_roles_and_keystore, _role_obj
+from taf.api.roles import (
+    create_delegations,
+    _initialize_roles_and_keystore,
+    setup_role,
+)
 from taf.api.targets import register_target_files
 
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, YUBIKEY_EXPIRATION_DATE
-from taf.exceptions import TAFError, TargetsMetadataUpdateError
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
 from taf.git import GitRepository
-from taf.keys import get_key_name, load_sorted_keys_of_new_roles
-from taf.repository_tool import Repository, yubikey_signature_provider
+from taf.keys import load_sorted_keys_of_new_roles
+from taf.repository_tool import Repository
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
@@ -177,7 +182,6 @@ def create_repository(
     Returns:
         None
     """
-    yubikeys = defaultdict(dict)
     auth_repo = AuthenticationRepository(path=path)
     path = Path(path)
 
@@ -188,26 +192,27 @@ def create_repository(
         roles_key_infos, keystore
     )
 
+    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
     repository = create_new_repository(str(auth_repo.path))
-    roles_infos = roles_key_infos.get("roles")
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo, roles_infos, keystore, yubikeys
+        auth_repo=auth_repo,
+        roles=roles_keys_data.roles,
+        yubikeys_data=roles_keys_data.yubikeys,
+        keystore=keystore,
     )
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
-    for role_name, role_key_info in roles_infos.items():
-        threshold = role_key_info.get("threshold", 1)
-        is_yubikey = role_key_info.get("yubikey", False)
-        _setup_role(
-            role_name,
-            threshold,
-            is_yubikey,
+    for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
+        setup_role(
+            role,
             repository,
-            verification_keys[role_name],
-            signing_keys.get(role_name),
+            verification_keys[role.name],
+            signing_keys.get(role.name),
         )
 
-    _create_delegations(roles_infos, repository, verification_keys, signing_keys)
+    create_delegations(
+        roles_keys_data.roles.targets, repository, verification_keys, signing_keys
+    )
 
     # if the repository is a test repository, add a target file called test-auth-repo
     if test:
@@ -217,19 +222,17 @@ def create_repository(
         test_auth_file.touch()
 
     # register and sign target files (if any)
-    try:
-        taf_repository = Repository(path)
-        taf_repository._tuf_repository = repository
-        register_target_files(
-            path,
-            keystore,
-            roles_key_infos,
-            commit=False,
-            taf_repo=taf_repository,
-            write=True,
-        )
-    except TargetsMetadataUpdateError:
-        # if there are no target files
+    taf_repository = Repository(path)
+    taf_repository._tuf_repository = repository
+    updated = register_target_files(
+        path,
+        keystore,
+        roles_key_infos,
+        commit=False,
+        taf_repo=taf_repository,
+        write=True,
+    )
+    if not updated:
         repository.writeall()
 
     if commit:
@@ -387,46 +390,3 @@ def remove_dependency(
     )
     commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
-
-
-def _setup_role(
-    role_name,
-    threshold,
-    is_yubikey,
-    repository,
-    verification_keys,
-    signing_keys=None,
-    parent=None,
-):
-    """
-    Set up a role, which can either be one of the main TUF roles, or a delegated role.
-    Define threshold and signing and verification keys of the role and link it with the repository.
-
-    Arguments:
-        role_name: Role's name, either one of the main TUF roles or a delegated role.
-        threshold: Signatures threshold.
-        is_yubikey: Indicates if the role's metadata file should be signed using Yubikeys or not.
-        repository: TUF repository
-        verification_keys: Public keys used to verify the signatures
-        signing_keys (optional): Signing (private) keys, which only need to be specified if Yubikeys are not used
-        parent: The role's parent role
-
-    Side Effects:
-        Adds a new role to the TUF repository and sets up its threshold and signing and verification keys
-
-    Returns:
-        None
-    """
-    role_obj = _role_obj(role_name, repository, parent)
-    role_obj.threshold = threshold
-    if not is_yubikey:
-        for public_key, private_key in zip(verification_keys, signing_keys):
-            role_obj.add_verification_key(public_key)
-            role_obj.load_signing_key(private_key)
-    else:
-        for key_num, key in enumerate(verification_keys):
-            key_name = get_key_name(role_name, key_num, len(verification_keys))
-            role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
-            role_obj.add_external_signature_provider(
-                key, partial(yubikey_signature_provider, key_name, key["keyid"])
-            )
