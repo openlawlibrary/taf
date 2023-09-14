@@ -3,8 +3,6 @@ from pathlib import Path
 
 from taf.tests.conftest import TEST_DATA_PATH
 
-
-from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 
 
@@ -18,9 +16,6 @@ INVALID_KEYS_NUMBER_INPUT = (
 )
 INVALID_PATH_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_path.json"
 OLD_YUBIKEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_old_yubikey.json"
-
-
-original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
 
 def _read_json(path):
