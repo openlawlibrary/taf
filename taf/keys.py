@@ -13,7 +13,6 @@ from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     KeystoreError,
-    RemoveMetadataKeyThresholdError,
     SigningError,
     YubikeyError,
 )

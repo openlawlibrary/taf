@@ -102,7 +102,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     @property
     def certs_dir(self):
         certs_dir = Path(self.path, "certs")
-        certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
     @property
