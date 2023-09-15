@@ -647,7 +647,6 @@ def _role_obj(role, repository, parent=None):
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
 def list_keys_of_role(
     path: str,
     role: str,
