@@ -1,6 +1,6 @@
 import click
 import json
-from taf.api.yubikey import export_yk_public_pem, setup_signing_yubikey, setup_test_yubikey
+from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, setup_signing_yubikey, setup_test_yubikey
 from taf.exceptions import YubikeyError
 
 
@@ -36,6 +36,15 @@ def attach_to_group(group):
         Export the inserted Yubikey's public key and save it to the specified location.
         """
         export_yk_public_pem(output)
+
+    @yubikey.command()
+    @click.option("--output", help="File to which the exported certificate key will be written. "
+                  "The result will be written to the user's home directory by default")
+    def export_certificate(output):
+        """
+        Export the inserted Yubikey's public key and save it to the specified location.
+        """
+        export_yk_certificate(output)
 
     @yubikey.command()
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved."

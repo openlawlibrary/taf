@@ -1,6 +1,5 @@
 import click
-from taf.api.roles import add_role, add_roles, remove_role, add_signing_key as add_roles_signing_key
-
+from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key as add_roles_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception
@@ -158,4 +157,18 @@ def attach_to_group(group):
             roles_key_infos=keys_description,
             scheme=scheme,
             prompt_for_keys=prompt_for_keys
+        )
+
+    @roles.command()
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("role")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    def list_keys(role, path):
+        """
+        List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
+        include additional information read from these certificates, like name or organization.
+        """
+        list_keys_of_role(
+            path=path,
+            role=role,
         )

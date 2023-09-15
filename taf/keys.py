@@ -6,11 +6,16 @@ from logdecorator import log_on_start
 from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
 from taf.models.iterators import RolesIterator
+from taf.models.models import TAFKey
 from taf.models.types import DelegatedRole, MainRoles, UserKeyData
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import KeystoreError, SigningError, YubikeyError
+from taf.exceptions import (
+    KeystoreError,
+    SigningError,
+    YubikeyError,
+)
 from taf.keystore import (
     key_cmd_prompt,
     read_private_key_from_keystore,
@@ -35,6 +40,36 @@ def get_key_name(role_name, key_num, num_of_keys):
         return role_name
     else:
         return role_name + str(key_num + 1)
+
+
+def get_metadata_key_info(certs_dir, key_id):
+    cert_path = Path(certs_dir, key_id + ".cert")
+    if cert_path.exists():
+        cert_pem = cert_path.read_bytes()
+        return TAFKey(key_id, **_extract_x509(cert_pem))
+
+    return TAFKey(key_id)
+
+
+def _extract_x509(cert_pem):
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+
+    cert = x509.load_pem_x509_certificate(cert_pem, default_backend())
+
+    def _get_attr(oid):
+        attrs = cert.subject.get_attributes_for_oid(oid)
+        return attrs[0].value if len(attrs) > 0 else ""
+
+    return {
+        "name": _get_attr(x509.OID_COMMON_NAME),
+        "organization": _get_attr(x509.OID_ORGANIZATION_NAME),
+        "country": _get_attr(x509.OID_COUNTRY_NAME),
+        "state": _get_attr(x509.OID_STATE_OR_PROVINCE_NAME),
+        "locality": _get_attr(x509.OID_LOCALITY_NAME),
+        "valid_from": cert.not_valid_before.strftime("%Y-%m-%d"),
+        "valid_to": cert.not_valid_after.strftime("%Y-%m-%d"),
+    }
 
 
 def load_sorted_keys_of_new_roles(

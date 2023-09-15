@@ -219,7 +219,6 @@ def export_targets_history(path, commit=None, output=None, target_repos=None):
         print(commits_json)
 
 
-@check_if_clean
 def list_targets(
     path: str,
     library_dir: str = None,

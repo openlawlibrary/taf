@@ -64,6 +64,13 @@ class InvalidPINError(TAFError):
     pass
 
 
+class RemoveMetadataKeyThresholdError(TAFError):
+    def __init__(self, threshold):
+        super().__init__(
+            f"Remaining key number must be greater or equal to threshold ({threshold})."
+        )
+
+
 class RepositoryInstantiationError(TAFError):
     def __init__(self, repo_path, message):
         super().__init__(f"Could not instantiate repository {repo_path}\n\n: {message}")
