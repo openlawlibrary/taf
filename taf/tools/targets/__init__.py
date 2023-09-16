@@ -32,8 +32,10 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
     @click.pass_context
-    def add_repo(ctx, path, target_path, target_name, role, keystore, prompt_for_keys):
+    def add_repo(ctx, path, target_path, target_name, role, keystore, prompt_for_keys, no_commit):
         """Add a new repository by adding it to repositories.json, creating a delegation (if targets is not
         its signing role) and adding and signing initial target files if the repository is found on the filesystem.
         All additional information that should be saved as the repository's custom content in `repositories.json`
@@ -68,6 +70,7 @@ def attach_to_group(group):
             keystore=keystore,
             custom=custom,
             prompt_for_keys=prompt_for_keys,
+            commit=not no_commit
         )
 
     @targets.command()
@@ -119,7 +122,9 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
-    def remove_repo(path, target_name, keystore, prompt_for_keys):
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
+    def remove_repo(path, target_name, keystore, prompt_for_keys, no_commit):
         """Remove a target repository (from repsoitories.json and target file) and sign
         """
         remove_target_repo(
@@ -127,6 +132,7 @@ def attach_to_group(group):
             target_name=target_name,
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,
+            commit=not no_commit
         )
 
     @targets.command()
@@ -139,7 +145,9 @@ def attach_to_group(group):
                   "used for signing")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
-    def sign(path, keystore, keys_description, scheme, prompt_for_keys):
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
+    def sign(path, keystore, keys_description, scheme, prompt_for_keys, no_commit):
         """
         Register and sign target files. This means that all targets metadata files corresponding
         to roles responsible for updated target files are updated. Once the targets
@@ -155,7 +163,8 @@ def attach_to_group(group):
                 roles_key_infos=keys_description,
                 scheme=scheme,
                 write=True,
-                prompt_for_keys=prompt_for_keys
+                prompt_for_keys=prompt_for_keys,
+                commit=not no_commit
             )
         except TAFError as e:
             click.echo()
@@ -179,7 +188,9 @@ def attach_to_group(group):
                   "used for signing")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
-    def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme, prompt_for_keys):
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
+    def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme, prompt_for_keys, no_commit):
         """
         Update target files corresponding to target repositories specified through the target type parameter
         by writing the current top commit and branch name to the target files. Sign the updated files
@@ -212,7 +223,8 @@ def attach_to_group(group):
                     keystore=keystore,
                     roles_key_infos=keys_description,
                     scheme=scheme,
-                    prompt_for_keys=prompt_for_keys
+                    prompt_for_keys=prompt_for_keys,
+                    commit=not no_commit,
                 )
             else:
                 update_target_repos_from_repositories_json(
@@ -221,7 +233,8 @@ def attach_to_group(group):
                     add_branch=True,
                     keystore=keystore,
                     scheme=scheme,
-                    prompt_for_keys=prompt_for_keys
+                    prompt_for_keys=prompt_for_keys,
+                    commit=not no_commit
                 )
         except TAFError as e:
             click.echo()

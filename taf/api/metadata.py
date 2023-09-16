@@ -1,6 +1,7 @@
-import datetime
+from datetime import datetime
 from logging import DEBUG, ERROR, INFO
 from pathlib import Path
+from typing import Dict, List
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean
 from taf.exceptions import TAFError
@@ -18,7 +19,7 @@ from taf.log import taf_logger
     on_exceptions=TAFError,
     reraise=False,
 )
-def check_expiration_dates(path, interval=None, start_date=None, excluded_roles=None):
+def check_expiration_dates(path: str, interval: int=None, start_date=None, excluded_roles=None) -> None:
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
     Prints a list of expired roles.
@@ -43,7 +44,7 @@ def check_expiration_dates(path, interval=None, start_date=None, excluded_roles=
     )
 
     if expired_dict or will_expire_dict:
-        now = datetime.datetime.now()
+        now = datetime.now()
         print(
             f"Given a {interval} day interval from today ({start_date.strftime('%Y-%m-%d')}):"
         )
@@ -63,15 +64,15 @@ def check_expiration_dates(path, interval=None, start_date=None, excluded_roles=
 
 @check_if_clean
 def update_metadata_expiration_date(
-    path,
-    roles,
-    interval,
-    keystore=None,
-    scheme=None,
-    start_date=None,
-    no_commit=False,
-    prompt_for_keys=False,
-):
+    path: str,
+    roles: List[str],
+    interval: int,
+    keystore: str=None,
+    scheme: str=None,
+    start_date: datetime=None,
+    commit: bool=True,
+    prompt_for_keys: bool=False,
+) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
     to be signed in order to guarantee validity of the repository e.g. snapshot
@@ -86,7 +87,8 @@ def update_metadata_expiration_date(
         scheme (optional): Signature scheme.
         start_date (optional): Date to which expiration interval is added.
             Set to today if not specified.
-        no_commit (optional): Prevents automatic commit if set to True
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
 
     Side Effects:
         Updates metadata files, saves changes to disk and commits changes
@@ -96,7 +98,7 @@ def update_metadata_expiration_date(
         None
     """
     if start_date is None:
-        start_date = datetime.datetime.now()
+        start_date = datetime.now()
 
     taf_repo = Repository(path)
     loaded_yubikeys = {}
@@ -126,8 +128,8 @@ def update_metadata_expiration_date(
             prompt_for_keys,
         )
 
-    if no_commit:
-        print("\nNo commit was set. Please commit manually. \n")
+    if not commit:
+        print("\nPlease commit manually. \n")
     else:
         auth_repo = GitRepository(path=path)
         commit_message = input("\nEnter commit message and press ENTER\n\n")
@@ -143,17 +145,17 @@ def update_metadata_expiration_date(
     reraise=True,
 )
 def _update_expiration_date_of_role(
-    taf_repo,
-    role,
-    loaded_yubikeys,
-    keystore,
-    start_date,
-    interval,
-    scheme,
-    prompt_for_keys,
-):
+    auth_repo: Repository,
+    role: str,
+    loaded_yubikeys: Dict,
+    keystore: str,
+    start_date: datetime,
+    interval: int,
+    scheme: str,
+    prompt_for_keys: bool,
+) -> None:
     keys, yubikeys = load_signing_keys(
-        taf_repo,
+        auth_repo,
         role,
         loaded_yubikeys=loaded_yubikeys,
         keystore=keystore,
@@ -162,11 +164,11 @@ def _update_expiration_date_of_role(
     )
     # sign with keystore
     if len(keys):
-        taf_repo.update_role_keystores(
+        auth_repo.update_role_keystores(
             role, keys, start_date=start_date, interval=interval
         )
     if len(yubikeys):  # sign with yubikey
-        taf_repo.update_role_yubikeys(
+        auth_repo.update_role_yubikeys(
             role, yubikeys, start_date=start_date, interval=interval
         )
 
@@ -180,12 +182,12 @@ def _update_expiration_date_of_role(
     reraise=True,
 )
 def update_snapshot_and_timestamp(
-    taf_repo,
-    keystore,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    write_all=True,
-    prompt_for_keys=False,
-):
+    taf_repo: Repository,
+    keystore: str,
+    scheme: str=DEFAULT_RSA_SIGNATURE_SCHEME,
+    write_all: bool=True,
+    prompt_for_keys: bool=False,
+) -> None:
     """
     Sign snapshot and timestamp metadata files.
 
@@ -195,6 +197,7 @@ def update_snapshot_and_timestamp(
         scheme (optional): Signature scheme.
         write_all (optional): If True, writes authentication repository's
             changes to disk.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
 
     Side Effects:
         Updates metadata files, saves changes to disk if write_all is True
@@ -234,14 +237,14 @@ def update_snapshot_and_timestamp(
     reraise=True,
 )
 def update_target_metadata(
-    taf_repo,
-    added_targets_data,
-    removed_targets_data,
-    keystore,
-    write=False,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys=False,
-):
+    taf_repo: Repository,
+    added_targets_data: Dict,
+    removed_targets_data: Dict,
+    keystore: str,
+    write: bool=False,
+    scheme: str=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: bool=False,
+) -> None:
     """Given dictionaries containing targets that should be added and targets that should
     be removed, update and sign target metadata files and, if write is True, also
     sign snapshot and timestamp.
@@ -255,6 +258,7 @@ def update_target_metadata(
         keystore: Keystore directory's path.
         write (optional): If True, updates snapshot and timestamp and write changes to disk.
         scheme (optional): Signature scheme.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
 
     Side Effects:
         Updates metadata files, saves changes to disk if write_all is True

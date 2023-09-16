@@ -19,3 +19,11 @@ def check_if_clean(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def commit_and_push(auth_repo, commit_msg=None, push=True):
+    if commit_msg is None:
+        commit_message = input("\nEnter commit message and press ENTER\n\n")
+    auth_repo.commit(commit_message)
+    if push:
+        auth_repo.push()

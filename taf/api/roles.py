@@ -1,12 +1,13 @@
 from logging import DEBUG, ERROR, INFO
 import os
+from typing import Dict, List
 import click
 from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils import check_if_clean
+from taf.api.utils import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
 from taf.models.iterators import RolesIterator
@@ -64,9 +65,9 @@ def add_role(
     keystore: str,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
     auth_repo: AuthenticationRepository = None,
-    commit=True,
-    prompt_for_keys=False,
-):
+    commit: bool=True,
+    prompt_for_keys: bool=False,
+) -> None:
     """
     Add a new delegated target role and update and sign metadata files.
     Automatically commit the changes if commit is set to True.
@@ -82,7 +83,8 @@ def add_role(
         keystore: Location of the keystore files.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
-        commit: Specifies if the changes should be automatically committed.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
 
     Side Effects:
         Initializes a new delegated targets role, signs metadata files, write changes to the disk and optionally commits.
@@ -133,8 +135,9 @@ def add_role(
         update_snapshot_and_timestamp(
             auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
         )
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_repo.commit(commit_message)
+        commit_and_push(auth_repo)
+    else:
+        print("\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
@@ -147,14 +150,14 @@ def add_role(
     reraise=True,
 )
 def add_role_paths(
-    paths,
-    delegated_role,
-    keystore,
-    commit=True,
-    auth_repo=None,
-    auth_path=None,
-    prompt_for_keys=False,
-):
+    paths: List[str],
+    delegated_role: str,
+    keystore: str,
+    commit: bool=True,
+    auth_repo: AuthenticationRepository=None,
+    auth_path: str=None,
+    prompt_for_keys: bool=False,
+) -> None:
     """
     Adds additional delegated target paths to the specified role. That means that
     the role will be responsible for sining target files at those location going forward.
@@ -165,8 +168,8 @@ def add_role_paths(
         auth_path: Path to the authentication repository.
         keystore: Location of the keystore files.
         auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
-        commit: Specified if the changes should be automatically committed.
-
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
     Side Effects:
         Updates the specified target role's parent and other metadata files (snapshot and timestamp),
         signs them, writes changes to disk and optionally commits everything.
@@ -184,8 +187,9 @@ def add_role_paths(
         update_snapshot_and_timestamp(
             auth_repo, keystore, prompt_for_keys=prompt_for_keys
         )
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_repo.commit(commit_message)
+        commit_and_push(auth_repo)
+    else:
+        print("\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -199,12 +203,13 @@ def add_role_paths(
 )
 @check_if_clean
 def add_roles(
-    path,
-    keystore=None,
-    roles_key_infos=None,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys=False,
-):
+    path: str,
+    keystore: str=None,
+    roles_key_infos: str=None,
+    scheme: str=DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: bool=False,
+    commit: bool=True,
+) -> None:
     """
     Add new target roles and sign all metadata files given information stored in roles_key_infos
     dictionary or .json file
@@ -212,15 +217,11 @@ def add_roles(
     Arguments:
         path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
-        roles_key_infos (optional): A dictionary containing information about the roles:
-            - total number of keys per role
-            - their parent roles
-            - threshold of signatures per role
-            - should keys of a role be on Yubikeys or should a keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
-            - keystore path, if not specified via keystore option
+        roles_key_infos: Path to a json file which contains information about repository's roles and keys.
         auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
 
     Side Effects:
         Updates metadata files (parent of new roles, snapshot and timestamp) and creates new targets metadata files.
@@ -282,6 +283,10 @@ def add_roles(
     update_snapshot_and_timestamp(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
+    if commit:
+        commit_and_push(auth_repo)
+    else:
+        print("\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
@@ -295,14 +300,15 @@ def add_roles(
 )
 @check_if_clean
 def add_signing_key(
-    path,
-    roles,
-    pub_key_path=None,
-    keystore=None,
-    roles_key_infos=None,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys=False,
-):
+    path: str,
+    roles: List[str],
+    pub_key_path: str=None,
+    keystore: str=None,
+    roles_key_infos: str=None,
+    scheme: str=DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: bool=True,
+    prompt_for_keys: bool=False,
+) -> None:
     """
     Add a new signing key to the listed roles. Update root metadata if one or more roles is one of the main TUF roles,
     parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
@@ -313,14 +319,10 @@ def add_signing_key(
         pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
             it will be necessary to ender the key when prompted.
         keystore (optional): Location of the keystore files.
-        roles_key_infos (optional):  A dictionary containing information about the roles:
-            - total number of keys per role
-            - their parent roles
-            - threshold of signatures per role
-            - should keys of a role be on Yubikeys or should a keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
-            - keystore path, if not specified via keystore option
+        roles_key_infos (optional): Path to a json file which contains information about repository's roles and keys.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
 
     Side Effects:
         Updates metadata files (parents of the affected roles, snapshot and timestamp).
@@ -329,7 +331,7 @@ def add_signing_key(
     Returns:
         None
     """
-    taf_repo = Repository(path)
+    auth_repo = AuthenticationRepository(path)
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
@@ -345,14 +347,14 @@ def add_signing_key(
 
     parent_roles = set()
     for role in roles:
-        if taf_repo.is_valid_metadata_key(role, pub_key_pem):
+        if auth_repo.is_valid_metadata_key(role, pub_key_pem):
             print(f"Key already registered as signing key of role {role}")
             continue
 
-        taf_repo.add_metadata_key(role, pub_key_pem, scheme)
+        auth_repo.add_metadata_key(role, pub_key_pem, scheme)
 
         if is_delegated_role(role):
-            parent_role = taf_repo.find_delegated_roles_parent(role)
+            parent_role = auth_repo.find_delegated_roles_parent(role)
         else:
             parent_role = "root"
 
@@ -361,10 +363,10 @@ def add_signing_key(
     if not len(parent_roles):
         return
 
-    taf_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
+    auth_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
     for parent_role in parent_roles:
         _update_role(
-            taf_repo,
+            auth_repo,
             parent_role,
             keystore,
             scheme=scheme,
@@ -372,11 +374,16 @@ def add_signing_key(
         )
 
     update_snapshot_and_timestamp(
-        taf_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
 
+    if commit:
+        commit_and_push(auth_repo)
+    else:
+        print("\nPlease commit manually\n")
 
-def _enter_roles_infos(keystore, roles_key_infos):
+
+def _enter_roles_infos(keystore: str, roles_key_infos: str):
     """
     Ask the user to enter information taf roles and keys, including the location
     of keystore directory if not entered through an input parameter
@@ -442,7 +449,7 @@ def _enter_roles_infos(keystore, roles_key_infos):
     return infos_json
 
 
-def _enter_role_info(role, is_targets_role, keystore):
+def _enter_role_info(role: str, is_targets_role: bool, keystore: str) -> Dict:
     def _read_val(input_type, name, param=None, required=False):
         default_value_msg = ""
         if param is not None:
@@ -514,7 +521,7 @@ def _enter_role_info(role, is_targets_role, keystore):
     return role_info
 
 
-def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
+def _initialize_roles_and_keystore(roles_key_infos: str, keystore: str, enter_info: bool=True):
     """
     Read information about roles and keys from a json file or ask the user to enter
     this information if not specified through a json file enter_info is True
@@ -567,8 +574,8 @@ def _initialize_roles_and_keystore(roles_key_infos, keystore, enter_info=True):
 @log_on_start(INFO, "Creating delegations", logger=taf_logger)
 @log_on_end(DEBUG, "Finished creating delegations", logger=taf_logger)
 def create_delegations(
-    role, repository, verification_keys, signing_keys, existing_roles=None
-):
+    role: str, repository: AuthenticationRepository, verification_keys: Dict, signing_keys: Dict, existing_roles: bool=None
+) -> None:
     """
     Initialize new delegated target roles, update authentication repository object
 
@@ -613,13 +620,13 @@ def create_delegations(
         )
 
 
-def _get_roles_key_size(role, keystore, keys_num):
+def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
     pub_key_name = f"{get_key_name(role, 1, keys_num)}.pub"
     key_path = str(Path(keystore, pub_key_name))
     return get_key_size(key_path)
 
 
-def _role_obj(role, repository, parent=None):
+def _role_obj(role: str, repository: Repository, parent: str=None):
     """
     Return role TUF object based on its name
     """
@@ -887,7 +894,7 @@ def setup_role(
 
 
 def _update_role(
-    taf_repo, role, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, prompt_for_keys=False
+    auth_repo, role, keystore, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, prompt_for_keys=False
 ):
     """
     Update the specified role's metadata's expiration date, load the signing keys
@@ -895,9 +902,9 @@ def _update_role(
     snapshot and timestamp and writing changes to disk
     """
     keystore_keys, yubikeys = load_signing_keys(
-        taf_repo, role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        auth_repo, role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if len(keystore_keys):
-        taf_repo.update_role_keystores(role, keystore_keys, write=False)
+        auth_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
-        taf_repo.update_role_yubikeys(role, yubikeys, write=False)
+        auth_repo.update_role_yubikeys(role, yubikeys, write=False)

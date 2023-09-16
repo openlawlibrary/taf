@@ -27,8 +27,10 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
     @click.pass_context
-    def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore, prompt_for_keys):
+    def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit):
         """Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
         Update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.
         Information that is added to dependencies.json includes out-of-band authentication commit and name
@@ -71,6 +73,7 @@ def attach_to_group(group):
             keystore=keystore,
             custom=custom,
             prompt_for_keys=prompt_for_keys,
+            commit=not no_commit,
         )
 
     @dependencies.command()
@@ -80,7 +83,9 @@ def attach_to_group(group):
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
-    def remove(dependency_name, path, keystore, prompt_for_keys):
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
+    def remove(dependency_name, path, keystore, prompt_for_keys, no_commit):
         """Remove a dependency from dependencies.json.
         Update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.
 
@@ -98,4 +103,5 @@ def attach_to_group(group):
             dependency_name=dependency_name,
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,
+            commit=not no_commit,
         )

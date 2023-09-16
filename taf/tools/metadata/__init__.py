@@ -49,7 +49,7 @@ def attach_to_group(group):
                   "used for signing")
     @click.option("--start-date", default=datetime.datetime.now(), help="Date to which the "
                   "interval is added", type=ISO_DATE)
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should not be "
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
                   "committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
@@ -81,6 +81,6 @@ def attach_to_group(group):
             keystore=keystore,
             scheme=scheme,
             start_date=start_date,
-            no_commit=no_commit,
+            commit=not no_commit,
             prompt_for_keys=prompt_for_keys
         )

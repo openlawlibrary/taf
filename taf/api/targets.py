@@ -169,7 +169,6 @@ def add_target_repo(
     auth_repo.commit(commit_message)
 
 
-@check_if_clean
 def export_targets_history(path, commit=None, output=None, target_repos=None):
     """
     Form a dictionary consisting of branches and commits belonging to it for every target repository
