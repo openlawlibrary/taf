@@ -48,9 +48,9 @@ def add_dependency(
     dependency_path: str = None,
     library_dir: str = None,
     scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    custom: bool=None,
-    prompt_for_keys: bool=False,
-    commit: bool=True,
+    custom: bool = None,
+    prompt_for_keys: bool = False,
+    commit: bool = True,
 ) -> None:
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
@@ -167,7 +167,11 @@ def add_dependency(
     reraise=True,
 )
 def create_repository(
-    path: str, keystore: str=None, roles_key_infos: str=None, commit: bool=False, test: bool=False
+    path: str,
+    keystore: str = None,
+    roles_key_infos: str = None,
+    commit: bool = False,
+    test: bool = False,
 ) -> None:
     """
     Create a new authentication repository. Generate initial metadata files.
@@ -278,7 +282,9 @@ def _check_if_can_create_repository(auth_repo: AuthenticationRepository) -> bool
     return True
 
 
-def _determine_out_of_band_data(dependency: GitRepository, branch_name: str, out_of_band_commit: str):
+def _determine_out_of_band_data(
+    dependency: GitRepository, branch_name: str, out_of_band_commit: str
+):
     """
     Determines values of out-of-band branch and commit as a part of adding a new
     dependency to dependencies.json. If not defined, branch is set to the default branch

@@ -14,7 +14,7 @@ from taf.log import taf_logger
 
 @log_on_start(DEBUG, "Generating '{key_path:s}'", logger=taf_logger)
 @log_on_end(INFO, "Generated '{key_path:s}", logger=taf_logger)
-def _generate_rsa_key(key_path: str, password: str, bits: int=None) -> None:
+def _generate_rsa_key(key_path: str, password: str, bits: int = None) -> None:
     """
     Generate public and private key
 
@@ -42,7 +42,9 @@ def _generate_rsa_key(key_path: str, password: str, bits: int=None) -> None:
 
 
 # TODO rework this
-def generate_keys(keystore: str, roles_key_infos: str, delegated_roles_key_infos=None) -> None:
+def generate_keys(
+    keystore: str, roles_key_infos: str, delegated_roles_key_infos=None
+) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
     of TUF roles. If more than one key should be generated per role, a counter is appended

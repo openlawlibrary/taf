@@ -19,7 +19,9 @@ from taf.log import taf_logger
     on_exceptions=TAFError,
     reraise=False,
 )
-def check_expiration_dates(path: str, interval: int=None, start_date=None, excluded_roles=None) -> None:
+def check_expiration_dates(
+    path: str, interval: int = None, start_date=None, excluded_roles=None
+) -> None:
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
     Prints a list of expired roles.
@@ -67,11 +69,11 @@ def update_metadata_expiration_date(
     path: str,
     roles: List[str],
     interval: int,
-    keystore: str=None,
-    scheme: str=None,
-    start_date: datetime=None,
-    commit: bool=True,
-    prompt_for_keys: bool=False,
+    keystore: str = None,
+    scheme: str = None,
+    start_date: datetime = None,
+    commit: bool = True,
+    prompt_for_keys: bool = False,
 ) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -184,9 +186,9 @@ def _update_expiration_date_of_role(
 def update_snapshot_and_timestamp(
     taf_repo: Repository,
     keystore: str,
-    scheme: str=DEFAULT_RSA_SIGNATURE_SCHEME,
-    write_all: bool=True,
-    prompt_for_keys: bool=False,
+    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
+    write_all: bool = True,
+    prompt_for_keys: bool = False,
 ) -> None:
     """
     Sign snapshot and timestamp metadata files.
@@ -241,9 +243,9 @@ def update_target_metadata(
     added_targets_data: Dict,
     removed_targets_data: Dict,
     keystore: str,
-    write: bool=False,
-    scheme: str=DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: bool=False,
+    write: bool = False,
+    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: bool = False,
 ) -> None:
     """Given dictionaries containing targets that should be added and targets that should
     be removed, update and sign target metadata files and, if write is True, also

@@ -1,4 +1,5 @@
 import functools
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import RepositoryNotCleanError
 from taf.git import GitRepository
 
@@ -21,7 +22,9 @@ def check_if_clean(func):
     return wrapper
 
 
-def commit_and_push(auth_repo, commit_msg=None, push=True):
+def commit_and_push(
+    auth_repo: AuthenticationRepository, commit_msg=None, push=True
+) -> None:
     if commit_msg is None:
         commit_message = input("\nEnter commit message and press ENTER\n\n")
     auth_repo.commit(commit_message)
