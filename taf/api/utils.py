@@ -1,7 +1,10 @@
 import functools
+from logging import ERROR, INFO
+from logdecorator import log_on_end, log_on_error
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import RepositoryNotCleanError
+from taf.exceptions import RepositoryNotCleanError, TAFError
 from taf.git import GitRepository
+from taf.log import taf_logger
 
 
 def check_if_clean(func):
@@ -22,6 +25,13 @@ def check_if_clean(func):
     return wrapper
 
 
+@log_on_error(
+    ERROR,
+    "An error occurred while committing and pushing changes: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def commit_and_push(
     auth_repo: AuthenticationRepository, commit_msg=None, push=True
 ) -> None:
@@ -30,3 +40,4 @@ def commit_and_push(
     auth_repo.commit(commit_message)
     if push:
         auth_repo.push()
+        taf_logger.info("Successfully pushed to remote")

@@ -166,7 +166,7 @@ def attach_to_group(group):
             keystore=keystore,
             roles_key_infos=keys_description,
             scheme=scheme,
-            commit=not no_commit
+            commit=not no_commit,
             prompt_for_keys=prompt_for_keys
         )
 

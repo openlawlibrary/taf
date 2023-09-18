@@ -1,4 +1,5 @@
 from logging import DEBUG, INFO
+from typing import Optional
 from logdecorator import log_on_start, log_on_end
 from pathlib import Path
 from tuf.repository_tool import (
@@ -14,7 +15,7 @@ from taf.log import taf_logger
 
 @log_on_start(DEBUG, "Generating '{key_path:s}'", logger=taf_logger)
 @log_on_end(INFO, "Generated '{key_path:s}", logger=taf_logger)
-def _generate_rsa_key(key_path: str, password: str, bits: int = None) -> None:
+def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) -> None:
     """
     Generate public and private key
 
