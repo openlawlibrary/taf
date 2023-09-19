@@ -1,6 +1,6 @@
 from logging import DEBUG, ERROR, INFO
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 import click
 from collections import defaultdict
 from functools import partial
@@ -63,10 +63,10 @@ def add_role(
     threshold: int,
     yubikey: bool,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    auth_repo: AuthenticationRepository = None,
-    commit: bool = True,
-    prompt_for_keys: bool = False,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    auth_repo: Optional[AuthenticationRepository] = None,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Add a new delegated target role and update and sign metadata files.
@@ -153,10 +153,10 @@ def add_role_paths(
     paths: List[str],
     delegated_role: str,
     keystore: str,
-    commit: bool = True,
-    auth_repo: AuthenticationRepository = None,
-    auth_path: str = None,
-    prompt_for_keys: bool = False,
+    commit: Optional[bool] = True,
+    auth_repo: Optional[AuthenticationRepository] = None,
+    auth_path: Optional[str] = None,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Adds additional delegated target paths to the specified role. That means that
@@ -204,11 +204,11 @@ def add_role_paths(
 @check_if_clean
 def add_roles(
     path: str,
-    keystore: str = None,
-    roles_key_infos: str = None,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: bool = False,
-    commit: bool = True,
+    keystore: Optional[str] = None,
+    roles_key_infos: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
+    commit: Optional[bool] = True,
 ) -> None:
     """
     Add new target roles and sign all metadata files given information stored in roles_key_infos
@@ -302,12 +302,12 @@ def add_roles(
 def add_signing_key(
     path: str,
     roles: List[str],
-    pub_key_path: str = None,
-    keystore: str = None,
-    roles_key_infos: str = None,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    commit: bool = True,
-    prompt_for_keys: bool = False,
+    pub_key_path: Optional[str] = None,
+    keystore: Optional[str] = None,
+    roles_key_infos: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Add a new signing key to the listed roles. Update root metadata if one or more roles is one of the main TUF roles,
@@ -518,7 +518,7 @@ def _enter_role_info(role: str, is_targets_role: bool, keystore: str) -> Dict:
 
 
 def _initialize_roles_and_keystore(
-    roles_key_infos: str, keystore: str, enter_info: bool = True
+    roles_key_infos: str, keystore: str, enter_info: Optional[bool] = True
 ):
     """
     Read information about roles and keys from a json file or ask the user to enter
@@ -576,7 +576,7 @@ def create_delegations(
     repository: AuthenticationRepository,
     verification_keys: Dict,
     signing_keys: Dict,
-    existing_roles: bool = None,
+    existing_roles: Optional[bool] = None,
 ) -> None:
     """
     Initialize new delegated target roles, update authentication repository object
@@ -694,11 +694,11 @@ def remove_role(
     path: str,
     role: str,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    commit: bool = True,
-    remove_targets: bool = False,
-    auth_repo: AuthenticationRepository = None,
-    prompt_for_keys: bool = False,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    remove_targets: Optional[bool] = False,
+    auth_repo: Optional[AuthenticationRepository] = None,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Remove a delegated target role and update and sign metadata files.
@@ -802,7 +802,13 @@ def remove_role(
     on_exceptions=TAFError,
     reraise=True,
 )
-def remove_paths(path, paths, keystore, commit=True, prompt_for_keys=False) -> bool:
+def remove_paths(
+    path: str,
+    paths: List[str],
+    keystore: str,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
+) -> bool:
     """
     Remove delegated paths. Update parent roles of the roles associated with the removed paths,
     as well as snapshot and timestamp. Optionally commit the changes.
@@ -898,8 +904,8 @@ def setup_role(
     role: Role,
     repository: Repository,
     verification_keys: Dict,
-    signing_keys: Dict = None,
-    parent: str = None,
+    signing_keys: Optional[Dict] = None,
+    parent: Optional[str] = None,
 ) -> None:
     """
     Initialize a new role, add signing and verification keys.
@@ -924,8 +930,8 @@ def _update_role(
     auth_repo: AuthenticationRepository,
     role: str,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: bool = False,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Update the specified role's metadata's expiration date, load the signing keys

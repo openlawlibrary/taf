@@ -1,5 +1,6 @@
 import json
 from logging import DEBUG, ERROR, INFO
+from typing import Dict, Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
@@ -45,12 +46,12 @@ def add_dependency(
     branch_name: str,
     out_of_band_commit: str,
     keystore: str,
-    dependency_path: str = None,
-    library_dir: str = None,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    custom: bool = None,
-    prompt_for_keys: bool = False,
-    commit: bool = True,
+    dependency_path: Optional[str] = None,
+    library_dir: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    custom: Optional[Dict] = None,
+    prompt_for_keys: Optional[bool] = False,
+    commit: Optional[bool] = True,
 ) -> None:
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
@@ -168,10 +169,10 @@ def add_dependency(
 )
 def create_repository(
     path: str,
-    keystore: str = None,
-    roles_key_infos: str = None,
-    commit: bool = False,
-    test: bool = False,
+    keystore: Optional[str] = None,
+    roles_key_infos: Optional[str] = None,
+    commit: Optional[bool] = False,
+    test: Optional[bool] = False,
 ) -> None:
     """
     Create a new authentication repository. Generate initial metadata files.
@@ -336,9 +337,9 @@ def remove_dependency(
     path: str,
     dependency_name: str,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: bool = False,
-    commit: bool = True,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
+    commit: Optional[bool] = True,
 ) -> None:
     """
     Remove a dependency (an authentication repository) from dependencies.json

@@ -1,6 +1,7 @@
 import functools
-from logging import ERROR, INFO
-from logdecorator import log_on_end, log_on_error
+from logging import ERROR
+from typing import Optional
+from logdecorator import log_on_error
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import RepositoryNotCleanError, TAFError
 from taf.git import GitRepository
@@ -33,7 +34,9 @@ def check_if_clean(func):
     reraise=True,
 )
 def commit_and_push(
-    auth_repo: AuthenticationRepository, commit_msg=None, push=True
+    auth_repo: AuthenticationRepository,
+    commit_msg: Optional[str] = None,
+    push: Optional[bool] = True,
 ) -> None:
     if commit_msg is None:
         commit_message = input("\nEnter commit message and press ENTER\n\n")

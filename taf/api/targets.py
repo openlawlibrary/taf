@@ -1,5 +1,5 @@
 from logging import DEBUG, ERROR, INFO
-from typing import List
+from typing import Dict, List, Optional
 import click
 import os
 import json
@@ -42,10 +42,10 @@ def add_target_repo(
     role: str,
     library_dir: str,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    custom=None,
-    commit=True,
-    prompt_for_keys=False,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    custom: Optional[Dict] = None,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Add a new target repository by adding it to repositories.json, creating a delegation (if targets is not
@@ -176,7 +176,10 @@ def add_target_repo(
 
 
 def export_targets_history(
-    path: str, commit: bool = None, output: str = None, target_repos: List[str] = None
+    path: str,
+    commit: Optional[bool] = None,
+    output: Optional[str] = None,
+    target_repos: Optional[List[str]] = None,
 ) -> None:
     """
     Form a dictionary consisting of branches and commits belonging to it for every target repository
@@ -228,7 +231,7 @@ def export_targets_history(
 
 def list_targets(
     path: str,
-    library_dir: str = None,
+    library_dir: Optional[str] = None,
 ) -> None:
     """
     Prints a list of target repositories of an authentication repository and their states (are the work directories clean, are there
@@ -301,13 +304,13 @@ def list_targets(
 )
 def register_target_files(
     path,
-    keystore=None,
-    roles_key_infos=None,
-    commit=True,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    taf_repo=None,
-    write=False,
-    prompt_for_keys=False,
+    keystore: Optional[str] = None,
+    roles_key_infos: Optional[str] = None,
+    commit: Optional[bool] = True,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    taf_repo: Optional[Repository] = None,
+    write: Optional[bool] = False,
+    prompt_for_keys: Optional[bool] = False,
 ):
     """
     Register all files found in the target directory as targets - update the targets
@@ -371,7 +374,7 @@ def register_target_files(
 )
 @check_if_clean
 def remove_target_repo(
-    path: str, target_name: str, keystore: str, prompt_for_keys: bool = False
+    path: str, target_name: str, keystore: str, prompt_for_keys: Optional[bool] = False
 ) -> None:
     """
     Remove target repository from repositories.json, remove delegation, and target files and
@@ -456,7 +459,10 @@ def remove_target_repo(
 
 
 def _save_top_commit_of_repo_to_target(
-    library_dir: Path, repo_name: str, auth_repo_path: Path, add_branch: bool = True
+    library_dir: Path,
+    repo_name: str,
+    auth_repo_path: Path,
+    add_branch: Optional[bool] = True,
 ) -> None:
     """
     Determine the top commit of a target repository and write it to the corresponding
@@ -487,10 +493,10 @@ def update_target_repos_from_repositories_json(
     path: str,
     library_dir: str,
     keystore: str,
-    add_branch: bool = True,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    commit: bool = True,
-    prompt_for_keys: bool = False,
+    add_branch: Optional[bool] = True,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Create or update target files by reading the latest commit's repositories.json
@@ -549,8 +555,8 @@ def update_and_sign_targets(
     keystore: str,
     roles_key_infos: str,
     scheme: str,
-    commit: bool = True,
-    prompt_for_keys: bool = False,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Save the top commit of specified target repositories to the corresponding target files and sign.

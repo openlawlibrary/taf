@@ -1,7 +1,7 @@
 from datetime import datetime
 from logging import DEBUG, ERROR, INFO
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
@@ -20,7 +20,10 @@ from taf.log import taf_logger
     reraise=False,
 )
 def check_expiration_dates(
-    path: str, interval: int = None, start_date=None, excluded_roles=None
+    path: str,
+    interval: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    excluded_roles: Optional[List[str]] = None,
 ) -> None:
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
@@ -69,11 +72,11 @@ def update_metadata_expiration_date(
     path: str,
     roles: List[str],
     interval: int,
-    keystore: str = None,
-    scheme: str = None,
-    start_date: datetime = None,
-    commit: bool = True,
-    prompt_for_keys: bool = False,
+    keystore: Optional[str] = None,
+    scheme: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -185,9 +188,9 @@ def _update_expiration_date_of_role(
 def update_snapshot_and_timestamp(
     taf_repo: Repository,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    write_all: bool = True,
-    prompt_for_keys: bool = False,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    write_all: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """
     Sign snapshot and timestamp metadata files.
@@ -242,9 +245,9 @@ def update_target_metadata(
     added_targets_data: Dict,
     removed_targets_data: Dict,
     keystore: str,
-    write: bool = False,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: bool = False,
+    write: Optional[bool] = False,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
 ) -> None:
     """Given dictionaries containing targets that should be added and targets that should
     be removed, update and sign target metadata files and, if write is True, also
