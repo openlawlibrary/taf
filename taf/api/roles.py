@@ -98,7 +98,7 @@ def add_role(
     existing_roles = auth_repo.get_all_targets_roles()
     existing_roles.extend(MAIN_ROLES)
     if role in existing_roles:
-        print("All roles already set up")
+        taf_logger.info("All roles already set up")
         return
 
     if parent_role == "targets":
@@ -137,7 +137,7 @@ def add_role(
         )
         commit_and_push(auth_repo)
     else:
-        print("\nPlease commit manually\n")
+        taf_logger.info("\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
@@ -189,7 +189,7 @@ def add_role_paths(
         )
         commit_and_push(auth_repo)
     else:
-        print("\nPlease commit manually\n")
+        taf_logger.info("\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -241,7 +241,7 @@ def add_roles(
 
     new_roles = []
     existing_roles = auth_repo.get_all_targets_roles()
-    main_roles = ["root", "snapshot", "timestamp", "targets"]
+    main_roles = ["root", "snapshot", "timestamp"]
     existing_roles.extend(main_roles)
 
     new_roles = [
@@ -253,7 +253,7 @@ def add_roles(
     parent_roles_names = {role.parent.name for role in new_roles}
 
     if not len(new_roles):
-        print("All roles already set up")
+        taf_logger.info("All roles already set up")
         return
 
     repository = auth_repo._repository
@@ -286,7 +286,7 @@ def add_roles(
     if commit:
         commit_and_push(auth_repo)
     else:
-        print("\nPlease commit manually\n")
+        taf_logger.info("\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
@@ -331,7 +331,7 @@ def add_signing_key(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path)
+    auth_repo = AuthenticationRepository(path=path)
     roles_key_infos, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
@@ -348,7 +348,7 @@ def add_signing_key(
     parent_roles = set()
     for role in roles:
         if auth_repo.is_valid_metadata_key(role, pub_key_pem):
-            print(f"Key already registered as signing key of role {role}")
+            taf_logger.info(f"Key already registered as signing key of role {role}")
             continue
 
         auth_repo.add_metadata_key(role, pub_key_pem, scheme)
@@ -374,13 +374,13 @@ def add_signing_key(
         )
 
     update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        auth_repo, keystore=keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
 
     if commit:
         commit_and_push(auth_repo)
     else:
-        print("\nPlease commit manually\n")
+        taf_logger.info("\nPlease commit manually\n")
 
 
 def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
@@ -414,7 +414,7 @@ def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
         )
         if len(keystore):
             if not Path(keystore).is_dir():
-                print(f"{keystore} does not exist")
+                taf_logger.info(f"{keystore} does not exist")
                 keystore = None
 
     if keystore:
@@ -434,9 +434,11 @@ def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
             path = Path(roles_key_infos)
             path.parent.mkdir(parents=True, exist_ok=True)
             Path(roles_key_infos).write_text(infos_json_str)
-            print(f"Configuration json written to {Path(roles_key_infos).absolute()}")
+            taf_logger.info(
+                f"Configuration json written to {Path(roles_key_infos).absolute()}"
+            )
         except Exception as e:
-            print(e)
+            taf_logger.error(e)
             _print_roles_key_infos(infos_json_str)
     else:
         print(infos_json_str)
@@ -598,7 +600,7 @@ def create_delegations(
     for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
         parent_role_obj = _role_obj(delegated_role.parent.name, repository)
         if delegated_role.name in existing_roles:
-            print(f"Role {delegated_role.name} already set up.")
+            taf_logger.info(f"Role {delegated_role.name} already set up.")
             continue
         paths = delegated_role.paths
         roles_verification_keys = verification_keys[delegated_role.name]
@@ -675,7 +677,7 @@ def list_keys_of_role(
     auth_repo = AuthenticationRepository(path=path)
     key_ids = auth_repo.get_role_keys(role=role)
     for key_id in key_ids:
-        print(f"\n{get_metadata_key_info(auth_repo.certs_dir, key_id)}")
+        taf_logger.info(f"{get_metadata_key_info(auth_repo.certs_dir, key_id)}")
 
 
 @log_on_start(DEBUG, "Removing role {role:s}", logger=taf_logger)
@@ -721,7 +723,7 @@ def remove_role(
         None
     """
     if role in MAIN_ROLES:
-        print(
+        taf_logger.info(
             f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
         )
         return
@@ -731,7 +733,7 @@ def remove_role(
 
     parent_role = auth_repo.find_delegated_roles_parent(role)
     if parent_role is None:
-        print("Role is not among delegated roles")
+        taf_logger.info("Role is not among delegated roles")
         return
 
     roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
@@ -753,7 +755,9 @@ def remove_role(
     parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.revoke(role)
 
-    _update_role(auth_repo, parent_role, keystore, prompt_for_keys)
+    _update_role(
+        auth_repo, role=parent_role, keystore=keystore, prompt_for_keys=prompt_for_keys
+    )
     if len(added_targets_data):
         removed_targets_data = {}
         update_target_metadata(
@@ -786,7 +790,7 @@ def remove_role(
     if commit:
         commit_and_push(auth_repo)
     else:
-        print("\nPlease commit manually\n")
+        taf_logger.info("Please commit manually")
 
 
 @log_on_start(DEBUG, "Removing delegated paths", logger=taf_logger)
@@ -836,8 +840,8 @@ def remove_paths(path, paths, keystore, commit=True, prompt_for_keys=False) -> b
             auth_repo, keystore, prompt_for_keys=prompt_for_keys
         )
         commit_and_push(auth_repo)
-    else:
-        print("\nPlease commit manually\n")
+    elif delegation_existed:
+        taf_logger.info("\nPlease commit manually\n")
     return delegation_existed
 
 
@@ -879,7 +883,7 @@ def _remove_path_from_role_info(
                 delegations_paths.remove(path_to_remove)
                 delegation_exists = True
             else:
-                print(f"{path_to_remove} not in delegated paths")
+                taf_logger.info(f"{path_to_remove} not in delegated paths")
             break
     if delegation_exists:
         tuf.roledb.update_roleinfo(
