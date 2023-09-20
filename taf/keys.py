@@ -162,10 +162,10 @@ def load_sorted_keys_of_new_roles(
 def load_signing_keys(
     taf_repo: Repository,
     role: str,
-    keystore: Optional[str]=None,
-    loaded_yubikeys: Optional[Dict]=None,
-    scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: Optional[bool]=False,
+    keystore: Optional[str] = None,
+    loaded_yubikeys: Optional[Dict] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
@@ -258,10 +258,10 @@ def load_signing_keys(
 
 def setup_roles_keys(
     role: Role,
-    certs_dir: Optional[str]=None,
-    keystore: Optional[str]=None,
-    yubikeys: Optional[Dict]=None,
-    users_yubikeys_details: Optional[Dict[str, UserKeyData]]=None,
+    certs_dir: Optional[str] = None,
+    keystore: Optional[str] = None,
+    yubikeys: Optional[Dict] = None,
+    users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
 ):
     yubikey_keys = []
     keystore_keys = []
@@ -320,7 +320,13 @@ def setup_roles_keys(
 
 
 def _setup_keystore_key(
-    keystore: str, role_name: str, key_name: str, key_num: int, scheme: str, length: int, password: str
+    keystore: str,
+    role_name: str,
+    key_name: str,
+    key_num: int,
+    scheme: str,
+    length: int,
+    password: str,
 ) -> Tuple[Dict, Dict]:
     # if keystore exists, load the keys
     generate_new_keys = keystore is None
@@ -394,7 +400,9 @@ def _setup_keystore_key(
     return public_key, private_key
 
 
-def _setup_yubikey(yubikeys: Dict, role_name: str, key_name: str, scheme: str, certs_dir: str) -> Dict:
+def _setup_yubikey(
+    yubikeys: Dict, role_name: str, key_name: str, scheme: str, certs_dir: str
+) -> Dict:
     while True:
         print(f"Registering keys for {key_name}")
         use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
@@ -423,7 +431,9 @@ def _setup_yubikey(yubikeys: Dict, role_name: str, key_name: str, scheme: str, c
         return key
 
 
-def _load_and_verify_yubikey(yubikeys: Dict, role_name: str, key_name: str, public_key) -> Dict:
+def _load_and_verify_yubikey(
+    yubikeys: Dict, role_name: str, key_name: str, public_key
+) -> Dict:
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
         return False
     while True:

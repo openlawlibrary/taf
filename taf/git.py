@@ -29,13 +29,13 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 class GitRepository:
     def __init__(
         self,
-        library_dir: Optional[Path | str]=None,
-        name: Optional[str]=None,
-        urls: Optional[List[str]]=None,
-        custom: Optional[Dict]=None,
-        default_branch: Optional[str]=None,
-        allow_unsafe: Optional[bool]=False,
-        path: Optional[Path | str]=None,
+        library_dir: Optional[str] = None,
+        name: Optional[str] = None,
+        urls: Optional[List[str]] = None,
+        custom: Optional[Dict] = None,
+        default_branch: Optional[str] = None,
+        allow_unsafe: Optional[bool] = False,
+        path: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -789,7 +789,7 @@ class GitRepository:
         )
         return first_commit.strip() if first_commit else None
 
-    def get_last_branch_by_committer_date(self) ->  Optional[str]:
+    def get_last_branch_by_committer_date(self) -> Optional[str]:
         """Find the latest branch based on committer date. Should only be used for
         testing purposes"""
         branches = self._git("branch --sort=committerdate").strip().split("\n")
@@ -797,7 +797,7 @@ class GitRepository:
             return None
         return branches[-1]
 
-    def get_remote_url(self) ->  Optional[str]:
+    def get_remote_url(self) -> Optional[str]:
         try:
             return self._git("config --get remote.origin.url").strip()
         except GitError:
@@ -814,7 +814,7 @@ class GitRepository:
     def has_remote(self) -> bool:
         return len(self.remotes) > 0
 
-    def head_commit_sha(self) ->  Optional[str]:
+    def head_commit_sha(self) -> Optional[str]:
         """Finds sha of the commit to which the current HEAD points"""
         repo = self.pygit_repo
         try:
@@ -835,7 +835,7 @@ class GitRepository:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
 
-    def find_worktree_path_by_branch(self, branch_name: str) ->  Optional[str]:
+    def find_worktree_path_by_branch(self, branch_name: str) -> Optional[str]:
         """Returns path of the workree where the branch is checked out, or None if not checked out in any worktree"""
         worktrees = self.list_worktrees()
         for path, _, _branch_name in worktrees.values():
@@ -875,7 +875,7 @@ class GitRepository:
 
     def get_tracking_branch(
         self, branch: Optional[str] = "", strip_remote: Optional[bool] = False
-    ) ->  Optional[str]:
+    ) -> Optional[str]:
         """Returns tracking branch name in format origin/branch-name or None if branch does not
         track remote branch.
         """
@@ -1114,7 +1114,7 @@ class GitRepository:
     def reset_to_head(self) -> None:
         self._git("reset --hard HEAD")
 
-    def safely_get_json(self, commit: str, path: str) ->  Optional[Dict]:
+    def safely_get_json(self, commit: str, path: str) -> Optional[Dict]:
         try:
             return self.get_json(commit, path)
         except GitError:
@@ -1163,7 +1163,7 @@ class GitRepository:
 
         return local_commit == remote_commit
 
-    def top_commit_of_branch(self, branch_name: str) ->  Optional[str]:
+    def top_commit_of_branch(self, branch_name: str) -> Optional[str]:
         repo = self.pygit_repo
         branch = repo.branches.get(branch_name)
         if branch is not None:

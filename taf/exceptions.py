@@ -1,5 +1,4 @@
 from typing import List, Optional
-from taf.git import GitRepository
 
 
 class TAFError(Exception):
@@ -13,7 +12,7 @@ class TAFError(Exception):
 
 
 class CloneRepoException(TAFError):
-    def __init__(self, repo: GitRepository):
+    def __init__(self, repo):
         self.message = (
             f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
         )
@@ -25,7 +24,13 @@ class FetchException(TAFError):
 
 
 class GitError(TAFError):
-    def __init__(self, repo: GitRepository, command: Optional[str]=None, error: Optional[Exception]=None, message: Optional[str]=None):
+    def __init__(
+        self,
+        repo: any,
+        command: Optional[str] = None,
+        error: Optional[Exception] = None,
+        message: Optional[str] = None,
+    ):
         if message is None:
             if command is not None:
                 message = f"error occurred while executing {command}"

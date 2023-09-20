@@ -140,7 +140,12 @@ class RolesIterator:
     targets roles
     """
 
-    def __init__(self, roles: MainRoles | Role, include_delegations: Optional[bool]=True, skip_top_role: Optional[bool]=False):
+    def __init__(
+        self,
+        roles: MainRoles | Role,
+        include_delegations: Optional[bool] = True,
+        skip_top_role: Optional[bool] = False,
+    ):
         self.roles = roles
         self.include_delegations = include_delegations
         self.skip_top_role = skip_top_role

@@ -54,23 +54,23 @@ def add_key_public_key(serial_num: str, public_key: Dict) -> None:
     _yks_data_dict[serial_num]["public_key"] = public_key
 
 
-def get_key_pin(serial_num: int) ->  Optional[str]:
+def get_key_pin(serial_num: int) -> Optional[str]:
     if serial_num in _yks_data_dict:
         return _yks_data_dict.get(serial_num).get("pin")
     return None
 
 
-def get_key_serial_by_id(keyid: str) ->  Optional[str]:
+def get_key_serial_by_id(keyid: str) -> Optional[str]:
     return _yks_data_dict.get("ids", {}).get(keyid)
 
 
-def get_key_public_key(serial_num: str) ->  Optional[Dict]:
+def get_key_public_key(serial_num: str) -> Optional[Dict]:
     if serial_num in _yks_data_dict:
         return _yks_data_dict.get(serial_num).get("public_key")
     return None
 
 
-def raise_yubikey_err(msg: Optional[str]=None) -> None:
+def raise_yubikey_err(msg: Optional[str] = None) -> None:
     """Decorator used to catch all errors raised by yubikey-manager and raise
     YubikeyError. We don't need to handle specific cases.
     """

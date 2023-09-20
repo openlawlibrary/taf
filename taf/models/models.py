@@ -5,13 +5,13 @@ class TAFKey:
     def __init__(
         self,
         key_id: str,
-        name: Optional[str]=None,
-        organization: Optional[str]=None,
-        country: Optional[str]=None,
-        state: Optional[str]=None,
-        locality: Optional[str]=None,
-        valid_from: Optional[str]=None,
-        valid_to: Optional[str]=None,
+        name: Optional[str] = None,
+        organization: Optional[str] = None,
+        country: Optional[str] = None,
+        state: Optional[str] = None,
+        locality: Optional[str] = None,
+        valid_from: Optional[str] = None,
+        valid_to: Optional[str] = None,
     ):
         self.key_id = key_id
         self.name = name or ""

@@ -1,10 +1,9 @@
-from ast import Dict
 import json
 import os
 import tempfile
 import fnmatch
 
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -28,15 +27,15 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def __init__(
         self,
-        library_dir: Optional[Path | str]=None,
-        name: Optional[str]=None,
-        urls: Optional[List[str]]=None,
-        custom: Optional[Dict]=None,
-        default_branch: Optional[str]=None,
-        allow_unsafe: Optional[bool]=False,
-        conf_directory_root: Optional[Path | str]=None,
-        out_of_band_authentication: Optional[str]=None,
-        path: Optional[Path | str]=None,
+        library_dir: Optional[str] = None,
+        name: Optional[str] = None,
+        urls: Optional[List[str]] = None,
+        custom: Optional[Dict] = None,
+        default_branch: Optional[str] = None,
+        allow_unsafe: Optional[bool] = False,
+        conf_directory_root: Optional[str] = None,
+        out_of_band_authentication: Optional[str] = None,
+        path: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -206,11 +205,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     def sorted_commits_and_branches_per_repositories(
         self,
         commits: List[str],
-        target_repos: Optional[List[str]]=None,
-        custom_fns: Optional[Dict[str: Callable]]=None,
-        default_branch: Optional[str]=None,
-        excluded_target_globs: Optional[str]=None,
-    ) -> Dict[str: Tuple[str, str]]:
+        target_repos: Optional[List[str]] = None,
+        custom_fns: Optional[Dict[str, Callable]] = None,
+        default_branch: Optional[str] = None,
+        excluded_target_globs: Optional[str] = None,
+    ) -> Dict[str, Tuple[str, str]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {

@@ -32,8 +32,12 @@ def _from_public_pem(pem: str) -> str:
 
 
 def key_cmd_prompt(
-    key_name: str, role: str, taf_repo: Repository, loaded_keys: Optional[Dict]=None, scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME
-) ->  Optional[Dict]:
+    key_name: str,
+    role: str,
+    taf_repo: Repository,
+    loaded_keys: Optional[Dict] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+) -> Optional[Dict]:
     def _enter_and_check_key(key_name, role, loaded_keys, scheme):
         pem = getpass(f"Enter {key_name} private key without its header and footer\n")
         pem = _form_private_pem(pem)
@@ -57,7 +61,9 @@ def key_cmd_prompt(
             return key
 
 
-def load_tuf_private_key(key_str: str, key_name: str, scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME) -> Dict:
+def load_tuf_private_key(
+    key_str: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
+) -> Dict:
     if not key_str:
         key_str = getpass(
             f"Enter {key_name} private key without its header and footer\n"
@@ -87,9 +93,9 @@ def new_public_key_cmd_prompt(scheme: str) -> Dict:
 def read_private_key_from_keystore(
     keystore: str,
     key_name: str,
-    key_num: Optional[int]=None,
-    scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME,
-    password: Optional[str]=None,
+    key_num: Optional[int] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    password: Optional[str] = None,
 ) -> Dict:
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
@@ -129,7 +135,7 @@ def read_private_key_from_keystore(
 
 
 def read_public_key_from_keystore(
-    keystore: str, key_name: str, scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME
+    keystore: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
 ) -> Dict:
     pub_key_path = Path(keystore, f"{key_name}.pub").expanduser().resolve()
     if not pub_key_path.is_file():
