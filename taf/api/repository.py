@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
-from taf.models.iterators import RolesIterator
+from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
 from taf.api.utils import check_if_clean, commit_and_push
 from taf.models.converter import from_dict

@@ -1,4 +1,4 @@
-from logging import DEBUG, INFO
+from logging import INFO
 from typing import Optional
 from logdecorator import log_on_start, log_on_end
 from pathlib import Path
@@ -9,10 +9,9 @@ from tuf.repository_tool import (
 )
 
 from taf.api.roles import _initialize_roles_and_keystore
-from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
 from taf.keys import get_key_name
 from taf.log import taf_logger
-from taf.models.iterators import RolesIterator
+from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 
 

@@ -1,3 +1,7 @@
+from typing import List, Optional
+from taf.git import GitRepository
+
+
 class TAFError(Exception):
     pass
 
@@ -9,19 +13,19 @@ class TAFError(Exception):
 
 
 class CloneRepoException(TAFError):
-    def __init__(self, repo):
+    def __init__(self, repo: GitRepository):
         self.message = (
             f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
         )
 
 
 class FetchException(TAFError):
-    def __init__(self, path):
+    def __init__(self, path: str):
         self.message = f"Cannot fetch changes. Repo: {path}"
 
 
 class GitError(TAFError):
-    def __init__(self, repo, command=None, error=None, message=None):
+    def __init__(self, repo: GitRepository, command: Optional[str]=None, error: Optional[Exception]=None, message: Optional[str]=None):
         if message is None:
             if command is not None:
                 message = f"error occurred while executing {command}"
@@ -46,7 +50,7 @@ class InvalidCommitError(TAFError):
 
 
 class InvalidKeyError(TAFError):
-    def __init__(self, metadata_role):
+    def __init__(self, metadata_role: Optional[str]):
         super().__init__(
             f"Cannot sign {metadata_role} metadata file with inserted key."
         )
@@ -65,14 +69,14 @@ class InvalidPINError(TAFError):
 
 
 class RemoveMetadataKeyThresholdError(TAFError):
-    def __init__(self, threshold):
+    def __init__(self, threshold: int):
         super().__init__(
             f"Remaining key number must be greater or equal to threshold ({threshold})."
         )
 
 
 class RepositoryInstantiationError(TAFError):
-    def __init__(self, repo_path, message):
+    def __init__(self, repo_path: str, message: str):
         super().__init__(f"Could not instantiate repository {repo_path}\n\n: {message}")
         self.repo_path = repo_path
         self.message = message
@@ -83,7 +87,7 @@ class RepositoryNotCleanError(TAFError):
 
 
 class ScriptExecutionError(TAFError):
-    def __init__(self, script, error_msg):
+    def __init__(self, script: str, error_msg: str):
         message = (
             f"An error happened during execution of script {script}:\n\n: {error_msg}"
         )
@@ -93,7 +97,7 @@ class ScriptExecutionError(TAFError):
 
 
 class MetadataUpdateError(TAFError):
-    def __init__(self, metadata_role, message):
+    def __init__(self, metadata_role: str, message: str):
         super().__init__(
             f"Error happened while updating {metadata_role} metadata role(s):\n\n{message}"
         )
@@ -102,7 +106,7 @@ class MetadataUpdateError(TAFError):
 
 
 class RootMetadataUpdateError(MetadataUpdateError):
-    def __init__(self, message):
+    def __init__(self, message: str):
         super().__init__("root", message)
 
 
@@ -115,13 +119,13 @@ class PINMissmatchError(Exception):
 
 
 class RolesKeyDataConversionError(TAFError):
-    def __init__(self, exceptions):
+    def __init__(self, exceptions: List[Exception]):
         message = "\n".join([str(exception) for exception in exceptions])
         super().__init__(message)
 
 
 class SnapshotMetadataUpdateError(MetadataUpdateError):
-    def __init__(self, message):
+    def __init__(self, message: str):
         super().__init__("snapshot", message)
 
 
@@ -130,17 +134,17 @@ class SigningError(TAFError):
 
 
 class TargetsError(TAFError):
-    def __init__(self, message):
+    def __init__(self, message: str):
         self.message = message
 
 
 class TargetsMetadataUpdateError(MetadataUpdateError):
-    def __init__(self, message):
+    def __init__(self, message: str):
         super().__init__("targets", message)
 
 
 class TimestampMetadataUpdateError(MetadataUpdateError):
-    def __init__(self, message):
+    def __init__(self, message: str):
         super().__init__("timestamp", message)
 
 

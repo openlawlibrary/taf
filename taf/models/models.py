@@ -1,14 +1,17 @@
+from typing import Optional
+
+
 class TAFKey:
     def __init__(
         self,
-        key_id,
-        name=None,
-        organization=None,
-        country=None,
-        state=None,
-        locality=None,
-        valid_from=None,
-        valid_to=None,
+        key_id: str,
+        name: Optional[str]=None,
+        organization: Optional[str]=None,
+        country: Optional[str]=None,
+        state: Optional[str]=None,
+        locality: Optional[str]=None,
+        valid_from: Optional[str]=None,
+        valid_to: Optional[str]=None,
     ):
         self.key_id = key_id
         self.name = name or ""

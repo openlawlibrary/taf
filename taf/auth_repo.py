@@ -1,9 +1,10 @@
+from ast import Dict
 import json
 import os
 import tempfile
 import fnmatch
 
-from typing import Optional
+from typing import Callable, List, Optional, Tuple
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -27,15 +28,15 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def __init__(
         self,
-        library_dir=None,
-        name=None,
-        urls=None,
-        custom=None,
-        default_branch=None,
-        allow_unsafe=False,
-        conf_directory_root=None,
-        out_of_band_authentication=None,
-        path=None,
+        library_dir: Optional[Path | str]=None,
+        name: Optional[str]=None,
+        urls: Optional[List[str]]=None,
+        custom: Optional[Dict]=None,
+        default_branch: Optional[str]=None,
+        allow_unsafe: Optional[bool]=False,
+        conf_directory_root: Optional[Path | str]=None,
+        out_of_band_authentication: Optional[str]=None,
+        path: Optional[Path | str]=None,
         *args,
         **kwargs,
     ):
@@ -71,7 +72,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     # TODO rework conf_dir
 
-    def to_json_dict(self):
+    def to_json_dict(self) -> Dict:
         """Returns a dictionary mapping all attributes to their values"""
         data = super().to_json_dict()
         data.update(
@@ -84,7 +85,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         return data
 
     @property
-    def conf_dir(self):
+    def conf_dir(self) -> Path:
         """
         Returns location of the directory which stores the authentication repository's
         configuration files. That is, the last validated commit.
@@ -100,12 +101,12 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         return self._conf_dir
 
     @property
-    def certs_dir(self):
+    def certs_dir(self) -> str:
         certs_dir = Path(self.path, "certs")
         return str(certs_dir)
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Dict:
         return self._dependencies
 
     @dependencies.setter
@@ -126,7 +127,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return False
 
     @property
-    def last_validated_commit(self):
+    def last_validated_commit(self) -> Optional[Path]:
         """
         Return the last validated commit of the authentication repository
         """
@@ -136,10 +137,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return None
 
     @property
-    def log_prefix(self):
+    def log_prefix(self) -> str:
         return f"Auth repo {self.name}: "
 
-    def get_target(self, target_name, commit=None, safely=True):
+    def get_target(self, target_name, commit=None, safely=True) -> Dict:
         if commit is None:
             commit = self.head_commit_sha()
         target_path = get_target_path(target_name)
@@ -150,7 +151,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def get_metadata(
         self, role: str, commit: Optional[str] = None, safely: bool = True
-    ):
+    ) -> Dict:
         if commit is None:
             commit = self.head_commit_sha()
         metadata_path = get_role_metadata_path(role)
@@ -159,7 +160,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         else:
             return self.get_json(commit, metadata_path)
 
-    def is_commit_authenticated(self, target_name, commit):
+    def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
             target = self.get_target(target_name, auth_commit)
@@ -171,7 +172,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         return False
 
     @contextmanager
-    def repository_at_revision(self, commit):
+    def repository_at_revision(self, commit: str):
         """
         Context manager which makes sure that TUF repository is instantiated
         using metadata files at the specified revision. Creates a temp directory
@@ -195,7 +196,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             yield
             self._tuf_repository = tuf_repository
 
-    def set_last_validated_commit(self, commit):
+    def set_last_validated_commit(self, commit: str):
         """
         Set the last validated commit of the authentication repository
         """
@@ -204,12 +205,12 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def sorted_commits_and_branches_per_repositories(
         self,
-        commits,
-        target_repos=None,
-        custom_fns=None,
-        default_branch=None,
-        excluded_target_globs=None,
-    ):
+        commits: List[str],
+        target_repos: Optional[List[str]]=None,
+        custom_fns: Optional[Dict[str: Callable]]=None,
+        default_branch: Optional[str]=None,
+        excluded_target_globs: Optional[str]=None,
+    ) -> Dict[str: Tuple[str, str]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {

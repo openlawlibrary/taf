@@ -1,3 +1,5 @@
+from ast import Dict
+from typing import Type
 import attrs
 import cattrs
 from cattrs.gen import make_dict_structure_fn
@@ -12,7 +14,7 @@ converter.register_structure_hook_factory(
 )
 
 
-def from_dict(data_dict, model_type):
+def from_dict(data_dict: Dict, model_type: Type):
     try:
         return converter.structure(data_dict, model_type)
     except cattrs.errors.IterableValidationError as e:

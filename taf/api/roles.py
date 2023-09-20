@@ -10,7 +10,7 @@ from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
-from taf.models.iterators import RolesIterator
+from taf.models.types import RolesIterator
 from taf.models.types import DelegatedRole, Role, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from taf.yubikey import get_key_serial_by_id

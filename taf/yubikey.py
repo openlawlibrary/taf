@@ -4,6 +4,7 @@ from functools import wraps
 from collections import defaultdict
 from getpass import getpass
 from pathlib import Path
+from typing import Dict, Optional
 
 import click
 from cryptography import x509
@@ -39,37 +40,37 @@ EXPIRATION_INTERVAL = 36500
 _yks_data_dict = defaultdict(dict)
 
 
-def add_key_id_mapping(serial_num, keyid):
+def add_key_id_mapping(serial_num: str, keyid: str) -> None:
     if "ids" not in _yks_data_dict:
         _yks_data_dict["ids"] = defaultdict(dict)
     _yks_data_dict["ids"][keyid] = serial_num
 
 
-def add_key_pin(serial_num, pin):
+def add_key_pin(serial_num: str, pin: str) -> None:
     _yks_data_dict[serial_num]["pin"] = pin
 
 
-def add_key_public_key(serial_num, public_key):
+def add_key_public_key(serial_num: str, public_key: Dict) -> None:
     _yks_data_dict[serial_num]["public_key"] = public_key
 
 
-def get_key_pin(serial_num):
+def get_key_pin(serial_num: int) ->  Optional[str]:
     if serial_num in _yks_data_dict:
         return _yks_data_dict.get(serial_num).get("pin")
     return None
 
 
-def get_key_serial_by_id(keyid):
+def get_key_serial_by_id(keyid: str) ->  Optional[str]:
     return _yks_data_dict.get("ids", {}).get(keyid)
 
 
-def get_key_public_key(serial_num):
+def get_key_public_key(serial_num: str) ->  Optional[Dict]:
     if serial_num in _yks_data_dict:
         return _yks_data_dict.get(serial_num).get("public_key")
     return None
 
 
-def raise_yubikey_err(msg=None):
+def raise_yubikey_err(msg: Optional[str]=None) -> None:
     """Decorator used to catch all errors raised by yubikey-manager and raise
     YubikeyError. We don't need to handle specific cases.
     """
