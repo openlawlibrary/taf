@@ -1,6 +1,7 @@
 from getpass import getpass
 from os import getcwd
 from pathlib import Path
+from typing import Dict, Optional
 
 import click
 import securesystemslib
@@ -8,6 +9,7 @@ from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
+from taf.repository_tool import Repository
 from tuf.repository_tool import import_rsakey_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -15,23 +17,27 @@ from taf.exceptions import KeystoreError
 from taf.log import taf_logger
 
 
-def default_keystore_path():
+def default_keystore_path() -> str:
     keystore_path = str(Path(getcwd(), "keystore"))
     taf_logger.info(f"Keystore path is not passed, using default one: {keystore_path}")
     return keystore_path
 
 
-def _form_private_pem(pem):
+def _form_private_pem(pem: str) -> str:
     return f"-----BEGIN RSA PRIVATE KEY-----\n{pem}\n-----END RSA PRIVATE KEY-----"
 
 
-def _from_public_pem(pem):
+def _from_public_pem(pem: str) -> str:
     return f"-----BEGIN PUBLIC KEY-----\n{pem}\n-----END PUBLIC KEY-----"
 
 
 def key_cmd_prompt(
-    key_name, role, taf_repo, loaded_keys=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-):
+    key_name: str,
+    role: str,
+    taf_repo: Repository,
+    loaded_keys: Optional[Dict] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+) -> Optional[Dict]:
     def _enter_and_check_key(key_name, role, loaded_keys, scheme):
         pem = getpass(f"Enter {key_name} private key without its header and footer\n")
         pem = _form_private_pem(pem)
@@ -55,7 +61,9 @@ def key_cmd_prompt(
             return key
 
 
-def load_tuf_private_key(key_str, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def load_tuf_private_key(
+    key_str: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
+) -> Dict:
     if not key_str:
         key_str = getpass(
             f"Enter {key_name} private key without its header and footer\n"
@@ -65,7 +73,7 @@ def load_tuf_private_key(key_str, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME)
     return import_rsakey_from_pem(key_pem, scheme)
 
 
-def new_public_key_cmd_prompt(scheme):
+def new_public_key_cmd_prompt(scheme: str) -> Dict:
     def _enter_and_check_key(scheme):
         pem = getpass("Enter public key without its header and footer\n")
         pem = _from_public_pem(pem)
@@ -83,12 +91,12 @@ def new_public_key_cmd_prompt(scheme):
 
 
 def read_private_key_from_keystore(
-    keystore,
-    key_name,
-    key_num=None,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    password=None,
-):
+    keystore: str,
+    key_name: str,
+    key_num: Optional[int] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    password: Optional[str] = None,
+) -> Dict:
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
@@ -127,8 +135,8 @@ def read_private_key_from_keystore(
 
 
 def read_public_key_from_keystore(
-    keystore, key_name, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-):
+    keystore: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
+) -> Dict:
     pub_key_path = Path(keystore, f"{key_name}.pub").expanduser().resolve()
     if not pub_key_path.is_file():
         raise KeystoreError(f"{str(pub_key_path)} does not exist")

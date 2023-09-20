@@ -1,4 +1,5 @@
 from logging import DEBUG, ERROR
+from typing import Optional
 import click
 
 from pathlib import Path
@@ -20,7 +21,7 @@ import taf.yubikey as yk
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_public_pem(path=None):
+def export_yk_public_pem(path: Optional[str] = None) -> None:
     """
     Export public key from a YubiKey and save it to a file or print to console.
 
@@ -59,7 +60,7 @@ def export_yk_public_pem(path=None):
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_certificate(path=None):
+def export_yk_certificate(path: Optional[str] = None) -> None:
     """
     Export certificate from the YubiKey.
 
@@ -92,7 +93,7 @@ def export_yk_certificate(path=None):
     on_exceptions=TAFError,
     reraise=True,
 )
-def setup_signing_yubikey(certs_dir=None):
+def setup_signing_yubikey(certs_dir: Optional[str] = None) -> None:
     """
     Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
     Optionally export and save the certificate to a file.
@@ -130,7 +131,7 @@ def setup_signing_yubikey(certs_dir=None):
     on_exceptions=TAFError,
     reraise=True,
 )
-def setup_test_yubikey(key_path):
+def setup_test_yubikey(key_path: str) -> None:
     """
     Reset the inserted yubikey, set default pin and copy the specified key
     to it.

@@ -1,11 +1,12 @@
 import json
 from logging import DEBUG, ERROR, INFO
+from typing import Dict, Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
-from taf.models.iterators import RolesIterator
+from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
-from taf.api.utils import check_if_clean
+from taf.api.utils import check_if_clean, commit_and_push
 from taf.models.converter import from_dict
 
 import taf.repositoriesdb as repositoriesdb
@@ -45,12 +46,13 @@ def add_dependency(
     branch_name: str,
     out_of_band_commit: str,
     keystore: str,
-    dependency_path: str = None,
-    library_dir: str = None,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    custom=None,
-    prompt_for_keys=False,
-):
+    dependency_path: Optional[str] = None,
+    library_dir: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    custom: Optional[Dict] = None,
+    prompt_for_keys: Optional[bool] = False,
+    commit: Optional[bool] = True,
+) -> None:
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
     Information that is added to dependencies.json includes out-of-band authentication commit name of the branch which contains
@@ -68,6 +70,8 @@ def add_dependency(
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         custom (optional): Additional data that will be added to dependencies.json if specified.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
 
     Side Effects:
         Updates dependencies.json, targets, snapshot and timestamp metadata, writes changes to disk
@@ -146,8 +150,10 @@ def add_dependency(
     update_snapshot_and_timestamp(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
-    commit_message = input("\nEnter commit message and press ENTER\n\n")
-    auth_repo.commit(commit_message)
+    if commit:
+        commit_and_push(auth_repo)
+    else:
+        print("\nPlease commit manually.\n")
 
 
 @log_on_start(
@@ -162,8 +168,12 @@ def add_dependency(
     reraise=True,
 )
 def create_repository(
-    path, keystore=None, roles_key_infos=None, commit=False, test=False
-):
+    path: str,
+    keystore: Optional[str] = None,
+    roles_key_infos: Optional[str] = None,
+    commit: Optional[bool] = False,
+    test: Optional[bool] = False,
+) -> None:
     """
     Create a new authentication repository. Generate initial metadata files.
     If target files already exist, add corresponding targets information to
@@ -172,9 +182,9 @@ def create_repository(
     Arguments:
         path: Authentication repository's location.
         keystore: Location of the keystore files.
-        roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
-        commit: Specifies if the changes should be automatically committed.
-        test: Specifies if the created repository is a test authentication repository.
+        roles_key_infos: Path to a json file which contains information about repository's roles and keys.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        test (optional): Specifies if the created repository is a test authentication repository.
 
     Side Effects:
         Creates a new authentication repository (initializes a new git repository and generates tuf metadata)
@@ -237,11 +247,12 @@ def create_repository(
 
     if commit:
         auth_repo.init_repo()
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-        auth_repo.commit(commit_message)
+        commit_and_push(auth_repo, push=False)
+    else:
+        print("\nPlease commit manually.\n")
 
 
-def _check_if_can_create_repository(auth_repo):
+def _check_if_can_create_repository(auth_repo: AuthenticationRepository) -> bool:
     """
     Check if a new authentication repository can be created at the specified location.
     A repository can be created if there is not directory at the repository's location
@@ -249,7 +260,6 @@ def _check_if_can_create_repository(auth_repo):
 
     Arguments:
         auth_repo: Authentication repository.
-
 
     Side Effects:
         None
@@ -273,7 +283,9 @@ def _check_if_can_create_repository(auth_repo):
     return True
 
 
-def _determine_out_of_band_data(dependency, branch_name, out_of_band_commit):
+def _determine_out_of_band_data(
+    dependency: GitRepository, branch_name: str, out_of_band_commit: str
+):
     """
     Determines values of out-of-band branch and commit as a part of adding a new
     dependency to dependencies.json. If not defined, branch is set to the default branch
@@ -325,9 +337,10 @@ def remove_dependency(
     path: str,
     dependency_name: str,
     keystore: str,
-    scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: bool = False,
-):
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
+    commit: Optional[bool] = True,
+) -> None:
     """
     Remove a dependency (an authentication repository) from dependencies.json
 
@@ -336,6 +349,8 @@ def remove_dependency(
         dependency_name: Name of the dependency which should be removed.
         keystore: Location of the keystore files.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
 
     Side Effects:
         Updates dependencies.json, targets, snapshot and timestamp metadata, writes changes to disk
@@ -388,5 +403,7 @@ def remove_dependency(
     update_snapshot_and_timestamp(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
-    commit_message = input("\nEnter commit message and press ENTER\n\n")
-    auth_repo.commit(commit_message)
+    if commit:
+        commit_and_push(auth_repo)
+    else:
+        print("\nPlease commit manually.\n")

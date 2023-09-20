@@ -1,13 +1,15 @@
 from collections import defaultdict
 from logging import INFO
+from typing import Dict, List, Optional, Tuple
 import click
 from pathlib import Path
 from logdecorator import log_on_start
 from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
-from taf.models.iterators import RolesIterator
+from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import DelegatedRole, MainRoles, UserKeyData
+from taf.repository_tool import Repository
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -35,14 +37,23 @@ except ImportError:
     yk = YubikeyMissingLibrary()
 
 
-def get_key_name(role_name, key_num, num_of_keys):
+def get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
+    """
+    Return a keystore key's name based on the role's name and total number of signing keys,
+    as well as the specified counter. If number of signing keys is one, return the role's name.
+    If the number of signing keys is greater that one, return role's name + counter (root1, root2...)
+    """
     if num_of_keys == 1:
         return role_name
     else:
         return role_name + str(key_num + 1)
 
 
-def get_metadata_key_info(certs_dir, key_id):
+def get_metadata_key_info(certs_dir: str, key_id: str) -> TAFKey:
+    """
+    Read and return information about the specified key read from a certificate
+    file whose name matches that key's id.
+    """
     cert_path = Path(certs_dir, key_id + ".cert")
     if cert_path.exists():
         cert_pem = cert_path.read_bytes()
@@ -51,7 +62,7 @@ def get_metadata_key_info(certs_dir, key_id):
     return TAFKey(key_id)
 
 
-def _extract_x509(cert_pem):
+def _extract_x509(cert_pem: bytes) -> Dict:
     from cryptography import x509
     from cryptography.hazmat.backends import default_backend
 
@@ -149,13 +160,13 @@ def load_sorted_keys_of_new_roles(
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
 def load_signing_keys(
-    taf_repo,
-    role,
-    keystore=None,
-    loaded_yubikeys=None,
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys=False,
-):
+    taf_repo: Repository,
+    role: str,
+    keystore: Optional[str] = None,
+    loaded_yubikeys: Optional[Dict] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
+) -> Tuple[List[Dict], List[Dict]]:
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
     loaded, but allow loading more keys (so that a metadata file can be signed
@@ -246,11 +257,11 @@ def load_signing_keys(
 
 
 def setup_roles_keys(
-    role,
-    certs_dir=None,
-    keystore=None,
-    yubikeys=None,
-    users_yubikeys_details=None,
+    role: Role,
+    certs_dir: Optional[str] = None,
+    keystore: Optional[str] = None,
+    yubikeys: Optional[Dict] = None,
+    users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
 ):
     yubikey_keys = []
     keystore_keys = []
@@ -309,8 +320,14 @@ def setup_roles_keys(
 
 
 def _setup_keystore_key(
-    keystore, role_name, key_name, key_num, scheme, length, password
-):
+    keystore: str,
+    role_name: str,
+    key_name: str,
+    key_num: int,
+    scheme: str,
+    length: int,
+    password: str,
+) -> Tuple[Dict, Dict]:
     # if keystore exists, load the keys
     generate_new_keys = keystore is None
     public_key = private_key = None
@@ -383,7 +400,9 @@ def _setup_keystore_key(
     return public_key, private_key
 
 
-def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
+def _setup_yubikey(
+    yubikeys: Dict, role_name: str, key_name: str, scheme: str, certs_dir: str
+) -> Dict:
     while True:
         print(f"Registering keys for {key_name}")
         use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
@@ -412,7 +431,9 @@ def _setup_yubikey(yubikeys, role_name, key_name, scheme, certs_dir):
         return key
 
 
-def _load_and_verify_yubikey(yubikeys, role_name, key_name, public_key):
+def _load_and_verify_yubikey(
+    yubikeys: Dict, role_name: str, key_name: str, public_key
+) -> Dict:
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
         return False
     while True:
