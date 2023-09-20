@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
+
+### Added
+
+### Changed
+
+### Fixed
+
+
+## [0.27.0] - 09/20/2023
+
 ### Added
 
 - Automatically commit and push to remote unless a --no-commit flag is specified ([357])
@@ -975,7 +985,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.26.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/openlawlibrary/taf/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/openlawlibrary/taf/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/openlawlibrary/taf/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/openlawlibrary/taf/compare/v0.24.0...v0.25.0
