@@ -65,11 +65,11 @@ def generate_keys(keystore: str, roles_key_infos: str) -> None:
     Returns:
         None
     """
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
-    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
+    roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
         if not role.is_yubikey:
             for key_num in range(role.number):

@@ -79,7 +79,7 @@ def add_target_repo(
         print(f"{path} is not a git repository!")
         return
     if library_dir is None:
-        library_dir = auth_repo.path.parent.parent
+        library_dir = str(auth_repo.path.parent.parent)
 
     if target_name is not None:
         target_repo = GitRepository(library_dir, target_name)
@@ -93,14 +93,16 @@ def add_target_repo(
     existing_roles = auth_repo.get_all_targets_roles()
     if role not in existing_roles:
         parent_role = input("Enter new role's parent role (targets): ")
-        paths = input(
+        paths_input = input(
             "Enter a comma separated list of path delegated to the new role: "
         )
-        paths = [path.strip() for path in paths.split(",") if len(path.strip())]
-        keys_number = input("Enter the number of signing keys of the new role (1): ")
-        keys_number = int(keys_number or 1)
-        threshold = input("Enter signatures threshold of the new role (1): ")
-        threshold = int(threshold or 1)
+        paths = [path.strip() for path in paths_input.split(",") if len(path.strip())]
+        keys_number_input = input(
+            "Enter the number of signing keys of the new role (1): "
+        )
+        keys_number = int(keys_number_input or 1)
+        threshold_input = input("Enter signatures threshold of the new role (1): ")
+        threshold = int(threshold_input or 1)
         yubikey = click.confirm("Sign the new role's metadata using yubikeys? ")
         if target_name not in paths:
             paths.append(target_name)
@@ -146,14 +148,14 @@ def add_target_repo(
         json.dumps(repositories_json, indent=4)
     )
 
-    added_targets_data = {}
+    added_targets_data: Dict = {}
     if target_repo.is_git_repository_root:
         _save_top_commit_of_repo_to_target(
-            library_dir, target_repo.name, auth_repo.path
+            Path(library_dir), target_repo.name, auth_repo.path
         )
         added_targets_data[target_repo.name] = {}
 
-    removed_targets_data = {}
+    removed_targets_data: Dict = {}
     added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
     update_target_metadata(
         auth_repo,
@@ -177,7 +179,7 @@ def add_target_repo(
 
 def export_targets_history(
     path: str,
-    commit: Optional[bool] = None,
+    commit: Optional[str] = None,
     output: Optional[str] = None,
     target_repos: Optional[List[str]] = None,
 ) -> None:
@@ -200,9 +202,7 @@ def export_targets_history(
     """
     auth_repo = AuthenticationRepository(path=path)
     commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
-    if not len(target_repos):
-        target_repos = None
-    else:
+    if target_repos:
         repositoriesdb.load_repositories(auth_repo)
         invalid_targets = []
         for target_repo in target_repos:
@@ -213,18 +213,20 @@ def export_targets_history(
                 f"The following target repositories are not defined: {', '.join(invalid_targets)}"
             )
             return
+    elif target_repos is not None:
+        target_repos = None
 
     commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
         commits, target_repos
     )
     commits_json = json.dumps(commits_on_branches, indent=4)
     if output is not None:
-        output = Path(output).resolve()
-        if output.suffix != ".json":
-            output = output.with_suffix(".json")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(commits_json)
-        print(f"Result written to {output}")
+        output_path = Path(output).resolve()
+        if output_path.suffix != ".json":
+            output_path = output_path.with_suffix(".json")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(commits_json)
+        print(f"Result written to {output_path}")
     else:
         print(commits_json)
 
@@ -247,21 +249,22 @@ def list_targets(
     Returns:
         None
     """
-    path = Path(path).resolve()
     auth_repo = AuthenticationRepository(path=path)
-    top_commit = [auth_repo.head_commit_sha()]
-    if library_dir is None:
-        library_dir = path.parent.parent
+    head_commit = auth_repo.head_commit_sha()
+    if head_commit is None:
+        print("Repository is empty")
+        return
+    top_commit = [head_commit]
     repositoriesdb.load_repositories(auth_repo)
     target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
     repositories_data = auth_repo.sorted_commits_and_branches_per_repositories(
         top_commit
     )
-    output = defaultdict(dict)
+    output: Dict = defaultdict(dict)
     for repo_name, repo_data in repositories_data.items():
         repo = target_repositories[repo_name]
         local_repo_exists = repo.is_git_repository_root
-        repo_output = {}
+        repo_output: Dict = {}
         output[repo_name] = repo_output
         repo_output["unauthenticated-allowed"] = repo.custom.get(
             "allow-unauthenticated-commits", False
@@ -271,7 +274,6 @@ def list_targets(
             repo_output["bare"] = repo.is_bare_repository()
             # there will only be one branch since only data corresponding to the top auth commit was loaded
             for branch, branch_data in repo_data.items():
-                branch_data = branch_data[0]
                 repo_output["unsigned"] = False
                 if not repo.branch_exists(branch, include_remotes=False):
                     repo_output["up-to-date"] = False
@@ -279,7 +281,7 @@ def list_targets(
                     is_synced_with_remote = repo.synced_with_remote(branch=branch)
                     repo_output["up-to-date"] = is_synced_with_remote
                     if not is_synced_with_remote:
-                        last_signed_commit = branch_data["commit"]
+                        last_signed_commit = branch_data[0]["commit"]
                         if branch in repo.branches_containing_commit(
                             last_signed_commit
                         ):
@@ -303,7 +305,7 @@ def list_targets(
     reraise=True,
 )
 def register_target_files(
-    path,
+    path: str | Path,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = True,
@@ -311,6 +313,7 @@ def register_target_files(
     taf_repo: Optional[Repository] = None,
     write: Optional[bool] = False,
     prompt_for_keys: Optional[bool] = False,
+    no_commit_warning: Optional[bool] = True,
 ):
     """
     Register all files found in the target directory as targets - update the targets
@@ -332,7 +335,7 @@ def register_target_files(
     Returns:
         True if there were targets that were updated, False otherwise
     """
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
+    _, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
     if taf_repo is None:
@@ -357,7 +360,7 @@ def register_target_files(
         if commit:
             auth_repo = GitRepository(path=taf_repo.path)
             commit_and_push(auth_repo)
-        else:
+        elif not no_commit_warning:
             print("\nPlease commit manually\n")
 
     return updated
@@ -393,8 +396,8 @@ def remove_target_repo(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    removed_targets_data = {}
-    added_targets_data = {}
+    removed_targets_data: Dict = {}
+    added_targets_data: Dict = {}
     if not auth_repo.is_git_repository_root:
         taf_logger.info(f"{path} is not a git repository!")
         return
@@ -516,19 +519,20 @@ def update_target_repos_from_repositories_json(
     Returns:
         None
     """
-    path = Path(path).resolve()
+    repo_path = Path(path).resolve()
     if library_dir is None:
-        library_dir = path.parent.parent
-    else:
-        library_dir = Path(library_dir)
-    auth_repo_targets_dir = path / TARGETS_DIRECTORY_NAME
+        library_dir = str(repo_path.parent.parent)
+
+    auth_repo_targets_dir = repo_path / TARGETS_DIRECTORY_NAME
     repositories_json = json.loads(
         Path(auth_repo_targets_dir / "repositories.json").read_text()
     )
     for repo_name in repositories_json.get("repositories"):
-        _save_top_commit_of_repo_to_target(library_dir, repo_name, path, add_branch)
+        _save_top_commit_of_repo_to_target(
+            Path(library_dir), repo_name, repo_path, add_branch
+        )
     register_target_files(
-        path,
+        repo_path,
         keystore,
         None,
         commit,
@@ -577,10 +581,10 @@ def update_and_sign_targets(
     Returns:
         None
     """
-    path = Path(path).resolve()
-    auth_repo = AuthenticationRepository(path=path)
+    repo_path = Path(path).resolve()
+    auth_repo = AuthenticationRepository(path=repo_path)
     if library_dir is None:
-        library_dir = path.parent.parent
+        library_dir = str(path.parent.parent)
     repositoriesdb.load_repositories(auth_repo)
     nonexistent_target_types = []
     target_names = []
@@ -601,10 +605,12 @@ def update_and_sign_targets(
 
     # only update target files if all specified types are valid
     for target_name in target_names:
-        _save_top_commit_of_repo_to_target(library_dir, target_name, path, True)
+        _save_top_commit_of_repo_to_target(
+            Path(library_dir), target_name, repo_path, True
+        )
         print(f"Updated {target_name} target file")
     register_target_files(
-        path,
+        repo_path,
         keystore,
         roles_key_infos,
         commit,
@@ -615,7 +621,10 @@ def update_and_sign_targets(
 
 
 def _update_target_repos(
-    repo_path: Path, targets_dir: Path, target_repo_path: Path, add_branch: bool
+    repo_path: Path,
+    targets_dir: Path,
+    target_repo_path: Path,
+    add_branch: Optional[bool] = True,
 ) -> None:
     """Updates target repo's commit sha and branch"""
     if not target_repo_path.is_dir() or target_repo_path == repo_path:

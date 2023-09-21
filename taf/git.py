@@ -29,13 +29,13 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 class GitRepository:
     def __init__(
         self,
-        library_dir: Optional[str] = None,
+        library_dir: Optional[str | Path] = None,
         name: Optional[str] = None,
         urls: Optional[List[str]] = None,
         custom: Optional[Dict] = None,
         default_branch: Optional[str] = None,
         allow_unsafe: Optional[bool] = False,
-        path: Optional[str] = None,
+        path: Optional[str | Path] = None,
         *args,
         **kwargs,
     ):
@@ -293,7 +293,7 @@ class GitRepository:
 
     def all_commits_since_commit(
         self,
-        since_commit: str,
+        since_commit: Optional[str] = None,
         branch: Optional[str] = None,
         reverse: Optional[bool] = True,
     ) -> List[str]:

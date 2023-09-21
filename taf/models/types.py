@@ -25,6 +25,7 @@ class UserKeyData:
 
 @attrs.define
 class Role:
+    name: Optional[str] = attrs.field(default=None, kw_only=True)
     threshold: int = attrs.field(
         validator=integer_validator, default=DEFAULT_ROLE_SETUP_PARAMS["threshold"]
     )
@@ -60,7 +61,6 @@ class RootRole(Role):
 
 @attrs.define
 class DelegatedRole(Role):
-    name: Optional[str] = attrs.field(default=None, kw_only=True)
     parent: Optional[Role] = attrs.field(default=None, kw_only=True)
     paths: List[str] = attrs.field(kw_only=True, validator=role_paths_validator)
     terminating: Optional[bool] = attrs.field(

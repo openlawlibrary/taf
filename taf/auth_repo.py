@@ -35,7 +35,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         allow_unsafe: Optional[bool] = False,
         conf_directory_root: Optional[str] = None,
         out_of_band_authentication: Optional[str] = None,
-        path: Optional[str] = None,
+        path: Optional[str | Path] = None,
         *args,
         **kwargs,
     ):
@@ -209,7 +209,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[str] = None,
-    ) -> Dict[str, Tuple[str, str]]:
+    ) -> Dict[str, Dict[str, List[Dict]]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {

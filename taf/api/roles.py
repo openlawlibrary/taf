@@ -1,12 +1,13 @@
 from logging import DEBUG, ERROR, INFO
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import click
 from collections import defaultdict
 from functools import partial
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
+from tuf.repository_tool import Repository as TUFRepository, Targets
 from taf.api.utils import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
@@ -94,7 +95,6 @@ def add_role(
     """
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=path)
-    path = Path(path)
     existing_roles = auth_repo.get_all_targets_roles()
     existing_roles.extend(MAIN_ROLES)
     if role in existing_roles:
@@ -102,12 +102,12 @@ def add_role(
         return
 
     if parent_role == "targets":
-        parent_role = TargetsRole()
+        targets_parent_role = TargetsRole()
     else:
-        parent_role = DelegatedRole(name=parent_role)
+        targets_parent_role = DelegatedRole(name=parent_role, paths=[])
 
     new_role = DelegatedRole(
-        parent=parent_role,
+        parent=targets_parent_role,
         name=role,
         paths=paths,
         number=keys_number,
@@ -126,7 +126,7 @@ def add_role(
     )
     _update_role(
         auth_repo,
-        parent_role.name,
+        targets_parent_role.name,
         keystore,
         scheme=scheme,
         prompt_for_keys=prompt_for_keys,
@@ -231,13 +231,12 @@ def add_roles(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    path = Path(path)
 
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
-    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
+    roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
 
     new_roles = []
     existing_roles = auth_repo.get_all_targets_roles()
@@ -332,14 +331,14 @@ def add_signing_key(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
+    _, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
 
     pub_key_pem = None
     if pub_key_path is not None:
-        pub_key_path = Path(pub_key_path)
-        if pub_key_path.is_file():
+        pub_key_pem_path = Path(pub_key_path)
+        if pub_key_pem_path.is_file():
             pub_key_pem = Path(pub_key_path).read_text()
 
     if pub_key_pem is None:
@@ -383,7 +382,8 @@ def add_signing_key(
         taf_logger.info("\nPlease commit manually\n")
 
 
-def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
+# TODO this is probably outdated, the format of the outputted roles_key_infos
+def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) -> Dict:
     """
     Ask the user to enter information taf roles and keys, including the location
     of keystore directory if not entered through an input parameter
@@ -401,7 +401,7 @@ def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
         a yubikey for each role, key length and signing scheme for each role)
     """
     mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
-    role_key_infos = defaultdict(dict)
+    role_key_infos: Dict = defaultdict(dict)
     infos_json = {}
 
     for role in mandatory_roles:
@@ -429,7 +429,7 @@ def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
         print("------------------")
 
     infos_json_str = json.dumps(infos_json, indent=4)
-    if isinstance(roles_key_infos, str):
+    if roles_key_infos is not None:
         try:
             path = Path(roles_key_infos)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -445,7 +445,9 @@ def _enter_roles_infos(keystore: str, roles_key_infos: str) -> Dict:
     return infos_json
 
 
-def _enter_role_info(role: str, is_targets_role: bool, keystore: str) -> Dict:
+def _enter_role_info(
+    role: str, is_targets_role: bool, keystore: Optional[str] = None
+) -> Dict:
     def _read_val(input_type, name, param=None, required=False):
         default_value_msg = ""
         if param is not None:
@@ -476,9 +478,11 @@ def _enter_role_info(role: str, is_targets_role: bool, keystore: str) -> Dict:
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
     else:
-        # if keystore is specified and contain keys corresponding to this role
+        # if keystore is specified and contaisn keys corresponding to this role
         # get key size based on the public key
-        keystore_length = _get_roles_key_size(role, keystore, keys_num)
+        keystore_length = 0
+        if keystore is not None:
+            keystore_length = _get_roles_key_size(role, keystore, keys_num)
         if keystore_length == 0:
             key_length = _read_val(int, f"{role} key length", "length")
             if key_length is not None:
@@ -494,12 +498,12 @@ def _enter_role_info(role: str, is_targets_role: bool, keystore: str) -> Dict:
         role_info["threshold"] = threshold
 
     if is_targets_role:
-        delegated_roles = defaultdict(dict)
+        delegated_roles: Dict = defaultdict(dict)
         while click.confirm(
             f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
         ):
             role_name = _read_val(str, "role name", True)
-            delegated_paths = []
+            delegated_paths: List[str] = []
             while not len(delegated_paths) or click.confirm("Enter another path?"):
                 delegated_paths.append(
                     _read_val(
@@ -518,8 +522,10 @@ def _enter_role_info(role: str, is_targets_role: bool, keystore: str) -> Dict:
 
 
 def _initialize_roles_and_keystore(
-    roles_key_infos: str, keystore: str, enter_info: Optional[bool] = True
-):
+    roles_key_infos: Optional[str],
+    keystore: Optional[str],
+    enter_info: Optional[bool] = True,
+) -> Tuple[Dict, str]:
     """
     Read information about roles and keys from a json file or ask the user to enter
     this information if not specified through a json file enter_info is True
@@ -549,6 +555,10 @@ def _initialize_roles_and_keystore(
         # if keystore path is specified in roles_key_infos and is a relative path
         # it should be relative to the location of the file
         # roles_key_infos can either be path to a json file, or a dictionary (or not provided)
+        if "keystore" not in roles_key_infos_dict:
+            taf_logger.info(
+                f"Keystore not specified. Using default location {default_keystore_path()}"
+            )
         keystore = roles_key_infos_dict.get("keystore") or default_keystore_path()
         if roles_key_infos is not None and type(roles_key_infos) == str:
             roles_key_infos_path = Path(roles_key_infos)
@@ -572,11 +582,11 @@ def _initialize_roles_and_keystore(
 @log_on_start(INFO, "Creating delegations", logger=taf_logger)
 @log_on_end(DEBUG, "Finished creating delegations", logger=taf_logger)
 def create_delegations(
-    role: str,
+    role: Role,
     repository: AuthenticationRepository,
     verification_keys: Dict,
     signing_keys: Dict,
-    existing_roles: Optional[bool] = None,
+    existing_roles: Optional[List[str]] = None,
 ) -> None:
     """
     Initialize new delegated target roles, update authentication repository object
@@ -628,24 +638,28 @@ def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
     return get_key_size(key_path)
 
 
-def _role_obj(role: str, repository: Repository, parent: str = None) -> Metadata:
+def _role_obj(
+    role: str, repository: Repository | TUFRepository, parent: Optional[Targets] = None
+) -> Metadata:
     """
     Return role TUF object based on its name
     """
     if isinstance(repository, Repository):
-        repository = repository._repository
+        tuf_repository = repository._repository
+    else:
+        tuf_repository = repository
     if role == "targets":
-        return repository.targets
+        return tuf_repository.targets
     elif role == "snapshot":
-        return repository.snapshot
+        return tuf_repository.snapshot
     elif role == "timestamp":
-        return repository.timestamp
+        return tuf_repository.timestamp
     elif role == "root":
-        return repository.root
+        return tuf_repository.root
     else:
         # return delegated role
         if parent is None:
-            return repository.targets(role)
+            return tuf_repository.targets(role)
         return parent(role)
 
 
@@ -737,7 +751,7 @@ def remove_role(
         return
 
     roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
-    added_targets_data = {}
+    added_targets_data: Dict = {}
     removed_targets = []
     for delegations_data in roleinfo["delegations"]["roles"]:
         if delegations_data["name"] == role:
@@ -759,7 +773,7 @@ def remove_role(
         auth_repo, role=parent_role, keystore=keystore, prompt_for_keys=prompt_for_keys
     )
     if len(added_targets_data):
-        removed_targets_data = {}
+        removed_targets_data: Dict = {}
         update_target_metadata(
             auth_repo,
             added_targets_data,
@@ -905,7 +919,7 @@ def setup_role(
     repository: Repository,
     verification_keys: Dict,
     signing_keys: Optional[Dict] = None,
-    parent: Optional[str] = None,
+    parent: Optional[Targets] = None,
 ) -> None:
     """
     Initialize a new role, add signing and verification keys.
@@ -913,11 +927,19 @@ def setup_role(
     role_obj = _role_obj(role.name, repository, parent)
     role_obj.threshold = role.threshold
     if not role.is_yubikey:
+        if verification_keys is None or signing_keys is None:
+            raise TAFError(f"Cannot setup role {role.name}. Keys not specified")
         for public_key, private_key in zip(verification_keys, signing_keys):
             role_obj.add_verification_key(public_key)
             role_obj.load_signing_key(private_key)
     else:
-        for key_name, key in zip(role.yubikeys, verification_keys):
+        yubikeys = role.yubikeys
+        if yubikeys is None:
+            yubikeys = [
+                get_key_name(role.name, count, role.number)
+                for count in range(role.number)
+            ]
+        for key_name, key in zip(yubikeys, verification_keys):
             role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
             # check if yubikey loaded
             if get_key_serial_by_id(key_name):

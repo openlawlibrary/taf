@@ -73,7 +73,7 @@ def load_tuf_private_key(
     return import_rsakey_from_pem(key_pem, scheme)
 
 
-def new_public_key_cmd_prompt(scheme: str) -> Dict:
+def new_public_key_cmd_prompt(scheme: Optional[str]) -> Dict:
     def _enter_and_check_key(scheme):
         pem = getpass("Enter public key without its header and footer\n")
         pem = _from_public_pem(pem)

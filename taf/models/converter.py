@@ -1,5 +1,4 @@
-from ast import Dict
-from typing import Type
+from typing import Dict, Type
 import attrs
 import cattrs
 from cattrs.gen import make_dict_structure_fn

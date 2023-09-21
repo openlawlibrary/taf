@@ -11,7 +11,10 @@ from taf.models.models import TAFKey
 from taf.models.types import DelegatedRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
 from taf.yubikey import get_key_serial_by_id
-from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
+from tuf.repository_tool import (
+    generate_and_write_unencrypted_rsa_keypair,
+    generate_and_write_rsa_keypair,
+)
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import (
     KeystoreError,
@@ -86,7 +89,7 @@ def _extract_x509(cert_pem: bytes) -> Dict:
 def load_sorted_keys_of_new_roles(
     auth_repo: AuthenticationRepository,
     roles: MainRoles | DelegatedRole,
-    yubikeys_data: dict[str, UserKeyData],
+    yubikeys_data: Optional[dict[str, UserKeyData]],
     keystore: str,
     yubikeys: dict[str, dict] = None,
     existing_roles: list[str] = None,
@@ -154,8 +157,7 @@ def load_sorted_keys_of_new_roles(
             verification_keys[role.name] = yubikey_keys
         return signing_keys, verification_keys
     except KeystoreError as e:
-        print(f"Creation of repository failed: {e}")
-        return
+        raise SigningError(f"Could not load keys of new roles")
 
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
@@ -385,17 +387,25 @@ def _setup_keystore_key(
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
                 )
-            generate_and_write_unencrypted_rsa_keypair(
-                filepath=str(Path(keystore) / key_name), bits=length
-            )
+            if not password:
+                generate_and_write_unencrypted_rsa_keypair(
+                    filepath=str(Path(keystore) / key_name), bits=length
+                )
+            else:
+                generate_and_write_rsa_keypair(
+                    password=password,
+                    filepath=str(Path(keystore) / key_name),
+                    bits=length,
+                )
             public_key = read_public_key_from_keystore(keystore, key_name, scheme)
             private_key = read_private_key_from_keystore(
                 keystore, key_name, key_num=key_num, scheme=scheme, password=password
             )
         else:
-            key = generate_rsa_signature(bits=length, scheme=scheme)
-            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-            public_key = private_key = key
+            rsa_key = keys.generate_rsa_key(bits=length)
+            public_key = rsa_key["keyval"]["public"]
+            private_key = rsa_key["keyval"]["private"]
+            print(f"{role_name} key:\n\n{private_key}\n\n")
 
     return public_key, private_key
 

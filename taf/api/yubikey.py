@@ -45,10 +45,10 @@ def export_yk_public_pem(path: Optional[str] = None) -> None:
     else:
         if not path.endswith(".pub"):
             path = f"{path}.pub"
-        path = Path(path)
-        parent = path.parent
+        pem_path = Path(path)
+        parent = pem_path.parent
         parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(pub_key_pem)
+        pem_path.write_text(pub_key_pem)
 
 
 @log_on_start(DEBUG, "Exporting certificate from YubiKey", logger=taf_logger)
@@ -147,8 +147,8 @@ def setup_test_yubikey(key_path: str) -> None:
     """
     if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
         return
-    key_path = Path(key_path)
-    key_pem = key_path.read_bytes()
+    key_pem_path = Path(key_path)
+    key_pem = key_pem_path.read_bytes()
 
     print(f"Importing RSA private key from {key_path} to Yubikey...")
     pin = yk.DEFAULT_PIN

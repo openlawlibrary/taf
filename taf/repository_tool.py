@@ -55,19 +55,19 @@ DISABLE_KEYS_CACHING = False
 HASH_FUNCTION = "sha256"
 
 
-def get_role_metadata_path(role):
+def get_role_metadata_path(role: str) -> str:
     return f"{METADATA_DIRECTORY_NAME}/{role}.json"
 
 
-def get_target_path(target_name):
+def get_target_path(target_name: str) -> str:
     return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
 
 
-def is_delegated_role(role):
+def is_delegated_role(role: str) -> bool:
     return role not in ("root", "targets", "snapshot", "timestamp")
 
 
-def is_auth_repo(repo_path):
+def is_auth_repo(repo_path: str) -> bool:
     """Check if the given path contains a valid TUF repository"""
     try:
         Repository(repo_path)._repository
@@ -626,6 +626,8 @@ class Repository:
         will_expire_dict = {}
         for role in existing_roles:
             expiry_date = self.get_expiration_date(role)
+            print(expiry_date)
+            print(type(expiry_date))
             if start_date > expiry_date:
                 expired_dict[role] = expiry_date
             elif expiration_threshold >= expiry_date:
@@ -781,7 +783,7 @@ class Repository:
                 return delegated_role[property_name]
         return None
 
-    def get_expiration_date(self, role):
+    def get_expiration_date(self, role: str) -> datetime.datetime:
         return self._role_obj(role).expiration
 
     def get_role_keys(self, role, parent_role=None):
