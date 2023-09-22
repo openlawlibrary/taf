@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 
 
 class TAFError(Exception):
@@ -26,7 +26,7 @@ class FetchException(TAFError):
 class GitError(TAFError):
     def __init__(
         self,
-        repo: any,
+        repo: Any,
         command: Optional[str] = None,
         error: Optional[Exception] = None,
         message: Optional[str] = None,
@@ -35,9 +35,9 @@ class GitError(TAFError):
             if command is not None:
                 message = f"error occurred while executing {command}"
                 if error is not None:
-                    message = f"{message}:\n{error.output}"
+                    message = f"{message}:\n{str(error)}"
             elif error is not None:
-                message = error.output
+                message = str(error)
             else:
                 message = "error occurred"
         self.message = f"{repo.log_prefix}{message}"

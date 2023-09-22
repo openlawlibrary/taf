@@ -35,7 +35,7 @@ def key_cmd_prompt(
     key_name: str,
     role: str,
     taf_repo: Repository,
-    loaded_keys: Optional[Dict] = None,
+    loaded_keys: Optional[List] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
 ) -> Optional[Dict]:
     def _enter_and_check_key(key_name, role, loaded_keys, scheme):

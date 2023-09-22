@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from typing import Dict
 import securesystemslib
 from pathlib import Path
 
@@ -14,8 +15,8 @@ import taf.settings as settings
 _CONSOLE_FORMAT_STRING = "\n{message}\n"
 _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message}\n"
 
-console_loggers = {}
-file_loggers = {}
+console_loggers: Dict = {}
+file_loggers: Dict = {}
 
 
 def disable_console_logging():

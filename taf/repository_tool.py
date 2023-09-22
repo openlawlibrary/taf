@@ -42,7 +42,7 @@ from taf.utils import normalize_file_line_endings, on_rm_error
 try:
     import taf.yubikey as yk
 except ImportError:
-    yk = YubikeyMissingLibrary()
+    yk = YubikeyMissingLibrary() # type: ignore
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
