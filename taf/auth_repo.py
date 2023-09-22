@@ -23,7 +23,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     SCRIPTS_PATH = "scripts"
 
     _conf_dir = None
-    _dependencies = {}
+    _dependencies: Dict = {}
 
     def __init__(
         self,
@@ -64,9 +64,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             **kwargs,
         )
 
-        if conf_directory_root is None:
-            conf_directory_root = Path(self.path).parent
-        self.conf_directory_root = Path(conf_directory_root).resolve()
+
+        self.conf_directory_root = Path(self.path).parent.resolve()
         self.out_of_band_authentication = out_of_band_authentication
 
     # TODO rework conf_dir
@@ -84,7 +83,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         return data
 
     @property
-    def conf_dir(self) -> Path:
+    def conf_dir(self) -> str:
         """
         Returns location of the directory which stores the authentication repository's
         configuration files. That is, the last validated commit.
@@ -120,13 +119,15 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             else:
                 commit = self.head_commit_sha()
             targets_data = self.get_metadata("targets", commit)
+            if targets_data is None:
+                return False
             return self.TEST_REPO_FLAG_FILE in targets_data["signed"]["targets"]
         except Exception as e:
             self._log_debug(f"Could not get targets.json metadata: {e}")
             return False
 
     @property
-    def last_validated_commit(self) -> Optional[Path]:
+    def last_validated_commit(self) -> Optional[str]:
         """
         Return the last validated commit of the authentication repository
         """
@@ -139,9 +140,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     def log_prefix(self) -> str:
         return f"Auth repo {self.name}: "
 
-    def get_target(self, target_name, commit=None, safely=True) -> Dict:
+    def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
             commit = self.head_commit_sha()
+        if commit is None:
+            return None
         target_path = get_target_path(target_name)
         if safely:
             return self.safely_get_json(commit, target_path)
@@ -150,9 +153,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def get_metadata(
         self, role: str, commit: Optional[str] = None, safely: bool = True
-    ) -> Dict:
+    ) -> Optional[Dict]:
         if commit is None:
             commit = self.head_commit_sha()
+        if commit is None:
+            return None
         metadata_path = get_role_metadata_path(role)
         if safely:
             return self.safely_get_json(commit, metadata_path)
@@ -163,6 +168,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
             target = self.get_target(target_name, auth_commit)
+            if target is None:
+                continue
             try:
                 if target["commit"] == commit:
                     return True
@@ -208,7 +215,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         target_repos: Optional[List[str]] = None,
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
-        excluded_target_globs: Optional[str] = None,
+        excluded_target_globs: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, List[Dict]]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
@@ -236,11 +243,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Keep in mind that targets metadata
         file is not updated everytime something is committed to the authentication repo.
         """
-        repositories_commits = defaultdict(dict)
+        repositories_commits: Dict = defaultdict(dict)
         targets = self.targets_at_revisions(
             *commits, target_repos=target_repos, default_branch=default_branch
         )
-        previous_commits = {}
+        previous_commits: Dict = {}
         skipped_targets = []
         excluded_target_globs = excluded_target_globs or []
         for commit in commits:

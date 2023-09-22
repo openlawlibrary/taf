@@ -25,7 +25,7 @@ class UserKeyData:
 
 @attrs.define
 class Role:
-    name: Optional[str] = attrs.field(default=None, kw_only=True)
+    name: str = attrs.field(kw_only=True)
     threshold: int = attrs.field(
         validator=integer_validator, default=DEFAULT_ROLE_SETUP_PARAMS["threshold"]
     )
@@ -55,29 +55,23 @@ class Role:
         )
 
 
+@attrs.define
 class RootRole(Role):
     name: str = "root"
 
 
 @attrs.define
-class DelegatedRole(Role):
+class TargetsRole(Role):
+    name: str = "targets"
     parent: Optional[Role] = attrs.field(default=None, kw_only=True)
-    paths: List[str] = attrs.field(kw_only=True, validator=role_paths_validator)
+    paths: Optional[List[str]] = attrs.field(kw_only=True, default=None, validator=role_paths_validator)
     terminating: Optional[bool] = attrs.field(
         validator=optional_type_validator(bool),
         default=DEFAULT_ROLE_SETUP_PARAMS["terminating"],
     )
-    delegations: Optional[Dict[str, DelegatedRole]] = attrs.field(
-        kw_only=True, default={}
-    )
-
-
-@attrs.define
-class TargetsRole(Role):
-    name: str = "targets"
-    delegations: Optional[Dict[str, DelegatedRole]] = attrs.field(
-        kw_only=True, default={}
-    )
+    delegations: Optional[Dict[str, TargetsRole]]  = attrs.field(
+        kw_only=True, default={},
+    ) # type: ignore
 
     def __attrs_post_init__(self):
         def _update_delegations(role):
@@ -89,11 +83,11 @@ class TargetsRole(Role):
         if self.delegations:
             _update_delegations(self)
 
-
+@attrs.define
 class SnapshotRole(Role):
     name: str = "snapshot"
 
-
+@attrs.define
 class TimestampRole(Role):
     name: str = "timestamp"
 
@@ -109,7 +103,7 @@ class MainRoles:
 @attrs.define
 class RolesKeysData:
     roles: MainRoles
-    keystore: Optional[str] = attrs.field(validator=filepath_validator, default=None)
+    keystore: Optional[str] = attrs.field(validator=filepath_validator, default=None) # type: ignore
     yubikeys: Optional[Dict[str, UserKeyData]] = attrs.field(default=None)
 
     def __attrs_post_init__(self):
@@ -152,7 +146,7 @@ class RolesIterator:
 
     def __iter__(self) -> Iterator:
         # Define the order of roles
-        if hasattr(self.roles, "root"):
+        if isinstance(self.roles, MainRoles):
             roles = [
                 self.roles.root,
                 self.roles.targets,

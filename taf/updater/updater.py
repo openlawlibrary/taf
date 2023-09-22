@@ -47,7 +47,7 @@ class UpdateType(enum.Enum):
 
 def _check_update_status(
     repos_update_data: Dict[str, Any]
-) -> Tuple[Dict[str, Any], str]:
+) -> Tuple[Event, str]:
     # helper function to set update status of update handler based on repo status.
     # if repo handlers event status changed,
     # change the update handler status

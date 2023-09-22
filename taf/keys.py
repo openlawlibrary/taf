@@ -8,7 +8,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
-from taf.models.types import DelegatedRole, MainRoles, UserKeyData
+from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import (
@@ -88,7 +88,7 @@ def _extract_x509(cert_pem: bytes) -> Dict:
 
 def load_sorted_keys_of_new_roles(
     auth_repo: AuthenticationRepository,
-    roles: MainRoles | DelegatedRole,
+    roles: MainRoles | TargetsRole,
     yubikeys_data: Optional[dict[str, UserKeyData]],
     keystore: str,
     yubikeys: dict[str, dict] = None,

@@ -12,7 +12,7 @@ from taf.api.utils import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
 from taf.models.types import RolesIterator
-from taf.models.types import DelegatedRole, Role, TargetsRole
+from taf.models.types import Role, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME, Metadata
@@ -104,9 +104,9 @@ def add_role(
     if parent_role == "targets":
         targets_parent_role = TargetsRole()
     else:
-        targets_parent_role = DelegatedRole(name=parent_role, paths=[])
+        targets_parent_role = TargetsRole(name=parent_role, paths=[])
 
-    new_role = DelegatedRole(
+    new_role = TargetsRole(
         parent=targets_parent_role,
         name=role,
         paths=paths,
@@ -181,15 +181,19 @@ def add_role_paths(
         auth_repo = AuthenticationRepository(path=auth_path)
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     parent_role_obj = _role_obj(parent_role, auth_repo)
-    parent_role_obj.add_paths(paths, delegated_role)
-    _update_role(auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys)
-    if commit:
-        update_snapshot_and_timestamp(
-            auth_repo, keystore, prompt_for_keys=prompt_for_keys
-        )
-        commit_and_push(auth_repo)
+    if isinstance(parent_role_obj, Targets):
+        parent_role_obj.add_paths(paths, delegated_role)
+        _update_role(auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys)
+        if commit:
+            update_snapshot_and_timestamp(
+                auth_repo, keystore, prompt_for_keys=prompt_for_keys
+            )
+            commit_and_push(auth_repo)
+        else:
+            taf_logger.info("\nPlease commit manually\n")
     else:
-        taf_logger.info("\nPlease commit manually\n")
+        taf_logger.error(f"Could not find parent role of role {delegated_role}. Check if its name was misspelled")
+
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -402,7 +406,7 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
     """
     mandatory_roles = ["root", "targets", "snapshot", "timestamp"]
     role_key_infos: Dict = defaultdict(dict)
-    infos_json = {}
+    infos_json: Dict = {}
 
     for role in mandatory_roles:
         role_key_infos[role] = _enter_role_info(role, role == "targets", keystore)
@@ -609,6 +613,8 @@ def create_delegations(
     skip_top_role = isinstance(role, TargetsRole)
     for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
         parent_role_obj = _role_obj(delegated_role.parent.name, repository)
+        if not isinstance(parent_role_obj, Targets):
+            raise TAFError(f"Could not find parent targets role of role {delegated_role}")
         if delegated_role.name in existing_roles:
             taf_logger.info(f"Role {delegated_role.name} already set up.")
             continue
@@ -737,7 +743,7 @@ def remove_role(
         None
     """
     if role in MAIN_ROLES:
-        taf_logger.info(
+        taf_logger.error(
             f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
         )
         return
@@ -747,8 +753,13 @@ def remove_role(
 
     parent_role = auth_repo.find_delegated_roles_parent(role)
     if parent_role is None:
-        taf_logger.info("Role is not among delegated roles")
+        taf_logger.error("Role is not among delegated roles")
         return
+    parent_role_obj = _role_obj(parent_role, auth_repo)
+    if not isinstance(parent_role_obj, Targets):
+        taf_logger.error(f"Could not find parent targets role of role {role}.")
+        return
+
 
     roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
     added_targets_data: Dict = {}
@@ -766,7 +777,6 @@ def remove_role(
                         added_targets_data[path] = {}
             break
 
-    parent_role_obj = _role_obj(parent_role, auth_repo)
     parent_role_obj.revoke(role)
 
     _update_role(
