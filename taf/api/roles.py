@@ -192,8 +192,9 @@ def add_role_paths(
         else:
             taf_logger.info("\nPlease commit manually\n")
     else:
-        taf_logger.error(f"Could not find parent role of role {delegated_role}. Check if its name was misspelled")
-
+        taf_logger.error(
+            f"Could not find parent role of role {delegated_role}. Check if its name was misspelled"
+        )
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -614,7 +615,9 @@ def create_delegations(
     for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
         parent_role_obj = _role_obj(delegated_role.parent.name, repository)
         if not isinstance(parent_role_obj, Targets):
-            raise TAFError(f"Could not find parent targets role of role {delegated_role}")
+            raise TAFError(
+                f"Could not find parent targets role of role {delegated_role}"
+            )
         if delegated_role.name in existing_roles:
             taf_logger.info(f"Role {delegated_role.name} already set up.")
             continue
@@ -759,7 +762,6 @@ def remove_role(
     if not isinstance(parent_role_obj, Targets):
         taf_logger.error(f"Could not find parent targets role of role {role}.")
         return
-
 
     roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
     added_targets_data: Dict = {}

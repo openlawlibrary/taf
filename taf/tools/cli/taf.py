@@ -8,7 +8,7 @@ import taf.tools.metadata as metadata_cli
 try:
     import taf.tools.yubikey as yubikey_cli
 except ImportError:
-    yubikey_cli = None # type: ignore
+    yubikey_cli = None  # type: ignore
 
 
 import taf.tools.roles as roles_cli

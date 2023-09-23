@@ -3,7 +3,7 @@ import os
 import tempfile
 import fnmatch
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -63,7 +63,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             *args,
             **kwargs,
         )
-
 
         self.conf_directory_root = Path(self.path).parent.resolve()
         self.out_of_band_authentication = out_of_band_authentication

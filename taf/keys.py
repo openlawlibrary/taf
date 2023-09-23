@@ -36,7 +36,7 @@ except ImportError:
     taf_logger.warning(
         "WARNING: yubikey-manager dependency not installed. You will not be able to use YubiKeys."
     )
-    yk = YubikeyMissingLibrary() # type: ignore
+    yk = YubikeyMissingLibrary()  # type: ignore
 
 
 def get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
@@ -155,8 +155,8 @@ def load_sorted_keys_of_new_roles(
             )
             verification_keys[role.name] = yubikey_keys
         return signing_keys, verification_keys
-    except KeystoreError as e:
-        raise SigningError(f"Could not load keys of new roles")
+    except KeystoreError:
+        raise SigningError("Could not load keys of new roles")
 
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
@@ -328,7 +328,13 @@ def setup_roles_keys(
         for key_num in range(role.number):
             key_name = get_key_name(role.name, key_num, role.number)
             public_key, private_key = _setup_keystore_key(
-                keystore, role.name, key_name, key_num, role.scheme or default_params["scheme"], role.length or default_params["length"], None
+                keystore,
+                role.name,
+                key_name,
+                key_num,
+                role.scheme or default_params["scheme"],
+                role.length or default_params["length"],
+                None,
             )
             keystore_keys.append((public_key, private_key))
     return keystore_keys, yubikey_keys
@@ -362,7 +368,9 @@ def _setup_keystore_key(
         keystore_path = str(Path(keystore).expanduser().resolve())
         while public_key is None and private_key is None:
             try:
-                public_key = read_public_key_from_keystore(keystore_path, key_name, scheme)
+                public_key = read_public_key_from_keystore(
+                    keystore_path, key_name, scheme
+                )
             except KeystoreError:
                 _invalid_key_message(key_name, keystore, True)
             try:
@@ -424,7 +432,11 @@ def _setup_keystore_key(
 
 
 def _setup_yubikey(
-    yubikeys: Optional[Dict], role_name: str, key_name: str, scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME, certs_dir: Optional[str | Path]=None
+    yubikeys: Optional[Dict],
+    role_name: str,
+    key_name: str,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    certs_dir: Optional[str | Path] = None,
 ) -> Dict:
     while True:
         print(f"Registering keys for {key_name}")

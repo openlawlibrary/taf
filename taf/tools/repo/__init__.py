@@ -1,8 +1,6 @@
 import click
 import json
 from taf.api.repository import create_repository
-from taf.exceptions import TAFError
-from taf.tools.cli import catch_cli_exception
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 

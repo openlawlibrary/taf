@@ -31,6 +31,7 @@ class RoleSetupParams:
     def __getitem__(self, key):
         return getattr(self, key, None)
 
+
 DEFAULT_ROLE_SETUP_PARAMS = RoleSetupParams()
 
 # Yubikey x509 certificate expiration interval

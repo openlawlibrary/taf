@@ -20,7 +20,7 @@ from taf.exceptions import (
 )
 from taf.log import taf_logger
 from taf.utils import run
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -278,7 +278,9 @@ class GitRepository:
         """
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list commits. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list commits. pygit repository could not be instantiated."
+            )
         if branch:
             branch_obj = repo.branches.get(branch)
             if branch is None:
@@ -317,7 +319,9 @@ class GitRepository:
             raise e
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list commits. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list commits. pygit repository could not be instantiated."
+            )
         if branch:
             branch_obj = repo.branches.get(branch)
             latest_commit_id = branch_obj.target
@@ -348,7 +352,9 @@ class GitRepository:
         """Returns all branches."""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list branches. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list branches. pygit repository could not be instantiated."
+            )
         if all:
             branches = set(repo.branches)
         elif remote:
@@ -376,7 +382,9 @@ class GitRepository:
         """Finds all branches that contain the given commit"""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list branches. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list branches. pygit repository could not be instantiated."
+            )
         local_branches = remote_branches = []
         try:
             local_branches = list(repo.branches.local.with_commit(commit))
@@ -439,7 +447,9 @@ class GitRepository:
         """Create a new branch by branching off of the specified commit"""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not create a new branch. pygit repo could not be instantiated")
+            raise GitError(
+                "Could not create a new branch. pygit repo could not be instantiated"
+            )
         try:
             commit = repo[commit_sha]
             repo.branches.local.create(branch_name, commit)
@@ -473,7 +483,9 @@ class GitRepository:
         raise an exception."""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not checkout branch. pygit repository could not be isntantiated")
+            raise GitError(
+                "Could not checkout branch. pygit repository could not be isntantiated"
+            )
         try:
             branch = repo.lookup_branch(branch_name)
             if branch is not None:
@@ -516,7 +528,9 @@ class GitRepository:
     def checkout_paths(self, commit_sha: str, *args) -> None:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not checkout paths. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not checkout paths. pygit repository could not be instantiated."
+            )
         commit = repo.get(commit_sha)
         repo.checkout_tree(commit, paths=list(args))
 
@@ -613,7 +627,9 @@ class GitRepository:
             if branches is None:
                 default_branch = self.default_branch
                 if default_branch is None:
-                    raise FetchException("Cannot pull/clone repository. Branch not specified and default branch could not be determined")
+                    raise FetchException(
+                        "Cannot pull/clone repository. Branch not specified and default branch could not be determined"
+                    )
                 branches = [default_branch]
             self._log_debug(f"pulling branches {', '.join(branches)}")
             try:
@@ -637,7 +653,9 @@ class GitRepository:
     ) -> None:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not create a new branch. pygit repo could not be instantiated")
+            raise GitError(
+                "Could not create a new branch. pygit repo could not be instantiated"
+            )
         try:
             branch = repo.lookup_branch(branch_name)
             if branch is not None and raise_error_if_exists:
@@ -669,7 +687,9 @@ class GitRepository:
     def create_branch(self, branch_name: str, commit: Optional[str] = None) -> None:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not create branch. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not create branch. pygit repository could not be instantiated."
+            )
         try:
             if commit is not None:
                 branch_commit = repo[commit]
@@ -737,7 +757,9 @@ class GitRepository:
     def commit_before_commit(self, commit: str) -> Optional[str]:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not find commit. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not find commit. pygit repository could not be instantiated."
+            )
         repo_commit_id = repo.get(commit).id
         for comm in repo.walk(repo_commit_id):
             hex = comm.id.hex
@@ -750,7 +772,9 @@ class GitRepository:
         try:
             repo = self.pygit_repo
             if repo is None:
-                raise GitError("Could not delete branch. pygit repository could not be instantiated.")
+                raise GitError(
+                    "Could not delete branch. pygit repository could not be instantiated."
+                )
             repo.branches.delete(branch_name)
         except KeyError:
             raise GitError(
@@ -777,7 +801,9 @@ class GitRepository:
         """Returns commit message of the given commit"""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not get commit message. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not get commit message. pygit repository could not be instantiated."
+            )
         commit = repo.get(commit_sha)
         return commit.message
 
@@ -794,7 +820,9 @@ class GitRepository:
             return self._get_default_branch_from_remote(url)
         return self._get_default_branch_from_local()
 
-    def get_json(self, commit: str, path: str, raw: Optional[bool] = False) -> Optional[Dict]:
+    def get_json(
+        self, commit: str, path: str, raw: Optional[bool] = False
+    ) -> Optional[Dict]:
         s = self.get_file(commit, path, raw=raw)
         if s and isinstance(s, str):
             return json.loads(s)
@@ -854,7 +882,9 @@ class GitRepository:
         """Finds sha of the commit to which the current HEAD points"""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not find head commit sha. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not find head commit sha. pygit repository could not be instantiated."
+            )
         try:
             return repo.revparse_single("HEAD").id.hex
         except Exception:
@@ -885,13 +915,17 @@ class GitRepository:
         """Return current branch."""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not find current branch. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not find current branch. pygit repository could not be instantiated."
+            )
         branch = repo.lookup_reference("HEAD").resolve()
         if full_name:
             return branch.name
         return branch.shorthand
 
-    def get_last_remote_commit(self, url: str, branch: Optional[str] = None) -> Optional[str]:
+    def get_last_remote_commit(
+        self, url: str, branch: Optional[str] = None
+    ) -> Optional[str]:
         """
         Fetch the last remote commit of the specified branch
         """
@@ -911,7 +945,9 @@ class GitRepository:
         """Finds the best common ancestor between two branches"""
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not find merge base. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not find merge base. pygit repository could not be instantiated."
+            )
         commit1 = self.top_commit_of_branch(branch1)
         commit2 = self.top_commit_of_branch(branch2)
         return repo.merge_base(commit1, commit2).hex
@@ -946,12 +982,12 @@ class GitRepository:
 
     def is_bare_repository(self) -> bool:
         if self.pygit_repo is None:
-            raise GitError("Could determine if bare repository. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could determine if bare repository. pygit repository could not be instantiated."
+            )
         return self.pygit_repo.is_bare
 
-    def list_files_at_revision(
-        self, commit: str, path: str = ""
-    ) -> List[str]:
+    def list_files_at_revision(self, commit: str, path: str = "") -> List[str]:
         posix_path = Path(path).as_posix()
         try:
             return self.pygit.list_files_at_revision(commit, posix_path)
@@ -980,7 +1016,9 @@ class GitRepository:
     def list_changed_files_at_revision(self, commit: str) -> List[str]:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list changes. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list changes. pygit repository could not be instantiated."
+            )
         commit1 = repo.get(commit)
         commit2 = self.commit_before_commit(commit)
         if commit2 is not None:
@@ -998,7 +1036,9 @@ class GitRepository:
     def list_commits(self, branch: Optional[str] = "") -> List[str]:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list commits. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list commits. pygit repository could not be instantiated."
+            )
         if branch:
             branch_obj = repo.branches.get(branch)
             latest_commit_id = branch_obj.target
@@ -1023,7 +1063,9 @@ class GitRepository:
             return []
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not list commits. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not list commits. pygit repository could not be instantiated."
+            )
         if start_commit_sha is not None:
             start_commit_id = repo.get(start_commit_sha).id
         elif branch:
@@ -1104,7 +1146,9 @@ class GitRepository:
         if allow_new_commit:
             repo = self.pygit_repo
             if repo is None:
-                raise GitError("Could merge branch. pygit repository could not be instantiated.")
+                raise GitError(
+                    "Could merge branch. pygit repository could not be instantiated."
+                )
             branch = repo.lookup_branch(branch_name)
             oid = branch.target
 
@@ -1200,12 +1244,16 @@ class GitRepository:
         else:
             remote_url = self.get_remote_url()
             if remote_url is None:
-                raise GitError("URL not specified and could not be automatically determined. Cannot check if synced")
+                raise GitError(
+                    "URL not specified and could not be automatically determined. Cannot check if synced"
+                )
             urls = [remote_url]
 
         branch_name = branch or self.default_branch
         if branch_name is None:
-            raise GitError("Branch not specified and default branch could not be determined")
+            raise GitError(
+                "Branch not specified and default branch could not be determined"
+            )
         for url in urls:
             tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
             if not tracking_branch:
@@ -1224,7 +1272,9 @@ class GitRepository:
     def top_commit_of_branch(self, branch_name: str) -> Optional[str]:
         repo = self.pygit_repo
         if repo is None:
-            raise GitError("Could not find top commit. pygit repository could not be instantiated.")
+            raise GitError(
+                "Could not find top commit. pygit repository could not be instantiated."
+            )
         branch = repo.branches.get(branch_name)
         if branch is not None:
             return branch.target.hex
@@ -1271,7 +1321,7 @@ class GitRepository:
         return name
 
     def _validate_repo_path(
-        self, library_dir: Path, name: Optional[str]=None, path: Optional[Path] = None
+        self, library_dir: Path, name: Optional[str] = None, path: Optional[Path] = None
     ) -> Path:
         """
         validate repo path

@@ -293,7 +293,7 @@ class GitUpdater(FetcherInterface):
             self.current_commit, f"targets/{filepath}", raw=raw
         )
 
-    @revert_tuf_patch_on_last_commit # type: ignore
+    @revert_tuf_patch_on_last_commit  # type: ignore
     def update_done(self):
         """Used to indicate whether updater has finished with update.
         Update is considered done when all commits have been validated"""

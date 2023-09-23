@@ -6,7 +6,7 @@ from taf.tests import TEST_WITH_REAL_YK
 try:
     import taf.yubikey as yk
 except ImportError:
-    yk = YubikeyMissingLibrary() # type: ignore
+    yk = YubikeyMissingLibrary()  # type: ignore
 
 
 @pytest.mark.skipif(not TEST_WITH_REAL_YK, reason="list_devices() is not mocked.")
