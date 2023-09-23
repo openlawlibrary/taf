@@ -20,7 +20,7 @@ from taf.exceptions import (
 )
 from taf.log import taf_logger
 from taf.utils import run
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -29,13 +29,13 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 class GitRepository:
     def __init__(
         self,
-        library_dir: Optional[str | Path] = None,
+        library_dir: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         urls: Optional[List[str]] = None,
         custom: Optional[Dict] = None,
         default_branch: Optional[str] = None,
         allow_unsafe: Optional[bool] = False,
-        path: Optional[str | Path] = None,
+        path: Optional[Union[Path, str]] = None,
         *args,
         **kwargs,
     ):

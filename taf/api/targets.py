@@ -1,5 +1,5 @@
 from logging import DEBUG, ERROR, INFO
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import click
 import os
 import json
@@ -307,7 +307,7 @@ def list_targets(
     reraise=True,
 )
 def register_target_files(
-    path: str | Path,
+    path: Union[Path, str],
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = True,

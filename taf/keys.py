@@ -1,6 +1,6 @@
 from collections import defaultdict
 from logging import INFO
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import click
 from pathlib import Path
 from logdecorator import log_on_start
@@ -260,7 +260,7 @@ def load_signing_keys(
 
 def setup_roles_keys(
     role: Role,
-    certs_dir: Optional[str | Path] = None,
+    certs_dir: Optional[Union[Path, str]] = None,
     keystore: Optional[str] = None,
     yubikeys: Optional[Dict] = None,
     users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
@@ -444,7 +444,7 @@ def _setup_yubikey(
     role_name: str,
     key_name: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
-    certs_dir: Optional[str | Path] = None,
+    certs_dir: Optional[Union[Path, str]] = None,
 ) -> Dict:
     while True:
         print(f"Registering keys for {key_name}")

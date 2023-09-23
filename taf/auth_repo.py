@@ -3,7 +3,7 @@ import os
 import tempfile
 import fnmatch
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -35,7 +35,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         allow_unsafe: Optional[bool] = False,
         conf_directory_root: Optional[str] = None,
         out_of_band_authentication: Optional[str] = None,
-        path: Optional[str | Path] = None,
+        path: Optional[Union[Path, str]] = None,
         *args,
         **kwargs,
     ):
