@@ -1,3 +1,4 @@
+from typing import Dict
 import pygit2
 from collections import defaultdict
 from taf.log import taf_logger as logger
@@ -16,7 +17,7 @@ class PyGitRepository:
         self.path = encapsulating_repo.path
         self.repo = pygit2.Repository(str(self.path))
 
-    _files_cache = defaultdict(dict)
+    _files_cache: Dict = defaultdict(dict)
 
     def _get_child(self, parent, path_part):
         """

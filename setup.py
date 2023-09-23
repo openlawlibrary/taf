@@ -25,7 +25,7 @@ try:
             self.root_is_pure = False
 
 except ImportError:
-    bdist_wheel = None
+    bdist_wheel = None # type: ignore
 
 ci_require = [
     "bandit>=1.6.0",
@@ -107,7 +107,7 @@ kwargs = {
 try:
     tests_exist = find_spec("taf.tests")
 except ModuleNotFoundError:
-    tests_exist = False
+    tests_exist = False # type: ignore
 if tests_exist:
     kwargs["entry_points"]["pytest11"] = (
         ["taf_yubikey_utils = taf.tests.yubikey_utils"],

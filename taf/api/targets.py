@@ -136,6 +136,8 @@ def add_target_repo(
     # delegation paths should be extended if role != targets
     # if the repository already exists, create a target file
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    if repositories_json is None:
+        repositories_json = {"repositories": {}}
     repositories = repositories_json["repositories"]
     if target_repo.name in repositories:
         print(f"{target_repo.name} already added to repositories.json. Overwriting")
@@ -285,10 +287,10 @@ def list_targets(
                         if branch in repo.branches_containing_commit(
                             last_signed_commit
                         ):
-                            top_commit = repo.top_commit_of_branch(branch)
+                            branch_top_commit = repo.top_commit_of_branch(branch)
                             repo_output[
                                 "unsigned"
-                            ] = top_commit in repo.all_commits_since_commit(
+                            ] = branch_top_commit in repo.all_commits_since_commit(
                                 last_signed_commit, branch
                             )
             repo_output["something-to-commit"] = repo.something_to_commit()
@@ -402,16 +404,17 @@ def remove_target_repo(
         taf_logger.info(f"{path} is not a git repository!")
         return
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
-    repositories = repositories_json["repositories"]
-    if target_name not in repositories:
-        taf_logger.info(f"{target_name} not in repositories.json")
-    else:
-        repositories.pop(target_name)
-        # update content of repositories.json before updating targets metadata
-        Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH).write_text(
-            json.dumps(repositories_json, indent=4)
-        )
-        added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
+    if repositories_json is not None:
+        repositories = repositories_json["repositories"]
+        if target_name not in repositories:
+            taf_logger.info(f"{target_name} not in repositories.json")
+        else:
+            repositories.pop(target_name)
+            # update content of repositories.json before updating targets metadata
+            Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH).write_text(
+                json.dumps(repositories_json, indent=4)
+            )
+            added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
 
     auth_repo_targets_dir = Path(auth_repo.path, TARGETS_DIRECTORY_NAME)
     target_file_path = auth_repo_targets_dir / target_name
@@ -590,10 +593,13 @@ def update_and_sign_targets(
     target_names = []
     for target_type in target_types:
         try:
-            target_name = repositoriesdb.get_repositories_paths_by_custom_data(
+            targets = repositoriesdb.get_repositories_paths_by_custom_data(
                 auth_repo, type=target_type
-            )[0]
-            target_names.append(target_name)
+            )
+            if targets is not None:
+                target_names.append(targets[0])
+            else:
+                nonexistent_target_types.append(target_type)
         except Exception:
             nonexistent_target_types.append(target_type)
             continue

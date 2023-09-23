@@ -1,7 +1,7 @@
 from getpass import getpass
 from os import getcwd
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import click
 import securesystemslib

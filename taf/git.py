@@ -598,7 +598,7 @@ class GitRepository:
         branches: Optional[List[str]] = None,
         only_fetch: Optional[bool] = False,
         **kwargs,
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str | None, str | None]:
         """
         Clone or fetch the specified branch for the given repo.
         Return old and new HEAD.
@@ -611,7 +611,10 @@ class GitRepository:
             self.clone(**kwargs)
         else:
             if branches is None:
-                branches = [self.default_branch]
+                default_branch = self.default_branch
+                if default_branch is None:
+                    raise FetchException("Cannot pull/clone repository. Branch not specified and default branch could not be determined")
+                branches = [default_branch]
             self._log_debug(f"pulling branches {', '.join(branches)}")
             try:
                 for branch in branches:
@@ -764,7 +767,7 @@ class GitRepository:
         self._git(f"branch {flag} -r {remote_branch_name}", log_error=True)
 
     def delete_remote_branch(
-        self, branch_name: str, remote: Optional[bool] = None
+        self, branch_name: str, remote: Optional[str] = None
     ) -> None:
         if remote is None:
             remote = self.remotes[0]
@@ -878,7 +881,7 @@ class GitRepository:
                 return path
         return None
 
-    def get_current_branch(self, full_name: Optional[str] = False) -> str:
+    def get_current_branch(self, full_name: Optional[bool] = False) -> str:
         """Return current branch."""
         repo = self.pygit_repo
         if repo is None:
@@ -947,18 +950,18 @@ class GitRepository:
         return self.pygit_repo.is_bare
 
     def list_files_at_revision(
-        self, commit: str, path: Optional[str] = ""
+        self, commit: str, path: str = ""
     ) -> List[str]:
-        path = Path(path).as_posix()
+        posix_path = Path(path).as_posix()
         try:
-            return self.pygit.list_files_at_revision(commit, path)
+            return self.pygit.list_files_at_revision(commit, posix_path)
         except TAFError as e:
             raise e
         except Exception:
             self._log_warning(
                 "Perfomance regression: Could not list files with pygit2. Reverting to git subprocess"
             )
-            return self._list_files_at_revision(commit, path)
+            return self._list_files_at_revision(commit, posix_path)
 
     def _list_files_at_revision(self, commit: str, path: str) -> List[str]:
         if path is None:
@@ -1190,13 +1193,16 @@ class GitRepository:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
-        urls = (
-            [url]
-            if url is not None
-            else self.urls
-            if self.urls
-            else [self.get_remote_url()]
-        )
+        if url:
+            urls = [url]
+        elif self.urls:
+            urls = self.urls
+        else:
+            remote_url = self.get_remote_url()
+            if remote_url is None:
+                raise GitError("URL not specified and could not be automatically determined. Cannot check if synced")
+            urls = [remote_url]
+
         branch_name = branch or self.default_branch
         if branch_name is None:
             raise GitError("Branch not specified and default branch could not be determined")

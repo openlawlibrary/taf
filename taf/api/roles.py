@@ -798,15 +798,16 @@ def remove_role(
     # if targets should be deleted, also removed them from repositories.json
     if len(removed_targets):
         repositories_json = repositoriesdb.load_repositories_json(auth_repo)
-        repositories = repositories_json["repositories"]
-        for removed_target in removed_targets:
-            if removed_target in repositories:
-                repositories.pop(removed_target)
+        if repositories_json is not None:
+            repositories = repositories_json["repositories"]
+            for removed_target in removed_targets:
+                if removed_target in repositories:
+                    repositories.pop(removed_target)
 
-            # update content of repositories.json before updating targets metadata
-            Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
-                json.dumps(repositories_json, indent=4)
-            )
+                # update content of repositories.json before updating targets metadata
+                Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+                    json.dumps(repositories_json, indent=4)
+                )
 
     update_snapshot_and_timestamp(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys

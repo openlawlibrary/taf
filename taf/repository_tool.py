@@ -6,6 +6,7 @@ import shutil
 from fnmatch import fnmatch
 from functools import partial, reduce
 from pathlib import Path
+from typing import Dict
 
 import securesystemslib
 import tuf.roledb
@@ -48,7 +49,7 @@ except ImportError:
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
 
 # Loaded keys cache
-role_keys_cache = {}
+role_keys_cache: Dict = {}
 
 
 DISABLE_KEYS_CACHING = False
