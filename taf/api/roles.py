@@ -453,25 +453,6 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
 def _enter_role_info(
     role: str, is_targets_role: bool, keystore: Optional[str] = None
 ) -> Dict:
-    def _read_val(input_type, name, param=None, required=False):
-        default_value_msg = ""
-        if param is not None:
-            default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
-            if default is not None:
-                default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
-
-        while True:
-            try:
-                val = input(f"Enter {name} and press ENTER {default_value_msg}")
-                if not val:
-                    if not required:
-                        return DEFAULT_ROLE_SETUP_PARAMS.get(param)
-                    else:
-                        continue
-                return input_type(val)
-            except ValueError:
-                pass
-
     role_info = {}
     keys_num = _read_val(int, f"number of {role} keys", "number")
     if keys_num is not None:
@@ -524,6 +505,26 @@ def _enter_role_info(
         role_info["delegations"] = delegated_roles
 
     return role_info
+
+
+def _read_val(input_type, name, param=None, required=False):
+    default_value_msg = ""
+    if param is not None:
+        default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
+        if default is not None:
+            default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
+
+    while True:
+        try:
+            val = input(f"Enter {name} and press ENTER {default_value_msg}")
+            if not val:
+                if not required:
+                    return DEFAULT_ROLE_SETUP_PARAMS.get(param)
+                else:
+                    continue
+            return input_type(val)
+        except ValueError:
+            pass
 
 
 def _initialize_roles_and_keystore(
