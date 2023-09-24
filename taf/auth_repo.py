@@ -64,7 +64,12 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             **kwargs,
         )
 
-        self.conf_directory_root = Path(self.path).parent.resolve()
+        if conf_directory_root is None:
+            conf_directory_root_path = Path(self.path).parent
+        else:
+            conf_directory_root_path = Path(conf_directory_root)
+
+        self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
 
     # TODO rework conf_dir
