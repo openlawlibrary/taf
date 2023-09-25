@@ -101,19 +101,18 @@ def add_role(
         taf_logger.info("All roles already set up")
         return
 
-    if parent_role == "targets":
-        targets_parent_role = TargetsRole()
-    else:
-        targets_parent_role = TargetsRole(name=parent_role, paths=[])
+    targets_parent_role = TargetsRole()
+    if parent_role != "targets":
+        targets_parent_role.name = parent_role
+        targets_parent_role.paths = []
 
-    new_role = TargetsRole(
-        parent=targets_parent_role,
-        name=role,
-        paths=paths,
-        number=keys_number,
-        threshold=threshold,
-        yubikey=yubikey,
-    )  # type: ignore
+    new_role = TargetsRole()
+    new_role.parent = targets_parent_role
+    new_role.name = role
+    new_role.paths = paths
+    new_role.number = keys_number
+    new_role.threshold = threshold
+    new_role.yubikey = yubikey
 
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
