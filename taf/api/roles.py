@@ -1,6 +1,6 @@
 from logging import DEBUG, ERROR, INFO
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import click
 from collections import defaultdict
 from functools import partial
@@ -113,7 +113,7 @@ def add_role(
         number=keys_number,
         threshold=threshold,
         yubikey=yubikey,
-    )
+    )  # type: ignore
 
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
@@ -649,7 +649,9 @@ def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
 
 
 def _role_obj(
-    role: str, repository: Repository | TUFRepository, parent: Optional[Targets] = None
+    role: str,
+    repository: Union[Repository, TUFRepository],
+    parent: Optional[Targets] = None,
 ) -> Metadata:
     """
     Return role TUF object based on its name

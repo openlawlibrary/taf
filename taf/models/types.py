@@ -42,7 +42,7 @@ class Role:
     # TODO remove after reworking add role/storing yubikey ids in the repo
     yubikey: Optional[bool] = attrs.field(default=None)
 
-    @number.default
+    @number.default  # type: ignore
     def _number_factory(self):
         return (
             len(self.yubikeys) if self.yubikeys else DEFAULT_ROLE_SETUP_PARAMS["number"]

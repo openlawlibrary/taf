@@ -87,10 +87,10 @@ def _extract_x509(cert_pem: bytes) -> Dict:
 
 def load_sorted_keys_of_new_roles(
     auth_repo: AuthenticationRepository,
-    roles: MainRoles | TargetsRole,
-    yubikeys_data: Optional[dict[str, UserKeyData]],
+    roles: Union[MainRoles, TargetsRole],
+    yubikeys_data: Optional[Dict[str, UserKeyData]],
     keystore: str,
-    yubikeys: Optional[Dict[str, dict]] = None,
+    yubikeys: Optional[Dict[str, Dict]] = None,
     existing_roles: Optional[List[str]] = None,
 ):
     """
@@ -356,7 +356,7 @@ def _setup_keystore_key(
     scheme: str,
     length: int,
     password: Optional[str],
-) -> Tuple[Dict | None, Dict | None]:
+) -> Tuple[Optional[Dict], Optional[Dict]]:
     # if keystore exists, load the keys
     generate_new_keys = keystore is None
     public_key = private_key = None
