@@ -1,6 +1,6 @@
 from collections import defaultdict
 from logging import INFO
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import click
 from pathlib import Path
 from logdecorator import log_on_start
@@ -8,11 +8,14 @@ from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
-from taf.models.types import DelegatedRole, MainRoles, UserKeyData
+from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
 from taf.yubikey import get_key_serial_by_id
-from tuf.repository_tool import generate_and_write_unencrypted_rsa_keypair
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from tuf.repository_tool import (
+    generate_and_write_unencrypted_rsa_keypair,
+    generate_and_write_rsa_keypair,
+)
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
 from taf.exceptions import (
     KeystoreError,
     SigningError,
@@ -24,7 +27,6 @@ from taf.keystore import (
     read_public_key_from_keystore,
 )
 from taf import YubikeyMissingLibrary
-from tuf.sig import generate_rsa_signature
 from securesystemslib import keys
 
 try:
@@ -34,7 +36,7 @@ except ImportError:
     taf_logger.warning(
         "WARNING: yubikey-manager dependency not installed. You will not be able to use YubiKeys."
     )
-    yk = YubikeyMissingLibrary()
+    yk = YubikeyMissingLibrary()  # type: ignore
 
 
 def get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
@@ -85,11 +87,11 @@ def _extract_x509(cert_pem: bytes) -> Dict:
 
 def load_sorted_keys_of_new_roles(
     auth_repo: AuthenticationRepository,
-    roles: MainRoles | DelegatedRole,
-    yubikeys_data: dict[str, UserKeyData],
+    roles: Union[MainRoles, TargetsRole],
+    yubikeys_data: Optional[Dict[str, UserKeyData]],
     keystore: str,
-    yubikeys: dict[str, dict] = None,
-    existing_roles: list[str] = None,
+    yubikeys: Optional[Dict[str, Dict]] = None,
+    existing_roles: Optional[List[str]] = None,
 ):
     """
     Load signing keys of roles - first those stored on YubiKeys to avoid entering pins
@@ -131,8 +133,8 @@ def load_sorted_keys_of_new_roles(
         existing_roles = []
     try:
         keystore_roles, yubikey_roles = _sort_roles(roles)
-        signing_keys = {}
-        verification_keys = {}
+        signing_keys: Dict = {}
+        verification_keys: Dict = {}
 
         for role in keystore_roles:
             if role.name in existing_roles:
@@ -153,9 +155,8 @@ def load_sorted_keys_of_new_roles(
             )
             verification_keys[role.name] = yubikey_keys
         return signing_keys, verification_keys
-    except KeystoreError as e:
-        print(f"Creation of repository failed: {e}")
-        return
+    except KeystoreError:
+        raise SigningError("Could not load keys of new roles")
 
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
@@ -184,18 +185,19 @@ def load_signing_keys(
     # if the keystore file is not found, ask the user if they want to sign
     # using yubikey and to insert it if that is the case
 
+    kesytore_path = None
     if keystore is not None:
-        keystore = Path(keystore).expanduser().resolve()
+        kesytore_path = Path(keystore).expanduser().resolve()
     else:
         print("Keystore location not provided")
 
     def _load_from_keystore(key_name):
-        if keystore is None:
+        if kesytore_path is None:
             return None
-        if (keystore / key_name).is_file():
+        if (kesytore_path / key_name).is_file():
             try:
                 key = read_private_key_from_keystore(
-                    keystore, key_name, num_of_signatures, scheme
+                    kesytore_path, key_name, num_of_signatures, scheme
                 )
                 # load only valid keys
                 if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
@@ -258,76 +260,103 @@ def load_signing_keys(
 
 def setup_roles_keys(
     role: Role,
-    certs_dir: Optional[str] = None,
+    certs_dir: Optional[Union[Path, str]] = None,
     keystore: Optional[str] = None,
     yubikeys: Optional[Dict] = None,
     users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
 ):
+
+    if role.name is None:
+        raise SigningError("Cannot set up roles keys. Role name not specified")
     yubikey_keys = []
     keystore_keys = []
 
     yubikey_ids = role.yubikeys
+    if yubikey_ids is None:
+        yubikey_ids = []
+    if users_yubikeys_details is None:
+        users_yubikeys_details = {}
 
     is_yubikey = bool(yubikey_ids)
 
     if is_yubikey:
-        loaded_keys_num = 0
-        yk_with_public_key = {}
-        for key_id in yubikey_ids:
-            public_key = users_yubikeys_details[key_id].public
-            if public_key:
-                scheme = users_yubikeys_details[key_id].scheme
-                public_key = keys.import_rsakey_from_public_pem(public_key, scheme)
-                # check if signing key already loaded too
-                if not get_key_serial_by_id(key_id):
-                    yk_with_public_key[key_id] = public_key
-                else:
-                    loaded_keys_num += 1
-            else:
-                key_scheme = users_yubikeys_details[key_id].scheme or role.scheme
-                public_key = _setup_yubikey(
-                    yubikeys, role.name, key_id, key_scheme, certs_dir
-                )
-                loaded_keys_num += 1
-            yubikey_keys.append(public_key)
-        if loaded_keys_num < role.threshold:
-            print(f"Threshold of role {role.name} is {role.threshold}")
-            while loaded_keys_num < role.threshold:
-                loaded_keys = []
-                for key_id, public_key in yk_with_public_key.items():
-                    if _load_and_verify_yubikey(
-                        yubikeys, role.name, key_id, public_key
-                    ):
-                        loaded_keys_num += 1
-                        loaded_keys.append(key_id)
-                    if loaded_keys_num == role.threshold:
-                        break
-                if loaded_keys_num < role.threshold:
-                    if not click.confirm(
-                        f"Threshold of sining keys of role {role.name} not reached. Continue?"
-                    ):
-                        raise SigningError("Not enough signing keys")
-                    for key_id in loaded_keys:
-                        yk_with_public_key.pop(key_id)
+        yubikey_keys = _setup_yubikey_roles_keys(
+            yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir
+        )
     else:
+        default_params = RoleSetupParams()
         for key_num in range(role.number):
             key_name = get_key_name(role.name, key_num, role.number)
             public_key, private_key = _setup_keystore_key(
-                keystore, role.name, key_name, key_num, role.scheme, role.length, None
+                keystore,
+                role.name,
+                key_name,
+                key_num,
+                role.scheme or default_params["scheme"],
+                role.length or default_params["length"],
+                None,
             )
             keystore_keys.append((public_key, private_key))
     return keystore_keys, yubikey_keys
 
 
+def _setup_yubikey_roles_keys(
+    yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir
+):
+    loaded_keys_num = 0
+    yk_with_public_key = {}
+    yubikey_keys = []
+    for key_id in yubikey_ids:
+        public_key_text = None
+        if key_id in users_yubikeys_details:
+            public_key_text = users_yubikeys_details[key_id].public
+        if public_key_text:
+            scheme = users_yubikeys_details[key_id].scheme
+            public_key = keys.import_rsakey_from_public_pem(public_key_text, scheme)
+            # check if signing key already loaded too
+            if not get_key_serial_by_id(key_id):
+                yk_with_public_key[key_id] = public_key
+            else:
+                loaded_keys_num += 1
+        else:
+            key_scheme = None
+            if key_id in users_yubikeys_details:
+                key_scheme = users_yubikeys_details[key_id].scheme
+            key_scheme = key_scheme or role.scheme
+            public_key = _setup_yubikey(
+                yubikeys, role.name, key_id, key_scheme, certs_dir
+            )
+            loaded_keys_num += 1
+        yubikey_keys.append(public_key)
+    if loaded_keys_num < role.threshold:
+        print(f"Threshold of role {role.name} is {role.threshold}")
+        while loaded_keys_num < role.threshold:
+            loaded_keys = []
+            for key_id, public_key in yk_with_public_key.items():
+                if _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key):
+                    loaded_keys_num += 1
+                    loaded_keys.append(key_id)
+                if loaded_keys_num == role.threshold:
+                    break
+            if loaded_keys_num < role.threshold:
+                if not click.confirm(
+                    f"Threshold of sining keys of role {role.name} not reached. Continue?"
+                ):
+                    raise SigningError("Not enough signing keys")
+                for key_id in loaded_keys:
+                    yk_with_public_key.pop(key_id)
+        return yubikey_keys
+
+
 def _setup_keystore_key(
-    keystore: str,
+    keystore: Optional[str],
     role_name: str,
     key_name: str,
     key_num: int,
     scheme: str,
     length: int,
-    password: str,
-) -> Tuple[Dict, Dict]:
+    password: Optional[str],
+) -> Tuple[Optional[Dict], Optional[Dict]]:
     # if keystore exists, load the keys
     generate_new_keys = keystore is None
     public_key = private_key = None
@@ -344,15 +373,17 @@ def _setup_keystore_key(
             print(f"{key_path} is not a file!")
 
     if keystore is not None:
-        keystore = Path(keystore).expanduser().resolve()
+        keystore_path = str(Path(keystore).expanduser().resolve())
         while public_key is None and private_key is None:
             try:
-                public_key = read_public_key_from_keystore(keystore, key_name, scheme)
+                public_key = read_public_key_from_keystore(
+                    keystore_path, key_name, scheme
+                )
             except KeystoreError:
                 _invalid_key_message(key_name, keystore, True)
             try:
                 private_key = read_private_key_from_keystore(
-                    keystore,
+                    keystore_path,
                     key_name,
                     key_num=key_num,
                     scheme=scheme,
@@ -385,23 +416,35 @@ def _setup_keystore_key(
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
                 )
-            generate_and_write_unencrypted_rsa_keypair(
-                filepath=str(Path(keystore) / key_name), bits=length
-            )
+            if not password:
+                generate_and_write_unencrypted_rsa_keypair(
+                    filepath=str(Path(keystore) / key_name), bits=length
+                )
+            else:
+                generate_and_write_rsa_keypair(
+                    password=password,
+                    filepath=str(Path(keystore) / key_name),
+                    bits=length,
+                )
             public_key = read_public_key_from_keystore(keystore, key_name, scheme)
             private_key = read_private_key_from_keystore(
                 keystore, key_name, key_num=key_num, scheme=scheme, password=password
             )
         else:
-            key = generate_rsa_signature(bits=length, scheme=scheme)
-            print(f"{role_name} key:\n\n{key['keyval']['private']}\n\n")
-            public_key = private_key = key
+            rsa_key = keys.generate_rsa_key(bits=length)
+            public_key = rsa_key["keyval"]["public"]
+            private_key = rsa_key["keyval"]["private"]
+            print(f"{role_name} key:\n\n{private_key}\n\n")
 
     return public_key, private_key
 
 
 def _setup_yubikey(
-    yubikeys: Dict, role_name: str, key_name: str, scheme: str, certs_dir: str
+    yubikeys: Optional[Dict],
+    role_name: str,
+    key_name: str,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    certs_dir: Optional[Union[Path, str]] = None,
 ) -> Dict:
     while True:
         print(f"Registering keys for {key_name}")
@@ -427,13 +470,14 @@ def _setup_yubikey(
         if not use_existing:
             key = yk.setup_new_yubikey(serial_num, scheme)
 
-        export_yk_certificate(certs_dir, key)
+        if certs_dir is not None:
+            export_yk_certificate(certs_dir, key)
         return key
 
 
 def _load_and_verify_yubikey(
-    yubikeys: Dict, role_name: str, key_name: str, public_key
-) -> Dict:
+    yubikeys: Optional[Dict], role_name: str, key_name: str, public_key
+) -> bool:
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
         return False
     while True:

@@ -1,7 +1,7 @@
 from getpass import getpass
 from os import getcwd
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import click
 import securesystemslib
@@ -35,7 +35,7 @@ def key_cmd_prompt(
     key_name: str,
     role: str,
     taf_repo: Repository,
-    loaded_keys: Optional[Dict] = None,
+    loaded_keys: Optional[List] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
 ) -> Optional[Dict]:
     def _enter_and_check_key(key_name, role, loaded_keys, scheme):
@@ -73,7 +73,7 @@ def load_tuf_private_key(
     return import_rsakey_from_pem(key_pem, scheme)
 
 
-def new_public_key_cmd_prompt(scheme: str) -> Dict:
+def new_public_key_cmd_prompt(scheme: Optional[str]) -> Dict:
     def _enter_and_check_key(scheme):
         pem = getpass("Enter public key without its header and footer\n")
         pem = _from_public_pem(pem)

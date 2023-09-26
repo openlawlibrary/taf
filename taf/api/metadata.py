@@ -1,6 +1,5 @@
 from datetime import datetime
 from logging import DEBUG, ERROR, INFO
-from pathlib import Path
 from typing import Dict, List, Optional
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils import check_if_clean, commit_and_push
@@ -41,8 +40,10 @@ def check_expiration_dates(
     Returns:
         None
     """
-    path = Path(path)
     taf_repo = Repository(path)
+
+    if start_date is None:
+        start_date = datetime.now()
 
     expired_dict, will_expire_dict = taf_repo.check_roles_expiration_dates(
         interval, start_date, excluded_roles
@@ -51,7 +52,7 @@ def check_expiration_dates(
     if expired_dict or will_expire_dict:
         now = datetime.now()
         print(
-            f"Given a {interval} day interval from today ({start_date.strftime('%Y-%m-%d')}):"
+            f"Given a {interval} day interval from ({start_date.strftime('%Y-%m-%d')}):"
         )
         for role, expiry_date in expired_dict.items():
             delta = now - expiry_date
@@ -106,7 +107,7 @@ def update_metadata_expiration_date(
         start_date = datetime.now()
 
     taf_repo = Repository(path)
-    loaded_yubikeys = {}
+    loaded_yubikeys: Dict = {}
     roles_to_update = []
 
     if "root" in roles:
@@ -209,7 +210,7 @@ def update_snapshot_and_timestamp(
     Returns:
         None
     """
-    loaded_yubikeys = {}
+    loaded_yubikeys: Dict = {}
 
     for role in ("snapshot", "timestamp"):
         keystore_keys, yubikeys = load_signing_keys(
@@ -248,7 +249,7 @@ def update_target_metadata(
     write: Optional[bool] = False,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
-) -> None:
+) -> bool:
     """Given dictionaries containing targets that should be added and targets that should
     be removed, update and sign target metadata files and, if write is True, also
     sign snapshot and timestamp.
@@ -283,7 +284,7 @@ def update_target_metadata(
         return False
 
     # update targets
-    loaded_yubikeys = {}
+    loaded_yubikeys: Dict = {}
     for role, target_paths in roles_targets.items():
         keystore_keys, yubikeys = load_signing_keys(
             taf_repo,

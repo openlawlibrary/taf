@@ -10,10 +10,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added mypy static type checking to pre-commit hook ([360])
+
 ### Changed
+
+- Fixed errors reported by mypy ([360])
 
 ### Fixed
 
+
+[360]: https://github.com/openlawlibrary/taf/pull/360
 
 ## [0.27.0] - 09/22/2023
 

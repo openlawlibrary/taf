@@ -4,7 +4,7 @@ from functools import wraps
 from collections import defaultdict
 from getpass import getpass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 import click
 from cryptography import x509
@@ -37,7 +37,7 @@ DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
 EXPIRATION_INTERVAL = 36500
 
-_yks_data_dict = defaultdict(dict)
+_yks_data_dict: Dict = defaultdict(dict)
 
 
 def add_key_id_mapping(serial_num: str, keyid: str) -> None:
@@ -56,7 +56,7 @@ def add_key_public_key(serial_num: str, public_key: Dict) -> None:
 
 def get_key_pin(serial_num: int) -> Optional[str]:
     if serial_num in _yks_data_dict:
-        return _yks_data_dict.get(serial_num).get("pin")
+        return _yks_data_dict.get(serial_num, {}).get("pin")
     return None
 
 
@@ -66,11 +66,11 @@ def get_key_serial_by_id(keyid: str) -> Optional[str]:
 
 def get_key_public_key(serial_num: str) -> Optional[Dict]:
     if serial_num in _yks_data_dict:
-        return _yks_data_dict.get(serial_num).get("public_key")
+        return _yks_data_dict.get(serial_num, {}).get("public_key")
     return None
 
 
-def raise_yubikey_err(msg: Optional[str] = None) -> None:
+def raise_yubikey_err(msg: Optional[str] = None) -> Callable:
     """Decorator used to catch all errors raised by yubikey-manager and raise
     YubikeyError. We don't need to handle specific cases.
     """

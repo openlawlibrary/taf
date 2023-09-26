@@ -91,7 +91,7 @@ def add_dependency(
         print(f"{path} is not a git repository!")
         return
     if library_dir is None:
-        library_dir = auth_repo.path.parent.parent
+        library_dir = str(auth_repo.path.parent.parent)
 
     if dependency_path is not None:
         dependency = GitRepository(path=dependency_path)
@@ -134,8 +134,8 @@ def add_dependency(
         json.dumps(dependencies_json, indent=4)
     )
 
-    removed_targets_data = {}
-    added_targets_data = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
+    removed_targets_data: Dict = {}
+    added_targets_data: Dict = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
     update_target_metadata(
         auth_repo,
         added_targets_data,
@@ -193,16 +193,19 @@ def create_repository(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    path = Path(path)
 
     if not _check_if_can_create_repository(auth_repo):
         return
 
-    roles_key_infos, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
-    roles_keys_data = from_dict(roles_key_infos, RolesKeysData)
+    keystore_path = Path(keystore)
+    if not keystore_path.is_dir():
+        keystore_path.mkdir(parents=False)
+
+    roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     repository = create_new_repository(str(auth_repo.path))
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
@@ -210,6 +213,8 @@ def create_repository(
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
     )
+    if signing_keys is None:
+        return
     # set threshold and register keys of main roles
     # we cannot do the same for the delegated roles until delegations are created
     for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
@@ -241,6 +246,7 @@ def create_repository(
         commit=False,
         taf_repo=taf_repository,
         write=True,
+        no_commit_warning=True,
     )
     if not updated:
         repository.writeall()
@@ -310,9 +316,7 @@ def _determine_out_of_band_data(
         except TAFError:
             raise TAFError("Specified out-of-band authentication commit does not exist")
         if branch_name not in branches:
-            raise TAFError(
-                f"Commit {out_of_band_commit} not on branch {dependency.branch_name}"
-            )
+            raise TAFError(f"Commit {out_of_band_commit} not on branch {branch_name}")
 
     if not is_branch_specified or not is_commit_specified:
         if not click.confirm(
@@ -387,8 +391,8 @@ def remove_dependency(
         json.dumps(dependencies_json, indent=4)
     )
 
-    removed_targets_data = {}
-    added_targets_data = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
+    removed_targets_data: Dict = {}
+    added_targets_data: Dict = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
     update_target_metadata(
         auth_repo,
         added_targets_data,

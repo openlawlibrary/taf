@@ -1,5 +1,4 @@
-from ast import Dict
-from typing import Type
+from typing import Dict, Type
 import attrs
 import cattrs
 from cattrs.gen import make_dict_structure_fn
@@ -18,6 +17,6 @@ def from_dict(data_dict: Dict, model_type: Type):
     try:
         return converter.structure(data_dict, model_type)
     except cattrs.errors.IterableValidationError as e:
-        raise RolesKeyDataConversionError(e.exceptions)
+        raise RolesKeyDataConversionError([ex for ex in e.exceptions])
     except ValueError as e:
-        raise RolesKeyDataConversionError([str(e)])
+        raise RolesKeyDataConversionError([e])

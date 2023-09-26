@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 import attrs
-from typing import Any, List
+from typing import Any, List, Optional
 
 
 def integer_validator(
@@ -57,8 +57,10 @@ def role_number_validator(
 def role_paths_validator(
     instance: Any,
     attribute: "attrs.Attribute[List[str]]",
-    value: List[str],
+    value: Optional[List[str]],
 ) -> bool:
+    if value is None:
+        return False
     word_pattern = r"^[A-Za-z0-9_.-]*$"
 
     for path in value:

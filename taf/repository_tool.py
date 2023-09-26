@@ -6,6 +6,7 @@ import shutil
 from fnmatch import fnmatch
 from functools import partial, reduce
 from pathlib import Path
+from typing import Dict
 
 import securesystemslib
 import tuf.roledb
@@ -42,32 +43,32 @@ from taf.utils import normalize_file_line_endings, on_rm_error
 try:
     import taf.yubikey as yk
 except ImportError:
-    yk = YubikeyMissingLibrary()
+    yk = YubikeyMissingLibrary()  # type: ignore
 
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
 
 # Loaded keys cache
-role_keys_cache = {}
+role_keys_cache: Dict = {}
 
 
 DISABLE_KEYS_CACHING = False
 HASH_FUNCTION = "sha256"
 
 
-def get_role_metadata_path(role):
+def get_role_metadata_path(role: str) -> str:
     return f"{METADATA_DIRECTORY_NAME}/{role}.json"
 
 
-def get_target_path(target_name):
+def get_target_path(target_name: str) -> str:
     return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
 
 
-def is_delegated_role(role):
+def is_delegated_role(role: str) -> bool:
     return role not in ("root", "targets", "snapshot", "timestamp")
 
 
-def is_auth_repo(repo_path):
+def is_auth_repo(repo_path: str) -> bool:
     """Check if the given path contains a valid TUF repository"""
     try:
         Repository(repo_path)._repository
@@ -781,7 +782,7 @@ class Repository:
                 return delegated_role[property_name]
         return None
 
-    def get_expiration_date(self, role):
+    def get_expiration_date(self, role: str) -> datetime.datetime:
         return self._role_obj(role).expiration
 
     def get_role_keys(self, role, parent_role=None):
