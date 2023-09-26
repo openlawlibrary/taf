@@ -170,9 +170,9 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
 
 class Repository:
-    def __init__(self, path, repo_name="default"):
+    def __init__(self, path, name="default"):
         self.path = Path(path)
-        self.name = repo_name
+        self.name = name
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 

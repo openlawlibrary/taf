@@ -1,6 +1,5 @@
 from pathlib import Path
 from taf.api.repository import create_repository
-from taf.auth_repo import AuthenticationRepository
 from taf.updater.updater import validate_repository
 from tuf.repository_tool import METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
 
@@ -32,7 +31,7 @@ def test_create_repository_no_delegations(
         commit_msg="Initial commit",
     )
     _check_repo_initialization_successful(auth_repo)
-
+    assert auth_repo.is_test_repo is False
     validate_repository(repo_path)
 
 
@@ -50,4 +49,26 @@ def test_create_repository_no_delegations_with_test_flag(
     )
 
     _check_repo_initialization_successful(auth_repo)
+    assert auth_repo.is_test_repo is True
     validate_repository(repo_path)
+
+
+def test_create_repository_with_delegations(
+    auth_repo, with_delegations_no_yubikeys_path, api_keystore
+):
+    repo_path = str(auth_repo.path)
+    create_repository(
+        repo_path,
+        roles_key_infos=with_delegations_no_yubikeys_path,
+        keystore=api_keystore,
+        commit=True,
+        commit_msg="Initial commit",
+    )
+
+    _check_repo_initialization_successful(auth_repo)
+    targets_roles = auth_repo.get_all_targets_roles()
+    for role in ("targets", "delegated_role", "inner_role"):
+        assert role in targets_roles
+    validate_repository(repo_path)
+
+

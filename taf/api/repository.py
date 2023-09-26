@@ -207,7 +207,7 @@ def create_repository(
         keystore_path.mkdir(parents=False)
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
-    repository = create_new_repository(str(auth_repo.path))
+    repository = create_new_repository(str(auth_repo.path), repository_name=auth_repo.name)
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
         roles=roles_keys_data.roles,
@@ -238,14 +238,13 @@ def create_repository(
         test_auth_file.touch()
 
     # register and sign target files (if any)
-    taf_repository = Repository(path)
-    taf_repository._tuf_repository = repository
+    auth_repo._tuf_repository = repository
     updated = register_target_files(
         path,
         keystore,
         roles_key_infos,
         commit=False,
-        taf_repo=taf_repository,
+        taf_repo=auth_repo,
         write=True,
         no_commit_warning=True,
     )

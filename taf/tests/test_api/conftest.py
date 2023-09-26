@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 import shutil
 
@@ -15,6 +16,7 @@ NO_DELEGATIONS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_delegations.json"
 NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
 WITH_DELEGATIONS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations.json"
 INVALID_PUBLIC_KEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_public_key.json"
+WITH_DELEGATIONS_NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
 INVALID_KEYS_NUMBER_INPUT = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_keys_number.json"
 )
@@ -42,11 +44,11 @@ def auth_repository_path():
 @fixture(scope="function")
 def auth_repo():
     random_name = str(uuid.uuid4())
-    root_path = CLIENT_DIR_PATH / random_name
-    repo_path = root_path / "auth"
-    auth_repo = AuthenticationRepository(path=repo_path)
+    root_name = f"{random_name}/auth"
+    auth_repo = AuthenticationRepository(CLIENT_DIR_PATH, root_name)
     yield auth_repo
-    shutil.rmtree(root_path, onerror=on_rm_error)
+    shutil.rmtree(str(auth_repo.path), onerror=on_rm_error)
+    os.rmdir(str(CLIENT_DIR_PATH / random_name))
 
 
 @fixture
@@ -64,8 +66,12 @@ def no_yubikeys_json_input():
 
 
 @fixture
+def with_delegations_no_yubikeys_path():
+    return str(WITH_DELEGATIONS_NO_YUBIKEYS_INPUT)
+
+@fixture
 def no_yubikeys_path():
-    return str(NO_YUBIKEYS_INPUT)
+    return str(WITH_DELEGATIONS_NO_YUBIKEYS_INPUT)
 
 
 @fixture
