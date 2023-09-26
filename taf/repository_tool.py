@@ -627,8 +627,6 @@ class Repository:
         will_expire_dict = {}
         for role in existing_roles:
             expiry_date = self.get_expiration_date(role)
-            print(expiry_date)
-            print(type(expiry_date))
             if start_date > expiry_date:
                 expired_dict[role] = expiry_date
             elif expiration_threshold >= expiry_date:
