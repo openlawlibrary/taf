@@ -172,6 +172,7 @@ def create_repository(
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = False,
+    commit_msg: Optional[str] = None,
     test: Optional[bool] = False,
 ) -> None:
     """
@@ -253,7 +254,7 @@ def create_repository(
 
     if commit:
         auth_repo.init_repo()
-        commit_and_push(auth_repo, push=False)
+        commit_and_push(auth_repo, push=False, commit_msg=commit_msg)
     else:
         print("\nPlease commit manually.\n")
 

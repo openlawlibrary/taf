@@ -39,8 +39,8 @@ def commit_and_push(
     push: Optional[bool] = True,
 ) -> None:
     if commit_msg is None:
-        commit_message = input("\nEnter commit message and press ENTER\n\n")
-    auth_repo.commit(commit_message)
+        commit_msg = input("\nEnter commit message and press ENTER\n\n")
+    auth_repo.commit(commit_msg)
     if push:
         auth_repo.push()
         taf_logger.info("Successfully pushed to remote")

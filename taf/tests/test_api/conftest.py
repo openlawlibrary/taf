@@ -1,7 +1,11 @@
 import json
-from pathlib import Path
+import uuid
+import shutil
 
-from taf.tests.conftest import TEST_DATA_PATH
+from pathlib import Path
+from taf.tests.conftest import KEYSTORES_PATH, TEST_DATA_PATH, CLIENT_DIR_PATH
+from taf.auth_repo import AuthenticationRepository
+from taf.utils import on_rm_error
 
 from pytest import fixture
 
@@ -17,10 +21,37 @@ INVALID_KEYS_NUMBER_INPUT = (
 INVALID_PATH_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_path.json"
 OLD_YUBIKEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_old_yubikey.json"
 
+KEYSTORE_PATH = KEYSTORES_PATH / "api_keystore"
+
 
 def _read_json(path):
     return json.loads(Path(path).read_text())
 
+
+@fixture
+def api_keystore():
+    return str(KEYSTORE_PATH)
+
+
+@fixture
+def auth_repository_path():
+    root_path = CLIENT_DIR_PATH / "namespace"
+    yield str(root_path / "auth")
+    shutil.rmtree(root_path, onerror=on_rm_error)
+
+@fixture(scope="function")
+def auth_repo():
+    random_name = str(uuid.uuid4())
+    root_path = CLIENT_DIR_PATH / random_name
+    repo_path = root_path / "auth"
+    auth_repo = AuthenticationRepository(path=repo_path)
+    yield auth_repo
+    shutil.rmtree(root_path, onerror=on_rm_error)
+
+
+@fixture
+def no_delegations_json_input():
+    return _read_json(NO_DELEGATIONS_INPUT)
 
 @fixture
 def no_delegations_json_input():
@@ -30,6 +61,11 @@ def no_delegations_json_input():
 @fixture
 def no_yubikeys_json_input():
     return _read_json(NO_YUBIKEYS_INPUT)
+
+
+@fixture
+def no_yubikeys_path():
+    return str(NO_YUBIKEYS_INPUT)
 
 
 @fixture
@@ -55,3 +91,4 @@ def invalid_path_input():
 @fixture
 def with_old_yubikey():
     return _read_json(OLD_YUBIKEY_INPUT)
+

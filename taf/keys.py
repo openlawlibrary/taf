@@ -226,18 +226,23 @@ def load_signing_keys(
             key_name = role
         else:
             key_name = f"{role}{num_of_signatures + 1}"
-        if num_of_signatures >= threshold:
-            all_loaded = not (
-                click.confirm(
-                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
-                )
-            )
+
+        all_loaded = num_of_signatures >= threshold
+
         if not all_loaded:
+            # when loading from keystore files
+            # there is no need to ask the user if they want to load more key, try to load from keystore
             key = _load_from_keystore(key_name)
             if key is not None:
                 keys.append(key)
                 num_of_signatures += 1
                 continue
+
+            all_loaded = not (
+                click.confirm(
+                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
+                )
+            )
 
             if _load_and_append_yubikeys(key_name, role, False):
                 num_of_signatures += 1
