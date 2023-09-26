@@ -420,8 +420,9 @@ class GitRepository:
         """
         repo = self.pygit_repo
         if repo is None:
-            # TODO default to _git
-            return False
+            raise GitError(
+                "Could not check if branch exists. pygit repository could not be instantiated"
+            )
         branch = repo.branches.get(branch_name)
         # this git command should return the branch's name if it exists
         # empty string otherwise
@@ -484,7 +485,7 @@ class GitRepository:
         repo = self.pygit_repo
         if repo is None:
             raise GitError(
-                "Could not checkout branch. pygit repository could not be isntantiated"
+                "Could not checkout branch. pygit repository could not be instantiated"
             )
         try:
             branch = repo.lookup_branch(branch_name)
