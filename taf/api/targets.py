@@ -45,7 +45,9 @@ def add_target_repo(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom: Optional[Dict] = None,
     commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True
 ) -> None:
     """
     Add a new target repository by adding it to repositories.json, creating a delegation (if targets is not
@@ -63,7 +65,9 @@ def add_target_repo(
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         custom (optional): Additional data that will be added to repositories.json if specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
+        commit_msg (optional): Commit message. Will be necessary to enter commit when prompted if not provided.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        push (optional): Flag specifying whether to push to remote
 
     Side Effects:
         Updates metadata and repositories.json, adds a new target file if repository exists and writes changes to disk
@@ -174,7 +178,7 @@ def add_target_repo(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
-        commit_and_push(auth_repo)
+        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually\n")
 

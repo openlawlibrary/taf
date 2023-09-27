@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 import shutil
 import uuid
 from pytest import fixture
@@ -21,7 +19,7 @@ def auth_repo_path():
 
 
 def _check_repo_initialization_successful(auth_repo):
-    repo_root_path = Path(auth_repo.path)
+    repo_root_path = auth_repo.path
     metadata_dir = repo_root_path / METADATA_DIRECTORY_NAME
     targets_dir = repo_root_path / TARGETS_DIRECTORY_NAME
     assert auth_repo.is_git_repository_root is True
@@ -105,7 +103,7 @@ def test_create_repository_when_add_repositories_json(
     copy_mirrors_json(mirrors_json_path, namespace, auth_repo_path)
 
     create_repository(
-        str(auth_repo_path),
+        repo_path,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=api_keystore,
         commit=True,

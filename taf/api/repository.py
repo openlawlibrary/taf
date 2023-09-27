@@ -185,6 +185,7 @@ def create_repository(
         keystore: Location of the keystore files.
         roles_key_infos: Path to a json file which contains information about repository's roles and keys.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
+        commit_msg (optional): Commit message. Will be necessary to enter commit when prompted if not provided.
         test (optional): Specifies if the created repository is a test authentication repository.
 
     Side Effects:
