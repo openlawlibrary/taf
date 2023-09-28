@@ -31,6 +31,7 @@ def _check_repo_initialization_successful(auth_repo):
     assert targets_dir.is_dir() is True
     commits = auth_repo.list_commits()
     assert len(commits) == 1
+    assert commits[0].message.strip() == "Initial commit"
 
 
 def test_create_repository_when_no_delegations(
@@ -116,7 +117,10 @@ def test_create_repository_when_add_repositories_json(
     for role in ("targets", "delegated_role", "inner_role"):
         assert role in targets_roles
     target_files = auth_repo.all_target_files()
+    signed_target_files = auth_repo.get_signed_target_files()
     for target_file in ("repositories.json", "mirrors.json"):
         assert target_file in target_files
+        assert target_file in signed_target_files
         assert auth_repo.get_role_from_target_paths([target_file]) == "targets"
+
     validate_repository(repo_path)
