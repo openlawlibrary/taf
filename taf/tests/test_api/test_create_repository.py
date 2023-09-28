@@ -31,7 +31,7 @@ def _check_repo_initialization_successful(auth_repo):
     assert targets_dir.is_dir() is True
     commits = auth_repo.list_commits()
     assert len(commits) == 1
-    assert commits[0].message.strip() == "Initial commit"
+    assert commits[0].message.strip() == "Initialized repository"
 
 
 def test_create_repository_when_no_delegations(
@@ -43,7 +43,6 @@ def test_create_repository_when_no_delegations(
         roles_key_infos=no_yubikeys_path,
         keystore=api_keystore,
         commit=True,
-        commit_msg="Initial commit",
     )
 
     auth_repo = AuthenticationRepository(path=repo_path)
@@ -61,7 +60,6 @@ def test_create_repository_when_no_delegations_with_test_flag(
         roles_key_infos=no_yubikeys_path,
         keystore=api_keystore,
         commit=True,
-        commit_msg="Initial commit",
         test=True,
     )
 
@@ -80,7 +78,6 @@ def test_create_repository_when_delegations(
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=api_keystore,
         commit=True,
-        commit_msg="Initial commit",
     )
 
     auth_repo = AuthenticationRepository(path=auth_repo_path)
@@ -108,7 +105,6 @@ def test_create_repository_when_add_repositories_json(
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=api_keystore,
         commit=True,
-        commit_msg="Initial commit",
     )
 
     auth_repo = AuthenticationRepository(path=auth_repo_path)
