@@ -45,7 +45,6 @@ def add_target_repo(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom: Optional[Dict] = None,
     commit: Optional[bool] = True,
-    commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True
 ) -> None:
@@ -65,7 +64,6 @@ def add_target_repo(
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         custom (optional): Additional data that will be added to repositories.json if specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
-        commit_msg (optional): Commit message. Will be necessary to enter commit when prompted if not provided.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
 
@@ -80,7 +78,7 @@ def add_target_repo(
     """
     auth_repo = AuthenticationRepository(path=path)
     if not auth_repo.is_git_repository_root:
-        print(f"{path} is not a git repository!")
+        taf_logger.error(f"{path} is not a git repository!")
         return
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
@@ -126,7 +124,7 @@ def add_target_repo(
             prompt_for_keys=prompt_for_keys,
         )
     else:
-        print("Role already exists")
+        taf_logger.info("Role already exists")
         add_role_paths(
             paths=[target_name],
             delegated_role=role,
@@ -144,7 +142,7 @@ def add_target_repo(
         repositories_json = {"repositories": {}}
     repositories = repositories_json["repositories"]
     if target_repo.name in repositories:
-        print(f"{target_repo.name} already added to repositories.json. Overwriting")
+        taf_logger.info(f"{target_repo.name} already added to repositories.json. Overwriting")
     repositories[target_repo.name] = {}
     if custom:
         repositories[target_name]["custom"] = custom
@@ -178,6 +176,7 @@ def add_target_repo(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
+        commit_msg = f"Added new target repository {target_name}"
         commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually\n")
@@ -199,7 +198,6 @@ def export_targets_history(
         output (optional): File to which the exported history should be written.
         target_repos (optional): A list of target repository names whose history should be generated. All target repositories
         will be included if not provided.
-
     Side Effects:
        None
 
@@ -319,6 +317,7 @@ def register_target_files(
     taf_repo: Optional[Repository] = None,
     write: Optional[bool] = False,
     prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
     no_commit_warning: Optional[bool] = True,
 ):
     """
@@ -334,7 +333,7 @@ def register_target_files(
         write (optional): Write metadata updates to disk if set to True
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
-
+        push (optional): Flag specifying whether to push to remote
     Side Effects:
        Updates metadata files, writes changes to disk and optionally commits changes.
 
@@ -365,7 +364,8 @@ def register_target_files(
         taf_repo.writeall()
         if commit:
             auth_repo = GitRepository(path=taf_repo.path)
-            commit_and_push(auth_repo)
+            commit_msg = "Signed target files"
+            commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
         elif not no_commit_warning:
             print("\nPlease commit manually\n")
 
@@ -383,7 +383,11 @@ def register_target_files(
 )
 @check_if_clean
 def remove_target_repo(
-    path: str, target_name: str, keystore: str, prompt_for_keys: Optional[bool] = False
+    path: str,
+    target_name: str,
+    keystore: str,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True
 ) -> None:
     """
     Remove target repository from repositories.json, remove delegation, and target files and
@@ -394,7 +398,7 @@ def remove_target_repo(
         target_name: Name of the target name which is to be removed.
         keystore: Location of the keystore files.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
-
+        push (optional): Flag specifying whether to push to remote
     Side Effects:
        Updates metadata files, writes changes to disk and optionally commits changes.
 
@@ -446,7 +450,7 @@ def remove_target_repo(
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
             prompt_for_keys=prompt_for_keys,
         )
-        auth_repo.commit(f"Remove {target_name} target")
+        auth_repo.commit(f"Removed target repository {target_name}")
         changes_committed = True
 
     delegation_existed = remove_paths(
@@ -459,12 +463,12 @@ def remove_target_repo(
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
             prompt_for_keys=prompt_for_keys,
         )
-        auth_repo.commit(f"Remove {target_name} from delegated paths")
+        auth_repo.commit(f"Removed {target_name} from delegated paths")
         changes_committed = True
     else:
         taf_logger.info(f"{target_name} not among delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    if changes_committed:
+    if changes_committed and push:
         auth_repo.push()
 
 
@@ -507,6 +511,7 @@ def update_target_repos_from_repositories_json(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True
 ) -> None:
     """
     Create or update target files by reading the latest commit's repositories.json
@@ -519,7 +524,7 @@ def update_target_repos_from_repositories_json(
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
-
+        push (optional): Flag specifying whether to push to remote
     Side Effects:
        Update target and metadata files and writes changes to disk.
 
@@ -568,6 +573,7 @@ def update_and_sign_targets(
     scheme: str,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True
 ) -> None:
     """
     Save the top commit of specified target repositories to the corresponding target files and sign.
@@ -608,7 +614,7 @@ def update_and_sign_targets(
             nonexistent_target_types.append(target_type)
             continue
     if len(nonexistent_target_types):
-        print(
+        taf_logger.info(
             f"Target types {'.'.join(nonexistent_target_types)} not in repositories.json. Targets not updated"
         )
         return
@@ -618,7 +624,7 @@ def update_and_sign_targets(
         _save_top_commit_of_repo_to_target(
             Path(library_dir), target_name, repo_path, True
         )
-        print(f"Updated {target_name} target file")
+        taf_logger.info(f"Updated {target_name} target file")
     register_target_files(
         repo_path,
         keystore,
@@ -647,4 +653,4 @@ def _update_target_repos(
         target_repo_name = target_repo_path.name
         path = targets_dir / target_repo_name
         path.write_text(json.dumps(data, indent=4))
-        print(f"Updated {path}")
+        taf_logger.info(f"Updated {path}")

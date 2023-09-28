@@ -172,7 +172,6 @@ def create_repository(
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = False,
-    commit_msg: Optional[str] = None,
     test: Optional[bool] = False,
 ) -> None:
     """
@@ -185,7 +184,6 @@ def create_repository(
         keystore: Location of the keystore files.
         roles_key_infos: Path to a json file which contains information about repository's roles and keys.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
-        commit_msg (optional): Commit message. Will be necessary to enter commit when prompted if not provided.
         test (optional): Specifies if the created repository is a test authentication repository.
 
     Side Effects:
@@ -254,6 +252,7 @@ def create_repository(
 
     if commit:
         auth_repo.init_repo()
+        commit_msg = "Initialized repository"
         commit_and_push(auth_repo, push=False, commit_msg=commit_msg)
     else:
         print("\nPlease commit manually.\n")
