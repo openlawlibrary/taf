@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import uuid
+from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
@@ -77,9 +78,10 @@ def test_add_target_repository_when_not_on_filesystem(library, api_keystore):
     assert target_repo_name in repositories
     commits = auth_repo.list_commits()
     assert len(commits) == 2
-    assert commits[0].message.strip() == f"Added new target repository {target_repo_name}"
+    assert commits[0].message.strip() == git_commit_message("add-target", target_name=target_repo_name)
     delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
     assert target_repo_name in delegated_paths
+
 
 def test_add_target_repository_when_on_filesystem(library, api_keystore):
     repo_path = str(library / "auth")
@@ -102,7 +104,7 @@ def test_add_target_repository_when_on_filesystem(library, api_keystore):
     assert target_repo_name in repositories
     commits = auth_repo.list_commits()
     assert len(commits) == 3
-    assert commits[0].message.strip() == f"Added new target repository {target_repo_name}"
+    assert commits[0].message.strip() == git_commit_message("add-target", target_name=target_repo_name)
     signed_target_files = auth_repo.get_signed_target_files()
     assert target_repo_name in signed_target_files
     delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
@@ -133,8 +135,8 @@ def test_remove_target_repository_when_not_on_filesystem(library, api_keystore):
     commits = auth_repo.list_commits()
     # this function is expected to commit twice
     assert len(commits) == 5
-    assert commits[1].message.strip() == f"Removed target repository {target_repo_name}"
-    assert commits[0].message.strip() == f"Removed {target_repo_name} from delegated paths"
+    assert commits[1].message.strip() == git_commit_message("remove-target", target_name=target_repo_name)
+    assert commits[0].message.strip() == git_commit_message("remove-from-delegated-paths", target_name=target_repo_name)
     delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
     assert target_repo_name not in delegated_paths
 
@@ -154,7 +156,7 @@ def test_remove_target_repository_when_on_filesystem(library, api_keystore):
         api_keystore,
         push=False,
     )
-    # verify repositories.json was updated and that changes were committed
+    # verify that repositories.json was updated and that changes were committed
     # then validate the repository
     # target repo should not be in the newest repositories.json
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
@@ -163,9 +165,8 @@ def test_remove_target_repository_when_on_filesystem(library, api_keystore):
     commits = auth_repo.list_commits()
     # this function is expected to commit twice
     assert len(commits) == 7
-    assert commits[1].message.strip() == f"Removed target repository {target_repo_name}"
-    assert commits[0].message.strip() == f"Removed {target_repo_name} from delegated paths"
+    assert commits[1].message.strip() == git_commit_message("remove-target", target_name=target_repo_name)
+    assert commits[0].message.strip() == git_commit_message("remove-from-delegated-paths", target_name=target_repo_name)
     delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
     assert target_repo_name not in delegated_paths
     assert not Path(repo_path, TARGETS_DIRECTORY_NAME, target_repo_name).is_file()
-

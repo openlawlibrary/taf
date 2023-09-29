@@ -17,6 +17,7 @@ from taf.api.utils import check_if_clean, commit_and_push
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
+from taf.messages import git_commit_message
 
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
@@ -176,7 +177,7 @@ def add_target_repo(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
-        commit_msg = f"Added new target repository {target_name}"
+        commit_msg = git_commit_message("add-target", target_name=target_name)
         commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually\n")
@@ -450,7 +451,7 @@ def remove_target_repo(
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
             prompt_for_keys=prompt_for_keys,
         )
-        auth_repo.commit(f"Removed target repository {target_name}")
+        auth_repo.commit(git_commit_message("remove-target", target_name=target_name))
         changes_committed = True
 
     delegation_existed = remove_paths(
@@ -463,7 +464,7 @@ def remove_target_repo(
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
             prompt_for_keys=prompt_for_keys,
         )
-        auth_repo.commit(f"Removed {target_name} from delegated paths")
+        auth_repo.commit(git_commit_message("remove-from-delegated-paths", target_name=target_name))
         changes_committed = True
     else:
         taf_logger.info(f"{target_name} not among delegated paths")

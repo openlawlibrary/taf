@@ -3,6 +3,7 @@ import uuid
 from pytest import fixture
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
+from taf.messages import git_commit_message
 from taf.tests.conftest import CLIENT_DIR_PATH
 from taf.tests.test_api.util import copy_mirrors_json, copy_repositories_json
 from taf.updater.updater import validate_repository
@@ -31,7 +32,7 @@ def _check_repo_initialization_successful(auth_repo):
     assert targets_dir.is_dir() is True
     commits = auth_repo.list_commits()
     assert len(commits) == 1
-    assert commits[0].message.strip() == "Initialized repository"
+    assert commits[0].message.strip() == git_commit_message("create-repo")
 
 
 def test_create_repository_when_no_delegations(
