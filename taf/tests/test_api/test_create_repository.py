@@ -5,7 +5,11 @@ from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.messages import git_commit_message
 from taf.tests.conftest import CLIENT_DIR_PATH
-from taf.tests.test_api.util import check_if_targets_signed, copy_mirrors_json, copy_repositories_json
+from taf.tests.test_api.util import (
+    check_if_targets_signed,
+    copy_mirrors_json,
+    copy_repositories_json,
+)
 from taf.updater.updater import validate_repository
 from taf.utils import on_rm_error
 from tuf.repository_tool import METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME

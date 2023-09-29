@@ -25,17 +25,27 @@ def copy_mirrors_json(mirrors_json_path, namespace, auth_repo_path):
     shutil.copy(str(mirrors_json_path), output)
 
 
-def check_target_file(target_repo_path, target_repo_name, auth_repo, auth_repo_head_sha=None):
+def check_target_file(
+    target_repo_path, target_repo_name, auth_repo, auth_repo_head_sha=None
+):
     if auth_repo_head_sha is None:
         auth_repo_head_sha = auth_repo.head_commit_sha()
     target_repo = GitRepository(path=target_repo_path)
     target_repo_head_sha = target_repo.head_commit_sha()
     targets = auth_repo.targets_at_revisions(auth_repo_head_sha)
     target_content = targets[auth_repo_head_sha][target_repo_name]
-    return target_repo_head_sha == target_content["commit"]
+    branch = target_repo.default_branch
+    return (
+        target_repo_head_sha == target_content["commit"]
+        and branch == target_content["branch"]
+    )
 
 
-def check_if_targets_signed(auth_repo, signing_role, *targets_filenames,):
+def check_if_targets_signed(
+    auth_repo,
+    signing_role,
+    *targets_filenames,
+):
     target_files = auth_repo.all_target_files()
     signed_target_files = auth_repo.get_signed_target_files()
     for target_file in targets_filenames:

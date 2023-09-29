@@ -551,6 +551,7 @@ def update_target_repos_from_repositories_json(
         scheme,
         write=True,
         prompt_for_keys=prompt_for_keys,
+        push=push,
     )
 
 
