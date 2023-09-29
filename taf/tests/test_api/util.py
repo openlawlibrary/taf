@@ -33,3 +33,12 @@ def check_target_file(target_repo_path, target_repo_name, auth_repo, auth_repo_h
     targets = auth_repo.targets_at_revisions(auth_repo_head_sha)
     target_content = targets[auth_repo_head_sha][target_repo_name]
     return target_repo_head_sha == target_content["commit"]
+
+
+def check_if_targets_signed(auth_repo, signing_role, *targets_filenames,):
+    target_files = auth_repo.all_target_files()
+    signed_target_files = auth_repo.get_signed_target_files()
+    for target_file in targets_filenames:
+        assert target_file in target_files
+        assert target_file in signed_target_files
+        assert auth_repo.get_role_from_target_paths([target_file]) == signing_role

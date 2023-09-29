@@ -5,7 +5,7 @@ from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.messages import git_commit_message
 from taf.tests.conftest import CLIENT_DIR_PATH
-from taf.tests.test_api.util import copy_mirrors_json, copy_repositories_json
+from taf.tests.test_api.util import check_if_targets_signed, copy_mirrors_json, copy_repositories_json
 from taf.updater.updater import validate_repository
 from taf.utils import on_rm_error
 from tuf.repository_tool import METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
@@ -113,11 +113,5 @@ def test_create_repository_when_add_repositories_json(
     targets_roles = auth_repo.get_all_targets_roles()
     for role in ("targets", "delegated_role", "inner_role"):
         assert role in targets_roles
-    target_files = auth_repo.all_target_files()
-    signed_target_files = auth_repo.get_signed_target_files()
-    for target_file in ("repositories.json", "mirrors.json"):
-        assert target_file in target_files
-        assert target_file in signed_target_files
-        assert auth_repo.get_role_from_target_paths([target_file]) == "targets"
-
+    check_if_targets_signed(auth_repo, "targets", "repositories.json", "mirrors.json")
     validate_repository(repo_path)
