@@ -25,7 +25,7 @@ def check_expiration_dates(
     start_date: Optional[datetime] = None,
     excluded_roles: Optional[List[str]] = None,
     print: bool = True,
-) -> None:
+) -> Tuple[Dict, Dict]:
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
     Prints a list of expired roles.
@@ -221,6 +221,7 @@ def update_snapshot_and_timestamp(
         write_all (optional): If True, writes authentication repository's
             changes to disk.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        push (optional): Flag specifying whether to push to remote
 
     Side Effects:
         Updates metadata files, saves changes to disk if write_all is True

@@ -42,11 +42,6 @@ def no_delegations_json_input():
 
 
 @fixture
-def no_delegations_json_input():
-    return _read_json(NO_DELEGATIONS_INPUT)
-
-
-@fixture
 def no_yubikeys_json_input():
     return _read_json(NO_YUBIKEYS_INPUT)
 

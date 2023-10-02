@@ -2,15 +2,17 @@ import datetime
 import shutil
 import uuid
 from freezegun import freeze_time
-from pathlib import Path
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
-from taf.git import GitRepository
 from pytest import fixture
 from taf.api.repository import create_repository
 from taf.tests.conftest import CLIENT_DIR_PATH
 from taf.utils import on_rm_error
-from taf.api.metadata import check_expiration_dates, update_metadata_expiration_date
+from taf.api.metadata import (
+    check_expiration_dates,
+    update_metadata_expiration_date,
+    update_snapshot_and_timestamp,
+)
 
 
 AUTH_REPO_NAME = "auth"
@@ -141,6 +143,20 @@ def test_check_expiration_date_when_no_expired(auth_repo_path):
     )
     assert not len(expired)
     assert not len(will_expire)
+
+
+@freeze_time("2023-01-01")
+def test_update_snapshot_and_timestamp(auth_repo_path, api_keystore):
+    auth_repo = AuthenticationRepository(path=auth_repo_path)
+    # signs snapshot and timestamp, uses default expiration intervals
+    update_snapshot_and_timestamp(
+        auth_repo,
+        keystore=api_keystore,
+    )
+    now = datetime.datetime.now()
+    for role, interval in [("timestamp", 1), ("snapshot", 7)]:
+        actual_expiration = auth_repo.get_expiration_date(role)
+        assert now + datetime.timedelta(interval) == actual_expiration
 
 
 def _check_expired_role(role_name, start_time, interval, expired_dict):
