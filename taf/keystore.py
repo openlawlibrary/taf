@@ -130,7 +130,7 @@ def read_private_key_from_keystore(
         key = _read_key(key_path, password, scheme)
         if key is not None:
             return key
-        if not click.confirm("Could not open keystore file. Try again?"):
+        if not click.confirm(f"Could not open keystore file {key_path}. Try again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
 
 

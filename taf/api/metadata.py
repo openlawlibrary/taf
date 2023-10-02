@@ -7,6 +7,7 @@ from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.messages import git_commit_message
 from taf.repository_tool import Repository, is_delegated_role
 from taf.log import taf_logger
 
@@ -86,10 +87,11 @@ def update_metadata_expiration_date(
     roles: List[str],
     interval: int,
     keystore: Optional[str] = None,
-    scheme: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     start_date: Optional[datetime] = None,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
 ) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -105,8 +107,9 @@ def update_metadata_expiration_date(
         scheme (optional): Signature scheme.
         start_date (optional): Date to which expiration interval is added.
             Set to today if not specified.
-        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        push (optional): Flag specifying whether to push to remote
 
     Side Effects:
         Updates metadata files, saves changes to disk and commits changes
@@ -147,10 +150,13 @@ def update_metadata_expiration_date(
         )
 
     if not commit:
-        print("\nPlease commit manually. \n")
+        print("\nPlease commit manually.\n")
     else:
         auth_repo = GitRepository(path=path)
-        commit_and_push(auth_repo)
+        commit_msg = git_commit_message(
+            "update-expiration-dates", roles=",".join(roles)
+        )
+        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
 
 
 @log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)

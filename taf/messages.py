@@ -7,7 +7,8 @@ MESSAGES = {
         "add-target": "Add new target {target_name}",
         "remove-target": "Remove target {target_name}",
         "remove-from-delegated-paths": "Remove {target_name} from delegated paths",
-        "register-targets": "Sign targets and metadata"
+        "register-targets": "Sign targets and metadata",
+        "update-expiration-dates": "Update expiration date of {roles}."
     }
 }
 
