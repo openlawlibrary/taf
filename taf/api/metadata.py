@@ -23,6 +23,7 @@ def check_expiration_dates(
     interval: Optional[int] = None,
     start_date: Optional[datetime] = None,
     excluded_roles: Optional[List[str]] = None,
+    print: bool = True,
 ) -> None:
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
@@ -49,17 +50,28 @@ def check_expiration_dates(
         interval, start_date, excluded_roles
     )
 
-    if expired_dict or will_expire_dict:
+    if print:
+        print_expiration_dates(
+            expired_dict, will_expire_dict, start_date=start_date, interval=interval
+        )
+
+    return expired_dict, will_expire_dict
+
+
+def print_expiration_dates(
+    expired: Dict, will_expire: Dict, start_date: datetime, interval: int
+) -> None:
+    if expired or will_expire:
         now = datetime.now()
         print(
             f"Given a {interval} day interval from ({start_date.strftime('%Y-%m-%d')}):"
         )
-        for role, expiry_date in expired_dict.items():
+        for role, expiry_date in expired.items():
             delta = now - expiry_date
             print(
                 f"{role} expired {delta.days} days ago (on {expiry_date.strftime('%Y-%m-%d')})"
             )
-        for role, expiry_date in will_expire_dict.items():
+        for role, expiry_date in will_expire.items():
             delta = expiry_date - now
             print(
                 f"{role} will expire in {delta.days} days (on {expiry_date.strftime('%Y-%m-%d')})"

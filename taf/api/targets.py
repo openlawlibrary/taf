@@ -47,7 +47,7 @@ def add_target_repo(
     custom: Optional[Dict] = None,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
-    push: Optional[bool] = True
+    push: Optional[bool] = True,
 ) -> None:
     """
     Add a new target repository by adding it to repositories.json, creating a delegation (if targets is not
@@ -143,7 +143,9 @@ def add_target_repo(
         repositories_json = {"repositories": {}}
     repositories = repositories_json["repositories"]
     if target_repo.name in repositories:
-        taf_logger.info(f"{target_repo.name} already added to repositories.json. Overwriting")
+        taf_logger.info(
+            f"{target_repo.name} already added to repositories.json. Overwriting"
+        )
     repositories[target_repo.name] = {}
     if custom:
         repositories[target_name]["custom"] = custom
@@ -387,7 +389,7 @@ def remove_target_repo(
     target_name: str,
     keystore: str,
     prompt_for_keys: Optional[bool] = False,
-    push: Optional[bool] = True
+    push: Optional[bool] = True,
 ) -> None:
     """
     Remove target repository from repositories.json, remove delegation, and target files and
@@ -463,7 +465,9 @@ def remove_target_repo(
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
             prompt_for_keys=prompt_for_keys,
         )
-        auth_repo.commit(git_commit_message("remove-from-delegated-paths", target_name=target_name))
+        auth_repo.commit(
+            git_commit_message("remove-from-delegated-paths", target_name=target_name)
+        )
         changes_committed = True
     else:
         taf_logger.info(f"{target_name} not among delegated paths")
@@ -511,7 +515,7 @@ def update_target_repos_from_repositories_json(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
-    push: Optional[bool] = True
+    push: Optional[bool] = True,
 ) -> None:
     """
     Create or update target files by reading the latest commit's repositories.json
@@ -574,7 +578,7 @@ def update_and_sign_targets(
     scheme: str,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
-    push: Optional[bool] = True
+    push: Optional[bool] = True,
 ) -> None:
     """
     Save the top commit of specified target repositories to the corresponding target files and sign.
