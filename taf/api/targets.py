@@ -6,14 +6,17 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.metadata import update_snapshot_and_timestamp, update_target_metadata
+from taf.api.utils.metadata_utils import (
+    update_snapshot_and_timestamp,
+    update_target_metadata,
+)
 from taf.api.roles import (
     _initialize_roles_and_keystore,
     add_role,
     add_role_paths,
     remove_paths,
 )
-from taf.api.utils import check_if_clean, commit_and_push
+from taf.api.utils.git_utils import check_if_clean, commit_and_push
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
