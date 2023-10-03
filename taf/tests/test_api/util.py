@@ -52,3 +52,14 @@ def check_if_targets_signed(
         assert target_file in target_files
         assert target_file in signed_target_files
         assert auth_repo.get_role_from_target_paths([target_file]) == signing_role
+
+
+def check_if_targets_removed(
+    auth_repo,
+    *targets_filenames,
+):
+    target_files = auth_repo.all_target_files()
+    signed_target_files = auth_repo.get_signed_target_files()
+    for target_file in targets_filenames:
+        assert target_file not in target_files
+        assert target_file not in signed_target_files

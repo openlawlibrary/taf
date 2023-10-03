@@ -85,8 +85,6 @@ def update_target_metadata(
     be removed, update and sign target metadata files and, if write is True, also
     sign snapshot and timestamp.
 
-    Sign snapshot and timestamp metadata files
-
     Arguments:
         taf_repo: Authentication repository.
         added_targets_data(dict): Dictionary containing targets data that should be added.
