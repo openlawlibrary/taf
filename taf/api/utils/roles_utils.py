@@ -7,7 +7,7 @@ from taf.exceptions import TAFError
 from taf.models.types import RolesIterator
 from taf.models.types import Role, TargetsRole
 from taf.yubikey import get_key_serial_by_id
-from tuf.repository_tool import  Metadata
+from tuf.repository_tool import Metadata
 from taf.keys import get_key_name
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE
@@ -16,6 +16,7 @@ from taf.repository_tool import (
     yubikey_signature_provider,
 )
 from taf.log import taf_logger
+
 
 @log_on_start(INFO, "Creating delegations", logger=taf_logger)
 @log_on_end(DEBUG, "Finished creating delegations", logger=taf_logger)
@@ -108,6 +109,7 @@ def setup_role(
                 role_obj.add_external_signature_provider(
                     key, partial(yubikey_signature_provider, key_name, key["keyid"])
                 )
+
 
 def _role_obj(
     role: str,

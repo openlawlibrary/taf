@@ -100,7 +100,6 @@ def update_target_metadata(
     Returns:
         True if there were targets that were updated, False otherwise
     """
-
     added_targets_data = {} if added_targets_data is None else added_targets_data
     removed_targets_data = {} if removed_targets_data is None else removed_targets_data
 

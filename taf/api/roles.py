@@ -1,3 +1,4 @@
+import glob
 from logging import DEBUG, ERROR
 import os
 from typing import Dict, List, Optional, Tuple
@@ -140,9 +141,7 @@ def add_role(
         update_snapshot_and_timestamp(
             auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
         )
-        commit_msg = git_commit_message(
-            "add-role", role=role
-        )
+        commit_msg = git_commit_message("add-role", role=role)
         commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         taf_logger.info("\nPlease commit manually\n")
@@ -302,9 +301,8 @@ def add_roles(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
-        commit_msg = git_commit_message(
-            "add-roles", roles=", ".join(new_roles)
-        )
+        roles_names = [role.name for role in new_roles]
+        commit_msg = git_commit_message("add-roles", roles=", ".join(roles_names))
         commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         taf_logger.info("\nPlease commit manually\n")
@@ -714,14 +712,24 @@ def remove_role(
     for delegations_data in roleinfo["delegations"]["roles"]:
         if delegations_data["name"] == role:
             paths = delegations_data["paths"]
-            for path in paths:
-                target_file_path = Path(path, TARGETS_DIRECTORY_NAME, path)
+            for target_path in paths:
+                target_file_path = Path(path, TARGETS_DIRECTORY_NAME, target_path)
                 if target_file_path.is_file():
                     if remove_targets:
                         os.unlink(str(target_file_path))
-                        removed_targets.append(path)
+                        removed_targets.append(target_file_path)
                     else:
-                        added_targets_data[path] = {}
+                        added_targets_data[target_file_path] = {}
+                else:
+                    # try glob pattern traversal
+                    full_pattern = str(Path(path, TARGETS_DIRECTORY_NAME, target_path))
+                    matching_files = glob.glob(full_pattern)
+                    for file_path in matching_files:
+                        if remove_targets:
+                            os.unlink(str(file_path))
+                            removed_targets.append(file_path)
+                        else:
+                            added_targets_data[file_path] = {}
             break
 
     parent_role_obj.revoke(role)
@@ -738,7 +746,6 @@ def remove_role(
             keystore,
             write=False,
             scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            update_target_metadata=update_target_metadata,
             prompt_for_keys=prompt_for_keys,
         )
 
@@ -760,9 +767,7 @@ def remove_role(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
-        commit_msg = git_commit_message(
-            "remove-role", role=role
-        )
+        commit_msg = git_commit_message("remove-role", role=role)
         commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         taf_logger.info("Please commit manually")

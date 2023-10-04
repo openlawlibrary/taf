@@ -1,4 +1,5 @@
 import json
+import os
 
 
 from pathlib import Path
@@ -53,7 +54,7 @@ def with_delegations_no_yubikeys_path():
 
 @fixture
 def no_yubikeys_path():
-    return str(WITH_DELEGATIONS_NO_YUBIKEYS_INPUT)
+    return str(NO_YUBIKEYS_INPUT)
 
 
 @fixture
