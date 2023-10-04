@@ -2,6 +2,7 @@ from logging import ERROR, INFO
 from typing import Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.utils.roles_utils import setup_role
 from taf.messages import git_commit_message
 from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
@@ -12,7 +13,6 @@ from pathlib import Path
 from taf.api.roles import (
     create_delegations,
     _initialize_roles_and_keystore,
-    setup_role,
 )
 from taf.api.targets import register_target_files
 

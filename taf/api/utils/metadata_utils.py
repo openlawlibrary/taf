@@ -1,5 +1,5 @@
 from logging import DEBUG, ERROR, INFO
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.exceptions import TAFError
 from taf.keys import load_signing_keys

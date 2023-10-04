@@ -8,7 +8,13 @@ MESSAGES = {
         "remove-target": "Remove target {target_name}",
         "remove-from-delegated-paths": "Remove {target_name} from delegated paths",
         "register-targets": "Sign targets and metadata",
-        "update-expiration-dates": "Update expiration date of {roles}."
+        "update-expiration-dates": "Update expiration date of {roles}",
+        "add-role": "Add new role {role}",
+        "remove-role": "Remove role {role}",
+        "add-role-paths": "Delegate paths {paths} to role {role}",
+        "add-roles": "Add new roles {roles}",
+        "add-signing-key": "Add new signing key to role {role}",
+        "remove-role-paths": "Remove delegations {paths} from role {role}",
     }
 }
 
