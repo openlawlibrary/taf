@@ -22,6 +22,7 @@ from taf.exceptions import (
     YubikeyError,
 )
 from taf.keystore import (
+    get_keystore_keys_of_role,
     key_cmd_prompt,
     read_private_key_from_keystore,
     read_public_key_from_keystore,
@@ -141,7 +142,9 @@ def load_sorted_keys_of_new_roles(
         for role in keystore_roles:
             if role.name in existing_roles:
                 continue
-            keystore_keys, _ = setup_roles_keys(role, auth_repo.path, keystore=keystore, skip_prompt=skip_prompt)
+            keystore_keys, _ = setup_roles_keys(
+                role, auth_repo.path, keystore=keystore, skip_prompt=skip_prompt
+            )
             for public_key, private_key in keystore_keys:
                 signing_keys.setdefault(role.name, []).append(private_key)
                 verification_keys.setdefault(role.name, []).append(public_key)
@@ -224,22 +227,22 @@ def load_signing_keys(
 
         return public_key is not None
 
+    keystore_files = get_keystore_keys_of_role(keystore, role)
     while not all_loaded and num_of_signatures < signing_keys_num:
-        if signing_keys_num == 1:
-            key_name = role
-        else:
-            key_name = f"{role}{num_of_signatures + 1}"
-
         all_loaded = num_of_signatures >= threshold
 
         if not all_loaded:
             # when loading from keystore files
             # there is no need to ask the user if they want to load more key, try to load from keystore
-            key = _load_from_keystore(key_name)
-            if key is not None:
-                keys.append(key)
-                num_of_signatures += 1
-                continue
+            if num_of_signatures < len(keystore_files):
+                key = _load_from_keystore(keystore_files[num_of_signatures])
+                if key is not None:
+                    keys.append(key)
+                    num_of_signatures += 1
+                    continue
+            import pdb
+
+            pdb.set_trace()
 
             all_loaded = not (
                 click.confirm(
@@ -247,6 +250,7 @@ def load_signing_keys(
                 )
             )
 
+            key_name = get_key_name(role, num_of_signatures, signing_keys_num)
             if _load_and_append_yubikeys(key_name, role, False):
                 num_of_signatures += 1
                 continue
@@ -304,7 +308,7 @@ def setup_roles_keys(
                 role.scheme or default_params["scheme"],
                 role.length or default_params["length"],
                 None,
-                skip_prompt=skip_prompt
+                skip_prompt=skip_prompt,
             )
             keystore_keys.append((public_key, private_key))
     return keystore_keys, yubikey_keys
@@ -404,7 +408,9 @@ def _setup_keystore_key(
                 _invalid_key_message(key_name, keystore, False)
 
             if public_key is None or private_key is None:
-                generate_new_keys = skip_prompt is True or click.confirm("Generate new keys?")
+                generate_new_keys = skip_prompt is True or click.confirm(
+                    "Generate new keys?"
+                )
                 if not generate_new_keys:
                     if click.confirm("Reuse existing key?"):
                         reused_key_name = input(
@@ -422,7 +428,9 @@ def _setup_keystore_key(
                 else:
                     break
     if generate_new_keys:
-        if keystore is not None and (skip_prompt or click.confirm("Write keys to keystore files?")):
+        if keystore is not None and (
+            skip_prompt or click.confirm("Write keys to keystore files?")
+        ):
             if password is None and not skip_prompt:
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
