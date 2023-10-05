@@ -101,7 +101,7 @@ def add_dependency(
             raise TAFError(
                 "Branch name and out-of-band commit must be specified if repository does not exist on disk"
             )
-        if not click.confirm(
+        if not no_prompt and not click.confirm(
             "Dependency not on disk. Proceed without validating branch and commit?"
         ):
             return
