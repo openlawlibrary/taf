@@ -641,8 +641,9 @@ def list_keys_of_role(
     """
     auth_repo = AuthenticationRepository(path=path)
     key_ids = auth_repo.get_role_keys(role=role)
-    for key_id in key_ids:
-        taf_logger.info(f"{get_metadata_key_info(auth_repo.certs_dir, key_id)}")
+    return [
+        str(get_metadata_key_info(auth_repo.certs_dir, key_id)) for key_id in key_ids
+    ]
 
 
 @log_on_start(DEBUG, "Removing role {role:s}", logger=taf_logger)

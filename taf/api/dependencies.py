@@ -13,7 +13,7 @@ import taf.repositoriesdb as repositoriesdb
 from pathlib import Path
 
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, MESSAGES
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.log import taf_logger

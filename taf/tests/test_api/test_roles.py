@@ -1,7 +1,15 @@
 import shutil
 import uuid
 from pathlib import Path
-from taf.api.roles import add_role, add_role_paths, add_roles, remove_paths, remove_role
+from taf.api.roles import (
+    add_role,
+    add_role_paths,
+    add_roles,
+    add_signing_key,
+    list_keys_of_role,
+    remove_paths,
+    remove_role,
+)
 from taf.api.targets import register_target_files
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
@@ -262,6 +270,40 @@ def test_remove_role_when_keep_targets(auth_repo_path, roles_keystore):
         "remove-role", role=ROLE_NAME
     )
     assert file_path.is_file()
+
+
+def test_lis_keys(auth_repo_path):
+    root_keys_infos = list_keys_of_role(str(auth_repo_path), "root")
+    assert len(root_keys_infos) == 3
+    targets_keys_infos = list_keys_of_role(str(auth_repo_path), "targets")
+    assert len(targets_keys_infos) == 2
+    snapshot_keys_infos = list_keys_of_role(str(auth_repo_path), "snapshot")
+    assert len(snapshot_keys_infos) == 1
+    timestamp_keys_infos = list_keys_of_role(str(auth_repo_path), "timestamp")
+    assert len(timestamp_keys_infos) == 1
+
+
+def test_add_signing_key(auth_repo_path, roles_keystore):
+    auth_repo = AuthenticationRepository(path=auth_repo_path)
+    initial_commits_num = len(auth_repo.list_commits())
+    # for testing purposes, add targets signing key to timestamp and snapshot roles
+    pub_key_path = Path(roles_keystore, "targets1.pub")
+    COMMIT_MSG = "Add new timestamp and snapshot signing key"
+    add_signing_key(
+        path=str(auth_repo_path),
+        pub_key_path=str(pub_key_path),
+        roles=["timestamp", "snapshot"],
+        keystore=roles_keystore,
+        push=False,
+        commit_msg=COMMIT_MSG,
+    )
+    commits = auth_repo.list_commits()
+    assert len(commits) == initial_commits_num + 1
+    assert commits[0].message.strip() == COMMIT_MSG
+    timestamp_keys_infos = list_keys_of_role(str(auth_repo_path), "timestamp")
+    assert len(timestamp_keys_infos) == 2
+    snapshot_keys_infos = list_keys_of_role(str(auth_repo_path), "snapshot")
+    assert len(snapshot_keys_infos) == 2
 
 
 def _check_new_role(auth_repo, role_name, paths, keystore_path, parent_name):
