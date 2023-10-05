@@ -2,14 +2,14 @@ import json
 from logging import DEBUG, ERROR
 from typing import Dict, Optional
 import click
+import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils.metadata_utils import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )
 from taf.api.utils.git_utils import check_if_clean, commit_and_push
-
-import taf.repositoriesdb as repositoriesdb
+from taf.messages import git_commit_message
 from pathlib import Path
 
 from taf.auth_repo import AuthenticationRepository
@@ -43,6 +43,8 @@ def add_dependency(
     custom: Optional[Dict] = None,
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
+    push: Optional[bool] = True,
+    no_prompt: Optional[bool] = False,
 ) -> None:
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
@@ -63,7 +65,8 @@ def add_dependency(
         custom (optional): Additional data that will be added to dependencies.json if specified.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
-
+        push (optional): Flag specifying whether to push to remote.
+        no_prompt (optional): Flag specifying whether to ask the user to confirm branch and commit values is they are not specified.
     Side Effects:
         Updates dependencies.json, targets, snapshot and timestamp metadata, writes changes to disk
         and commits them.
@@ -91,7 +94,7 @@ def add_dependency(
 
     if dependency.is_git_repository:
         branch_name, out_of_band_commit = _determine_out_of_band_data(
-            dependency, branch_name, out_of_band_commit
+            dependency, branch_name, out_of_band_commit, no_prompt
         )
     else:
         if branch_name is None or out_of_band_commit is None:
@@ -142,7 +145,10 @@ def add_dependency(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
-        commit_and_push(auth_repo)
+        commit_msg = git_commit_message(
+            "add-dependency", dependency_name=dependency_name
+        )
+        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually.\n")
 
@@ -164,6 +170,7 @@ def remove_dependency(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
+    push: Optional[bool] = True,
 ) -> None:
     """
     Remove a dependency (an authentication repository) from dependencies.json
@@ -175,7 +182,7 @@ def remove_dependency(
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
-
+        push (optional): Flag specifying whether to push to remote
     Side Effects:
         Updates dependencies.json, targets, snapshot and timestamp metadata, writes changes to disk
         and commits them.
@@ -228,13 +235,19 @@ def remove_dependency(
         auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
     )
     if commit:
-        commit_and_push(auth_repo)
+        commit_msg = git_commit_message(
+            "remove-dependency", dependency_name=dependency_name
+        )
+        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually.\n")
 
 
 def _determine_out_of_band_data(
-    dependency: GitRepository, branch_name: str, out_of_band_commit: str
+    dependency: GitRepository,
+    branch_name: str,
+    out_of_band_commit: str,
+    no_prompt: bool,
 ):
     """
     Determines values of out-of-band branch and commit as a part of adding a new
@@ -262,7 +275,7 @@ def _determine_out_of_band_data(
         if branch_name not in branches:
             raise TAFError(f"Commit {out_of_band_commit} not on branch {branch_name}")
 
-    if not is_branch_specified or not is_commit_specified:
+    if not no_prompt and (not is_branch_specified or not is_commit_specified):
         if not click.confirm(
             f"Branch and out-of-band authentication commit will be set to {branch_name} and {out_of_band_commit}. Proceed?"
         ):

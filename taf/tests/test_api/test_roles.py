@@ -272,7 +272,7 @@ def test_remove_role_when_keep_targets(auth_repo_path, roles_keystore):
     assert file_path.is_file()
 
 
-def test_lis_keys(auth_repo_path):
+def test_list_keys(auth_repo_path):
     root_keys_infos = list_keys_of_role(str(auth_repo_path), "root")
     assert len(root_keys_infos) == 3
     targets_keys_infos = list_keys_of_role(str(auth_repo_path), "targets")
