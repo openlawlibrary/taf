@@ -1,7 +1,8 @@
 import click
 import json
-from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, setup_signing_yubikey, setup_test_yubikey
+from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, get_yk_roles, setup_signing_yubikey, setup_test_yubikey
 from taf.exceptions import YubikeyError
+from taf.tools.cli import catch_cli_exception
 
 
 def attach_to_group(group):
@@ -36,6 +37,20 @@ def attach_to_group(group):
         Export the inserted Yubikey's public key and save it to the specified location.
         """
         export_yk_public_pem(output)
+
+    @yubikey.command()
+    @catch_cli_exception(handle=YubikeyError, print_error=True)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    def get_roles(path):
+        """
+        Export the inserted Yubikey's public key and save it to the specified location.
+        """
+        roles_with_paths = get_yk_roles(path)
+        for role, paths in roles_with_paths.items():
+            print(f"\n{role}")
+            for path in paths:
+                print(f"\n  -{path}")
+
 
     @yubikey.command()
     @click.option("--output", help="File to which the exported certificate key will be written. "

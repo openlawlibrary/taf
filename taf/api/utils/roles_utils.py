@@ -11,6 +11,7 @@ from taf.keys import get_key_name
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE
 from taf.repository_tool import (
+    MAIN_ROLES,
     Repository,
     yubikey_signature_provider,
 )
@@ -73,6 +74,20 @@ def create_delegations(
             roles_signing_keys,
             parent=parent_role_obj,
         )
+
+
+@log_on_start(DEBUG, "Finding roles of key", logger=taf_logger)
+def get_roles_and_paths_of_key(
+    public_key: Dict,
+    repository: AuthenticationRepository,
+):
+    repository.find_associated_roles_of_key(public_key)
+    roles = ["targets", "law", "docs", "assets", "rdf"]
+    roles_with_paths: Dict = {role: {} for role in roles}
+    for role in roles:
+        if role not in MAIN_ROLES:
+            roles_with_paths[role] = repository.get_role_paths(role)
+    return roles_with_paths
 
 
 @log_on_start(INFO, "Setting up role {role.name:s}", logger=taf_logger)

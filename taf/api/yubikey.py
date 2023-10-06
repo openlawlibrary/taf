@@ -1,10 +1,13 @@
 from logging import DEBUG, ERROR
-from typing import Optional
+from typing import Dict, Optional
 import click
 
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.utils.roles_utils import get_roles_and_paths_of_key
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
+from taf.repository_tool import MAIN_ROLES, Repository
 from tuf.repository_tool import import_rsakey_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -82,6 +85,32 @@ def export_yk_certificate(path: Optional[str] = None) -> None:
     except Exception:
         print("Could not export certificate. Check if a YubiKey is inserted")
         return
+
+
+@log_on_start(DEBUG, "Listing roles of the inserted YubiKey", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while listing roles of the inserted YubiKey: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
+def get_yk_roles(path: str) -> Dict:
+    """
+    List all roles that the inserted YubiKey whose metadata files can be signed by this YubiKey.
+    In case of delegated targets roles, include the delegation paths.
+
+    Arguments:
+        path: Authentication repository's path.
+    Side Effects:
+        None
+
+    Returns:
+        A dictionary containing roles and delegated paths in case of delegated target roles
+    """
+    auth = AuthenticationRepository(path=path)
+    pub_key = yk.get_piv_public_key_tuf()
+    return get_roles_and_paths_of_key(pub_key, auth)
 
 
 @log_on_start(DEBUG, "Setting up a new signing YubiKey", logger=taf_logger)

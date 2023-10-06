@@ -9,7 +9,7 @@ from taf.log import taf_logger
 
 def catch_cli_exception(func=None, *, handle, print_error=False):
     if not func:
-        return partial(catch_cli_exception, handle=handle)
+        return partial(catch_cli_exception, handle=handle, print_error=print_error)
 
     @wraps(func)
     def wrapper(*args, **kwargs):
