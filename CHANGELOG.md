@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Implement tests for the functions which are directly called by the cli (API package) ([362])
 - Add push flag to all functions that used to always automatically push to remote in order to be able to prevent that behavior ([362])
-- Add a command for listsing all roles (including delegated paths if applicable) whose metadata the inserted YubiKey can sign ([362])
+- Add a command for listing all roles (including delegated paths if applicable) whose metadata the inserted YubiKey can sign ([362])
 - Added mypy static type checking to pre-commit hook ([360])
 
 ### Changed
