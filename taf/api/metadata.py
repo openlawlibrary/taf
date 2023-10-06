@@ -60,7 +60,7 @@ def check_expiration_dates(
 
 
 def print_expiration_dates(
-    expired: Dict, will_expire: Dict, start_date: datetime, interval: int
+    expired: Dict, will_expire: Dict, start_date: datetime, interval: Optional[int] = 30
 ) -> None:
     if expired or will_expire:
         now = datetime.now()

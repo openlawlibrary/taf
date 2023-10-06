@@ -14,6 +14,7 @@ from taf.repository_tool import (
     Repository,
     yubikey_signature_provider,
 )
+from taf.models.types import Role
 from taf.log import taf_logger
 
 
