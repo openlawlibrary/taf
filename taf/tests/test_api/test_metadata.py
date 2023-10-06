@@ -41,7 +41,7 @@ def test_setup_auth_repo_expired(
 
 @freeze_time("2023-01-01")
 def test_check_expiration_date_when_all_expired(auth_repo_path):
-    expired, will_expire = check_expiration_dates(auth_repo_path, print=False)
+    expired, will_expire = check_expiration_dates(auth_repo_path, print_output=False)
     start = datetime.datetime(2021, 12, 31)
     # expect expire after 1 day
     _check_expired_role("timestamp", start, 1, expired)
@@ -88,7 +88,7 @@ def test_update_root_metadata(auth_repo_path, api_keystore):
 @freeze_time("2023-01-01")
 def test_check_expiration_date_when_expired_and_will_expire(auth_repo_path):
     expired, will_expire = check_expiration_dates(
-        auth_repo_path, interval=90, print=False
+        auth_repo_path, interval=90, print_output=False
     )
 
     start = datetime.datetime(2021, 12, 31)
@@ -100,7 +100,9 @@ def test_check_expiration_date_when_expired_and_will_expire(auth_repo_path):
     assert not len(will_expire)
 
     # now set a larger interval, all roles are due to expire before the interval's end
-    _, will_expire = check_expiration_dates(auth_repo_path, interval=365, print=False)
+    _, will_expire = check_expiration_dates(
+        auth_repo_path, interval=365, print_output=False
+    )
     assert len(will_expire) == 3
     for role in ("root", "snapshot", "timestamp"):
         assert role in will_expire
@@ -135,7 +137,7 @@ def test_update_multiple_roles_metadata(auth_repo_path, api_keystore):
 @freeze_time("2023-01-01")
 def test_check_expiration_date_when_no_expired(auth_repo_path):
     expired, will_expire = check_expiration_dates(
-        auth_repo_path, interval=90, print=False
+        auth_repo_path, interval=90, print_output=False
     )
     assert not len(expired)
     assert not len(will_expire)
