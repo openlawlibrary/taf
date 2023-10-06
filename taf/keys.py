@@ -242,9 +242,6 @@ def load_signing_keys(
                     keys.append(key)
                     num_of_signatures += 1
                     continue
-            import pdb
-
-            pdb.set_trace()
 
             all_loaded = not (
                 click.confirm(

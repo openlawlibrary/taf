@@ -51,7 +51,6 @@ def attach_to_group(group):
             for path in paths:
                 print(f"\n  -{path}")
 
-
     @yubikey.command()
     @click.option("--output", help="File to which the exported certificate key will be written. "
                   "The result will be written to the user's home directory by default")
