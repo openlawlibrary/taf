@@ -227,7 +227,9 @@ def load_signing_keys(
 
         return public_key is not None
 
-    keystore_files = get_keystore_keys_of_role(keystore, role)
+    keystore_files = []
+    if keystore is not None:
+        keystore_files = get_keystore_keys_of_role(keystore, role)
     while not all_loaded and num_of_signatures < signing_keys_num:
         all_loaded = num_of_signatures >= threshold
 

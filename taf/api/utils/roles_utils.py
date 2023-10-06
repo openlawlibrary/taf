@@ -5,7 +5,6 @@ from logdecorator import log_on_end, log_on_start
 from tuf.repository_tool import Repository as TUFRepository, Targets
 from taf.exceptions import TAFError
 from taf.models.types import RolesIterator
-from taf.models.types import Role, TargetsRole
 from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import Metadata
 from taf.keys import get_key_name

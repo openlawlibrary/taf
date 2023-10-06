@@ -1,4 +1,3 @@
-
 MESSAGES = {
     "git-commit": {
         "create-repo": "Initialized repository",
@@ -17,6 +16,7 @@ MESSAGES = {
         "remove-role-paths": "Remove delegations {paths} from role {role}",
     }
 }
+
 
 def git_commit_message(key, **kwargs):
     if not len(kwargs):

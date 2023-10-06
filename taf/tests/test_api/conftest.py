@@ -1,6 +1,4 @@
 import json
-import os
-
 
 from pathlib import Path
 from taf.tests.conftest import KEYSTORES_PATH, TEST_DATA_PATH

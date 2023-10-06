@@ -624,7 +624,7 @@ def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
 def list_keys_of_role(
     path: str,
     role: str,
-) -> None:
+) -> List[str]:
     """
      Print information about signing keys of role. If a certificate whose name matches
      a key's id exists, include information contained by that certificate (like name and valid to/from dates)
@@ -718,7 +718,7 @@ def remove_role(
                 if target_file_path.is_file():
                     if remove_targets:
                         os.unlink(str(target_file_path))
-                        removed_targets.append(target_file_path)
+                        removed_targets.append(str(target_file_path))
                     else:
                         added_targets_data[target_file_path] = {}
                 else:

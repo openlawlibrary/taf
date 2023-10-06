@@ -25,7 +25,7 @@ def default_keystore_path() -> str:
     return keystore_path
 
 
-def get_keystore_keys_of_role(keystore: str, role: str) -> str:
+def get_keystore_keys_of_role(keystore: str, role: str) -> List[str]:
     keystores_glob = f"{keystore}/{role}*"
     # Use glob to find matching files
     keystores = glob.glob(keystores_glob)

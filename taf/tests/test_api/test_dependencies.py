@@ -28,6 +28,7 @@ def _init_auth_repo_dir():
 def child_repo_path():
     repo_path = _init_auth_repo_dir()
     yield repo_path
+    shutil.rmtree(str(repo_path.parent), onerror=on_rm_error)
 
 
 @fixture(scope="module")

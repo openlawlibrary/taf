@@ -21,10 +21,10 @@ from taf.log import taf_logger
 )
 def check_expiration_dates(
     path: str,
-    interval: Optional[int] = None,
+    interval: Optional[int] = 30,
     start_date: Optional[datetime] = None,
     excluded_roles: Optional[List[str]] = None,
-    print: bool = True,
+    print_output: bool = True,
 ) -> Tuple[Dict, Dict]:
     """
     Check if any metadata files (roles) are expired or will expire in the next <interval> days.
@@ -51,7 +51,7 @@ def check_expiration_dates(
         interval, start_date, excluded_roles
     )
 
-    if print:
+    if print_output:
         print_expiration_dates(
             expired_dict, will_expire_dict, start_date=start_date, interval=interval
         )

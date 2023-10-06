@@ -247,7 +247,7 @@ def _determine_out_of_band_data(
     dependency: GitRepository,
     branch_name: str,
     out_of_band_commit: str,
-    no_prompt: bool,
+    no_prompt: Optional[bool] = False,
 ):
     """
     Determines values of out-of-band branch and commit as a part of adding a new
