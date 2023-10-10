@@ -1,10 +1,11 @@
 import pytest
+from typing import Dict
 from taf.exceptions import RolesKeyDataConversionError
 from taf.models.converter import from_dict
 from taf.models.types import RolesKeysData
 
 
-def _check_yubikeys(roles_keys_data):
+def _check_yubikeys(roles_keys_data: RolesKeysData):
     assert len(roles_keys_data.yubikeys) == 3
     for key in ("user1", "user2", "userYK"):
         assert key in roles_keys_data.yubikeys
@@ -15,7 +16,7 @@ def _check_yubikeys(roles_keys_data):
         )
 
 
-def _check_main_roles(roles_keys_data):
+def _check_main_roles(roles_keys_data: RolesKeysData):
 
     assert roles_keys_data.roles.root.number == 3
     assert roles_keys_data.roles.root.threshold == 2
@@ -36,7 +37,7 @@ def _check_main_roles(roles_keys_data):
     assert roles_keys_data.roles.timestamp.is_yubikey is False
 
 
-def test_no_delegations(no_delegations_json_input):
+def test_no_delegations(no_delegations_json_input: Dict):
     roles_keys_data = from_dict(no_delegations_json_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
@@ -49,7 +50,7 @@ def test_no_delegations(no_delegations_json_input):
     assert roles_keys_data.roles.targets.delegations == {}
 
 
-def test_no_yubikeys(no_yubikeys_json_input):
+def test_no_yubikeys(no_yubikeys_json_input: Dict):
     roles_keys_data = from_dict(no_yubikeys_json_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
@@ -60,8 +61,8 @@ def test_no_yubikeys(no_yubikeys_json_input):
     assert roles_keys_data.roles.targets.delegations == {}
 
 
-def test_old_yubikey(with_old_yubikey):
-    roles_keys_data = from_dict(with_old_yubikey, RolesKeysData)
+def test_old_yubikey(with_old_yubikey_input: Dict):
+    roles_keys_data = from_dict(with_old_yubikey_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
     assert roles_keys_data.yubikeys is None
@@ -71,7 +72,7 @@ def test_old_yubikey(with_old_yubikey):
     assert roles_keys_data.roles.targets.delegations == {}
 
 
-def test_with_delegations_delegations(with_delegations_json_input):
+def test_with_delegations_delegations(with_delegations_json_input: Dict):
     roles_keys_data = from_dict(with_delegations_json_input, RolesKeysData)
     assert roles_keys_data
     assert isinstance(roles_keys_data, RolesKeysData)
@@ -114,7 +115,7 @@ def test_with_delegations_delegations(with_delegations_json_input):
     )
 
 
-def test_invalid_yubikeys(invalid_keys_number_json_input):
+def test_invalid_yubikeys(invalid_keys_number_json_input: Dict):
     with pytest.raises(RolesKeyDataConversionError) as error:
         from_dict(invalid_keys_number_json_input, RolesKeysData)
     assert (
@@ -123,13 +124,13 @@ def test_invalid_yubikeys(invalid_keys_number_json_input):
     )
 
 
-def test_invalidkeys_number(invalid_public_key_json_input):
+def test_invalidkeys_number(invalid_public_key_json_input: Dict):
     with pytest.raises(RolesKeyDataConversionError) as error:
         from_dict(invalid_public_key_json_input, RolesKeysData)
     assert str(error.value) == "Public key must start with '-----BEGIN PUBLIC KEY-----'"
 
 
-def test_invalid_path(invalid_path_input):
+def test_invalid_path(invalid_path_input: Dict):
     with pytest.raises(RolesKeyDataConversionError) as error:
         from_dict(invalid_path_input, RolesKeysData)
     assert (

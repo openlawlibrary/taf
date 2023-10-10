@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+from typing import Dict
 import uuid
 from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
@@ -47,16 +48,16 @@ def library():
 
 
 def test_setup_auth_repo_when_add_repositories_json(
-    library,
-    with_delegations_no_yubikeys_path,
-    api_keystore,
-    repositories_json_template,
-    mirrors_json_path,
+    library: Path,
+    with_delegations_no_yubikeys_path: str,
+    api_keystore: str,
+    repositories_json_template: Dict,
+    mirrors_json_path: Path,
 ):
     repo_path = library / "auth"
     namespace = library.name
     copy_repositories_json(repositories_json_template, namespace, repo_path)
-    copy_mirrors_json(mirrors_json_path, namespace, repo_path)
+    copy_mirrors_json(mirrors_json_path, repo_path)
 
     create_repository(
         str(repo_path),
@@ -66,7 +67,7 @@ def test_setup_auth_repo_when_add_repositories_json(
     )
 
 
-def test_register_targets_when_file_added(library, api_keystore):
+def test_register_targets_when_file_added(library: Path, api_keystore: str):
     repo_path = library / "auth"
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -81,7 +82,7 @@ def test_register_targets_when_file_added(library, api_keystore):
     assert commits[0].message.strip() == git_commit_message("register-targets")
 
 
-def test_register_targets_when_file_removed(library, api_keystore):
+def test_register_targets_when_file_removed(library: Path, api_keystore: str):
     repo_path = library / "auth"
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -97,7 +98,7 @@ def test_register_targets_when_file_removed(library, api_keystore):
     assert commits[0].message.strip() == git_commit_message("register-targets")
 
 
-def test_update_target_repos_from_repositories_json(library, api_keystore):
+def test_update_target_repos_from_repositories_json(library: Path, api_keystore: str):
     repo_path = library / "auth"
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -118,7 +119,7 @@ def test_update_target_repos_from_repositories_json(library, api_keystore):
     assert commits[0].message.strip() == git_commit_message("register-targets")
 
 
-def test_add_target_repository_when_not_on_filesystem(library, api_keystore):
+def test_add_target_repository_when_not_on_filesystem(library: Path, api_keystore: str):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -147,7 +148,7 @@ def test_add_target_repository_when_not_on_filesystem(library, api_keystore):
     assert target_repo_name in delegated_paths
 
 
-def test_add_target_repository_when_on_filesystem(library, api_keystore):
+def test_add_target_repository_when_on_filesystem(library: Path, api_keystore: str):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -180,7 +181,9 @@ def test_add_target_repository_when_on_filesystem(library, api_keystore):
     assert check_target_file(target_repo_path, target_repo_name, auth_repo)
 
 
-def test_remove_target_repository_when_not_on_filesystem(library, api_keystore):
+def test_remove_target_repository_when_not_on_filesystem(
+    library: Path, api_keystore: str
+):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -214,7 +217,7 @@ def test_remove_target_repository_when_not_on_filesystem(library, api_keystore):
     assert target_repo_name not in delegated_paths
 
 
-def test_remove_target_repository_when_on_filesystem(library, api_keystore):
+def test_remove_target_repository_when_on_filesystem(library: Path, api_keystore: str):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())

@@ -1,6 +1,7 @@
 import shutil
 import uuid
 import pytest
+from pathlib import Path
 from taf.api.dependencies import add_dependency, remove_dependency
 from taf.exceptions import TAFError
 from taf.messages import git_commit_message
@@ -39,10 +40,10 @@ def parent_repo_path():
 
 
 def test_setup_repositories(
-    child_repo_path,
-    parent_repo_path,
-    no_yubikeys_path,
-    api_keystore,
+    child_repo_path: Path,
+    parent_repo_path: Path,
+    no_yubikeys_path: str,
+    api_keystore: str,
 ):
     for path in (child_repo_path, parent_repo_path):
         create_repository(

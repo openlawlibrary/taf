@@ -1,4 +1,5 @@
 import datetime
+from pathlib import Path
 import shutil
 import uuid
 from freezegun import freeze_time
@@ -32,7 +33,9 @@ def auth_repo_path():
     shutil.rmtree(root_dir, onerror=on_rm_error)
 
 
-def test_create_repository_with_targets(auth_repo_path, no_yubikeys_path, api_keystore):
+def test_create_repository_with_targets(
+    auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
+):
     repo_path = str(auth_repo_path)
     # add a new file to the targets directory, check if it was signed
     targets_dir = auth_repo_path / TARGETS_DIRECTORY_NAME
@@ -50,7 +53,7 @@ def test_create_repository_with_targets(auth_repo_path, no_yubikeys_path, api_ke
 
 
 @freeze_time("2023-01-01")
-def test_update_snapshot_and_timestamp(auth_repo_path, api_keystore):
+def test_update_snapshot_and_timestamp(auth_repo_path: Path, api_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     # signs snapshot and timestamp, uses default expiration intervals
     update_snapshot_and_timestamp(
@@ -63,7 +66,7 @@ def test_update_snapshot_and_timestamp(auth_repo_path, api_keystore):
         assert now + datetime.timedelta(interval) == actual_expiration
 
 
-def test_update_target_metadata(auth_repo_path, api_keystore):
+def test_update_target_metadata(auth_repo_path: Path, api_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     # remove one file, add one file, modify one file
     # add a new file to the targets directory, check if it was signed

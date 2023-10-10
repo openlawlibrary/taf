@@ -1,11 +1,15 @@
 import json
 from pathlib import Path
 import shutil
+from typing import Dict
+from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
-def copy_repositories_json(repositories_json_template, namespace, auth_repo_path):
+def copy_repositories_json(
+    repositories_json_template: Dict, namespace: str, auth_repo_path: Path
+):
     output = auth_repo_path / TARGETS_DIRECTORY_NAME
 
     repositories = {
@@ -20,13 +24,16 @@ def copy_repositories_json(repositories_json_template, namespace, auth_repo_path
     Path(output / "repositories.json").write_text(json.dumps(repositories))
 
 
-def copy_mirrors_json(mirrors_json_path, namespace, auth_repo_path):
+def copy_mirrors_json(mirrors_json_path: Path, auth_repo_path: Path):
     output = auth_repo_path / TARGETS_DIRECTORY_NAME
     shutil.copy(str(mirrors_json_path), output)
 
 
 def check_target_file(
-    target_repo_path, target_repo_name, auth_repo, auth_repo_head_sha=None
+    target_repo_path: str,
+    target_repo_name: str,
+    auth_repo: AuthenticationRepository,
+    auth_repo_head_sha: str = None,
 ):
     if auth_repo_head_sha is None:
         auth_repo_head_sha = auth_repo.head_commit_sha()
@@ -42,8 +49,8 @@ def check_target_file(
 
 
 def check_if_targets_signed(
-    auth_repo,
-    signing_role,
+    auth_repo: AuthenticationRepository,
+    signing_role: str,
     *targets_filenames,
 ):
     target_files = auth_repo.all_target_files()
@@ -55,7 +62,7 @@ def check_if_targets_signed(
 
 
 def check_if_targets_removed(
-    auth_repo,
+    auth_repo: AuthenticationRepository,
     *targets_filenames,
 ):
     target_files = auth_repo.all_target_files()

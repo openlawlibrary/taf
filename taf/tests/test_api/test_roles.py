@@ -1,6 +1,7 @@
 import shutil
 import uuid
 from pathlib import Path
+from typing import List
 from taf.api.roles import (
     add_role,
     add_role_paths,
@@ -52,9 +53,9 @@ def roles_keystore():
 
 
 def test_setup_auth_repo(
-    auth_repo_path,
-    no_yubikeys_path,
-    roles_keystore,
+    auth_repo_path: Path,
+    no_yubikeys_path: str,
+    roles_keystore: str,
 ):
     create_repository(
         str(auth_repo_path),
@@ -64,7 +65,7 @@ def test_setup_auth_repo(
     )
 
 
-def test_add_role_when_target_is_parent(auth_repo_path, roles_keystore):
+def test_add_role_when_target_is_parent(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "new_role"
@@ -89,7 +90,9 @@ def test_add_role_when_target_is_parent(auth_repo_path, roles_keystore):
     _check_new_role(auth_repo, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME)
 
 
-def test_add_role_when_delegated_role_is_parent(auth_repo_path, roles_keystore):
+def test_add_role_when_delegated_role_is_parent(
+    auth_repo_path: Path, roles_keystore: str
+):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "new_inner_role"
@@ -115,7 +118,7 @@ def test_add_role_when_delegated_role_is_parent(auth_repo_path, roles_keystore):
 
 
 def test_add_multiple_roles(
-    auth_repo_path, roles_keystore, with_delegations_no_yubikeys_path
+    auth_repo_path: Path, roles_keystore: str, with_delegations_no_yubikeys_path: str
 ):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -140,7 +143,7 @@ def test_add_multiple_roles(
     assert auth_repo.find_delegated_roles_parent("inner_role") == "delegated_role"
 
 
-def test_add_role_paths(auth_repo_path, roles_keystore):
+def test_add_role_paths(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     NEW_PATHS = ["some-path3"]
@@ -163,7 +166,7 @@ def test_add_role_paths(auth_repo_path, roles_keystore):
     assert "some-path3" in roles_paths
 
 
-def test_remove_role_paths(auth_repo_path, roles_keystore):
+def test_remove_role_paths(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     REMOVED_PATHS = ["some-path1"]
@@ -185,7 +188,7 @@ def test_remove_role_paths(auth_repo_path, roles_keystore):
     assert "some-path1" not in roles_paths
 
 
-def test_remove_role_when_no_targets(auth_repo_path, roles_keystore):
+def test_remove_role_when_no_targets(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "inner_role"
@@ -202,7 +205,7 @@ def test_remove_role_when_no_targets(auth_repo_path, roles_keystore):
     )
 
 
-def test_remove_role_when_remove_targets(auth_repo_path, roles_keystore):
+def test_remove_role_when_remove_targets(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "delegated_role"
@@ -243,7 +246,7 @@ def test_remove_role_when_remove_targets(auth_repo_path, roles_keystore):
     assert not file_path2.is_file()
 
 
-def test_remove_role_when_keep_targets(auth_repo_path, roles_keystore):
+def test_remove_role_when_keep_targets(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "new_role"
@@ -272,7 +275,7 @@ def test_remove_role_when_keep_targets(auth_repo_path, roles_keystore):
     assert file_path.is_file()
 
 
-def test_list_keys(auth_repo_path):
+def test_list_keys(auth_repo_path: Path):
     root_keys_infos = list_keys_of_role(str(auth_repo_path), "root")
     assert len(root_keys_infos) == 3
     targets_keys_infos = list_keys_of_role(str(auth_repo_path), "targets")
@@ -283,7 +286,7 @@ def test_list_keys(auth_repo_path):
     assert len(timestamp_keys_infos) == 1
 
 
-def test_add_signing_key(auth_repo_path, roles_keystore):
+def test_add_signing_key(auth_repo_path: Path, roles_keystore: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     # for testing purposes, add targets signing key to timestamp and snapshot roles
@@ -306,7 +309,13 @@ def test_add_signing_key(auth_repo_path, roles_keystore):
     assert len(snapshot_keys_infos) == 2
 
 
-def _check_new_role(auth_repo, role_name, paths, keystore_path, parent_name):
+def _check_new_role(
+    auth_repo: AuthenticationRepository,
+    role_name: str,
+    paths: List[str],
+    keystore_path: str,
+    parent_name: str,
+):
     # check if keys were created
     assert Path(keystore_path, f"{role_name}1").is_file()
     assert Path(keystore_path, f"{role_name}2").is_file()

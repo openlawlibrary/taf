@@ -1,6 +1,8 @@
 import shutil
 import uuid
+from pathlib import Path
 from pytest import fixture
+from typing import Dict
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.messages import git_commit_message
@@ -23,7 +25,7 @@ def auth_repo_path():
     shutil.rmtree(path.parent, onerror=on_rm_error)
 
 
-def _check_repo_initialization_successful(auth_repo):
+def _check_repo_initialization_successful(auth_repo: AuthenticationRepository):
     repo_root_path = auth_repo.path
     metadata_dir = repo_root_path / METADATA_DIRECTORY_NAME
     targets_dir = repo_root_path / TARGETS_DIRECTORY_NAME
@@ -40,7 +42,7 @@ def _check_repo_initialization_successful(auth_repo):
 
 
 def test_create_repository_when_no_delegations(
-    auth_repo_path, no_yubikeys_path, api_keystore
+    auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
 ):
     repo_path = str(auth_repo_path)
     create_repository(
@@ -57,7 +59,7 @@ def test_create_repository_when_no_delegations(
 
 
 def test_create_repository_when_no_delegations_with_test_flag(
-    auth_repo_path, no_yubikeys_path, api_keystore
+    auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
 ):
     repo_path = str(auth_repo_path)
     create_repository(
@@ -75,7 +77,7 @@ def test_create_repository_when_no_delegations_with_test_flag(
 
 
 def test_create_repository_when_delegations(
-    auth_repo_path, with_delegations_no_yubikeys_path, api_keystore
+    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, api_keystore: str
 ):
     repo_path = str(auth_repo_path)
     create_repository(
@@ -94,16 +96,16 @@ def test_create_repository_when_delegations(
 
 
 def test_create_repository_when_add_repositories_json(
-    auth_repo_path,
-    with_delegations_no_yubikeys_path,
-    api_keystore,
-    repositories_json_template,
-    mirrors_json_path,
+    auth_repo_path: Path,
+    with_delegations_no_yubikeys_path: str,
+    api_keystore: str,
+    repositories_json_template: Dict,
+    mirrors_json_path: Path,
 ):
     repo_path = str(auth_repo_path)
     namespace = auth_repo_path.parent.name
     copy_repositories_json(repositories_json_template, namespace, auth_repo_path)
-    copy_mirrors_json(mirrors_json_path, namespace, auth_repo_path)
+    copy_mirrors_json(mirrors_json_path, auth_repo_path)
 
     create_repository(
         repo_path,

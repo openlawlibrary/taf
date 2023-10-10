@@ -76,7 +76,7 @@ def invalid_path_input():
 
 
 @fixture
-def with_old_yubikey():
+def with_old_yubikey_input():
     return _read_json(OLD_YUBIKEY_INPUT)
 
 
