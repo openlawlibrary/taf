@@ -1,6 +1,6 @@
 MESSAGES = {
     "git-commit": {
-        "create-repo": "Initialized repository",
+        "create-repo": "Initialize repository",
         "add-dependency": "Add new dependency {dependency_name}",
         "remove-dependency": "Remove dependency {dependency_name}",
         "add-target": "Add new target {target_name}",

@@ -81,8 +81,7 @@ def get_roles_and_paths_of_key(
     public_key: Dict,
     repository: AuthenticationRepository,
 ):
-    repository.find_associated_roles_of_key(public_key)
-    roles = ["targets", "law", "docs", "assets", "rdf"]
+    roles = repository.find_associated_roles_of_key(public_key)
     roles_with_paths: Dict = {role: {} for role in roles}
     for role in roles:
         if role not in MAIN_ROLES:
