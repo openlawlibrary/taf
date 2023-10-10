@@ -137,6 +137,7 @@ def test_add_target_repository_when_not_on_filesystem(library: Path, api_keystor
     # verify repositories.json was updated and that changes were committed
     # then validate the repository
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
     commits = auth_repo.list_commits()
@@ -166,6 +167,7 @@ def test_add_target_repository_when_on_filesystem(library: Path, api_keystore: s
     # verify repositories.json was updated and that changes were committed
     # then validate the repository
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
     commits = auth_repo.list_commits()
@@ -190,6 +192,7 @@ def test_remove_target_repository_when_not_on_filesystem(
     namespace = library.name
     target_repo_name = f"{namespace}/target4"
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
     remove_target_repo(
@@ -202,6 +205,7 @@ def test_remove_target_repository_when_not_on_filesystem(
     # then validate the repository
     # target repo should not be in the newest repositories.json
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name not in repositories
     commits = auth_repo.list_commits()
@@ -224,6 +228,7 @@ def test_remove_target_repository_when_on_filesystem(library: Path, api_keystore
     namespace = library.name
     target_repo_name = f"{namespace}/new_target"
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert Path(repo_path, TARGETS_DIRECTORY_NAME, target_repo_name).is_file()
     assert target_repo_name in repositories
@@ -237,6 +242,7 @@ def test_remove_target_repository_when_on_filesystem(library: Path, api_keystore
     # then validate the repository
     # target repo should not be in the newest repositories.json
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name not in repositories
     commits = auth_repo.list_commits()

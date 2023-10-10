@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import shutil
-from typing import Dict
+from typing import Dict, Optional
 from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -30,10 +30,10 @@ def copy_mirrors_json(mirrors_json_path: Path, auth_repo_path: Path):
 
 
 def check_target_file(
-    target_repo_path: str,
+    target_repo_path: Path,
     target_repo_name: str,
     auth_repo: AuthenticationRepository,
-    auth_repo_head_sha: str = None,
+    auth_repo_head_sha: Optional[str] = None,
 ):
     if auth_repo_head_sha is None:
         auth_repo_head_sha = auth_repo.head_commit_sha()

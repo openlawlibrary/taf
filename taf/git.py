@@ -1034,7 +1034,7 @@ class GitRepository:
             file_names.add(delta.old_file.path)
         return list(file_names)
 
-    def list_commits(self, branch: Optional[str] = "") -> List[str]:
+    def list_commits(self, branch: Optional[str] = "") -> List[pygit2.Commit]:
         repo = self.pygit_repo
         if repo is None:
             raise GitError(

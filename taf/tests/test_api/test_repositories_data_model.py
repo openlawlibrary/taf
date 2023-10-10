@@ -6,14 +6,15 @@ from taf.models.types import RolesKeysData
 
 
 def _check_yubikeys(roles_keys_data: RolesKeysData):
+    assert roles_keys_data.yubikeys is not None
     assert len(roles_keys_data.yubikeys) == 3
     for key in ("user1", "user2", "userYK"):
         assert key in roles_keys_data.yubikeys
         assert roles_keys_data.yubikeys[key].scheme == "rsa-pkcs1v15-sha256"
     for key in ("user1", "user2"):
-        assert roles_keys_data.yubikeys["user1"].public.startswith(
-            "-----BEGIN PUBLIC KEY-----"
-        )
+        public = roles_keys_data.yubikeys[key].public
+        assert public is not None
+        assert public.startswith("-----BEGIN PUBLIC KEY-----")
 
 
 def _check_main_roles(roles_keys_data: RolesKeysData):
@@ -82,7 +83,9 @@ def test_with_delegations_delegations(with_delegations_json_input: Dict):
     assert roles_keys_data.roles.root.is_yubikey is True
     assert roles_keys_data.roles.targets.yubikeys == ["user1", "user2"]
     assert roles_keys_data.roles.targets.is_yubikey is True
+    assert roles_keys_data.roles.targets.delegations is not None
     assert len(roles_keys_data.roles.targets.delegations) == 1
+    assert roles_keys_data.roles.targets.delegations is not None
     assert "delegated_role" in roles_keys_data.roles.targets.delegations
     assert roles_keys_data.roles.targets.delegations["delegated_role"].paths == [
         "dir1/*",
@@ -94,6 +97,10 @@ def test_with_delegations_delegations(with_delegations_json_input: Dict):
         "user1",
         "user2",
     ]
+    assert (
+        roles_keys_data.roles.targets.delegations["delegated_role"].delegations
+        is not None
+    )
     assert (
         len(roles_keys_data.roles.targets.delegations["delegated_role"].delegations)
         == 1
