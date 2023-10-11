@@ -4,7 +4,7 @@ import shutil
 import uuid
 from freezegun import freeze_time
 from taf.api.repository import create_repository
-from taf.api.utils.metadata_utils import (
+from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )

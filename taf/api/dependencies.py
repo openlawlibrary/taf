@@ -4,11 +4,11 @@ from typing import Dict, Optional
 import click
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils.metadata_utils import (
+from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )
-from taf.api.utils.git_utils import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.messages import git_commit_message
 from pathlib import Path
 

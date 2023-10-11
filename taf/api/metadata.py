@@ -2,7 +2,7 @@ from datetime import datetime
 from logging import INFO, ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
-from taf.api.utils.git_utils import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.keys import load_signing_keys

@@ -7,10 +7,10 @@ from collections import defaultdict
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils.roles_utils import _role_obj, create_delegations
+from taf.api.utils._roles import _role_obj, create_delegations
 from taf.messages import git_commit_message
 from tuf.repository_tool import Targets
-from taf.api.utils.git_utils import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
 from taf.models.types import RolesIterator
@@ -25,7 +25,7 @@ from taf.keys import (
     load_signing_keys,
     load_sorted_keys_of_new_roles,
 )
-from taf.api.utils.metadata_utils import (
+from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )

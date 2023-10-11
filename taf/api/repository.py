@@ -2,11 +2,11 @@ from logging import ERROR, INFO
 from typing import Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils.roles_utils import setup_role
+from taf.api.utils._roles import setup_role
 from taf.messages import git_commit_message
 from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
-from taf.api.utils.git_utils import commit_and_push
+from taf.api.utils._git import commit_and_push
 from taf.models.converter import from_dict
 
 from pathlib import Path
