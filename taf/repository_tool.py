@@ -45,6 +45,7 @@ try:
 except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
+
 # Default expiration intervals per role
 expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
 
@@ -54,6 +55,7 @@ role_keys_cache: Dict = {}
 
 DISABLE_KEYS_CACHING = False
 HASH_FUNCTION = "sha256"
+MAIN_ROLES = ("root", "targets", "snapshot", "timestamp")
 
 
 def get_role_metadata_path(role: str) -> str:
@@ -170,9 +172,9 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
 
 class Repository:
-    def __init__(self, path, repo_name="default"):
+    def __init__(self, path, name="default"):
         self.path = Path(path)
-        self.name = repo_name
+        self.name = name
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
@@ -373,6 +375,14 @@ class Repository:
         """
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
+
+    def get_all_roles(self):
+        """
+        Return a list of all defined roles, main roles combined with delegated targets roles
+        """
+        all_target_roles = self.get_all_targets_roles()
+        all_roles = ["root", "targets", "snapshot", "timestamp"] + all_target_roles
+        return all_roles
 
     def get_all_target_files_state(self):
         """Create dictionaries of added/modified and removed files by comparing current
@@ -714,7 +724,7 @@ class Repository:
 
         return _find_delegated_role("targets", role_name)
 
-    def find_keys_roles(self, public_keys):
+    def find_keys_roles(self, public_keys, check_threshold=True):
         """Find all roles that can be signed by the provided keys.
         A role can be signed by the list of keys if at least the number
         of keys that can sign that file is equal to or greater than the role's
@@ -733,13 +743,30 @@ class Repository:
                     num_of_signing_keys = len(
                         set(delegated_roles_keyids).intersection(key_ids)
                     )
-                    if num_of_signing_keys >= delegated_roles_threshold:
+                    if (
+                        not check_threshold
+                        or num_of_signing_keys >= delegated_roles_threshold
+                    ):
                         keys_roles.append(delegated_role_name)
                     keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
             return keys_roles
 
         keyids = [key["keyid"] for key in public_keys]
         return _map_keys_to_roles("targets", keyids)
+
+    def find_associated_roles_of_key(self, public_key):
+        """
+        Find all roles whose metadata files can be signed by this key
+        Threshold is not important, as long as the key is one of the signing keys
+        """
+        roles = []
+        key_id = public_key["keyid"]
+        for role in MAIN_ROLES:
+            key_ids = self.get_role_keys(role)
+            if key_id in key_ids:
+                roles.append(role)
+        roles.extend(self.find_keys_roles([public_key], check_threshold=False))
+        return roles
 
     def get_all_targets_roles(self):
         """

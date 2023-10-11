@@ -10,15 +10,23 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Implement tests for the functions which are directly called by the cli (API package) ([362])
+- Add push flag to all functions that used to always automatically push to remote in order to be able to prevent that behavior ([362])
+- Add a command for listing all roles (including delegated paths if applicable) whose metadata the inserted YubiKey can sign ([362])
 - Added mypy static type checking to pre-commit hook ([360])
 
 ### Changed
 
+- Move add/remove dependencies to a separate module ([362])
+- Move all API helper functions to separate modules ([362])
 - Fixed errors reported by mypy ([360])
 
 ### Fixed
 
+- Fix keys naming issue after adding a new signing key to a role that only had one signing key ([362])
+- Fix removal of targets when removing a role ([362])
 
+[362]: https://github.com/openlawlibrary/taf/pull/362
 [360]: https://github.com/openlawlibrary/taf/pull/360
 
 ## [0.27.0] - 09/22/2023

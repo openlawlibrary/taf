@@ -70,7 +70,7 @@ def generate_keys(keystore: str, roles_key_infos: str) -> None:
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
-    for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
+    for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
         if not role.is_yubikey:
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)

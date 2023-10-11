@@ -179,7 +179,8 @@ def attach_to_group(group):
         List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
         include additional information read from these certificates, like name or organization.
         """
-        list_keys_of_role(
+        key_infos = list_keys_of_role(
             path=path,
             role=role,
         )
+        print("\n".join(key_infos))

@@ -1,8 +1,5 @@
 import click
-from taf.api.repository import (
-    add_dependency,
-    remove_dependency
-)
+from taf.api.dependencies import add_dependency, remove_dependency
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
 

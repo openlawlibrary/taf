@@ -1,0 +1,26 @@
+{
+    "repositories": {
+        "{namespace}/target1": {
+            "custom": {
+                "allow-unauthenticated-commits":true,
+                "serve":"latest",
+                "location_regex":"~/.*\\.pdf$"
+            }
+        },
+        "{namespace}/target2": {
+            "custom": {
+                "type":"xml",
+                "allow-unauthenticated-commits":true,
+                "serve":"latest",
+                "serve-prefix":"_uncodified_xml"
+            }
+        },
+        "{namespace}/target3": {
+            "custom": {
+                "type":"html",
+                "serve":"historical",
+                "location_regex":"/"
+            }
+        }
+    }
+}

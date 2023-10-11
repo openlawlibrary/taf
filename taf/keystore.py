@@ -1,3 +1,5 @@
+import glob
+import re
 from getpass import getpass
 from os import getcwd
 from pathlib import Path
@@ -21,6 +23,20 @@ def default_keystore_path() -> str:
     keystore_path = str(Path(getcwd(), "keystore"))
     taf_logger.info(f"Keystore path is not passed, using default one: {keystore_path}")
     return keystore_path
+
+
+def get_keystore_keys_of_role(keystore: str, role: str) -> List[str]:
+    keystores_glob = f"{keystore}/{role}*"
+    # Use glob to find matching files
+    keystores = glob.glob(keystores_glob)
+    pattern = r"^{}(?:\d+)?$".format(re.escape(role))
+
+    # Iterate over the matching files
+    return [
+        Path(keystore_path).name
+        for keystore_path in keystores
+        if re.match(pattern, Path(keystore_path).name)
+    ]
 
 
 def _form_private_pem(pem: str) -> str:
@@ -130,7 +146,7 @@ def read_private_key_from_keystore(
         key = _read_key(key_path, password, scheme)
         if key is not None:
             return key
-        if not click.confirm("Could not open keystore file. Try again?"):
+        if not click.confirm(f"Could not open keystore file {key_path}. Try again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
 
 
