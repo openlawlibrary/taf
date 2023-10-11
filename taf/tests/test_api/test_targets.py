@@ -79,7 +79,7 @@ def test_register_targets_when_file_added(library: Path, api_keystore: str):
     check_if_targets_signed(auth_repo, "targets", FILENAME)
     commits = auth_repo.list_commits()
     assert len(commits) == initial_commits_num + 1
-    assert commits[0].message.strip() == git_commit_message("register-targets")
+    assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
 def test_register_targets_when_file_removed(library: Path, api_keystore: str):
@@ -95,7 +95,7 @@ def test_register_targets_when_file_removed(library: Path, api_keystore: str):
     assert FILENAME not in signed_target_files
     commits = auth_repo.list_commits()
     assert len(commits) == initial_commits_num + 1
-    assert commits[0].message.strip() == git_commit_message("register-targets")
+    assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
 def test_update_target_repos_from_repositories_json(library: Path, api_keystore: str):
@@ -116,7 +116,7 @@ def test_update_target_repos_from_repositories_json(library: Path, api_keystore:
         assert check_target_file(target_repo_path, target_repo_name, auth_repo)
     commits = auth_repo.list_commits()
     assert len(commits) == initial_commits_num + 1
-    assert commits[0].message.strip() == git_commit_message("register-targets")
+    assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
 def test_add_target_repository_when_not_on_filesystem(library: Path, api_keystore: str):
