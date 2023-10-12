@@ -1,9 +1,11 @@
 import json
+from logging import ERROR
 import shutil
 import enum
 import tempfile
 
 from typing import Dict, Tuple, Any
+from logdecorator import log_on_error
 from taf.git import GitRepository
 
 from tuf.ngclient.updater import Updater
@@ -77,7 +79,7 @@ def _clone_validation_repo(url, repository_name):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
+    validation_auth_repo = AuthenticationRepository(path=path, urls=[url], alias="Validation repository")
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
@@ -170,6 +172,13 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
             _reset_repository(repo, branch_data)
 
 
+@log_on_error(
+    ERROR,
+    "{e}",
+    logger=taf_logger,
+    on_exceptions=UpdateFailedError,
+    reraise=True,
+)
 @timed_run("Updating repository")
 def update_repository(
     url,
@@ -241,6 +250,7 @@ def update_repository(
         else None
     )
 
+    taf_logger.info(f"Updating repository {auth_repo_name}")
     clients_auth_library_dir = clients_library_dir
     repos_update_data = {}
     transient_data = {}
@@ -280,7 +290,7 @@ def update_repository(
         )
     except Exception as e:
         root_error = UpdateFailedError(
-            f"Update of {auth_repo_name} failed due to error {e}"
+            f"Update of {auth_repo_name} failed due to error: {e}"
         )
 
     update_data = {}
@@ -785,7 +795,7 @@ def _update_target_repositories(
                     ] = additional_commits_on_branch
 
             except UpdateFailedError as e:
-                taf_logger.error("Updated failed due to error {}", str(e))
+                taf_logger.error("Updated failed due to error: {}", str(e))
                 # delete all repositories that were cloned
                 for repo in cloned_repositories:
                     taf_logger.debug("Removing cloned repository {}", repo.path)
@@ -870,7 +880,7 @@ def _run_tuf_updater(git_updater):
                 fetcher=git_updater,
             )
         except Exception as e:
-            taf_logger.error(f"Failed to instantiate TUF Updater due to error {e}")
+            taf_logger.error(f"Failed to instantiate TUF Updater due to error: {e}")
             raise e
 
     def _update_tuf_current_revision():
@@ -902,7 +912,7 @@ def _run_tuf_updater(git_updater):
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
             if not metadata_expired or settings.strict:
                 taf_logger.error(
-                    "Validation of authentication repository {} failed at revision {} due to error {}",
+                    "Validation of authentication repository {} failed at revision {} due to error: {}",
                     git_updater.users_auth_repo.name,
                     current_commit,
                     e,
@@ -912,7 +922,7 @@ def _run_tuf_updater(git_updater):
                     f" failed at revision {current_commit} due to error: {e}"
                 )
             taf_logger.warning(
-                f"WARNING: Could not validate authentication repository {git_updater.users_auth_repo.name} at revision {current_commit} due to error {e}"
+                f"WARNING: Could not validate authentication repository {git_updater.users_auth_repo.name} at revision {current_commit} due to error: {e}"
             )
 
     while not git_updater.update_done():
@@ -1226,7 +1236,7 @@ def validate_repository(
         )
     except Exception as e:
         raise ValidationFailedError(
-            f"Validation or repository {auth_repo_name} failed due to error {e}"
+            f"Validation or repository {auth_repo_name} failed due to error: {e}"
         )
     settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = None

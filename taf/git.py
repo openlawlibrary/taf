@@ -36,6 +36,7 @@ class GitRepository:
         default_branch: Optional[str] = None,
         allow_unsafe: Optional[bool] = False,
         path: Optional[Union[Path, str]] = None,
+        alias: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -52,6 +53,7 @@ class GitRepository:
           default_branch (str): repository's default branch, automatically determined if not specified
           allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
           the containing directory is owned by a different user to be ignored
+          alias: Repository's alias, which will be used in logging statements to reference it
         """
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
@@ -88,6 +90,7 @@ class GitRepository:
             self.library_dir = self.library_dir.resolve()
             self.path = self._validate_repo_path(path)
 
+        self.alias = alias
         self.urls = self._validate_urls(urls)
         self.allow_unsafe = allow_unsafe
         self.custom = custom or {}
@@ -167,6 +170,8 @@ class GitRepository:
 
     @property
     def log_prefix(self) -> str:
+        if self.alias:
+            return f"{self.alias}: "
         return f"Repo {self.name}: "
 
     @property
@@ -242,6 +247,9 @@ class GitRepository:
         return branch
 
     def _get_default_branch_from_remote(self, url: str) -> str:
+        if not self.is_git_repository:
+            self._log_debug("Repository does not exist. Could not determined default branch from remote")
+            return None
         branch = self._git(
             f"ls-remote --symref {url} HEAD",
             log_error=True,
@@ -819,7 +827,11 @@ class GitRepository:
         if url is not None:
             url = url.strip()
             return self._get_default_branch_from_remote(url)
-        return self._get_default_branch_from_local()
+        # there is not point in trying to find the default branch from a local repository
+        # if the directory is not a git repository (e.g. not yet cloned)
+        if self.is_git_repository_root:
+            return self._get_default_branch_from_local()
+        return None
 
     def get_json(
         self, commit: str, path: str, raw: Optional[bool] = False
@@ -994,7 +1006,7 @@ class GitRepository:
             return self.pygit.list_files_at_revision(commit, posix_path)
         except TAFError as e:
             raise e
-        except Exception:
+        except Exception as e:
             self._log_warning(
                 "Perfomance regression: Could not list files with pygit2. Reverting to git subprocess"
             )
@@ -1290,7 +1302,9 @@ class GitRepository:
         # try to get the default branch from the local repository
         errors = []
         try:
-            return self.get_default_branch()
+            branch = self.get_default_branch()
+            if branch is not None:
+                return branch
         except GitError as e:
             errors.append(e)
             pass

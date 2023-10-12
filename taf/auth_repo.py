@@ -36,6 +36,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         conf_directory_root: Optional[str] = None,
         out_of_band_authentication: Optional[str] = None,
         path: Optional[Union[Path, str]] = None,
+        alias: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -51,6 +52,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           custom (dict): a dictionary containing other data
           default_branch (str): repository's default branch, automatically determined if not specified
           out_of_band_authentication (str): manually specified initial commit
+          alias: Repository's alias, which will be used in logging statements to reference it
         """
         super().__init__(
             library_dir,
@@ -60,6 +62,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             default_branch,
             allow_unsafe,
             path,
+            alias,
             *args,
             **kwargs,
         )
@@ -142,6 +145,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     @property
     def log_prefix(self) -> str:
+        if self.alias:
+            return f"{self.alias}: "
         return f"Auth repo {self.name}: "
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
