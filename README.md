@@ -1,20 +1,20 @@
 # TAF (The Archive Framework)
 
-TAF (The Archive Framework) is a framework that aims to provide archival authentication
+TAF is a framework that aims to provide archival authentication
 and ensure that Git repositories can be securely cloned/updated. TAF's implementation
 strongly relies on [The Update Framework (TUF)](https://theupdateframework.github.io),
 which helps developers maintain the security of a software update system. It provides a
 flexible framework and specification that developers can integrate into any software update
 system. TAF integrates Git with TUF:
 
-- TUF targets were modified to authenticate entire Git commits instead of individual files.
+- TUF targets were modified to authenticate Git commits instead of individual files.
   This reduces the metadata size and simplifies authentication.
 - The TUF metadata repository storage utilizes Git. That means TUF metadata files are
   stored in a Git repository, which is referred to as an authentication repository.
 
 When a TAF authentication repository is cloned, all target repositories are also cloned, and
 TUF validation is performed against every commit since the repository's inception. When a TAF
-repository is updated, data is fetched from upstream, and each commit is authenticated. A TAF
+repository is updated, data is fetched from upstream and each commit is authenticated. A TAF
 clone/update differs from a standard Git clone/fetch in that remote commits aren't added to the
 local Git repositories until they've been fully authenticated locally. TAF can be used to secure
 any git repository, regardless of its content.
