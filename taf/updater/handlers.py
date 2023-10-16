@@ -182,6 +182,20 @@ class GitUpdater(FetcherInterface):
             else:
                 raise e
 
+        # check if the last validated commit exists in the remote repository
+        # last_successful_commit could've been manually update to an invalid value
+        # or set to a commit that exists in the local authentication repository
+        # that was not pushed
+        branches_containing_last_validated_commit = (
+            self.validation_auth_repo.branches_containing_commit(last_validated_commit)
+        )
+        default_branch = self.validation_auth_repo.default_branch
+        if default_branch not in branches_containing_last_validated_commit:
+            msg = f"""Last successful commit not on the {default_branch} of the authentication repository.
+This could mean that the a commit was removed from the remote repository or that the last_successful_commit file was manually updated."""
+            taf_logger.error(msg)
+            raise UpdateFailedError(msg)
+
         # Check if the user's head commit matches the saved one
         # That should always be the case
         # If it is not, it means that someone, accidentally or maliciously made manual changes

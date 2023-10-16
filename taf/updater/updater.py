@@ -79,7 +79,9 @@ def _clone_validation_repo(url, repository_name):
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(path=path, urls=[url], alias="Validation repository")
+    validation_auth_repo = AuthenticationRepository(
+        path=path, urls=[url], alias="Validation repository"
+    )
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
@@ -795,7 +797,7 @@ def _update_target_repositories(
                     ] = additional_commits_on_branch
 
             except UpdateFailedError as e:
-                taf_logger.error("Updated failed due to error: {}", str(e))
+                taf_logger.error("Update failed due to error: {}", str(e))
                 # delete all repositories that were cloned
                 for repo in cloned_repositories:
                     taf_logger.debug("Removing cloned repository {}", repo.path)
@@ -1254,7 +1256,6 @@ def _validate_authentication_repository(
     # we validate it before updating the actual authentication repository
     validation_auth_repo = repository_updater.validation_auth_repo
     commits = repository_updater.commits
-
     if (
         out_of_band_authentication is not None
         and users_auth_repo.last_validated_commit is None
