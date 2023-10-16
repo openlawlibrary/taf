@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Docs: update readme, add acknowledgements ([365])
 - Move add/remove dependencies to a separate module ([362])
 - Move all API helper functions to separate modules ([362])
 - Fixed errors reported by mypy ([360])
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix keys naming issue after adding a new signing key to a role that only had one signing key ([362])
 - Fix removal of targets when removing a role ([362])
 
+[362]: https://github.com/openlawlibrary/taf/pull/362
 [362]: https://github.com/openlawlibrary/taf/pull/362
 [360]: https://github.com/openlawlibrary/taf/pull/360
 
