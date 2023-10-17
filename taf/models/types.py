@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Iterator, List, Optional, Dict
+from typing import Any, Iterator, List, Optional, Dict
 import attrs
 
 from taf.constants import DEFAULT_ROLE_SETUP_PARAMS
@@ -171,3 +171,58 @@ class RolesIterator:
 
         for role in roles:
             yield from _dfs_delegations(role, self.skip_top_role)
+
+
+@attrs.define
+class CommitInfo:
+    commit: str = attrs.field()
+    custom: Dict[str, Any] = attrs.field()
+    auth_commit: str = attrs.field()
+
+@attrs.define
+class TargetInfo:
+    branches: Dict[str, List[CommitInfo]] = attrs.field()
+
+    def get_branch(self, branch_name: str) -> List[CommitInfo]:
+        return self.branches.get(branch_name, [])
+
+@attrs.define
+class TargetsSortedCommitsData:
+    targets: Dict[str, TargetInfo] = attrs.field()
+
+    def __getitem__(self, repo_name: str) -> TargetInfo:
+        return self.targets.get(repo_name)
+
+    @classmethod
+    def from_dict(cls, data_dict: Dict[str, Dict[str, List[Dict[str, Any]]]]) -> 'TargetsSortedCommitsData':
+        targets = {}
+
+        for repo_name, branches_dict in data_dict.items():
+            commits_by_branch = {}
+            for branch_name, commits_list in branches_dict.items():
+                commits = [
+                    CommitInfo(
+                        commit=commit_data["commit"],
+                        custom=commit_data["custom"],
+                        auth_commit=commit_data["auth_commit"],
+                    )
+                    for commit_data in commits_list
+                ]
+                commits_by_branch[branch_name] = commits
+            targets[repo_name] = TargetInfo(branches=commits_by_branch)
+
+        return cls(targets=targets)
+
+
+@attrs.define
+class TargetAtCommitInfo:
+    repo_name: str = attrs.field()
+    branch: str = attrs.field()
+    commit: str = attrs.field()
+    custom: Dict[str, Any] = attrs.field()
+
+
+@attrs.define
+class AuthCommitGroup:
+    auth_commit: str = attrs.field()
+    target_infos: List[TargetAtCommitInfo] = attrs.field(factory=list)

@@ -3,10 +3,11 @@ import os
 import tempfile
 import fnmatch
 
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+from taf.models.types import AuthCommitGroup, TargetAtCommitInfo
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.git import GitRepository
 from taf.repository_tool import (
@@ -218,6 +219,41 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
+
+    def targets_data_per_auth_commits(
+        self,
+        commits: List[str],
+        target_repos: Optional[List[str]] = None,
+        default_branch: Optional[str] = None,
+        excluded_target_globs: Optional[List[str]] = None,
+    ):
+        auth_commit_targets_data: List[AuthCommitGroup] = []
+        targets = self.targets_at_revisions(
+            *commits, target_repos=target_repos, default_branch=default_branch
+        )
+        skipped_targets = []
+        excluded_target_globs = excluded_target_globs or []
+        for auth_commit in commits:
+            current_auth_commit_info = AuthCommitGroup(auth_commit, [])
+            auth_commit_targets_data.append(current_auth_commit_info)
+            for target_path, target_data in targets[auth_commit].items():
+                if target_path in skipped_targets:
+                    continue
+                if any(
+                    fnmatch.fnmatch(target_path, excluded_target_glob)
+                    for excluded_target_glob in excluded_target_globs
+                ):
+                    skipped_targets.append(target_path)
+                    continue
+                target_branch = target_data.get("branch")
+                target_commit = target_data.get("commit")
+                target_custom = target_data.get("custom")
+
+                current_auth_commit_info.target_infos.append(
+                    TargetAtCommitInfo(target_path, target_branch, target_commit, target_custom)
+                )
+        return auth_commit_targets_data
+
     def sorted_commits_and_branches_per_repositories(
         self,
         commits: List[str],
@@ -225,7 +261,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
-    ) -> Dict[str, Dict[str, List[Dict]]]:
+    ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {
