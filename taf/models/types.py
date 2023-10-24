@@ -222,7 +222,12 @@ class TargetAtCommitInfo:
     custom: Dict[str, Any] = attrs.field()
 
 
+# TODO this needs to be sorted by branches
+# if that is not the case, then that will have to be done
+# elsewhere in the code
+# better in the auth repo function
+
 @attrs.define
-class AuthCommitGroup:
+class AuthCommitAndTargets:
     auth_commit: str = attrs.field()
     target_infos: List[TargetAtCommitInfo] = attrs.field(factory=list)

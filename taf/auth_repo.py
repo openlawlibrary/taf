@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from taf.models.types import AuthCommitGroup, TargetAtCommitInfo
+from taf.models.types import AuthCommitAndTargets, TargetAtCommitInfo
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.git import GitRepository
 from taf.repository_tool import (
@@ -227,14 +227,14 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
     ):
-        auth_commit_targets_data: List[AuthCommitGroup] = []
+        auth_commit_targets_data: List[AuthCommitAndTargets] = []
         targets = self.targets_at_revisions(
             *commits, target_repos=target_repos, default_branch=default_branch
         )
         skipped_targets = []
         excluded_target_globs = excluded_target_globs or []
         for auth_commit in commits:
-            current_auth_commit_info = AuthCommitGroup(auth_commit, [])
+            current_auth_commit_info = AuthCommitAndTargets(auth_commit, [])
             auth_commit_targets_data.append(current_auth_commit_info)
             for target_path, target_data in targets[auth_commit].items():
                 if target_path in skipped_targets:
