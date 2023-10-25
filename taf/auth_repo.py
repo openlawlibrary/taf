@@ -220,39 +220,63 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
 
-    def targets_data_per_auth_commits(
-        self,
-        commits: List[str],
-        target_repos: Optional[List[str]] = None,
-        default_branch: Optional[str] = None,
-        excluded_target_globs: Optional[List[str]] = None,
-    ):
-        auth_commit_targets_data: List[AuthCommitAndTargets] = []
+    def targets_data_by_auth_commits(
+            self,
+            commits: List[str],
+            target_repos: Optional[List[str]] = None,
+            custom_fns: Optional[Dict[str, Callable]] = None,
+            default_branch: Optional[str] = None,
+            excluded_target_globs: Optional[List[str]] = None,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """
+        Return a dictionary where each target repository has associated authentication commits,
+        and for each authentication commit, there's a dictionary of the branch, commit and custom data.
+
+        {
+            'target_repo1': {
+                'auth_commit1': {'branch': 'branch1', 'commit': 'commit1', 'custom': {}},
+                'auth_commit2': {'branch': 'branch1', 'commit': 'commit2', 'custom': {}},
+                ...
+            },
+            'target_repo2': {
+                ...
+            },
+            ...
+        }
+
+        """
+        repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
         targets = self.targets_at_revisions(
             *commits, target_repos=target_repos, default_branch=default_branch
         )
-        skipped_targets = []
         excluded_target_globs = excluded_target_globs or []
-        for auth_commit in commits:
-            current_auth_commit_info = AuthCommitAndTargets(auth_commit, [])
-            auth_commit_targets_data.append(current_auth_commit_info)
-            for target_path, target_data in targets[auth_commit].items():
-                if target_path in skipped_targets:
-                    continue
+        for commit in commits:
+            for target_path, target_data in targets[commit].items():
                 if any(
                     fnmatch.fnmatch(target_path, excluded_target_glob)
                     for excluded_target_glob in excluded_target_globs
                 ):
-                    skipped_targets.append(target_path)
                     continue
+
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
-                target_custom = target_data.get("custom")
+                target_data.setdefault("custom", {})
+                if custom_fns is not None and target_path in custom_fns:
+                    target_data["custom"].update(
+                        custom_fns[target_path](target_commit)
+                    )
 
-                current_auth_commit_info.target_infos.append(
-                    TargetAtCommitInfo(target_path, target_branch, target_commit, target_custom)
-                )
-        return auth_commit_targets_data
+                repositories_commits.setdefault(target_path, {})[commit] = {
+                    "branch": target_branch,
+                    "commit": target_commit,
+                    "custom": target_data.get("custom"),
+                }
+
+        self._log_debug(
+            f"new commits per repositories according to target files: {repositories_commits}"
+        )
+        return repositories_commits
+
 
     def sorted_commits_and_branches_per_repositories(
         self,

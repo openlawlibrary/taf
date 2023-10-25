@@ -1,4 +1,5 @@
 from __future__ import annotations
+import datetime
 import json
 import itertools
 import os
@@ -805,6 +806,19 @@ class GitRepository:
         if remote is None:
             remote = self.remotes[0]
         self._git(f"push {remote} --delete {branch_name}", log_error=True)
+
+    def get_commit_date(self, commit_sha: str) -> str:
+        """Returns commit date of the given commit"""
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Could not get commit message. pygit repository could not be instantiated."
+            )
+        commit = repo.get(commit_sha)
+        date = datetime.utcfromtimestamp(commit.commit_time + commit.commit_time_offset)
+        formatted_date = date.strftime('%Y-%m-%d')
+        return formatted_date
+
 
     def get_commit_message(self, commit_sha: str) -> str:
         """Returns commit message of the given commit"""
