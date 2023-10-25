@@ -1,3 +1,4 @@
+from collections import defaultdict
 import functools
 from logging import ERROR, INFO
 from pathlib import Path
@@ -5,6 +6,7 @@ import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
 from attr import attrs, field
+from git import GitError
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.git import GitRepository
 
@@ -34,6 +36,8 @@ class UpdateState:
     target_repositories: Dict[GitRepository] = field(factory=dict)
     cloned_target_repositories: List[GitRepository] = field(factory=list)
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
+    old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
+    fetched_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = field(factory=dict)
 
 
 @attrs
@@ -58,7 +62,33 @@ def cleanup_decorator(pipeline_function):
                 shutil.rmtree(self.state.users_auth_repo.conf_dir)
     return wrapper
 
-class UpdaterPipeline:
+
+class Pipeline:
+
+    def __init__(self, steps):
+        self.steps = steps
+
+    def run(self):
+        for step in self.steps:
+            try:
+                should_continue = step()
+                if not should_continue:
+                    break
+
+            except Exception as e:
+                self._handle_error(e)
+                break
+
+            self._set_output()
+
+    def _handle_error(self, e):
+        pass
+
+    def _set_output(self):
+        pass
+
+class AuthenticationRepositoryUpdatePipeline(Pipeline):
+
 
     def __init__(
         self, url, clients_auth_library_dir, targets_library_dir, auth_repo_name,
@@ -66,6 +96,21 @@ class UpdaterPipeline:
         only_validate, validate_from_commit, conf_directory_root, out_of_band_authentication,
         checkout, excluded_target_globs
     ):
+
+        super().__init__(steps=[
+            self.clone_remote_and_run_tuf_updater,
+            self.validate_out_of_band_and_update_type,
+            self.clone_or_fetch_users_auth_repo,
+            self.load_target_repositories,
+            self.clone_target_repositories_if_not_on_disk,
+            self.get_targets_data_from_auth_repo,
+            self.validate_target_repositories_initial_state,
+            self.get_target_repositories_commits,
+            self.update_target_repositories,
+            self.merge_branch_commits
+        ])
+
+
         self.url = url
         self.clients_auth_library_dir = clients_auth_library_dir
         self.targets_library_dir = targets_library_dir
@@ -90,31 +135,6 @@ class UpdaterPipeline:
         if not self._output:
             raise ValueError("Pipeline has not been run yet. Please run the pipeline first.")
         return self._output
-
-    def run(self):
-        steps = [
-            self.clone_remote_and_run_tuf_updater,
-            self.validate_out_of_band_and_update_type,
-            self.clone_or_fetch_users_auth_repo,
-            self.load_target_repositories,
-            self.clone_target_repositories_if_not_on_disk,
-            self.get_targets_data_from_auth_repo,
-            self.validate_target_repositories,
-            self.merge_branch_commits
-        ]
-
-        for step in steps:
-            try:
-                should_continue = step()
-                if not should_continue:
-                    break
-
-            except Exception as e:
-                self.handle_error(e)
-                break  # If you want to stop further execution upon any error.
-
-            self._set_output()
-
 
     @log_on_start(INFO, "Cloning repository and running TUF updater", logger=taf_logger)
     @log_on_end(INFO, "TUF validation finished", logger=taf_logger)
@@ -267,10 +287,117 @@ class UpdaterPipeline:
                  self.state.target_branches_data_from_auth_repo.setdefault(target_info.name, set()).add(target_info.branch)
 
 
-    def validate_target_repositories(self):
-        # Implement logic
-        # Update self.state as necessary
-        pass
+    def validate_target_repositories_initial_state(self):
+        try:
+            self.state.old_heads_per_target_repos_branches = defaultdict(dict)
+            for repo_name, repository in self.target_repositories:
+                for branch in self.target_branches_data_from_auth_repo[repo_name]:
+                    # if last_validated_commit is None or if the target repository didn't exist prior
+                    # to calling update, start the update from the beginning
+                    # otherwise, for each branch, start with the last validated commit of the local branch
+                    branch_exists = repository.branch_exists(branch, include_remotes=False)
+                    if not branch_exists and self.only_validate:
+                        self.state.targets_data = {}
+                        msg = f"{repo_name} does not contain a local branch named {branch} and cannot be validated. Please update the repositories"
+                        taf_logger.error(msg)
+                        raise UpdateFailedError(msg)
+
+                    # TODO
+                    repo_branch_commits = []
+                    if (
+                        self.last_validated_commit is None
+                        or not repository.is_git_repository_root
+                        or not branch_exists
+                        or not len(repo_branch_commits)
+                    ):
+                        old_head = None
+                    else:
+                        old_head = repo_branch_commits[0]
+                        if not _is_unauthenticated_allowed(repository):
+                            repo_old_head = repository.top_commit_of_branch(branch)
+                            # do the same as when checking the top and last_validated_commit of the authentication repository
+                            if repo_old_head != old_head:
+                                commits_since = repository.all_commits_since_commit(old_head)
+                                if repo_old_head not in commits_since:
+                                    msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
+                                    taf_logger.error(msg)
+                                    raise UpdateFailedError(msg)
+                    self.state.old_heads_per_target_repos_branches[repo_name][branch] = old_head
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            # TODO remove cloned?
+            return False
+
+
+    def get_target_repositories_commits(self):
+        """Returns a list of newly fetched commits belonging to the specified branch."""
+        self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
+        for repo_name, repository in self.target_repositories:
+            for branch in self.target_branches_data_from_auth_repo[repo_name]:
+                if repository.is_git_repository_root:
+                    repository.fetch(branch=branch)
+
+                old_head = self.state.old_heads_per_target_repos_branches[repo_name][branch]
+                if old_head is not None:
+                    if not self.only_validate:
+                        fetched_commits = repository.all_commits_on_branch(
+                            branch=f"origin/{branch}"
+                        )
+
+                        # if the local branch does not exist (the branch was not checked out locally)
+                        # fetched commits will include already validated commits
+                        # check which commits are newer that the previous head commit
+                        if old_head in fetched_commits:
+                            fetched_commits_on_target_repo_branch = fetched_commits[
+                                fetched_commits.index(old_head) + 1 : :
+                            ]
+                        else:
+                            fetched_commits_on_target_repo_branch = repository.all_commits_since_commit(
+                                old_head, branch
+                            )
+                            for commit in fetched_commits:
+                                if commit not in fetched_commits_on_target_repo_branch:
+                                    fetched_commits_on_target_repo_branch.append(commit)
+                    else:
+                        fetched_commits_on_target_repo_branch = repository.all_commits_since_commit(
+                            old_head, branch
+                        )
+                    fetched_commits_on_target_repo_branch.insert(0, old_head)
+                else:
+                    branch_exists = repository.branch_exists(branch, include_remotes=False)
+                    if branch_exists:
+                        # this happens in the case when last_validated_commit does not exist
+                        # we want to validate all commits, so combine existing commits and
+                        # fetched commits
+                        fetched_commits_on_target_repo_branch = repository.all_commits_on_branch(
+                            branch=branch, reverse=True
+                        )
+                    else:
+                        fetched_commits_on_target_repo_branch = []
+                    if not self.only_validate:
+                        try:
+                            fetched_commits = repository.all_commits_on_branch(
+                                branch=f"origin/{branch}"
+                            )
+                            # if the local branch does not exist (the branch was not checked out locally)
+                            # fetched commits will include already validated commits
+                            # check which commits are newer that the previous head commit
+                            for commit in fetched_commits:
+                                if commit not in fetched_commits_on_target_repo_branch:
+                                    fetched_commits_on_target_repo_branch.append(commit)
+                        except GitError:
+                            pass
+                self.state.fetched_commits_per_target_repos_branches[repo_name][branch] = fetched_commits_on_target_repo_branch
+
+
+    def update_target_repositories(self):
+        for auth_commit in self.state.auth_commits_since_last_validated:
+            # update target repositories given that auth_commit
+            # what if unauthenticated are allowed?
+            # rework update, transition to bfs
+            pass
+
 
     def merge_branch_commits(self):
         # Implement logic
@@ -310,12 +437,6 @@ class UpdaterPipeline:
         )
 
 
-
-class UpdateTargetRepositoriesPipeline():
-    # sub-pipeline
-    # called for each auth repo commit
-    pass
-
 def _clone_validation_repo(url, repository_name):
     """
     Clones the authentication repository based on the url specified using the
@@ -350,12 +471,10 @@ def _clone_validation_repo(url, repository_name):
     validation_auth_repo.cleanup()
     return repository_name
 
-
 def _is_unauthenticated_allowed(repository):
     return repository.custom.get(
         "allow-unauthenticated-commits", False
     )
-
 
 def _run_tuf_updater(git_updater):
     def _init_updater():
@@ -421,32 +540,3 @@ def _run_tuf_updater(git_updater):
         "Successfully validated authentication repository {}",
         git_updater.users_auth_repo.name,
     )
-
-def _set_target_old_head_and_validate(
-    repository,
-    branch,
-    branch_exists,
-    last_validated_commit,
-    is_git_repository,
-    repo_branch_commits,
-    allow_unauthenticated_for_repo,
-):
-    if (
-        last_validated_commit is None
-        or not is_git_repository
-        or not branch_exists
-        or not len(repo_branch_commits)
-    ):
-        old_head = None
-    else:
-        old_head = repo_branch_commits[0]
-        if not allow_unauthenticated_for_repo:
-            repo_old_head = repository.top_commit_of_branch(branch)
-            # do the same as when checking the top and last_validated_commit of the authentication repository
-            if repo_old_head != old_head:
-                commits_since = repository.all_commits_since_commit(old_head)
-                if repo_old_head not in commits_since:
-                    msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
-                    taf_logger.error(msg)
-                    raise UpdateFailedError(msg)
-    return old_head
