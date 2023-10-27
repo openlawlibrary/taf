@@ -815,7 +815,7 @@ class GitRepository:
                 "Could not get commit message. pygit repository could not be instantiated."
             )
         commit = repo.get(commit_sha)
-        date = datetime.utcfromtimestamp(commit.commit_time + commit.commit_time_offset)
+        date = datetime.datetime.utcfromtimestamp(commit.commit_time + commit.commit_time_offset)
         formatted_date = date.strftime('%Y-%m-%d')
         return formatted_date
 
