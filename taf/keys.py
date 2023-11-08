@@ -221,50 +221,48 @@ def load_signing_keys(
             retry_on_failure=retry_on_failure,
         )
 
-        if public_key is not None:
+        if public_key is not None and public_key not in yubikeys:
             yubikeys.append(public_key)
             print(f"Successfully loaded {key_name} from inserted YubiKey")
-
-        return public_key is not None
+            return True
+        return False
 
     keystore_files = []
     if keystore is not None:
         keystore_files = get_keystore_keys_of_role(keystore, role)
     while not all_loaded and num_of_signatures < signing_keys_num:
-        all_loaded = num_of_signatures >= threshold
+        if num_of_signatures >= threshold:
+            if not click.confirm(
+                f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
+            ):
+                break
 
-        if not all_loaded:
-            # when loading from keystore files
-            # there is no need to ask the user if they want to load more key, try to load from keystore
-            if num_of_signatures < len(keystore_files):
-                key = _load_from_keystore(keystore_files[num_of_signatures])
-                if key is not None:
-                    keys.append(key)
-                    num_of_signatures += 1
-                    continue
-
-            all_loaded = not (
-                click.confirm(
-                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
-                )
-            )
-
-            key_name = get_key_name(role, num_of_signatures, signing_keys_num)
-            if _load_and_append_yubikeys(key_name, role, False):
-                num_of_signatures += 1
-                continue
-
-            if click.confirm(f"Sign {role} using YubiKey(s)?"):
-                _load_and_append_yubikeys(key_name, role, True)
-                num_of_signatures += 1
-                continue
-
-            if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
-                key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+        # when loading from keystore files
+        # there is no need to ask the user if they want to load more key, try to load from keystore
+        if num_of_signatures < len(keystore_files):
+            key = _load_from_keystore(keystore_files[num_of_signatures])
+            if key is not None:
                 keys.append(key)
                 num_of_signatures += 1
-            else:
-                raise SigningError(f"Cannot load keys of role {role}")
+                continue
+
+        # try to load from the inserted YubiKey, without asking the user to insert it
+        key_name = get_key_name(role, num_of_signatures, signing_keys_num)
+        if _load_and_append_yubikeys(key_name, role, False):
+            num_of_signatures += 1
+            continue
+
+        if click.confirm(f"Sign {role} using YubiKey(s)?"):
+            _load_and_append_yubikeys(key_name, role, True)
+            num_of_signatures += 1
+            continue
+
+        if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
+            key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
+            keys.append(key)
+            num_of_signatures += 1
+        else:
+            raise SigningError(f"Cannot load keys of role {role}")
 
     return keys, yubikeys
 
@@ -283,7 +281,7 @@ def setup_roles_keys(
     yubikey_keys = []
     keystore_keys = []
 
-    yubikey_ids = role.yubikeys
+    yubikey_ids = role.yubikey_ids
     if yubikey_ids is None:
         yubikey_ids = []
     if users_yubikeys_details is None:
@@ -337,7 +335,7 @@ def _setup_yubikey_roles_keys(
                 key_scheme = users_yubikeys_details[key_id].scheme
             key_scheme = key_scheme or role.scheme
             public_key = _setup_yubikey(
-                yubikeys, role.name, key_id, key_scheme, certs_dir
+                yubikeys, role.name, key_id, yubikey_keys, key_scheme, certs_dir
             )
             loaded_keys_num += 1
         yubikey_keys.append(public_key)
@@ -349,6 +347,7 @@ def _setup_yubikey_roles_keys(
                 if _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key):
                     loaded_keys_num += 1
                     loaded_keys.append(key_id)
+                    yubikey_keys.append(public_key)
                 if loaded_keys_num == role.threshold:
                     break
             if loaded_keys_num < role.threshold:
@@ -358,7 +357,7 @@ def _setup_yubikey_roles_keys(
                     raise SigningError("Not enough signing keys")
                 for key_id in loaded_keys:
                     yk_with_public_key.pop(key_id)
-        return yubikey_keys
+    return yubikey_keys
 
 
 def _setup_keystore_key(
@@ -461,11 +460,12 @@ def _setup_yubikey(
     yubikeys: Optional[Dict],
     role_name: str,
     key_name: str,
+    loaded_keys: Optional[list[str]] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     certs_dir: Optional[Union[Path, str]] = None,
 ) -> Dict:
+    print(f"Registering keys for {key_name}")
     while True:
-        print(f"Registering keys for {key_name}")
         use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
         if not use_existing:
             if not click.confirm(
@@ -484,13 +484,15 @@ def _setup_yubikey(
             pin_confirm=True,
             pin_repeat=True,
         )
+        if use_existing and key in loaded_keys:
+            print("Key already loaded. Please insert a different YubiKey")
+        else:
+            if not use_existing:
+                key = yk.setup_new_yubikey(serial_num, scheme)
 
-        if not use_existing:
-            key = yk.setup_new_yubikey(serial_num, scheme)
-
-        if certs_dir is not None:
-            export_yk_certificate(certs_dir, key)
-        return key
+            if certs_dir is not None:
+                export_yk_certificate(certs_dir, key)
+            return key
 
 
 def _load_and_verify_yubikey(

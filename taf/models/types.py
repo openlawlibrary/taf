@@ -54,6 +54,16 @@ class Role:
             self.yubikey is True or (self.yubikeys is not None and len(self.yubikeys))
         )
 
+    @property
+    def yubikey_ids(self):
+        if not self.is_yubikey:
+            return []
+        if self.yubikeys:
+            return self.yubikeys
+        if self.number == 1:
+            return [self.name]
+        return [f"{self.name}{counter}" for counter in range(1, self.number + 1)]
+
 
 @attrs.define
 class RootRole(Role):
