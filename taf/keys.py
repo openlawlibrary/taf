@@ -473,7 +473,7 @@ def _setup_yubikey(
     yubikeys: Optional[Dict],
     role_name: str,
     key_name: str,
-    loaded_keys: Optional[list[str]] = None,
+    loaded_keys: List[str],
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     certs_dir: Optional[Union[Path, str]] = None,
 ) -> Dict:
