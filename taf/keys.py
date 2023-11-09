@@ -165,6 +165,22 @@ def load_sorted_keys_of_new_roles(
         raise SigningError("Could not load keys of new roles")
 
 
+def _load_from_keystore(taf_repo, keystore_path, key_name, num_of_signatures, scheme, role):
+    if keystore_path is None:
+        return None
+    if (keystore_path / key_name).is_file():
+        try:
+            key = read_private_key_from_keystore(
+                keystore_path, key_name, num_of_signatures, scheme
+            )
+            # load only valid keys
+            if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
+                return key
+        except KeystoreError:
+            pass
+    return None
+
+
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
 def load_signing_keys(
     taf_repo: Repository,
@@ -191,26 +207,11 @@ def load_signing_keys(
     # if the keystore file is not found, ask the user if they want to sign
     # using yubikey and to insert it if that is the case
 
-    kesytore_path = None
+    keystore_path = None
     if keystore is not None:
-        kesytore_path = Path(keystore).expanduser().resolve()
+        keystore_path = Path(keystore).expanduser().resolve()
     else:
         print("Keystore location not provided")
-
-    def _load_from_keystore(key_name):
-        if kesytore_path is None:
-            return None
-        if (kesytore_path / key_name).is_file():
-            try:
-                key = read_private_key_from_keystore(
-                    kesytore_path, key_name, num_of_signatures, scheme
-                )
-                # load only valid keys
-                if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
-                    return key
-            except KeystoreError:
-                pass
-        return None
 
     def _load_and_append_yubikeys(
         key_name, role, retry_on_failure, hide_already_loaded_message
@@ -240,7 +241,8 @@ def load_signing_keys(
         # when loading from keystore files
         # there is no need to ask the user if they want to load more key, try to load from keystore
         if num_of_signatures < len(keystore_files):
-            key = _load_from_keystore(keystore_files[num_of_signatures])
+            key_name = keystore_files[num_of_signatures]
+            key = _load_from_keystore(taf_repo, keystore_path, key_name, num_of_signatures, scheme, role)
             if key is not None:
                 keys.append(key)
                 num_of_signatures += 1
