@@ -165,7 +165,9 @@ def load_sorted_keys_of_new_roles(
         raise SigningError("Could not load keys of new roles")
 
 
-def _load_from_keystore(taf_repo, keystore_path, key_name, num_of_signatures, scheme, role):
+def _load_from_keystore(
+    taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
+):
     if keystore_path is None:
         return None
     if (keystore_path / key_name).is_file():
@@ -242,7 +244,9 @@ def load_signing_keys(
         # there is no need to ask the user if they want to load more key, try to load from keystore
         if num_of_signatures < len(keystore_files):
             key_name = keystore_files[num_of_signatures]
-            key = _load_from_keystore(taf_repo, keystore_path, key_name, num_of_signatures, scheme, role)
+            key = _load_from_keystore(
+                taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
+            )
             if key is not None:
                 keys.append(key)
                 num_of_signatures += 1
