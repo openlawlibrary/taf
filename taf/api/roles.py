@@ -895,8 +895,14 @@ def _update_role(
     from either a keystore file or yubikey and sign the file without updating
     snapshot and timestamp and writing changes to disk
     """
+    loaded_yubikeys: Dict = {}
     keystore_keys, yubikeys = load_signing_keys(
-        auth_repo, role, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        auth_repo,
+        role,
+        loaded_yubikeys,
+        keystore,
+        scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
     )
     if len(keystore_keys):
         auth_repo.update_role_keystores(role, keystore_keys, write=False)

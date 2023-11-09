@@ -169,8 +169,8 @@ def load_sorted_keys_of_new_roles(
 def load_signing_keys(
     taf_repo: Repository,
     role: str,
+    loaded_yubikeys: Optional[Dict],
     keystore: Optional[str] = None,
-    loaded_yubikeys: Optional[Dict] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
 ) -> Tuple[List[Dict], List[Dict]]:
@@ -212,15 +212,17 @@ def load_signing_keys(
                 pass
         return None
 
-    def _load_and_append_yubikeys(key_name, role, retry_on_failure):
+    def _load_and_append_yubikeys(
+        key_name, role, retry_on_failure, hide_already_loaded_message
+    ):
         public_key, _ = yk.yubikey_prompt(
             key_name,
             role,
             taf_repo,
             loaded_yubikeys=loaded_yubikeys,
             retry_on_failure=retry_on_failure,
+            hide_already_loaded_message=hide_already_loaded_message,
         )
-
         if public_key is not None and public_key not in yubikeys:
             yubikeys.append(public_key)
             print(f"Successfully loaded {key_name} from inserted YubiKey")
@@ -230,12 +232,10 @@ def load_signing_keys(
     keystore_files = []
     if keystore is not None:
         keystore_files = get_keystore_keys_of_role(keystore, role)
+
+    prompt_for_yubikey = True
+    use_yubikey_for_signing_confirmed = False
     while not all_loaded and num_of_signatures < signing_keys_num:
-        if num_of_signatures >= threshold:
-            if not click.confirm(
-                f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
-            ):
-                break
 
         # when loading from keystore files
         # there is no need to ask the user if they want to load more key, try to load from keystore
@@ -246,15 +246,26 @@ def load_signing_keys(
                 num_of_signatures += 1
                 continue
 
+        if num_of_signatures >= threshold:
+            if not click.confirm(
+                f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
+            ):
+                break
+
         # try to load from the inserted YubiKey, without asking the user to insert it
         key_name = get_key_name(role, num_of_signatures, signing_keys_num)
-        if _load_and_append_yubikeys(key_name, role, False):
+        if _load_and_append_yubikeys(key_name, role, False, True):
             num_of_signatures += 1
             continue
 
-        if click.confirm(f"Sign {role} using YubiKey(s)?"):
-            _load_and_append_yubikeys(key_name, role, True)
-            num_of_signatures += 1
+        if prompt_for_yubikey:
+            if click.confirm(f"Sign {role} using YubiKey(s)?"):
+                use_yubikey_for_signing_confirmed = True
+            prompt_for_yubikey = False
+
+        if use_yubikey_for_signing_confirmed:
+            if _load_and_append_yubikeys(key_name, role, True, False):
+                num_of_signatures += 1
             continue
 
         if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
