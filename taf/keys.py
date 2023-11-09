@@ -253,9 +253,13 @@ def load_signing_keys(
                 continue
 
         if num_of_signatures >= threshold:
-            if not click.confirm(
-                f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
-            ):
+            if use_yubikey_for_signing_confirmed:
+                if not click.confirm(
+                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
+                ):
+                    break
+            else:
+                # loading from keystore files, couldn't load from all of them, but loaded enough
                 break
 
         # try to load from the inserted YubiKey, without asking the user to insert it
