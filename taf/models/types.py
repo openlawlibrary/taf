@@ -57,7 +57,7 @@ class Role:
     @property
     def yubikey_ids(self):
         if not self.is_yubikey:
-            return []
+            return None
         if self.yubikeys:
             return self.yubikeys
         if self.number == 1:
