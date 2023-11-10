@@ -37,7 +37,7 @@ Such an attacker could then:
 TAF's primary objective is not to prevent the attacks listed above but rather to detect when
 an attack has occurred and halt an update if necessary. Thus, TAF should be used instead of
 directly calling `git pull` and `git clone`.
-```
+
 
 ## Further reading
 
