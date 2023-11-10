@@ -416,6 +416,7 @@ def yubikey_prompt(
     pin_repeat=True,
     prompt_message=None,
     retry_on_failure=True,
+    hide_already_loaded_message=False,
 ):
     def _read_and_check_yubikey(
         key_name,
@@ -448,7 +449,8 @@ def yubikey_prompt(
             and serial_num in loaded_yubikeys
             and role in loaded_yubikeys[serial_num]
         ):
-            print("Key already loaded")
+            if not hide_already_loaded_message:
+                print("Key already loaded")
             return False, None, None
 
         # read the public key, unless a new key needs to be generated on the yubikey

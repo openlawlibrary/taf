@@ -47,8 +47,8 @@ def update_snapshot_and_timestamp(
         keystore_keys, yubikeys = load_signing_keys(
             taf_repo,
             role,
-            keystore,
             loaded_yubikeys,
+            keystore,
             scheme=scheme,
             prompt_for_keys=prompt_for_keys,
         )
@@ -117,8 +117,8 @@ def update_target_metadata(
         keystore_keys, yubikeys = load_signing_keys(
             taf_repo,
             role,
-            keystore,
             loaded_yubikeys,
+            keystore,
             scheme=scheme,
             prompt_for_keys=prompt_for_keys,
         )

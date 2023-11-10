@@ -24,10 +24,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix loading of keys and create repo when old yubikey flag is used ([370])
 - Fix keys naming issue after adding a new signing key to a role that only had one signing key ([362])
 - Fix removal of targets when removing a role ([362])
 
-[362]: https://github.com/openlawlibrary/taf/pull/362
+[370]: https://github.com/openlawlibrary/taf/pull/370
+[365]: https://github.com/openlawlibrary/taf/pull/365
 [362]: https://github.com/openlawlibrary/taf/pull/362
 [360]: https://github.com/openlawlibrary/taf/pull/360
 
