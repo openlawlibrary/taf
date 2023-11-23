@@ -117,7 +117,6 @@ TUF's target role, but follow its specification otherwise.
 
 ## TUF Repository and Metadata
 
-'
 The main idea is to avoid modifying TUF specification at all and find a workaround for specifying
 repositories as targets.
 
