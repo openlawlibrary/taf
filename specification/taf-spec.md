@@ -524,6 +524,16 @@ Commit SHA: 5678efgh
   └─ repository.json
 ```
 
+To ensure ease of use in managing and maintaining authentication repositories, TAF is equipped with a
+series of Command Line Interface (CLI) commands. These commands are designed to automate the setup
+process, making it accessible and efficient for users. By simply inputting parameters for signing
+keys, signature thresholds, and roles, the CLI commands facilitate the automatic creation of
+authentication repositories. Additionally, for the purpose of updating repositories, TAF's CLI
+commands are tailored to simplify the modification of target and metadata files. This includes tasks
+such as updating the expiration dates of metadata files. The commands also enable the addition of new
+roles, the integration of new target and reference authentication repositories within the TAF
+framework.
+
 ## 4 Tracking valid states of target repositories
 
 This section explains how TAF tracks changes across multiple target repositories.
