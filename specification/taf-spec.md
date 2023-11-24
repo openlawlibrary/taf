@@ -1,6 +1,6 @@
 # TAF specification
 
-Nov 23, 2023
+Nov 24, 2023
 
 Version 0.1-alpha
 
@@ -19,11 +19,14 @@ initial setup and ongoing update of metadata in compliance with TUF specificatio
 as the management of the relevant information about the Git repositories under its
 protection.
 
+The keywords "MUST," "MUST NOT," "REQUIRED," "SHALL," "SHALL NOT," "SHOULD," "SHOULD NOT,"
+"RECOMMENDED," "MAY," and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
+
 ### 1.2 Motivation
 
 In the current landscape of rapid digital transformation, a trend significantly accelerated
 by the global pandemic but with origins well before 2020, ensuring the integrity and
-accessibility of electronically stored documents is a critical challenge. The initial
+accessibility of electronically stored documents is a pressing matter. The initial
 motivation for developing TAF was its application in protecting Git repositories that store
 legal documents, aiming to guarantee their long-term availability and authenticity.
 However, the architecture and functionalities of TAF are designed to be agnostic of the
@@ -35,9 +38,7 @@ of older versions of committed data. Git also focuses on providing tools to ensu
 integrity and authorship of code. A notable feature is the ability to sign commits and tags
 with a GPG key. This signature mechanism serves as a verification that the commit was made
 by the individual holding the corresponding private key, thus authenticating the authorship
-of the commit.
-
-Additionally, Git offers robust access control mechanisms, particularly when integrated
+of the commit. Additionally, Git offers robust access control mechanisms, particularly when integrated
 with hosting platforms such as GitHub, GitLab, or Bitbucket. These platforms enable
 repository owners to set permissions controlling who can read from or write to a
 repository, effectively protecting the codebase against unauthorized alterations.
@@ -49,7 +50,7 @@ or gain unauthorized access to a developer's personal computer. In such scenario
 attacker might be capable of uploading a new GPG key to a platform like GitHub, pushing
 malicious commits, altering user permissions, or even rewriting the repository's history
 through force-pushes. These vulnerabilities highlight the need for additional security
-measures beyond what Git natively offers.
+measures beyond what Git and hosting platforms offer.
 
 Furthermore, ongoing concerns about Git's reliance on the SHA-1 hashing algorithm, known for its vulnerability
 to collision attacks where two different inputs can yield the same hash output, remain significant.
@@ -77,78 +78,64 @@ the [National Science Foundation (NSF)](https://www.nsf.gov).
 
 ### 1.4 Goals
 
-In the ever-evolving digital landscape, where crucial data resides in Git
-repositories, TAF aims to implement an additional layer of security, enhancing
-the protections offered by Git and hosting platforms. It needs to ensure
-straightforward management and validation, as well as the ability to securely
-and easily clone and update repositories it is securing.
+In the ever-evolving digital landscape, where crucial data resides in Git repositories, TAF aims to
+implement an additional layer of security, enhancing the protections offered by Git and hosting
+platforms. It is focused on ensuring straightforward management and validation, along with the ability
+to securely and easily clone and update repositories it is securing.
 
 #### 1.4.1 Attack detection goals
 
-TAF's principal goals encompass the detection of unauthorized pushes to
-Git repositories under its protection, as well as any alterations to
-previously validated history, which may include the removal or
-substitution of commits. Validation should not rely on information
-stored on code hosting platforms like GitHub or GitLab (e.g., whether a
-user is listed as a collaborator or the SSH and GPG keys associated
-with an account), given that an attacker could potentially access a
-user's account or personal computer. It should not be feasible to make
-changes to the Git repositories without signing TUF metadata files
-using, preferably using a threshold of hardware keys, at least not in
-a way that passes TAF's validation.
+TAF's principal goals encompass the detection of unauthorized pushes to Git repositories under its
+protection, as well as any alterations to previously validated history. This could include the removal
+or substitution of commits. Validation should not rely on information stored on code hosting
+platforms like GitHub or GitLab (e.g., collaborator status or associated SSH and GPG keys), as an
+attacker could potentially access a user's account or personal computer. It should be impossible to
+make changes to the Git repositories without signing TUF metadata files, preferably using a threshold
+of hardware keys, in a way that passes TAF's validation.
 
 #### 1.4.2 Existence of multiple copies and out-of-band authentication
 
-Interested parties should be able to securely and easily create local copies of
-the protected Git repositories (provided they are publicly accessible), along
-with the corresponding TUF data for validation, even if they do not have the
-update privileges. They should be capable of validating all signatures and
-attestations, extending back to the very first release of the repository.
-Additionally, they should have the means to directly verify the integrity of
-the initial release by reaching out to the official repository maintainers via
-something other than the original receiving channel, such as a telephone call.
+Interested parties should be able to securely and easily create local copies of the protected Git
+repositories (provided they are publicly accessible), along with the corresponding TUF data for
+validation, even if they do not have update privileges. They should be able to validate all signatures
+and attestations, extending back to the repository's very first commit. Additionally, they should have
+the means to directly verify the integrity of the initial commit by reaching out to the official
+repository maintainers via alternative channels, such as a telephone call.
 
-This approach lays the foundation for designing systems wherein multiple participants can
-download and host repositories, serving as an additional layer of security. The existence
-of backup copies in such a system can aid in recovery from attacks, including those
-exploiting SHA-1 vulnerabilities. It's important to note, however, that while such a
-system can be built on top of TAF, it extends beyond TAF's core functionalities. The
+This approach lays the foundation for designing systems where multiple participants can download and
+host repositories, serving as an additional layer of security. The existence of backup copies can aid in
+recovery from attacks, including those exploiting SHA-1 vulnerabilities. However, it's important to note
+that such a system, while buildable on top of TAF, extends beyond TAF's core functionalities. The
 detailed exploration of this extended application is covered in a separate document.
 
 #### 1.4.3 User experience goals
 
 User experience goals include:
 
-- Ease of Setup and Maintenance: Supply tools and utilities designed to
-simplify the initial configuration, as well as all subsequent updates,
-of TUF metadata files and TUF target files containing information about
-relevant Git repositories. Additionally, ensure ease of configuration
-and usage of hardware keys for signing.
-- Safe and Simple Update of Git Repositories: Ensure that the processes
-for cloning and updating repositories under TAF's protection are
-user-friendly and straightforward, with clear and helpful error
-messages provided to aid troubleshooting in case of issues.
-- Content Agnosticism: Maintain a design and functionality that is
-completely agnostic to the content stored within the secured Git
-repositories. The framework should not make any assumptions or have any
-expectations about the type of content it is protecting.
+- Ease of setup and maintenance: providing tools and utilities designed to simplify the initial
+configuration and all subsequent updates of TUF metadata files and TUF target files containing
+information about relevant Git repositories. Additionally, ensuring ease of configuration and usage
+of hardware keys for signing.
+- Safe and simple update of Git repositories: ensuring that the processes for cloning and updating
+repositories under TAF's protection are user-friendly and straightforward, offering clear and helpful
+error messages to aid in troubleshooting any issues that arise.
+- Content agnosticism: maintaining a design and functionality that is completely agnostic to the
+content stored within the secured Git repositories. The framework should not make assumptions or
+have expectations about the type of content it is protecting.
 
 ### 1.5 Non-goals
 
-TAF does not aim to provide an absolute guarantee against unauthorized
-modifications of repositories; its primary focus is on the detection of
-such modifications. In the event of an attack, TAF seeks to identify the
-unauthorized changes and prevent them from being pulled down.
+TAF does not aim to provide an absolute guarantee against unauthorized modifications of repositories.
+Its primary focus is on detecting such modifications. In the event of an attack, TAF seeks to
+identify unauthorized changes and prevent them from being pulled down.
 
-Moreover, TAF operates on top of Git and does not modify or improve Git's
-underlying functionality or security features. While Git has known
-vulnerabilities, such as susceptibility to collision attacks, addressing these
-issues at the Git level is outside the scope of TAF.
+Moreover, TAF operates on top of Git and does not modify or enhance Git's underlying functionality or
+security features. While Git has known vulnerabilities, such as susceptibility to collision attacks,
+addressing these issues at the Git level is outside TAF's scope.
 
-TAF does not concern itself with the specific processes or workflows involved
-in updating the repositories under its protection. Its primary role comes into
-play after changes are committed, providing the mechanisms to attest to the
-validity of these changes.
+TAF does not concern itself with the specific processes or workflows involved in updating the repositories
+under its protection. Its primary role is activated after changes are committed, providing mechanisms to
+attest to the validity of these changes.
 
 ## 2 System overview
 
@@ -173,31 +160,30 @@ Detailed descriptions can be found in TUF specification:
 In TAF, target files preserve their original definition from TUF. On the other hand,
 TUF allows flexibility in choosing filenames and directory structures for target files within a
 repository, while TAF sets clear guidelines. It requires a specific directory structure, mandates target
-files named after their respective target repositories, and necessitates additional target files that link
+files named after their respective target repositories, and requires additional target files that link
 an authentication repository with its target repositories and other authentication repositories.
 Furthermore, TAF supports the use of YubiKeys, although it does not make their use mandatory.
 
 The following are high-level steps for using the framework:
 
-- Maintainers: Use tools provided by TAF to set up the authentication repository and
-provide information about the target repositories.
-- Maintainers: After new commits are pushed to the target repositories, use TAF tools
-to update corresponding information stored in the authentication repository.
-- Users: Use a tool provided by TAF, known as the 'updater', to validate remote
-repositories and synchronize their local copies of the repositories with the remote:
-  - Validate the authentication repository by ensuring that, at each commit, the
-  repository’s state complies with TUF's specifications.
-  - Perform validation of target repositories based on the data stored in the
-  authentication repository. Compare commit SHAs stored in the authentication
-  repository with actual commit SHAs of the target repositories.
-  - Create or update local copies of the authentication and target repositories as
-  necessary.
+- Maintainers: use tools provided by TAF to set up the authentication repository and provide
+information about the target repositories.
+- Maintainers: after new commits are pushed to the target repositories, use TAF tools to update
+corresponding information stored in the authentication repository.
+- Users: use a tool provided by TAF, known as the "updater", to validate remote repositories and
+synchronize their local copies of the repositories with the remote:
+  - validate the authentication repository by ensuring that, at each commit, the repository's
+  state complies with TUF's specifications.
+  - perform validation of target repositories based on the data stored in the authentication
+  repository. Compare commit SHAs stored in the authentication repository with actual commit
+  SHAs of the target repositories.
+  - create or update local copies of the authentication and target repositories as necessary.
 
 One important thing to note is that, since the authentication repository is also a Git
 repository, there's no need to store the entire commit history of target repositories all at
 once. Instead, each commit in the authentication repository represents a specific valid state
-of the target repositories as a whole system. To access previous valid states, refer to older
-commits within the authentication repository itself.
+of the whole set of target repositories. To access previous valid states, refer to older
+commits within the authentication repository.
 
 ### 2.1 Content addressable systems and TUF
 
@@ -227,35 +213,40 @@ defined, which is where an authentication repository and a generic TUF repositor
 ### 3.1 Repository layout
 
 Like all TUF repositories, the filesystem layout of an authentication repository includes metadata and
-targets directories. Technically, an authentication repository does not have to reference any target
+targets directories. The TUF specification does not mandate a specific structure or name for the directory
+that stores the target files. Nevertheless, TAF adopts the naming convention from TUF's reference
+implementation, which means that metadata files MUST be inside a directory called `metadata`, while the
+target files MUST reside in a directory named `targets`.
+
+Technically, an authentication repository does not have to reference any target
 repositories, but if it does, a strict naming convention is enforced. This naming convention mimics that
 of GitHub, where the names of the target repositories are structured in two parts:
 
 - Organization name (referred to as namespace by TAF)
 - Repository name
 
-This structured approach ensures consistency and facilitates easier management and reference of target
-repositories within the authentication repository.
-
 Organizations in GitHub are shared accounts where businesses, open-source projects, or other
 collaborative groups can manage multiple repositories. Repositories host project files and
 enable version control. So the `organization/repository` format is used for various
 operations involving repositories in GitHub.
 
-The validation of target repositories is carried out by comparing the commit SHAs
-stored in the target files of the authentication repository with the actual commits in
-these repositories. The locations of these target files are determined based on their
-full names. That means that if a repository's full (which includes the namespace) is
-`namespace/repository`, the commit SHA will be stored in `targets/namespace` folder, in
-a file called `repository`.
+In TAF, a target repository MUST be identified by its full name, which consists of a namespace
+and its name, formatted as `namespace/repository`. This full name MUST be unique within the
+context of a single authentication repository.
+
+The validation of target repositories in TAF is executed by comparing the commit SHAs listed in the
+target files of the authentication repository against the actual commits present in these
+repositories. The location and names of these target files within the `targets` directory MUST adhere
+to a specific convention. Each file is named after its respective repository, and its parent directory
+is named after the repository's namespace. For instance, if a repository's full name is
+`namespace/repository`, the commit SHA will be stored in the `targets/namespace` folder, in a file
+named `repository`.
 
 Moreover, to specify the associations between an authentication repository and its
 target repositories, as well as relationships between different authentication
 repositories, TAF introduces specifically named and structured target files. Only
 individuals in possession of the necessary targets keys can modify these files,
-ensuring any unauthorized changes are identified and flagged.
-
-These crucial target files include:
+ensuring any unauthorized changes are identified and flagged. These target files include:
 
 - `repositories.json`: This file provides a list of the target repositories.
 - `dependencies.json`: This file contains details about other authentication repositories.
@@ -265,33 +256,28 @@ These crucial target files include:
 
 All types of target files will be described in more detail in the next section.
 
-Note: We are considering removal of some of these files and moving this information to metadata files, but in order to that, we need update TAF so that it's compatible with the newest version of TUF and metadata API. We are currently relying on some code that was removed from TUF and that's why we can't smoothly update our fork.
+Note: We are considering removal of some of these files and moving this information to metadata files, but in
+order to that, we need update TAF so that it's compatible with the newest version of TUF and metadata API. We
+are currently relying on some code that was removed from TUF and that's why we can't smoothly update our fork.
 
 ### 3.2 Target files
 
-The TUF specification does not mandate a specific structure or name for the directory that stores the
-target files. Nevertheless, TAF adopts the naming convention from TUF's reference implementation, which
-means it expects target files to reside in a directory named `targets`. Furthermore, TAF requires certain
-types of target files in order to perform validation of repositories. Modification of target files
-requires update and signing  Modifying these target files involves updating and signing TUF metadata
-files. This process ensures a high level of security, as only individuals possessing the necessary
-signing keys are authorized to make changes.
-
-If information from this section is moved to metadata files, the section will be updated. However,
-maintaining backward compatibility will always be necessary.
-
-It is also worth noting that TAF allows existence of additional target files, not included in this
+TAF requires certain types of target files in order to perform validation of repositories.
+Modifying these target files involves updating and signing TUF metadata files. This process ensures a high
+level of security, as only individuals possessing the signing keys are authorized to make changes.
+It is worth noting that TAF allows existence of additional target files, not included in this
 overview, if a specific use-case requires them.
+
+Note: if information from this section is moved to metadata files, the section will be updated. However,
+maintaining backward compatibility will always be necessary.
 
 #### 3.2.1 repositories.json
 
 In TAF, an authentication repository is configured to reference one or more Git repositories, which
-can contain various types of content. These are known as target repositories. Additionally, an
-authentication repository has the capability to reference other authentication repositories, though
-this information is stored separately. It's expected that all target repositories are listed in a
-specific target file named `repositories.json``. As previously mentioned, TAF identifies repositories
-using a naming convention that combines a namespace with the names of individual repositories within
-that namespace.
+can contain various types of content. These are known as target repositories.
+All target repositories MUST be listed in a specific target file named `repositories.json`.
+As previously mentioned, TAF identifies repositories using a naming convention that combines
+a namespace with the names of individual repositories within that namespace.
 
 An example of this file is as follows:
 
@@ -315,21 +301,24 @@ An example of this file is as follows:
 
 In this JSON structure:
 
-- Each repository is identified uniquely, like `namespace/repo1` and `namespace/repo2`
-- Within each repository's configuration, the custom object allows for specification of
-additional data that might be useful to the repository's maintainers and is not required bt TAF.
-- An exception is `allow-unauthenticated-commits` custom property. When this
-property is set to `true` for a target repository, it indicates that the repository is permitted
-to contain unauthenticated commits between authenticated ones. This effectively means
-that a target repository can include commits that are not stored in the authentication
-repository. In such cases, TAF's updater tool is designed to recognize and skip over these
-unauthenticated commits during its validation process.
+- Each repository MUST be identified uniquely, like `namespace/repo1` and `namespace/repo2`
+- Within each repository's configuration, there MAY be a `custom` property allowing for the
+specification of additional data that might be useful to the repository's maintainers and is
+not required by TAF.
+  - One exceptions is the `unauthenticated-commits` custom property. When this
+  property is set to `true` for a target repository, it indicates that the repository is permitted
+  to contain unauthenticated commits between authenticated ones. This effectively means
+  that a target repository can include commits that are not stored in the authentication
+  repository. In such cases, TAF's updater tool is designed to recognize and skip over these
+  unauthenticated commits during its validation process.
 
 Note: this is how TAF works and this concept of unauthenticated commits is something that we need in order to improve user experience at the moment. It was inspired by how our biggest partner is using the platform and their preferred workflows. I know that we talked about it and that it might be problematic. Additionally, I'm realizing that it makes little sense to place a property that the framework uses under custom. This needs to be addressed, but we still need backwards compatibility.
 
 #### 3.2.2 mirrors.json
 
-This file is used to list URLs of repositories. It utilizes a dynamic resolution mechanism, which
+This file is used for determining the URLs of repositories. It MUST be present in cases where the
+authentication repository references other repositories, whether they are target repositories or
+additional authentication repositories. It utilizes a dynamic resolution mechanism, which
 is closely tied to the repository information specified in `repositories.json`. `mirrors.json`
 contains URL templates with placeholders – `{org_name}` and `{repo_name}`. The actual URLs for
 each repository are resolved by replacing these placeholders with the corresponding namespace and
@@ -365,9 +354,9 @@ accessibility issues or server downtime, TAF then proceeds to the next URL in th
 
 In TAF, commit SHAs for each target repository are stored in a structured manner. The storage
 location is determined by the namespace and name of the repository. For a repository named
-namespace1/name1, the commit SHA data is stored in a directory named namespace1, in a file titled
-name1. These file are in JSON format and includes the commit SHA, the branch name, and
-potentially other custom properties. An example of this file's contents is:
+`namespace1/name1`, the commit SHA data is stored in a directory named `namespace1`, in a file titled
+`name1`. These files are in JSON format and MUST include the commit SHA and the branch name, and
+MAY contain other custom properties. An example of this file's contents is:
 
 ```markdown
 {
@@ -377,8 +366,8 @@ potentially other custom properties. An example of this file's contents is:
 }
 ```
 
-The system is designed to store only the current commit SHA for each target repository at any
-given time. As the authentication repository itself is a Git repository, every commit in it
+The system is designed to store only the current commit SHA for each target repository and its branches
+at any given time. As the authentication repository itself is a Git repository, every commit in it
 represents a valid snapshot of the target repositories. When there's a change in the target
 commit SHA, the respective file in the authentication repository is updated along with the
 metadata files. These updates are then signed and committed. Further details on this process will
@@ -386,15 +375,14 @@ be provided in a subsequent section.
 
 #### 3.2.4 dependencies.json
 
-Beginning with version `0.9.0``, the updater in TAF introduces the capability to define
-hierarchies of authentication repositories. This allows the designation of a primary, or root,
-authentication repository, which can be linked to one or more secondary authentication
-repositories. The updater is engineered to automatically pull the entire hierarchy of linked
-repositories.
+This file allows definition of hierarchies of authentication repositories. This allows the
+designation of a primary, or root, authentication repository, which can be linked to one or more
+secondary authentication repositories. TAF's updater can automatically pull the entire
+hierarchy of linked repositories.
 
 One important concept introduced in this file is out-of-band authentication. Before an
-authentication repository is referenced, an additional layer of verification is advised. This
-involves direct, external validation, typically through communication with the repository's
+authentication repository is referenced, an additional layer of verification SHOULD be performed.
+This involves direct, external validation, typically through communication with the repository's
 maintainer. The purpose of this step is to ascertain that the repository in question is indeed
 the official one and not a fraudulent version created by an attacker. During this out-of-band
 communication, maintainers are expected to provide a commit SHA (typically of the first commit),
@@ -402,8 +390,7 @@ which serves as a proof of authenticity. This commit SHA can then be recorded in
 file. When the updater tool processes the repositories, it checks for the presence of this
 recorded commit. If the repository’s actual commit SHA of the initial commit does not match the
 one stored in `dependencies.json`, the updater raises an error, signaling a potential security
-issue. Performing out-of-band authentication and listing the out-of-band commit is not required,
-but is encouraged. Although detailed discussions on building a web of trust are reserved for a
+issue. Although detailed discussions on building a web of trust are reserved for a
 different document, it's important to note that this out-of-band data can lay the groundwork for
 such a system.
 
@@ -422,12 +409,13 @@ This is an example of a `dependecies.json`:
 }
 ```
 
-In this configuration each entry under the dependencies key represents
-a separate authentication repository, identified by its namespace and name.
+In this configuration each entry under the dependencies key represents a separate authentication
+repository, identified by its namespace and name. A referenced repository's full name, with namespace,
+MUST be unique within one authentication repository.
 
 #### 3.2.5 protected/info.json
 
-The `protected/info.json` file in TAF is a supplementary file that plays is meant for
+The `protected/info.json` file in TAF is a supplementary file that is meant for
 storing authentication repository's own metadata, or, more specifically, its name.
 An example of the file's content is as follows:
 
@@ -445,38 +433,39 @@ its filesystem path.
 
 #### 3.2.6 Scripts
 
-Every authentication repository can contain target files inside `targets/scripts` folder which
+Every authentication repository MAY contain target files inside `targets/scripts` folder which
 are expected to be Python scripts which will be executed after successful/failed update of
 that repository. More detailed information about the purpose and functionality of these
-scripts will be covered in the updater section of this document.
+scripts will be covered in later, when describing the updater.
 
 ### 3.3 Creation and update of authentication repositories
 
 Initializing an authentication repository in TAF involves the following steps:
 
-- Creation of the initial TUF repository: This includes generating initial metadata files that conform to
-the TUF specification. It involves specifying customizable properties of TUF repositories, such as:
+- Creation of the initial TUF repository: this includes generating initial metadata files that conform to
+the TUF specification. To do so, it is necessary to specify customizable properties of TUF repositories,
+such as:
   - Keys that will be responsible for signing specific metadata files, in other words, assigning keys to
   various roles as defined in the TUF specification.
   - Signature thresholds per roles.
   - Delegated roles and their properties. These roles allow for more detailed control over target files.
   For each delegated role, the paths they are trusted to provide are specified.
-- Handling existing target files: If a targets folder already exists on disk, at the intended location,
+- Handling existing target files: if the `targets` folder already exists on disk, at the intended location,
 and contains target files, these files should be included in the initial version of the repository's
-targets metadata files, or those of a delegated role.
-- Initialization of a new Git repository: Set up a new Git repository and a default branch, typically
-named `main``. This step may also involve setting up a remote.
-- Committing initial metadata and target files: The final step is to commit the initial metadata and
+`targets` metadata file, or those of a delegated role.
+- Initialization of a new Git repository: set up a new Git repository and a default branch, typically
+named `main`. This step may also involve setting up a remote.
+- Committing initial metadata and target files: the final step is to commit the initial metadata and
 target files to the repository, marking the start of its version history.
 
 Updating metadata and target files in TAF is done in accordance with the TUF specification.
 However, after each update, changes are committed. An update does not simply mean modification
 of any metadata or target file, but a valid update of the TUF repository as a whole. Therefore:
 
-- If any metadata file is updated, it needs to be signed by at least the threshold number of keys.
+- If any metadata file is updated, it needs to be signed by at least the threshold of keys.
 - If the snapshot is updated and signed, the `timestamp`(which stores the hash, length,
  and version of the `snapshot` file) is also updated and signed.
-- If the `root` or a `targets` role is updated, the `snapshot`, which stores versions
+- If the `root` or a `targets` role is updated, `snapshot`, which stores versions
 of these files, is updated as well.
 - If a target file is updated, information about it in the appropriate targets metadata
 file (`targets` or one corresponding to a delegated role) is updated and signed too.
@@ -751,22 +740,22 @@ could be inadvertently executed or opened.
 Once the repository is cloned, the updater tries loading the last validated commit. If this commit is
 not found, the update process starts from the repository's first commit. If the last
 validated commit does exist, the updater checks if it is present in the newly cloned authentication
-repository. If not found, an error is raised, suggesting possible forced removal of commits or manual
-tampering with the last validated commit information.
+repository. If not found, an error is raised, suggesting possible forced removal of commits from the remote repository
+or manual tampering with the last validated commit information.
 
 During the update process, the TAF updater iterates through the commits of the bare repository, starting
 from the first commit identified for validation. It checks the transition from each commit `c1` to the
 subsequent commit `c2`, ensuring the TUF repository at `c1` can update to the state at `c2`. This
-procedure mostly aligns with the [client workflow in TUF specifications]((<https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#update-the-timestamp-role--update-timestamp>),
+procedure mostly aligns with the [client workflow in TUF specifications](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#update-the-timestamp-role--update-timestamp),
 with these specific adaptations in TAF:
 
 - In TAF, for a metadata file at version `n` in commit `c1`, the version in commit `c2` must be `n` or
 `n + 1`. This rule ensures no intermediate versions are missed, differing from TUF where updating from
 `n` to `m` is permissible as long as `n < m`.
-).
 - Due to its archival purpose, TAF requires validation of older metadata and target files, even after
 their expiration dates. This means that the validation process in TAF does not fail because a metadata
 file's expiration date has passed.
+
 
 #### 5.1.2 Validate target repositories
 
