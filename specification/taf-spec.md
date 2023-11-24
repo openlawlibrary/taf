@@ -9,12 +9,11 @@ Version 0.1-alpha
 ### 1.1 Scope
 
 This document describes TAF, a framework that aims to provide archival authentication and
-ensure that Git repositories, susceptible to unauthorized changes, can be
-securely cloned and updated. Predominantly based on The Update Framework (TUF), TAF
-leverages its security capabilities to protect Git repositories. To be more specific, while
-TAF does not enhance the security properties of Git or code hosting platforms like GitHub,
-it recognizes their vulnerabilities and provides mechanisms to detect malicious alterations
-of Git repositories. Additionally, TAF provides a suite of tools designed to facilitate the
+ensure that Git repositories can be securely cloned and updated. Built on top of
+The Update Framework (TUF), TAF leverages TUF's security capabilities to protect Git repositories.
+While TAF does not enhance the security properties of Git or code hosting
+platforms like GitHub, it recognizes their vulnerabilities and provides mechanisms to detect attacks.
+Additionally, TAF provides a suite of tools designed to facilitate the
 initial setup and ongoing update of metadata in compliance with TUF specifications, as well
 as the management of the relevant information about the Git repositories under its
 protection.
@@ -29,8 +28,7 @@ by the global pandemic but with origins well before 2020, ensuring the integrity
 accessibility of electronically stored documents is a pressing matter. The initial
 motivation for developing TAF was its application in protecting Git repositories that store
 legal documents, aiming to guarantee their long-term availability and authenticity.
-However, the architecture and functionalities of TAF are designed to be agnostic of the
-content it protects, as long as that content is stored in Git repositories.
+However, TAF is designed to be agnostic of the content it protects, as long as that content is stored in Git repositories.
 
 In scenarios where maintaining a complete history of changes is essential, Git emerges as a
 suitable choice. It was specifically designed to facilitate easy access to and comparison
@@ -65,9 +63,9 @@ existing repositories that use SHA-1. Consequently, the transition to SHA-256 ha
 
 ### 1.3 History and credit
 
-In late 2018, the Open Law Library began developing TAF as a part of its
+In late 2018, Open Law Library began developing TAF as a part of its
 efforts to publish the laws and the Code of the District of Columbia in
-alignment with the Uniform Electronic Legal Material Act (UELMA). Created by
+alignment with the Uniform Electronic Legal Material Act ([UELMA](https://www.uniformlaws.org/committees/community-home?CommunityKey=02061119-7070-4806-8841-d36afc18ff21)). Created by
 the Uniform Law Commission, UELMA provides a structured approach for
 governments to authenticate and preserve electronic legal materials. The
 District of Columbia adopted its version of UELMA in 2017.
@@ -78,10 +76,10 @@ the [National Science Foundation (NSF)](https://www.nsf.gov).
 
 ### 1.4 Goals
 
-In the ever-evolving digital landscape, where crucial data resides in Git repositories, TAF aims to
-implement an additional layer of security, enhancing the protections offered by Git and hosting
-platforms. It is focused on ensuring straightforward management and validation, along with the ability
-to securely and easily clone and update repositories it is securing.
+In today's digital landscape, where important data is stored in Git repositories, TAF's purpose is
+to add an extra layer of security beyond what Git and hosting platforms provide. TAF is focused on
+authenticating and securely updating Git repositories. Moreover, TAF offers tooling for repository
+management, such as: repository validation, cloning and updating repositories in place.
 
 #### 1.4.1 Attack detection goals
 
@@ -93,12 +91,12 @@ attacker could potentially access a user's account or personal computer. It shou
 make changes to the Git repositories without signing TUF metadata files, preferably using a threshold
 of hardware keys, in a way that passes TAF's validation.
 
-#### 1.4.2 Existence of multiple copies and out-of-band authentication
+#### 1.4.2 Redundancy
 
 Interested parties should be able to securely and easily create local copies of the protected Git
 repositories (provided they are publicly accessible), along with the corresponding TUF data for
 validation, even if they do not have update privileges. They should be able to validate all signatures
-and attestations, extending back to the repository's very first commit. Additionally, they should have
+and attestations, extending back to the repository's first commit. Additionally, they should have
 the means to directly verify the integrity of the initial commit by reaching out to the official
 repository maintainers via alternative channels, such as a telephone call.
 
@@ -125,17 +123,16 @@ have expectations about the type of content it is protecting.
 
 ### 1.5 Non-goals
 
-TAF does not aim to provide an absolute guarantee against unauthorized modifications of repositories.
-Its primary focus is on detecting such modifications. In the event of an attack, TAF seeks to
-identify unauthorized changes and prevent them from being pulled down.
+TAF does not aim to prevent unauthorized modifications of repositories.
+Instead, TAF aims to detect such modifications. In the event of an attack, TAF seeks to
+identify unauthorized changes and prevent them from being pulled down locally.
 
 Moreover, TAF operates on top of Git and does not modify or enhance Git's underlying functionality or
 security features. While Git has known vulnerabilities, such as susceptibility to collision attacks,
 addressing these issues at the Git level is outside TAF's scope.
 
-TAF does not concern itself with the specific processes or workflows involved in updating the repositories
-under its protection. Its primary role is activated after changes are committed, providing mechanisms to
-attest to the validity of these changes.
+Content in TAF-secured repositories and their update methods are irrelevant. TAF's role activates
+post-commit, validating and marking changes in these repositories as official.
 
 ## 2 System overview
 
@@ -149,8 +146,8 @@ it protects, most notably their commit histories, and refers to them as target r
 Being a TUF repository, the authentication repository incorporates key TUF concepts such as
 roles, signing keys, metadata, and target files.
 
-TAF utilizes the four fundamental roles defined by the TUF specification: root, targets,
-snapshot, and timestamp. Additionally, TAF supports the use of delegated targets roles.
+TAF utilizes the four fundamental roles defined by the TUF specification: `root`, `targets`,
+`snapshot`, and `timestamp`. Additionally, TAF supports the use of delegated targets roles.
 Similarly, the metadata file format in TAF is consistent with the standard established by TUF.
 Detailed descriptions can be found in TUF specification:
 
@@ -164,7 +161,7 @@ files named after their respective target repositories, and requires additional 
 an authentication repository with its target repositories and other authentication repositories.
 Furthermore, TAF supports the use of YubiKeys, although it does not make their use mandatory.
 
-The following are high-level steps for using the framework:
+The following are high-level actors their corresponding actions within the framework:
 
 - Maintainers: use tools provided by TAF to set up the authentication repository and provide
 information about the target repositories.
@@ -191,7 +188,7 @@ Content addressed systems such as Git have artifact integrity capabilities which
 complemented by all of TUF's other features. The current TUF specification requires
 targets to be files.
 
-TUF Augmentation Proposal (TAP) 19, which is still in draft form, states that if some
+[TUF Augmentation Proposal (TAP) 19](https://github.com/theupdateframework/taps/blob/master/tap19.md), which is still in draft form, states that if some
 artifacts—whether TUF metadata or otherwise—were stored in a content-addressed system, they
 would each already be associated with a unique identifier created by that system using the
 content of the artifact. This TAP updates the definition of a target identifier from being
@@ -256,9 +253,7 @@ ensuring any unauthorized changes are identified and flagged. These target files
 
 All types of target files will be described in more detail in the next section.
 
-Note: We are considering removal of some of these files and moving this information to metadata files, but in
-order to that, we need update TAF so that it's compatible with the newest version of TUF and metadata API. We
-are currently relying on some code that was removed from TUF and that's why we can't smoothly update our fork.
+Note: TAF currently relies on and maintains a TUF fork on version [0.20.0](https://github.com/openlawlibrary/tuf). Our near term plan is to transition TAF to use the latest TUF. See [tracking issue](https://github.com/openlawlibrary/taf/issues/274) for more details. Once that transition is done, it might be possible to remove some of these files and move this information to metadata files.
 
 ### 3.2 Target files
 
