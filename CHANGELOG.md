@@ -10,6 +10,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
+### Changed
+
+
+### Fixed
+
+
+## [0.28.0] - 11/10/2023
+
+
+### Added
+
 - Implement tests for the functions which are directly called by the cli (API package) ([362])
 - Add push flag to all functions that used to always automatically push to remote in order to be able to prevent that behavior ([362])
 - Add a command for listing all roles (including delegated paths if applicable) whose metadata the inserted YubiKey can sign ([362])
@@ -24,10 +36,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix loading of keys and create repo when old yubikey flag is used ([370])
 - Fix keys naming issue after adding a new signing key to a role that only had one signing key ([362])
 - Fix removal of targets when removing a role ([362])
 
-[362]: https://github.com/openlawlibrary/taf/pull/362
+[370]: https://github.com/openlawlibrary/taf/pull/370
+[365]: https://github.com/openlawlibrary/taf/pull/365
 [362]: https://github.com/openlawlibrary/taf/pull/362
 [360]: https://github.com/openlawlibrary/taf/pull/360
 
@@ -1001,7 +1015,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.27.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/openlawlibrary/taf/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/openlawlibrary/taf/compare/v0.26.1...v0.27.0
 [0.26.1]: https://github.com/openlawlibrary/taf/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/openlawlibrary/taf/compare/v0.25.0...v0.26.0
