@@ -4,6 +4,37 @@ Nov 24, 2023
 
 Version 0.1-alpha
 
+## TOC
+
+* [1 Introduction](#1-introduction)
+  * [1.1 Scope](#11-scope)
+  * [1.2 Motivation](#12-motivation)
+  * [1.3 History and credit](#13-history-and-credit)
+  * [1.4 Goals](#14-goals)
+    * [1.4.1 Attack detection goals](#141-attack-detection-goals)
+    * [1.4.2 Redundancy](#142-redundancy)
+    * [1.4.3 User experience goals](#143-user-experience-goals)
+  * [1.5 Non-goals](#15-non-goals)
+* 2. [2 System overview](#2-system-overview)
+  * [2.1 Content addressable systems and TUF](#21-content-addressable-systems-and-tuf)
+* 3. [3 Authentication repository](#3-authentication-repository)
+  * [3.1 Repository layout](#31-repository-layout)
+  * [3.2 Target files](#32-target-files)
+    * [3.2.1 repositories.json](#321-repositoriesjson)
+    * [3.2.2 mirrors.json](#322-mirrorsjson)
+    * [3.2.3 Commit data](#323-commit-data)
+    * [3.2.4 dependencies.json](#324-dependenciesjson)
+    * [3.2.5 protected/info.json](#325-protectedinfojson)
+    * [3.2.6 Scripts](#326-scripts)
+  * [3.3 Initialize and update an authentication repository](#33-initialize-and-update-an-authentication-repository)
+* [4 Tracking valid states of target repositories](#4-tracking-valid-states-of-target-repositories)
+* [5 Updater](#5-updater)
+  * [5.1 The update process](#51-the-update-process)
+    * [5.1.1 Validate the authentication repository](#511-validate-the-authentication-repository)
+    * [5.1.2 Validate target repositories](#512-validate-target-repositories)
+    * [5.1.3 Execute handlers](#513-execute-handlers)
+  * [5.1.4 Updating repositories with cross-references](#514-updating-repositories-with-cross-references)
+* [6 Future directions and open questions](#6-future-directions-and-open-questions)
 
 ## [1 Introduction](#1-introduction)
 
@@ -112,14 +143,14 @@ detailed exploration of this extended application is covered in a [separate docu
 
 User experience goals include:
 
-- Ease of setup and maintenance: providing tools and utilities designed to simplify the initial
+* Ease of setup and maintenance: providing tools and utilities designed to simplify the initial
 configuration and all subsequent updates of TUF metadata files and TUF target files containing
 information about relevant Git repositories. Additionally, ensuring ease of configuration and usage
 of hardware keys for signing.
-- Safe and simple update of Git repositories: ensuring that the processes for cloning and updating
+* Safe and simple update of Git repositories: ensuring that the processes for cloning and updating
 repositories under TAF's protection are user-friendly and straightforward, offering clear and helpful
 error messages to aid in troubleshooting any issues that arise.
-- Content agnosticism: maintaining a design and functionality that is completely agnostic to the
+* Content agnosticism: maintaining a design and functionality that is completely agnostic to the
 content stored within the secured Git repositories. The framework should not make assumptions or
 have expectations about the type of content it is protecting.
 
@@ -153,8 +184,8 @@ TAF utilizes the four fundamental roles defined by the TUF specification: `root`
 Similarly, the metadata file format in TAF is consistent with the standard established by TUF.
 Detailed descriptions can be found in TUF specification:
 
-- [Roles and PKI](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#roles-and-pki--roles-and-pki)
-- [Metadata Format](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#metaformat--metaformat)
+* [Roles and PKI](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#roles-and-pki--roles-and-pki)
+* [Metadata Format](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#metaformat--metaformat)
 
 In TAF, target files preserve their original definition from TUF. On the other hand,
 TUF allows flexibility in choosing filenames and directory structures for target files within a
@@ -165,18 +196,18 @@ Furthermore, TAF supports the use of YubiKeys, although it does not make their u
 
 The following are high-level actors their corresponding actions within the framework:
 
-- Maintainers: use tools provided by TAF to set up the authentication repository and provide
+* Maintainers: use tools provided by TAF to set up the authentication repository and provide
 information about the target repositories.
-- Maintainers: after new commits are pushed to the target repositories, use TAF tools to update
+* Maintainers: after new commits are pushed to the target repositories, use TAF tools to update
 corresponding information stored in the authentication repository.
-- Users: use a tool provided by TAF, known as the "updater", to validate remote repositories and
+* Users: use a tool provided by TAF, known as the "updater", to validate remote repositories and
 synchronize their local copies of the repositories with the remote:
-  - validate the authentication repository by ensuring that, at each commit, the repository's
+  * validate the authentication repository by ensuring that, at each commit, the repository's
   state complies with TUF's specifications.
-  - perform validation of target repositories based on the data stored in the authentication
+  * perform validation of target repositories based on the data stored in the authentication
   repository. Compare commit SHAs stored in the authentication repository with actual commit
   SHAs of the target repositories.
-  - create or update local copies of the authentication and target repositories as necessary.
+  * create or update local copies of the authentication and target repositories as necessary.
 
 One important thing to note is that, since the authentication repository is also a Git
 repository, there's no need to store the entire commit history of target repositories all at
@@ -222,8 +253,8 @@ Technically, an authentication repository does not have to reference any target
 repositories, but if it does, a strict naming convention is enforced. This naming convention mimics that
 of GitHub, where the names of the target repositories are structured in two parts:
 
-- Organization name (referred to as namespace by TAF)
-- Repository name
+* Organization name (referred to as namespace by TAF)
+* Repository name
 
 Organizations in GitHub are shared accounts where businesses, open-source projects, or other
 collaborative groups can manage multiple repositories. Repositories host project files and
@@ -248,11 +279,11 @@ repositories, TAF introduces specifically named and structured target files. Onl
 individuals in possession of the necessary targets keys can modify these files,
 ensuring any unauthorized changes are identified and flagged. These target files include:
 
-- `repositories.json`: This file provides a list of the target repositories.
-- `dependencies.json`: This file contains details about other authentication repositories.
-- `mirrors.json`: This file plays a role in determining the URLs used to download the repositories.
-- `protected/info.json`: This file contains the authentication repository's metadata.
-- `scripts` directory: Contains post-update hooks.
+* `repositories.json`: This file provides a list of the target repositories.
+* `dependencies.json`: This file contains details about other authentication repositories.
+* `mirrors.json`: This file plays a role in determining the URLs used to download the repositories.
+* `protected/info.json`: This file contains the authentication repository's metadata.
+* `scripts` directory: Contains post-update hooks.
 
 All types of target files will be described in more detail in the next section.
 
@@ -304,11 +335,11 @@ An example of this file is as follows:
 
 In this JSON structure:
 
-- Each repository MUST be identified uniquely, like `namespace/repo1` and `namespace/repo2`
-- Within each repository's configuration, there MAY be a `custom` property allowing for the
+* Each repository MUST be identified uniquely, like `namespace/repo1` and `namespace/repo2`
+* Within each repository's configuration, there MAY be a `custom` property allowing for the
 specification of additional data that might be useful to the repository's maintainers and is
 not required by TAF.
-  - One exceptions is the `unauthenticated-commits` custom property. When this
+  * One exceptions is the `unauthenticated-commits` custom property. When this
   property is set to `true` for a target repository, it indicates that the repository is permitted
   to contain unauthenticated commits between authenticated ones. This effectively means
   that a target repository can include commits that are not stored in the authentication
@@ -346,10 +377,10 @@ is structured as follows:
 For instance, if a repository is named `namespace1/name1` in `repositories.json`, the corresponding
 URLs generated by TAF will be:
 
-- `http://github.com/namespace1/name1`
-- `http://github.com/namespace1-backup/name1`
-- `git@github.com:namespace1/name1.git`
-- `http://gitlab.com/namespace1/name1`
+* `http://github.com/namespace1/name1`
+* `http://github.com/namespace1-backup/name1`
+* `git@github.com:namespace1/name1.git`
+* `http://gitlab.com/namespace1/name1`
 
 In practice, when TAF attempts to clone or pull a repository, it follows a sequential approach
 based on the URL list generated from `mirrors.json`. If the first attempt fails, perhaps due to
@@ -450,32 +481,32 @@ these scripts will be provided later, in [section 5](#5-updater).
 
 Initializing an authentication repository using TAF involves the following steps:
 
-- Creation of the initial TUF repository: this includes generating initial metadata files that conform to
+* Creation of the initial TUF repository: this includes generating initial metadata files that conform to
 the TUF specification. To do so, it is necessary to specify customizable properties of TUF repositories,
 such as:
-  - Keys that will be used to sign specific metadata files. In other words, assigning keys to
+  * Keys that will be used to sign specific metadata files. In other words, assigning keys to
   various roles as defined in the TUF specification.
-  - Signature thresholds per roles.
-  - Delegated roles and their properties. These roles allow for more detailed control over target files.
+  * Signature thresholds per roles.
+  * Delegated roles and their properties. These roles allow for more detailed control over target files.
   For each delegated role, the specific paths that they are authorized to manage are defined.
-- Handling existing target files: if the `targets` folder already exists on disk, at the intended location,
+* Handling existing target files: if the `targets` folder already exists on disk, at the intended location,
 and contains target files, these files should be included in the initial version of the repository's
 `targets` metadata file, or those of a delegated role.
-- Initialization of a new Git repository: set up a new Git repository and a default branch, typically
+* Initialization of a new Git repository: set up a new Git repository and a default branch, typically
 named `main`. This step may also involve setting up a remote.
-- Committing initial metadata and target files: the final step is to commit the initial metadata and
+* Committing initial metadata and target files: the final step is to commit the initial metadata and
 target files to the repository, marking the start of its version history.
 
 Updating metadata and target files in TAF is done in accordance with the TUF specification.
 However, after each update, changes are committed and each commit is expected to be a valid snapshot of
 the TUF repository as a whole. Therefore:
 
-- If any metadata file is updated, it MUST be signed by at least the threshold of keys.
-- If the snapshot is updated and signed, the `timestamp`(which stores the hash, length,
+* If any metadata file is updated, it MUST be signed by at least the threshold of keys.
+* If the snapshot is updated and signed, the `timestamp`(which stores the hash, length,
  and version of the `snapshot` file) MUST also be updated and signed.
-- If the `root` or a `targets` role is updated, `snapshot`, which stores versions
+* If the `root` or a `targets` role is updated, `snapshot`, which stores versions
 of these files, MUST be updated as well.
-- If a target file is updated, information about it in the appropriate targets metadata
+* If a target file is updated, information about it in the appropriate targets metadata
 file (`targets` or one corresponding to a delegated role) MUST be updated and signed too.
 
 This all ensures that the authentication repository at each commit constitutes a valid TUF repository.
@@ -615,9 +646,9 @@ Now, consider a scenario where a user updates `repo1` and commits these changes.
 allowed to contain unauthenticated commits, according to `repositories.json`, there are two
 possibilities:
 
-- The change can be recorded in the authentication repository. In this case, the updater tool is
+* The change can be recorded in the authentication repository. In this case, the updater tool is
 designed to raise an error if this commit is not detected when cloning or updating `repo1`.
-- Alternatively, this commit can be omitted from being recorded in the authentication repository,
+* Alternatively, this commit can be omitted from being recorded in the authentication repository,
 in which case the updater will not look for it while traversing through commits of `repo1`.
 
 However, for repositories that are not permitted to contain unauthenticated commits, any new
@@ -744,13 +775,13 @@ bare Git repository. If no remote URL is provided, the URL is determined based o
 the user's local repository. If no URL is provided but a user's local repository already exists, the URL is
 determined based on its remote. In a bare Git repository setup:
 
-- There is no work tree or checked out copy of the source files.
-- Git's commit history is stored directly in the root folder of the repository, as opposed to being
+* There is no work tree or checked out copy of the source files.
+* Git's commit history is stored directly in the root folder of the repository, as opposed to being
 within a `.git` subfolder, which is typical in non-bare repositories.
-- After the cloning process is complete, no checkout of the `HEAD` is performed. This is equivalent
+* After the cloning process is complete, no checkout of the `HEAD` is performed. This is equivalent
 to applying the `-n` option in the `git clone` command, which skips the checkout step and leaves the
 working directory empty.
-- If there are malicious files in the repository, they are not directly written to disk in a form that
+* If there are malicious files in the repository, they are not directly written to disk in a form that
 could be inadvertently executed or opened.
 
 Once the repository is cloned, the updater tries loading the last validated commit. If this commit is
@@ -765,9 +796,9 @@ subsequent commit `c2`, ensuring the TUF repository at `c1` can update to the st
 procedure mostly aligns with the [client workflow in TUF specifications](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#update-the-timestamp-role--update-timestamp),
 with these specific adaptations in TAF:
 
-- In TAF, for a metadata file at version `n` in commit `c1`, the version in commit `c2` must be `n` or
+* In TAF, for a metadata file at version `n` in commit `c1`, the version in commit `c2` must be `n` or
 `n + 1`. This rule ensures no intermediate versions are omitted.
-- Due to its archival purpose, TAF requires validation of older metadata and target files, even after
+* Due to its archival purpose, TAF requires validation of older metadata and target files, even after
 their expiration dates. This means that the validation process in TAF does not fail because a metadata
 file's expiration date has passed.
 
@@ -782,7 +813,7 @@ fail if the user manually pulled valid commits, or if they committed something o
 commit. However, the next overview will focus on the general idea, not delving into these specific
 details. Here are the steps involved in this validation process:
 
-- As mentioned earlier, authentication repositories record valid commits of target repositories in
+* As mentioned earlier, authentication repositories record valid commits of target repositories in
 target files named after these repositories. The first step is to extract lists of commits per branch
 for each target repository. These target files are JSON files containing data in this format:
 
@@ -793,18 +824,18 @@ for each target repository. These target files are JSON files containing data in
 }
 ```
 
-- Fetch new commits (without pulling, which includes merging) or clone target repositories without
+* Fetch new commits (without pulling, which includes merging) or clone target repositories without
 checking out files for additional safety. This step avoids merging changes into local branches and
 prevents immediate exposure to the files in the repository. The URLs of the target repositories are
 determined based on the `repositories.json` and `mirrors.json` files, as explained earlier.
-- Compare commits extracted from the authentication repository with the fetched ones in a breadth-first
+* Compare commits extracted from the authentication repository with the fetched ones in a breadth-first
 manner. This involves checking each target repository against the target files contained in a given
 authentication repository's commit, then moving to the next commit. The process stops if there is a
 mismatch.
-- If a repository is allowed to contain unauthenticated commits, an error is not reported as long as
+* If a repository is allowed to contain unauthenticated commits, an error is not reported as long as
 all commits listed in the authentication repository are found in that target repository in the correct
 order, even if there are additional unlisted commits.
-- After the validation process is completed, whether it ends successfully or with an error, the next
+* After the validation process is completed, whether it ends successfully or with an error, the next
 action is to merge the last successfully validated commit into each respective repository.
 
 After successfully validating the target repositories, the final step is to merge the last validated
@@ -830,11 +861,11 @@ TAF incorporates the functionality to execute custom scripts after the updater h
 providing flexibility to respond to various outcomes of the update process, recognizing the following
 events:
 
-- Succeeded: This event indicates that the updater ran without any issues.
-- Changed: This signifies that the update was successful and detected changes.
-- Unchanged: This means the update was successful, but no changes were detected.
-- Failed: This event is triggered if an error occurred while running the updater.
-- Completed: Similar to a 'finally' block in programming, this event occurs regardless of the update's
+* Succeeded: This event indicates that the updater ran without any issues.
+* Changed: This signifies that the update was successful and detected changes.
+* Unchanged: This means the update was successful, but no changes were detected.
+* Failed: This event is triggered if an error occurred while running the updater.
+* Completed: Similar to a 'finally' block in programming, this event occurs regardless of the update's
 success or failure.
 
 For instance, if an update is successful and changes are detected, TAF will trigger the `changed`,
@@ -882,7 +913,7 @@ In addition to handling persistent and transient data, these scripts also receiv
 information about the repositories involved — this includes both the authentication repository
 and its target repositories.
 
-### [5.1.4 Updating repositories with cross-references](#514-updating-repositories-with-cross-references)
+#### [5.1.4 Updating repositories with cross-references](#514-updating-repositories-with-cross-references)
 
 Within TAF, an authentication repository has the capability to reference other authentication
 repositories. This relationship is defined in the `dependencies.json` file. Alongside the name of
@@ -899,17 +930,17 @@ The updater then conducts a validation check based on this commit, as described 
 
 ## [6 Future directions and open questions](#6-future-directions-and-open-questions)
 
-- If TUF's TAP 19 is approved and implemented, it will enable significant changes in how branch and commit
+* If TUF's TAP 19 is approved and implemented, it will enable significant changes in how branch and commit
  information is stored. Specifically, it will allow the removal of target files that currently store branch
  and commit data, integrating this information directly into the targets metadata.
-- A practical improvement involves storing aliases for signing keys in the metadata files. This feature
+* A practical improvement involves storing aliases for signing keys in the metadata files. This feature
 would enable linking a key ID to the owner's name, simplifying key management. Technically, this requires
 transitioning to the Metadata API, moving away from TUF's older reference implementation. This is not a
 problem, just requires dedicating some time to this.
-- Another significant enhancement is implementing remote signing capabilities. This would allow individuals
+* Another significant enhancement is implementing remote signing capabilities. This would allow individuals
 in different locations worldwide to sign metadata files independently, with TAF then aggregating these
 signatures.
-- ...
+* ...
 
 Extensions built on top of TAF, aimed at addressing use-case-specific problems, will be detailed in separate
 documents.
