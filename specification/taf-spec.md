@@ -194,7 +194,7 @@ files named after their respective target repositories, and requires additional 
 an authentication repository with its target repositories and other authentication repositories.
 Furthermore, TAF supports the use of YubiKeys, although it does not make their use mandatory.
 
-The following are high-level actors their corresponding actions within the framework:
+The following are high-level actors and their corresponding actions within the framework:
 
 * Maintainers: use tools provided by TAF to set up the authentication repository and provide
 information about the target repositories.
@@ -303,7 +303,7 @@ overview, if a specific use-case requires them.
 Note: if information from this section is moved to metadata files, the section will be updated. However,
 maintaining backward compatibility will always be necessary. In addition to transitioning to a new
 version of TUF, as mentioned earlier, if TAP 19 is implemented, there might no longer be a need
-for separate target files storing commit SHAs and branches. See [seciton 2.1](#21-content-addressable-systems-and-tuf)
+for separate target files storing commit SHAs and branches. See [section 2.1](#21-content-addressable-systems-and-tuf)
 
 #### [3.2.1 repositories.json](#321-repositoriesjson)
 
@@ -793,7 +793,7 @@ or manual tampering with the last validated commit information.
 During the update process, the TAF updater iterates through the commits of the bare repository, starting
 from the first commit identified for validation. It checks the transition from each commit `c1` to the
 subsequent commit `c2`, ensuring the TUF repository at `c1` can update to the state at `c2`. This
-procedure mostly aligns with the [client workflow in TUF specifications](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#update-the-timestamp-role--update-timestamp),
+procedure mostly aligns with the [client workflow in TUF specifications](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#detailed-client-workflow--detailed-client-workflow),
 with these specific adaptations in TAF:
 
 * In TAF, for a metadata file at version `n` in commit `c1`, the version in commit `c2` must be `n` or
