@@ -4,6 +4,7 @@ Nov 24, 2023
 
 Version 0.1-alpha
 
+
 ## [1 Introduction](#1-introduction)
 
 ### [1.1 Scope](#11-scope)
@@ -19,7 +20,8 @@ as the management of the relevant information about the Git repositories under i
 protection.
 
 The keywords "MUST," "MUST NOT," "REQUIRED," "SHALL," "SHALL NOT," "SHOULD," "SHOULD NOT,"
-"RECOMMENDED," "MAY," and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
+"RECOMMENDED," "MAY," and "OPTIONAL" in this document are to be interpreted as described in
+[RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
 
 ### [1.2 Motivation](#12-motivation)
 
@@ -28,7 +30,8 @@ by the global pandemic but with origins well before 2020, ensuring the integrity
 accessibility of electronically stored documents is a pressing matter. The initial
 motivation for developing TAF was its application in protecting Git repositories that store
 legal documents, aiming to guarantee their long-term availability and authenticity.
-However, TAF is designed to be agnostic of the content it protects, as long as that content is stored in Git repositories.
+However, TAF is designed to be agnostic of the content it protects, as long as that content
+is stored in Git repositories.
 
 In scenarios where maintaining a complete history of changes is essential, Git emerges as a
 suitable choice. It was specifically designed to facilitate easy access to and comparison
@@ -65,10 +68,9 @@ existing repositories that use SHA-1. Consequently, the transition to SHA-256 ha
 
 In late 2018, Open Law Library began developing TAF as a part of its
 efforts to publish the laws and the Code of the District of Columbia in
-alignment with the Uniform Electronic Legal Material Act ([UELMA](https://www.uniformlaws.org/committees/community-home?CommunityKey=02061119-7070-4806-8841-d36afc18ff21)). Created by
-the Uniform Law Commission, UELMA provides a structured approach for
-governments to authenticate and preserve electronic legal materials. The
-District of Columbia adopted its version of UELMA in 2017.
+alignment with the Uniform Electronic Legal Material Act ([UELMA](https://www.uniformlaws.org/committees/community-home?CommunityKey=02061119-7070-4806-8841-d36afc18ff21)).
+Created by the Uniform Law Commission, UELMA provides a structured approach for governments to authenticate
+and preserve electronic legal materials. The District of Columbia adopted its version of UELMA in 2017.
 
 This project was made possible in part by the Institute of Museum and Library
 Services [(LG-246285-OLS-20)](https://www.imls.gov/grants/awarded/lg-246285-ols-20) and
@@ -104,7 +106,7 @@ This approach lays the foundation for designing systems where multiple participa
 host repositories, serving as an additional layer of security. The existence of backup copies can aid in
 recovery from attacks, including those exploiting SHA-1 vulnerabilities. However, it's important to note
 that such a system, while buildable on top of TAF, extends beyond TAF's core functionalities. The
-detailed exploration of this extended application is covered in a separate document.
+detailed exploration of this extended application is covered in a [separate document](cross-repository-timestamp.md).
 
 #### [1.4.3 User experience goals](#143-user-experience-goals)
 
@@ -282,7 +284,7 @@ a naming convention that combines a namespace with the names of individual repos
 
 An example of this file is as follows:
 
-```markdown
+```json
 {
   "repositories": {
     "namespace/repo1": {
@@ -330,7 +332,7 @@ name of the repository, as defined in `repositories.json`.
 Let's consider an example where `mirrors.json`
 is structured as follows:
 
-```markdown
+```json
 {
     "mirrors": [
         "http://github.com/{org_name}/{repo_name}",
@@ -361,7 +363,7 @@ location is determined by the namespace and name of the repository. For a reposi
 `name1`. These files are in JSON format and MUST include the commit SHA and the branch name, and
 MAY contain other custom properties. An example of this file's contents is:
 
-```markdown
+```json
 {
     "branch": "publication/2023-02-08",
     "commit": "e8fb452333c81a42cd3297b33a9875d57588052b",
@@ -379,28 +381,30 @@ be provided in a subsequent section.
 
 #### [3.2.4 dependencies.json](#324-dependenciesjson)
 
-This file allows definition of hierarchies of authentication repositories. This allows the
+This file allows definition of hierarchies of authentication repositories. In other words,
 designation of a primary, or root, authentication repository, which can be linked to one or more
 secondary authentication repositories. TAF's updater can automatically pull the entire
-hierarchy of linked repositories.
+hierarchy of linked repositories. This can be used to set up a system where other actors would
+keep local copies of other authentication repositories for additional security. Application
+of this to the legal field, as already mentioned, is described in more detail in the
+[following document](cross-repository-timestamp.md)
 
 One important concept introduced in this file is out-of-band authentication. Before an
 authentication repository is referenced, an additional layer of verification SHOULD be performed.
 This involves direct, external validation, typically through communication with the repository's
 maintainer. The purpose of this step is to ascertain that the repository in question is indeed
-the official one and not a fraudulent version created by an attacker. During this out-of-band
-communication, maintainers are expected to provide a commit SHA (typically of the first commit),
-which serves as a proof of authenticity. This commit SHA can then be recorded in `dependencies.json`
-file. When the updater tool processes the repositories, it checks for the presence of this
-recorded commit. If the repository’s actual commit SHA of the initial commit does not match the
-one stored in `dependencies.json`, the updater raises an error, signaling a potential security
-issue. Although detailed discussions on building a web of trust are reserved for a
-different document, it's important to note that this out-of-band data can lay the groundwork for
-such a system.
+the official one and not a fraudulent version created by an attacker. During out-of-band
+communication, maintainers are expected to provide a commit SHA, which serves as proof of authenticity.
+This will often be the first commit. The updater can be used to validate all commits following this
+out-of-band commit. If, for any reason, there is an issue with the first `n` commits (e.g., a used
+hashing or signing algorithm was broken), commit `n+1` can be specified instead.
+This commit SHA can then be recorded in `dependencies.json` file. When the updater tool processes
+the repositories, it checks for the presence of this  out-of-band commit. If the commit is not found,
+the updater raises an error, signaling a potential security issue.
 
-This is an example of a `dependecies.json`:
+This is an example of a `dependencies.json`:
 
-```markdown
+```json
 {
     "dependencies": {
         "namespace1/auth_repo": {
@@ -420,10 +424,10 @@ MUST be unique within one authentication repository.
 #### [3.2.5 protected/info.json](#325-protectedinfojson)
 
 The `protected/info.json` file in TAF is a supplementary file that is meant for
-storing authentication repository's own metadata, or, more specifically, its name.
-An example of the file's content is as follows:
+storing authentication repository's additional metadata. At the moment, `info.json`
+is used to store the repository's  namespace and name. An example of the file's content is as follows:
 
-```markdown
+```json
 {
   "namespace": "some_org_name",
   "name":  "some_repo_name"
@@ -437,23 +441,23 @@ its filesystem path.
 
 #### [3.2.6 Scripts](#326-scripts)
 
-Every authentication repository MAY contain target files inside `targets/scripts` folder which
-are expected to be Python scripts which will be executed after successful/failed update of
-that repository. More detailed information about the purpose and functionality of these
-scripts will be covered in later, when describing the updater.
+Every authentication repository MAY contain target files within the `targets/scripts` folder, which
+currently are expected to be Python scripts. These scripts will be executed following the successful or
+failed update of that repository. More detailed information about the purpose and functionality of
+these scripts will be provided later, in [section 5](#5-updater).
 
-### [3.3 Creation and update of authentication repositories](#33-creation-and-update-of-authentication-repositories)
+### [3.3 Initialize and update an authentication repository](#33-initialize-and-update-an-authentication-repository)
 
-Initializing an authentication repository in TAF involves the following steps:
+Initializing an authentication repository using TAF involves the following steps:
 
 - Creation of the initial TUF repository: this includes generating initial metadata files that conform to
 the TUF specification. To do so, it is necessary to specify customizable properties of TUF repositories,
 such as:
-  - Keys that will be responsible for signing specific metadata files, in other words, assigning keys to
+  - Keys that will be used to sign specific metadata files. In other words, assigning keys to
   various roles as defined in the TUF specification.
   - Signature thresholds per roles.
   - Delegated roles and their properties. These roles allow for more detailed control over target files.
-  For each delegated role, the paths they are trusted to provide are specified.
+  For each delegated role, the specific paths that they are authorized to manage are defined.
 - Handling existing target files: if the `targets` folder already exists on disk, at the intended location,
 and contains target files, these files should be included in the initial version of the repository's
 `targets` metadata file, or those of a delegated role.
@@ -463,22 +467,21 @@ named `main`. This step may also involve setting up a remote.
 target files to the repository, marking the start of its version history.
 
 Updating metadata and target files in TAF is done in accordance with the TUF specification.
-However, after each update, changes are committed. An update does not simply mean modification
-of any metadata or target file, but a valid update of the TUF repository as a whole. Therefore:
+However, after each update, changes are committed and each commit is expected to be a valid snapshot of
+the TUF repository as a whole. Therefore:
 
-- If any metadata file is updated, it needs to be signed by at least the threshold of keys.
+- If any metadata file is updated, it MUST be signed by at least the threshold of keys.
 - If the snapshot is updated and signed, the `timestamp`(which stores the hash, length,
- and version of the `snapshot` file) is also updated and signed.
+ and version of the `snapshot` file) MUST also be updated and signed.
 - If the `root` or a `targets` role is updated, `snapshot`, which stores versions
-of these files, is updated as well.
+of these files, MUST be updated as well.
 - If a target file is updated, information about it in the appropriate targets metadata
-file (`targets` or one corresponding to a delegated role) is updated and signed too.
+file (`targets` or one corresponding to a delegated role) MUST be updated and signed too.
 
-This all ensures that each commit of the authentication repository constitutes a valid TUF repository.
-Additionally, the version numbers of metadata files in commits corresponding to subsequent commits
-should either remain the same or differ by one. In essence, this means that only one valid update of the
-TUF repository is permitted per commit. Consequently, all updates to the repository are transparent, and
-all previous versions remain accessible.
+This all ensures that the authentication repository at each commit constitutes a valid TUF repository.
+Additionally, the version numbers of metadata files in subsequent commits should either remain constant
+or increase by one. In essence, this means that only one valid update of the TUF repository is permitted per commit.
+Consequently, all updates to the repository are transparent, and all previous versions remain accessible.
 
 Here's an example of how an initial repository might be structured in TAF, with the first set of versioned
 metadata files:
@@ -536,7 +539,7 @@ authentication repositories. Additionally, for the purpose of updating repositor
 commands are tailored to simplify the modification of target and metadata files. This includes tasks
 such as updating the expiration dates of metadata files. The commands also enable the addition of new
 roles, the integration of new target and reference authentication repositories within the TAF
-framework.
+framework. See [repository creation and update util document for more information](../docs/repo-creation-and-update-util.md).
 
 ## [4 Tracking valid states of target repositories](#4-tracking-valid-states-of-target-repositories)
 
@@ -548,14 +551,13 @@ view and understand the evolving state of this system of repositories over time.
 
 As previously mentioned, target repositories are specified in `repositories.json`, and through
 the combined information stored in this file along with `mirrors.json`, their URLs are defined.
-The updater uses this information in order to initially clone these repositories. The specifics of
-this cloning process will be discussed in greater detail in a later section.
+The updater uses this information in order to initially clone these repositories.
 
-Now, let's consider an example where we have three target repositories: `namespace1/repo1`,
-`namespace1/repo2`, and `namespace1/repo3` and freshly initialized authentication
-repository containing TUF metadata files and initial target files (for simplicity, let's assume
+Let's consider an example where we have three target repositories: `namespace1/repo1`,
+`namespace1/repo2`, `namespace1/repo3` and newly set up authentication
+repository containing TUF metadata files and initial target files. Let's assume
 that there are only the two necessary files, `repositories.json` and `mirrors.json` and that there
-are no references to other authentication repositories):
+are no references to other authentication repositories:
 
 ```markdown
 - metadata/
@@ -692,7 +694,7 @@ easily accessed through the Git history.
 
 ## [5 Updater](#5-updater)
 
-This section focuses on the Updater, a key component of the TAF framework. The Updater's main job is
+This section focuses on the updater, a key component of the TAF framework. The updater's main job is
 to securely clone and update both authentication and target repositories. It replaces the need for
 manually running Git commands with its automated process. This is especially important because it
 incorporates a validation step, ensuring that all changes are verified before being applied to the
@@ -728,18 +730,18 @@ validated commit. Check the out-of-band commit if provided.
 
 After each successful update, TAF stores the last validated commit of the authentication repository
 in a file on the user's local machine. This file is placed in a folder named with the authentication
-repository's name, prefixed with an underscore (_). The purpose of saving this commit is to optimize
+repository's name, prefixed with an underscore (`_`). The purpose of saving this commit is to optimize
 future updates by avoiding starting from the first commit each time.
 
-Note: At the moment, there are no implemented security measures which would make it harder to
-manually modify the file storing this last validated commit. That should be addressed in the future.
-We have not yet thoroughly thought about what would be the best way to do that.
+*Note: At present, there are no implemented security measures that prevent a user from manually modifying the
+last validated commit locally. We will be focusing on validating more local repository states as part of
+future security assurance.*
 
 #### [5.1.1 Validate the authentication repository](#511-validate-the-authentication-repository)
 
 The update process begins with cloning the authentication repository to a temporary location as a
-bare Git repository. If a URL is provided when calling the updater, the repository is cloned from
-that location. If no URL is provided but a user's local repository already exists, the URL is
+bare Git repository. If no remote URL is provided, the URL is determined based on Git repository remote from
+the user's local repository. If no URL is provided but a user's local repository already exists, the URL is
 determined based on its remote. In a bare Git repository setup:
 
 - There is no work tree or checked out copy of the source files.
@@ -748,7 +750,7 @@ within a `.git` subfolder, which is typical in non-bare repositories.
 - After the cloning process is complete, no checkout of the `HEAD` is performed. This is equivalent
 to applying the `-n` option in the `git clone` command, which skips the checkout step and leaves the
 working directory empty.
-- if there are malicious files in the repository, they are not directly written to disk in a form that
+- If there are malicious files in the repository, they are not directly written to disk in a form that
 could be inadvertently executed or opened.
 
 Once the repository is cloned, the updater tries loading the last validated commit. If this commit is
@@ -764,8 +766,7 @@ procedure mostly aligns with the [client workflow in TUF specifications](https:/
 with these specific adaptations in TAF:
 
 - In TAF, for a metadata file at version `n` in commit `c1`, the version in commit `c2` must be `n` or
-`n + 1`. This rule ensures no intermediate versions are missed, differing from TUF where updating from
-`n` to `m` is permissible as long as `n < m`.
+`n + 1`. This rule ensures no intermediate versions are omitted.
 - Due to its archival purpose, TAF requires validation of older metadata and target files, even after
 their expiration dates. This means that the validation process in TAF does not fail because a metadata
 file's expiration date has passed.
@@ -785,7 +786,7 @@ details. Here are the steps involved in this validation process:
 target files named after these repositories. The first step is to extract lists of commits per branch
 for each target repository. These target files are JSON files containing data in this format:
 
-```markdown
+```json
 {
   "branch": "main",
   "commit": "e3f4g5h6"
@@ -821,17 +822,13 @@ this path. This would result in a path like /dir1/dir2/namespace/name1 for the t
 In cases where this root path is not explicitly provided, TAF defaults to determining it based on the
 path of the authentication repository. It assumes that the full name of the authentication repository
 is included in its path, and the root for the target repositories is located two directories up from
-the authentication repository's location."
-
-Suppose the path of the authentication repository is `/dir1/dir2/namespace/auth_repo`.
-Considering that the authentication repository's full name (`namespace/auth_repo`) is included
-in its path, TAF calculates the root location for target repositories as `/dir1/dir2`.
+the authentication repository's location.
 
 #### [5.1.3 Execute handlers](#513-execute-handlers)
 
 TAF incorporates the functionality to execute custom scripts after the updater has run,
-providing flexibility to respond to various outcomes of the update process. To be more precise,
-TAF recognizes the following events:
+providing flexibility to respond to various outcomes of the update process, recognizing the following
+events:
 
 - Succeeded: This event indicates that the updater ran without any issues.
 - Changed: This signifies that the update was successful and detected changes.
@@ -843,7 +840,7 @@ success or failure.
 For instance, if an update is successful and changes are detected, TAF will trigger the `changed`,
 `succeeded`, and `completed` events in sequence.
 
-In TAF, scripts are associated with specific events by being placed in designated folders within the
+Scripts are associated with specific events by being placed in designated folders within the
 targets/scripts directory of the authentication repository. This means that all script files are also
 TUF target files, and any modifications to them require signing the targets metadata. Each folder
 within this directory is named after the event it corresponds to and can contain multiple scripts.
@@ -866,7 +863,7 @@ outline of the structure for the scripts folder:
       /completed  - like finally (called in both cases)
 ```
 
-In TAF's `targets/scripts` directory, there are `update` and `repo` folders that correspond to
+In `targets/scripts` directory, there are `update` and `repo` folders that correspond to
 two levels of event triggers. The `repo` folder contains scripts triggered after updating a
 single authentication repository. In contrast, the `update` folder contains scripts that are
 executed once the entire update process for all repositories is complete.
@@ -877,7 +874,7 @@ for each update of the referenced authentication repositories, as well as for th
 authentication repository itself. On the other hand, scripts in the update folder are triggered
 only once, at the very end of the entire update process.
 
-In TAF, each script is expected to output JSON containing two types of data: persistent and
+Each script is expected to output a JSON containing two types of data: persistent and
 transient. The persistent data is automatically saved to a file named `persistent.json` after
 every script execution. This file is then passed on to subsequent scripts. On the other hand,
 transient data, while also passed to the next script, is not stored permanently.
