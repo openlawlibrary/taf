@@ -110,12 +110,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         super().__init__(steps=[
             self.clone_remote_and_run_tuf_updater,
-            self.validate_out_of_band_and_update_type,
             self.clone_or_fetch_users_auth_repo,
             self.load_target_repositories,
             self.clone_target_repositories_if_not_on_disk,
             self.get_targets_data_from_auth_repo,
-            self.validate_target_repositories_initial_state,
+            self.validate_target_repositories_initial_state_and_find_current_branch_head_commits,
             self.get_target_repositories_commits,
             self.validate_target_repositories,
             self.set_additional_commits_of_target_repositories,
@@ -153,6 +152,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def clone_remote_and_run_tuf_updater(self):
         settings.update_from_filesystem = self.update_from_filesystem
         settings.conf_directory_root = self.conf_directory_root
+        git_updater = None
         try:
             self.state.auth_commits_since_last_validated = None
             self.state.existing_repo = (
@@ -168,6 +168,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             _run_tuf_updater(git_updater)
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self.state.validation_auth_repo = git_updater.validation_auth_repo
+            self._validate_out_of_band_and_update_type()
+
+
             self.state.auth_commits_since_last_validated = list(git_updater.commits)
             self.state.event = Event.CHANGED if len(self.state.auth_commits_since_last_validated) > 1 else Event.UNCHANGED
 
@@ -176,8 +179,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.last_validated_commit = settings.last_validated_commit
             else:
                 self.state.last_validated_commit = self.state.users_auth_repo.last_validated_commit
-            # always clean up repository updater
-            git_updater.cleanup()
+
             return True
 
         except Exception as e:
@@ -193,17 +195,20 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
             self.state.event = Event.FAILED
             return False
+        finally:
+            # always clean up repository updater
+            if git_updater is not None:
+                git_updater.cleanup()
 
-    @cleanup_decorator
     @log_on_start(INFO, "Validating out of band commit and update type", logger=taf_logger)
-    def validate_out_of_band_and_update_type(self):
+    def _validate_out_of_band_and_update_type(self):
         try:
             # this is the repository cloned inside the temp directory
             # we validate it before updating the actual authentication repository
             if (
                 self.out_of_band_authentication is not None
                 and self.state.users_auth_repo.last_validated_commit is None
-                and self.auth_commits_since_last_validated[0] != self.out_of_band_authentication
+                and self.state.auth_commits_since_last_validated[0] != self.out_of_band_authentication
             ):
                 raise UpdateFailedError(
                     f"First commit of repository {self.state.auth_repo_name} does not match "
@@ -220,7 +225,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                 elif (
                     not self.state.validation_auth_repo.is_test_repo
-                    and self.state.expected_repo_type == UpdateType.TEST
+                    and self.expected_repo_type == UpdateType.TEST
                 ):
                     raise UpdateFailedError(
                         f"Repository {self.state.users_auth_repo.name} is not a test repository,"
@@ -309,10 +314,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(INFO, "Validating initial state of target repositories...", logger=taf_logger)
     @log_on_end(INFO, "Validation of the initial state of target repositories finished", logger=taf_logger)
-    def validate_target_repositories_initial_state(self):
+    def validate_target_repositories_initial_state_and_find_current_branch_head_commits(self):
         try:
+
             self.state.old_heads_per_target_repos_branches = defaultdict(dict)
             for repository in self.state.target_repositories.values():
+                # TODO
+                # self.state.targets_data_by_auth_commits
+                # target_branches_data_from_auth_repo does this contain commits
+
                 for branch in self.state.target_branches_data_from_auth_repo[repository.name]:
                     # if last_validated_commit is None or if the target repository didn't exist prior
                     # to calling update, start the update from the beginning
@@ -324,17 +334,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         taf_logger.error(msg)
                         raise UpdateFailedError(msg)
 
-                    # TODO
-                    repo_branch_commits = []
+
+
+                    first_commit_on_branch_to_validate = self.state.targets_data_by_auth_commits[repository.name].get(self.state.last_validated_commit, {}).get("commit")
                     if (
                         self.state.last_validated_commit is None
                         or not repository.is_git_repository_root
                         or not branch_exists
-                        or not len(repo_branch_commits)
+                        or not first_commit_on_branch_to_validate
                     ):
                         old_head = None
                     else:
-                        old_head = repo_branch_commits[0]
+                        old_head = first_commit_on_branch_to_validate
                         if not _is_unauthenticated_allowed(repository):
                             repo_old_head = repository.top_commit_of_branch(branch)
                             # do the same as when checking the top and last_validated_commit of the authentication repository
@@ -424,13 +435,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         Merge last valid commits at the end of the update
         """
         try:
+            # need to be set to old head since that is the last validated target
             last_validated_target_commits_per_repositories = {}
             self.state.last_validated_commits_per_target_repos_branches = defaultdict(dict)
             for auth_commit in self.state.auth_commits_since_last_validated:
                 for repository in self.state.target_repositories.values():
-                    if auth_commit not in  self.state.targets_data_by_auth_commits[repository.name]:
+                    if auth_commit not in self.state.targets_data_by_auth_commits[repository.name]:
                         continue
                     last_validated_target_commit = last_validated_target_commits_per_repositories.get(repository.name)
+                    if last_validated_target_commit is None:
+                        last_validated_target_commit = self.state.targets_data_by_auth_commits[repository.name].get(auth_commit, {}).get("commit")
                     current_targets_data_from_auth_repo = self.state.targets_data_by_auth_commits[repository.name][auth_commit]
                     target_commits_from_target_repo = self.state.fetched_commits_per_target_repos_branches[repository.name]
                     validated_commit = self._validate_current_repo_commit(
@@ -473,7 +487,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         ):
         # TODO there is an error with fetched target commits when there is an unauthenticated commit
         # at the end of branch of a repo that does not support unauthenticated commits
-
         current_commit_from_auth_repo = current_targets_data_from_auth_repo["commit"]
         branch = current_targets_data_from_auth_repo["branch"]
         target_commits_from_target_repos_on_branch = target_commits_from_target_repo[branch]
