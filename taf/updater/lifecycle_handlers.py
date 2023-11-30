@@ -29,6 +29,7 @@ class Event(enum.Enum):
     CHANGED = "changed"
     UNCHANGED = "unchanged"
     FAILED = "failed"
+    PARTIAL = "partial"
     COMPLETED = "completed"
 
 
