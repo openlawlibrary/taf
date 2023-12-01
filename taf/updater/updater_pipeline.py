@@ -54,7 +54,7 @@ class UpdateState:
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
     fetched_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = field(factory=dict)
-    last_validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
+    validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
     additional_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
 
@@ -93,6 +93,7 @@ class Pipeline:
                 update_status = step()
                 if update_status == UpdateStatus.FAILED:
                     break
+                self.state.update_status = update_status
 
             except Exception as e:
                 self.handle_error(e)
@@ -126,7 +127,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.validate_target_repositories_initial_state_and_find_current_branch_head_commits,
             self.get_target_repositories_commits,
             self.validate_target_repositories,
-            self.set_additional_commits_of_target_repositories,
+            self.validate_and_set_additional_commits_of_target_repositories,
             self.merge_commits,
             self.set_target_repositories_data
         ])
@@ -439,7 +440,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         """
         try:
             # need to be set to old head since that is the last validated target
-            self.state.last_validated_commits_per_target_repos_branches = defaultdict(dict)
+            self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
 
             last_validated_data_per_repositories = defaultdict(dict)
             self.state.validated_auth_commits = []
@@ -474,7 +475,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         auth_commit)
 
                     last_validated_data_per_repositories[repository.name] = {"commit": validated_commit, "branch": current_branch}
-                    self.state.last_validated_commits_per_target_repos_branches[repository.name][current_branch] = validated_commit
+
+                    self.state.validated_commits_per_target_repos_branches[repository.name].setdefault(current_branch, []).append(validated_commit)
 
                 # commit processed without an error
                 self.state.validated_auth_commits.append(auth_commit)
@@ -489,16 +491,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-        # self.state.even = Event.CHANGED if len(self.state.auth_commits_since_last_validated) > 1 else Event.UNCHANGED
-        # TODO set targets_data
-        # return (
-        #     event,
-        #     users_auth_repo,
-        #     auth_repo_name,
-        #     _commits_ret(commits, existing_repo, True),
-        #     None,
-        #     targets_data,
-        # )
 
     def _validate_current_repo_commit(
             self,
@@ -535,7 +527,6 @@ but commit not on branch {current_branch}"
             )
 
         if current_commit == current_target_commit:
-            self.state.last_validated_commits_per_target_repos_branches[repository.name][current_branch] = current_target_commit
             return current_target_commit
         if not _is_unauthenticated_allowed(repository):
             commit_date = users_auth_repo.get_commit_date(current_auth_commit)
@@ -552,7 +543,6 @@ but repo was at {current_target_commit}"
             target_commits_from_target_repos_on_branch.index(current_target_commit):]
         for target_commit in remaining_commits:
             if current_commit == target_commit:
-                self.state.last_validated_commits_per_target_repos_branches[repository.name][current_branch] = target_commit
                 return target_commit
             taf_logger.debug(f"{repository.name}: skipping target commit {target_commit}. Looking for commit {current_commit}")
         raise UpdateFailedError(
@@ -561,8 +551,8 @@ data repository {repository.name} was supposed to be at commit {current_commit} 
 but commit not on branch {current_branch}"
         )
 
-    @log_on_start(DEBUG, "Setting additional commits of target repositories", logger=taf_logger)
-    def set_additional_commits_of_target_repositories(self):
+    @log_on_start(DEBUG, "Validating and setting additional commits of target repositories", logger=taf_logger)
+    def validate_and_set_additional_commits_of_target_repositories(self):
         """
         For target repository and for each branch, extract commits following the last validated commit
         These commits are not invalid. In case of repositories which cannot contain unauthenticated commits
@@ -570,14 +560,22 @@ but commit not on branch {current_branch}"
         However, no error will get reported if there are commits which have not yet been signed
         In case of repositories which can contain unauthenticated commits, they do not even need to get signed
         """
+        if self.state.update_status != UpdateStatus.SUCCESS:
+            return self.state.update_status
         self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
         for repository in self.state.target_repositories.values():
-            # this will only include branches who were, at least partially, validated (up until a certain point)
-            for branch, last_validated_commit in self.state.last_validated_commits_per_target_repos_branches[repository.name].items():
+            # this will only include branches that were, at least partially, validated (up until a certain point)
+            for branch, validated_commits in self.state.validated_commits_per_target_repos_branches[repository.name].items():
+                last_validated_commit = validated_commits[-1]
                 # TODO what to do if an error occurred while validating that branch
                 branch_commits = self.state.fetched_commits_per_target_repos_branches[repository.name][branch]
                 additional_commits = branch_commits[branch_commits.index(last_validated_commit) + 1:]
                 if len(additional_commits):
+                    if not _is_unauthenticated_allowed(repository):
+                        raise UpdateFailedError(
+                            f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
+                        )
+
                     taf_logger.info(f"Repository {repository.name}: found commits succeeding the last authenticated commit on branch {branch}: {','.join(additional_commits)}")
 
                     # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
@@ -591,7 +589,7 @@ but commit not on branch {current_branch}"
                             additional_commits.index(branch_current_head) + 1 :
                         ]
                 self.state.additional_commits_per_target_repos_branches[repository.name][branch] = additional_commits
-        return True
+        return self.state.update_status
 
     @log_on_start(INFO, "Merging commits into target repositories...", logger=taf_logger)
     def merge_commits(self):
@@ -600,20 +598,30 @@ but commit not on branch {current_branch}"
         """
         try:
             if self.only_validate:
-                return
-            for repository in self.state.target_repositories.values():
-                # this will only include branches who were, at least partially, validated (up until a certain point)
-                for branch, last_validated_commit in self.state.last_validated_commits_per_target_repos_branches[repository.name].items():
-                    commit_to_merge = (
-                        last_validated_commit if not _is_unauthenticated_allowed(repository) else self.state.fetched_commits_per_target_repos_branches[repository.name][branch][-1]
-                )
-                    taf_logger.info("Repository {}: merging {} into branch {}",  repository.name, commit_to_merge, branch)
-                    _merge_commit(repository, branch, commit_to_merge)
-            return True
+                return self.state.update_status
+
+            if self.state.update_status == UpdateStatus.FAILED:
+                # couldn't validate the first new commit
+                # there is nothing to merge
+                # remove cloned repositories if the initial commit was incorrect
+                for repository in self.state.cloned_target_repositories:
+                    taf_logger.debug("Removing cloned repository {}", repository.path)
+                    shutil.rmtree(repository.path, onerror=on_rm_error)
+            else:
+                for repository in self.state.target_repositories.values():
+                    # this will only include branches that were, at least partially, validated (up until a certain point)
+                    for branch, validated_commits in self.state.validated_commits_per_target_repos_branches[repository.name].items():
+                        last_validated_commit = validated_commits[-1]
+                        commit_to_merge = (
+                            last_validated_commit if not _is_unauthenticated_allowed(repository) else self.state.fetched_commits_per_target_repos_branches[repository.name][branch][-1]
+                    )
+                        taf_logger.info("Repository {}: merging {} into branch {}",  repository.name, commit_to_merge, branch)
+                        _merge_commit(repository, branch, commit_to_merge)
+                return self.state.update_status
         except Exception as e:
             self.state.error = e
             self.state.event = Event.FAILED
-            return False
+            return UpdateStatus.FAILED
 
     def set_target_repositories_data(self):
         try:
@@ -657,13 +665,14 @@ but commit not on branch {current_branch}"
             new_commits = []
             commit_after_pull = None
         else:
-            commit_before_pull = self.state.auth_commits_since_last_validated[0] if self.state.existing_repo and len(self.state.auth_commits_since_last_validated) else None
-            commit_after_pull = self.state.auth_commits_since_last_validated[-1] if self.state.update_successful else self.state.auth_commits_since_last_validated[0]
+            commit_before_pull = self.state.validated_auth_commits[0] if self.state.existing_repo and len(self.state.validated_auth_commits) else None
+
+            commit_after_pull = self.state.validated_auth_commits[-1]
 
             if not self.state.existing_repo:
-                new_commits = self.state.auth_commits_since_last_validated
+                new_commits = self.state.validated_auth_commits
             else:
-                new_commits = self.state.auth_commits_since_last_validated[1:] if len(self.state.auth_commits_since_last_validated) else []
+                new_commits = self.state.validated_auth_commits[1:] if len(self.state.validated_auth_commits) else []
         commits_data = {
             "before_pull": commit_before_pull,
             "new": new_commits,
