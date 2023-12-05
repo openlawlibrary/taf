@@ -212,41 +212,35 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(INFO, "Validating out of band commit and update type", logger=taf_logger)
     def _validate_out_of_band_and_update_type(self):
-        try:
-            # this is the repository cloned inside the temp directory
-            # we validate it before updating the actual authentication repository
-            if (
-                self.out_of_band_authentication is not None
-                and self.state.users_auth_repo.last_validated_commit is None
-                and self.state.auth_commits_since_last_validated[0] != self.out_of_band_authentication
+        # this is the repository cloned inside the temp directory
+        # we validate it before updating the actual authentication repository
+        if (
+            self.out_of_band_authentication is not None
+            and self.state.users_auth_repo.last_validated_commit is None
+            and self.state.auth_commits_since_last_validated[0] != self.out_of_band_authentication
+        ):
+            raise UpdateFailedError(
+                f"First commit of repository {self.state.auth_repo_name} does not match "
+                "out of band authentication commit"
+            )
+
+        if self.expected_repo_type != UpdateType.EITHER:
+            # check if the repository being updated is a test repository
+            if self.state.validation_auth_repo.is_test_repo and self.expected_repo_type != UpdateType.TEST:
+                raise UpdateFailedError(
+                    f"Repository {self.state.users_auth_repo.name} is a test repository. "
+                    'Call update with "--expected-repo-type" test to update a test '
+                    "repository"
+                )
+            elif (
+                not self.state.validation_auth_repo.is_test_repo
+                and self.expected_repo_type == UpdateType.TEST
             ):
                 raise UpdateFailedError(
-                    f"First commit of repository {self.state.auth_repo_name} does not match "
-                    "out of band authentication commit"
+                    f"Repository {self.state.users_auth_repo.name} is not a test repository,"
+                    ' but update was called with the "--expected-repo-type" test'
                 )
 
-            if self.expected_repo_type != UpdateType.EITHER:
-                # check if the repository being updated is a test repository
-                if self.state.validation_auth_repo.is_test_repo and self.expected_repo_type != UpdateType.TEST:
-                    raise UpdateFailedError(
-                        f"Repository {self.state.users_auth_repo.name} is a test repository. "
-                        'Call update with "--expected-repo-type" test to update a test '
-                        "repository"
-                    )
-                elif (
-                    not self.state.validation_auth_repo.is_test_repo
-                    and self.expected_repo_type == UpdateType.TEST
-                ):
-                    raise UpdateFailedError(
-                        f"Repository {self.state.users_auth_repo.name} is not a test repository,"
-                        ' but update was called with the "--expected-repo-type" test'
-                    )
-            return UpdateStatus.SUCCESS
-        except Exception as e:
-            self.state.error = e
-            self.state.event = Event.FAILED
-            taf_logger.error(e)
-            return UpdateStatus.FAILED
 
     @log_on_start(INFO, "Cloning or updating user's authentication repository...", logger=taf_logger)
     def clone_or_fetch_users_auth_repo(self):

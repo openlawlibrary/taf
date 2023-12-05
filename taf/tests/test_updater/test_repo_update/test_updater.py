@@ -385,26 +385,24 @@ def test_older_last_validated_commit(updater_repositories, origin_dir, client_di
     _update_and_check_commit_shas(client_repos, repositories, origin_dir, client_dir)
 
 
-# TODO
 def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-test-repo"]
     origin_dir = origin_dir / "test-updater-test-repo"
     # try to update a test repo, set update type to official
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, IS_A_TEST_REPO, UpdateType.OFFICIAL
+        client_dir, repositories, IS_A_TEST_REPO, False, UpdateType.OFFICIAL
     )
 
 
-# TODO
 def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
     repositories = updater_repositories["test-updater-valid"]
     origin_dir = origin_dir / "test-updater-valid"
     # try to update without setting the last validated commit
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, NOT_A_TEST_REPO, UpdateType.TEST
+        client_dir, repositories, NOT_A_TEST_REPO, False, UpdateType.TEST
     )
 
-# TODO
+
 def test_update_repo_target_in_indeterminate_state(
     updater_repositories, origin_dir, client_dir
 ):
@@ -424,7 +422,7 @@ def test_update_repo_target_in_indeterminate_state(
     index_lock.touch()
 
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, UNCOMMITTED_TARGET_CHANGES, True
+        client_dir, repositories, INDEX_LOCKED, True
     )
 
 
