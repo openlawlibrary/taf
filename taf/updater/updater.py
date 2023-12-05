@@ -30,7 +30,6 @@ from cattr import unstructure
 disable_tuf_console_logging()
 
 
-
 def _check_update_status(repos_update_data: Dict[str, Any]) -> Tuple[Event, str]:
     # helper function to set update status of update handler based on repo status.
     # if repo handlers event status changed,
@@ -527,9 +526,8 @@ def _update_current_repository(
         output.auth_repo_name,
         output.commits_data,
         output.error,
-        output.targets_data
+        output.targets_data,
     )
-
 
 
 def _update_transient_data(
@@ -615,5 +613,3 @@ def validate_repository(
         )
     settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = None
-
-

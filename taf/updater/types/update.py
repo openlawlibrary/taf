@@ -11,8 +11,8 @@ class Update:
     auth_repos: Dict = field(factory=dict)
     auth_repo_name: str = field(default="")
 
+
 class UpdateType(enum.Enum):
     TEST = "test"
     OFFICIAL = "official"
     EITHER = "either"
-

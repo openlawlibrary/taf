@@ -189,12 +189,14 @@ class CommitInfo:
     custom: Dict[str, Any] = attrs.field()
     auth_commit: str = attrs.field()
 
+
 @attrs.define
 class TargetInfo:
     branches: Dict[str, List[CommitInfo]] = attrs.field()
 
     def get_branch(self, branch_name: str) -> List[CommitInfo]:
         return self.branches.get(branch_name, [])
+
 
 @attrs.define
 class TargetsSortedCommitsData:
@@ -204,7 +206,9 @@ class TargetsSortedCommitsData:
         return self.targets.get(repo_name)
 
     @classmethod
-    def from_dict(cls, data_dict: Dict[str, Dict[str, List[Dict[str, Any]]]]) -> 'TargetsSortedCommitsData':
+    def from_dict(
+        cls, data_dict: Dict[str, Dict[str, List[Dict[str, Any]]]]
+    ) -> "TargetsSortedCommitsData":
         targets = {}
 
         for repo_name, branches_dict in data_dict.items():
@@ -236,6 +240,7 @@ class TargetAtCommitInfo:
 # if that is not the case, then that will have to be done
 # elsewhere in the code
 # better in the auth repo function
+
 
 @attrs.define
 class AuthCommitAndTargets:

@@ -219,14 +219,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
-
     def targets_data_by_auth_commits(
-            self,
-            commits: List[str],
-            target_repos: Optional[List[str]] = None,
-            custom_fns: Optional[Dict[str, Callable]] = None,
-            default_branch: Optional[str] = None,
-            excluded_target_globs: Optional[List[str]] = None,
+        self,
+        commits: List[str],
+        target_repos: Optional[List[str]] = None,
+        custom_fns: Optional[Dict[str, Callable]] = None,
+        default_branch: Optional[str] = None,
+        excluded_target_globs: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
@@ -262,9 +261,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 target_commit = target_data.get("commit")
                 target_data.setdefault("custom", {})
                 if custom_fns is not None and target_path in custom_fns:
-                    target_data["custom"].update(
-                        custom_fns[target_path](target_commit)
-                    )
+                    target_data["custom"].update(custom_fns[target_path](target_commit))
 
                 repositories_commits.setdefault(target_path, {})[commit] = {
                     "branch": target_branch,
@@ -276,7 +273,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             f"new commits per repositories according to target files: {repositories_commits}"
         )
         return repositories_commits
-
 
     def sorted_commits_and_branches_per_repositories(
         self,

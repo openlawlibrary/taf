@@ -248,7 +248,9 @@ class GitRepository:
 
     def _get_default_branch_from_remote(self, url: str) -> str:
         if not self.is_git_repository:
-            self._log_debug("Repository does not exist. Could not determined default branch from remote")
+            self._log_debug(
+                "Repository does not exist. Could not determined default branch from remote"
+            )
             return None
         branch = self._git(
             f"ls-remote --symref {url} HEAD",
@@ -815,10 +817,11 @@ class GitRepository:
                 "Could not get commit message. pygit repository could not be instantiated."
             )
         commit = repo.get(commit_sha)
-        date = datetime.datetime.utcfromtimestamp(commit.commit_time + commit.commit_time_offset)
-        formatted_date = date.strftime('%Y-%m-%d')
+        date = datetime.datetime.utcfromtimestamp(
+            commit.commit_time + commit.commit_time_offset
+        )
+        formatted_date = date.strftime("%Y-%m-%d")
         return formatted_date
-
 
     def get_commit_message(self, commit_sha: str) -> str:
         """Returns commit message of the given commit"""

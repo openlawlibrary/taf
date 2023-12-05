@@ -79,8 +79,6 @@ TARGET_MISSING_COMMIT = r"Update of organization/auth_repo failed due to error: 
 INDEX_LOCKED = r"Update of organization/auth_repo failed due to error: Repo ([\w\/-]+): the index is locked; this might be due to a concurrent or crashed process"
 
 
-
-
 NO_WORKING_MIRRORS = (
     f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
 )
@@ -249,11 +247,21 @@ def test_no_update_necessary(
     "test_name, expected_error, auth_repo_name_exists, expect_partial_update",
     [
         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True),
-        ("test-updater-additional-target-commit", TARGET_COMMIT_AFTER_LAST_VALIDATED, True, True),
+        (
+            "test-updater-additional-target-commit",
+            TARGET_COMMIT_AFTER_LAST_VALIDATED,
+            True,
+            True,
+        ),
         ("test-updater-missing-target-commit", TARGET_ADDITIONAL_COMMIT, True, True),
         ("test-updater-wrong-key", NO_WORKING_MIRRORS, True, True),
         ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True),
-        ("test-updater-delegated-roles-wrong-sha", TARGET_MISSMATCH_PATTERN, True, True),
+        (
+            "test-updater-delegated-roles-wrong-sha",
+            TARGET_MISSMATCH_PATTERN,
+            True,
+            True,
+        ),
         ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True, True),
         ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS, True, True),
         ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True),
@@ -266,7 +274,12 @@ def test_no_update_necessary(
     ],
 )
 def test_updater_invalid_update(
-    test_name, expected_error, auth_repo_name_exists, updater_repositories, client_dir, expect_partial_update
+    test_name,
+    expected_error,
+    auth_repo_name_exists,
+    updater_repositories,
+    client_dir,
+    expect_partial_update,
 ):
     repositories = updater_repositories[test_name]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
