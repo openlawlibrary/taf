@@ -123,8 +123,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.clone_or_fetch_users_auth_repo,
             self.load_target_repositories,
             self.clone_target_repositories_if_not_on_disk,
+            self.determine_start_commits,
             self.get_targets_data_from_auth_repo,
-            self.validate_target_repositories_initial_state_and_find_current_branch_head_commits,
             self.get_target_repositories_commits,
             self.validate_target_repositories,
             self.validate_and_set_additional_commits_of_target_repositories,
@@ -310,8 +310,65 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
 
+
+    @log_on_start(INFO, "Validating initial state of target repositories...", logger=taf_logger)
+    @log_on_end(INFO, "Validation of the initial state of target repositories finished", logger=taf_logger)
+    def determine_start_commits(self):
+        try:
+            self.state.targets_data_by_auth_commits = self.state.users_auth_repo.targets_data_by_auth_commits(self.state.auth_commits_since_last_validated)
+            self.state.old_heads_per_target_repos_branches = defaultdict(dict)
+            is_initial_state_in_sync = True
+            # if last validated commit was not manually modified (set to a newer commit)
+            # target repositories data that is extracted to them (commit and branch)
+            # should be present in the local repository
+            # if the local repository was manually modified (say, something was committed)
+            # we still expect the last validated target commit to exist
+            # and the remaining commits will be validated afterwards
+            # if the last validated target commit does not exist, start the validation from scratch
+            if self.state.last_validated_commit is not None:
+                for repository in self.state.target_repositories.values():
+                    self.state.old_heads_per_target_repos_branches[repository.name] = {}
+                    last_validated_repository_commits_data = self.state.targets_data_by_auth_commits[repository.name].get(self.state.last_validated_commit, {})
+
+                    if last_validated_repository_commits_data:
+                        # if this is not set, it means that the repository did not exist in this revision
+                        if repository in self.state.cloned_target_repositories:
+                            is_initial_state_in_sync = False
+                            break
+                        current_branch = last_validated_repository_commits_data.get("branch", repository.default_branch)
+                        last_validated_commit = last_validated_repository_commits_data["commit"]
+
+                        branch_exists = repository.branch_exists(current_branch, include_remotes=False)
+                        if not branch_exists:
+                            is_initial_state_in_sync = False
+                            break
+                        top_commit_of_branch = repository.top_commit_of_branch(current_branch)
+                        if top_commit_of_branch != last_validated_commit:
+                            # check if top commit is newer (which is fine, it will be validated)
+                            # or older, meaning that the authentication repository contains
+                            # additional commits, so it would be necessary to find older auth repo
+                            # commit and start the validation from there
+                            if not current_branch in repository.branches_containing_commit(last_validated_commit):
+                                is_initial_state_in_sync = False
+                                break
+
+                        self.state.old_heads_per_target_repos_branches[repository.name][current_branch] = last_validated_commit
+
+            if not is_initial_state_in_sync:
+                taf_logger.info(f"Repository {self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning")
+                self.state.last_validated_commit = None
+                self.state.auth_commits_since_last_validated = self.state.users_auth_repo.all_commits_on_branch(self.state.users_auth_repo.default_branch)
+                self.state.targets_data_by_auth_commits = self.state.users_auth_repo.targets_data_by_auth_commits(self.state.auth_commits_since_last_validated)
+
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            taf_logger.error(e)
+            return UpdateStatus.FAILED
+
+
     def get_targets_data_from_auth_repo(self):
-        self.state.targets_data_by_auth_commits = self.state.users_auth_repo.targets_data_by_auth_commits(self.state.auth_commits_since_last_validated)
         repo_branches = {}
         for repo_name, commits_data in  self.state.targets_data_by_auth_commits.items():
             branches = set()  # using a set to avoid duplicate branches
@@ -322,52 +379,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
 
-    @log_on_start(INFO, "Validating initial state of target repositories...", logger=taf_logger)
-    @log_on_end(INFO, "Validation of the initial state of target repositories finished", logger=taf_logger)
-    def validate_target_repositories_initial_state_and_find_current_branch_head_commits(self):
-        try:
-
-            self.state.old_heads_per_target_repos_branches = defaultdict(dict)
-            for repository in self.state.target_repositories.values():
-
-                for branch in self.state.target_branches_data_from_auth_repo[repository.name]:
-                    # if last_validated_commit is None or if the target repository didn't exist prior
-                    # to calling update, start the update from the beginning
-                    # otherwise, for each branch, start with the last validated commit of the local branch
-                    branch_exists = repository.branch_exists(branch, include_remotes=False)
-                    if not branch_exists and self.only_validate:
-                        self.state.targets_data = {}
-                        msg = f"{repository.name} does not contain a local branch named {branch} and cannot be validated. Please update the repositories"
-                        taf_logger.error(msg)
-                        raise UpdateFailedError(msg)
-
-                    first_commit_on_branch_to_validate = self.state.targets_data_by_auth_commits[repository.name].get(self.state.last_validated_commit, {}).get("commit")
-                    if (
-                        self.state.last_validated_commit is None
-                        or not repository.is_git_repository_root
-                        or not branch_exists
-                        or not first_commit_on_branch_to_validate
-                    ):
-                        old_head = None
-                    else:
-                        old_head = first_commit_on_branch_to_validate
-                        if not _is_unauthenticated_allowed(repository):
-                            repo_old_head = repository.top_commit_of_branch(branch)
-                            # do the same as when checking the top and last_validated_commit of the authentication repository
-                            if repo_old_head != old_head:
-                                commits_since = repository.all_commits_since_commit(old_head)
-                                if repo_old_head not in commits_since:
-                                    msg = f"Top commit of repository {repository.name} {repo_old_head} and is not equal to or newer than commit defined in auth repo {old_head}"
-                                    taf_logger.error(msg)
-                                    raise UpdateFailedError(msg)
-                    self.state.old_heads_per_target_repos_branches[repository.name][branch] = old_head
-            return UpdateStatus.SUCCESS
-        except Exception as e:
-            self.state.error = e
-            self.state.event = Event.FAILED
-            taf_logger.error(e)
-            return UpdateStatus.FAILED
-
     @log_on_start(DEBUG, "Getting fetched commits of target repositories", logger=taf_logger)
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
@@ -375,9 +386,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         for repository in self.state.target_repositories.values():
             for branch in self.state.target_branches_data_from_auth_repo[repository.name]:
                 if repository.is_git_repository_root:
+                    if self.only_validate:
+                        branch_exists = repository.branch_exists(branch, include_remotes=False)
+                        if not branch_exists:
+                            self.state.targets_data = {}
+                            msg = f"{repository.name} does not contain a local branch named {branch} and cannot be validated. Please update the repositories."
+                            taf_logger.error(msg)
+                            raise UpdateFailedError(msg)
+                else:
                     repository.fetch(branch=branch)
 
-                old_head = self.state.old_heads_per_target_repos_branches[repository.name][branch]
+                old_head = self.state.old_heads_per_target_repos_branches[repository.name].get(branch)
                 if old_head is not None:
                     if not self.only_validate:
                         fetched_commits = repository.all_commits_on_branch(

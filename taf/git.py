@@ -65,7 +65,6 @@ class GitRepository:
             raise InvalidRepositoryError(
                 "Both library_dir and name need to be specified"
             )
-
         if name is not None and library_dir is not None:
             self.name = self._validate_repo_name(name)
             self.path = self._validate_repo_path(library_dir, name, path)
@@ -316,8 +315,9 @@ class GitRepository:
         specified or currently checked out branch
 
         Raises:
-            exceptions.GitError: An error occured with provided commit SHA
+            exceptions.GitError: An error occurred with provided commit SHA
         """
+
         if since_commit is None:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
 
