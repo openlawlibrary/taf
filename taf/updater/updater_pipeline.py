@@ -1,14 +1,14 @@
 from collections import defaultdict
 from enum import Enum
 import functools
-from logging import DEBUG, ERROR, INFO
+from logging import DEBUG, INFO
 from pathlib import Path
 import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
 from attr import attrs, define, field
 from git import GitError
-from logdecorator import log_on_end, log_on_error, log_on_start
+from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
 
 import taf.settings as settings
@@ -408,8 +408,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             # additional commits, so it would be necessary to find older auth repo
                             # commit and start the validation from there
                             if (
-                                not current_branch
-                                in repository.branches_containing_commit(
+                                current_branch
+                                not in repository.branches_containing_commit(
                                     last_validated_commit
                                 )
                             ):

@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from taf.models.types import AuthCommitAndTargets, TargetAtCommitInfo
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.git import GitRepository
 from taf.repository_tool import (

@@ -246,7 +246,7 @@ class GitRepository:
         branch = self._git("symbolic-ref HEAD --short", reraise_error=True)
         return branch
 
-    def _get_default_branch_from_remote(self, url: str) -> str:
+    def _get_default_branch_from_remote(self, url: str) -> Optional[str]:
         if not self.is_git_repository:
             self._log_debug(
                 "Repository does not exist. Could not determined default branch from remote"
@@ -837,7 +837,7 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
-    def get_default_branch(self, url: Optional[str] = None) -> str:
+    def get_default_branch(self, url: Optional[str] = None) -> Optional[str]:
         """Get the default branch of the repository. If url is provided, return the
         default branch from the remote. Otherwise, return the default
         branch from the local repository."""
@@ -1023,7 +1023,7 @@ class GitRepository:
             return self.pygit.list_files_at_revision(commit, posix_path)
         except TAFError as e:
             raise e
-        except Exception as e:
+        except Exception:
             self._log_warning(
                 "Perfomance regression: Could not list files with pygit2. Reverting to git subprocess"
             )
