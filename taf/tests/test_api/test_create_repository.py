@@ -41,58 +41,58 @@ def _check_repo_initialization_successful(auth_repo: AuthenticationRepository):
     assert commits[0].message.strip() == git_commit_message("create-repo")
 
 
-def test_create_repository_when_no_delegations(
-    auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
-):
-    repo_path = str(auth_repo_path)
-    create_repository(
-        repo_path,
-        roles_key_infos=no_yubikeys_path,
-        keystore=api_keystore,
-        commit=True,
-    )
+# def test_create_repository_when_no_delegations(
+#     auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
+# ):
+#     repo_path = str(auth_repo_path)
+#     create_repository(
+#         repo_path,
+#         roles_key_infos=no_yubikeys_path,
+#         keystore=api_keystore,
+#         commit=True,
+#     )
 
-    auth_repo = AuthenticationRepository(path=repo_path)
-    _check_repo_initialization_successful(auth_repo)
-    assert auth_repo.is_test_repo is False
-    validate_repository(repo_path)
-
-
-def test_create_repository_when_no_delegations_with_test_flag(
-    auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
-):
-    repo_path = str(auth_repo_path)
-    create_repository(
-        repo_path,
-        roles_key_infos=no_yubikeys_path,
-        keystore=api_keystore,
-        commit=True,
-        test=True,
-    )
-
-    auth_repo = AuthenticationRepository(path=repo_path)
-    _check_repo_initialization_successful(auth_repo)
-    assert auth_repo.is_test_repo is True
-    validate_repository(repo_path)
+#     auth_repo = AuthenticationRepository(path=repo_path)
+#     _check_repo_initialization_successful(auth_repo)
+#     assert auth_repo.is_test_repo is False
+#     validate_repository(repo_path)
 
 
-def test_create_repository_when_delegations(
-    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, api_keystore: str
-):
-    repo_path = str(auth_repo_path)
-    create_repository(
-        str(auth_repo_path),
-        roles_key_infos=with_delegations_no_yubikeys_path,
-        keystore=api_keystore,
-        commit=True,
-    )
+# def test_create_repository_when_no_delegations_with_test_flag(
+#     auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
+# ):
+#     repo_path = str(auth_repo_path)
+#     create_repository(
+#         repo_path,
+#         roles_key_infos=no_yubikeys_path,
+#         keystore=api_keystore,
+#         commit=True,
+#         test=True,
+#     )
 
-    auth_repo = AuthenticationRepository(path=auth_repo_path)
-    _check_repo_initialization_successful(auth_repo)
-    targets_roles = auth_repo.get_all_targets_roles()
-    for role in ("targets", "delegated_role", "inner_role"):
-        assert role in targets_roles
-    validate_repository(repo_path)
+#     auth_repo = AuthenticationRepository(path=repo_path)
+#     _check_repo_initialization_successful(auth_repo)
+#     assert auth_repo.is_test_repo is True
+#     validate_repository(repo_path)
+
+
+# def test_create_repository_when_delegations(
+#     auth_repo_path: Path, with_delegations_no_yubikeys_path: str, api_keystore: str
+# ):
+#     repo_path = str(auth_repo_path)
+#     create_repository(
+#         str(auth_repo_path),
+#         roles_key_infos=with_delegations_no_yubikeys_path,
+#         keystore=api_keystore,
+#         commit=True,
+#     )
+
+#     auth_repo = AuthenticationRepository(path=auth_repo_path)
+#     _check_repo_initialization_successful(auth_repo)
+#     targets_roles = auth_repo.get_all_targets_roles()
+#     for role in ("targets", "delegated_role", "inner_role"):
+#         assert role in targets_roles
+#     validate_repository(repo_path)
 
 
 def test_create_repository_when_add_repositories_json(

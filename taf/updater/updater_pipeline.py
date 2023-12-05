@@ -92,10 +92,12 @@ def cleanup_decorator(pipeline_function):
 class Pipeline:
     def __init__(self, steps):
         self.steps = steps
+        self.current_step = None
 
     def run(self):
         for step in self.steps:
             try:
+                self.current_step = step
                 update_status = step()
                 if update_status == UpdateStatus.FAILED:
                     break
@@ -108,7 +110,11 @@ class Pipeline:
         self.set_output()
 
     def handle_error(self, e):
-        taf_logger.error("An error occurred while running the updater: {}", str(e))
+        taf_logger.error(
+            "An error occurred while running step {}: {}",
+            self.current_step.__name__,
+            str(e),
+        )
         raise e
 
     def set_output(self):
@@ -460,6 +466,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         """Returns a list of newly fetched commits belonging to the specified branch."""
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
         for repository in self.state.target_repositories.values():
+            if repository.name not in self.state.target_branches_data_from_auth_repo:
+                # exists in repositories.json, not target files
+                continue
             for branch in self.state.target_branches_data_from_auth_repo[
                 repository.name
             ]:
@@ -553,6 +562,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.validated_auth_commits = []
             for auth_commit in self.state.auth_commits_since_last_validated:
                 for repository in self.state.target_repositories.values():
+                    if repository.name not in self.state.targets_data_by_auth_commits:
+                        continue
                     if (
                         auth_commit
                         not in self.state.targets_data_by_auth_commits[repository.name]
@@ -799,6 +810,8 @@ but commit not on branch {current_branch}"
             targets_data = {}
             for repo_name, repo in self.state.target_repositories.items():
                 targets_data[repo_name] = {"repo_data": repo.to_json_dict()}
+                if repo_name not in self.state.targets_data_by_auth_commits:
+                    continue
                 commits_data = self.state.targets_data_by_auth_commits[repo_name]
 
                 branch_data = defaultdict(dict)
@@ -835,7 +848,7 @@ but commit not on branch {current_branch}"
         except Exception as e:
             self.state.error = e
             self.state.event = Event.FAILED
-            return False
+            return UpdateStatus.FAILED
 
     def set_output(self):
         if self.state.auth_commits_since_last_validated is None:
@@ -849,7 +862,10 @@ but commit not on branch {current_branch}"
                 else None
             )
 
-            commit_after_pull = self.state.validated_auth_commits[-1]
+            if len(self.state.validated_auth_commits):
+                commit_after_pull = self.state.validated_auth_commits[-1]
+            else:
+                commit_after_pull = None
 
             if not self.state.existing_repo:
                 new_commits = self.state.validated_auth_commits
