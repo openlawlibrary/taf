@@ -844,11 +844,7 @@ class GitRepository:
         if url is not None:
             url = url.strip()
             return self._get_default_branch_from_remote(url)
-        # there is not point in trying to find the default branch from a local repository
-        # if the directory is not a git repository (e.g. not yet cloned)
-        if self.is_git_repository_root:
-            return self._get_default_branch_from_local()
-        return None
+        return self._get_default_branch_from_local()
 
     def get_json(
         self, commit: str, path: str, raw: Optional[bool] = False
