@@ -716,46 +716,57 @@ but commit not on branch {current_branch}"
         if self.state.update_status != UpdateStatus.SUCCESS:
             return self.state.update_status
         self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
-        for repository in self.state.target_repositories.values():
-            # this will only include branches that were, at least partially, validated (up until a certain point)
-            for (
-                branch,
-                validated_commits,
-            ) in self.state.validated_commits_per_target_repos_branches[
-                repository.name
-            ].items():
-                last_validated_commit = validated_commits[-1]
-                # TODO what to do if an error occurred while validating that branch
-                branch_commits = self.state.fetched_commits_per_target_repos_branches[
+        try:
+            for repository in self.state.target_repositories.values():
+                # this will only include branches that were, at least partially, validated (up until a certain point)
+                for (
+                    branch,
+                    validated_commits,
+                ) in self.state.validated_commits_per_target_repos_branches[
                     repository.name
-                ][branch]
-                additional_commits = branch_commits[
-                    branch_commits.index(last_validated_commit) + 1 :
-                ]
-                if len(additional_commits):
-                    if not _is_unauthenticated_allowed(repository):
-                        raise UpdateFailedError(
-                            f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
+                ].items():
+                    last_validated_commit = validated_commits[-1]
+                    # TODO what to do if an error occurred while validating that branch
+                    branch_commits = (
+                        self.state.fetched_commits_per_target_repos_branches[
+                            repository.name
+                        ][branch]
+                    )
+                    additional_commits = branch_commits[
+                        branch_commits.index(last_validated_commit) + 1 :
+                    ]
+                    if len(additional_commits):
+                        if not _is_unauthenticated_allowed(repository):
+                            raise UpdateFailedError(
+                                f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
+                            )
+
+                        taf_logger.info(
+                            f"Repository {repository.name}: found commits succeeding the last authenticated commit on branch {branch}: {','.join(additional_commits)}"
                         )
 
-                    taf_logger.info(
-                        f"Repository {repository.name}: found commits succeeding the last authenticated commit on branch {branch}: {','.join(additional_commits)}"
-                    )
-
-                    # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
-                    # that does not necessarily mean that the local repository is not up to date with the remote
-                    # pull could've been run manually
-                    # check where the current local head is
-                    # TODO I don't remember why this was done!
-                    branch_current_head = repository.top_commit_of_branch(branch)
-                    if branch_current_head in additional_commits:
-                        additional_commits = additional_commits[
-                            additional_commits.index(branch_current_head) + 1 :
-                        ]
-                self.state.additional_commits_per_target_repos_branches[
-                    repository.name
-                ][branch] = additional_commits
-        return self.state.update_status
+                        # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
+                        # that does not necessarily mean that the local repository is not up to date with the remote
+                        # pull could've been run manually
+                        # check where the current local head is
+                        # TODO I don't remember why this was done!
+                        branch_current_head = repository.top_commit_of_branch(branch)
+                        if branch_current_head in additional_commits:
+                            additional_commits = additional_commits[
+                                additional_commits.index(branch_current_head) + 1 :
+                            ]
+                    self.state.additional_commits_per_target_repos_branches[
+                        repository.name
+                    ][branch] = additional_commits
+            return self.state.update_status
+        except UpdateFailedError as e:
+            self.state.error = e
+            self.state.event = Event.PARTIAL
+            return UpdateStatus.PARTIAL
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     @log_on_start(
         INFO, "Merging commits into target repositories...", logger=taf_logger
@@ -817,7 +828,7 @@ but commit not on branch {current_branch}"
                 branch_data = defaultdict(dict)
 
                 # Iterate through auth_commits in the specified order
-                for auth_commit in self.state.auth_commits_since_last_validated:
+                for auth_commit in self.state.validated_auth_commits:
                     commit_info = commits_data.get(auth_commit)
                     if not commit_info or "branch" not in commit_info:
                         continue
@@ -845,6 +856,7 @@ but commit not on branch {current_branch}"
 
                 targets_data[repo_name]["commits"] = branch_data
             self.state.targets_data = targets_data
+            return self.state.update_status
         except Exception as e:
             self.state.error = e
             self.state.event = Event.FAILED
@@ -1020,7 +1032,9 @@ def _find_next_value(value, values_list):
     return None
 
 
-def _merge_commit(repository, branch, commit_to_merge, checkout=True):
+def _merge_commit(
+    repository, branch, commit_to_merge, checkout=True, force_revert=False
+):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
@@ -1045,7 +1059,19 @@ def _merge_commit(repository, branch, commit_to_merge, checkout=True):
             f"Please update the repository at {repository.path} manually and try again."
         )
 
-    repository.merge_commit(commit_to_merge)
+    commit_merged = False
+    if force_revert:
+        # check if repository already contains this commit that needs to be merged
+        # and commits following it
+        commits_since_last_validated = repository.all_commits_since_commit(
+            commit_to_merge
+        )
+        if len(commits_since_last_validated):
+            repository.reset_to_commit(commit_to_merge)
+            commit_merged = True
+
+    if not commit_merged:
+        repository.merge_commit(commit_to_merge)
     if checkout:
         taf_logger.info("{}: checking out branch {}", repository.name, branch)
         repository.checkout_branch(branch)

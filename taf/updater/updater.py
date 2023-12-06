@@ -5,7 +5,10 @@ from typing import Dict, Tuple, Any
 from logdecorator import log_on_error
 from taf.git import GitRepository
 from taf.updater.types.update import UpdateType
-from taf.updater.updater_pipeline import AuthenticationRepositoryUpdatePipeline
+from taf.updater.updater_pipeline import (
+    AuthenticationRepositoryUpdatePipeline,
+    _merge_commit,
+)
 
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
@@ -449,10 +452,19 @@ def _update_named_repository(
         # use last validated commit - if the repository contains it
 
         # all repositories that can be updated will be updated
-        if not only_validate and len(commits) and update_status == Event.CHANGED:
+        if (
+            not only_validate
+            and len(commits)
+            and (update_status == Event.CHANGED or update_status == Event.PARTIAL)
+        ):
+            # when performing breadth-first update, validation might fail at some point
+            # but we want to update all repository up to it
+            # so set last validated commit to this last valid commit
             last_commit = commits[-1]
             # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, checkout)
+            _merge_commit(
+                auth_repo, auth_repo.default_branch, last_commit, checkout, True
+            )
             # update the last validated commit
             if not excluded_target_globs:
                 auth_repo.set_last_validated_commit(last_commit)
@@ -538,35 +550,6 @@ def _update_transient_data(
         if auth_repo_name in transient_data:
             update_transient_data[auth_repo_name] = transient_data[auth_repo_name]
     return update_transient_data
-
-
-def _merge_commit(repository, branch, commit_to_merge, checkout=True):
-    """Merge the specified commit into the given branch and check out the branch.
-    If the repository cannot contain unauthenticated commits, check out the merged commit.
-    """
-    taf_logger.info("Merging commit {} into {}", commit_to_merge, repository.name)
-    try:
-        repository.checkout_branch(branch, raise_anyway=True)
-    except GitError as e:
-        # two scenarios:
-        # current git repository is in an inconsistent state:
-        # - .git/index.lock exists (git partial update got applied)
-        # should get addressed in https://github.com/openlawlibrary/taf/issues/210
-        # current git repository has uncommitted changes:
-        # we do not want taf to lose any repo data, so we do not reset the repository.
-        # for now, raise an update error and let the user manually reset the repository
-        taf_logger.error(
-            "Could not checkout branch {} during commit merge. Error {}", branch, e
-        )
-        raise UpdateFailedError(
-            f"Repository {repository.name} should contain only committed changes. \n"
-            + f"Please update the repository at {repository.path} manually and try again."
-        )
-
-    repository.merge_commit(commit_to_merge)
-    if checkout:
-        taf_logger.info("{}: checking out branch {}", repository.name, branch)
-        repository.checkout_branch(branch)
 
 
 @timed_run("Validating repository")

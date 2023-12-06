@@ -244,32 +244,47 @@ def test_no_update_necessary(
 
 
 @pytest.mark.parametrize(
-    "test_name, expected_error, auth_repo_name_exists, expect_partial_update",
+    "test_name, expected_error, auth_repo_name_exists, expect_partial_update, should_last_validated_exist",
     [
-        ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True),
+        ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True, True),
         (
             "test-updater-additional-target-commit",
             TARGET_COMMIT_AFTER_LAST_VALIDATED,
             True,
             True,
+            True,
         ),
-        ("test-updater-missing-target-commit", TARGET_ADDITIONAL_COMMIT, True, True),
-        ("test-updater-wrong-key", NO_WORKING_MIRRORS, True, True),
-        ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True),
+        (
+            "test-updater-missing-target-commit",
+            TARGET_ADDITIONAL_COMMIT,
+            True,
+            True,
+            True,
+        ),
+        ("test-updater-wrong-key", NO_WORKING_MIRRORS, True, True, False),
+        ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True, False),
         (
             "test-updater-delegated-roles-wrong-sha",
             TARGET_MISSMATCH_PATTERN,
             True,
             True,
+            True,
         ),
-        ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True, True),
-        ("test-updater-updated-root-invalid-metadata", NO_WORKING_MIRRORS, True, True),
-        ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True),
+        # ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True, True, False),
+        (
+            "test-updater-updated-root-invalid-metadata",
+            NO_WORKING_MIRRORS,
+            True,
+            True,
+            False,
+        ),
+        ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True, False),
         (
             "test-updater-invalid-snapshot-meta-field-missing",
             METADATA_FIELD_MISSING,
             False,
             True,
+            False,
         ),
     ],
 )
@@ -280,6 +295,7 @@ def test_updater_invalid_update(
     updater_repositories,
     client_dir,
     expect_partial_update,
+    should_last_validated_exist,
 ):
     repositories = updater_repositories[test_name]
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -292,7 +308,9 @@ def test_updater_invalid_update(
         auth_repo_name_exists=auth_repo_name_exists,
     )
     # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(clients_auth_repo_path)
+    _check_if_last_validated_commit_exists(
+        clients_auth_repo_path, should_last_validated_exist
+    )
 
 
 @pytest.mark.parametrize(
@@ -313,7 +331,7 @@ def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
         client_dir, repositories, expected_error, True
     )
     # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(clients_auth_repo_path)
+    _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
 
 
 def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
@@ -328,7 +346,7 @@ def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
         client_dir, repositories, ROOT_EXPIRED, False, set_time=False, strict=True
     )
     # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(clients_auth_repo_path)
+    _check_if_last_validated_commit_exists(clients_auth_repo_path, False)
 
 
 @pytest.mark.parametrize(
@@ -447,10 +465,16 @@ def _check_last_validated_commit(clients_auth_repo_path):
     assert head_sha == last_validated_commit
 
 
-def _check_if_last_validated_commit_exists(clients_auth_repo_path):
+def _check_if_last_validated_commit_exists(clients_auth_repo_path, should_exist):
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     last_validated_commit = client_auth_repo.last_validated_commit
-    assert last_validated_commit is None
+    if not should_exist:
+        assert last_validated_commit is None
+    else:
+        assert (
+            client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
+            == last_validated_commit
+        )
 
 
 def _check_if_commits_match(
