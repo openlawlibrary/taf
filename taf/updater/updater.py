@@ -18,7 +18,6 @@ import taf.settings as settings
 from taf.exceptions import (
     ScriptExecutionError,
     UpdateFailedError,
-    GitError,
     ValidationFailedError,
 )
 

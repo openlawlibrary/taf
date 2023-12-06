@@ -270,7 +270,6 @@ def test_no_update_necessary(
             True,
             True,
         ),
-        # ("test-updater-updated-root-n-root-missing", NO_WORKING_MIRRORS, True, True, False),
         (
             "test-updater-updated-root-invalid-metadata",
             NO_WORKING_MIRRORS,
