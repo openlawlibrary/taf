@@ -359,7 +359,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     )
     @log_on_end(
         INFO,
-        "Validation of the initial state of target repositories finished",
+        "Checking initial state of repositories",
         logger=taf_logger,
     )
     def determine_start_commits(self):
@@ -624,10 +624,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 # commit processed without an error
                 self.state.validated_auth_commits.append(auth_commit)
             return UpdateStatus.SUCCESS
-        # TODO merge until the last validated
-        # if at some point validation fails
         except Exception as e:
             self.state.error = e
+            taf_logger.error(e)
             if len(self.state.validated_auth_commits):
                 self.state.event = Event.PARTIAL
                 return UpdateStatus.PARTIAL
@@ -645,9 +644,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         target_commits_from_target_repo,
         current_auth_commit,
     ):
-        # TODO there is an error with fetched target commits when there is an unauthenticated commit
-        # at the end of branch of a repo that does not support unauthenticated commits
-
         target_commits_from_target_repos_on_branch = target_commits_from_target_repo[
             current_branch
         ]
@@ -749,7 +745,6 @@ but commit not on branch {current_branch}"
                         # that does not necessarily mean that the local repository is not up to date with the remote
                         # pull could've been run manually
                         # check where the current local head is
-                        # TODO I don't remember why this was done!
                         branch_current_head = repository.top_commit_of_branch(branch)
                         if branch_current_head in additional_commits:
                             additional_commits = additional_commits[
@@ -761,10 +756,12 @@ but commit not on branch {current_branch}"
             return self.state.update_status
         except UpdateFailedError as e:
             self.state.error = e
+            taf_logger.error(e)
             self.state.event = Event.PARTIAL
             return UpdateStatus.PARTIAL
         except Exception as e:
             self.state.error = e
+            taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -813,6 +810,7 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
         except Exception as e:
             self.state.error = e
+            taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -859,6 +857,7 @@ but commit not on branch {current_branch}"
             return self.state.update_status
         except Exception as e:
             self.state.error = e
+            taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
