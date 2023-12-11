@@ -100,7 +100,7 @@ class Pipeline:
                 self.current_step = step
                 update_status = step()
                 if update_status == UpdateStatus.FAILED:
-                    break
+                    raise UpdateFailedError(self.state.error)
                 self.state.update_status = update_status
 
             except Exception as e:
@@ -111,7 +111,8 @@ class Pipeline:
 
     def handle_error(self, e):
         taf_logger.error(
-            "An error occurred while running step {}: {}",
+            "An error occurred while updating repository {} while running step {}: {}",
+            self.state.auth_repo_name,
             self.current_step.__name__,
             str(e),
         )
@@ -210,9 +211,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             _run_tuf_updater(git_updater)
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self.state.validation_auth_repo = git_updater.validation_auth_repo
+            self.state.auth_commits_since_last_validated = list(git_updater.commits)
             self._validate_out_of_band_and_update_type()
 
-            self.state.auth_commits_since_last_validated = list(git_updater.commits)
             self.state.event = (
                 Event.CHANGED
                 if len(self.state.auth_commits_since_last_validated) > 1
@@ -333,7 +334,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_start(
         INFO, "Cloning target repositories which are not on disk...", logger=taf_logger
     )
-    @log_on_start(INFO, "Finished cloning target repositories", logger=taf_logger)
+    @log_on_end(INFO, "Finished cloning target repositories", logger=taf_logger)
     def clone_target_repositories_if_not_on_disk(self):
         try:
             self.state.cloned_target_repositories = []
@@ -483,6 +484,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             taf_logger.error(msg)
                             raise UpdateFailedError(msg)
                 else:
+                    if self.only_validate:
+                        self.state.targets_data = {}
+                        msg = f"{repository.name} not on disk. Please run update to clone the repositories."
+                        taf_logger.error(msg)
+                        raise UpdateFailedError(msg)
                     repository.fetch(branch=branch)
 
                 old_head = self.state.old_heads_per_target_repos_branches[
