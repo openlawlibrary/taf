@@ -293,7 +293,7 @@ class GitRepository:
             )
         if branch:
             branch_obj = repo.branches.get(branch)
-            if branch is None:
+            if branch_obj is None:
                 raise GitError(
                     self,
                     message=f"Error occurred while getting commits of branch {branch}. Branch does not exist",

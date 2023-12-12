@@ -342,10 +342,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 is_git_repository = repository.is_git_repository_root
                 if not is_git_repository:
                     if self.only_validate:
-                        taf_logger.warning(
-                            "Target repositories must already exist when only validating repositories"
-                        )
-                        continue
+                        self.state.targets_data = {}
+                        msg = f"{repository.name} not on disk. Please run update to clone the repositories."
+                        taf_logger.error(msg)
+                        raise UpdateFailedError(msg)
                     repository.clone(no_checkout=True)
                     self.state.cloned_target_repositories.append(repository)
             return UpdateStatus.SUCCESS
@@ -460,9 +460,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
 
-    @log_on_start(
-        DEBUG, "Getting fetched commits of target repositories", logger=taf_logger
-    )
+    @log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
@@ -473,7 +471,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             for branch in self.state.target_branches_data_from_auth_repo[
                 repository.name
             ]:
-                if repository.is_git_repository_root:
+                if repository not in self.state.cloned_target_repositories:
                     if self.only_validate:
                         branch_exists = repository.branch_exists(
                             branch, include_remotes=False
@@ -483,13 +481,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             msg = f"{repository.name} does not contain a local branch named {branch} and cannot be validated. Please update the repositories."
                             taf_logger.error(msg)
                             raise UpdateFailedError(msg)
-                else:
-                    if self.only_validate:
-                        self.state.targets_data = {}
-                        msg = f"{repository.name} not on disk. Please run update to clone the repositories."
-                        taf_logger.error(msg)
-                        raise UpdateFailedError(msg)
-                    repository.fetch(branch=branch)
+                    else:
+                        repository.fetch(branch=branch)
 
                 old_head = self.state.old_heads_per_target_repos_branches[
                     repository.name
