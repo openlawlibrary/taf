@@ -120,4 +120,5 @@ def test_create_repository_when_add_repositories_json(
     for role in ("targets", "delegated_role", "inner_role"):
         assert role in targets_roles
     check_if_targets_signed(auth_repo, "targets", "repositories.json", "mirrors.json")
-    validate_repository(repo_path)
+    # we are not validating target repositories, just the authentication repository
+    validate_repository(repo_path, excluded_target_globs="*")
