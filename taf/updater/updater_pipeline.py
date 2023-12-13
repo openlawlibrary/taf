@@ -732,9 +732,10 @@ but commit not on branch {current_branch}"
         However, no error will get reported if there are commits which have not yet been signed
         In case of repositories which can contain unauthenticated commits, they do not even need to get signed
         """
+        # only get additional commits if the validation was complete (not partial, up to a commit)
+        self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
         if self.state.update_status != UpdateStatus.SUCCESS:
             return self.state.update_status
-        self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
         try:
             for repository in self.state.target_repositories.values():
                 # this will only include branches that were, at least partially, validated (up until a certain point)
@@ -745,7 +746,6 @@ but commit not on branch {current_branch}"
                     repository.name
                 ].items():
                     last_validated_commit = validated_commits[-1]
-                    # TODO what to do if an error occurred while validating that branch
                     branch_commits = (
                         self.state.fetched_commits_per_target_repos_branches[
                             repository.name
