@@ -696,7 +696,6 @@ but commit not on branch {current_branch}"
             return current_target_commit
         if not _is_unauthenticated_allowed(repository):
             commit_date = users_auth_repo.get_commit_date(current_auth_commit)
-            # TODO check this, different errors
             raise UpdateFailedError(
                 f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
 data repository {repository.name} was supposed to be at commit {current_commit} \
