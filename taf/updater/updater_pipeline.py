@@ -35,6 +35,12 @@ class UpdateStatus(Enum):
     FAILED = 3
 
 
+class RunMode(Enum):
+    UPDATE = 1
+    LOCAL_VALIDATION = 2
+    ALL = 3
+
+
 @define
 class UpdateState:
     auth_commits_since_last_validated: List[Any] = field(factory=list)
@@ -90,18 +96,20 @@ def cleanup_decorator(pipeline_function):
 
 
 class Pipeline:
-    def __init__(self, steps):
+    def __init__(self, steps, run_mode):
         self.steps = steps
         self.current_step = None
+        self.run_mode = run_mode
 
     def run(self):
-        for step in self.steps:
+        for step, step_run_mode in self.steps:
             try:
-                self.current_step = step
-                update_status = step()
-                if update_status == UpdateStatus.FAILED:
-                    raise UpdateFailedError(self.state.error)
-                self.state.update_status = update_status
+                if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
+                    self.current_step = step
+                    update_status = step()
+                    if update_status == UpdateStatus.FAILED:
+                        raise UpdateFailedError(self.state.error)
+                    self.state.update_status = update_status
 
             except Exception as e:
                 self.handle_error(e)
@@ -143,18 +151,23 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         super().__init__(
             steps=[
-                self.clone_remote_and_run_tuf_updater,
-                self.clone_or_fetch_users_auth_repo,
-                self.load_target_repositories,
-                self.clone_target_repositories_if_not_on_disk,
-                self.determine_start_commits,
-                self.get_targets_data_from_auth_repo,
-                self.get_target_repositories_commits,
-                self.validate_target_repositories,
-                self.validate_and_set_additional_commits_of_target_repositories,
-                self.merge_commits,
-                self.set_target_repositories_data,
-            ]
+                (self.clone_remote_and_run_tuf_updater, RunMode.ALL),
+                (self.clone_or_fetch_users_auth_repo, RunMode.UPDATE),
+                (self.load_target_repositories, RunMode.ALL),
+                (self.check_if_repositories_on_disk, RunMode.LOCAL_VALIDATION),
+                (self.clone_target_repositories_if_not_on_disk, RunMode.UPDATE),
+                (self.determine_start_commits, RunMode.ALL),
+                (self.get_targets_data_from_auth_repo, RunMode.ALL),
+                (self.get_target_repositories_commits, RunMode.ALL),
+                (self.validate_target_repositories, RunMode.ALL),
+                (
+                    self.validate_and_set_additional_commits_of_target_repositories,
+                    RunMode.ALL,
+                ),
+                (self.merge_commits, RunMode.UPDATE),
+                (self.set_target_repositories_data, RunMode.UPDATE),
+            ],
+            run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
         )
 
         self.url = url
@@ -332,6 +345,23 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     @log_on_start(
+        INFO,
+        "Checking if all target repositories are already on disk...",
+        logger=taf_logger,
+    )
+    def check_if_repositories_on_disk(self):
+        for repository in self.state.target_repositories.values():
+            if not repository.is_git_repository_root:
+                is_git_repository = repository.is_git_repository_root
+                if not is_git_repository:
+                    if self.only_validate:
+                        self.state.targets_data = {}
+                        msg = f"{repository.name} not on disk. Please run update to clone the repositories."
+                        taf_logger.error(msg)
+                        raise UpdateFailedError(msg)
+        return UpdateStatus.SUCCESS
+
+    @log_on_start(
         INFO, "Cloning target repositories which are not on disk...", logger=taf_logger
     )
     @log_on_end(INFO, "Finished cloning target repositories", logger=taf_logger)
@@ -341,11 +371,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             for repository in self.state.target_repositories.values():
                 is_git_repository = repository.is_git_repository_root
                 if not is_git_repository:
-                    if self.only_validate:
-                        self.state.targets_data = {}
-                        msg = f"{repository.name} not on disk. Please run update to clone the repositories."
-                        taf_logger.error(msg)
-                        raise UpdateFailedError(msg)
                     repository.clone(no_checkout=True)
                     self.state.cloned_target_repositories.append(repository)
             return UpdateStatus.SUCCESS
