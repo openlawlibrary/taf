@@ -1,4 +1,5 @@
 from __future__ import annotations
+import datetime
 import json
 import itertools
 import os
@@ -36,6 +37,7 @@ class GitRepository:
         default_branch: Optional[str] = None,
         allow_unsafe: Optional[bool] = False,
         path: Optional[Union[Path, str]] = None,
+        alias: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -52,6 +54,7 @@ class GitRepository:
           default_branch (str): repository's default branch, automatically determined if not specified
           allow_unsafe: allow a git's security mechanism which prevents execution of git commands if
           the containing directory is owned by a different user to be ignored
+          alias: Repository's alias, which will be used in logging statements to reference it
         """
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
@@ -62,7 +65,6 @@ class GitRepository:
             raise InvalidRepositoryError(
                 "Both library_dir and name need to be specified"
             )
-
         if name is not None and library_dir is not None:
             self.name = self._validate_repo_name(name)
             self.path = self._validate_repo_path(library_dir, name, path)
@@ -88,6 +90,7 @@ class GitRepository:
             self.library_dir = self.library_dir.resolve()
             self.path = self._validate_repo_path(path)
 
+        self.alias = alias
         self.urls = self._validate_urls(urls)
         self.allow_unsafe = allow_unsafe
         self.custom = custom or {}
@@ -167,6 +170,8 @@ class GitRepository:
 
     @property
     def log_prefix(self) -> str:
+        if self.alias:
+            return f"{self.alias}: "
         return f"Repo {self.name}: "
 
     @property
@@ -241,7 +246,12 @@ class GitRepository:
         branch = self._git("symbolic-ref HEAD --short", reraise_error=True)
         return branch
 
-    def _get_default_branch_from_remote(self, url: str) -> str:
+    def _get_default_branch_from_remote(self, url: str) -> Optional[str]:
+        if not self.is_git_repository:
+            self._log_debug(
+                "Repository does not exist. Could not determined default branch from remote"
+            )
+            return None
         branch = self._git(
             f"ls-remote --symref {url} HEAD",
             log_error=True,
@@ -283,7 +293,7 @@ class GitRepository:
             )
         if branch:
             branch_obj = repo.branches.get(branch)
-            if branch is None:
+            if branch_obj is None:
                 raise GitError(
                     self,
                     message=f"Error occurred while getting commits of branch {branch}. Branch does not exist",
@@ -307,8 +317,9 @@ class GitRepository:
         specified or currently checked out branch
 
         Raises:
-            exceptions.GitError: An error occured with provided commit SHA
+            exceptions.GitError: An error occurred with provided commit SHA
         """
+
         if since_commit is None:
             return self.all_commits_on_branch(branch=branch, reverse=reverse)
 
@@ -798,6 +809,20 @@ class GitRepository:
             remote = self.remotes[0]
         self._git(f"push {remote} --delete {branch_name}", log_error=True)
 
+    def get_commit_date(self, commit_sha: str) -> str:
+        """Returns commit date of the given commit"""
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Could not get commit message. pygit repository could not be instantiated."
+            )
+        commit = repo.get(commit_sha)
+        date = datetime.datetime.utcfromtimestamp(
+            commit.commit_time + commit.commit_time_offset
+        )
+        formatted_date = date.strftime("%Y-%m-%d")
+        return formatted_date
+
     def get_commit_message(self, commit_sha: str) -> str:
         """Returns commit message of the given commit"""
         repo = self.pygit_repo
@@ -812,7 +837,7 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
-    def get_default_branch(self, url: Optional[str] = None) -> str:
+    def get_default_branch(self, url: Optional[str] = None) -> Optional[str]:
         """Get the default branch of the repository. If url is provided, return the
         default branch from the remote. Otherwise, return the default
         branch from the local repository."""
@@ -1290,7 +1315,9 @@ class GitRepository:
         # try to get the default branch from the local repository
         errors = []
         try:
-            return self.get_default_branch()
+            branch = self.get_default_branch()
+            if branch is not None:
+                return branch
         except GitError as e:
             errors.append(e)
             pass

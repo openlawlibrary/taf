@@ -3,7 +3,7 @@ import os
 import tempfile
 import fnmatch
 
-from typing import Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -36,6 +36,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         conf_directory_root: Optional[str] = None,
         out_of_band_authentication: Optional[str] = None,
         path: Optional[Union[Path, str]] = None,
+        alias: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -51,6 +52,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
           custom (dict): a dictionary containing other data
           default_branch (str): repository's default branch, automatically determined if not specified
           out_of_band_authentication (str): manually specified initial commit
+          alias: Repository's alias, which will be used in logging statements to reference it
         """
         super().__init__(
             library_dir,
@@ -60,6 +62,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             default_branch,
             allow_unsafe,
             path,
+            alias,
             *args,
             **kwargs,
         )
@@ -142,6 +145,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     @property
     def log_prefix(self) -> str:
+        if self.alias:
+            return f"{self.alias}: "
         return f"Auth repo {self.name}: "
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
@@ -213,6 +218,61 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
 
+    def targets_data_by_auth_commits(
+        self,
+        commits: List[str],
+        target_repos: Optional[List[str]] = None,
+        custom_fns: Optional[Dict[str, Callable]] = None,
+        default_branch: Optional[str] = None,
+        excluded_target_globs: Optional[List[str]] = None,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """
+        Return a dictionary where each target repository has associated authentication commits,
+        and for each authentication commit, there's a dictionary of the branch, commit and custom data.
+
+        {
+            'target_repo1': {
+                'auth_commit1': {'branch': 'branch1', 'commit': 'commit1', 'custom': {}},
+                'auth_commit2': {'branch': 'branch1', 'commit': 'commit2', 'custom': {}},
+                ...
+            },
+            'target_repo2': {
+                ...
+            },
+            ...
+        }
+
+        """
+        repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        targets = self.targets_at_revisions(
+            *commits, target_repos=target_repos, default_branch=default_branch
+        )
+        excluded_target_globs = excluded_target_globs or []
+        for commit in commits:
+            for target_path, target_data in targets[commit].items():
+                if any(
+                    fnmatch.fnmatch(target_path, excluded_target_glob)
+                    for excluded_target_glob in excluded_target_globs
+                ):
+                    continue
+
+                target_branch = target_data.get("branch")
+                target_commit = target_data.get("commit")
+                target_data.setdefault("custom", {})
+                if custom_fns is not None and target_path in custom_fns:
+                    target_data["custom"].update(custom_fns[target_path](target_commit))
+
+                repositories_commits.setdefault(target_path, {})[commit] = {
+                    "branch": target_branch,
+                    "commit": target_commit,
+                    "custom": target_data.get("custom"),
+                }
+
+        self._log_debug(
+            f"new commits per repositories according to target files: {repositories_commits}"
+        )
+        return repositories_commits
+
     def sorted_commits_and_branches_per_repositories(
         self,
         commits: List[str],
@@ -220,7 +280,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
-    ) -> Dict[str, Dict[str, List[Dict]]]:
+    ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
         {

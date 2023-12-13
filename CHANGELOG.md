@@ -7,18 +7,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ## [Unreleased]
 
-
 ### Added
-
 
 ### Changed
 
+- Implement updater pipeline ([374])
+- Improve error messages and error logging ([374])
+- Update target repositories in a breadth-first way ([374])
 
 ### Fixed
 
+[374]: https://github.com/openlawlibrary/taf/pull/374
 
 ## [0.28.0] - 11/10/2023
-
 
 ### Added
 
@@ -83,9 +84,7 @@ and this project adheres to [Semantic Versioning][semver].
 [357]: https://github.com/openlawlibrary/taf/pull/357
 [355]: https://github.com/openlawlibrary/taf/pull/355
 [354]: https://github.com/openlawlibrary/taf/pull/354
-[353]: https://github.com/openlawlibrary/taf/pull/353
 [352]: https://github.com/openlawlibrary/taf/pull/352
-[351]: https://github.com/openlawlibrary/taf/pull/351
 [349]: https://github.com/openlawlibrary/taf/pull/349
 [346]: https://github.com/openlawlibrary/taf/pull/346
 [343]: https://github.com/openlawlibrary/taf/pull/343
@@ -107,7 +106,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-[349]: https://github.com/openlawlibrary/taf/pull/349
 
 ## [0.26.0] - 07/12/2023
 
@@ -126,7 +124,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix create repository ([325])
 
-
 [325]: https://github.com/openlawlibrary/taf/pull/325
 [321]: https://github.com/openlawlibrary/taf/pull/321
 [320]: https://github.com/openlawlibrary/taf/pull/320
@@ -144,10 +141,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix execution of scripts ([311])
 
-
 [313]: https://github.com/openlawlibrary/taf/pull/313
 [311]: https://github.com/openlawlibrary/taf/pull/311
-
 
 ## [0.24.0] - 02/21/2023
 
@@ -162,7 +157,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Use `generate_and_write_unencrypted_rsa_keypair` for no provided password ([305])
 
-
 [309]: https://github.com/openlawlibrary/taf/pull/309
 [308]: https://github.com/openlawlibrary/taf/pull/308
 [305]: https://github.com/openlawlibrary/taf/pull/305
@@ -174,8 +168,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
-- Fix `clone_or_pull` method ([303])
 
+- Fix `clone_or_pull` method ([303])
 
 [303]: https://github.com/openlawlibrary/taf/pull/303
 
@@ -201,6 +195,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
+
 - Pin `pyOpenSSL` to newer version ([299])
 
 [299]: https://github.com/openlawlibrary/taf/pull/299
@@ -212,7 +207,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
- - Add missing tuf import in `log.py` ([298])
+
+- Add missing tuf import in `log.py` ([298])
 
 [298]: https://github.com/openlawlibrary/taf/pull/298
 
@@ -226,16 +222,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Remove _tuf_patches in `__init__.py` ([297])
 
-
 [297]: https://github.com/openlawlibrary/taf/pull/297
 
 ### Added
 
 ### Changed
 
-
 ### Fixed
-
 
 ## [0.22.1] - 12/14/2022
 
@@ -247,9 +240,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Move _tuf_patches to repository lib ([296])
 
-
 [296]: https://github.com/openlawlibrary/taf/pull/296
-
 
 ## [0.22.0] - 12/09/2022
 
@@ -275,7 +266,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Remove pin for `PyOpenSSL` ([273])
 - Fix `all_commits_since_commit` to validate provided commit ([278])
 - Remove pin for `PyOpenSSL` ([273])
-
 
 [294]: https://github.com/openlawlibrary/taf/pull/294
 [293]: https://github.com/openlawlibrary/taf/pull/293
@@ -1043,8 +1033,7 @@ and this project adheres to [Semantic Versioning][semver].
 [0.13.2]: https://github.com/openlawlibrary/taf/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/openlawlibrary/taf/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/openlawlibrary/taf/compare/v0.12.0...v0.13.0
-[0.12.0]: https://github.com/openlawlibrary/taf/compare/v0.11.2...v0.12.0
-[0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.1...v0.11.2
+[0.12.0]: https://github.com/openlawlibrary/taf/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/openlawlibrary/taf/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/openlawlibrary/taf/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/openlawlibrary/taf/compare/v0.10.0...v0.10.1

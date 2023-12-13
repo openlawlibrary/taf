@@ -1,3 +1,4 @@
+import enum
 from attrs import define, field
 from typing import Dict
 
@@ -9,3 +10,9 @@ class Update:
     error_msg: str = field(default="")
     auth_repos: Dict = field(factory=dict)
     auth_repo_name: str = field(default="")
+
+
+class UpdateType(enum.Enum):
+    TEST = "test"
+    OFFICIAL = "official"
+    EITHER = "either"

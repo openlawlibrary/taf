@@ -29,6 +29,7 @@ class Event(enum.Enum):
     CHANGED = "changed"
     UNCHANGED = "unchanged"
     FAILED = "failed"
+    PARTIAL = "partial"
     COMPLETED = "completed"
 
 
@@ -103,9 +104,12 @@ def _handle_event(
         for script_repo, script_data in repos_and_data.items():
             data = script_data["data"]
             last_commit = script_data["commit"]
-            repos_and_data[script_repo]["data"] = execute_scripts(
-                script_repo, last_commit, scripts_rel_path, data, scripts_root_dir
-            )
+            # there is no reason to try executing the scripts if last_commit is None
+            # that means that update was not even starterd
+            if last_commit is not None:
+                repos_and_data[script_repo]["data"] = execute_scripts(
+                    script_repo, last_commit, scripts_rel_path, data, scripts_root_dir
+                )
         return repos_and_data
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
@@ -154,7 +158,6 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
     # load from filesystem in development mode so that the scripts can be updated without
     # having to commit and push
     development_mode = settings.development_mode
-
     if development_mode:
         if scripts_root_dir is not None:
             path = Path(scripts_root_dir) / auth_repo.name / scripts_rel_path

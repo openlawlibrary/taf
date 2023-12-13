@@ -1,6 +1,8 @@
 import click
 import json
 from taf.api.repository import create_repository
+from taf.exceptions import TAFError, UpdateFailedError
+from taf.tools.cli import catch_cli_exception
 from taf.updater.updater import update_repository, validate_repository, UpdateType
 
 
@@ -11,6 +13,7 @@ def attach_to_group(group):
         pass
 
     @repo.command()
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
@@ -71,6 +74,7 @@ def attach_to_group(group):
         )
 
     @repo.command()
+    @catch_cli_exception(handle=UpdateFailedError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--url", default=None, help="Authentication repository's url")
     @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
