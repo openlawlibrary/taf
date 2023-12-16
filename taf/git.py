@@ -937,6 +937,41 @@ class GitRepository:
                 return path
         return None
 
+    def find_first_branch_matching_pattern(
+        self,
+        traverse_branch_name: str,
+        pattern_func: Callable[[str], bool],
+        include_remotes: bool = False,
+    ) -> Tuple[Optional[str], List[str]]:
+        branch_tips = {}
+        repo = self.pygit_repo
+        # Obtain the branch reference
+        branch_ref = repo.lookup_branch(traverse_branch_name)
+
+        # Ensure the branch exists
+        if branch_ref is not None:
+            # Get the target commit of the branch
+            branch_target = branch_ref.target
+        else:
+            raise GitError(f"Branch {traverse_branch_name} does not exist")
+
+        branches = repo.branches if include_remotes else repo.branches.local
+        all_branch_names = []
+        for branch_name in branches:
+            if pattern_func(branch_name):
+                branch = repo.lookup_branch(branch_name)
+                branch_tips[branch_name] = branch.peel().hex
+            all_branch_names.append(branch_name)
+
+        # Iterate over commits from newest to oldest
+        if len(branch_tips):
+            for commit in repo.walk(branch_target, pygit2.GIT_SORT_TIME):
+                # Check if commit is in any of the pre-filtered branches
+                for branch_name, tip_hex in branch_tips.items():
+                    if commit.hex == tip_hex or repo.descendant_of(commit.hex, tip_hex):
+                        return branch_name, []
+        return None, all_branch_names
+
     def get_current_branch(self, full_name: Optional[bool] = False) -> str:
         """Return current branch."""
         repo = self.pygit_repo
