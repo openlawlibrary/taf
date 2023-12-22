@@ -339,12 +339,16 @@ class GitRepository:
         else:
             latest_commit_id = repo[repo.head.target].id
 
+        if repo.descendant_of(since_commit, latest_commit_id):
+            return []
+
         shas: List[str] = []
         for commit in repo.walk(latest_commit_id):
             sha = commit.id.hex
             if sha == since_commit:
                 break
             shas.insert(0, sha)
+
         if not reverse:
             shas = shas[::-1]
         self._log_debug(f"found the following commits: {', '.join(shas)}")
@@ -947,7 +951,6 @@ class GitRepository:
         repo = self.pygit_repo
         # Obtain the branch reference
         branch_ref = repo.lookup_branch(traverse_branch_name)
-
         # Ensure the branch exists
         if branch_ref is not None:
             # Get the target commit of the branch
@@ -968,7 +971,7 @@ class GitRepository:
             for commit in repo.walk(branch_target, pygit2.GIT_SORT_TIME):
                 # Check if commit is in any of the pre-filtered branches
                 for branch_name, tip_hex in branch_tips.items():
-                    if commit.hex == tip_hex or repo.descendant_of(commit.hex, tip_hex):
+                    if commit.hex == tip_hex or repo.descendant_of(tip_hex, commit.hex):
                         return branch_name, []
         return None, all_branch_names
 
