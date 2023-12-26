@@ -354,10 +354,15 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-    def add_remote(self, upstream_name: str, upstream_url: str) -> None:
+    def add_remote(self, upstream_name: str, upstream_url: str, raise_error_if_exists=False) -> None:
         try:
+            if self.remote_exists(upstream_name):
+                if raise_error_if_exists:
+                    raise GitError(f"Remote {upstream_name} already exists")
+                return
             self._git("remote add {} {}", upstream_name, upstream_url)
         except GitError as e:
+            import pdb; pdb.set_trace()
             if "already exists" not in str(e):
                 raise
 
@@ -1270,6 +1275,13 @@ class GitRepository:
         except GitError as e:
             if "No such remote" not in str(e):
                 raise
+
+    def remote_exists(self, remote_name):
+        repo = self.pygit_repo
+        for remote in repo.remotes:
+            if remote.name == remote_name:
+                return True
+        return False
 
     def rename_branch(self, old_name: str, new_name: str) -> None:
         self._git("branch -m {} {}", old_name, new_name)
