@@ -13,6 +13,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    NothingToCommitError,
     TAFError,
     CloneRepoException,
     FetchException,
@@ -354,7 +355,9 @@ class GitRepository:
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-    def add_remote(self, upstream_name: str, upstream_url: str, raise_error_if_exists=False) -> None:
+    def add_remote(
+        self, upstream_name: str, upstream_url: str, raise_error_if_exists=False
+    ) -> None:
         try:
             if self.remote_exists(upstream_name):
                 if raise_error_if_exists:
@@ -362,7 +365,6 @@ class GitRepository:
                 return
             self._git("remote add {} {}", upstream_name, upstream_url)
         except GitError as e:
-            import pdb; pdb.set_trace()
             if "already exists" not in str(e):
                 raise
 
@@ -732,21 +734,54 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def commit(self, message: str) -> None:
-        """Create a commit with the provided message on the currently checked out branch"""
-        # This implementation is faster than with pygit2 because adding files to index is
-        # significantly faster with `git add -A`
-        self._git("add -A")
-        try:
-            self._git("diff --cached --exit-code --shortstat", reraise_error=True)
-        except GitError:
+    def commit(self, message: str) -> str:
+        repo = self.pygit_repo
+        if repo is not None:
+            index = repo.index
+            # Stage all changes
+            index.add_all()
+            index.write()
+
+            # Check if there are changes to commit
+            # Check if HEAD exists and get the head commit
+            head_commit = None
+            if repo.head_is_unborn:
+                # Create an in-memory empty tree for comparison with a new repo
+                builder = repo.TreeBuilder()
+                tree = builder.write()
+                diff = index.diff_to_tree(repo.get(tree))
+            else:
+                head_commit = repo.head.peel()
+                diff = index.diff_to_tree(head_commit.tree)
+            if not diff:
+                raise NothingToCommitError(repo=self, message=f"No changes to commit")
+
+            # Retrieve default author and committer
+            config = repo.config
+            author_name = config["user.name"]
+            author_email = config["user.email"]
+            author = pygit2.Signature(author_name, author_email)
+
+            # Create commit on the current branch
+            tree = index.write_tree()
+            parent_commits = [] if repo.head_is_unborn else [repo.head.target]
+            current_branch_ref = "HEAD" if repo.head_is_unborn else repo.head.name
+            commit_id = repo.create_commit(
+                current_branch_ref, author, author, message, tree, parent_commits
+            )
+            return commit_id.hex
+        else:
+            self._git("add -A")
             try:
-                run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
-            except subprocess.CalledProcessError as e:
-                raise GitError(
-                    repo=self, message=f"could not commit changes due to:\n{e}"
-                )
-        return self._git("rev-parse HEAD")
+                self._git("diff --cached --exit-code --shortstat", reraise_error=True)
+            except GitError:
+                try:
+                    run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
+                except subprocess.CalledProcessError as e:
+                    raise GitError(
+                        repo=self, message=f"could not commit changes due to:\n{e}"
+                    )
+            return self._git("rev-parse HEAD")
 
     def commit_empty(self, message: str) -> None:
         run(
@@ -951,7 +986,7 @@ class GitRepository:
         traverse_branch_name: str,
         pattern_func: Callable[[str], bool],
         include_remotes: bool = False,
-        sort_key_func: Optional[Callable[[str], bool]]=None,
+        sort_key_func: Optional[Callable[[str], bool]] = None,
     ) -> Tuple[Optional[str], List[str]]:
         branch_tips = {}
         repo = self.pygit_repo
@@ -988,7 +1023,9 @@ class GitRepository:
             for commit in repo.walk(branch_target):
                 for branch_name in all_branch_names:
                     tip_hex = branch_tips.get(branch_name)
-                    if tip_hex is not None and (commit.hex == tip_hex or repo.descendant_of(tip_hex, commit.hex)):
+                    if tip_hex is not None and (
+                        commit.hex == tip_hex or repo.descendant_of(tip_hex, commit.hex)
+                    ):
                         return branch_name, []
         return None, all_branch_names
 
@@ -1316,8 +1353,13 @@ class GitRepository:
 
     def something_to_commit(self) -> bool:
         """Checks if there are any uncommitted changes"""
-        uncommitted_changes = self._git("status --porcelain")
-        return bool(uncommitted_changes)
+        repo = self.pygit_repo
+        if repo is None:
+            uncommitted_changes = self._git("status --porcelain")
+            return bool(uncommitted_changes)
+        else:
+            status = repo.status()
+            return len(status) > 0
 
     def synced_with_remote(
         self, branch: Optional[str] = None, url: Optional[str] = None
@@ -1402,10 +1444,9 @@ class GitRepository:
         for remote in self.remotes:
             prefix = f"{remote}/"
             if branch_name.startswith(prefix):
-                return branch_name[len(prefix):]
+                return branch_name[len(prefix) :]
             return branch_name
         return branch_name
-
 
     def _validate_repo_name(self, name: str) -> str:
         """Ensure the repo name is not malicious"""
