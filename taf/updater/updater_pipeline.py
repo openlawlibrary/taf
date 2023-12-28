@@ -715,6 +715,7 @@ but repo was at {current_target_commit}"
             taf_logger.debug(
                 f"{repository.name}: skipping target commit {target_commit}. Looking for commit {current_commit}"
             )
+        commit_date = users_auth_repo.get_commit_date(current_auth_commit)
         raise UpdateFailedError(
             f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
 data repository {repository.name} was supposed to be at commit {current_commit} \

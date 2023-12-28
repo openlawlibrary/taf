@@ -735,53 +735,19 @@ class GitRepository:
         )
 
     def commit(self, message: str) -> str:
-        repo = self.pygit_repo
-        if repo is not None:
-            index = repo.index
-            # Stage all changes
-            index.add_all()
-            index.write()
-
-            # Check if there are changes to commit
-            # Check if HEAD exists and get the head commit
-            head_commit = None
-            if repo.head_is_unborn:
-                # Create an in-memory empty tree for comparison with a new repo
-                builder = repo.TreeBuilder()
-                tree = builder.write()
-                diff = index.diff_to_tree(repo.get(tree))
-            else:
-                head_commit = repo.head.peel()
-                diff = index.diff_to_tree(head_commit.tree)
-            if not diff:
-                raise NothingToCommitError(repo=self, message=f"No changes to commit")
-
-            # Retrieve default author and committer
-            config = repo.config
-            author_name = config["user.name"]
-            author_email = config["user.email"]
-            author = pygit2.Signature(author_name, author_email)
-
-            # Create commit on the current branch
-            tree = index.write_tree()
-            parent_commits = [] if repo.head_is_unborn else [repo.head.target]
-            current_branch_ref = "HEAD" if repo.head_is_unborn else repo.head.name
-            commit_id = repo.create_commit(
-                current_branch_ref, author, author, message, tree, parent_commits
-            )
-            return commit_id.hex
-        else:
-            self._git("add -A")
+        self._git("add -A")
+        try:
+            self._git("diff --cached --exit-code --shortstat", reraise_error=True)
+        except GitError:
             try:
-                self._git("diff --cached --exit-code --shortstat", reraise_error=True)
-            except GitError:
-                try:
-                    run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
-                except subprocess.CalledProcessError as e:
-                    raise GitError(
-                        repo=self, message=f"could not commit changes due to:\n{e}"
-                    )
-            return self._git("rev-parse HEAD")
+                run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
+                return self._git("rev-parse HEAD")
+            except subprocess.CalledProcessError as e:
+                raise GitError(
+                    repo=self, message=f"could not commit changes due to:\n{e}"
+                )
+        else:
+            raise NothingToCommitError(repo=self, message="No changes to commit")
 
     def commit_empty(self, message: str) -> None:
         run(
@@ -988,8 +954,12 @@ class GitRepository:
         include_remotes: bool = False,
         sort_key_func: Optional[Callable[[str], bool]] = None,
     ) -> Tuple[Optional[str], List[str]]:
+
         branch_tips = {}
         repo = self.pygit_repo
+        if self.pygit_repo is None:
+            raise GitError("Repository not initialized")
+
         # Obtain the branch reference
         branch_ref = repo.lookup_branch(traverse_branch_name)
         # Ensure the branch exists
@@ -1353,13 +1323,8 @@ class GitRepository:
 
     def something_to_commit(self) -> bool:
         """Checks if there are any uncommitted changes"""
-        repo = self.pygit_repo
-        if repo is None:
-            uncommitted_changes = self._git("status --porcelain")
-            return bool(uncommitted_changes)
-        else:
-            status = repo.status()
-            return len(status) > 0
+        uncommitted_changes = self._git("status --porcelain")
+        return bool(uncommitted_changes)
 
     def synced_with_remote(
         self, branch: Optional[str] = None, url: Optional[str] = None
