@@ -956,9 +956,11 @@ class GitRepository:
     ) -> Tuple[Optional[str], List[str]]:
 
         branch_tips = {}
-        repo = self.pygit_repo
-        if self.pygit_repo is None:
-            raise GitError("Repository not initialized")
+        repo: pygit2.Repository = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Could not find first branch matching pattern. pygit repository could not be instantiated."
+            )
 
         # Obtain the branch reference
         branch_ref = repo.lookup_branch(traverse_branch_name)
