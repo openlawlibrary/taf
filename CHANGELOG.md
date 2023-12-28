@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Git: added a method for finding the newest branch whose name matches a certain pattern ([375])
+- Git: added a check if remote already exists ([375])
+
 ### Changed
 
 - Implement updater pipeline ([374])
@@ -17,6 +20,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Git: fix the commit method so that it raises an error if nothing is committed ([375])
+
+[375]: https://github.com/openlawlibrary/taf/pull/375
 [374]: https://github.com/openlawlibrary/taf/pull/374
 
 ## [0.28.0] - 11/10/2023
