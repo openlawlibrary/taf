@@ -20,8 +20,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix imports, do not require installation of yubikey-manager prior to running the update ([376])
 - Git: fix the commit method so that it raises an error if nothing is committed ([375])
 
+[376]: https://github.com/openlawlibrary/taf/pull/376
 [375]: https://github.com/openlawlibrary/taf/pull/375
 [374]: https://github.com/openlawlibrary/taf/pull/374
 
