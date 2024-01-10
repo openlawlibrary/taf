@@ -6,6 +6,7 @@ from tuf.repository_tool import Repository as TUFRepository, Targets
 from taf.exceptions import TAFError
 from taf.models.types import RolesIterator
 from tuf.repository_tool import Metadata
+from taf import YubikeyMissingLibrary
 from taf.keys import get_key_name
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE
@@ -17,10 +18,11 @@ from taf.repository_tool import (
 from taf.models.types import Role
 from taf.log import taf_logger
 
+ykman_installed = True
 try:
-    from taf.yubikey import get_key_serial_by_id
+    import taf.yubikey as yk
 except ImportError:
-    pass
+    yk = YubikeyMissingLibrary()  # type: ignore
 
 
 @log_on_start(INFO, "Creating delegations", logger=taf_logger)
@@ -123,7 +125,7 @@ def setup_role(
         for key_name, key in zip(yubikeys, verification_keys):
             role_obj.add_verification_key(key, expires=YUBIKEY_EXPIRATION_DATE)
             # check if yubikey loaded
-            if get_key_serial_by_id(key_name):
+            if yk.get_key_serial_by_id(key_name):
                 role_obj.add_external_signature_provider(
                     key, partial(yubikey_signature_provider, key_name, key["keyid"])
                 )
