@@ -110,6 +110,10 @@ class MetadataUpdateError(TAFError):
         self.message = message
 
 
+class NothingToCommitError(GitError):
+    pass
+
+
 class RootMetadataUpdateError(MetadataUpdateError):
     def __init__(self, message: str):
         super().__init__("root", message)

@@ -406,6 +406,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # if the last validated target commit does not exist, start the validation from scratch
             if self.state.last_validated_commit is not None:
                 for repository in self.state.target_repositories.values():
+                    if repository.name not in self.state.targets_data_by_auth_commits:
+                        continue
                     self.state.old_heads_per_target_repos_branches[repository.name] = {}
                     last_validated_repository_commits_data = (
                         self.state.targets_data_by_auth_commits[repository.name].get(
@@ -713,6 +715,7 @@ but repo was at {current_target_commit}"
             taf_logger.debug(
                 f"{repository.name}: skipping target commit {target_commit}. Looking for commit {current_commit}"
             )
+        commit_date = users_auth_repo.get_commit_date(current_auth_commit)
         raise UpdateFailedError(
             f"Failure to validate {users_auth_repo.name} commit {current_auth_commit} committed on {commit_date}: \
 data repository {repository.name} was supposed to be at commit {current_commit} \

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    NothingToCommitError,
     TAFError,
     CloneRepoException,
     FetchException,
@@ -339,19 +340,29 @@ class GitRepository:
         else:
             latest_commit_id = repo[repo.head.target].id
 
+        if repo.descendant_of(since_commit, latest_commit_id):
+            return []
+
         shas: List[str] = []
         for commit in repo.walk(latest_commit_id):
             sha = commit.id.hex
             if sha == since_commit:
                 break
             shas.insert(0, sha)
+
         if not reverse:
             shas = shas[::-1]
         self._log_debug(f"found the following commits: {', '.join(shas)}")
         return shas
 
-    def add_remote(self, upstream_name: str, upstream_url: str) -> None:
+    def add_remote(
+        self, upstream_name: str, upstream_url: str, raise_error_if_exists=False
+    ) -> None:
         try:
+            if self.remote_exists(upstream_name):
+                if raise_error_if_exists:
+                    raise GitError(f"Remote {upstream_name} already exists")
+                return
             self._git("remote add {} {}", upstream_name, upstream_url)
         except GitError as e:
             if "already exists" not in str(e):
@@ -723,21 +734,20 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def commit(self, message: str) -> None:
-        """Create a commit with the provided message on the currently checked out branch"""
-        # This implementation is faster than with pygit2 because adding files to index is
-        # significantly faster with `git add -A`
+    def commit(self, message: str) -> str:
         self._git("add -A")
         try:
             self._git("diff --cached --exit-code --shortstat", reraise_error=True)
         except GitError:
             try:
                 run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
+                return self._git("rev-parse HEAD")
             except subprocess.CalledProcessError as e:
                 raise GitError(
                     repo=self, message=f"could not commit changes due to:\n{e}"
                 )
-        return self._git("rev-parse HEAD")
+        else:
+            raise NothingToCommitError(repo=self, message="No changes to commit")
 
     def commit_empty(self, message: str) -> None:
         run(
@@ -936,6 +946,60 @@ class GitRepository:
             if _branch_name == branch_name:
                 return path
         return None
+
+    def find_first_branch_matching_pattern(
+        self,
+        traverse_branch_name: str,
+        pattern_func: Callable[[str], bool],
+        include_remotes: bool = False,
+        sort_key_func: Optional[Callable[[str], bool]] = None,
+    ) -> Tuple[Optional[str], List[str]]:
+
+        branch_tips = {}
+        repo: pygit2.Repository = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Could not find first branch matching pattern. pygit repository could not be instantiated."
+            )
+
+        # Obtain the branch reference
+        branch_ref = repo.lookup_branch(traverse_branch_name)
+        # Ensure the branch exists
+        if branch_ref is not None:
+            # Get the target commit of the branch
+            branch_target = branch_ref.target
+        else:
+            raise GitError(f"Branch {traverse_branch_name} does not exist")
+
+        branches = self.branches(all=include_remotes)
+        all_branch_names = []
+
+        for branch_name in branches:
+            stripped_name = self._remove_remote_prefix(branch_name)
+            if stripped_name in all_branch_names:
+                continue
+            if pattern_func(stripped_name):
+                branch = repo.lookup_branch(branch_name)
+                try:
+                    branch_tips[stripped_name] = branch.peel().hex
+                except Exception:
+                    ref = repo.references[f"refs/remotes/{branch_name}"]
+                    commit = ref.peel(pygit2.Commit)
+                    branch_tips[stripped_name] = commit.hex
+            all_branch_names.append(stripped_name)
+
+        if sort_key_func is not None:
+            all_branch_names = sorted(all_branch_names, key=sort_key_func, reverse=True)
+        # Iterate over commits from newest to oldest
+        if len(branch_tips):
+            for commit in repo.walk(branch_target):
+                for branch_name in all_branch_names:
+                    tip_hex = branch_tips.get(branch_name)
+                    if tip_hex is not None and (
+                        commit.hex == tip_hex or repo.descendant_of(tip_hex, commit.hex)
+                    ):
+                        return branch_name, []
+        return None, all_branch_names
 
     def get_current_branch(self, full_name: Optional[bool] = False) -> str:
         """Return current branch."""
@@ -1221,6 +1285,13 @@ class GitRepository:
             if "No such remote" not in str(e):
                 raise
 
+    def remote_exists(self, remote_name):
+        repo = self.pygit_repo
+        for remote in repo.remotes:
+            if remote.name == remote_name:
+                return True
+        return False
+
     def rename_branch(self, old_name: str, new_name: str) -> None:
         self._git("branch -m {} {}", old_name, new_name)
 
@@ -1335,6 +1406,14 @@ class GitRepository:
             f"Cannot determine default branch with git -C at {self.path}: {errors}"
         )
         return None
+
+    def _remove_remote_prefix(self, branch_name):
+        for remote in self.remotes:
+            prefix = f"{remote}/"
+            if branch_name.startswith(prefix):
+                return branch_name[len(prefix) :]
+            return branch_name
+        return branch_name
 
     def _validate_repo_name(self, name: str) -> str:
         """Ensure the repo name is not malicious"""
