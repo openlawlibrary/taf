@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
 from attr import attrs, define, field
-from git import GitError
+from taf.git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
 

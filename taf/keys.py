@@ -10,7 +10,6 @@ from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
-from taf.yubikey import get_key_serial_by_id
 from tuf.repository_tool import (
     generate_and_write_unencrypted_rsa_keypair,
     generate_and_write_rsa_keypair,
@@ -32,7 +31,6 @@ from securesystemslib import keys
 
 try:
     import taf.yubikey as yk
-    from taf.yubikey import export_yk_certificate
 except ImportError:
     taf_logger.warning(
         "WARNING: yubikey-manager dependency not installed. You will not be able to use YubiKeys."
@@ -346,7 +344,7 @@ def _setup_yubikey_roles_keys(
             scheme = users_yubikeys_details[key_id].scheme
             public_key = keys.import_rsakey_from_public_pem(public_key_text, scheme)
             # check if signing key already loaded too
-            if not get_key_serial_by_id(key_id):
+            if not yk.get_key_serial_by_id(key_id):
                 yk_with_public_key[key_id] = public_key
             else:
                 loaded_keys_num += 1
@@ -512,7 +510,7 @@ def _setup_yubikey(
                 key = yk.setup_new_yubikey(serial_num, scheme)
 
             if certs_dir is not None:
-                export_yk_certificate(certs_dir, key)
+                yk.export_yk_certificate(certs_dir, key)
             return key
 
 

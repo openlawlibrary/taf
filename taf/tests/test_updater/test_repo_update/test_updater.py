@@ -65,6 +65,7 @@ from taf.updater.updater import update_repository, UpdateType
 from taf.utils import on_rm_error
 
 from taf.log import disable_console_logging, disable_file_logging
+
 from taf.tests.test_updater.test_repo_update.conftest import (
     original_tuf_trusted_metadata_set,
 )
@@ -73,10 +74,10 @@ AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
 
 TARGET_MISSMATCH_PATTERN = r"Update of organization\/auth_repo failed due to error: Failure to validate organization\/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-z]{40}) but repo was at ([0-9a-f]{40})"
-TARGET_ADDITIONAL_COMMIT = r"Update of organization\/auth_repo failed due to error: Failure to validate organization\/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
-TARGET_COMMIT_AFTER_LAST_VALIDATED = r"Update of organization\/auth_repo failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
-TARGET_MISSING_COMMIT = r"Update of organization/auth_repo failed due to error: Failure to validate organization/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
-INDEX_LOCKED = r"Update of organization/auth_repo failed due to error: Repo ([\w\/-]+): the index is locked; this might be due to a concurrent or crashed process"
+TARGET_ADDITIONAL_COMMIT_PATTERN = r"Update of organization\/auth_repo failed due to error: Failure to validate organization\/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
+TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN = r"Update of organization\/auth_repo failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
+TARGET_MISSING_COMMIT_PATTERN = r"Update of organization/auth_repo failed due to error: Failure to validate organization/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
+NOT_CLEAN_PATTERN = r"^Update of ([\w/]+) failed due to error: Repository ([\w/-]+) should contain only committed changes\."
 
 
 NO_WORKING_MIRRORS = (
@@ -249,14 +250,14 @@ def test_no_update_necessary(
         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True, True),
         (
             "test-updater-additional-target-commit",
-            TARGET_COMMIT_AFTER_LAST_VALIDATED,
+            TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
             True,
             True,
             True,
         ),
         (
             "test-updater-missing-target-commit",
-            TARGET_ADDITIONAL_COMMIT,
+            TARGET_ADDITIONAL_COMMIT_PATTERN,
             True,
             True,
             True,
@@ -316,7 +317,7 @@ def test_updater_invalid_update(
     "test_name, expected_error",
     [
         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN),
-        ("test-updater-missing-target-commit", TARGET_MISSING_COMMIT),
+        ("test-updater-missing-target-commit", TARGET_MISSING_COMMIT_PATTERN),
     ],
 )
 def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
@@ -452,7 +453,7 @@ def test_update_repo_target_in_indeterminate_state(
     index_lock.touch()
 
     _update_invalid_repos_and_check_if_repos_exist(
-        client_dir, repositories, INDEX_LOCKED, True
+        client_dir, repositories, NOT_CLEAN_PATTERN, True
     )
 
 
