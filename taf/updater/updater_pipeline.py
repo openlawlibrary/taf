@@ -306,17 +306,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         logger=taf_logger,
     )
     def check_if_local_auth_repo_clean(self):
-        if not self.only_validate:
-            # fetch the latest commit or clone the repository without checkout
-            # do not merge before targets are validated as well
-            try:
-                if self.state.existing_repo:
-                    if self.state.users_auth_repo.something_to_commit():
-                        raise RepositoryNotCleanError(self.state.users_auth_repo.name)
-            except Exception as e:
-                self.state.error = e
-                self.state.event = Event.FAILED
-                return UpdateStatus.FAILED
+        try:
+            if self.state.existing_repo:
+                if self.state.users_auth_repo.something_to_commit():
+                    raise RepositoryNotCleanError(self.state.users_auth_repo.name)
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
     @log_on_start(
@@ -325,18 +322,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         logger=taf_logger,
     )
     def clone_or_fetch_users_auth_repo(self):
-        if not self.only_validate:
-            # fetch the latest commit or clone the repository without checkout
-            # do not merge before targets are validated as well
-            try:
-                if self.state.existing_repo:
-                    self.state.users_auth_repo.fetch(fetch_all=True)
-                else:
-                    self.state.users_auth_repo.clone()
-            except Exception as e:
-                self.state.error = e
-                self.state.event = Event.FAILED
-                return UpdateStatus.FAILED
+        # fetch the latest commit or clone the repository without checkout
+        # do not merge before targets are validated as well
+        try:
+            if self.state.existing_repo:
+                self.state.users_auth_repo.fetch(fetch_all=True)
+            else:
+                self.state.users_auth_repo.clone()
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
     @log_on_start(DEBUG, "Loading target repositories", logger=taf_logger)
