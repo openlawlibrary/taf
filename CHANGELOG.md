@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Check if there are uncommitted changes when running the updater ([377])
 - Implement updater pipeline ([374])
 - Improve error messages and error logging ([374])
 - Update target repositories in a breadth-first way ([374])
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix imports, do not require installation of yubikey-manager prior to running the update ([376])
 - Git: fix the commit method so that it raises an error if nothing is committed ([375])
 
+[377]: https://github.com/openlawlibrary/taf/pull/377
 [376]: https://github.com/openlawlibrary/taf/pull/376
 [375]: https://github.com/openlawlibrary/taf/pull/375
 [374]: https://github.com/openlawlibrary/taf/pull/374
