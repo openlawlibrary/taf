@@ -14,7 +14,7 @@ from taf.git import GitRepository
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import UpdateFailedError
+from taf.exceptions import RepositoryNotCleanError, UpdateFailedError
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import UpdateType
@@ -152,9 +152,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         super().__init__(
             steps=[
                 (self.clone_remote_and_run_tuf_updater, RunMode.ALL),
+                (self.check_if_local_auth_repo_clean, RunMode.UPDATE),
                 (self.clone_or_fetch_users_auth_repo, RunMode.UPDATE),
                 (self.load_target_repositories, RunMode.ALL),
                 (self.check_if_repositories_on_disk, RunMode.LOCAL_VALIDATION),
+                (self.check_if_local_target_repositories_clean, RunMode.UPDATE),
                 (self.clone_target_repositories_if_not_on_disk, RunMode.UPDATE),
                 (self.determine_start_commits, RunMode.ALL),
                 (self.get_targets_data_from_auth_repo, RunMode.ALL),
@@ -300,23 +302,37 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(
         INFO,
+        "Checking if local auth repo is clean...",
+        logger=taf_logger,
+    )
+    def check_if_local_auth_repo_clean(self):
+        try:
+            if self.state.existing_repo:
+                if self.state.users_auth_repo.something_to_commit():
+                    raise RepositoryNotCleanError(self.state.users_auth_repo.name)
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+        return UpdateStatus.SUCCESS
+
+    @log_on_start(
+        INFO,
         "Cloning or updating user's authentication repository...",
         logger=taf_logger,
     )
     def clone_or_fetch_users_auth_repo(self):
-        if not self.only_validate:
-            # fetch the latest commit or clone the repository without checkout
-            # do not merge before targets are validated as well
-            try:
-                if self.state.existing_repo:
-                    self.state.users_auth_repo.fetch(fetch_all=True)
-                else:
-                    self.state.users_auth_repo.clone()
-            except Exception as e:
-                self.state.error = e
-                self.state.event = Event.FAILED
-                taf_logger.error(e)
-                return UpdateStatus.FAILED
+        # fetch the latest commit or clone the repository without checkout
+        # do not merge before targets are validated as well
+        try:
+            if self.state.existing_repo:
+                self.state.users_auth_repo.fetch(fetch_all=True)
+            else:
+                self.state.users_auth_repo.clone()
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
     @log_on_start(DEBUG, "Loading target repositories", logger=taf_logger)
@@ -341,7 +357,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         except Exception as e:
             self.state.error = e
             self.state.event = Event.FAILED
-            taf_logger.error(e)
             return UpdateStatus.FAILED
 
     @log_on_start(
@@ -350,16 +365,38 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         logger=taf_logger,
     )
     def check_if_repositories_on_disk(self):
-        for repository in self.state.target_repositories.values():
-            if not repository.is_git_repository_root:
-                is_git_repository = repository.is_git_repository_root
-                if not is_git_repository:
-                    if self.only_validate:
-                        self.state.targets_data = {}
-                        msg = f"{repository.name} not on disk. Please run update to clone the repositories."
-                        taf_logger.error(msg)
-                        raise UpdateFailedError(msg)
-        return UpdateStatus.SUCCESS
+        try:
+            for repository in self.state.target_repositories.values():
+                if not repository.is_git_repository_root:
+                    is_git_repository = repository.is_git_repository_root
+                    if not is_git_repository:
+                        if self.only_validate:
+                            self.state.targets_data = {}
+                            msg = f"{repository.name} not on disk. Please run update to clone the repositories."
+                            taf_logger.error(msg)
+                            raise UpdateFailedError(msg)
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    @log_on_start(
+        INFO,
+        "Checking if all existing target repositories are clean...",
+        logger=taf_logger,
+    )
+    def check_if_local_target_repositories_clean(self):
+        try:
+            for repository in self.state.target_repositories.values():
+                if repository.is_git_repository_root:
+                    if repository.something_to_commit():
+                        raise RepositoryNotCleanError(repository.name)
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.error = e
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     @log_on_start(
         INFO, "Cloning target repositories which are not on disk...", logger=taf_logger
@@ -377,7 +414,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         except Exception as e:
             self.state.error = e
             self.state.event = Event.FAILED
-            taf_logger.error(e)
             return UpdateStatus.FAILED
 
     @log_on_start(
@@ -474,7 +510,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         except Exception as e:
             self.state.error = e
             self.state.event = Event.FAILED
-            taf_logger.error(e)
             return UpdateStatus.FAILED
 
     def get_targets_data_from_auth_repo(self):
@@ -836,7 +871,6 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
         except Exception as e:
             self.state.error = e
-            taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -883,7 +917,6 @@ but commit not on branch {current_branch}"
             return self.state.update_status
         except Exception as e:
             self.state.error = e
-            taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
