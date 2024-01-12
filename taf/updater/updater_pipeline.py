@@ -134,9 +134,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def __init__(
         self,
         url,
-        clients_auth_library_dir,
-        targets_library_dir,
-        auth_repo_name,
+        auth_path,
+        library_dir,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -173,8 +172,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
         self.url = url
-        self.clients_auth_library_dir = clients_auth_library_dir
-        self.targets_library_dir = targets_library_dir
+        self.library_dir = library_dir
+        self.auth_path = auth_path
         self.update_from_filesystem = update_from_filesystem
         self.expected_repo_type = expected_repo_type
         self.target_repo_classes = target_repo_classes
@@ -186,9 +185,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.checkout = checkout
         self.excluded_target_globs = excluded_target_globs
 
+
         self.state = UpdateState()
-        self.state.auth_repo_name = auth_repo_name
         self.state.targets_data = {}
+        if self.auth_path:
+            self.state.auth_repo_name = GitRepository(path=self.auth_path).name
         self._output = None
 
     @property
@@ -209,21 +210,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         git_updater = None
         try:
             self.state.auth_commits_since_last_validated = None
-            self.state.existing_repo = (
-                Path(self.clients_auth_library_dir, self.state.auth_repo_name).exists()
-                if self.state.auth_repo_name is not None
-                else UpdateStatus.SUCCESS
-            )
 
             # Clone the validation repository in temp.
             self.state.auth_repo_name = _clone_validation_repo(
                 self.url, self.state.auth_repo_name
             )
+
             git_updater = GitUpdater(
-                self.url, self.clients_auth_library_dir, self.state.auth_repo_name
+                self.url, self.library_dir, self.state.auth_repo_name
             )
             self.state.users_auth_repo = git_updater.users_auth_repo
             _run_tuf_updater(git_updater)
+
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.auth_commits_since_last_validated = list(git_updater.commits)
@@ -251,7 +249,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             if self.state.auth_repo_name is not None:
                 self.state.users_auth_repo = AuthenticationRepository(
-                    self.clients_auth_library_dir,
+                    self.library_dir,
                     self.state.auth_repo_name,
                     urls=[self.url],
                     conf_directory_root=self.conf_directory_root,
@@ -342,7 +340,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo,
                 repo_classes=self.target_repo_classes,
                 factory=self.target_factory,
-                library_dir=self.targets_library_dir,
+                library_dir=self.library_dir,
                 commits=self.state.auth_commits_since_last_validated,
                 only_load_targets=False,
                 excluded_target_globs=self.excluded_target_globs,

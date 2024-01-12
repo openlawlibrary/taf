@@ -3,7 +3,37 @@ import json
 from taf.api.repository import create_repository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
-from taf.updater.updater import update_repository, validate_repository, UpdateType
+from taf.updater.updater import RepositoryConfig, clone_repository, update_repository, validate_repository, UpdateType
+
+
+def common_update_options(f):
+    f = click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")(f)
+    f = click.option("--url", default=None, help="Authentication repository's url")(f)
+    f = click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located.")(f)
+    f = click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")(f)
+    f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
+    f = click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts out of the authentication repository for testing purposes.")(f)
+    f = click.option("--profile", is_flag=True, help="Flag used to run profiler and generate .prof file")(f)
+    f = click.option("--format-output", is_flag=True, help="Return formatted output which includes information on if build was successful and error message if it was raised")(f)
+    f = click.option("--exclude-target", multiple=True, help="Globs defining which target repositories should be ignored during update.")(f)
+    f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
+    return f
+
+def start_profiling():
+    import cProfile
+    import atexit
+
+    print("Profiling...")
+    pr = cProfile.Profile()
+    pr.enable()
+
+    def exit_profiler():
+        pr.disable()
+        print("Profiling completed")
+        filename = 'updater.prof'  # You can change the filename if needed
+        pr.dump_stats(filename)
+
+    atexit.register(exit_profiler)
 
 
 def attach_to_group(group):
@@ -75,28 +105,8 @@ def attach_to_group(group):
 
     @repo.command()
     @catch_cli_exception(handle=UpdateFailedError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--url", default=None, help="Authentication repository's url")
-    @click.option("--clients-library-dir", default=None, help="Directory where target repositories and, "
-                  "optionally, authentication repository are located. If omitted it is "
-                  "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at root-dir/namespace/auth-repo-name")
-    @click.option("--from-fs", is_flag=True, default=False, help="Indicates if the we want to clone a "
-                  "repository from the filesystem")
-    @click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]),
-                  help="Indicates expected authentication repository type - test or official. If type is set to either, "
-                  "the updater will not check the repository's type")
-    @click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts "
-                  "out of the authentication repository for testing purposes (avoid dirty index). Scripts will be expected "
-                  "to be located in scripts_root_dir/repo_name directory")
-    @click.option("--profile", is_flag=True, help="Flag used to run profiler and generate .prof file")
-    @click.option("--format-output", is_flag=True, help="Return formatted output which includes information "
-                  "on if build was successful and error message if it was raised")
-    @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
-                  "ignored during update.")
-    @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
-                  "if warnings are raised ")
-    def update(path, url, clients_library_dir, from_fs, expected_repo_type,
+    @common_update_options
+    def clone(path, url, library_dir, from_fs, expected_repo_type,
                scripts_root_dir, profile, format_output, exclude_target, strict):
         """
         Update and validate local authentication repository and target repositories. Remote
@@ -133,30 +143,90 @@ def attach_to_group(group):
         Update can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during update if any/all warnings are found. By default, --strict is disabled.
         """
-        if path is None and clients_library_dir is None:
+        if path is None and library_dir is None:
             raise click.UsageError('Must specify either authentication repository path or library directory!')
 
         if profile:
-            import cProfile
-            import atexit
+            start_profiling()
 
-            print("Profiling...")
-            pr = cProfile.Profile()
-            pr.enable()
+        config = RepositoryConfig(
+            url=url,
+            path=path,
+            library_dir=library_dir,
+            update_from_filesystem=from_fs,
+            expected_repo_type=expected_repo_type,
+            scripts_root_dir=scripts_root_dir,
+            excluded_target_globs=exclude_target,
+            strict=strict
+        )
 
-            def exit():
-                pr.disable()
-                print("Profiling completed")
-                filename = 'updater.prof'  # You can change this if needed
-                pr.dump_stats(filename)
+        try:
+            clone_repository(config)
+            if format_output:
+                print(json.dumps({
+                    'updateSuccessful': True
+                }))
+        except Exception as e:
+            if format_output:
+                error_data = {
+                    'updateSuccessful': False,
+                    'error': str(e)
+                }
+                print(json.dumps(error_data))
+            else:
+                raise e
 
-            atexit.register(exit)
+    @repo.command()
+    @catch_cli_exception(handle=UpdateFailedError)
+    @common_update_options
+    def update(path, url, library_dir, from_fs, expected_repo_type,
+               scripts_root_dir, profile, format_output, exclude_target, strict):
+        """
+        Update and validate local authentication repository and target repositories. Remote
+        authentication's repository url needs to be specified when calling this command when
+        calling the updater for the first time for the given repository. If the
+        authentication repository and the target repositories are in the same root directory,
+        locations of the target repositories are calculated based on the authentication repository's
+        path. If that is not the case, it is necessary to redefine this default value using the
+        --clients-library-dir option. This means that if authentication repository's path is
+        E:\\root\\namespace\\auth-repo, it will be assumed that E:\\root is the root directory
+        if clients-library-dir is not specified.
+        Names of target repositories (as defined in repositories.json) are appended to the root repository's
+        path thus defining the location of each target repository. If names of target repositories
+        are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
+        repositories will be calculated as E:\\root\\namespace\\repo1, E:\\root\\namespace\\root2 etc.
+
+        Path to authentication repository directory is set by clients-auth-path argument. If this
+        argument is not provided, it is expected that --clients-library-dir option is used. The updater
+        will raise an error if one of both isn't set.
+
+        If remote repository's url is a file system path, it is necessary to call this command with
+        --from-fs flag so that url validation is skipped. When updating a test repository (one that has
+        the "test" target file), use --authenticate-test-repo flag. An error will be raised
+        if this flag is omitted in the mentioned case. Do not use this flag when validating a non-test
+        repository as that will also result in an error.
+
+        Scripts root directory option can be used to move scripts out of the authentication repository for
+        testing purposes (avoid dirty index). Scripts will be expected  o be located in scripts_root_dir/repo_name directory
+
+        One or more target repositories can be excluded from the update process using --exclude-target.
+        In that case, the library will only be partly validated, so last_validate_commit will not be updated
+        and no scripts will be called.
+
+        Update can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
+        during update if any/all warnings are found. By default, --strict is disabled.
+        """
+        if path is None and library_dir is None:
+            raise click.UsageError('Must specify either authentication repository path or library directory!')
+
+        if profile:
+            start_profiling()
 
         try:
             update_repository(
                 url,
                 path,
-                clients_library_dir,
+                library_dir,
                 from_fs,
                 UpdateType(expected_repo_type),
                 scripts_root_dir=scripts_root_dir,

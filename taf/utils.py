@@ -125,6 +125,12 @@ def extract_json_objects_from_trusted_stdout(text, decoder=JSONDecoder()):
             pos = match + 1
 
 
+def is_non_empty_directory(path: Path):
+    if path.is_dir():
+        return any(path.iterdir())
+    return False
+
+
 def read_input_dict(value):
     if value is None:
         return {}
