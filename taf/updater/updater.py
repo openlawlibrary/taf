@@ -5,7 +5,7 @@ from typing import Dict, Tuple, Any
 from attr import define, field
 from logdecorator import log_on_error
 from taf.git import GitRepository
-from taf.updater.types.update import UpdateType
+from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater_pipeline import (
     AuthenticationRepositoryUpdatePipeline,
     _merge_commit,
@@ -127,6 +127,7 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
 
 @define
 class RepositoryConfig:
+    operation: OperationType = field(converter=OperationType)
     url: str = field(metadata={"docs": "URL of the remote authentication repository"})
     path: Path = field(
         default=None,
@@ -201,11 +202,18 @@ class RepositoryConfig:
     )
 
     def __attrs_post_init__(self):
-        if self.library_dir is None:
-            if self.path:
+        if self.operation == OperationType.CLONE:
+            if self.library_dir is None:
+                if self.path:
+                    self.library_dir = self.path.parent.parent
+                else:
+                    self.library_dir = Path(".").resolve()
+
+        if self.operation == OperationType.UPDATE:
+            if self.path is None:
+                self.path = Path(".").resolve()
+            if self.library_dir is None:
                 self.library_dir = self.path.parent.parent
-            else:
-                self.library_dir = Path(".").resolve()
 
 @log_on_error(
     ERROR,
@@ -236,8 +244,8 @@ def clone_repository(
     if config.url is None:
         raise UpdateFailedError("URL has to be specified when cloning repositories")
 
-    print(config.library_dir)
-    if is_non_empty_directory(config.path):
+    # TODO if path is not known, need to check if empty in pipeline after cloning the auth repo and reading from info.json
+    if config.path and is_non_empty_directory(config.path):
         raise UpdateFailedError(f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it.")
 
     return _update_or_clone_repository(config)
@@ -281,9 +289,9 @@ def update_repository(
 
     taf_logger.info(f"Updating repository {auth_repo.name}")
 
-    if url is None:
-        url = auth_repo.get_remote_url()
-        if url is None:
+    if config.url is None:
+        config.url = auth_repo.get_remote_url()
+        if config.url is None:
             raise UpdateFailedError("URL cannot be determined. Please specify it")
 
     return _update_or_clone_repository(config)
@@ -298,6 +306,7 @@ def _update_or_clone_repository(
     auth_repo_name = None
     try:
         auth_repo_name = _update_named_repository(
+            config.operation,
             config.url,
             config.path,
             config.library_dir,
@@ -353,6 +362,7 @@ def _update_or_clone_repository(
 
 
 def _update_named_repository(
+    operation,
     url,
     auth_path,
     library_dir,
@@ -438,6 +448,7 @@ def _update_named_repository(
         error,
         targets_data,
     ) = _update_current_repository(
+        operation,
         url,
         auth_path,
         library_dir,
@@ -488,6 +499,7 @@ def _update_named_repository(
             for child_auth_repo in child_auth_repos:
                 try:
                     _update_named_repository(
+                        operation,
                         child_auth_repo.urls[0],
                         child_auth_repo.path,
                         library_dir,
@@ -571,6 +583,7 @@ def _update_named_repository(
 
 
 def _update_current_repository(
+    operation,
     url,
     auth_path,
     library_dir,
@@ -586,6 +599,7 @@ def _update_current_repository(
     excluded_target_globs,
 ):
     updater_pipeline = AuthenticationRepositoryUpdatePipeline(
+        operation,
         url,
         auth_path,
         library_dir,

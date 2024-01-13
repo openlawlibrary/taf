@@ -133,6 +133,7 @@ class Pipeline:
 class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def __init__(
         self,
+        operation,
         url,
         auth_path,
         library_dir,
@@ -171,6 +172,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
         )
 
+        self.operation = operation
         self.url = url
         self.library_dir = library_dir
         self.auth_path = auth_path

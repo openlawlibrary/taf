@@ -3,7 +3,7 @@ import json
 from taf.api.repository import create_repository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
-from taf.updater.updater import RepositoryConfig, clone_repository, update_repository, validate_repository, UpdateType
+from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
 
 
 def common_update_options(f):
@@ -143,13 +143,12 @@ def attach_to_group(group):
         Update can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during update if any/all warnings are found. By default, --strict is disabled.
         """
-        if path is None and library_dir is None:
-            raise click.UsageError('Must specify either authentication repository path or library directory!')
 
         if profile:
             start_profiling()
 
         config = RepositoryConfig(
+            operation=OperationType.CLONE,
             url=url,
             path=path,
             library_dir=library_dir,
@@ -222,17 +221,20 @@ def attach_to_group(group):
         if profile:
             start_profiling()
 
+        config = RepositoryConfig(
+            operation=OperationType.UPDATE,
+            url=url,
+            path=path,
+            library_dir=library_dir,
+            update_from_filesystem=from_fs,
+            expected_repo_type=expected_repo_type,
+            scripts_root_dir=scripts_root_dir,
+            excluded_target_globs=exclude_target,
+            strict=strict
+        )
+
         try:
-            update_repository(
-                url,
-                path,
-                library_dir,
-                from_fs,
-                UpdateType(expected_repo_type),
-                scripts_root_dir=scripts_root_dir,
-                excluded_target_globs=exclude_target,
-                strict=strict
-            )
+            update_repository(config)
             if format_output:
                 print(json.dumps({
                     'updateSuccessful': True
