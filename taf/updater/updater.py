@@ -215,6 +215,7 @@ class RepositoryConfig:
             if self.library_dir is None:
                 self.library_dir = self.path.parent.parent
 
+
 @log_on_error(
     ERROR,
     "{e}",
@@ -223,9 +224,7 @@ class RepositoryConfig:
     reraise=True,
 )
 @timed_run("Cloning repositories")
-def clone_repository(
-   config: RepositoryConfig
-):
+def clone_repository(config: RepositoryConfig):
     """
     Validate and clone an authentication repository and its target repositories, as well
     as its dependencies (linked authentication repositories and their targets) recursively.
@@ -246,8 +245,11 @@ def clone_repository(
 
     # TODO if path is not known, need to check if empty in pipeline after cloning the auth repo and reading from info.json
     if config.path and is_non_empty_directory(config.path):
-        raise UpdateFailedError(f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it.")
+        raise UpdateFailedError(
+            f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+        )
 
+    config.operation = OperationType.CLONE
     return _update_or_clone_repository(config)
 
 
@@ -259,9 +261,7 @@ def clone_repository(
     reraise=True,
 )
 @timed_run("Updating repository")
-def update_repository(
-    config: RepositoryConfig
-):
+def update_repository(config: RepositoryConfig):
     """
     Validate and update an authentication repository and its target repositories, as well
     as its dependencies (linked authentication repositories and their targets) recursively.
@@ -297,9 +297,7 @@ def update_repository(
     return _update_or_clone_repository(config)
 
 
-def _update_or_clone_repository(
-  config: RepositoryConfig
-):
+def _update_or_clone_repository(config: RepositoryConfig):
     repos_update_data = {}
     transient_data = {}
     root_error = None
@@ -325,9 +323,7 @@ def _update_or_clone_repository(
             excluded_target_globs=config.excluded_target_globs,
         )
     except Exception as e:
-        root_error = UpdateFailedError(
-            f"Update of failed due to error: {e}"
-        )
+        root_error = UpdateFailedError(f"Update of failed due to error: {e}")
 
     update_data = {}
     if not config.excluded_target_globs:

@@ -52,8 +52,6 @@ class GitUpdater(FetcherInterface):
         - metadata_dir_path: path of the metadata directory needed by the updater.
         - validation_auth_repo: a fresh clone of the metadata repository. It is
         a bare git repository. An instance of the `BareGitRepo` class.
-        - users_auth_repo: an instance of the `GitRepo` class. The user's current
-        git repository.
         - commits: a list of commits, starting with the most recent commit in the
         user's repository. The following commits are those committed after the
         the top one if the client's repo.
@@ -90,30 +88,9 @@ class GitUpdater(FetcherInterface):
         )
         self._patch_tuf_metadata_set(GitTrustedMetadataSet)
 
-        conf_directory_root = settings.conf_directory_root
-        default_branch = settings.default_branch
         validation_path = settings.validation_repo_path
 
         self.set_validation_repo(validation_path, auth_url)
-
-        # users_auth_repo is the authentication repository
-        # located on the users machine which needs to be updated
-        self.users_auth_repo = AuthenticationRepository(
-            repository_directory,
-            repository_name,
-            default_branch=default_branch,
-            urls=[auth_url],
-            conf_directory_root=conf_directory_root,
-        )
-
-        repository_directory = Path(self.users_auth_repo.path)
-
-        if repository_directory.exists():
-            if not self.users_auth_repo.is_git_repository_root:
-                if len(list(repository_directory.glob("*"))):
-                    raise UpdateFailedError(
-                        f"{repository_directory} is not a git repository and is not empty"
-                    )
 
         self._init_commits()
 
@@ -155,12 +132,7 @@ class GitUpdater(FetcherInterface):
         We have to presume that the initial metadata is correct though (or at least
         the initial root.json).
         """
-        # TODO check if users authentication repository is clean
-        # load the last validated commit from the conf file
-        if settings.overwrite_last_validated_commit:
-            last_validated_commit = settings.last_validated_commit
-        else:
-            last_validated_commit = self.users_auth_repo.last_validated_commit
+        last_validated_commit = settings.last_validated_commit
 
         try:
             commits_since = self.validation_auth_repo.all_commits_since_commit(
@@ -196,42 +168,11 @@ This could mean that the a commit was removed from the remote repository or that
             taf_logger.error(msg)
             raise UpdateFailedError(msg)
 
-        # Check if the user's head commit matches the saved one
-        # That should always be the case
-        # If it is not, it means that someone, accidentally or maliciously made manual changes
-
-        if not self.users_auth_repo.is_git_repository_root:
-            users_head_sha = None
-        elif settings.overwrite_last_validated_commit:
-            users_head_sha = last_validated_commit
-        else:
-            if last_validated_commit is not None:
-                users_head_sha = self.users_auth_repo.top_commit_of_branch(
-                    self.users_auth_repo.default_branch
-                )
-            else:
-                # if the user's repository exists, but there is no last_validated_commit
-                # start the update from the beginning
-                users_head_sha = None
-
-        if last_validated_commit != users_head_sha:
-            # if a user committed something to the repo or manually pulled the changes
-            # last_validated_commit will no longer match the top commit, but the repository
-            # might still be completely valid
-            # committing without pushing is not valid
-            # user_head_sha should be newer than last validated commit
-            if users_head_sha not in commits_since:
-                msg = f"Top commit of repository {self.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
-                taf_logger.error(msg)
-                raise UpdateFailedError(msg)
-            users_head_sha = last_validated_commit
-
         # insert the current one at the beginning of the list
-        if users_head_sha is not None:
-            commits_since.insert(0, users_head_sha)
+        if last_validated_commit is not None:
+            commits_since.insert(0, last_validated_commit)
 
         self.commits = commits_since
-        self.users_head_sha = users_head_sha
         self.current_commit_index = 0
 
     def _init_metadata(self):

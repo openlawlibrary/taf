@@ -17,6 +17,7 @@ class UpdateType(enum.Enum):
     OFFICIAL = "official"
     EITHER = "either"
 
+
 class OperationType(enum.Enum):
     CLONE = "clone"
     UPDATE = "update"
