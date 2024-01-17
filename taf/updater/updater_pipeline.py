@@ -92,7 +92,11 @@ def cleanup_decorator(pipeline_function):
             result = pipeline_function(self, *args, **kwargs)
             return result
         finally:
-            if self.state.event == Event.FAILED and not self.state.existing_repo:
+            if (
+                self.state.event == Event.FAILED
+                and not self.state.existing_repo
+                and self.state.users_auth_repo is not None
+            ):
                 shutil.rmtree(self.state.users_auth_repo.path, onerror=on_rm_error)
                 shutil.rmtree(self.state.users_auth_repo.conf_dir)
 
@@ -122,12 +126,19 @@ class Pipeline:
         self.set_output()
 
     def handle_error(self, e):
-        taf_logger.error(
-            "An error occurred while updating repository {} while running step {}: {}",
-            self.state.auth_repo_name,
-            self.current_step.__name__,
-            str(e),
-        )
+        if self.state.auth_repo_name is not None:
+            taf_logger.error(
+                "An error occurred while updating repository {} while running step {}: {}",
+                self.state.auth_repo_name,
+                self.current_step.__name__,
+                str(e),
+            )
+        else:
+            taf_logger.error(
+                "An error occurred while updating authentication repository while running step {}: {}",
+                self.current_step.__name__,
+                str(e),
+            )
 
     def set_output(self):
         pass
@@ -218,24 +229,47 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             last_validated_commit = users_auth_repo.last_validated_commit
             settings.last_validated_commit = last_validated_commit
 
-        if self.auth_path:
-            self.state.auth_repo_name = GitRepository(path=self.auth_path).name
-        git_updater = None
-
         try:
             self.state.auth_commits_since_last_validated = None
 
             validation_repo = _clone_validation_repo(self.url)
 
+            # check if auth path is provided and if that is not the case
+            # check if info.json exists. info.json will be read after validation
+            # at revision determined by the last validated commit
+            # but we do not want the user to have to wait for the validation to be over
+            # before raising an error because info.json is missing
+            top_commit_of_validation_repo = validation_repo.top_commit_of_branch(
+                validation_repo.default_branch
+            )
+            auth_repo_name = None
+            git_updater = None
+
+            if self.auth_path:
+                self.state.auth_repo_name = GitRepository(path=self.auth_path).name
+            else:
+                try:
+                    auth_repo_name = _get_repository_name_from_info_json(
+                        validation_repo, top_commit_of_validation_repo
+                    )
+                except MissingInfoJsonError as e:
+                    raise UpdateFailedError(str(e))
+
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit = _run_tuf_updater(git_updater)
-            try:
-                self.state.auth_repo_name = _get_repository_name_from_info_json(
-                    validation_repo, last_validated_remote_commit
-                )
-            except MissingInfoJsonError as e:
-                if self.auth_path is None:
-                    raise UpdateFailedError(str(e))
+
+            # having validated the repository, read info.json from the last
+            # valid commit if it is not the same as the most recent commit
+            if self.state.auth_repo_name is None:
+                if top_commit_of_validation_repo != last_validated_remote_commit:
+                    try:
+                        self.state.auth_repo_name = _get_repository_name_from_info_json(
+                            validation_repo, last_validated_remote_commit
+                        )
+                    except MissingInfoJsonError as e:
+                        raise UpdateFailedError(str(e))
+                else:
+                    self.state.auth_repo_name = auth_repo_name
 
             taf_logger.info(
                 "Successfully validated authentication repository {}",
@@ -1113,13 +1147,15 @@ def _run_tuf_updater(git_updater):
                 f"WARNING: Could not validate authentication repository at revision {current_commit} due to error: {e}"
             )
 
-    current_commit = None
+    last_validated_commit = None
     while not git_updater.update_done():
         updater = _init_updater()
         current_commit = _update_tuf_current_revision()
+        if current_commit is not None:
+            last_validated_commit = current_commit
         # TODO handle partial validation
 
-    return current_commit
+    return last_validated_commit
 
 
 def _find_next_value(value, values_list):

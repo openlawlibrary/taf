@@ -128,7 +128,9 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
 @define
 class RepositoryConfig:
     operation: OperationType = field(converter=OperationType)
-    url: str = field(metadata={"docs": "URL of the remote authentication repository"})
+    url: str = field(
+        metadata={"docs": "URL of the remote authentication repository"}, default=None
+    )
     path: Path = field(
         default=None,
         converter=lambda p: Path(p).resolve() if p else None,
@@ -243,7 +245,6 @@ def clone_repository(config: RepositoryConfig):
     if config.url is None:
         raise UpdateFailedError("URL has to be specified when cloning repositories")
 
-    # TODO if path is not known, need to check if empty in pipeline after cloning the auth repo and reading from info.json
     if config.path and is_non_empty_directory(config.path):
         raise UpdateFailedError(
             f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it."
@@ -536,10 +537,7 @@ def _update_named_repository(
                     f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
                 )
                 update_status = Event.FAILED
-        # TODO which commit to load if the commit top commit does not match the last validated commit
-        # use last validated commit - if the repository contains it
 
-        # all repositories that can be updated will be updated
         if (
             not only_validate
             and len(commits)
