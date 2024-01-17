@@ -19,6 +19,7 @@ def common_update_options(f):
     f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
     return f
 
+
 def start_profiling():
     import cProfile
     import atexit
@@ -107,7 +108,7 @@ def attach_to_group(group):
     @catch_cli_exception(handle=UpdateFailedError)
     @common_update_options
     def clone(path, url, library_dir, from_fs, expected_repo_type,
-               scripts_root_dir, profile, format_output, exclude_target, strict):
+              scripts_root_dir, profile, format_output, exclude_target, strict):
         """
         Update and validate local authentication repository and target repositories. Remote
         authentication's repository url needs to be specified when calling this command when

@@ -298,8 +298,8 @@ def update_repository(config: RepositoryConfig):
 
 
 def _update_or_clone_repository(config: RepositoryConfig):
-    repos_update_data = {}
-    transient_data = {}
+    repos_update_data: Dict = {}
+    transient_data: Dict = {}
     root_error = None
     auth_repo_name = None
     try:
