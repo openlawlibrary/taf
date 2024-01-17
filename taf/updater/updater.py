@@ -303,7 +303,8 @@ def _update_or_clone_repository(config: RepositoryConfig):
     root_error = None
     auth_repo_name = None
     try:
-        auth_repo_name = _update_named_repository(
+
+        auth_repo_name, error = _update_named_repository(
             config.operation,
             config.url,
             config.path,
@@ -322,8 +323,12 @@ def _update_or_clone_repository(config: RepositoryConfig):
             checkout=config.checkout,
             excluded_target_globs=config.excluded_target_globs,
         )
+        if error:
+            raise error
     except Exception as e:
-        root_error = UpdateFailedError(f"Update of failed due to error: {e}")
+        root_error = UpdateFailedError(
+            f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
+        )
 
     update_data = {}
     if not config.excluded_target_globs:
@@ -459,6 +464,7 @@ def _update_named_repository(
         checkout,
         excluded_target_globs,
     )
+
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
     # or info.json is missing from protected
     if auth_repo is None:
@@ -494,7 +500,7 @@ def _update_named_repository(
             ).values()
             for child_auth_repo in child_auth_repos:
                 try:
-                    _update_named_repository(
+                    _, error = _update_named_repository(
                         operation,
                         child_auth_repo.urls[0],
                         child_auth_repo.path,
@@ -514,6 +520,8 @@ def _update_named_repository(
                         scripts_root_dir=scripts_root_dir,
                         checkout=checkout,
                     )
+                    if error:
+                        raise error
                 except Exception as e:
                     errors.append(str(e))
 
@@ -572,10 +580,8 @@ def _update_named_repository(
         }
 
     repositoriesdb.clear_repositories_db()
-    if error is not None:
-        raise error
 
-    return auth_repo_name
+    return auth_repo_name, error
 
 
 def _update_current_repository(
@@ -659,7 +665,7 @@ def validate_repository(
     settings.overwrite_last_validated_commit = True
     settings.last_validated_commit = validate_from_commit
     try:
-        _update_named_repository(
+        _, error = _update_named_repository(
             str(clients_auth_path),
             clients_auth_library_dir,
             clients_library_dir,
@@ -670,6 +676,8 @@ def validate_repository(
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
         )
+        if error:
+            raise error
     except Exception as e:
         raise ValidationFailedError(
             f"Validation or repository {auth_repo_name} failed due to error: {e}"

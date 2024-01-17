@@ -113,6 +113,10 @@ class MetadataUpdateError(TAFError):
         self.message = message
 
 
+class MissingInfoJsonError(TAFError):
+    pass
+
+
 class NothingToCommitError(GitError):
     pass
 

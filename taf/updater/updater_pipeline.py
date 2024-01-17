@@ -14,7 +14,11 @@ from taf.git import GitRepository
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import RepositoryNotCleanError, UpdateFailedError
+from taf.exceptions import (
+    MissingInfoJsonError,
+    RepositoryNotCleanError,
+    UpdateFailedError,
+)
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
@@ -107,10 +111,6 @@ class Pipeline:
                 if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
                     self.current_step = step
                     update_status = step()
-                    if self.state.error:
-                        import pdb
-
-                        pdb.set_trace()
                     if update_status == UpdateStatus.FAILED:
                         raise UpdateFailedError(self.state.error)
                     self.state.update_status = update_status
@@ -128,7 +128,6 @@ class Pipeline:
             self.current_step.__name__,
             str(e),
         )
-        raise e
 
     def set_output(self):
         pass
@@ -192,8 +191,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.excluded_target_globs = excluded_target_globs
         self.state = UpdateState()
         self.state.targets_data = {}
-        if self.auth_path:
-            self.state.auth_repo_name = GitRepository(path=self.auth_path).name
         self._output = None
 
     @property
@@ -221,7 +218,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             last_validated_commit = users_auth_repo.last_validated_commit
             settings.last_validated_commit = last_validated_commit
 
+        if self.auth_path:
+            self.state.auth_repo_name = GitRepository(path=self.auth_path).name
         git_updater = None
+
         try:
             self.state.auth_commits_since_last_validated = None
 
@@ -229,16 +229,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit = _run_tuf_updater(git_updater)
-
             try:
                 self.state.auth_repo_name = _get_repository_name_from_info_json(
                     validation_repo, last_validated_remote_commit
                 )
-            except UpdateFailedError:
-                if self.auth_path:
-                    self.auth_repo_name = GitRepository(path=self.auth_path).name
-                else:
-                    raise
+            except MissingInfoJsonError as e:
+                if self.auth_path is None:
+                    raise UpdateFailedError(str(e))
+
             taf_logger.info(
                 "Successfully validated authentication repository {}",
                 self.state.auth_repo_name,
@@ -1007,6 +1005,7 @@ but commit not on branch {current_branch}"
             "new": new_commits,
             "after_pull": commit_after_pull,
         }
+
         self._output = UpdateOutput(
             event=self.state.event,
             users_auth_repo=self.state.users_auth_repo,
@@ -1044,7 +1043,7 @@ def _get_repository_name_from_info_json(auth_repo, commit_sha):
         info = auth_repo.get_json(commit_sha, INFO_JSON_PATH)
         return f'{info["namespace"]}/{info["name"]}'
     except Exception:
-        raise UpdateFailedError(
+        raise MissingInfoJsonError(
             "Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
         )
 
