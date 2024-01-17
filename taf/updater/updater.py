@@ -640,37 +640,36 @@ def _update_transient_data(
 
 @timed_run("Validating repository")
 def validate_repository(
-    clients_auth_path,
-    clients_library_dir=None,
+    auth_path,
+    library_dir=None,
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
 ):
     settings.strict = strict
 
-    clients_auth_path = Path(clients_auth_path).resolve()
+    auth_path = Path(auth_path).resolve()
 
-    if clients_library_dir is None:
-        clients_library_dir = clients_auth_path.parent.parent
+    if library_dir is None:
+        library_dir = auth_path.parent.parent
     else:
-        clients_library_dir = Path(clients_library_dir).resolve()
+        library_dir = Path(library_dir).resolve()
 
-    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_library_dir = clients_auth_path.parent.parent
     expected_repo_type = (
         UpdateType.TEST
-        if (clients_auth_path / "targets" / "test-auth-repo").exists()
+        if (auth_path / "targets" / "test-auth-repo").exists()
         else UpdateType.OFFICIAL
     )
     settings.overwrite_last_validated_commit = True
     settings.last_validated_commit = validate_from_commit
     try:
-        _, error = _update_named_repository(
-            str(clients_auth_path),
-            clients_auth_library_dir,
-            clients_library_dir,
-            auth_repo_name,
-            True,
+
+        auth_repo_name, error = _update_named_repository(
+            operation=OperationType.UPDATE,
+            url=str(auth_path),
+            auth_path=str(auth_path),
+            library_dir=library_dir,
+            update_from_filesystem=True,
             expected_repo_type=expected_repo_type,
             only_validate=True,
             validate_from_commit=validate_from_commit,
