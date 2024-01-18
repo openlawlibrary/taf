@@ -14,10 +14,14 @@ from taf.git import GitRepository
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import RepositoryNotCleanError, UpdateFailedError
+from taf.exceptions import (
+    MissingInfoJsonError,
+    RepositoryNotCleanError,
+    UpdateFailedError,
+)
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
-from taf.updater.types.update import UpdateType
+from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import on_rm_error
 from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
@@ -88,7 +92,11 @@ def cleanup_decorator(pipeline_function):
             result = pipeline_function(self, *args, **kwargs)
             return result
         finally:
-            if self.state.event == Event.FAILED and not self.state.existing_repo:
+            if (
+                self.state.event == Event.FAILED
+                and not self.state.existing_repo
+                and self.state.users_auth_repo is not None
+            ):
                 shutil.rmtree(self.state.users_auth_repo.path, onerror=on_rm_error)
                 shutil.rmtree(self.state.users_auth_repo.conf_dir)
 
@@ -118,13 +126,19 @@ class Pipeline:
         self.set_output()
 
     def handle_error(self, e):
-        taf_logger.error(
-            "An error occurred while updating repository {} while running step {}: {}",
-            self.state.auth_repo_name,
-            self.current_step.__name__,
-            str(e),
-        )
-        raise e
+        if self.state.auth_repo_name is not None:
+            taf_logger.error(
+                "An error occurred while updating repository {} while running step {}: {}",
+                self.state.auth_repo_name,
+                self.current_step.__name__,
+                str(e),
+            )
+        else:
+            taf_logger.error(
+                "An error occurred while updating authentication repository while running step {}: {}",
+                self.current_step.__name__,
+                str(e),
+            )
 
     def set_output(self):
         pass
@@ -133,10 +147,10 @@ class Pipeline:
 class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def __init__(
         self,
+        operation,
         url,
-        clients_auth_library_dir,
-        targets_library_dir,
-        auth_repo_name,
+        auth_path,
+        library_dir,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -172,9 +186,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
         )
 
+        self.operation = operation
         self.url = url
-        self.clients_auth_library_dir = clients_auth_library_dir
-        self.targets_library_dir = targets_library_dir
+        self.library_dir = library_dir
+        self.auth_path = auth_path
         self.update_from_filesystem = update_from_filesystem
         self.expected_repo_type = expected_repo_type
         self.target_repo_classes = target_repo_classes
@@ -185,9 +200,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.out_of_band_authentication = out_of_band_authentication
         self.checkout = checkout
         self.excluded_target_globs = excluded_target_globs
-
         self.state = UpdateState()
-        self.state.auth_repo_name = auth_repo_name
         self.state.targets_data = {}
         self._output = None
 
@@ -206,28 +219,86 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def clone_remote_and_run_tuf_updater(self):
         settings.update_from_filesystem = self.update_from_filesystem
         settings.conf_directory_root = self.conf_directory_root
-        git_updater = None
+
+        # set last validated commit before running the updater
+        # this last validated commit is read from the settings
+        if self.operation == OperationType.CLONE:
+            settings.last_validated_commit = None
+        elif not settings.overwrite_last_validated_commit:
+            users_auth_repo = AuthenticationRepository(path=self.auth_path)
+            last_validated_commit = users_auth_repo.last_validated_commit
+            settings.last_validated_commit = last_validated_commit
+
         try:
             self.state.auth_commits_since_last_validated = None
-            self.state.existing_repo = (
-                Path(self.clients_auth_library_dir, self.state.auth_repo_name).exists()
-                if self.state.auth_repo_name is not None
-                else UpdateStatus.SUCCESS
+
+            validation_repo = _clone_validation_repo(self.url)
+
+            # check if auth path is provided and if that is not the case
+            # check if info.json exists. info.json will be read after validation
+            # at revision determined by the last validated commit
+            # but we do not want the user to have to wait for the validation to be over
+            # before raising an error because info.json is missing
+            top_commit_of_validation_repo = validation_repo.top_commit_of_branch(
+                validation_repo.default_branch
+            )
+            auth_repo_name = None
+            git_updater = None
+
+            if self.auth_path:
+                self.state.auth_repo_name = GitRepository(path=self.auth_path).name
+            else:
+                try:
+                    auth_repo_name = _get_repository_name_from_info_json(
+                        validation_repo, top_commit_of_validation_repo
+                    )
+                except MissingInfoJsonError as e:
+                    raise UpdateFailedError(str(e))
+
+            git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
+            last_validated_remote_commit = _run_tuf_updater(git_updater)
+
+            # having validated the repository, read info.json from the last
+            # valid commit if it is not the same as the most recent commit
+            if self.state.auth_repo_name is None:
+                if top_commit_of_validation_repo != last_validated_remote_commit:
+                    try:
+                        self.state.auth_repo_name = _get_repository_name_from_info_json(
+                            validation_repo, last_validated_remote_commit
+                        )
+                    except MissingInfoJsonError as e:
+                        raise UpdateFailedError(str(e))
+                else:
+                    self.state.auth_repo_name = auth_repo_name
+
+            taf_logger.info(
+                "Successfully validated authentication repository {}",
+                self.state.auth_repo_name,
             )
 
-            # Clone the validation repository in temp.
-            self.state.auth_repo_name = _clone_validation_repo(
-                self.url, self.state.auth_repo_name
+            self.state.users_auth_repo = AuthenticationRepository(
+                self.library_dir,
+                self.state.auth_repo_name,
+                urls=[self.url],
             )
-            git_updater = GitUpdater(
-                self.url, self.clients_auth_library_dir, self.state.auth_repo_name
-            )
-            self.state.users_auth_repo = git_updater.users_auth_repo
-            _run_tuf_updater(git_updater)
+
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
+            if self.operation == OperationType.CLONE and self.state.existing_repo:
+                raise UpdateFailedError(
+                    f"Destination path {self.state.users_auth_repo.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+                )
+            elif (
+                self.operation == OperationType.UPDATE and not self.state.existing_repo
+            ):
+                raise UpdateFailedError(
+                    f"{self.state.users_auth_repo.path} is not a Git repository. Run `taf repo clone` instead"
+                )
+
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.auth_commits_since_last_validated = list(git_updater.commits)
             self._validate_out_of_band_and_update_type()
+            if self.operation == OperationType.UPDATE:
+                self._validate_last_validated_commit(settings.last_validated_commit)
 
             self.state.event = (
                 Event.CHANGED
@@ -251,7 +322,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             if self.state.auth_repo_name is not None:
                 self.state.users_auth_repo = AuthenticationRepository(
-                    self.clients_auth_library_dir,
+                    self.library_dir,
                     self.state.auth_repo_name,
                     urls=[self.url],
                     conf_directory_root=self.conf_directory_root,
@@ -300,6 +371,24 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     ' but update was called with the "--expected-repo-type" test'
                 )
 
+    def _validate_last_validated_commit(self, last_validated_commit):
+        users_head_sha = self.state.users_auth_repo.top_commit_of_branch(
+            self.state.users_auth_repo.default_branch
+        )
+        if last_validated_commit != users_head_sha:
+            # if a user committed something to the repo or manually pulled the changes
+            # last_validated_commit will no longer match the top commit, but the repository
+            # might still be completely valid
+            # committing without pushing is not valid
+            # user_head_sha should be newer than last validated commit
+            commits_since = self.state.users_auth_repo.all_commits_since_commit(
+                last_validated_commit
+            )
+            if users_head_sha not in commits_since:
+                msg = f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
+                taf_logger.error(msg)
+                raise UpdateFailedError(msg)
+
     @log_on_start(
         INFO,
         "Checking if local auth repo is clean...",
@@ -342,7 +431,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo,
                 repo_classes=self.target_repo_classes,
                 factory=self.target_factory,
-                library_dir=self.targets_library_dir,
+                library_dir=self.library_dir,
                 commits=self.state.auth_commits_since_last_validated,
                 only_load_targets=False,
                 excluded_target_globs=self.excluded_target_globs,
@@ -950,6 +1039,7 @@ but commit not on branch {current_branch}"
             "new": new_commits,
             "after_pull": commit_after_pull,
         }
+
         self._output = UpdateOutput(
             event=self.state.event,
             users_auth_repo=self.state.users_auth_repo,
@@ -960,7 +1050,7 @@ but commit not on branch {current_branch}"
         )
 
 
-def _clone_validation_repo(url, repository_name):
+def _clone_validation_repo(url):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
@@ -978,21 +1068,18 @@ def _clone_validation_repo(url, repository_name):
 
     settings.validation_repo_path = validation_auth_repo.path
 
-    validation_head_sha = validation_auth_repo.top_commit_of_branch(
-        validation_auth_repo.default_branch
-    )
-
-    if repository_name is None:
-        try:
-            info = validation_auth_repo.get_json(validation_head_sha, INFO_JSON_PATH)
-            repository_name = f'{info["namespace"]}/{info["name"]}'
-        except Exception:
-            raise UpdateFailedError(
-                "Error during info.json parse. When specifying --clients-library-dir check if info.json metadata exists in targets/protected or provide full path to auth repo"
-            )
-
     validation_auth_repo.cleanup()
-    return repository_name
+    return validation_auth_repo
+
+
+def _get_repository_name_from_info_json(auth_repo, commit_sha):
+    try:
+        info = auth_repo.get_json(commit_sha, INFO_JSON_PATH)
+        return f'{info["namespace"]}/{info["name"]}'
+    except Exception:
+        raise MissingInfoJsonError(
+            "Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
+        )
 
 
 def _is_unauthenticated_allowed(repository):
@@ -1041,33 +1128,34 @@ def _run_tuf_updater(git_updater):
                     target_filepath,
                     current_commit,
                 )
+            return current_commit
         except Exception as e:
             metadata_expired = EXPIRED_METADATA_ERROR in type(
                 e
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
             if not metadata_expired or settings.strict:
                 taf_logger.error(
-                    "Validation of authentication repository {} failed at revision {} due to error: {}",
-                    git_updater.users_auth_repo.name,
+                    "Validation of authentication repository failed at revision {} due to error: {}",
                     current_commit,
                     e,
                 )
                 raise UpdateFailedError(
-                    f"Validation of authentication repository {git_updater.users_auth_repo.name}"
+                    f"Validation of authentication repository"
                     f" failed at revision {current_commit} due to error: {e}"
                 )
             taf_logger.warning(
-                f"WARNING: Could not validate authentication repository {git_updater.users_auth_repo.name} at revision {current_commit} due to error: {e}"
+                f"WARNING: Could not validate authentication repository at revision {current_commit} due to error: {e}"
             )
 
+    last_validated_commit = None
     while not git_updater.update_done():
         updater = _init_updater()
-        _update_tuf_current_revision()
+        current_commit = _update_tuf_current_revision()
+        if current_commit is not None:
+            last_validated_commit = current_commit
+        # TODO handle partial validation
 
-    taf_logger.info(
-        "Successfully validated authentication repository {}",
-        git_updater.users_auth_repo.name,
-    )
+    return last_validated_commit
 
 
 def _find_next_value(value, values_list):

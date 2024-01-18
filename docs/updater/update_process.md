@@ -1,37 +1,80 @@
 # The Update Process
 
-The purpose of the updater is to securely pull the authentication repository and specified target repositories. Authentication repositories are git repositories which contain metadata files defined by TUF (The Update Framework). and target files required by the Open Law Collections framework. More details, take a look at the [specification document](./specification.md).
-
+The purpose of the updater is to securely pull the authentication repository and specified target repositories and dependencies. Authentication repositories are git repositories which contain metadata files defined by TUF (The Update Framework). and target files required by the Open Law Collections framework. More details, take a look at the [specification document](./specification.md).
 
 ## Calling the updater
 
+In a manner similar to Git, TAF updater differentiates between the clone and update commands. The clone command is intended for the initial downloading of repositories, while the update command is designed to pull in changes from an already cloned ones.
+
 To invoke the updater, install the package and call the following command:
 
-```olc repo update  filesystem_path --url auth_repo_url --clients-root-dir root-dir --scripts-root-dir scripts-root-dir  --error-if-unauthenticated```
+### Clone Command
 
-### Names of the repositories and the root directory
+Clone a specific authentication repository and its associated target repositories.
 
-Only remote authentication's repository url and its filesystem path need to be specified when calling this command. If the
-authentication repository and the target repositories are in the same root directory, locations of the target repositories will correctly be calculated based on the authentication repository's
-path with no further input. If that is not the case, it is necessary to redefine this default value using the `--clients-root-dir` option.
+#### Usage
+
+`taf repo clone https://github.com/organization/auth_repo.git [OPTIONS]`
+
+#### Options
+
+- `--path`: Authentication repository's location. If not specified, calculated by appending a name read from `targets/protected/info.json` file to `library-dir`.
+- `--library-dir`: Directory where target repositories and, optionally, the authentication repository are located. If not specified, set to the current directory.
+- `--expected-repo-type`: Indicates the expected authentication repository type (test, official, or either). Default is "either".
+- `--scripts-root-dir`: Scripts root directory, which can be used to move scripts out of the authentication repository for testing purposes.
+- `--profile`: Flag used to run a profiler and generate a `.prof` file.
+- `--format-output`: Return formatted output including information on whether the build was successful and an error message if it was raised.
+- `--exclude-target`: Globs defining which target repositories should be ignored during the update. Accepts multiple values.
+- `--strict`: Enable/disable strict mode. In strict mode, an error is returned if warnings are raised. Default is disabled.
+- `--from-fs`: Flag indicating and URL is a filesystem path`
+
+`protected/info.json` needs to be in the following format:
+
+  ```json
+  {
+      "namespace": "namespace",
+      "name": "repo-name"
+  }
+```
+
+### Update command
+
+Update and validate the already cloned local authentication repository and its target repositories and dependencies. When
+updating an existing authentication repository, the URL is automatically determined and does not need to be
+specified (similarly to how `git pull` works)
+
+#### Usage
+
+`taf repo update [OPTIONS]`
+
+#### Options
+
+- `--path`: Authentication repository's location. If not specified, set to the current directory.
+- `--library-dir`: Directory where target repositories and, optionally, the authentication repository are located. If not specified, calculated based on the authentication repository's path.
+- `--expected-repo-type`: Indicates the expected authentication repository type (test, official, or either). Default is "either".
+- `--scripts-root-dir`: Scripts root directory, which can be used to move scripts out of the authentication repository for testing purposes.
+- `--profile`: Flag used to run a profiler and generate a `.prof` file.
+- `--format-output`: Return formatted output including information on whether the build was successful and an error message if it was raised.
+- `--exclude-target`: Globs defining which target repositories should be ignored during the update. Accepts multiple values.
+- `--strict`: Enable/disable strict mode. In strict mode, an error is returned if warnings are raised. Default is disabled.
+
+### Determining filesystem paths of repositories
+
+If the authentication repository and the target repositories are in the same root directory, locations of the target repositories will correctly be calculated based on the authentication repository's
+path with no further input. If the authentication repository's path is, say, `E:\\root\\namespace\\auth_repo`
+the library root directory will be se to `E:\\root`. Names of all repositories are in the `namespace/repo-name` format.
+
+If that is not the case, it is necessary to redefine this value using the `--library-dir` option.
 Names of target repositories (as defined in `repositories.json`) are appended to the root
 path (think of it as library root) thus defining the location of each target repository. If names of target repositories
-are `namespace/repo1`, `namespace/repo2` etc. (the names have to be in the `namespace/repo_name` format and the root directory is `E:\\root`, paths of the target
-repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.)
-
-If the authentication repository's path is, say `E:\\root\\namespace\\auth_repo`, it will be assumed that its name is `namespace/auth_repo` and that the root directory is `E:\\root`.
-
+are `namespace/repo1`, `namespace/repo2` etc. and the root directory is `E:\\root`, paths of the target
+repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.
 
 ### Dependencies
 
 As described in the specification, one authentication repository can reference other authentication repositories.
 This is defined using a special target file called `dependencies.json`. These repositories will be cloned inside
 the same directory as the top authentication repository and its targets. So, if the top authentication repository's (which contains `dependecies.json`) path is `E:\\root\top-namespace\\auth_repo` and names of other repositories in `dependencies.json` are set as `namespace1\auth_repo` and `namespace2\auth_repo`, these authentication repositories will ne located at `E:\\root\namespace1\auth_repo` and `E:\\root\namespace2\auth_repo`.
-
-
-### error-if-unauthenticated
-
-This flags raises an error if the repository allows unauthenticated commits and the updater detected authenticated commits newer than local head commit. Whether a repository allows unauthenticated commits or not is specified in `repositories.json`. If unauthenticated commits are allowed, the repository can have commits in-between two authenticated commits. It will still be checked if all authenticated commits exist and are in the right order.
 
 ### Hooks
 
@@ -44,7 +87,8 @@ If a repository was successfully pulled and updated, `changed`, `succeeded` and
 put into a folder of the corresponding name in side `targets/scripts`. Each folder can
 contain an arbitrary number of scripts and they will be called in alphabetical order.
 Here is a sketch of the `scriprs` folder:
-```
+
+```bash
 /scripts
     /repo
       /succeeded - every time a repo is successfully pulled
@@ -73,7 +117,7 @@ using the `--scripts-root-dir` option. This is only possible if development mode
 
 Inside the scripts root directory, the framework expects to find the same directory structure:
 
-```
+```bash
 scripts-root-dir
   - namespace
     - auth-repo-name
@@ -85,7 +129,7 @@ scripts-root-dir
 
 ### Script example
 
-```
+```python
 import sys
 import json
 

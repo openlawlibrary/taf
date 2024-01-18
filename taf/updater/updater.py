@@ -2,9 +2,10 @@ import json
 from logging import ERROR
 
 from typing import Dict, Tuple, Any
+from attr import define, field
 from logdecorator import log_on_error
 from taf.git import GitRepository
-from taf.updater.types.update import UpdateType
+from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater_pipeline import (
     AuthenticationRepositoryUpdatePipeline,
     _merge_commit,
@@ -13,7 +14,7 @@ from taf.updater.updater_pipeline import (
 from pathlib import Path
 from taf.log import taf_logger, disable_tuf_console_logging
 import taf.repositoriesdb as repositoriesdb
-from taf.utils import timed_run
+from taf.utils import is_non_empty_directory, timed_run
 import taf.settings as settings
 from taf.exceptions import (
     ScriptExecutionError,
@@ -124,6 +125,99 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
             _reset_repository(repo, branch_data)
 
 
+@define
+class RepositoryConfig:
+    operation: OperationType = field(converter=OperationType)
+    url: str = field(
+        metadata={"docs": "URL of the remote authentication repository"}, default=None
+    )
+    path: Path = field(
+        default=None,
+        converter=lambda p: Path(p).resolve() if p else None,
+        metadata={"docs": "Client's authentication repository's full path"},
+    )
+    library_dir: Path = field(
+        default=None,
+        metadata={
+            "docs": "Directory where client's target repositories are located. Optional."
+        },
+    )
+    update_from_filesystem: bool = field(
+        default=False,
+        metadata={
+            "docs": "A flag indicating if the URL is actually a file system path. Optional."
+        },
+    )
+    expected_repo_type: UpdateType = field(
+        default=UpdateType.EITHER,
+        metadata={
+            "docs": "Indicates if the repository is a test, official, or any type. Optional."
+        },
+    )
+    target_repo_classes: object = field(
+        default=None,
+        metadata={
+            "docs": "A class or dictionary used for instantiating target repositories. Optional."
+        },
+    )
+    target_factory: object = field(
+        default=None,
+        metadata={
+            "docs": "A git repositories factory used for instantiating target repositories. Optional."
+        },
+    )
+    only_validate: bool = field(
+        default=False,
+        metadata={
+            "docs": "Specifies if repositories should only be validated without being updated. Optional."
+        },
+    )
+    validate_from_commit: str = field(
+        default=None,
+        metadata={"docs": "Commit from which validation should start. Optional."},
+    )
+    out_of_band_authentication: str = field(
+        default=None,
+        metadata={"docs": "Out-of-band authentication commit's SHA. Optional."},
+    )
+    scripts_root_dir: Path = field(
+        default=None,
+        metadata={
+            "docs": "Local directory for script testing, not in the authentication repository. Optional."
+        },
+    )
+    checkout: bool = field(
+        default=True,
+        metadata={
+            "docs": "Whether to checkout last validated commits after update. Optional."
+        },
+    )
+    excluded_target_globs: list = field(
+        default=None,
+        metadata={
+            "docs": "Globs specifying target repositories to exclude from validation and update. Optional."
+        },
+    )
+    strict: bool = field(
+        default=False,
+        metadata={"docs": "Whether update fails if a warning is raised. Optional."},
+    )
+
+    def __attrs_post_init__(self):
+        if self.operation == OperationType.CLONE:
+            if self.library_dir is None:
+                if self.path:
+                    self.library_dir = self.path.parent.parent
+                else:
+                    self.library_dir = Path(".").resolve()
+
+        if self.operation == OperationType.UPDATE:
+            if self.path is None:
+                self.path = Path(".").resolve()
+            if self.library_dir is None:
+                self.library_dir = self.path.parent.parent
+
+
 @log_on_error(
     ERROR,
     "{e}",
@@ -131,51 +225,13 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
     on_exceptions=UpdateFailedError,
     reraise=True,
 )
-@timed_run("Updating repository")
-def update_repository(
-    url,
-    clients_auth_path,
-    clients_library_dir=None,
-    update_from_filesystem=False,
-    expected_repo_type=UpdateType.EITHER,
-    target_repo_classes=None,
-    target_factory=None,
-    only_validate=False,
-    validate_from_commit=None,
-    conf_directory_root=None,
-    config_path=None,
-    out_of_band_authentication=None,
-    scripts_root_dir=None,
-    checkout=True,
-    excluded_target_globs=None,
-    strict=False,
-):
+@timed_run("Cloning repositories")
+def clone_repository(config: RepositoryConfig):
     """
-    Validate and update an authentication repository and it's target repositories, as well
+    Validate and clone an authentication repository and its target repositories, as well
     as its dependencies (linked authentication repositories and their targets) recursively.
-
     Arguments:
-        url: URL of the remote authentication repository
-        clients_auth_path: Client's authentication repository's full path
-        clients_library_dir (optional): Directory where client's target repositories are located.
-        update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
-        expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
-            a test repository, official repository, or if the type is not important
-            and should not be validated
-        target_repo_classes (optional): A class or a dictionary used when instantiating target repositories.
-            See repositoriesdb load_repositories for more details
-        target_factory: A git repositories factory used when instantiating target repositories.
-            See repositoriesdb load_repositories for more details
-        only_validate (optional): a flag that specifies if the repositories should only be validated without
-            being updated
-        validate_from_commit (optional): commit from which the validation should start, allowing shorter
-            execution time
-        out_of_band_authentication (optional): out-of-band authentication commit's sha
-        scripts_root_dir (optional): local directory which does not have to be contained by the authentication
-            repository. Used for testing purposes while developing the scripts
-        checkout (optional): Whether to checkout last validated commits after update is done
-        excluded_target_globs (options): globs specifying target repositories which should not get validated and updated.
-        strict (optional): Whether or not update fails if a warning is raised
+        config: RepositoryConfig instance containing all configurations.
 
     Side Effects:
         If only_validate is not set to True, updates authentication repository (pulls new changes) and its target
@@ -184,72 +240,102 @@ def update_repository(
     Returns:
         None
     """
-    settings.strict = strict
-    # if the repository's name is not provided, divide it in parent directory
-    # and repository name, since TUF's updater expects a name
-    # but set the validate_repo_name setting to False
-    if clients_auth_path is not None:
-        clients_auth_path = Path(clients_auth_path).resolve()
+    settings.strict = config.strict
 
-    if clients_library_dir is None:
-        clients_library_dir = clients_auth_path.parent.parent
-    else:
-        clients_library_dir = Path(clients_library_dir).resolve()
+    if config.url is None:
+        raise UpdateFailedError("URL has to be specified when cloning repositories")
 
-    auth_repo_name = (
-        f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-        if clients_auth_path is not None
-        else None
-    )
+    if config.path and is_non_empty_directory(config.path):
+        raise UpdateFailedError(
+            f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+        )
 
-    taf_logger.info(f"Updating repository {auth_repo_name}")
-    clients_auth_library_dir = clients_library_dir
-    repos_update_data = {}
-    transient_data = {}
-    root_error = None
+    config.operation = OperationType.CLONE
+    return _update_or_clone_repository(config)
 
-    if url is None:
-        # if the authentication repository already exists on disk, determine
-        # the urls based on its remote
-        auth_repo = GitRepository(clients_auth_library_dir, auth_repo_name)
-        if not auth_repo.path.is_dir() or not auth_repo.is_git_repository:
-            raise UpdateFailedError(
-                "URL needs to be provided when running the updater for the first time"
-            )
-        url = auth_repo.get_remote_url()
-        if url is None:
+
+@log_on_error(
+    ERROR,
+    "{e}",
+    logger=taf_logger,
+    on_exceptions=UpdateFailedError,
+    reraise=True,
+)
+@timed_run("Updating repository")
+def update_repository(config: RepositoryConfig):
+    """
+    Validate and update an authentication repository and its target repositories, as well
+    as its dependencies (linked authentication repositories and their targets) recursively.
+
+    Arguments:
+        config: RepositoryConfig instance containing all configurations.
+
+    Side Effects:
+        If only_validate is not set to True, updates authentication repository (pulls new changes) and its target
+        repositories and dependencies
+
+    Returns:
+        None
+    """
+    settings.strict = config.strict
+
+    # if path is not specified, name should be read from info.json
+    # which is available after the remote repository is cloned and validated
+
+    auth_repo = GitRepository(path=config.path)
+    if not config.path.is_dir() or not auth_repo.is_git_repository:
+        raise UpdateFailedError(
+            f"{config.path} is not a Git repository. Run `taf repo clone` instead"
+        )
+
+    taf_logger.info(f"Updating repository {auth_repo.name}")
+
+    if config.url is None:
+        config.url = auth_repo.get_remote_url()
+        if config.url is None:
             raise UpdateFailedError("URL cannot be determined. Please specify it")
 
+    return _update_or_clone_repository(config)
+
+
+def _update_or_clone_repository(config: RepositoryConfig):
+    repos_update_data: Dict = {}
+    transient_data: Dict = {}
+    root_error = None
+    auth_repo_name = None
     try:
-        auth_repo_name = _update_named_repository(
-            url,
-            clients_auth_library_dir,
-            clients_library_dir,
-            auth_repo_name,
-            update_from_filesystem,
-            expected_repo_type,
-            target_repo_classes,
-            target_factory,
-            only_validate,
-            validate_from_commit,
-            conf_directory_root,
+
+        auth_repo_name, error = _update_named_repository(
+            config.operation,
+            config.url,
+            config.path,
+            config.library_dir,
+            config.update_from_filesystem,
+            config.expected_repo_type,
+            config.target_repo_classes,
+            config.target_factory,
+            config.only_validate,
+            config.validate_from_commit,
+            None,
             repos_update_data=repos_update_data,
             transient_data=transient_data,
-            out_of_band_authentication=out_of_band_authentication,
-            scripts_root_dir=scripts_root_dir,
-            checkout=checkout,
-            excluded_target_globs=excluded_target_globs,
+            out_of_band_authentication=config.out_of_band_authentication,
+            scripts_root_dir=config.scripts_root_dir,
+            checkout=config.checkout,
+            excluded_target_globs=config.excluded_target_globs,
         )
+        if error:
+            raise error
     except Exception as e:
         root_error = UpdateFailedError(
-            f"Update of {auth_repo_name} failed due to error: {e}"
+            f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
         )
 
     update_data = {}
-    if not excluded_target_globs:
+    if not config.excluded_target_globs:
         # after all repositories have been updated
         # update information is in repos_update_data
-        if auth_repo_name not in repos_update_data:
+        if auth_repo_name is None or auth_repo_name not in repos_update_data:
             # this must mean that an error occurred
             if root_error is not None:
                 raise root_error
@@ -266,7 +352,7 @@ def update_repository(
             update_status,
             update_transient_data,
             root_auth_repo.library_dir,
-            scripts_root_dir,
+            config.scripts_root_dir,
             repos_update_data,
             errors,
             root_auth_repo,
@@ -278,10 +364,10 @@ def update_repository(
 
 
 def _update_named_repository(
+    operation,
     url,
-    clients_auth_library_dir,
-    targets_library_dir,
-    auth_repo_name,
+    auth_path,
+    library_dir,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes=None,
@@ -352,9 +438,9 @@ def _update_named_repository(
     if visited is None:
         visited = []
     # if there is a recursive dependency
-    if auth_repo_name in visited:
+    if url in visited:
         return
-    visited.append(auth_repo_name)
+    visited.append(url)
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
     (
         update_status,
@@ -364,10 +450,10 @@ def _update_named_repository(
         error,
         targets_data,
     ) = _update_current_repository(
+        operation,
         url,
-        clients_auth_library_dir,
-        targets_library_dir,
-        auth_repo_name,
+        auth_path,
+        library_dir,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -379,6 +465,7 @@ def _update_named_repository(
         checkout,
         excluded_target_globs,
     )
+
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
     # or info.json is missing from protected
     if auth_repo is None:
@@ -402,7 +489,7 @@ def _update_named_repository(
         # latest_commit = commits[-1::]
         repositoriesdb.load_dependencies(
             auth_repo,
-            library_dir=targets_library_dir,
+            library_dir=library_dir,
             commits=commits,
         )
 
@@ -414,10 +501,11 @@ def _update_named_repository(
             ).values()
             for child_auth_repo in child_auth_repos:
                 try:
-                    _update_named_repository(
+                    _, error = _update_named_repository(
+                        operation,
                         child_auth_repo.urls[0],
-                        clients_auth_library_dir,
-                        targets_library_dir,
+                        child_auth_repo.path,
+                        library_dir,
                         child_auth_repo.name,
                         update_from_filesystem,
                         expected_repo_type,
@@ -433,6 +521,8 @@ def _update_named_repository(
                         scripts_root_dir=scripts_root_dir,
                         checkout=checkout,
                     )
+                    if error:
+                        raise error
                 except Exception as e:
                     errors.append(str(e))
 
@@ -447,10 +537,7 @@ def _update_named_repository(
                     f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
                 )
                 update_status = Event.FAILED
-        # TODO which commit to load if the commit top commit does not match the last validated commit
-        # use last validated commit - if the repository contains it
 
-        # all repositories that can be updated will be updated
         if (
             not only_validate
             and len(commits)
@@ -491,17 +578,15 @@ def _update_named_repository(
         }
 
     repositoriesdb.clear_repositories_db()
-    if error is not None:
-        raise error
 
-    return auth_repo_name
+    return auth_repo_name, error
 
 
 def _update_current_repository(
+    operation,
     url,
-    clients_auth_library_dir,
-    targets_library_dir,
-    auth_repo_name,
+    auth_path,
+    library_dir,
     update_from_filesystem,
     expected_repo_type,
     target_repo_classes,
@@ -514,10 +599,10 @@ def _update_current_repository(
     excluded_target_globs,
 ):
     updater_pipeline = AuthenticationRepositoryUpdatePipeline(
+        operation,
         url,
-        clients_auth_library_dir,
-        targets_library_dir,
-        auth_repo_name,
+        auth_path,
+        library_dir,
         update_from_filesystem,
         expected_repo_type,
         target_repo_classes,
@@ -553,42 +638,43 @@ def _update_transient_data(
 
 @timed_run("Validating repository")
 def validate_repository(
-    clients_auth_path,
-    clients_library_dir=None,
+    auth_path,
+    library_dir=None,
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
 ):
     settings.strict = strict
 
-    clients_auth_path = Path(clients_auth_path).resolve()
+    auth_path = Path(auth_path).resolve()
 
-    if clients_library_dir is None:
-        clients_library_dir = clients_auth_path.parent.parent
+    if library_dir is None:
+        library_dir = auth_path.parent.parent
     else:
-        clients_library_dir = Path(clients_library_dir).resolve()
+        library_dir = Path(library_dir).resolve()
 
-    auth_repo_name = f"{clients_auth_path.parent.name}/{clients_auth_path.name}"
-    clients_auth_library_dir = clients_auth_path.parent.parent
     expected_repo_type = (
         UpdateType.TEST
-        if (clients_auth_path / "targets" / "test-auth-repo").exists()
+        if (auth_path / "targets" / "test-auth-repo").exists()
         else UpdateType.OFFICIAL
     )
     settings.overwrite_last_validated_commit = True
     settings.last_validated_commit = validate_from_commit
     try:
-        _update_named_repository(
-            str(clients_auth_path),
-            clients_auth_library_dir,
-            clients_library_dir,
-            auth_repo_name,
-            True,
+
+        auth_repo_name, error = _update_named_repository(
+            operation=OperationType.UPDATE,
+            url=str(auth_path),
+            auth_path=str(auth_path),
+            library_dir=library_dir,
+            update_from_filesystem=True,
             expected_repo_type=expected_repo_type,
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
         )
+        if error:
+            raise error
     except Exception as e:
         raise ValidationFailedError(
             f"Validation or repository {auth_repo_name} failed due to error: {e}"
