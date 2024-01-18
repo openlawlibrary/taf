@@ -114,8 +114,8 @@ def attach_to_group(group):
         Validate and clone the authentication repository and target repositories. URL of the
         remote authentication repository must be specified when calling this command. If the remote repository's URL is a file system path, the --from-fs flag must be used.
 
-        The path to the authentication repository directory either read from targets/info.json
-        or specified using the --path option. If target/info.json does not exist and path is not
+        The path to the authentication repository directory either read from targets/protected/info.json
+        or specified using the --path option. If targets/protected/info.json does not exist and path is not
         defined, an error will be raised.
 
         If the authentication repository and the target repositories are in the same root directory,

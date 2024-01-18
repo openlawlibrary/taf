@@ -50,7 +50,7 @@ To make commands such as creation of repositories, generation of keys and all ot
 require certain information about roles and keys easier to use, an option called
 `keys-description` was introduced. It allows passing in a json, like the following one:
 
-```
+```json
 {
   "yubikeys": {
     "user1": {
@@ -208,51 +208,53 @@ The generated files and folders will automatically be committed unless `--no-com
 new repository is only be meant to be used for testing, use `--test` flag. This will create a special
 target file called `test-auth-repo`.
 
-### `repo update`
+### `repo clone`
 
-Update and validate local authentication repository, its child authentication repositories (specified in `dependencies.json` )
-and target repositories. When running the updater for the first time, it is necessary to specify the repository's remote url.
-When updating an existing authentication repository, the url is automatically determined. Similarly, the repository's filesystem
-path can, but does have to be specified. If it is omitted, it will be assumed that the repository is located inside the current
-working directory. If the authentication repository and the target repositories are in the same root directory,
+Clone the local authentication repository and its associated target and child authentication repositories (if specified in `dependencies.json` ). Specify the repository's remote URL when running the cloner for the first time. The `--path` option sets the location of the authentication repository; if not specified, it is calculated by reading repository's name and namespace from `targets/protected/info.json` and appending it to the `library-dir` path. The `--library-dir` option specifies the root directory and is set to the current dirrectory by defailt. `--from-fs` flag needs to be provided if repositories URL is actually a filesystem path.
+
+Additional options include setting the expected repository type (`--expected-repo-type`, which can be `test`, `official` or `either`), specifying a scripts root directory (`--scripts-root-dir`), enabling profiling (`--profile`), returning formatted output (`--format-output`), excluding specific target repositories (`--exclude-target`), and enabling/disabling strict mode (`--strict`).
+
+For example:
+
+```bash
+taf repo clone https://github.com/orgname/auth_repo
+```
+
+```bash
+`taf repo clone --path E:\\root\\namespace\\auth_repo --library-dir E:\\root https://github.com/orgname/auth_repo`
+```
+
+```bash
+taf repo clone --url file://path/to/repo --from-fs
+```
+
+If the authentication repository and the target repositories are in the same root directory,
 locations of the target repositories are calculated based on the authentication repository's
-path. If that is not the case, it is necessary to redefine this default value using the `--clients-library-dir` option.
-Names of target repositories (as defined in repositories.json) are appended to the root
+path. If that is not the case, it is necessary to redefine this default value using the `--library-dir` option.
+Names of target repositories (as defined in `repositories.json`) are appended to the root
 path thus defining the location of each target repository. If names of target repositories
-are namespace/repo1, namespace/repo2 etc and the root directory is E:\\root, path of the target
+are `namespace/repo1`, `namespace/repo2` etc and the root directory is `E:\\root`, path of the target
 repositories will be calculated as `E:\\root\\namespace\\repo1`, `E:\\root\\namespace\\root2` etc.
 
 When updating a test repository (that has the "test" target file), use `--authenticate-test-repo`
 flag. An error will be raised if this flag is omitted in the mentioned case. Do not use this
 flag when validating non-test repository as that will also result in an error.
 
+### `repo update`
+
+Update and validate an existing local authentication repository and its target repositories and dependencies. The URL of the repository is automatically determined. The `--path` option, if not specified, defaults to the current directory, while the `--library-dir` option specifies the library root directory (where targets and dependencies are expected to be located and is determined based on the authentication repository's path if not provided).
+
+Options include setting the expected repository type (`--expected-repo-type`), specifying a scripts root directory (`--scripts-root-dir`), enabling profiling (`--profile`), returning formatted output (`--format-output`), excluding specific target repositories (`--exclude-target`), and enabling/disabling strict mode (`--strict`).
+
 For example:
-
-```bash
-taf repo update --path E:\\root\\namespace\\auth_repo --url https://github.com/orgname/auth-repo   --authenticate-test-repo
-```
-
-In this example, all target repositories will be expected to be in `E:\root`.
-
-
-```bash
-taf repo update E:\\root\\namespace\\auth_repo --url https://github.com/orgname/auth-repo --clients-library-dir E:\\target-repos
-```
-
-In this example, the target repositories will be expected to be in `E:\\target-repos`.
-
-or just
 
 ```bash
 taf repo update
 ```
 
-if repository already exists and is located inside the current working directory.
-
-
-If remote repository's url is a file system path, it is necessary to call this command with
-`--from-fs` flag so that url validation is skipped. This option is mostly of interest to the
-implementation of updater tests. To validate local repositories, use the `validate` command.
+```bash
+taf repo update --path E:\\root\\namespace\\auth_repo
+```
 
 ### `repo validate`
 
@@ -263,11 +265,10 @@ to make sure that the recent updates of the authentication repository and its ta
 before pushing them.
 
 Locations of target repositories are calculated in the same way as when updating repositories.
-Unlike the update command, this command does not have the `url` argument or the `--authenticate-test-repo`
-flag among its inputs. Additionally, it allows specification of the firs commit which should be validated through the `--from-commit`
-option. That means that we can only validate new authentication repository's commits. This
-command does not store information about the last validated commit. See updater documentation
-for more information about how it works.
+It allows specification of the first commit which should be validated through the `--from-commit`
+option. This command does not store information about the last validated commit or make any modifications
+to the repositories.
+
 Here are a few examples:
 
 ```bash

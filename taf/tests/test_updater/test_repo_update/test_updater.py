@@ -87,19 +87,13 @@ NOT_CLEAN_PATTERN = r"^Update of ([\w/]+) failed due to error: Repository ([\w/-
 INVALID_KEYS_PATTERN = r"^Update of ([\w/-]+)/([\w/-]+) failed due to error: Validation of authentication repository failed at revision ([0-9a-f]{40}) due to error: ([\w/-]+) was signed by (\d+)/(\d+) keys$"
 
 
-NO_WORKING_MIRRORS = (
-    f"Validation of authentication repository {AUTH_REPO_REL_PATH} failed at revision"
-)
 NO_REPOSITORY_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 ROOT_EXPIRED = "Final root.json is expired"
 REPLAYED_METADATA = "New timestamp version 3 must be >= 4"
 METADATA_FIELD_MISSING = "New snapshot is missing info for 'root.json'"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
 NOT_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is not a test repository."
-LAST_VALIDATED_COMMIT_MISMATCH = "Saved last validated commit {} of repository {} does not match the current head commit {}"
-UNCOMMITTED_TARGET_CHANGES = (
-    f"Repository {TARGET_REPO_REL_PATH} should contain only committed changes."
-)
+
 
 disable_console_logging()
 disable_file_logging()
