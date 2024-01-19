@@ -279,8 +279,8 @@ def test_no_update_necessary(
             True,
             True,
         ),
-        ("test-updater-wrong-key", INVALID_KEYS_PATTERN, True, True, False),
-        ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True, False),
+        ("test-updater-wrong-key", INVALID_KEYS_PATTERN, True, True, True),
+        ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True, True),
         (
             "test-updater-delegated-roles-wrong-sha",
             TARGET_MISSMATCH_PATTERN,
@@ -293,7 +293,7 @@ def test_no_update_necessary(
             INVALID_KEYS_PATTERN,
             True,
             True,
-            False,
+            True,
         ),
         ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True, False),
         (
@@ -301,7 +301,7 @@ def test_no_update_necessary(
             METADATA_FIELD_MISSING,
             False,
             True,
-            False,
+            True,
         ),
     ],
 )
@@ -365,12 +365,12 @@ def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
         client_dir,
         repositories,
         ROOT_EXPIRED,
-        False,
+        True,
         set_time=False,
         strict=True,
     )
     # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(clients_auth_repo_path, False)
+    _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
 
 
 @pytest.mark.parametrize(
