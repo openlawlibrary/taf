@@ -55,7 +55,7 @@ class UpdateState:
     users_auth_repo: Optional["AuthenticationRepository"] = field(default=None)
     validation_auth_repo: Optional["AuthenticationRepository"] = field(default=None)
     auth_repo_name: Optional[str] = field(default=None)
-    error: Optional[Exception] = field(default=None)
+    errors: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
     last_validated_commit: str = field(factory=str)
     target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
@@ -116,6 +116,7 @@ def combine_statuses(current_status, new_status):
             return UpdateStatus.PARTIAL
     return current_status
 
+
 class Pipeline:
     def __init__(self, steps, run_mode):
         self.steps = steps
@@ -123,16 +124,19 @@ class Pipeline:
         self.run_mode = run_mode
 
     def run(self):
+        self.state.errors = []
         for step, step_run_mode in self.steps:
             try:
                 if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
                     self.current_step = step
                     update_status = step()
-                    combined_status = combine_statuses(self.state.update_status, update_status)
+                    combined_status = combine_statuses(
+                        self.state.update_status, update_status
+                    )
                     self.state.update_status = combined_status
                     if combined_status == UpdateStatus.FAILED:
-                        # TODO need a list of errors
-                        raise UpdateFailedError(self.state.error)
+                        message = "\n".join(str(error) for error in self.state.errors)
+                        raise UpdateFailedError(message)
 
             except Exception as e:
                 self.handle_error(e)
@@ -294,17 +298,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
 
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
-            if self.operation == OperationType.CLONE and self.state.existing_repo:
-                raise UpdateFailedError(
-                    f"Destination path {self.state.users_auth_repo.path} already exists and is not an empty directory. Run `taf repo update` to update it."
-                )
-            elif (
-                self.operation == OperationType.UPDATE and not self.state.existing_repo
-            ):
-                raise UpdateFailedError(
-                    f"{self.state.users_auth_repo.path} is not a Git repository. Run `taf repo clone` instead"
-                )
-
+            self._validate_operation_type()
             self.state.validation_auth_repo = git_updater.validation_auth_repo
 
             self._validate_out_of_band_and_update_type()
@@ -317,7 +311,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
-            )
+                )
 
             if error is None:
                 self.state.auth_commits_since_last_validated = list(git_updater.commits)
@@ -338,13 +332,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if commit == last_validated_remote_commit:
                         break
 
-                self.state.auth_commits_since_last_validated = validated_commits_since_last_validated
-                self.state.error = error
+                self.state.auth_commits_since_last_validated = (
+                    validated_commits_since_last_validated
+                )
+                self.state.errors.append(error)
                 self.state.event = Event.PARTIAL
                 return UpdateStatus.PARTIAL
 
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.users_auth_repo = None
 
             if self.state.auth_repo_name is not None:
@@ -360,6 +356,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # always clean up repository updater
             if git_updater is not None:
                 git_updater.cleanup()
+
+    def _validate_operation_type(self):
+        if self.operation == OperationType.CLONE and self.state.existing_repo:
+            raise UpdateFailedError(
+                f"Destination path {self.state.users_auth_repo.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+            )
+        elif self.operation == OperationType.UPDATE and not self.state.existing_repo:
+            raise UpdateFailedError(
+                f"{self.state.users_auth_repo.path} is not a Git repository. Run `taf repo clone` instead"
+            )
 
     @log_on_start(
         INFO, "Validating out of band commit and update type", logger=taf_logger
@@ -427,7 +433,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 if self.state.users_auth_repo.something_to_commit():
                     raise RepositoryNotCleanError(self.state.users_auth_repo.name)
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
@@ -446,7 +452,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 self.state.users_auth_repo.clone()
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
@@ -471,7 +477,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
             return UpdateStatus.SUCCESS
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -493,7 +499,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             raise UpdateFailedError(msg)
             return UpdateStatus.SUCCESS
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -510,7 +516,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         raise RepositoryNotCleanError(repository.name)
             return UpdateStatus.SUCCESS
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -528,7 +534,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.cloned_target_repositories.append(repository)
             return UpdateStatus.SUCCESS
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -624,7 +630,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             return UpdateStatus.SUCCESS
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -802,7 +808,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.validated_auth_commits.append(auth_commit)
             return UpdateStatus.SUCCESS
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             taf_logger.error(e)
             if len(self.state.validated_auth_commits):
                 self.state.event = Event.PARTIAL
@@ -932,12 +938,12 @@ but commit not on branch {current_branch}"
                     ][branch] = additional_commits
             return self.state.update_status
         except UpdateFailedError as e:
-            self.state.error = e
+            self.state.errors.append(e)
             taf_logger.error(e)
             self.state.event = Event.PARTIAL
             return UpdateStatus.PARTIAL
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
@@ -985,7 +991,7 @@ but commit not on branch {current_branch}"
                         _merge_commit(repository, branch, commit_to_merge)
                 return self.state.update_status
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -1033,7 +1039,7 @@ but commit not on branch {current_branch}"
             self.state.targets_data = targets_data
             return self.state.update_status
         except Exception as e:
-            self.state.error = e
+            self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
@@ -1068,12 +1074,18 @@ but commit not on branch {current_branch}"
             "after_pull": commit_after_pull,
         }
 
+        if len(self.state.errors):
+            message = "\n".join(str(error) for error in self.state.errors)
+            error = UpdateFailedError(message)
+        else:
+            error = None
+
         self._output = UpdateOutput(
             event=self.state.event,
             users_auth_repo=self.state.users_auth_repo,
             auth_repo_name=self.state.auth_repo_name,
             commits_data=commits_data,
-            error=self.state.error,
+            error=error,
             targets_data=self.state.targets_data,
         )
 
