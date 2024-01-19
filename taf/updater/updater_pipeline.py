@@ -103,6 +103,19 @@ def cleanup_decorator(pipeline_function):
     return wrapper
 
 
+def combine_statuses(current_status, new_status):
+    """
+    Combine the current overall status with the new step status.
+    """
+    if current_status is None:
+        return new_status
+    if new_status == UpdateStatus.FAILED:
+        return UpdateStatus.FAILED
+    elif new_status == UpdateStatus.PARTIAL:
+        if current_status != UpdateStatus.FAILED:
+            return UpdateStatus.PARTIAL
+    return current_status
+
 class Pipeline:
     def __init__(self, steps, run_mode):
         self.steps = steps
@@ -115,14 +128,15 @@ class Pipeline:
                 if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
                     self.current_step = step
                     update_status = step()
-                    if update_status == UpdateStatus.FAILED:
+                    combined_status = combine_statuses(self.state.update_status, update_status)
+                    self.state.update_status = combined_status
+                    if combined_status == UpdateStatus.FAILED:
+                        # TODO need a list of errors
                         raise UpdateFailedError(self.state.error)
-                    self.state.update_status = update_status
 
             except Exception as e:
                 self.handle_error(e)
                 break
-
         self.set_output()
 
     def handle_error(self, e):
@@ -256,7 +270,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     raise UpdateFailedError(str(e))
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
-            last_validated_remote_commit = _run_tuf_updater(git_updater)
+            last_validated_remote_commit, error = _run_tuf_updater(git_updater)
+            if last_validated_remote_commit is None and error is not None:
+                raise error
 
             # having validated the repository, read info.json from the last
             # valid commit if it is not the same as the most recent commit
@@ -270,11 +286,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         raise UpdateFailedError(str(e))
                 else:
                     self.state.auth_repo_name = auth_repo_name
-
-            taf_logger.info(
-                "Successfully validated authentication repository {}",
-                self.state.auth_repo_name,
-            )
 
             self.state.users_auth_repo = AuthenticationRepository(
                 self.library_dir,
@@ -295,16 +306,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
 
             self.state.validation_auth_repo = git_updater.validation_auth_repo
-            self.state.auth_commits_since_last_validated = list(git_updater.commits)
+
             self._validate_out_of_band_and_update_type()
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
-
-            self.state.event = (
-                Event.CHANGED
-                if len(self.state.auth_commits_since_last_validated) > 1
-                else Event.UNCHANGED
-            )
 
             # used for testing purposes
             if settings.overwrite_last_validated_commit:
@@ -312,9 +317,31 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
-                )
+            )
 
-            return UpdateStatus.SUCCESS
+            if error is None:
+                self.state.auth_commits_since_last_validated = list(git_updater.commits)
+                taf_logger.info(
+                    "Successfully validated authentication repository {}",
+                    self.state.auth_repo_name,
+                )
+                self.state.event = (
+                    Event.CHANGED
+                    if len(self.state.auth_commits_since_last_validated) > 1
+                    else Event.UNCHANGED
+                )
+                return UpdateStatus.SUCCESS
+            else:
+                validated_commits_since_last_validated = []
+                for commit in git_updater.commits:
+                    validated_commits_since_last_validated.append(commit)
+                    if commit == last_validated_remote_commit:
+                        break
+
+                self.state.auth_commits_since_last_validated = validated_commits_since_last_validated
+                self.state.error = error
+                self.state.event = Event.PARTIAL
+                return UpdateStatus.PARTIAL
 
         except Exception as e:
             self.state.error = e
@@ -925,7 +952,6 @@ but commit not on branch {current_branch}"
         try:
             if self.only_validate:
                 return self.state.update_status
-
             if self.state.update_status == UpdateStatus.FAILED:
                 # couldn't validate the first new commit
                 # there is nothing to merge
@@ -987,21 +1013,23 @@ but commit not on branch {current_branch}"
                         old_head = self.state.old_heads_per_target_repos_branches.get(
                             repo_name, {}
                         ).get(branch)
+                        branch_data[branch]["new"] = [commit_info]
+                        branch_data[branch]["after_pull"] = [commit_info]
+                        branch_data[branch][
+                            "unauthenticated"
+                        ] = self.state.additional_commits_per_target_repos_branches.get(
+                            repo_name, {}
+                        ).get(
+                            branch, []
+                        )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head
-                            branch_data[branch]["new"] = []
-                            branch_data[branch][
-                                "unauthenticated"
-                            ] = self.state.additional_commits_per_target_repos_branches.get(
-                                repo_name, {}
-                            ).get(
-                                branch, []
-                            )
                     else:
                         branch_data[branch]["new"].append(commit_info)
                         branch_data[branch]["after_pull"] = commit_info
 
                 targets_data[repo_name]["commits"] = branch_data
+
             self.state.targets_data = targets_data
             return self.state.update_status
         except Exception as e:
@@ -1148,14 +1176,16 @@ def _run_tuf_updater(git_updater):
             )
 
     last_validated_commit = None
-    while not git_updater.update_done():
-        updater = _init_updater()
-        current_commit = _update_tuf_current_revision()
-        if current_commit is not None:
-            last_validated_commit = current_commit
-        # TODO handle partial validation
+    try:
+        while not git_updater.update_done():
+            updater = _init_updater()
+            current_commit = _update_tuf_current_revision()
+            if current_commit is not None:
+                last_validated_commit = current_commit
+    except UpdateFailedError as e:
+        return last_validated_commit, e
 
-    return last_validated_commit
+    return last_validated_commit, None
 
 
 def _find_next_value(value, values_list):
