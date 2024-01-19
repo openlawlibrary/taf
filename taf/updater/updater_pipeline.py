@@ -984,7 +984,7 @@ but commit not on branch {current_branch}"
                             commit_to_merge,
                             branch,
                         )
-                        _merge_commit(repository, branch, commit_to_merge)
+                        _merge_commit(repository, branch, commit_to_merge, force_revert=True)
                 return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
@@ -1173,6 +1173,7 @@ def _run_tuf_updater(git_updater):
                 )
             return current_commit
         except Exception as e:
+            import pdb; pdb.set_trace()
             metadata_expired = EXPIRED_METADATA_ERROR in type(
                 e
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
@@ -1258,7 +1259,7 @@ def _merge_commit(
             commit_to_merge
         )
         if len(commits_since_last_validated):
-            repository.reset_to_commit(commit_to_merge)
+            repository.reset_to_commit(commit_to_merge, hard=True)
             commit_merged = True
 
     if not commit_merged:
