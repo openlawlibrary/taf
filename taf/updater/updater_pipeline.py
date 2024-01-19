@@ -266,12 +266,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.auth_path:
                 self.state.auth_repo_name = GitRepository(path=self.auth_path).name
             else:
-                try:
-                    auth_repo_name = _get_repository_name_from_info_json(
-                        validation_repo, top_commit_of_validation_repo
-                    )
-                except MissingInfoJsonError as e:
-                    raise UpdateFailedError(str(e))
+                auth_repo_name = _get_repository_name_raise_error_if_not_defined(
+                    validation_repo, top_commit_of_validation_repo
+                )
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit, error = _run_tuf_updater(git_updater)
@@ -282,12 +279,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # valid commit if it is not the same as the most recent commit
             if self.state.auth_repo_name is None:
                 if top_commit_of_validation_repo != last_validated_remote_commit:
-                    try:
-                        self.state.auth_repo_name = _get_repository_name_from_info_json(
+                    self.state.auth_repo_name = (
+                        _get_repository_name_raise_error_if_not_defined(
                             validation_repo, last_validated_remote_commit
                         )
-                    except MissingInfoJsonError as e:
-                        raise UpdateFailedError(str(e))
+                    )
                 else:
                     self.state.auth_repo_name = auth_repo_name
 
@@ -1110,6 +1106,13 @@ def _clone_validation_repo(url):
 
     validation_auth_repo.cleanup()
     return validation_auth_repo
+
+
+def _get_repository_name_raise_error_if_not_defined(validation_repo, commit):
+    try:
+        return _get_repository_name_from_info_json(validation_repo, commit)
+    except MissingInfoJsonError as e:
+        raise UpdateFailedError(str(e))
 
 
 def _get_repository_name_from_info_json(auth_repo, commit_sha):
