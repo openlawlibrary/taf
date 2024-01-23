@@ -117,6 +117,10 @@ def combine_statuses(current_status, new_status):
     return current_status
 
 
+def format_commit(commit):
+    return commit[:10]
+
+
 class Pipeline:
     def __init__(self, steps, run_mode):
         self.steps = steps
@@ -200,6 +204,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ),
                 (self.merge_commits, RunMode.UPDATE),
                 (self.set_target_repositories_data, RunMode.UPDATE),
+                (self.print_additional_commits, RunMode.ALL),
             ],
             run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
         )
@@ -401,9 +406,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
 
     def _validate_last_validated_commit(self, last_validated_commit):
-        users_head_sha = self.state.users_auth_repo.top_commit_of_branch(
-            self.state.users_auth_repo.default_branch
-        )
+        branch = self.state.users_auth_repo.default_branch
+        users_head_sha = self.state.users_auth_repo.top_commit_of_branch(branch)
         if last_validated_commit != users_head_sha:
             # if a user committed something to the repo or manually pulled the changes
             # last_validated_commit will no longer match the top commit, but the repository
@@ -411,7 +415,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # committing without pushing is not valid
             # user_head_sha should be newer than last validated commit
             commits_since = self.state.users_auth_repo.all_commits_since_commit(
-                last_validated_commit
+                since_commit=last_validated_commit, branch=branch
             )
             if users_head_sha not in commits_since:
                 msg = f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
@@ -462,7 +466,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 factory=self.target_factory,
                 library_dir=self.library_dir,
                 commits=self.state.auth_commits_since_last_validated,
-                only_load_targets=False,
+                only_load_targets=True,
                 excluded_target_globs=self.excluded_target_globs,
             )
             self.state.target_repositories = (
@@ -916,10 +920,6 @@ but commit not on branch {current_branch}"
                                 f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
                             )
 
-                        taf_logger.info(
-                            f"Repository {repository.name}: found commits succeeding the last authenticated commit on branch {branch}: {','.join(additional_commits)}"
-                        )
-
                         # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
                         # that does not necessarily mean that the local repository is not up to date with the remote
                         # pull could've been run manually
@@ -971,20 +971,17 @@ but commit not on branch {current_branch}"
                         repository.name
                     ].items():
                         last_validated_commit = validated_commits[-1]
-                        commit_to_merge = (
-                            last_validated_commit
-                            if not _is_unauthenticated_allowed(repository)
-                            else self.state.fetched_commits_per_target_repos_branches[
-                                repository.name
-                            ][branch][-1]
-                        )
+                        commit_to_merge = last_validated_commit
+
                         taf_logger.info(
                             "Repository {}: merging {} into branch {}",
                             repository.name,
-                            commit_to_merge,
+                            format_commit(commit_to_merge),
                             branch,
                         )
-                        _merge_commit(repository, branch, commit_to_merge, force_revert=True)
+                        _merge_commit(
+                            repository, branch, commit_to_merge, force_revert=True
+                        )
                 return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
@@ -1085,6 +1082,20 @@ but commit not on branch {current_branch}"
             targets_data=self.state.targets_data,
         )
 
+    def print_additional_commits(self):
+        for (
+            repo_name,
+            branches,
+        ) in self.state.additional_commits_per_target_repos_branches.items():
+            for branch_name, additional_commits in branches.items():
+                if len(additional_commits):
+                    formatted_commits = [
+                        format_commit(commit) for commit in additional_commits
+                    ]
+                    taf_logger.info(
+                        f"Repository {repo_name}: found commits succeeding the last authenticated commit on branch {branch_name}: {', '.join(formatted_commits)}.\nThese commits were not merged into {branch_name}"
+                    )
+
 
 def _clone_validation_repo(url):
     """
@@ -1173,7 +1184,6 @@ def _run_tuf_updater(git_updater):
                 )
             return current_commit
         except Exception as e:
-            import pdb; pdb.set_trace()
             metadata_expired = EXPIRED_METADATA_ERROR in type(
                 e
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
@@ -1231,7 +1241,10 @@ def _merge_commit(
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
     taf_logger.info(
-        "{} Merging commit {} into branch {}", repository.name, commit_to_merge, branch
+        "{} Merging commit {} into branch {}",
+        repository.name,
+        format_commit(commit_to_merge),
+        branch,
     )
     try:
         repository.checkout_branch(branch, raise_anyway=True)

@@ -40,7 +40,7 @@ class GitError(TAFError):
                 message = str(error)
             else:
                 message = "error occurred"
-        self.message = f"{repo.log_prefix}{message}"
+        self.message = f"{repo.log_prefix}{message}" if repo is not None else message
         self.repo = repo
         self.command = command
         self.error = error
