@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Only clone repositories if target files exists ([381])
+- Do not merge unauthenticated commits which are newer than the last authenticated commit if a repository can contain unauthenticated commits ([381])
+- Partially update authentication repositories up to the last valid commit ([381])
 - Check if there are uncommitted changes when running the updater ([377])
 - Implement updater pipeline ([374])
 - Improve error messages and error logging ([374])
@@ -24,6 +27,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix imports, do not require installation of yubikey-manager prior to running the update ([376])
 - Git: fix the commit method so that it raises an error if nothing is committed ([375])
 
+[381]: https://github.com/openlawlibrary/taf/pull/381
 [377]: https://github.com/openlawlibrary/taf/pull/377
 [376]: https://github.com/openlawlibrary/taf/pull/376
 [375]: https://github.com/openlawlibrary/taf/pull/375
