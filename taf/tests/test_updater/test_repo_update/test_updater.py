@@ -84,7 +84,7 @@ TARGET_ADDITIONAL_COMMIT_PATTERN = r"Update of organization\/auth_repo failed du
 TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN = r"Update of organization\/auth_repo failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
 TARGET_MISSING_COMMIT_PATTERN = r"Update of organization/auth_repo failed due to error: Failure to validate organization/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
 NOT_CLEAN_PATTERN = r"^Update of ([\w/]+) failed due to error: Repository ([\w/-]+) should contain only committed changes\."
-INVALID_KEYS_PATTERN = r"^Update of ([\w/-]+)/([\w/-]+) failed due to error: Validation of authentication repository failed at revision ([0-9a-f]{40}) due to error: ([\w/-]+) was signed by (\d+)/(\d+) keys$"
+INVALID_KEYS_PATTERN = r"^Update of organization/auth_repo failed due to error: Validation of authentication repository organization/auth_repo failed at revision ([0-9a-f]{40}) due to error: ([\w/-]+) was signed by (\d+)/(\d+) keys$"
 
 
 NO_REPOSITORY_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
