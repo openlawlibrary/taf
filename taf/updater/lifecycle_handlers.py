@@ -65,7 +65,7 @@ def get_config(library_root, config_name=CONFIG_NAME):
         except Exception:
             config = {}
             taf_logger.warning(
-                "Config file {} not found. Scripts might not be executed successfully",
+                "WARNING: Config file {} not found. Scripts might not be executed successfully",
                 config_path,
             )
         config_db[library_root] = config or {}
@@ -250,7 +250,7 @@ def prepare_data_repo(
     conf_data = get_config(auth_repo.library_dir)
     if not conf_data:
         taf_logger.warning(
-            "Warning: No config data. Scripts might not be executed successfully"
+            "WARNING: No config data. Scripts might not be executed successfully"
         )
     return {
         auth_repo: {
