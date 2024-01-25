@@ -83,21 +83,6 @@ def _execute_repo_handlers(
             error = e
 
 
-# TODO config path should be configurable
-
-
-def load_library_context(config_path):
-    config = {}
-    config_path = Path(config_path)
-    try:
-        config = json.loads(config_path.read_text())
-    except json.JSONDecodeError:
-        taf_logger.warning("Invalid json in config file at {}", str(config_path))
-    except FileNotFoundError:
-        taf_logger.warning("No config found at {}", str(config_path))
-    return config
-
-
 def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
     taf_logger.info(
         "In development mode. Resetting repositories to commits before pull after handler failure"
@@ -499,25 +484,25 @@ def _update_named_repository(
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
+
             for child_auth_repo in child_auth_repos:
                 try:
                     _, error = _update_named_repository(
-                        operation,
-                        child_auth_repo.urls[0],
-                        child_auth_repo.path,
-                        library_dir,
-                        child_auth_repo.name,
-                        update_from_filesystem,
-                        expected_repo_type,
-                        target_repo_classes,
-                        target_factory,
-                        only_validate,
-                        validate_from_commit,
-                        conf_directory_root,
-                        visited,
-                        repos_update_data,
-                        transient_data,
-                        child_auth_repo.out_of_band_authentication,
+                        operation=OperationType.CLONE_OR_UPDATE,
+                        url=child_auth_repo.urls[0],
+                        auth_path=child_auth_repo.path,
+                        library_dir=library_dir,
+                        update_from_filesystem=update_from_filesystem,
+                        expected_repo_type=expected_repo_type,
+                        target_repo_classes=target_repo_classes,
+                        target_factory=target_factory,
+                        only_validate=only_validate,
+                        validate_from_commit=validate_from_commit,
+                        conf_directory_root=conf_directory_root,
+                        visited=visited,
+                        repos_update_data=repos_update_data,
+                        transient_data=transient_data,
+                        out_of_band_authentication=child_auth_repo.out_of_band_authentication,
                         scripts_root_dir=scripts_root_dir,
                         checkout=checkout,
                     )

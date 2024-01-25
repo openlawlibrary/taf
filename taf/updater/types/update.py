@@ -19,5 +19,6 @@ class UpdateType(enum.Enum):
 
 
 class OperationType(enum.Enum):
-    CLONE = "clone"
-    UPDATE = "update"
+    CLONE = 1
+    UPDATE = 2
+    CLONE_OR_UPDATE = 3

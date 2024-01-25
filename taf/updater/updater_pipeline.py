@@ -188,6 +188,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         super().__init__(
             steps=[
                 (self.clone_remote_and_run_tuf_updater, RunMode.ALL),
+                (self.validate_out_of_band_and_update_type, RunMode.ALL),
                 (self.check_if_local_auth_repo_clean, RunMode.UPDATE),
                 (self.clone_or_fetch_users_auth_repo, RunMode.UPDATE),
                 (self.load_target_repositories, RunMode.ALL),
@@ -243,6 +244,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         settings.update_from_filesystem = self.update_from_filesystem
         settings.conf_directory_root = self.conf_directory_root
 
+        if self.operation == OperationType.CLONE_OR_UPDATE:
+            if (
+                self.auth_path is not None
+                and AuthenticationRepository(path=self.auth_path).is_git_repository
+            ):
+                self.operation = OperationType.UPDATE
+            else:
+                self.operation = OperationType.CLONE
+
         # set last validated commit before running the updater
         # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
@@ -269,14 +279,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             git_updater = None
 
             if self.auth_path:
-                self.state.auth_repo_name = GitRepository(path=self.auth_path).name
+                auth_repo_name = GitRepository(path=self.auth_path).name
+                self.state.auth_repo_name = auth_repo_name
             else:
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
-            last_validated_remote_commit, error = _run_tuf_updater(git_updater)
+            last_validated_remote_commit, error = _run_tuf_updater(
+                git_updater, auth_repo_name
+            )
             if last_validated_remote_commit is None and error is not None:
                 raise error
 
@@ -302,7 +315,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self._validate_operation_type()
             self.state.validation_auth_repo = git_updater.validation_auth_repo
 
-            self._validate_out_of_band_and_update_type()
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
 
@@ -371,7 +383,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_start(
         INFO, "Validating out of band commit and update type", logger=taf_logger
     )
-    def _validate_out_of_band_and_update_type(self):
+    def validate_out_of_band_and_update_type(self):
         # this is the repository cloned inside the temp directory
         # we validate it before updating the actual authentication repository
         if (
@@ -954,7 +966,10 @@ but commit not on branch {current_branch}"
         try:
             if self.only_validate:
                 return self.state.update_status
-            if self.state.update_status == UpdateStatus.FAILED:
+            if (
+                self.state.update_status == UpdateStatus.FAILED
+                and self.operation == OperationType.CLONE
+            ):
                 # couldn't validate the first new commit
                 # there is nothing to merge
                 # remove cloned repositories if the initial commit was incorrect
@@ -1145,7 +1160,7 @@ def _is_unauthenticated_allowed(repository):
     "Running TUF validation of the authentication repository...",
     logger=taf_logger,
 )
-def _run_tuf_updater(git_updater):
+def _run_tuf_updater(git_updater, auth_repo_name):
     def _init_updater():
         try:
             return Updater(
@@ -1189,12 +1204,13 @@ def _run_tuf_updater(git_updater):
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
             if not metadata_expired or settings.strict:
                 taf_logger.error(
-                    "Validation of authentication repository failed at revision {} due to error: {}",
+                    "Validation of authentication repository {} failed at revision {} due to error: {}",
+                    auth_repo_name or "",
                     current_commit,
                     e,
                 )
                 raise UpdateFailedError(
-                    f"Validation of authentication repository"
+                    f"Validation of authentication repository {auth_repo_name or ''}"
                     f" failed at revision {current_commit} due to error: {e}"
                 )
             taf_logger.warning(
