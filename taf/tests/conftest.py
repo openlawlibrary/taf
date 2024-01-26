@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 from contextlib import contextmanager
@@ -5,6 +6,9 @@ from pathlib import Path
 
 
 from pytest import fixture
+from taf.api.repository import create_repository
+from taf.api.targets import update_target_repos_from_repositories_json
+from taf.git import GitRepository
 from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import on_rm_error
 
@@ -18,6 +22,14 @@ WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
 DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
+TEST_INIT_DATA_PATH = Path(__file__).parent / "init_data"
+
+NAMESPACE1 = "namespace1"
+NAMESPACE2 = "namespace2"
+TARGET1_NAME = "TargetRepo1"
+TARGET2_NAME = "TargetRepo2"
+TARGET3_NAME = "TargetRepo3"
+AUTH_NAME = "auth"
 
 
 def pytest_generate_tests(metafunc):
@@ -93,3 +105,90 @@ def keystore():
 def wrong_keystore():
     """Path of the wrong keystore"""
     return str(WRONG_KEYSTORE_PATH)
+
+
+def _initialize_target_repo(namespace, repo_name):
+    repo_path = CLIENT_DIR_PATH / namespace / repo_name
+    repo_path.mkdir(parents=True, exist_ok=True)
+    repo = GitRepository(path=repo_path)
+    repo.init_repo()
+    # create some files
+    (repo_path / "test1.txt").write_text("Test file 1")
+    (repo_path / "test2.txt").write_text("Test file 2")
+    repo.commit("Initial commit")
+    return repo
+
+
+@fixture
+def test_namespace1_target_repo1():
+    repo = _initialize_target_repo(NAMESPACE1, TARGET1_NAME)
+    yield repo
+
+
+@fixture
+def test_namespace1_target_repo2():
+    repo = _initialize_target_repo(NAMESPACE1, TARGET2_NAME)
+    yield repo
+
+@fixture
+def test_namespace1_target_repo3():
+    repo = _initialize_target_repo(NAMESPACE1, TARGET3_NAME)
+    yield repo
+
+@fixture
+def test_namespace2_target_repo1():
+    repo = _initialize_target_repo(NAMESPACE2, TARGET1_NAME)
+    yield repo
+
+@fixture
+def test_namespace2_target_repo2():
+    repo = _initialize_target_repo(NAMESPACE2, TARGET2_NAME)
+    yield repo
+
+@fixture
+def test_namespace2_target_repo3():
+    repo = _initialize_target_repo(NAMESPACE2, TARGET3_NAME)
+    yield repo
+
+
+@fixture
+def test_namespace1_auth_repo():
+    repo_path = CLIENT_DIR_PATH / NAMESPACE1 / AUTH_NAME
+    repo_path.mkdir(parents=True, exist_ok=True)
+    repo = GitRepository(path=repo_path)
+    repositories_json = {
+        "repositories": {
+            "namespace1/TargetRepo1": {
+                "custom": {
+                    "allow-unauthenticated-commits": True,
+                    "type":"type1"
+                }
+            },
+            "namespace1/TargetRepo2": {
+                "custom": {
+                    "type": "type2"
+                }
+            },
+            "namespace1/TargetRepo3": {
+                "custom": {
+                    "type": "type3"
+                }
+            }
+        }
+    }
+    targets_dir = repo_path / "targets"
+    targets_dir.mkdir(exist_ok=True)
+    repositories_json_path = targets_dir / "repositories.json"
+    repositories_json_path.write_text(json.dumps(repositories_json))
+    keys_description = str(TEST_INIT_DATA_PATH / "keys.json")
+    repo.init_repo()
+    create_repository(str(repo_path), str(KEYSTORE_PATH), keys_description)
+    repo.commit("Initial commit")
+    update_target_repos_from_repositories_json(
+        str(repo_path), str(CLIENT_DIR_PATH), str(KEYSTORE_PATH), scheme="rsa-pkcs1v15-sha256",
+    )
+    yield repo
+
+
+# def test_namespace1_auth():
+#     repo_path = CLIENT_DIR_PATH / NAMESPACE1 / REPO_NAME
