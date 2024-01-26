@@ -59,10 +59,15 @@ def _get_script_path(lifecycle_stage, event):
 def get_config(library_root, config_name=CONFIG_NAME):
     global config_db
     if library_root not in config_db:
+        config_path = Path(library_root, CONFIG_NAME)
         try:
-            config = json.loads(Path(library_root, CONFIG_NAME).read_text())
+            config = json.loads(Path(config_path).read_text())
         except Exception:
             config = {}
+            taf_logger.warning(
+                "WARNING: Config file {} not found. Scripts might not be executed successfully",
+                config_path,
+            )
         config_db[library_root] = config or {}
     return config_db.get(library_root)
 
@@ -242,6 +247,11 @@ def prepare_data_repo(
     error,
     targets_data,
 ):
+    conf_data = get_config(auth_repo.library_dir)
+    if not conf_data:
+        taf_logger.warning(
+            "WARNING: No config data. Scripts might not be executed successfully"
+        )
     return {
         auth_repo: {
             "data": {
@@ -252,7 +262,7 @@ def prepare_data_repo(
                     "transient": transient_data,
                     "persistent": persistent_data,
                 },
-                "config": get_config(auth_repo.library_dir),
+                "config": conf_data,
             },
             "commit": commits_data["after_pull"],
         }

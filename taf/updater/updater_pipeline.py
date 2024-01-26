@@ -49,6 +49,7 @@ class RunMode(Enum):
 class UpdateState:
     auth_commits_since_last_validated: List[Any] = field(factory=list)
     existing_repo: bool = field(default=False)
+    is_test_repo: bool = field(default=False)
     update_status: UpdateStatus = field(default=None)
     update_successful: bool = field(default=False)
     event: Optional[str] = field(default=None)
@@ -188,6 +189,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         super().__init__(
             steps=[
                 (self.clone_remote_and_run_tuf_updater, RunMode.ALL),
+                (self.validate_out_of_band_and_update_type, RunMode.ALL),
                 (self.check_if_local_auth_repo_clean, RunMode.UPDATE),
                 (self.clone_or_fetch_users_auth_repo, RunMode.UPDATE),
                 (self.load_target_repositories, RunMode.ALL),
@@ -243,6 +245,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         settings.update_from_filesystem = self.update_from_filesystem
         settings.conf_directory_root = self.conf_directory_root
 
+        if self.operation == OperationType.CLONE_OR_UPDATE:
+            if (
+                self.auth_path is not None
+                and AuthenticationRepository(path=self.auth_path).is_git_repository
+            ):
+                self.operation = OperationType.UPDATE
+            else:
+                self.operation = OperationType.CLONE
+
         # set last validated commit before running the updater
         # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
@@ -269,14 +280,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             git_updater = None
 
             if self.auth_path:
-                self.state.auth_repo_name = GitRepository(path=self.auth_path).name
+                auth_repo_name = GitRepository(path=self.auth_path).name
+                self.state.auth_repo_name = auth_repo_name
             else:
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
-            last_validated_remote_commit, error = _run_tuf_updater(git_updater)
+            last_validated_remote_commit, error = _run_tuf_updater(
+                git_updater, auth_repo_name
+            )
             if last_validated_remote_commit is None and error is not None:
                 raise error
 
@@ -301,8 +315,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self._validate_operation_type()
             self.state.validation_auth_repo = git_updater.validation_auth_repo
+            self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
 
-            self._validate_out_of_band_and_update_type()
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
 
@@ -371,39 +385,44 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_start(
         INFO, "Validating out of band commit and update type", logger=taf_logger
     )
-    def _validate_out_of_band_and_update_type(self):
+    def validate_out_of_band_and_update_type(self):
         # this is the repository cloned inside the temp directory
         # we validate it before updating the actual authentication repository
-        if (
-            self.out_of_band_authentication is not None
-            and self.state.users_auth_repo.last_validated_commit is None
-            and self.state.auth_commits_since_last_validated[0]
-            != self.out_of_band_authentication
-        ):
-            raise UpdateFailedError(
-                f"First commit of repository {self.state.auth_repo_name} does not match "
-                "out of band authentication commit"
-            )
-
-        if self.expected_repo_type != UpdateType.EITHER:
-            # check if the repository being updated is a test repository
+        try:
             if (
-                self.state.validation_auth_repo.is_test_repo
-                and self.expected_repo_type != UpdateType.TEST
+                self.out_of_band_authentication is not None
+                and self.state.users_auth_repo.last_validated_commit is None
+                and self.state.auth_commits_since_last_validated[0]
+                != self.out_of_band_authentication
             ):
                 raise UpdateFailedError(
-                    f"Repository {self.state.users_auth_repo.name} is a test repository. "
-                    'Call update with "--expected-repo-type" test to update a test '
-                    "repository"
+                    f"First commit of repository {self.state.auth_repo_name} does not match "
+                    "out of band authentication commit"
                 )
-            elif (
-                not self.state.validation_auth_repo.is_test_repo
-                and self.expected_repo_type == UpdateType.TEST
-            ):
-                raise UpdateFailedError(
-                    f"Repository {self.state.users_auth_repo.name} is not a test repository,"
-                    ' but update was called with the "--expected-repo-type" test'
-                )
+
+            if self.expected_repo_type != UpdateType.EITHER:
+                # check if the repository being updated is a test repository
+                if (
+                    self.state.is_test_repo
+                    and self.expected_repo_type != UpdateType.TEST
+                ):
+                    raise UpdateFailedError(
+                        f"Repository {self.state.users_auth_repo.name} is a test repository. "
+                        'Call update with "--expected-repo-type" test to update a test '
+                        "repository"
+                    )
+                elif (
+                    not self.state.is_test_repo
+                    and self.expected_repo_type == UpdateType.TEST
+                ):
+                    raise UpdateFailedError(
+                        f"Repository {self.state.users_auth_repo.name} is not a test repository,"
+                        ' but update was called with the "--expected-repo-type" test'
+                    )
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     def _validate_last_validated_commit(self, last_validated_commit):
         branch = self.state.users_auth_repo.default_branch
@@ -954,7 +973,10 @@ but commit not on branch {current_branch}"
         try:
             if self.only_validate:
                 return self.state.update_status
-            if self.state.update_status == UpdateStatus.FAILED:
+            if (
+                self.state.update_status == UpdateStatus.FAILED
+                and self.operation == OperationType.CLONE
+            ):
                 # couldn't validate the first new commit
                 # there is nothing to merge
                 # remove cloned repositories if the initial commit was incorrect
@@ -1145,7 +1167,7 @@ def _is_unauthenticated_allowed(repository):
     "Running TUF validation of the authentication repository...",
     logger=taf_logger,
 )
-def _run_tuf_updater(git_updater):
+def _run_tuf_updater(git_updater, auth_repo_name):
     def _init_updater():
         try:
             return Updater(
@@ -1189,12 +1211,13 @@ def _run_tuf_updater(git_updater):
             ).__name__ or EXPIRED_METADATA_ERROR in str(e)
             if not metadata_expired or settings.strict:
                 taf_logger.error(
-                    "Validation of authentication repository failed at revision {} due to error: {}",
+                    "Validation of authentication repository {} failed at revision {} due to error: {}",
+                    auth_repo_name or "",
                     current_commit,
                     e,
                 )
                 raise UpdateFailedError(
-                    f"Validation of authentication repository"
+                    f"Validation of authentication repository {auth_repo_name or ''}"
                     f" failed at revision {current_commit} due to error: {e}"
                 )
             taf_logger.warning(

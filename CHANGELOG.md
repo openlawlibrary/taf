@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Print a warning if the conf file cannot be loaded when executing scripts ([384])
 - Git: added a method for finding the newest branch whose name matches a certain pattern ([375])
 - Git: added a check if remote already exists ([375])
 
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix update of repositories which reference other repositories ([384])
 - Fix imports, do not require installation of yubikey-manager prior to running the update ([376])
 - Git: fix the commit method so that it raises an error if nothing is committed ([375])
 
