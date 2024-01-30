@@ -1,15 +1,17 @@
 import json
 from pathlib import Path
 import re
+import shutil
 from taf.api.repository import create_repository
 from taf.api.targets import update_target_repos_from_repositories_json
 from taf.git import GitRepository
 from taf.tests.conftest import (
-    CLIENT_DIR_PATH,
+    TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
     origin_repos_group,
 )
+from taf.utils import on_rm_error
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 
@@ -32,7 +34,7 @@ def updater_repositories():
 
 
 def initialize_repo(namespace, repo_name):
-    repo_path = CLIENT_DIR_PATH / namespace / repo_name
+    repo_path = TEST_DATA_ORIGIN_PATH / namespace / repo_name
     repo_path.mkdir(parents=True, exist_ok=True)
     repo = GitRepository(path=repo_path)
     repo.init_repo()
@@ -90,7 +92,7 @@ def update_target_repos(namespace, target_names, auth_repo_path, num_updates=2):
             update_target_files(target_repo, "Update target files")
         update_target_repos_from_repositories_json(
             str(auth_repo_path),
-            str(CLIENT_DIR_PATH),
+            str(TEST_DATA_ORIGIN_PATH),
             str(KEYSTORE_PATH),
         )
     return target_repos
@@ -105,7 +107,7 @@ def library_with_dependencies():
 
     for namespace in namespaces:
         auth_repo = create_auth_repo_with_repositories_json(
-            namespace, TEST_INIT_DATA_PATH / "repositories.json", CLIENT_DIR_PATH
+            namespace, TEST_INIT_DATA_PATH / "repositories.json", TEST_DATA_ORIGIN_PATH
         )
         target_repos = update_target_repos(namespace, target_names, auth_repo.path)
         library[auth_repo.name] = {"auth_repo": auth_repo, "target_repos": target_repos}
@@ -130,3 +132,15 @@ def library_with_dependencies():
     library[root_auth_repo.name] = {"auth_repo": root_auth_repo, "target_repos": []}
 
     yield library
+
+    # Cleanup step: delete all initialized repositories
+    for repo_info in library.values():
+        auth_repo = repo_info["auth_repo"]
+        target_repos = repo_info["target_repos"]
+
+        # Delete the auth repository
+        shutil.rmtree(auth_repo.path, onerror=on_rm_error)
+
+        # Delete each target repository
+        for target_repo in target_repos:
+            shutil.rmtree(target_repo.path, onerror=on_rm_error)
