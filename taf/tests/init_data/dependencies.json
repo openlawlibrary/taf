@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "namespace1/auth": {
+            "out-of-band-authentication": "{commit1}"
+        },
+        "namespace2/auth": {
+            "out-of-band-authentication": "{commit2}"
+        }
+    }
+}

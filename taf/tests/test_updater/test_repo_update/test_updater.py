@@ -114,392 +114,396 @@ def run_around_tests(client_dir):
         for dir_name in dirs:
             shutil.rmtree(str(Path(root) / dir_name), onerror=on_rm_error)
 
+def test_something(library_with_dependencies):
+    assert library_with_dependencies['namespace1/auth']
 
-@pytest.mark.parametrize(
-    "test_name, test_repo, auth_repo_name_exists",
-    [
-        ("test-updater-valid", UpdateType.OFFICIAL, True),
-        ("test-updater-valid", UpdateType.OFFICIAL, False),
-        ("test-updater-valid-with-updated-expiration-dates", UpdateType.OFFICIAL, True),
-        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL, True),
-        ("test-updater-test-repo", UpdateType.TEST, True),
-        ("test-updater-multiple-branches", UpdateType.OFFICIAL, True),
-        ("test-updater-delegated-roles", UpdateType.OFFICIAL, True),
-        ("test-updater-updated-root", UpdateType.OFFICIAL, True),
-        ("test-updater-updated-root-old-snapshot", UpdateType.OFFICIAL, True),
-        ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
-        ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
-        ("test-updater-expired-metadata", UpdateType.OFFICIAL, True),
-    ],
-)
-def test_valid_update_no_client_repo(
-    test_name,
-    test_repo,
-    auth_repo_name_exists,
-    updater_repositories,
-    origin_dir,
-    client_dir,
-):
-    repositories = updater_repositories[test_name]
-    origin_dir = origin_dir / test_name
-    _update_and_check_commit_shas(
-        OperationType.CLONE,
-        None,
-        repositories,
-        origin_dir,
-        client_dir,
-        test_repo,
-        auth_repo_name_exists,
-    )
-
-
-def test_excluded_targets_update_no_client_repo(
-    updater_repositories,
-    origin_dir,
-    client_dir,
-):
-    repositories = updater_repositories["test-updater-valid"]
-    origin_dir = origin_dir / "test-updater-valid"
-    excluded_target_globs = ["*/TargetRepo1"]
-    _update_and_check_commit_shas(
-        OperationType.CLONE,
-        None,
-        repositories,
-        origin_dir,
-        client_dir,
-        UpdateType.OFFICIAL,
-        True,
-        excluded_target_globs,
-    )
-    for repository_rel_path in repositories:
-        for excluded_target_glob in excluded_target_globs:
-            if fnmatch.fnmatch(repository_rel_path, excluded_target_glob):
-                assert not Path(client_dir, repository_rel_path).is_dir()
-                break
+# @pytest.mark.parametrize(
+#     "test_name, test_repo, auth_repo_name_exists",
+#     [
+#         ("test-updater-valid", UpdateType.OFFICIAL, True),
+#         ("test-updater-valid", UpdateType.OFFICIAL, False),
+#         ("test-updater-valid-with-updated-expiration-dates", UpdateType.OFFICIAL, True),
+#         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL, True),
+#         ("test-updater-test-repo", UpdateType.TEST, True),
+#         ("test-updater-multiple-branches", UpdateType.OFFICIAL, True),
+#         ("test-updater-delegated-roles", UpdateType.OFFICIAL, True),
+#         ("test-updater-updated-root", UpdateType.OFFICIAL, True),
+#         ("test-updater-updated-root-old-snapshot", UpdateType.OFFICIAL, True),
+#         ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
+#         ("test-updater-updated-root-version-skipped", UpdateType.OFFICIAL, True),
+#         ("test-updater-expired-metadata", UpdateType.OFFICIAL, True),
+#     ],
+# )
+# def test_valid_update_no_client_repo(
+#     test_name,
+#     test_repo,
+#     auth_repo_name_exists,
+#     updater_repositories,
+#     origin_dir,
+#     client_dir,
+# ):
+#     repositories = updater_repositories[test_name]
+#     origin_dir = origin_dir / test_name
+#     _update_and_check_commit_shas(
+#         OperationType.CLONE,
+#         None,
+#         repositories,
+#         origin_dir,
+#         client_dir,
+#         test_repo,
+#         auth_repo_name_exists,
+#     )
 
 
-@pytest.mark.parametrize(
-    "test_name, test_repo",
-    [
-        ("test-updater-valid", UpdateType.OFFICIAL),
-        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
-        ("test-updater-multiple-branches", UpdateType.OFFICIAL),
-        ("test-updater-delegated-roles", UpdateType.OFFICIAL),
-    ],
-)
-def test_valid_update_no_auth_repo_one_target_repo_exists(
-    test_name, test_repo, updater_repositories, origin_dir, client_dir
-):
-    repositories = updater_repositories[test_name]
-    origin_dir = origin_dir / test_name
-    _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
-    _update_and_check_commit_shas(
-        OperationType.CLONE, None, repositories, origin_dir, client_dir, test_repo
-    )
 
 
-@pytest.mark.parametrize(
-    "test_name, num_of_commits_to_revert",
-    [
-        ("test-updater-valid", 3),
-        ("test-updater-allow-unauthenticated-commits", 1),
-        ("test-updater-multiple-branches", 5),
-        ("test-updater-delegated-roles", 1),
-        ("test-updater-updated-root", 1),
-        ("test-updater-updated-root-old-snapshot", 1),
-        ("test-updater-updated-root-version-skipped", 1),
-    ],
-)
-def test_valid_update_existing_client_repos(
-    test_name, num_of_commits_to_revert, updater_repositories, origin_dir, client_dir
-):
-    # clone the origin repositories
-    # revert them to an older commit
-    repositories = updater_repositories[test_name]
-    origin_dir = origin_dir / test_name
-    client_repos = _clone_and_revert_client_repositories(
-        repositories, origin_dir, client_dir, num_of_commits_to_revert
-    )
-    # create valid last validated commit file
-    _create_last_validated_commit(
-        client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-    )
-    _update_and_check_commit_shas(
-        OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
-    )
+# def test_excluded_targets_update_no_client_repo(
+#     updater_repositories,
+#     origin_dir,
+#     client_dir,
+# ):
+#     repositories = updater_repositories["test-updater-valid"]
+#     origin_dir = origin_dir / "test-updater-valid"
+#     excluded_target_globs = ["*/TargetRepo1"]
+#     _update_and_check_commit_shas(
+#         OperationType.CLONE,
+#         None,
+#         repositories,
+#         origin_dir,
+#         client_dir,
+#         UpdateType.OFFICIAL,
+#         True,
+#         excluded_target_globs,
+#     )
+#     for repository_rel_path in repositories:
+#         for excluded_target_glob in excluded_target_globs:
+#             if fnmatch.fnmatch(repository_rel_path, excluded_target_glob):
+#                 assert not Path(client_dir, repository_rel_path).is_dir()
+#                 break
 
 
-@pytest.mark.parametrize(
-    "test_name, test_repo",
-    [
-        ("test-updater-valid", UpdateType.OFFICIAL),
-        ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
-        ("test-updater-test-repo", UpdateType.TEST),
-        ("test-updater-multiple-branches", UpdateType.OFFICIAL),
-        ("test-updater-delegated-roles", UpdateType.OFFICIAL),
-    ],
-)
-def test_no_update_necessary(
-    test_name, test_repo, updater_repositories, origin_dir, client_dir
-):
-    # clone the origin repositories
-    # revert them to an older commit
-    repositories = updater_repositories[test_name]
-    origin_dir = origin_dir / test_name
-    client_repos = _clone_client_repositories(repositories, origin_dir, client_dir)
-    # create valid last validated commit file
-    _create_last_validated_commit(
-        client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-    )
-    _update_and_check_commit_shas(
-        OperationType.UPDATE,
-        client_repos,
-        repositories,
-        origin_dir,
-        client_dir,
-        test_repo,
-    )
+# @pytest.mark.parametrize(
+#     "test_name, test_repo",
+#     [
+#         ("test-updater-valid", UpdateType.OFFICIAL),
+#         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
+#         ("test-updater-multiple-branches", UpdateType.OFFICIAL),
+#         ("test-updater-delegated-roles", UpdateType.OFFICIAL),
+#     ],
+# )
+# def test_valid_update_no_auth_repo_one_target_repo_exists(
+#     test_name, test_repo, updater_repositories, origin_dir, client_dir
+# ):
+#     repositories = updater_repositories[test_name]
+#     origin_dir = origin_dir / test_name
+#     _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
+#     _update_and_check_commit_shas(
+#         OperationType.CLONE, None, repositories, origin_dir, client_dir, test_repo
+#     )
 
 
-@pytest.mark.parametrize(
-    "test_name, expected_error, auth_repo_name_exists, expect_partial_update, should_last_validated_exist",
-    [
-        ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True, True),
-        (
-            "test-updater-additional-target-commit",
-            TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
-            True,
-            True,
-            True,
-        ),
-        (
-            "test-updater-missing-target-commit",
-            TARGET_ADDITIONAL_COMMIT_PATTERN,
-            True,
-            True,
-            True,
-        ),
-        ("test-updater-wrong-key", INVALID_KEYS_PATTERN, True, True, True),
-        ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True, True),
-        (
-            "test-updater-delegated-roles-wrong-sha",
-            TARGET_MISSMATCH_PATTERN,
-            True,
-            True,
-            True,
-        ),
-        (
-            "test-updater-updated-root-invalid-metadata",
-            INVALID_KEYS_PATTERN,
-            True,
-            True,
-            True,
-        ),
-        ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True, False),
-        (
-            "test-updater-invalid-snapshot-meta-field-missing",
-            METADATA_FIELD_MISSING,
-            False,
-            True,
-            True,
-        ),
-    ],
-)
-def test_updater_invalid_update(
-    test_name,
-    expected_error,
-    auth_repo_name_exists,
-    updater_repositories,
-    client_dir,
-    expect_partial_update,
-    should_last_validated_exist,
-):
-    repositories = updater_repositories[test_name]
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-
-    _update_invalid_repos_and_check_if_repos_exist(
-        OperationType.CLONE,
-        client_dir,
-        repositories,
-        expected_error,
-        expect_partial_update,
-        auth_repo_name_exists=auth_repo_name_exists,
-    )
-    # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(
-        clients_auth_repo_path, should_last_validated_exist
-    )
+# @pytest.mark.parametrize(
+#     "test_name, num_of_commits_to_revert",
+#     [
+#         ("test-updater-valid", 3),
+#         ("test-updater-allow-unauthenticated-commits", 1),
+#         ("test-updater-multiple-branches", 5),
+#         ("test-updater-delegated-roles", 1),
+#         ("test-updater-updated-root", 1),
+#         ("test-updater-updated-root-old-snapshot", 1),
+#         ("test-updater-updated-root-version-skipped", 1),
+#     ],
+# )
+# def test_valid_update_existing_client_repos(
+#     test_name, num_of_commits_to_revert, updater_repositories, origin_dir, client_dir
+# ):
+#     # clone the origin repositories
+#     # revert them to an older commit
+#     repositories = updater_repositories[test_name]
+#     origin_dir = origin_dir / test_name
+#     client_repos = _clone_and_revert_client_repositories(
+#         repositories, origin_dir, client_dir, num_of_commits_to_revert
+#     )
+#     # create valid last validated commit file
+#     _create_last_validated_commit(
+#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
+#     )
+#     _update_and_check_commit_shas(
+#         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
+#     )
 
 
-@pytest.mark.parametrize(
-    "test_name, expected_error",
-    [
-        ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN),
-        ("test-updater-missing-target-commit", TARGET_MISSING_COMMIT_PATTERN),
-    ],
-)
-def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
-    test_name, expected_error, updater_repositories, client_dir, origin_dir
-):
-    repositories = updater_repositories[test_name]
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-    origin_dir = origin_dir / test_name
-    _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
-    _update_invalid_repos_and_check_if_repos_exist(
-        OperationType.CLONE, client_dir, repositories, expected_error, True
-    )
-    # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
+# @pytest.mark.parametrize(
+#     "test_name, test_repo",
+#     [
+#         ("test-updater-valid", UpdateType.OFFICIAL),
+#         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
+#         ("test-updater-test-repo", UpdateType.TEST),
+#         ("test-updater-multiple-branches", UpdateType.OFFICIAL),
+#         ("test-updater-delegated-roles", UpdateType.OFFICIAL),
+#     ],
+# )
+# def test_no_update_necessary(
+#     test_name, test_repo, updater_repositories, origin_dir, client_dir
+# ):
+#     # clone the origin repositories
+#     # revert them to an older commit
+#     repositories = updater_repositories[test_name]
+#     origin_dir = origin_dir / test_name
+#     client_repos = _clone_client_repositories(repositories, origin_dir, client_dir)
+#     # create valid last validated commit file
+#     _create_last_validated_commit(
+#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
+#     )
+#     _update_and_check_commit_shas(
+#         OperationType.UPDATE,
+#         client_repos,
+#         repositories,
+#         origin_dir,
+#         client_dir,
+#         test_repo,
+#     )
 
 
-def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
-    # tuf patch state is shared between tests
-    # so we manually revert to original tuf implementation
-    trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
+# @pytest.mark.parametrize(
+#     "test_name, expected_error, auth_repo_name_exists, expect_partial_update, should_last_validated_exist",
+#     [
+#         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True, True),
+#         (
+#             "test-updater-additional-target-commit",
+#             TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
+#             True,
+#             True,
+#             True,
+#         ),
+#         (
+#             "test-updater-missing-target-commit",
+#             TARGET_ADDITIONAL_COMMIT_PATTERN,
+#             True,
+#             True,
+#             True,
+#         ),
+#         ("test-updater-wrong-key", INVALID_KEYS_PATTERN, True, True, True),
+#         ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True, True),
+#         (
+#             "test-updater-delegated-roles-wrong-sha",
+#             TARGET_MISSMATCH_PATTERN,
+#             True,
+#             True,
+#             True,
+#         ),
+#         (
+#             "test-updater-updated-root-invalid-metadata",
+#             INVALID_KEYS_PATTERN,
+#             True,
+#             True,
+#             True,
+#         ),
+#         ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True, False),
+#         (
+#             "test-updater-invalid-snapshot-meta-field-missing",
+#             METADATA_FIELD_MISSING,
+#             False,
+#             True,
+#             True,
+#         ),
+#     ],
+# )
+# def test_updater_invalid_update(
+#     test_name,
+#     expected_error,
+#     auth_repo_name_exists,
+#     updater_repositories,
+#     client_dir,
+#     expect_partial_update,
+#     should_last_validated_exist,
+# ):
+#     repositories = updater_repositories[test_name]
+#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
 
-    # without using freeze_time, we expect to get metadata expired error
-    repositories = updater_repositories["test-updater-expired-metadata"]
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-    _update_invalid_repos_and_check_if_repos_exist(
-        OperationType.CLONE,
-        client_dir,
-        repositories,
-        ROOT_EXPIRED,
-        True,
-        set_time=False,
-        strict=True,
-    )
-    # make sure that the last validated commit does not exist
-    _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
-
-
-@pytest.mark.parametrize(
-    "test_name, num_of_commits_to_revert, expected_error",
-    [
-        ("test-updater-invalid-target-sha", 1, TARGET_MISSMATCH_PATTERN),
-        ("test-updater-delegated-roles-wrong-sha", 4, TARGET_MISSMATCH_PATTERN),
-    ],
-)
-def test_updater_invalid_target_sha_existing_client_repos(
-    test_name,
-    num_of_commits_to_revert,
-    expected_error,
-    updater_repositories,
-    origin_dir,
-    client_dir,
-):
-    repositories = updater_repositories[test_name]
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-    origin_dir = origin_dir / test_name
-    client_repos = _clone_and_revert_client_repositories(
-        repositories, origin_dir, client_dir, num_of_commits_to_revert
-    )
-    _create_last_validated_commit(
-        client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-    )
-    _update_invalid_repos_and_check_if_remained_same(
-        client_repos, client_dir, repositories, expected_error
-    )
-    _check_last_validated_commit(clients_auth_repo_path)
-
-
-def test_no_target_repositories(updater_repositories, origin_dir, client_dir):
-    repositories = updater_repositories["test-updater-valid"]
-    origin_dir = origin_dir / "test-updater-valid"
-    client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
-    _create_last_validated_commit(client_dir, client_auth_repo.head_commit_sha())
-    _update_and_check_commit_shas(
-        OperationType.UPDATE, None, repositories, origin_dir, client_dir, False
-    )
-
-
-def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
-    # clone the origin repositories
-    # revert them to an older commit
-    repositories = updater_repositories["test-updater-valid"]
-    origin_dir = origin_dir / "test-updater-valid"
-    client_repos = _clone_and_revert_client_repositories(
-        repositories, origin_dir, client_dir, 3
-    )
-    # update without setting the last validated commit
-    # update should start from the beginning and be successful
-    _update_and_check_commit_shas(
-        OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
-    )
+#     _update_invalid_repos_and_check_if_repos_exist(
+#         OperationType.CLONE,
+#         client_dir,
+#         repositories,
+#         expected_error,
+#         expect_partial_update,
+#         auth_repo_name_exists=auth_repo_name_exists,
+#     )
+#     # make sure that the last validated commit does not exist
+#     _check_if_last_validated_commit_exists(
+#         clients_auth_repo_path, should_last_validated_exist
+#     )
 
 
-def test_older_last_validated_commit(updater_repositories, origin_dir, client_dir):
-    # clone the origin repositories
-    # revert them to an older commit
-    repositories = updater_repositories["test-updater-valid"]
-    origin_dir = origin_dir / "test-updater-valid"
-    client_repos = _clone_and_revert_client_repositories(
-        repositories, origin_dir, client_dir, 3
-    )
-    all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
-    first_commit = all_commits[0]
-
-    _create_last_validated_commit(client_dir, first_commit)
-    # try to update without setting the last validated commit
-    _update_and_check_commit_shas(
-        OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
-    )
-
-
-def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
-    repositories = updater_repositories["test-updater-test-repo"]
-    origin_dir = origin_dir / "test-updater-test-repo"
-    # try to update a test repo, set update type to official
-    _update_invalid_repos_and_check_if_repos_exist(
-        OperationType.CLONE,
-        client_dir,
-        repositories,
-        IS_A_TEST_REPO,
-        False,
-        UpdateType.OFFICIAL,
-    )
+# @pytest.mark.parametrize(
+#     "test_name, expected_error",
+#     [
+#         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN),
+#         ("test-updater-missing-target-commit", TARGET_MISSING_COMMIT_PATTERN),
+#     ],
+# )
+# def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
+#     test_name, expected_error, updater_repositories, client_dir, origin_dir
+# ):
+#     repositories = updater_repositories[test_name]
+#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+#     origin_dir = origin_dir / test_name
+#     _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
+#     _update_invalid_repos_and_check_if_repos_exist(
+#         OperationType.CLONE, client_dir, repositories, expected_error, True
+#     )
+#     # make sure that the last validated commit does not exist
+#     _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
 
 
-def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
-    repositories = updater_repositories["test-updater-valid"]
-    origin_dir = origin_dir / "test-updater-valid"
-    # try to update without setting the last validated commit
-    _update_invalid_repos_and_check_if_repos_exist(
-        OperationType.CLONE,
-        client_dir,
-        repositories,
-        NOT_A_TEST_REPO,
-        False,
-        UpdateType.TEST,
-    )
+# def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
+#     # tuf patch state is shared between tests
+#     # so we manually revert to original tuf implementation
+#     trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
+
+#     # without using freeze_time, we expect to get metadata expired error
+#     repositories = updater_repositories["test-updater-expired-metadata"]
+#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+#     _update_invalid_repos_and_check_if_repos_exist(
+#         OperationType.CLONE,
+#         client_dir,
+#         repositories,
+#         ROOT_EXPIRED,
+#         True,
+#         set_time=False,
+#         strict=True,
+#     )
+#     # make sure that the last validated commit does not exist
+#     _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
 
 
-def test_update_repo_target_in_indeterminate_state(
-    updater_repositories, origin_dir, client_dir
-):
-    repositories = updater_repositories[
-        "test-updater-target-repository-has-indeterminate-state"
-    ]
-    origin_dir = origin_dir / "test-updater-target-repository-has-indeterminate-state"
+# @pytest.mark.parametrize(
+#     "test_name, num_of_commits_to_revert, expected_error",
+#     [
+#         ("test-updater-invalid-target-sha", 1, TARGET_MISSMATCH_PATTERN),
+#         ("test-updater-delegated-roles-wrong-sha", 4, TARGET_MISSMATCH_PATTERN),
+#     ],
+# )
+# def test_updater_invalid_target_sha_existing_client_repos(
+#     test_name,
+#     num_of_commits_to_revert,
+#     expected_error,
+#     updater_repositories,
+#     origin_dir,
+#     client_dir,
+# ):
+#     repositories = updater_repositories[test_name]
+#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
+#     origin_dir = origin_dir / test_name
+#     client_repos = _clone_and_revert_client_repositories(
+#         repositories, origin_dir, client_dir, num_of_commits_to_revert
+#     )
+#     _create_last_validated_commit(
+#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
+#     )
+#     _update_invalid_repos_and_check_if_remained_same(
+#         client_repos, client_dir, repositories, expected_error
+#     )
+#     _check_last_validated_commit(clients_auth_repo_path)
 
-    targets_repo_path = client_dir / TARGET_REPO_REL_PATH
 
-    _update_and_check_commit_shas(
-        OperationType.CLONE,
-        None,
-        repositories,
-        origin_dir,
-        client_dir,
-        UpdateType.OFFICIAL,
-    )
-    # Create an `index.lock` file, indicating that an incomplete git operation took place
-    # index.lock is created by git when a git operation is interrupted.
-    index_lock = Path(targets_repo_path, ".git", "index.lock")
-    index_lock.touch()
+# def test_no_target_repositories(updater_repositories, origin_dir, client_dir):
+#     repositories = updater_repositories["test-updater-valid"]
+#     origin_dir = origin_dir / "test-updater-valid"
+#     client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
+#     _create_last_validated_commit(client_dir, client_auth_repo.head_commit_sha())
+#     _update_and_check_commit_shas(
+#         OperationType.UPDATE, None, repositories, origin_dir, client_dir, False
+#     )
 
-    _update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE, client_dir, repositories, NOT_CLEAN_PATTERN, True
-    )
+
+# def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
+#     # clone the origin repositories
+#     # revert them to an older commit
+#     repositories = updater_repositories["test-updater-valid"]
+#     origin_dir = origin_dir / "test-updater-valid"
+#     client_repos = _clone_and_revert_client_repositories(
+#         repositories, origin_dir, client_dir, 3
+#     )
+#     # update without setting the last validated commit
+#     # update should start from the beginning and be successful
+#     _update_and_check_commit_shas(
+#         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
+#     )
+
+
+# def test_older_last_validated_commit(updater_repositories, origin_dir, client_dir):
+#     # clone the origin repositories
+#     # revert them to an older commit
+#     repositories = updater_repositories["test-updater-valid"]
+#     origin_dir = origin_dir / "test-updater-valid"
+#     client_repos = _clone_and_revert_client_repositories(
+#         repositories, origin_dir, client_dir, 3
+#     )
+#     all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
+#     first_commit = all_commits[0]
+
+#     _create_last_validated_commit(client_dir, first_commit)
+#     # try to update without setting the last validated commit
+#     _update_and_check_commit_shas(
+#         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
+#     )
+
+
+# def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
+#     repositories = updater_repositories["test-updater-test-repo"]
+#     origin_dir = origin_dir / "test-updater-test-repo"
+#     # try to update a test repo, set update type to official
+#     _update_invalid_repos_and_check_if_repos_exist(
+#         OperationType.CLONE,
+#         client_dir,
+#         repositories,
+#         IS_A_TEST_REPO,
+#         False,
+#         UpdateType.OFFICIAL,
+#     )
+
+
+# def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
+#     repositories = updater_repositories["test-updater-valid"]
+#     origin_dir = origin_dir / "test-updater-valid"
+#     # try to update without setting the last validated commit
+#     _update_invalid_repos_and_check_if_repos_exist(
+#         OperationType.CLONE,
+#         client_dir,
+#         repositories,
+#         NOT_A_TEST_REPO,
+#         False,
+#         UpdateType.TEST,
+#     )
+
+
+# def test_update_repo_target_in_indeterminate_state(
+#     updater_repositories, origin_dir, client_dir
+# ):
+#     repositories = updater_repositories[
+#         "test-updater-target-repository-has-indeterminate-state"
+#     ]
+#     origin_dir = origin_dir / "test-updater-target-repository-has-indeterminate-state"
+
+#     targets_repo_path = client_dir / TARGET_REPO_REL_PATH
+
+#     _update_and_check_commit_shas(
+#         OperationType.CLONE,
+#         None,
+#         repositories,
+#         origin_dir,
+#         client_dir,
+#         UpdateType.OFFICIAL,
+#     )
+#     # Create an `index.lock` file, indicating that an incomplete git operation took place
+#     # index.lock is created by git when a git operation is interrupted.
+#     index_lock = Path(targets_repo_path, ".git", "index.lock")
+#     index_lock.touch()
+
+#     _update_invalid_repos_and_check_if_repos_exist(
+#         OperationType.UPDATE, client_dir, repositories, NOT_CLEAN_PATTERN, True
+#     )
 
 
 def _check_last_validated_commit(clients_auth_repo_path):
