@@ -24,13 +24,6 @@ CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
 TEST_INIT_DATA_PATH = Path(__file__).parent / "init_data"
 
-NAMESPACE1 = "namespace1"
-NAMESPACE2 = "namespace2"
-TARGET1_NAME = "TargetRepo1"
-TARGET2_NAME = "TargetRepo2"
-TARGET3_NAME = "TargetRepo3"
-AUTH_NAME = "auth"
-
 
 def pytest_generate_tests(metafunc):
     if "repositories" in metafunc.fixturenames:
@@ -105,50 +98,6 @@ def keystore():
 def wrong_keystore():
     """Path of the wrong keystore"""
     return str(WRONG_KEYSTORE_PATH)
-
-
-def _initialize_target_repo(namespace, repo_name):
-    repo_path = CLIENT_DIR_PATH / namespace / repo_name
-    repo_path.mkdir(parents=True, exist_ok=True)
-    repo = GitRepository(path=repo_path)
-    repo.init_repo()
-    # create some files
-    (repo_path / "test1.txt").write_text("Test file 1")
-    (repo_path / "test2.txt").write_text("Test file 2")
-    repo.commit("Initial commit")
-    return repo
-
-
-@fixture
-def test_namespace1_target_repo1():
-    repo = _initialize_target_repo(NAMESPACE1, TARGET1_NAME)
-    yield repo
-
-
-@fixture
-def test_namespace1_target_repo2():
-    repo = _initialize_target_repo(NAMESPACE1, TARGET2_NAME)
-    yield repo
-
-@fixture
-def test_namespace1_target_repo3():
-    repo = _initialize_target_repo(NAMESPACE1, TARGET3_NAME)
-    yield repo
-
-@fixture
-def test_namespace2_target_repo1():
-    repo = _initialize_target_repo(NAMESPACE2, TARGET1_NAME)
-    yield repo
-
-@fixture
-def test_namespace2_target_repo2():
-    repo = _initialize_target_repo(NAMESPACE2, TARGET2_NAME)
-    yield repo
-
-@fixture
-def test_namespace2_target_repo3():
-    repo = _initialize_target_repo(NAMESPACE2, TARGET3_NAME)
-    yield repo
 
 
 @fixture
