@@ -68,7 +68,13 @@ def create_and_write_json(template_path, substitutions, output_path):
     output_path.write_text(template)
 
 
-def create_auth_repo_with_repositories_json(
+def create_mirrors(auth_repo):
+    mirrors = {"mirrors": [f"{TEST_DATA_ORIGIN_PATH}/{{org_name}}/{{repo_name}}"]}
+    mirrors_path = auth_repo.path / "targets" / "mirrors.json"
+    mirrors_path.write_text(json.dumps(mirrors))
+
+
+def create_auth_repo_with_repositories_json_and_mirrors(
     namespace, json_template_path, json_output_dir
 ):
     auth_repo = initialize_repo(namespace, AUTH_NAME)
@@ -78,6 +84,7 @@ def create_auth_repo_with_repositories_json(
         {"namespace": namespace},
         json_output_dir / auth_repo.path / "targets" / "repositories.json",
     )
+    create_mirrors(auth_repo)
     keys_description = str(TEST_INIT_DATA_PATH / "keys.json")
     create_repository(
         str(auth_repo.path), str(KEYSTORE_PATH), keys_description, commit=True
@@ -85,8 +92,13 @@ def create_auth_repo_with_repositories_json(
     return auth_repo
 
 
-def update_target_repos(namespace, target_names, auth_repo_path, num_updates=2):
+def create_target_repos(namespace, target_names, auth_repo_path, num_updates=2):
     target_repos = [initialize_target_repo(namespace, name) for name in target_names]
+    update_target_repos_from_repositories_json(
+        str(auth_repo_path),
+        str(TEST_DATA_ORIGIN_PATH),
+        str(KEYSTORE_PATH),
+    )
     for _ in range(num_updates):
         for target_repo in target_repos:
             update_target_files(target_repo, "Update target files")
@@ -106,10 +118,10 @@ def library_with_dependencies():
     target_names = [TARGET1_NAME, TARGET2_NAME, TARGET3_NAME]
 
     for namespace in namespaces:
-        auth_repo = create_auth_repo_with_repositories_json(
+        auth_repo = create_auth_repo_with_repositories_json_and_mirrors(
             namespace, TEST_INIT_DATA_PATH / "repositories.json", TEST_DATA_ORIGIN_PATH
         )
-        target_repos = update_target_repos(namespace, target_names, auth_repo.path)
+        target_repos = create_target_repos(namespace, target_names, auth_repo.path)
         library[auth_repo.name] = {"auth_repo": auth_repo, "target_repos": target_repos}
 
     root_auth_repo = initialize_repo(ROOT_REPO_NAMESPACE, AUTH_NAME)
@@ -125,6 +137,7 @@ def library_with_dependencies():
         {"commit1": auth_commit1, "commit2": auth_commit2},
         root_auth_repo.path / "targets" / "dependencies.json",
     )
+    create_mirrors(root_auth_repo)
     keys_description = str(TEST_INIT_DATA_PATH / "keys.json")
     create_repository(
         str(root_auth_repo.path), str(KEYSTORE_PATH), keys_description, commit=True
@@ -133,14 +146,11 @@ def library_with_dependencies():
 
     yield library
 
-    # Cleanup step: delete all initialized repositories
     for repo_info in library.values():
         auth_repo = repo_info["auth_repo"]
         target_repos = repo_info["target_repos"]
 
-        # Delete the auth repository
         shutil.rmtree(auth_repo.path, onerror=on_rm_error)
 
-        # Delete each target repository
         for target_repo in target_repos:
             shutil.rmtree(target_repo.path, onerror=on_rm_error)
