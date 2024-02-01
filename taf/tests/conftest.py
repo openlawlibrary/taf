@@ -18,6 +18,7 @@ WRONG_KEYSTORE_PATH = KEYSTORES_PATH / "wrong_keystore"
 DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
+TEST_INIT_DATA_PATH = Path(__file__).parent / "init_data"
 
 
 def pytest_generate_tests(metafunc):

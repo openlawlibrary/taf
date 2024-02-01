@@ -337,6 +337,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.event = (
                     Event.CHANGED
                     if len(self.state.auth_commits_since_last_validated) > 1
+                    or (
+                        self.operation == OperationType.CLONE
+                        and len(self.state.auth_commits_since_last_validated) == 1
+                    )
                     else Event.UNCHANGED
                 )
                 return UpdateStatus.SUCCESS

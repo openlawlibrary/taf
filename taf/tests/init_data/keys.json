@@ -1,12 +1,14 @@
 {
-  "root": {
-    "number": 2,
-    "length": 2048,
-	"threshold": 1
-  },
-  "targets": {
-    "length": 2048
-  },
-  "snapshot": {},
-  "timestamp": {}
+  "roles": {
+    "root": {
+      "number": 2,
+      "length": 2048,
+    "threshold": 1
+    },
+    "targets": {
+      "length": 2048
+    },
+    "snapshot": {},
+    "timestamp": {}
+  }
 }
