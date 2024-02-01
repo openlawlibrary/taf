@@ -116,24 +116,20 @@ def library_with_dependencies():
     namespaces = [NAMESPACE1, NAMESPACE2]
     target_names = [TARGET1_NAME, TARGET2_NAME, TARGET3_NAME]
 
+    initial_commits = []
     for namespace in namespaces:
         auth_repo = create_auth_repo_with_repositories_json_and_mirrors(
             namespace, TEST_INIT_DATA_PATH / "repositories.json", TEST_DATA_ORIGIN_PATH
         )
+        initial_commits.append(auth_repo.head_commit_sha())
         target_repos = create_target_repos(namespace, target_names, auth_repo.path)
         library[auth_repo.name] = {"auth_repo": auth_repo, "target_repos": target_repos}
 
     root_auth_repo = initialize_repo(ROOT_REPO_NAMESPACE, AUTH_NAME)
-    auth_commit1 = library[f"{NAMESPACE1}/{AUTH_NAME}"][
-        "auth_repo"
-    ].get_first_commit_on_branch()
-    auth_commit2 = library[f"{NAMESPACE2}/{AUTH_NAME}"][
-        "auth_repo"
-    ].get_first_commit_on_branch()
     (root_auth_repo.path / "targets").mkdir(parents=True, exist_ok=True)
     create_and_write_json(
         TEST_INIT_DATA_PATH / "dependencies.json",
-        {"commit1": auth_commit1, "commit2": auth_commit2},
+        {"commit1": initial_commits[0], "commit2": initial_commits[1]},
         root_auth_repo.path / "targets" / "dependencies.json",
     )
     create_mirrors(root_auth_repo)
