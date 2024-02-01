@@ -1,6 +1,5 @@
 import json
 from typing import Callable, Dict, List, Optional, Type
-import taf.settings as settings
 import fnmatch
 from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME

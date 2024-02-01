@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import re
 import shutil
 from taf.api.repository import create_repository
