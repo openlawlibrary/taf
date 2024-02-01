@@ -9,9 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a test for updating a repositories which references other authentication repositories. Test repositories are set up programmatically ([386])
+
 ### Changed
 
 ### Fixed
+
+- Fix a minor bug where update status was incorrectly being set in case when a repository with only one commit is cloned
+
+[386]: https://github.com/openlawlibrary/taf/pull/386
 
 ## [0.29.0] - 01/24/2024
 
