@@ -4,6 +4,11 @@ import shutil
 from taf.api.repository import create_repository
 from taf.api.targets import update_target_repos_from_repositories_json
 from taf.git import GitRepository
+from taf.repositoriesdb import (
+    DEPENDENCIES_JSON_NAME,
+    MIRRORS_JSON_NAME,
+    REPOSITORIES_JSON_NAME,
+)
 from taf.tests.conftest import (
     TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
@@ -13,6 +18,7 @@ from taf.tests.conftest import (
 from taf.utils import on_rm_error
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
@@ -69,7 +75,7 @@ def create_and_write_json(template_path, substitutions, output_path):
 
 def create_mirrors(auth_repo):
     mirrors = {"mirrors": [f"{TEST_DATA_ORIGIN_PATH}/{{org_name}}/{{repo_name}}"]}
-    mirrors_path = auth_repo.path / "targets" / "mirrors.json"
+    mirrors_path = auth_repo.path / TARGETS_DIRECTORY_NAME / MIRRORS_JSON_NAME
     mirrors_path.write_text(json.dumps(mirrors))
 
 
@@ -77,11 +83,14 @@ def create_auth_repo_with_repositories_json_and_mirrors(
     namespace, json_template_path, json_output_dir
 ):
     auth_repo = initialize_repo(namespace, AUTH_NAME)
-    (auth_repo.path / "targets").mkdir(parents=True, exist_ok=True)
+    (auth_repo.path / TARGETS_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     create_and_write_json(
         json_template_path,
         {"namespace": namespace},
-        json_output_dir / auth_repo.path / "targets" / "repositories.json",
+        json_output_dir
+        / auth_repo.path
+        / TARGETS_DIRECTORY_NAME
+        / REPOSITORIES_JSON_NAME,
     )
     create_mirrors(auth_repo)
     keys_description = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -119,18 +128,20 @@ def library_with_dependencies():
     initial_commits = []
     for namespace in namespaces:
         auth_repo = create_auth_repo_with_repositories_json_and_mirrors(
-            namespace, TEST_INIT_DATA_PATH / "repositories.json", TEST_DATA_ORIGIN_PATH
+            namespace,
+            TEST_INIT_DATA_PATH / REPOSITORIES_JSON_NAME,
+            TEST_DATA_ORIGIN_PATH,
         )
         initial_commits.append(auth_repo.head_commit_sha())
         target_repos = create_target_repos(namespace, target_names, auth_repo.path)
         library[auth_repo.name] = {"auth_repo": auth_repo, "target_repos": target_repos}
 
     root_auth_repo = initialize_repo(ROOT_REPO_NAMESPACE, AUTH_NAME)
-    (root_auth_repo.path / "targets").mkdir(parents=True, exist_ok=True)
+    (root_auth_repo.path / TARGETS_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
     create_and_write_json(
-        TEST_INIT_DATA_PATH / "dependencies.json",
+        TEST_INIT_DATA_PATH / DEPENDENCIES_JSON_NAME,
         {"commit1": initial_commits[0], "commit2": initial_commits[1]},
-        root_auth_repo.path / "targets" / "dependencies.json",
+        root_auth_repo.path / TARGETS_DIRECTORY_NAME / DEPENDENCIES_JSON_NAME,
     )
     create_mirrors(root_auth_repo)
     keys_description = str(TEST_INIT_DATA_PATH / "keys.json")

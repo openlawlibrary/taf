@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix a minor bug where update status was incorrectly being set in case when a repository with only one commit is cloned
+- Fix a minor bug where update status was incorrectly being set in case when a repository with only one commit is cloned ([386])
 
 [386]: https://github.com/openlawlibrary/taf/pull/386
 
