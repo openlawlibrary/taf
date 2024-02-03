@@ -55,7 +55,8 @@ def check_if_repositories_json_exists(
         commit = auth_repo.head_commit_sha()
         if commit is None:
             raise GitError(
-                "Could not check if repositroies.json exists. Commit is not specified and head commit could not be determined"
+                auth_repo,
+                message="Could not check if repositroies.json exists. Commit is not specified and head commit could not be determined",
             )
     try:
         auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
