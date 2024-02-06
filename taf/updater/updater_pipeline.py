@@ -678,14 +678,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             for branch in self.state.target_branches_data_from_auth_repo[
                 repository.name
             ]:
+                local_branch_exists = repository.branch_exists(
+                    branch, include_remotes=False
+                )
+                branch_exists = repository.branch_exists(branch, include_remotes=True)
                 if repository not in self.state.cloned_target_repositories:
                     if self.only_validate:
-                        branch_exists = repository.branch_exists(
-                            branch, include_remotes=False
-                        )
                         if not branch_exists:
                             self.state.targets_data = {}
-                            msg = f"{repository.name} does not contain a local branch named {branch} and cannot be validated. Please update the repositories."
+                            msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
                             taf_logger.error(msg)
                             raise UpdateFailedError(msg)
                     else:
@@ -720,10 +721,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         )
                     fetched_commits_on_target_repo_branch.insert(0, old_head)
                 else:
-                    branch_exists = repository.branch_exists(
-                        branch, include_remotes=False
-                    )
-                    if branch_exists:
+                    if local_branch_exists:
                         # this happens in the case when last_validated_commit does not exist
                         # we want to validate all commits, so combine existing commits and
                         # fetched commits
@@ -734,20 +732,19 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         )
                     else:
                         fetched_commits_on_target_repo_branch = []
-                    if not self.only_validate:
-                        try:
-                            fetched_commits = repository.all_commits_on_branch(
-                                branch=f"origin/{branch}"
-                            )
+                    try:
+                        fetched_commits = repository.all_commits_on_branch(
+                            branch=f"origin/{branch}"
+                        )
 
-                            # if the local branch does not exist (the branch was not checked out locally)
-                            # fetched commits will include already validated commits
-                            # check which commits are newer that the previous head commit
-                            for commit in fetched_commits:
-                                if commit not in fetched_commits_on_target_repo_branch:
-                                    fetched_commits_on_target_repo_branch.append(commit)
-                        except GitError:
-                            pass
+                        # if the local branch does not exist (the branch was not checked out locally)
+                        # fetched commits will include already validated commits
+                        # check which commits are newer that the previous head commit
+                        for commit in fetched_commits:
+                            if commit not in fetched_commits_on_target_repo_branch:
+                                fetched_commits_on_target_repo_branch.append(commit)
+                    except GitError:
+                        pass
                 self.state.fetched_commits_per_target_repos_branches[repository.name][
                     branch
                 ] = fetched_commits_on_target_repo_branch
