@@ -1,6 +1,5 @@
 import json
 from typing import Callable, Dict, List, Optional, Type
-import taf.settings as settings
 import fnmatch
 from pathlib import Path
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -112,7 +111,7 @@ def load_dependencies(
 
         for name, repo_data in dependencies.items():
             try:
-                if not settings.update_from_filesystem:
+                if mirrors:
                     urls = _get_urls(mirrors, name, repo_data)
                 else:
                     urls = [name]
