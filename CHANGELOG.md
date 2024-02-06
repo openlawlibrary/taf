@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Update find_first_branch_matching_pattern return - only return name of the found branch and not all branches whose name did not match the pattern ([387])
+
 ### Fixed
+
+- Validation of local repositories should not fail if there are no local branches (e.g. after a fresh clone) ([387])
+- Fix GitError exception instantiations ([387])
+
+[387]: https://github.com/openlawlibrary/taf/pull/381
 
 ## [0.29.0] - 01/24/2024
 
