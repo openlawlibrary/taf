@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.29.1] - 02/07/2024
+
+### Added
+
 - Add a test for updating a repositories which references other authentication repositories. Test repositories are set up programmatically ([386])
 
 ### Changed
@@ -1041,7 +1049,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.1...HEAD
+[0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/openlawlibrary/taf/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/openlawlibrary/taf/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/openlawlibrary/taf/compare/v0.26.1...v0.27.0
