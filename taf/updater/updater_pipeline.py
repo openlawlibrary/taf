@@ -3,6 +3,7 @@ from enum import Enum
 import functools
 from logging import DEBUG, INFO
 from pathlib import Path
+import re
 import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
@@ -94,6 +95,7 @@ def cleanup_decorator(pipeline_function):
             return result
         finally:
             if (
+                not self.only_validate and
                 self.state.event == Event.FAILED
                 and not self.state.existing_repo
                 and self.state.users_auth_repo is not None
@@ -1205,6 +1207,30 @@ def _run_tuf_updater(git_updater, auth_repo_name):
                     target_filepath,
                     current_commit,
                 )
+
+            # TUF updater does not always check the validity of all metadata files
+            # if timestamp is not updated, the updater will determine that a new version
+            # of the snapshot file does not need to be downloaded and it will not be validated
+            # during the update process, the metadata files that TUF updater downloads is stored
+            # in a separate folder within the temp directory
+            # For each commit, check if the metadata files inside that directory are the same
+            # as the ones in the auth repository's metadata folder at that revision
+            pattern = r'\d+\.[^\.\s]+\.\w+'
+            for metadata_file_name in git_updater.get_current_metadata():
+                # version (consistent snapshot files) are downloaded to remote
+                # by the TUF updater, but saved to the main metadata file
+                # so, 2.root.json is downloaded and saved to root.json
+                if re.search(pattern, metadata_file_name):
+                    continue
+
+                current_tuf_metadata_file = Path(git_updater.metadata_dir, metadata_file_name)
+                if not current_tuf_metadata_file.is_file():
+                    raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
+                metadata_content = git_updater.get_current_metadata_data(metadata_file_name)
+                tuf_metadata_content = current_tuf_metadata_file.read_text()
+                if (metadata_content != tuf_metadata_content):
+                    raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
+
             return current_commit
         except Exception as e:
             metadata_expired = EXPIRED_METADATA_ERROR in type(
