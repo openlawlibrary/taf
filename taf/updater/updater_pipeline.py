@@ -1227,9 +1227,16 @@ def _run_tuf_updater(git_updater, auth_repo_name):
                     git_updater.metadata_dir, metadata_file_name
                 )
                 if not current_tuf_metadata_file.is_file():
-                    raise UpdateFailedError(
-                        f"Invalid metadata file {metadata_file_name}"
-                    )
+                    # this validation causes an issue with one of the first
+                    # commits of our production repositories and it should
+                    # not be enabled until we specify a later commit of those
+                    # repositories as the initial valid ones
+                    # this error happens when a metadata file is added, but
+                    # snapshot is not updated
+                    # raise UpdateFailedError(
+                    #     f"Invalid metadata file {metadata_file_name}"
+                    # )
+                    continue
                 metadata_content = git_updater.get_current_metadata_data(
                     metadata_file_name
                 )
