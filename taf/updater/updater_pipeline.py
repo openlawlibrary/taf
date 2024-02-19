@@ -1184,12 +1184,13 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
             taf_logger.error(f"Failed to instantiate TUF Updater due to error: {e}")
             raise e
 
-
     last_validated_commit = None
     try:
         while not git_fetcher.update_done():
             updater = _init_updater()
-            current_commit = _update_tuf_current_revision(git_fetcher, updater, auth_repo_name)
+            current_commit = _update_tuf_current_revision(
+                git_fetcher, updater, auth_repo_name
+            )
             if current_commit is not None:
                 last_validated_commit = current_commit
     except UpdateFailedError as e:
@@ -1211,9 +1212,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
             target_filepath = target_path.replace("\\", "/")
 
             targetinfo = updater.get_targetinfo(target_filepath)
-            target_data = git_fetcher.get_current_target_data(
-                target_filepath, raw=True
-            )
+            target_data = git_fetcher.get_current_target_data(target_filepath, raw=True)
             targetinfo.verify_length_and_hashes(target_data)
 
             taf_logger.debug(
@@ -1262,9 +1261,7 @@ def _validate_metadata_on_disk(git_fetcher):
         if re.search(consistent_snaphost_pattern, metadata_file_name):
             continue
 
-        current_tuf_metadata_file = Path(
-            git_fetcher.metadata_dir, metadata_file_name
-        )
+        current_tuf_metadata_file = Path(git_fetcher.metadata_dir, metadata_file_name)
         if not current_tuf_metadata_file.is_file():
             # this validation causes an issue with one of the first
             # commits of our production repositories and it should
@@ -1276,14 +1273,10 @@ def _validate_metadata_on_disk(git_fetcher):
             #     f"Invalid metadata file {metadata_file_name}"
             # )
             continue
-        metadata_content = git_fetcher.get_current_metadata_data(
-            metadata_file_name
-        )
+        metadata_content = git_fetcher.get_current_metadata_data(metadata_file_name)
         tuf_metadata_content = current_tuf_metadata_file.read_text()
         if metadata_content != tuf_metadata_content:
-            raise UpdateFailedError(
-                f"Invalid metadata file {metadata_file_name}"
-            )
+            raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
 
 
 def _find_next_value(value, values_list):
