@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Check if metadata files at revision match those downloaded by TUF updater ([389])
+
 ### Changed
 
 ### Fixed
+
+[389]: https://github.com/openlawlibrary/taf/pull/389
 
 ## [0.29.1] - 02/07/2024
 

@@ -38,7 +38,7 @@ class GitUpdater(FetcherInterface):
     - A commit is considered to be a TUF Updater instance. We keep track of the current commit.
     - This class is designed in such a way that for each subsequent call of the
     updater's refresh method the metadata from next commit is used within TUF's updater.
-    - The updater's method for downloading and retrieving current metadata is overriden
+    - The updater's method for downloading and retrieving current metadata is overridden
     by our own '_fetch' call. We override TUF's FetcherInterface abstract class to fetch
     metadata from local git revisions, instead of by downloading data from another protocol,
     like http/https. So, what we want to do is to return the current commit,
@@ -243,9 +243,22 @@ This could mean that the a commit was removed from the remote repository or that
         except GitError:
             return []
 
+    def get_current_metadata(self):
+        try:
+            return self.validation_auth_repo.list_files_at_revision(
+                self.current_commit, "metadata"
+            )
+        except GitError:
+            return []
+
     def get_current_target_data(self, filepath, raw=False):
         return self.validation_auth_repo.get_file(
             self.current_commit, f"targets/{filepath}", raw=raw
+        )
+
+    def get_current_metadata_data(self, filepath, raw=False):
+        return self.validation_auth_repo.get_file(
+            self.current_commit, f"metadata/{filepath}", raw=raw
         )
 
     @revert_tuf_patch_on_last_commit  # type: ignore

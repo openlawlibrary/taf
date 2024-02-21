@@ -644,8 +644,8 @@ def validate_repository(
     )
     settings.overwrite_last_validated_commit = True
     settings.last_validated_commit = validate_from_commit
+    auth_repo_name = None
     try:
-
         auth_repo_name, error = _update_named_repository(
             operation=OperationType.UPDATE,
             url=str(auth_path),
@@ -661,7 +661,7 @@ def validate_repository(
             raise error
     except Exception as e:
         raise ValidationFailedError(
-            f"Validation or repository {auth_repo_name} failed due to error: {e}"
+            f"Validation or repository {auth_repo_name or ''} failed due to error: {e}"
         )
     settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = None

@@ -3,6 +3,7 @@ from enum import Enum
 import functools
 from logging import DEBUG, INFO
 from pathlib import Path
+import re
 import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
@@ -94,7 +95,8 @@ def cleanup_decorator(pipeline_function):
             return result
         finally:
             if (
-                self.state.event == Event.FAILED
+                not self.only_validate
+                and self.state.event == Event.FAILED
                 and not self.state.existing_repo
                 and self.state.users_auth_repo is not None
             ):
@@ -1168,74 +1170,113 @@ def _is_unauthenticated_allowed(repository):
     "Running TUF validation of the authentication repository...",
     logger=taf_logger,
 )
-def _run_tuf_updater(git_updater, auth_repo_name):
+def _run_tuf_updater(git_fetcher, auth_repo_name):
     def _init_updater():
         try:
             return Updater(
-                git_updater.metadata_dir,
+                git_fetcher.metadata_dir,
                 "metadata/",
-                git_updater.targets_dir,
+                git_fetcher.targets_dir,
                 "targets/",
-                fetcher=git_updater,
+                fetcher=git_fetcher,
             )
         except Exception as e:
             taf_logger.error(f"Failed to instantiate TUF Updater due to error: {e}")
             raise e
 
-    def _update_tuf_current_revision():
-        current_commit = git_updater.current_commit
-        try:
-            updater.refresh()
-            taf_logger.debug("Validated metadata files at revision {}", current_commit)
-            # using refresh, we have updated all main roles
-            # we still need to update the delegated roles (if there are any)
-            # and validate any target files
-            current_targets = git_updater.get_current_targets()
-            for target_path in current_targets:
-                target_filepath = target_path.replace("\\", "/")
-
-                targetinfo = updater.get_targetinfo(target_filepath)
-                target_data = git_updater.get_current_target_data(
-                    target_filepath, raw=True
-                )
-                targetinfo.verify_length_and_hashes(target_data)
-
-                taf_logger.debug(
-                    "Successfully validated target file {} at {}",
-                    target_filepath,
-                    current_commit,
-                )
-            return current_commit
-        except Exception as e:
-            metadata_expired = EXPIRED_METADATA_ERROR in type(
-                e
-            ).__name__ or EXPIRED_METADATA_ERROR in str(e)
-            if not metadata_expired or settings.strict:
-                taf_logger.error(
-                    "Validation of authentication repository {} failed at revision {} due to error: {}",
-                    auth_repo_name or "",
-                    current_commit,
-                    e,
-                )
-                raise UpdateFailedError(
-                    f"Validation of authentication repository {auth_repo_name or ''}"
-                    f" failed at revision {current_commit} due to error: {e}"
-                )
-            taf_logger.warning(
-                f"WARNING: Could not validate authentication repository at revision {current_commit} due to error: {e}"
-            )
-
     last_validated_commit = None
     try:
-        while not git_updater.update_done():
+        while not git_fetcher.update_done():
             updater = _init_updater()
-            current_commit = _update_tuf_current_revision()
+            current_commit = _update_tuf_current_revision(
+                git_fetcher, updater, auth_repo_name
+            )
             if current_commit is not None:
                 last_validated_commit = current_commit
     except UpdateFailedError as e:
         return last_validated_commit, e
 
     return last_validated_commit, None
+
+
+def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
+    current_commit = git_fetcher.current_commit
+    try:
+        updater.refresh()
+        taf_logger.debug("Validated metadata files at revision {}", current_commit)
+        # using refresh, we have updated all main roles
+        # we still need to update the delegated roles (if there are any)
+        # and validate any target files
+        current_targets = git_fetcher.get_current_targets()
+        for target_path in current_targets:
+            target_filepath = target_path.replace("\\", "/")
+
+            targetinfo = updater.get_targetinfo(target_filepath)
+            target_data = git_fetcher.get_current_target_data(target_filepath, raw=True)
+            targetinfo.verify_length_and_hashes(target_data)
+
+            taf_logger.debug(
+                "Successfully validated target file {} at {}",
+                target_filepath,
+                current_commit,
+            )
+
+        _validate_metadata_on_disk(git_fetcher)
+        return current_commit
+    except Exception as e:
+        metadata_expired = EXPIRED_METADATA_ERROR in type(
+            e
+        ).__name__ or EXPIRED_METADATA_ERROR in str(e)
+        if not metadata_expired or settings.strict:
+            taf_logger.error(
+                "Validation of authentication repository {} failed at revision {} due to error: {}",
+                auth_repo_name or "",
+                current_commit,
+                e,
+            )
+            raise UpdateFailedError(
+                f"Validation of authentication repository {auth_repo_name or ''}"
+                f" failed at revision {current_commit} due to error: {e}"
+            )
+        taf_logger.warning(
+            f"WARNING: Could not validate authentication repository at revision {current_commit} due to error: {e}"
+        )
+
+
+def _validate_metadata_on_disk(git_fetcher):
+    """
+    TUF updater does not always check the validity of all metadata files
+    if timestamp is not updated, the updater will determine that a new version
+    of the snapshot file does not need to be downloaded and it will not be validated
+    during the update process, the metadata files that TUF updater downloads is stored
+    in a separate folder within the temp directory
+    For each commit, check if the metadata files inside that directory are the same
+    as the ones in the auth repository's metadata folder at that revision
+    """
+    consistent_snaphost_pattern = r"\d+\.[^\.\s]+\.\w+"
+    for metadata_file_name in git_fetcher.get_current_metadata():
+        # version (consistent snapshot files) are downloaded to remote
+        # by the TUF updater, but saved to the main metadata file
+        # so, 2.root.json is downloaded and saved to root.json
+        if re.search(consistent_snaphost_pattern, metadata_file_name):
+            continue
+
+        current_tuf_metadata_file = Path(git_fetcher.metadata_dir, metadata_file_name)
+        if not current_tuf_metadata_file.is_file():
+            # this validation causes an issue with one of the first
+            # commits of our production repositories and it should
+            # not be enabled until we specify a later commit of those
+            # repositories as the initial valid ones
+            # this error happens when a metadata file is added, but
+            # snapshot is not updated
+            # raise UpdateFailedError(
+            #     f"Invalid metadata file {metadata_file_name}"
+            # )
+            continue
+        metadata_content = git_fetcher.get_current_metadata_data(metadata_file_name)
+        tuf_metadata_content = current_tuf_metadata_file.read_text()
+        if metadata_content != tuf_metadata_content:
+            raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
 
 
 def _find_next_value(value, values_list):
