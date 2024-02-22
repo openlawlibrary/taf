@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a command for adding delegated paths to a role ([391])
 - Check if metadata files at revision match those downloaded by TUF updater ([389])
 
 ### Changed
 
 ### Fixed
 
+[391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
 
 ## [0.29.1] - 02/07/2024
