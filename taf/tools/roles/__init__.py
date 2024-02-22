@@ -4,6 +4,8 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception
 
+from taf.api.roles import add_role_paths as _add_role_paths
+
 
 def attach_to_group(group):
 
@@ -99,6 +101,35 @@ def attach_to_group(group):
             scheme=scheme,
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
+        )
+
+    @roles.command()
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("role")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
+                  "committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
+                  "located inside the keystore directory")
+    def add_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
+        """Add a new delegated target role, specifying which paths are delegated to the new role.
+        Its parent role, number of signing keys and signatures threshold can also be defined.
+        Update and sign all metadata files and commit.
+        """
+        if not delegated_path:
+            print("Specify at least one path")
+            return
+
+        _add_role_paths(
+            paths=delegated_path,
+            delegated_role=role,
+            keystore=keystore,
+            commit=not no_commit,
+            auth_path=path,
+            prompt_for_keys=prompt_for_keys,
+            push=not no_commit,
         )
 
     @roles.command()
