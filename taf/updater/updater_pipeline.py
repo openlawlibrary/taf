@@ -1,5 +1,6 @@
 from collections import defaultdict
 from enum import Enum
+import fnmatch
 import functools
 from logging import DEBUG, INFO
 from pathlib import Path
@@ -1254,6 +1255,8 @@ def _validate_metadata_on_disk(git_fetcher):
     as the ones in the auth repository's metadata folder at that revision
     """
     consistent_snaphost_pattern = r"\d+\.[^\.\s]+\.\w+"
+
+
     for metadata_file_name in git_fetcher.get_current_metadata():
         # version (consistent snapshot files) are downloaded to remote
         # by the TUF updater, but saved to the main metadata file
@@ -1276,7 +1279,15 @@ def _validate_metadata_on_disk(git_fetcher):
         metadata_content = git_fetcher.get_current_metadata_data(metadata_file_name)
         tuf_metadata_content = current_tuf_metadata_file.read_text()
         if metadata_content != tuf_metadata_content:
-            raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
+            role_name = metadata_file_name.split(".")[0]
+            auth_repo = AuthenticationRepository(path=Path(git_fetcher.metadata_dir).parent)
+            role_paths = auth_repo.get_role_paths(role_name)
+            targets_at_revision = git_fetcher.validation_auth_repo.list_files_at_revision(git_fetcher.current_commit, "targets")
+            for pattern in role_paths:
+                for target_name in targets_at_revision:
+                    matches = fnmatch.fnmatch(str(Path(target_name).as_posix()), pattern)
+                    if matches:
+                        raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
 
 
 def _find_next_value(value, values_list):
