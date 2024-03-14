@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `clone_or_pull` ([402])
+
+[402]: https://github.com/openlawlibrary/taf/pull/402
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
 
