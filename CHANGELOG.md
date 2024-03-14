@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.29.2] - 03/14/2024
+
+### Added
+
 - Add a command for adding delegated paths to a role ([391])
 - Check if metadata files at revision match those downloaded by TUF updater ([389])
 
@@ -16,6 +24,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `clone_or_pull` ([402])
+
+[402]: https://github.com/openlawlibrary/taf/pull/402
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
 
@@ -1055,7 +1066,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.2...HEAD
+[0.29.2]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/openlawlibrary/taf/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/openlawlibrary/taf/compare/v0.27.0...v0.28.0

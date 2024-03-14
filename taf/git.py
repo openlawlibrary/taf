@@ -650,8 +650,12 @@ class GitRepository:
         Clone or fetch the specified branch for the given repo.
         Return old and new HEAD.
         """
+        try:
+            old_head = self.head_commit_sha()
+        except GitError:
+            # repo does not exist
+            old_head = None
 
-        old_head = self.head_commit_sha()
         if old_head is None:
             self._log_debug(f"cloning {self.name}")
             self._log_debug(f"old head sha is {old_head}")
