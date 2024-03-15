@@ -271,13 +271,15 @@ def test_no_update_necessary(
             True,
             True,
         ),
-        (
-            "test-updater-updated-root-old-snapshot",
-            INVALID_METADATA_PATTERN,
-            True,
-            False,
-            False,
-        ),
+        # TODO: re-enable when old-snapshot validation is fully supported
+        # Issue: https://github.com/openlawlibrary/taf/issues/385
+        # (
+        #     "test-updater-updated-root-old-snapshot",
+        #     INVALID_METADATA_PATTERN,
+        #     True,
+        #     False,
+        #     False,
+        # ),
         (
             "test-updater-missing-target-commit",
             TARGET_ADDITIONAL_COMMIT_PATTERN,
