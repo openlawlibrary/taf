@@ -1326,26 +1326,28 @@ def _merge_commit(
                 f"Please update the repository at {repository.path} manually and try again."
             )
 
-    commit_merged = False
-    if force_revert:
-        # check if repository already contains this commit that needs to be merged
-        # and commits following it
-        commits_since_last_validated = repository.all_commits_since_commit(
-            commit_to_merge
-        )
-        if len(commits_since_last_validated):
-            repository.reset_to_commit(commit_to_merge, hard=True)
-            commit_merged = True
+    commits_since_last_validated = repository.all_commits_since_commit(commit_to_merge)
 
-    if not commit_merged:
+    if not len(commits_since_last_validated):
         taf_logger.info(
-            "{} Merging commit {} into branch {} and checking it out",
+            "{} Merging commit {} into branch {}",
             repository.name,
             format_commit(commit_to_merge),
             branch,
         )
-        _checkout_branch()
         repository.merge_commit(commit_to_merge)
-    if checkout:
-        taf_logger.info("{}: checking out branch {}", repository.name, branch)
-        _checkout_branch()
+    elif len(commits_since_last_validated > 1) and force_revert:
+        taf_logger.info(
+            "{} Reverting branch {} to {}",
+            repository.name,
+            branch,
+            format_commit(commit_to_merge),
+        )
+        repository.reset_to_commit(commit_to_merge, hard=True)
+    else:
+        taf_logger.info(
+            "{} Commit {} already on branch {}",
+            repository.name,
+            format_commit(commit_to_merge),
+            branch,
+        )
