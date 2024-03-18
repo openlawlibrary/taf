@@ -71,9 +71,9 @@ class UpdateState:
     validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
-    additional_commits_per_target_repos_branches: Dict[
-        str, Dict[str, List[str]]
-    ] = field(factory=dict)
+    additional_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = (
+        field(factory=dict)
+    )
     validated_auth_commits: List[str] = field(factory=list)
 
 
@@ -1039,12 +1039,10 @@ but commit not on branch {current_branch}"
                         ).get(branch)
                         branch_data[branch]["new"] = [commit_info]
                         branch_data[branch]["after_pull"] = [commit_info]
-                        branch_data[branch][
-                            "unauthenticated"
-                        ] = self.state.additional_commits_per_target_repos_branches.get(
-                            repo_name, {}
-                        ).get(
-                            branch, []
+                        branch_data[branch]["unauthenticated"] = (
+                            self.state.additional_commits_per_target_repos_branches.get(
+                                repo_name, {}
+                            ).get(branch, [])
                         )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head
@@ -1300,34 +1298,33 @@ def _find_next_value(value, values_list):
 
 
 def _merge_commit(
-    repository, branch, commit_to_merge, checkout=True, force_revert=False
+    repository, branch, commit_to_merge, checkout=True, force_revert=True
 ):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
-    taf_logger.info(
-        "{} Merging commit {} into branch {}",
-        repository.name,
-        format_commit(commit_to_merge),
-        branch,
+    commits_since_last_validated = repository.all_commits_since_commit(
+        commit_to_merge, branch=branch
     )
-    try:
-        repository.checkout_branch(branch, raise_anyway=True)
-    except GitError as e:
-        # two scenarios:
-        # current git repository is in an inconsistent state:
-        # - .git/index.lock exists (git partial update got applied)
-        # should get addressed in https://github.com/openlawlibrary/taf/issues/210
-        # current git repository has uncommitted changes:
-        # we do not want taf to lose any repo data, so we do not reset the repository.
-        # for now, raise an update error and let the user manually reset the repository
-        taf_logger.error(
-            "Could not checkout branch {} during commit merge. Error {}", branch, e
-        )
-        raise UpdateFailedError(
-            f"Repository {repository.name} should contain only committed changes. \n"
-            f"Please update the repository at {repository.path} manually and try again."
-        )
+
+    def _checkout_branch():
+        try:
+            repository.checkout_branch(branch, raise_anyway=True)
+        except GitError as e:
+            # two scenarios:
+            # current git repository is in an inconsistent state:
+            # - .git/index.lock exists (git partial update got applied)
+            # should get addressed in https://github.com/openlawlibrary/taf/issues/210
+            # current git repository has uncommitted changes:
+            # we do not want taf to lose any repo data, so we do not reset the repository.
+            # for now, raise an update error and let the user manually reset the repository
+            taf_logger.error(
+                "Could not checkout branch {} during commit merge. Error {}", branch, e
+            )
+            raise UpdateFailedError(
+                f"Repository {repository.name} should contain only committed changes. \n"
+                f"Please update the repository at {repository.path} manually and try again."
+            )
 
     commit_merged = False
     if force_revert:
@@ -1341,7 +1338,14 @@ def _merge_commit(
             commit_merged = True
 
     if not commit_merged:
+        taf_logger.info(
+            "{} Merging commit {} into branch {} and checking it out",
+            repository.name,
+            format_commit(commit_to_merge),
+            branch,
+        )
+        _checkout_branch()
         repository.merge_commit(commit_to_merge)
     if checkout:
         taf_logger.info("{}: checking out branch {}", repository.name, branch)
-        repository.checkout_branch(branch)
+        _checkout_branch()
