@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.29.3] - 03/15/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Disable check if metadata files at revision match ([403])
+
+[403]: https://github.com/openlawlibrary/taf/pull/403
+
 ## [0.29.2] - 03/14/2024
 
 ### Added
@@ -1066,7 +1078,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.3...HEAD
+[0.29.3]: https://github.com/openlawlibrary/taf/compare/v0.29.2...v0.29.3
 [0.29.2]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.29.2
 [0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/openlawlibrary/taf/compare/v0.28.0...v0.29.0

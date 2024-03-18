@@ -1220,8 +1220,8 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
                 target_filepath,
                 current_commit,
             )
-
-        _validate_metadata_on_disk(git_fetcher)
+        if settings.strict:
+            _validate_metadata_on_disk(git_fetcher)
         return current_commit
     except Exception as e:
         metadata_expired = EXPIRED_METADATA_ERROR in type(
