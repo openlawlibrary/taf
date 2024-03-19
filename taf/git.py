@@ -752,6 +752,36 @@ class GitRepository:
             reraise_error=True,
         )
 
+    def check_if_unpushed_commits(self, branch_name):
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                self,
+                message="pygit repository could not be instantiated.",
+            )
+
+        # Ensure the branch exists locally.
+        local_branch_ref = f"refs/heads/{branch_name}"
+        if local_branch_ref not in repo.references:
+            print(f"Branch '{branch_name}' does not exist.")
+            return unpushed_commits
+
+        # Ensure the branch has an upstream.
+        try:
+            upstream_branch_ref = repo.lookup_branch(branch_name).upstream.name
+        except ValueError:
+            print(f"Branch '{branch_name}' does not have an upstream set.")
+            return unpushed_commits
+
+        local_commit = repo.lookup_reference(local_branch_ref).peel(pygit2.Commit)
+        remote_commit = repo.lookup_reference(upstream_branch_ref).peel(pygit2.Commit)
+
+        for commit in repo.walk(local_commit.id, pygit2.GIT_SORT_TOPOLOGICAL):
+            if commit.id == remote_commit.id:
+                break
+            return True
+        return False
+
     def commit(self, message: str) -> str:
         self._git("add -A")
         try:

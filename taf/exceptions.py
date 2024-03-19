@@ -89,7 +89,7 @@ class RepositoryInstantiationError(TAFError):
 
 class RepositoryNotCleanError(TAFError):
     def __init__(self, repo_name: str):
-        message = f"Repository {repo_name} has uncommitted changes. Commit or revert the changes and run the command again."
+        message = f"Repository {repo_name} has uncommitted or unpushed changes. Commit and push or revert the changes and run the command again."
         super().__init__(message)
         self.message = message
 

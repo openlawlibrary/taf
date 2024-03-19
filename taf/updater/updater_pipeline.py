@@ -455,7 +455,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def check_if_local_auth_repo_clean(self):
         try:
             if self.state.existing_repo:
-                if self.state.users_auth_repo.something_to_commit():
+                if (
+                    self.state.users_auth_repo.something_to_commit()
+                    or self.state.users_auth_repo.check_if_unpushed_commits(
+                        self.state.users_auth_repo.default_branch
+                    )
+                ):
                     raise RepositoryNotCleanError(self.state.users_auth_repo.name)
         except Exception as e:
             self.state.errors.append(e)
