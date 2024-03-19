@@ -338,6 +338,8 @@ class GitRepository:
             )
         if branch:
             branch_obj = repo.branches.get(branch)
+            if branch_obj is None:
+                return []
             latest_commit_id = branch_obj.target
         else:
             latest_commit_id = repo[repo.head.target].id

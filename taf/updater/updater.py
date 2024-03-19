@@ -532,9 +532,7 @@ def _update_named_repository(
             # so set last validated commit to this last valid commit
             last_commit = commits[-1]
             # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(
-                auth_repo, auth_repo.default_branch, last_commit, checkout, True
-            )
+            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
             # update the last validated commit
             if not excluded_target_globs:
                 auth_repo.set_last_validated_commit(last_commit)
