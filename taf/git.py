@@ -763,15 +763,14 @@ class GitRepository:
         # Ensure the branch exists locally.
         local_branch_ref = f"refs/heads/{branch_name}"
         if local_branch_ref not in repo.references:
-            print(f"Branch '{branch_name}' does not exist.")
-            return unpushed_commits
+            raise GitError("{branch_name} does not exsit")
 
         # Ensure the branch has an upstream.
         try:
             upstream_branch_ref = repo.lookup_branch(branch_name).upstream.name
         except ValueError:
-            print(f"Branch '{branch_name}' does not have an upstream set.")
-            return unpushed_commits
+            # not upstream yet
+            return True
 
         local_commit = repo.lookup_reference(local_branch_ref).peel(pygit2.Commit)
         remote_commit = repo.lookup_reference(upstream_branch_ref).peel(pygit2.Commit)

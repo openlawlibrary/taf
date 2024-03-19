@@ -19,6 +19,7 @@ from taf.exceptions import (
     MissingInfoJsonError,
     RepositoryNotCleanError,
     UpdateFailedError,
+    UnpushedCommitsError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
@@ -200,6 +201,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (self.clone_target_repositories_if_not_on_disk, RunMode.UPDATE),
                 (self.determine_start_commits, RunMode.ALL),
                 (self.get_targets_data_from_auth_repo, RunMode.ALL),
+                (
+                    self.check_if_local_repositories_contain_unpushed_commits,
+                    RunMode.UPDATE,
+                ),
                 (self.get_target_repositories_commits, RunMode.ALL),
                 (self.validate_target_repositories, RunMode.ALL),
                 (
@@ -455,13 +460,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def check_if_local_auth_repo_clean(self):
         try:
             if self.state.existing_repo:
-                if (
-                    self.state.users_auth_repo.something_to_commit()
-                    or self.state.users_auth_repo.check_if_unpushed_commits(
-                        self.state.users_auth_repo.default_branch
-                    )
-                ):
+                if self.state.users_auth_repo.something_to_commit():
                     raise RepositoryNotCleanError(self.state.users_auth_repo.name)
+                if self.state.users_auth_repo.check_if_unpushed_commits(
+                    self.state.users_auth_repo.default_branch
+                ):
+                    raise UnpushedCommitsError(
+                        self.state.users_auth_repo.name,
+                        self.state.users_auth_repo.default_branch,
+                    )
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -673,6 +680,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             repo_branches[repo_name] = sorted(list(branches))
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
+
+    def check_if_local_repositories_contain_unpushed_commits(self):
+        for repository in self.state.target_repositories.values():
+            if repository.name not in self.state.target_branches_data_from_auth_repo:
+                # exists in repositories.json, not target files
+                continue
+            for branch in self.state.target_branches_data_from_auth_repo[
+                repository.name
+            ]:
+                if repository.check_if_unpushed_commits(branch):
+                    raise UnpushedCommitsError(repository.name, branch)
 
     @log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
     def get_target_repositories_commits(self):
