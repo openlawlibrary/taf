@@ -7,19 +7,18 @@ TAF is a framework designed for validating, and securely cloning and updating Gi
 ## Core concepts
 
 A core concept in TAF is that of an authentication or TAF repository. This repository is a Git repository which at
-every revision is also a valid TUF repository, containing metadata and target files in accordance with the TUF
+every revision (alias for commit) is also a valid TUF repository, containing metadata and target files in accordance with the TUF
 specification. For more information about TUF, see its [official specification document](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md).
-The fact that it is a Git repository ensures that changes made to the metadata and target files and preserved over time.
+By using Git, we ensure that changes made to the metadata and target files and preserved over time.
 
-This authentication repository contains information about other, regular Git repositories, which can contain any
-arbitrary content. Most importantly, this information keeps track of valid commit SHAs of these repositories. In
-order to update this information, a user needs to be in possession of specific signing keys, which are defined in
-metadata files. If someone was to push to these referenced repositories, called target or data repositories,
+This authentication repository contains information about other Git repositories (called target, or data repositories), which can contain any
+arbitrary content. Most importantly, the authentication repository keeps track of valid commit SHAs of these repositories. In
+order to update this information, a user needs to be in possession of specific signing keys. Currently, TAF supports keystores and hardware keys (YubiKeys). If a user wants to modify the state of the authentication repository, hardware key or keystore must be provided. TAF validates inserted/provided keys by comparing against public keys which are defined in
+metadata files of the authentication repository. If someone wants to push to data repositories
 without also updating TUF metadata and target files stored in the authentication repository, TAF's validation
-would detect that change as invalid. There is a slight exception to these rules, since it can be defined that a
-repository can contain unatuhenticated commits (not listed in authentication repository) between two authenticated
-commits. However, if a repository only contains such commits, the secure clone/update processes will not download
-anything.
+would detect that change as invalid. Sometimes, users want to configure their authentication repository to skip validating all commits a data repository. This is solved by configuring that a
+repository can contain unauthenticated commits (not listed in authentication repository) between two authenticated
+commits.
 
 An authentication repository can contain any target files, as defined by TUF, but is also expected to contain certain target files which have no special meaning in TUF, but do in TAF. These are:
 
@@ -29,7 +28,7 @@ An authentication repository can contain any target files, as defined by TUF, bu
 * `protected/info.json`: This file contains the authentication repository's metadata.
 * `scripts` directory: Contains post-update hooks.
 
-A user can use TAF's tools to set up and update authentication repositories, as well as its updater to run the
+A user can use TAF's tools to set up and update authentication repositories, as well as the updater to run the
 process of securely updating and cloning a set of repositories.
 
 For an overview of updater, refer to [here](./updater.md), a more technical guide to update process is [here](./updater/update_process.md) (might be outdated as we change the CLI).
@@ -54,7 +53,7 @@ A guide for building TAF wheels and setting up Azure pipelines.
 
 #### `docs/testing`
 
-A guide for creating test data. This section will be deprecated soon as we are looking to programmatically generate test data in our test setup.
+A guide for creating test data. We are moving away from manually creating git repositories for test fixtures. This section will be deprecated soon as we programmatically generate test data in our test setup.
 
 #### `docs/updater`
 
@@ -63,7 +62,6 @@ Includes a thorough description of the update process and the relationship betwe
 #### `docs/user-guide`
 
 Contains several documents meant to provide instructions on how to use TAF's tools for creating and updating authentication repositories, as well as the referenced target repositories.
-
 
 ### `specification`
 
@@ -76,6 +74,7 @@ Contains several documents meant to provide instructions on how to use TAF's too
 ### `taf/api`
 
 Contains a collection of functions which are called by the `cli`, but can also be imported by other projects which use TAF. They include implementations of:
+
 - Initial creation and setup of an authentication repository
 - Setup, removal and update of TUF roles
 - Signing TUF target files
@@ -85,8 +84,10 @@ Contains a collection of functions which are called by the `cli`, but can also b
 
 ### `taf/models`
 
-Includes definitions of `attrs` classes, validators and converters. Types should be defined when writing new
-functions and methods. For more information about `attrs`, see the [official documentation](https://www.attrs.org/en/stable/examples.html).
+Includes definitions of `attrs` classes, validators and converters. Long-term plan is to introduce types to all functions/signatures. Use types when writing any new
+functions and methods.
+
+For more information about `attrs`, see the [official documentation](https://www.attrs.org/en/stable/examples.html).
 
 ### `taf/tests`
 
@@ -94,7 +95,7 @@ The majority of the codebase is covered with tests, including APIs and the updat
 
 ### `taf/tools`
 
-This package includes a series of Click CLI commands designed to interface directly with the API functions.
+This package includes a series of `click` CLI commands designed to interface directly with the API functions.
 
 #### `taf/tools/dependencies`
 
@@ -134,8 +135,7 @@ clone/update/validate operations extend to each listed authentication repository
 
 Implemented as a sequence of functions, this module represents each step in the validation and update process of an
 authentication repository and its referenced target repositories. It clones or updates or only validates repositories
-based on the given operation.
-
+depending on the command ran by CLI.
 
 #### `taf/updater/lifecycle_handlers.py`
 
@@ -158,22 +158,24 @@ To validate commits that could be decades old without being obstructed by expire
 
 ### `taf/git.py`
 
-This module encapsulates the `GitRepository` class, a high-level abstraction over Git operations, designed to interface directly with Git repositories at the filesystem level. The `GitRepository` class serves as an intermediary, enabling programmatic access to a suite of Git actions including branch creation, commit enumeration, and remote synchronization. Implementation-wise, it leverages pygit2 for certain Git interactions, complementing this with direct shell command execution via subprocess for operations not covered by `pygit2` or where direct command invocation is preferred for efficiency or functionality reasons.
+This module encapsulates the `GitRepository` class, a high-level abstraction over Git operations, designed to interface directly with Git repositories at the filesystem level. The `GitRepository` class serves as an intermediary, enabling programmatic access to Git actions including: creating branches, working with commits, and working with remotes. It leverages [`pygit2`](https://www.pygit2.org/) for some of the interactions with Git. Other interactions use direct shell command execution via subprocess for operations not covered by `pygit2` or where direct command invocation is preferred for efficiency or functionality reasons.
 
 ### `taf/repository_tool.py`
 
-Contains a class called `Repository`, which can be seen as a wrapper around TUF's repository, making it simple to execute important updates, like
+Contains a `Repository` class, which is a wrapper around TUF's repository, making it simple to execute important updates, like
 adding new signing keys, updating and signing metadata files and extracting information about roles, keys,
-delegations and targets. This part of the code needs to be reworked in order to transition to the newest version of TUF, since it is relying on parts of the TUF codebase which no longer exist in the newer versions.
+delegations and targets.
+
+NOTE: Long-term plan is to rework this part of the codebase. This is necessary to transition to the newest version of TUF, since it is relying on parts which no longer exist in newer TUF.
 
 ### `taf/auth_repo.py`
 
-This class inherits from both `GitRepository` and `Repository`. Authentication repositories managed by this
-class are expected to contain TUF metadata and target files, and they also function as Git repositories.
+This `AuthenticationRepository` class inherits from both `GitRepository` and `Repository`. Authentication repositories managed by this
+class are expected to contain TUF metadata and target files.
 
 ### `taf/repositoriesdb.py`
 
-The aim of this module is to provide the automatic instantiation of target or referenced authentication repositories from a given authentication repository. Upon instantiation, repositories are added to a "database" dictionary for easy access. This process of automatic repository creation relies on the contents of `repositories.json` and `targets.json` for target repositories, and `dependencies.json` for referenced authentication repositories.
+The aim of this module is to load/instantiate target or referenced authentication repositories from an authentication repository. When instantiating, repositories are added to an in-memory "database" dictionary. This process reads from the contents of `repositories.json` and `targets.json` for target repositories, and `dependencies.json` for referenced authentication repositories.
 
 ### `taf/yubikey.py`
 
