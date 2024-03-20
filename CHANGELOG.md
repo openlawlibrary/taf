@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add architecture overview documentation ([405])
+
+[405]: https://github.com/openlawlibrary/taf/pull/405)
+
 ### Changed
 
 ### Fixed
