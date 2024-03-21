@@ -19,6 +19,7 @@ from taf.exceptions import (
     MissingInfoJsonError,
     RepositoryNotCleanError,
     UpdateFailedError,
+    UnpushedCommitsError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
@@ -200,6 +201,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (self.clone_target_repositories_if_not_on_disk, RunMode.UPDATE),
                 (self.determine_start_commits, RunMode.ALL),
                 (self.get_targets_data_from_auth_repo, RunMode.ALL),
+                (
+                    self.check_if_local_repositories_contain_unpushed_commits,
+                    RunMode.UPDATE,
+                ),
                 (self.get_target_repositories_commits, RunMode.ALL),
                 (self.validate_target_repositories, RunMode.ALL),
                 (
@@ -457,6 +462,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.state.existing_repo:
                 if self.state.users_auth_repo.something_to_commit():
                     raise RepositoryNotCleanError(self.state.users_auth_repo.name)
+                if self.state.users_auth_repo.is_branch_with_unpushed_commits(
+                    self.state.users_auth_repo.default_branch
+                ):
+                    raise UnpushedCommitsError(
+                        self.state.users_auth_repo.name,
+                        self.state.users_auth_repo.default_branch,
+                    )
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -668,6 +680,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             repo_branches[repo_name] = sorted(list(branches))
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
+
+    def check_if_local_repositories_contain_unpushed_commits(self):
+        for repository in self.state.target_repositories.values():
+            if repository.name not in self.state.target_branches_data_from_auth_repo:
+                # exists in repositories.json, not target files
+                continue
+            for branch in self.state.target_branches_data_from_auth_repo[
+                repository.name
+            ]:
+                if repository.is_branch_with_unpushed_commits(branch):
+                    raise UnpushedCommitsError(repository.name, branch)
 
     @log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
     def get_target_repositories_commits(self):
@@ -997,13 +1020,6 @@ but commit not on branch {current_branch}"
                     ].items():
                         last_validated_commit = validated_commits[-1]
                         commit_to_merge = last_validated_commit
-
-                        taf_logger.info(
-                            "Repository {}: merging {} into branch {}",
-                            repository.name,
-                            format_commit(commit_to_merge),
-                            branch,
-                        )
                         _merge_commit(
                             repository, branch, commit_to_merge, force_revert=True
                         )
@@ -1299,18 +1315,11 @@ def _find_next_value(value, values_list):
     return None
 
 
-def _merge_commit(
-    repository, branch, commit_to_merge, checkout=True, force_revert=False
-):
+def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
-    taf_logger.info(
-        "{} Merging commit {} into branch {}",
-        repository.name,
-        format_commit(commit_to_merge),
-        branch,
-    )
+
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError as e:
@@ -1329,19 +1338,32 @@ def _merge_commit(
             f"Please update the repository at {repository.path} manually and try again."
         )
 
-    commit_merged = False
-    if force_revert:
-        # check if repository already contains this commit that needs to be merged
-        # and commits following it
-        commits_since_last_validated = repository.all_commits_since_commit(
-            commit_to_merge
+    if repository.top_commit_of_branch(branch) == commit_to_merge:
+        return
+    commits_since_to_merge = repository.all_commits_since_commit(
+        commit_to_merge, branch=branch
+    )
+    if not len(commits_since_to_merge):
+        taf_logger.info(
+            "{} Merging commit {} into branch {}",
+            repository.name,
+            format_commit(commit_to_merge),
+            branch,
         )
-        if len(commits_since_last_validated):
-            repository.reset_to_commit(commit_to_merge, hard=True)
-            commit_merged = True
-
-    if not commit_merged:
         repository.merge_commit(commit_to_merge)
-    if checkout:
-        taf_logger.info("{}: checking out branch {}", repository.name, branch)
-        repository.checkout_branch(branch)
+
+    elif len(commits_since_to_merge) and force_revert:
+        taf_logger.info(
+            "{} Reverting branch {} to {}",
+            repository.name,
+            branch,
+            format_commit(commit_to_merge),
+        )
+        repository.reset_to_commit(commit_to_merge, hard=True)
+    else:
+        taf_logger.info(
+            "{} Commit {} already on branch {}",
+            repository.name,
+            format_commit(commit_to_merge),
+            branch,
+        )

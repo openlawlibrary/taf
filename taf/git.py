@@ -338,6 +338,8 @@ class GitRepository:
             )
         if branch:
             branch_obj = repo.branches.get(branch)
+            if branch_obj is None:
+                return []
             latest_commit_id = branch_obj.target
         else:
             latest_commit_id = repo[repo.head.target].id
@@ -749,6 +751,35 @@ class GitRepository:
             log_error=True,
             reraise_error=True,
         )
+
+    def is_branch_with_unpushed_commits(self, branch_name):
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                self,
+                message="pygit repository could not be instantiated.",
+            )
+
+        # Ensure the branch exists locally.
+        local_branch_ref = f"refs/heads/{branch_name}"
+        if local_branch_ref not in repo.references:
+            return False
+
+        # Ensure the branch has an upstream.
+        try:
+            upstream_branch_ref = repo.lookup_branch(branch_name).upstream.name
+        except ValueError:
+            # not upstream yet
+            return True
+
+        local_commit = repo.lookup_reference(local_branch_ref).peel(pygit2.Commit)
+        remote_commit = repo.lookup_reference(upstream_branch_ref).peel(pygit2.Commit)
+
+        for commit in repo.walk(local_commit.id, pygit2.GIT_SORT_TOPOLOGICAL):
+            if commit.id == remote_commit.id:
+                break
+            return True
+        return False
 
     def commit(self, message: str) -> str:
         self._git("add -A")
@@ -1335,6 +1366,14 @@ class GitRepository:
     def reset_to_commit(self, commit: str, hard: Optional[bool] = False) -> None:
         flag = "--hard" if hard else "--soft"
         self._git(f"reset {flag} {commit}")
+
+    def reset_remote_tracking_branch(self, branch_name) -> None:
+        """
+        Set top commit of origing/branch to the top comit of the local branch
+        Used while testing the updater
+        """
+        commit_sha = self.top_commit_of_branch(branch_name)
+        self._git(f"update-ref refs/remotes/origin/{branch_name} {commit_sha}")
 
     def reset_to_head(self) -> None:
         self._git("reset --hard HEAD")

@@ -596,6 +596,8 @@ def _clone_and_revert_client_repositories(
         AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepository
     )
     client_auth_repo.reset_num_of_commits(num_of_commits, True)
+    client_auth_repo.reset_remote_tracking_branch(client_auth_repo.default_branch)
+
     client_repos[AUTH_REPO_REL_PATH] = client_auth_repo
     client_auth_commits = client_auth_repo.all_commits_on_branch()
 
@@ -619,6 +621,7 @@ def _clone_and_revert_client_repositories(
         if branch in branches_commits:
             client_repo.checkout_branch(branch)
             client_repo.reset_to_commit(commit, True)
+            client_repo.reset_remote_tracking_branch(branch)
 
         for branch in client_repo.branches():
             if branch not in branches_commits:
