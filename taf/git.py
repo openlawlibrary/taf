@@ -752,7 +752,7 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def check_if_unpushed_commits(self, branch_name):
+    def is_branch_with_unpushed_commits(self, branch_name):
         repo = self.pygit_repo
         if repo is None:
             raise GitError(

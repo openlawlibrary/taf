@@ -462,7 +462,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.state.existing_repo:
                 if self.state.users_auth_repo.something_to_commit():
                     raise RepositoryNotCleanError(self.state.users_auth_repo.name)
-                if self.state.users_auth_repo.check_if_unpushed_commits(
+                if self.state.users_auth_repo.is_branch_with_unpushed_commits(
                     self.state.users_auth_repo.default_branch
                 ):
                     raise UnpushedCommitsError(
@@ -689,7 +689,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             for branch in self.state.target_branches_data_from_auth_repo[
                 repository.name
             ]:
-                if repository.check_if_unpushed_commits(branch):
+                if repository.is_branch_with_unpushed_commits(branch):
                     raise UnpushedCommitsError(repository.name, branch)
 
     @log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
