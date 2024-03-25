@@ -60,6 +60,7 @@ def create_repository(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
+    breakpoint()
 
     if not _check_if_can_create_repository(auth_repo):
         return

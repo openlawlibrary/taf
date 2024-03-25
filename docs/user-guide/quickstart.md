@@ -112,7 +112,7 @@ or a combination of them. It is not recommended to use keystore files for signin
 Keys can be generated while creating a new repository if they don't already exist, but can also be generated in advance.
 To generate new keystore files, call:
 
-`taf keystore generate destination_path keys-description.json`
+`taf keystore generate --keystore E:\\OLL\\keystore_path --keys-description E:\\OLL\\data\\keys_description.json`
 
 This command will only generate a key of roles explicitly listed in the input - so add empty snapshot and timestamp
 dictionaries if these keys should be generated as well.
@@ -123,6 +123,12 @@ To set up new YubiKyes, call
 
 WARNING: This command will delete the YubiKey's existing data. New repositories can be created using already set
 up YubiKeys.
+
+After the YubiKey is set up, you can see the public key with:
+
+`taf yubikey export-pub-key`
+
+Use this for: `keys_description.json` file.
 
 ## Create a repository
 

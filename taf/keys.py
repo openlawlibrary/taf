@@ -287,6 +287,7 @@ def load_signing_keys(
 
 
 def setup_roles_keys(
+    # TODO: TU SAM STAO S DEBUG
     role: Role,
     certs_dir: Optional[Union[Path, str]] = None,
     keystore: Optional[str] = None,

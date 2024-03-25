@@ -178,9 +178,10 @@ about the commands. E.g. `taf repo create --help`.
 
 Generates and write rsa keypairs. Number of keys to generate per a metadata role, as well as their
 lengths and passwords of the keystore files are specified using the `keys-description` parameter.
+`keys-description.json` should be created before running this command. 
 
 ```bash
-taf keystore generate E:\\OLL\\keystore_path  E:\\OLL\\data\\keys_description.json
+taf keystore generate --keystore E:\\OLL\\keystore_path --keys-description E:\\OLL\\data\\keys_description.json
 ```
 
 The generated keys files will be saved to `E:\OLL\keystore_path`
