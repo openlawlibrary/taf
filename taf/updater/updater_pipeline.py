@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional
 from attr import attrs, define, field
 from taf.git import GitError
@@ -61,8 +62,10 @@ class UpdateState:
     errors: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
     last_validated_commit: str = field(factory=str)
-    target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
-    cloned_target_repositories: List["GitRepository"] = field(factory=list)
+    temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
+    users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
+    repos_on_disk: List[str] = field(factory=list)
+    repos_not_on_disk: List[str] = field(factory=list)
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
@@ -76,6 +79,7 @@ class UpdateState:
         str, Dict[str, List[str]]
     ] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
+    temp_dir: TemporaryDirectory = field(default=None)
 
 
 @attrs
@@ -198,19 +202,20 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (self.load_target_repositories, RunMode.ALL),
                 (self.check_if_repositories_on_disk, RunMode.LOCAL_VALIDATION),
                 (self.check_if_local_target_repositories_clean, RunMode.UPDATE),
-                (self.clone_target_repositories_if_not_on_disk, RunMode.UPDATE),
-                (self.determine_start_commits, RunMode.ALL),
-                (self.get_targets_data_from_auth_repo, RunMode.ALL),
                 (
                     self.check_if_local_repositories_contain_unpushed_commits,
                     RunMode.UPDATE,
                 ),
+                (self.clone_target_repositories_to_temp, RunMode.UPDATE),
+                (self.determine_start_commits, RunMode.ALL),
+                (self.get_targets_data_from_auth_repo, RunMode.ALL),
                 (self.get_target_repositories_commits, RunMode.ALL),
                 (self.validate_target_repositories, RunMode.ALL),
                 (
                     self.validate_and_set_additional_commits_of_target_repositories,
                     RunMode.ALL,
                 ),
+                (self.update_users_target_repositories, RunMode.UPDATE),
                 (self.merge_commits, RunMode.UPDATE),
                 (self.set_target_repositories_data, RunMode.UPDATE),
                 (self.print_additional_commits, RunMode.ALL),
@@ -497,21 +502,25 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_start(DEBUG, "Loading target repositories", logger=taf_logger)
     def load_target_repositories(self):
         try:
+            self.state.temp_dir = TemporaryDirectory()
             repositoriesdb.load_repositories(
                 self.state.users_auth_repo,
                 repo_classes=self.target_repo_classes,
                 factory=self.target_factory,
-                library_dir=self.library_dir,
+                library_dir=self.state.temp_dir.name,
                 commits=self.state.auth_commits_since_last_validated,
                 only_load_targets=True,
                 excluded_target_globs=self.excluded_target_globs,
             )
-            self.state.target_repositories = (
+            self.state.temp_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     self.state.auth_commits_since_last_validated[-1::],
                 )
             )
+            self.state.users_target_repositories = {
+                repo.name: GitRepository(self.library_dir, repo.name, urls=repo.urls) for repo in self.state.temp_target_repositories.values()
+            }
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -525,7 +534,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     )
     def check_if_repositories_on_disk(self):
         try:
-            for repository in self.state.target_repositories.values():
+            for repository in self.state.users_target_repositories.values():
                 if not repository.is_git_repository_root:
                     is_git_repository = repository.is_git_repository_root
                     if not is_git_repository:
@@ -547,7 +556,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     )
     def check_if_local_target_repositories_clean(self):
         try:
-            for repository in self.state.target_repositories.values():
+            for repository in self.state.users_target_repositories.values():
                 if repository.is_git_repository_root:
                     if repository.something_to_commit():
                         raise RepositoryNotCleanError(repository.name)
@@ -558,17 +567,22 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     @log_on_start(
-        INFO, "Cloning target repositories which are not on disk...", logger=taf_logger
+        DEBUG, "Cloning target repositories to temp...", logger=taf_logger
     )
     @log_on_end(INFO, "Finished cloning target repositories", logger=taf_logger)
-    def clone_target_repositories_if_not_on_disk(self):
+    def clone_target_repositories_to_temp(self):
         try:
-            self.state.cloned_target_repositories = []
-            for repository in self.state.target_repositories.values():
-                is_git_repository = repository.is_git_repository_root
-                if not is_git_repository:
-                    repository.clone(no_checkout=True)
-                    self.state.cloned_target_repositories.append(repository)
+            self.state.repos_on_disk = []
+            self.state.repos_not_on_disk = []
+            for temp_repo in self.state.temp_target_repositories.values():
+                users_repo = self.state.users_target_repositories[temp_repo.name]
+                is_git_repository = users_repo.is_git_repository_root
+                if is_git_repository:
+                    temp_repo.clone_from_disk(users_repo.path)
+                    self.state.repos_on_disk.append(users_repo.name)
+                else:
+                    temp_repo.clone(no_checkout=True)
+                    self.state.repos_not_on_disk.append(users_repo.name)
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -600,7 +614,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # and the remaining commits will be validated afterwards
             # if the last validated target commit does not exist, start the validation from scratch
             if self.state.last_validated_commit is not None:
-                for repository in self.state.target_repositories.values():
+                for repository in self.state.temp_target_repositories.values():
                     if repository.name not in self.state.targets_data_by_auth_commits:
                         continue
                     self.state.old_heads_per_target_repos_branches[repository.name] = {}
@@ -611,8 +625,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
 
                     if last_validated_repository_commits_data:
-                        # if this is not set, it means that the repository did not exist in this revision
-                        if repository in self.state.cloned_target_repositories:
+                        if repository.name in self.state.repos_not_on_disk:
                             is_initial_state_in_sync = False
                             break
                         current_branch = last_validated_repository_commits_data.get(
@@ -682,7 +695,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     def check_if_local_repositories_contain_unpushed_commits(self):
-        for repository in self.state.target_repositories.values():
+        for repository in self.state.users_target_repositories.values():
             if repository.name not in self.state.target_branches_data_from_auth_repo:
                 # exists in repositories.json, not target files
                 continue
@@ -696,7 +709,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
-        for repository in self.state.target_repositories.values():
+        for repository in self.state.temp_target_repositories.values():
             if repository.name not in self.state.target_branches_data_from_auth_repo:
                 # exists in repositories.json, not target files
                 continue
@@ -707,7 +720,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     branch, include_remotes=False
                 )
                 branch_exists = repository.branch_exists(branch, include_remotes=True)
-                if repository not in self.state.cloned_target_repositories:
+                if repository.name in self.state.repos_not_on_disk:
                     if self.only_validate:
                         if not branch_exists:
                             self.state.targets_data = {}
@@ -789,7 +802,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             last_validated_data_per_repositories = defaultdict(dict)
             self.state.validated_auth_commits = []
             for auth_commit in self.state.auth_commits_since_last_validated:
-                for repository in self.state.target_repositories.values():
+                for repository in self.state.temp_target_repositories.values():
                     if repository.name not in self.state.targets_data_by_auth_commits:
                         continue
                     if (
@@ -942,7 +955,7 @@ but commit not on branch {current_branch}"
         if self.state.update_status != UpdateStatus.SUCCESS:
             return self.state.update_status
         try:
-            for repository in self.state.target_repositories.values():
+            for repository in self.state.temp_target_repositories.values():
                 # this will only include branches that were, at least partially, validated (up until a certain point)
                 for (
                     branch,
@@ -990,6 +1003,16 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     @log_on_start(
+        DEBUG, "Copying or updating user's target repositories...", logger=taf_logger
+    )
+    def update_users_target_repositories(self):
+        for name in self.state.repos_not_on_disk:
+            users_target_repo = self.state.users_target_repositories[name]
+            temp_target_repo = self.state.temp_target_repositories[name]
+            users_target_repo.clone_from_disk(temp_target_repo.path)
+
+
+    @log_on_start(
         INFO, "Merging commits into target repositories...", logger=taf_logger
     )
     def merge_commits(self):
@@ -1006,11 +1029,14 @@ but commit not on branch {current_branch}"
                 # couldn't validate the first new commit
                 # there is nothing to merge
                 # remove cloned repositories if the initial commit was incorrect
-                for repository in self.state.cloned_target_repositories:
-                    taf_logger.debug("Removing cloned repository {}", repository.path)
-                    shutil.rmtree(repository.path, onerror=on_rm_error)
+                # TODO this should not be here and
+                # also cleanup up temp here
+                # for repository in self.state.cloned_target_repositories:
+                #     taf_logger.debug("Removing cloned repository {}", repository.path)
+                #     shutil.rmtree(repository.path, onerror=on_rm_error)
+                print("TODO")
             else:
-                for repository in self.state.target_repositories.values():
+                for repository in self.state.users_target_repositories.values():
                     # this will only include branches that were, at least partially, validated (up until a certain point)
                     for (
                         branch,

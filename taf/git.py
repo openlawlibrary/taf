@@ -642,6 +642,12 @@ class GitRepository:
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
+    def clone_from_disk(self, local_path: Path):
+        urls_backup = list(self.urls)
+        self.urls = [str(local_path.resolve())]
+        self.clone()
+        self.urls = urls_backup
+
     def clone_or_pull(
         self,
         branches: Optional[List[str]] = None,
