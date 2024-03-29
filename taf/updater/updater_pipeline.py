@@ -579,11 +579,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 is_git_repository = users_repo.is_git_repository_root
                 if is_git_repository:
                     temp_repo.clone_from_disk(
-                        users_repo.path, users_repo.get_remote_url()
+                        users_repo.path,
+                        users_repo.get_remote_url(),
+                        is_bare_repository=True,
                     )
                     self.state.repos_on_disk.append(users_repo.name)
                 else:
-                    temp_repo.clone(no_checkout=True)
+                    temp_repo.clone(bare=True)
                     self.state.repos_not_on_disk.append(users_repo.name)
             return UpdateStatus.SUCCESS
         except Exception as e:
@@ -679,6 +681,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         self.state.auth_commits_since_last_validated
                     )
                 )
+                # start validation from the beginning, so also removed
+                # information about the top commits of user's repositories
+                for repository in self.state.temp_target_repositories.values():
+                    for branch in self.state.old_heads_per_target_repos_branches[
+                        repository.name
+                    ]:
+                        self.state.old_heads_per_target_repos_branches[repository.name][
+                            branch
+                        ] = None
 
             return UpdateStatus.SUCCESS
         except Exception as e:
@@ -820,7 +831,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         "branch", repository.default_branch
                     )
                     current_commit = current_targets_data["commit"]
-
                     if not len(last_validated_data_per_repositories[repository.name]):
                         current_head_commit_and_branch = (
                             self.state.targets_data_by_auth_commits[
@@ -1011,11 +1021,6 @@ but commit not on branch {current_branch}"
         def _clone_or_copy_from_disk(repo_name, is_clone):
             users_target_repo = self.state.users_target_repositories[name]
             temp_target_repo = self.state.temp_target_repositories[name]
-            for branch in self.state.validated_commits_per_target_repos_branches[
-                repo_name
-            ]:
-                # branches are fetched only if the remote repository contains the local branch
-                temp_target_repo.checkout_branch(branch)
             if is_clone:
                 users_target_repo.clone_from_disk(
                     temp_target_repo.path, temp_target_repo.get_remote_url()

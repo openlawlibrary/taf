@@ -643,11 +643,11 @@ class GitRepository:
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
-    def clone_from_disk(self, local_path: Path, remote_url: str):
-        urls_backup = list(self.urls)
-        self.urls = [str(local_path.resolve())]
-        self.clone()
-        self.urls = urls_backup
+    def clone_from_disk(
+        self, local_path: Path, remote_url: str, is_bare_repository: bool = False
+    ) -> None:
+        self.path.mkdir(parents=True, exist_ok=True)
+        pygit2.clone_repository(local_path, self.path, bare=is_bare_repository)
         self.remove_remote("origin")
         self.add_remote("origin", remote_url)
         self.fetch()
@@ -1009,16 +1009,8 @@ class GitRepository:
         repo = self.pygit_repo
         temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
         repo.remotes.create(temp_remote_name, local_repo_path)
-
-        # Fetch the main branch from the remote
         remote = repo.remotes[temp_remote_name]
         remote.fetch()
-
-        fetch_head_commit = repo.revparse_single("FETCH_HEAD")
-        import pdb
-
-        pdb.set_trace()
-        # Remove the temporary remote
         repo.remotes.delete(temp_remote_name)
 
     def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
