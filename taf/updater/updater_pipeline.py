@@ -217,6 +217,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ),
                 (self.update_users_target_repositories, RunMode.UPDATE),
                 (self.merge_commits, RunMode.UPDATE),
+                (self.remove_temp_repositories, RunMode.UPDATE),
                 (self.set_target_repositories_data, RunMode.UPDATE),
                 (self.print_additional_commits, RunMode.ALL),
             ],
@@ -519,7 +520,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
             )
             self.state.users_target_repositories = {
-                repo.name: GitRepository(self.library_dir, repo.name, urls=repo.urls) for repo in self.state.temp_target_repositories.values()
+                repo.name: GitRepository(self.library_dir, repo.name, urls=repo.urls)
+                for repo in self.state.temp_target_repositories.values()
             }
             return UpdateStatus.SUCCESS
         except Exception as e:
@@ -566,9 +568,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @log_on_start(
-        DEBUG, "Cloning target repositories to temp...", logger=taf_logger
-    )
+    @log_on_start(DEBUG, "Cloning target repositories to temp...", logger=taf_logger)
     @log_on_end(INFO, "Finished cloning target repositories", logger=taf_logger)
     def clone_target_repositories_to_temp(self):
         try:
@@ -578,7 +578,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 users_repo = self.state.users_target_repositories[temp_repo.name]
                 is_git_repository = users_repo.is_git_repository_root
                 if is_git_repository:
-                    temp_repo.clone_from_disk(users_repo.path)
+                    temp_repo.clone_from_disk(
+                        users_repo.path, users_repo.get_remote_url()
+                    )
                     self.state.repos_on_disk.append(users_repo.name)
                 else:
                     temp_repo.clone(no_checkout=True)
@@ -1006,11 +1008,44 @@ but commit not on branch {current_branch}"
         DEBUG, "Copying or updating user's target repositories...", logger=taf_logger
     )
     def update_users_target_repositories(self):
-        for name in self.state.repos_not_on_disk:
+        def _clone_or_copy_from_disk(repo_name, is_clone):
             users_target_repo = self.state.users_target_repositories[name]
             temp_target_repo = self.state.temp_target_repositories[name]
-            users_target_repo.clone_from_disk(temp_target_repo.path)
+            for branch in self.state.validated_commits_per_target_repos_branches[
+                repo_name
+            ]:
+                # branches are fetched only if the remote repository contains the local branch
+                temp_target_repo.checkout_branch(branch)
+            if is_clone:
+                users_target_repo.clone_from_disk(
+                    temp_target_repo.path, temp_target_repo.get_remote_url()
+                )
+            else:
+                users_target_repo.fetch_from_disk(temp_target_repo.path)
 
+        if self.state.update_status == UpdateStatus.FAILED:
+            return self.state.update_status
+        try:
+            for name in self.state.repos_not_on_disk:
+                _clone_or_copy_from_disk(name, True)
+            for name in self.state.repos_on_disk:
+                _clone_or_copy_from_disk(name, False)
+            return self.state.update_status
+        except Exception as e:
+            self.state.errors.append(e)
+            taf_logger.error(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
+    def remove_temp_repositories(self):
+        try:
+            for repo in self.state.temp_target_repositories.values():
+                repo.cleanup()
+            self.state.temp_dir.cleanup()
+        except Exception as e:
+            pass
+        return self.state.update_status
 
     @log_on_start(
         INFO, "Merging commits into target repositories...", logger=taf_logger
@@ -1022,34 +1057,22 @@ but commit not on branch {current_branch}"
         try:
             if self.only_validate:
                 return self.state.update_status
-            if (
-                self.state.update_status == UpdateStatus.FAILED
-                and self.operation == OperationType.CLONE
-            ):
-                # couldn't validate the first new commit
-                # there is nothing to merge
-                # remove cloned repositories if the initial commit was incorrect
-                # TODO this should not be here and
-                # also cleanup up temp here
-                # for repository in self.state.cloned_target_repositories:
-                #     taf_logger.debug("Removing cloned repository {}", repository.path)
-                #     shutil.rmtree(repository.path, onerror=on_rm_error)
-                print("TODO")
-            else:
-                for repository in self.state.users_target_repositories.values():
-                    # this will only include branches that were, at least partially, validated (up until a certain point)
-                    for (
-                        branch,
-                        validated_commits,
-                    ) in self.state.validated_commits_per_target_repos_branches[
-                        repository.name
-                    ].items():
-                        last_validated_commit = validated_commits[-1]
-                        commit_to_merge = last_validated_commit
-                        _merge_commit(
-                            repository, branch, commit_to_merge, force_revert=True
-                        )
+            if self.state.update_status == UpdateStatus.FAILED:
                 return self.state.update_status
+            for repository in self.state.users_target_repositories.values():
+                # this will only include branches that were, at least partially, validated (up until a certain point)
+                for (
+                    branch,
+                    validated_commits,
+                ) in self.state.validated_commits_per_target_repos_branches[
+                    repository.name
+                ].items():
+                    last_validated_commit = validated_commits[-1]
+                    commit_to_merge = last_validated_commit
+                    _merge_commit(
+                        repository, branch, commit_to_merge, force_revert=True
+                    )
+            return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -1058,7 +1081,7 @@ but commit not on branch {current_branch}"
     def set_target_repositories_data(self):
         try:
             targets_data = {}
-            for repo_name, repo in self.state.target_repositories.items():
+            for repo_name, repo in self.state.users_target_repositories.items():
                 targets_data[repo_name] = {"repo_data": repo.to_json_dict()}
                 if repo_name not in self.state.targets_data_by_auth_commits:
                     continue
@@ -1349,6 +1372,9 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError as e:
+        import pdb
+
+        pdb.set_trace()
         # two scenarios:
         # current git repository is in an inconsistent state:
         # - .git/index.lock exists (git partial update got applied)

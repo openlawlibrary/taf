@@ -4,6 +4,7 @@ import json
 import itertools
 import os
 import re
+import uuid
 import pygit2
 import subprocess
 import logging
@@ -642,11 +643,17 @@ class GitRepository:
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
-    def clone_from_disk(self, local_path: Path):
+    def clone_from_disk(self, local_path: Path, remote_url: str):
         urls_backup = list(self.urls)
         self.urls = [str(local_path.resolve())]
         self.clone()
         self.urls = urls_backup
+        self.remove_remote("origin")
+        self.add_remote("origin", remote_url)
+        self.fetch()
+        repo = self.pygit_repo
+        for branch in repo.branches.local:
+            self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
@@ -996,6 +1003,23 @@ class GitRepository:
             if branch is None:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
+
+    def fetch_from_disk(self, local_repo_path):
+
+        repo = self.pygit_repo
+        temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
+        repo.remotes.create(temp_remote_name, local_repo_path)
+
+        # Fetch the main branch from the remote
+        remote = repo.remotes[temp_remote_name]
+        remote.fetch()
+
+        fetch_head_commit = repo.revparse_single("FETCH_HEAD")
+        import pdb
+
+        pdb.set_trace()
+        # Remove the temporary remote
+        repo.remotes.delete(temp_remote_name)
 
     def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
         """Returns path of the workree where the branch is checked out, or None if not checked out in any worktree"""
