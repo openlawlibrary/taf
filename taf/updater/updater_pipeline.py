@@ -508,20 +508,22 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo,
                 repo_classes=self.target_repo_classes,
                 factory=self.target_factory,
-                library_dir=self.state.temp_dir.name,
+                library_dir=self.library_dir,
                 commits=self.state.auth_commits_since_last_validated,
                 only_load_targets=True,
                 excluded_target_globs=self.excluded_target_globs,
             )
-            self.state.temp_target_repositories = (
+            self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     self.state.auth_commits_since_last_validated[-1::],
                 )
             )
-            self.state.users_target_repositories = {
-                repo.name: GitRepository(self.library_dir, repo.name, urls=repo.urls)
-                for repo in self.state.temp_target_repositories.values()
+            self.state.temp_target_repositories = {
+                repo.name: GitRepository(
+                    self.state.temp_dir.name, repo.name, urls=repo.urls
+                )
+                for repo in self.state.users_target_repositories.values()
             }
             return UpdateStatus.SUCCESS
         except Exception as e:
@@ -1018,7 +1020,7 @@ but commit not on branch {current_branch}"
         DEBUG, "Copying or updating user's target repositories...", logger=taf_logger
     )
     def update_users_target_repositories(self):
-        def _clone_or_copy_from_disk(repo_name, is_clone):
+        def _clone_or_copy_from_disk(name, is_clone):
             users_target_repo = self.state.users_target_repositories[name]
             temp_target_repo = self.state.temp_target_repositories[name]
             if is_clone:
