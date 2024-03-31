@@ -521,7 +521,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
             self.state.temp_target_repositories = {
                 repo.name: GitRepository(
-                    self.state.temp_dir.name, repo.name, urls=repo.urls
+                    self.state.temp_dir.name,
+                    repo.name,
+                    urls=repo.urls,
+                    custom=repo.custom,
                 )
                 for repo in self.state.users_target_repositories.values()
             }
@@ -1050,8 +1053,10 @@ but commit not on branch {current_branch}"
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
             self.state.temp_dir.cleanup()
-        except Exception as e:
-            pass
+        except Exception:
+            taf_logger.warning(
+                f"WARNING: Could not remove clean up temp folder: {self.state.temp_dir}. Please remove it manually."
+            )
         return self.state.update_status
 
     @log_on_start(
@@ -1379,9 +1384,6 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError as e:
-        import pdb
-
-        pdb.set_trace()
         # two scenarios:
         # current git repository is in an inconsistent state:
         # - .git/index.lock exists (git partial update got applied)
