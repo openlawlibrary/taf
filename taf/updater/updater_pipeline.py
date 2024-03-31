@@ -519,16 +519,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.auth_commits_since_last_validated[-1::],
                 )
             )
-            self.state.temp_target_repositories = {
-                repo.name: GitRepository(
-                    self.state.temp_dir.name,
-                    repo.name,
-                    urls=repo.urls,
-                    custom=repo.custom,
+            if self.only_validate:
+                self.state.temp_target_repositories = (
+                    self.state.users_target_repositories
                 )
-                for repo in self.state.users_target_repositories.values()
-            }
-            return UpdateStatus.SUCCESS
+            else:
+                self.state.temp_target_repositories = {
+                    repo.name: GitRepository(
+                        self.state.temp_dir.name,
+                        repo.name,
+                        urls=repo.urls,
+                        custom=repo.custom,
+                    )
+                    for repo in self.state.users_target_repositories.values()
+                }
+                return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
