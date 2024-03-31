@@ -652,8 +652,9 @@ class GitRepository:
         self.add_remote("origin", remote_url)
         self.fetch()
         repo = self.pygit_repo
-        for branch in repo.branches.local:
-            self.set_upstream(str(branch))
+        if repo is not None:
+            for branch in repo.branches.local:
+                self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
