@@ -1035,6 +1035,10 @@ class GitRepository:
         include_remotes: bool = False,
         sort_key_func: Optional[Callable[[str], bool]] = None,
     ) -> Optional[str]:
+        """
+        Fetches changes from a local repository on disk
+        and temporarily adds it as a remote to the current repository.
+        """
 
         branch_tips = {}
         repo: pygit2.Repository = self.pygit_repo

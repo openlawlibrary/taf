@@ -62,9 +62,16 @@ class UpdateState:
     errors: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
     last_validated_commit: str = field(factory=str)
+    # repositories inside the temp folder which are created and cleaned up
+    # during the update process
     temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
+    # permanent repositories inside the user's local direcotry
     users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
+    # a list of repositories which are already present inside a user's local
+    # directory when the update is started
     repos_on_disk: List[str] = field(factory=list)
+    # a list of repositories which are not present inside a user's local
+    # directory when the update is started
     repos_not_on_disk: List[str] = field(factory=list)
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
