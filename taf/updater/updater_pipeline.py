@@ -591,7 +591,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     temp_repo.clone_from_disk(
                         users_repo.path,
                         users_repo.get_remote_url(),
-                        is_bare_repository=True,
+                        is_bare=True,
                     )
                     self.state.repos_on_disk.append(users_repo.name)
                 else:

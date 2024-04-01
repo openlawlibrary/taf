@@ -644,14 +644,20 @@ class GitRepository:
             self.default_branch = self._determine_default_branch()
 
     def clone_from_disk(
-        self, local_path: Path, remote_url: str, is_bare_repository: bool = False
+        self, local_path: Path, remote_url: str, is_bare: bool = False
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
-        pygit2.clone_repository(local_path, self.path, bare=is_bare_repository)
+        pygit2.clone_repository(local_path, self.path, bare=is_bare)
+        if not self.is_git_repository:
+            raise GitError(f"Could not clone repository from local path {local_path}")
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Cloning from disk could not be completed. pygit repo could not be instantiated"
+            )
         self.remove_remote("origin")
         self.add_remote("origin", remote_url)
         self.fetch()
-        repo = self.pygit_repo
         if repo is not None:
             for branch in repo.branches.local:
                 self.set_upstream(str(branch))
