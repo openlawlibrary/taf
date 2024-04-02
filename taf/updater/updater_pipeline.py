@@ -1035,23 +1035,20 @@ but commit not on branch {current_branch}"
         DEBUG, "Copying or updating user's target repositories...", logger=taf_logger
     )
     def update_users_target_repositories(self):
-        def _clone_or_copy_from_disk(name, is_clone):
-            users_target_repo = self.state.users_target_repositories[name]
-            temp_target_repo = self.state.temp_target_repositories[name]
-            if is_clone:
-                users_target_repo.clone_from_disk(
-                    temp_target_repo.path, temp_target_repo.get_remote_url()
-                )
-            else:
-                users_target_repo.fetch_from_disk(temp_target_repo.path)
-
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
             for name in self.state.repos_not_on_disk:
-                _clone_or_copy_from_disk(name, True)
+                users_target_repo = self.state.users_target_repositories[name]
+                temp_target_repo = self.state.temp_target_repositories[name]
+                users_target_repo.clone_from_disk(
+                    temp_target_repo.path, temp_target_repo.get_remote_url()
+                )
+
             for name in self.state.repos_on_disk:
-                _clone_or_copy_from_disk(name, False)
+                users_target_repo = self.state.users_target_repositories[name]
+                temp_target_repo = self.state.temp_target_repositories[name]
+                users_target_repo.fetch_from_disk(temp_target_repo.path)
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)

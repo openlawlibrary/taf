@@ -644,7 +644,7 @@ class GitRepository:
             self.default_branch = self._determine_default_branch()
 
     def clone_from_disk(
-        self, local_path: Path, remote_url: str, is_bare: bool = False
+        self, local_path: Path, remote_url: Optional[str] = None, is_bare: bool = False
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
@@ -656,11 +656,12 @@ class GitRepository:
                 "Cloning from disk could not be completed. pygit repo could not be instantiated"
             )
         self.remove_remote("origin")
-        self.add_remote("origin", remote_url)
-        self.fetch()
-        if repo is not None:
-            for branch in repo.branches.local:
-                self.set_upstream(str(branch))
+        if remote_url is not None:
+            self.add_remote("origin", remote_url)
+            self.fetch()
+            if repo is not None:
+                for branch in repo.branches.local:
+                    self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
@@ -1036,8 +1037,9 @@ class GitRepository:
         sort_key_func: Optional[Callable[[str], bool]] = None,
     ) -> Optional[str]:
         """
-        Fetches changes from a local repository on disk
-        and temporarily adds it as a remote to the current repository.
+        Fetches changes from a local repository on disk.
+        Temporarily adds it as a remote to the current repository
+        and removes that remote after the operation is completed.
         """
 
         branch_tips = {}
