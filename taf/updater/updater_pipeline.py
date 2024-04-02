@@ -1061,8 +1061,6 @@ but commit not on branch {current_branch}"
 
     @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
     def remove_temp_repositories(self):
-        print("removing temp repositories")
-        print(self.state.temp_dir)
         if not self.state.temp_dir:
             return self.state.update_status
         try:
