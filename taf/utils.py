@@ -335,3 +335,33 @@ class timed_run:
             return result
 
         return wrapper_func
+
+
+class TempPartition:
+    def __init__(self, ref_path):
+        self.ref_partition = self.get_partition_root(ref_path)
+        temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
+
+        if temp_dir_partition == self.ref_partition:
+            self.temp_dir = Path(tempfile.mkdtemp())
+        else:
+            taf_dir = self.ref_partition / ".taf"
+            taf_dir.mkdir(exist_ok=True)
+            self.temp_dir = tempfile.mkdtemp(dir=str(taf_dir))
+
+    def get_partition_root(self, path):
+        # Get the root directory of the partition containing the specified path
+        while not os.path.ismount(path):
+            path = path.parent
+        return path
+
+    def cleanup(self):
+        # Remove the temporary directory and the ".taf" directory
+        if Path(self.temp_dir).is_dir():
+            shutil.rmtree(self.temp_dir, onerror=on_rm_error)
+
+    def __enter__(self):
+        return self.temp_dir, self.partition
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()

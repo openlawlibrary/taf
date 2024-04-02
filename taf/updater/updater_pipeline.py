@@ -6,7 +6,6 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
-from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional
 from attr import attrs, define, field
 from taf.git import GitError
@@ -25,7 +24,7 @@ from taf.exceptions import (
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
-from taf.utils import on_rm_error
+from taf.utils import TempPartition, on_rm_error
 from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -86,7 +85,7 @@ class UpdateState:
         str, Dict[str, List[str]]
     ] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
-    temp_dir: TemporaryDirectory = field(default=None)
+    temp_root: TempPartition = field(default=None)
 
 
 @attrs
@@ -533,10 +532,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_target_repositories
                 )
             else:
-                self.state.temp_dir = TemporaryDirectory()
+                self.state.temp_root = TempPartition(self.state.users_auth_repo.path)
                 self.state.temp_target_repositories = {
                     repo.name: GitRepository(
-                        self.state.temp_dir.name,
+                        self.state.temp_root.temp_dir,
                         repo.name,
                         urls=repo.urls,
                         custom=repo.custom,
@@ -1061,15 +1060,15 @@ but commit not on branch {current_branch}"
 
     @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
     def remove_temp_repositories(self):
-        if not self.state.temp_dir:
+        if not self.state.temp_root:
             return self.state.update_status
         try:
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
-            self.state.temp_dir.cleanup()
+            self.state.temp_root.cleanup()
         except Exception:
             taf_logger.warning(
-                f"WARNING: Could not remove clean up temp folder: {self.state.temp_dir}. Please remove it manually."
+                f"WARNING: Could not remove clean up temp folder: {self.state.temp_root}. Please remove it manually."
             )
         return self.state.update_status
 
