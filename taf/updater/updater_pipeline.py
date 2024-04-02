@@ -160,9 +160,12 @@ class Pipeline:
             except Exception as e:
                 self.handle_error(e)
                 break
+            except KeyboardInterrupt as e:
+                self.handle_error(e)
         self.set_output()
 
     def handle_error(self, e):
+        self.remove_temp_repositories()
         if self.state.auth_repo_name is not None:
             taf_logger.error(
                 "An error occurred while updating repository {} while running step {}: {}",
@@ -510,7 +513,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_start(DEBUG, "Loading target repositories", logger=taf_logger)
     def load_target_repositories(self):
         try:
-            self.state.temp_dir = TemporaryDirectory()
             repositoriesdb.load_repositories(
                 self.state.users_auth_repo,
                 repo_classes=self.target_repo_classes,
@@ -531,6 +533,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_target_repositories
                 )
             else:
+                self.state.temp_dir = TemporaryDirectory()
                 self.state.temp_target_repositories = {
                     repo.name: GitRepository(
                         self.state.temp_dir.name,
@@ -1058,6 +1061,10 @@ but commit not on branch {current_branch}"
 
     @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
     def remove_temp_repositories(self):
+        print("removing temp repositories")
+        print(self.state.temp_dir)
+        if not self.state.temp_dir:
+            return self.state.update_status
         try:
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
