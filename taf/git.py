@@ -4,6 +4,7 @@ import json
 import itertools
 import os
 import re
+import uuid
 import pygit2
 import subprocess
 import logging
@@ -642,6 +643,26 @@ class GitRepository:
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
+    def clone_from_disk(
+        self, local_path: Path, remote_url: Optional[str] = None, is_bare: bool = False
+    ) -> None:
+        self.path.mkdir(parents=True, exist_ok=True)
+        pygit2.clone_repository(local_path, self.path, bare=is_bare)
+        if not self.is_git_repository:
+            raise GitError(f"Could not clone repository from local path {local_path}")
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Cloning from disk could not be completed. pygit repo could not be instantiated"
+            )
+        self.remove_remote("origin")
+        if remote_url is not None:
+            self.add_remote("origin", remote_url)
+            self.fetch()
+            if repo is not None:
+                for branch in repo.branches.local:
+                    self.set_upstream(str(branch))
+
     def clone_or_pull(
         self,
         branches: Optional[List[str]] = None,
@@ -991,6 +1012,15 @@ class GitRepository:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
 
+    def fetch_from_disk(self, local_repo_path):
+
+        repo = self.pygit_repo
+        temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
+        repo.remotes.create(temp_remote_name, local_repo_path)
+        remote = repo.remotes[temp_remote_name]
+        remote.fetch()
+        repo.remotes.delete(temp_remote_name)
+
     def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
         """Returns path of the workree where the branch is checked out, or None if not checked out in any worktree"""
         worktrees = self.list_worktrees()
@@ -1006,6 +1036,11 @@ class GitRepository:
         include_remotes: bool = False,
         sort_key_func: Optional[Callable[[str], bool]] = None,
     ) -> Optional[str]:
+        """
+        Fetches changes from a local repository on disk.
+        Temporarily adds it as a remote to the current repository
+        and removes that remote after the operation is completed.
+        """
 
         branch_tips = {}
         repo: pygit2.Repository = self.pygit_repo

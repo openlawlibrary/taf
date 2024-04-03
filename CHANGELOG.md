@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Clone target repositories to temp ([412])
 - Add architecture overview documentation ([405])
 
-[405]: https://github.com/openlawlibrary/taf/pull/405)
+[412]: https://github.com/openlawlibrary/taf/pull/412
+[405]: https://github.com/openlawlibrary/taf/pull/405
 
 ### Changed
 
