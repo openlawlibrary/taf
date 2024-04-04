@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged (404)
+- Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged ([404], [415])
 
+[415]: https://github.com/openlawlibrary/taf/pull/415
 [404]: https://github.com/openlawlibrary/taf/pull/404
 
 ### Fixed
