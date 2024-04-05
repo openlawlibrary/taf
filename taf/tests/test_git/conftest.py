@@ -12,23 +12,28 @@ REPO_NAME = "repository"
 CLONE_REPO_NAME = "repository2"
 
 
-@fixture(scope="session", autouse=True)
+@fixture
 def repository():
     path = TEST_DIR / REPO_NAME
     path.mkdir(exist_ok=True, parents=True)
     repo = GitRepository(path=path)
     repo.init_repo()
-    (path / "test.txt").write_text("Some example text")
     try:
-        repo.commit(message="Add test.txt")
+        (path / "test1.txt").write_text("Some example text 1")
+        repo.commit(message="Add test1.txt")
+        (path / "test2.txt").write_text("Some example text 2")
+        repo.commit(message="Add test2.txt")
+        (path / "test3.txt").write_text("Some example text 3")
+        repo.commit(message="Add test3.txt")
     except NothingToCommitError:
         pass  # this can happen if cleanup was not successful
+
     yield repo
     repo.cleanup()
     shutil.rmtree(path, onerror=on_rm_error)
 
 
-@fixture(scope="session", autouse=True)
+@fixture
 def clone_repository():
     path = TEST_DIR / CLONE_REPO_NAME
     path.mkdir(exist_ok=True, parents=True)
