@@ -787,7 +787,6 @@ class GitRepository:
             )
 
         local_branch = repo.branches.get(branch_name)
-
         upstream_full_name = local_branch.upstream_name
         if not upstream_full_name:
             # no upstream branch - not pushed
