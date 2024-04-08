@@ -215,7 +215,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (self.determine_start_commits, RunMode.ALL),
                 (self.get_targets_data_from_auth_repo, RunMode.ALL),
                 (
-                    self.check_if_local_repositories_contain_unpushed_commits,
+                    self.check_if_local_target_repositories_clean,
                     RunMode.UPDATE,
                 ),
                 (self.get_target_repositories_commits, RunMode.ALL),
@@ -630,10 +630,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         users_repo.get_remote_url(),
                         is_bare=True,
                     )
-                    self.state.repos_on_disk.append(users_repo.name)
+                    self.state.repos_on_disk.append(users_repo)
                 else:
                     temp_repo.clone(bare=True)
-                    self.state.repos_not_on_disk.append(users_repo.name)
+                    self.state.repos_not_on_disk.append(users_repo)
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -842,15 +842,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         "Checking if target repositories contain unpushed commits...",
         logger=taf_logger,
     )
-    def check_if_local_repositories_contain_unpushed_commits(self):
+    def check_if_local_target_repositories_clean(self):
         try:
-            for repository in self.state.users_target_repositories.values():
-                if (
-                    repository.name
-                    not in self.state.target_branches_data_from_auth_repo
-                ):
-                    # exists in repositories.json, not target files
-                    continue
+            for repository in self.state.repos_on_disk:
+                if repository.something_to_commit():
+                    raise RepositoryNotCleanError(repository.name)
                 for branch in self.state.target_branches_data_from_auth_repo[
                     repository.name
                 ]:
@@ -1082,16 +1078,20 @@ but commit not on branch {current_branch}"
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
-            for name in self.state.repos_not_on_disk:
-                users_target_repo = self.state.users_target_repositories[name]
-                temp_target_repo = self.state.temp_target_repositories[name]
+            for repository in self.state.repos_not_on_disk:
+                users_target_repo = self.state.users_target_repositories[
+                    repository.name
+                ]
+                temp_target_repo = self.state.temp_target_repositories[repository.name]
                 users_target_repo.clone_from_disk(
                     temp_target_repo.path, temp_target_repo.get_remote_url()
                 )
 
-            for name in self.state.repos_on_disk:
-                users_target_repo = self.state.users_target_repositories[name]
-                temp_target_repo = self.state.temp_target_repositories[name]
+            for repository in self.state.repos_on_disk:
+                users_target_repo = self.state.users_target_repositories[
+                    repository.name
+                ]
+                temp_target_repo = self.state.temp_target_repositories[repository.name]
                 users_target_repo.fetch_from_disk(temp_target_repo.path)
             return self.state.update_status
         except Exception as e:
