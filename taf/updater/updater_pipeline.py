@@ -316,7 +316,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     # after the update, check if there are unpushed commits on any of the
                     # other branches
                     target = auth_repo.get_target(repository.name)
-                    if not target or not "branch" in target:
+                    if not target or "branch" not in target:
                         continue
                     branch = target["branch"]
                     if repository.is_branch_with_unpushed_commits(branch):
