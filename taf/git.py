@@ -644,7 +644,11 @@ class GitRepository:
             self.default_branch = self._determine_default_branch()
 
     def clone_from_disk(
-        self, local_path: Path, remote_url: Optional[str] = None, is_bare: bool = False
+        self,
+        local_path: Path,
+        remote_url: Optional[str] = None,
+        is_bare: bool = False,
+        keep_remote=False,
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
@@ -655,13 +659,14 @@ class GitRepository:
             raise GitError(
                 "Cloning from disk could not be completed. pygit repo could not be instantiated"
             )
-        self.remove_remote("origin")
-        if remote_url is not None:
-            self.add_remote("origin", remote_url)
-            self.fetch()
-            if repo is not None:
-                for branch in repo.branches.local:
-                    self.set_upstream(str(branch))
+        if not keep_remote:
+            self.remove_remote("origin")
+            if remote_url is not None:
+                self.add_remote("origin", remote_url)
+                self.fetch()
+                if repo is not None:
+                    for branch in repo.branches.local:
+                        self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
@@ -781,26 +786,28 @@ class GitRepository:
                 message="pygit repository could not be instantiated.",
             )
 
-        # Ensure the branch exists locally.
-        local_branch_ref = f"refs/heads/{branch_name}"
-        if local_branch_ref not in repo.references:
-            return False
-
-        # Ensure the branch has an upstream.
-        try:
-            upstream_branch_ref = repo.lookup_branch(branch_name).upstream.name
-        except ValueError:
-            # not upstream yet
+        local_branch = repo.branches.get(branch_name)
+        upstream_full_name = local_branch.upstream_name
+        if not upstream_full_name:
+            # no upstream branch - not pushed
             return True
+        parts = upstream_full_name.split("/")
+        upstream_name = "/".join(parts[2:])
 
-        local_commit = repo.lookup_reference(local_branch_ref).peel(pygit2.Commit)
-        remote_commit = repo.lookup_reference(upstream_branch_ref).peel(pygit2.Commit)
+        remote_branch = repo.branches.get(upstream_name)
 
-        for commit in repo.walk(local_commit.id, pygit2.GIT_SORT_TOPOLOGICAL):
-            if commit.id == remote_commit.id:
-                break
-            return True
-        return False
+        # Get the last common ancestor of local and remote branches
+        merge_base = repo.merge_base(local_branch.target, remote_branch.target)
+
+        # Check for commits in local branch since the merge base that are not in the remote branch
+        unpushed_commits = [
+            commit
+            for commit in repo.walk(local_branch.target, pygit2.GIT_SORT_TOPOLOGICAL)
+            if commit.id != merge_base
+            and not repo.descendant_of(remote_branch.target, commit.id)
+        ]
+
+        return bool(unpushed_commits)
 
     def commit(self, message: str) -> str:
         self._git("add -A")
