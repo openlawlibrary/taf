@@ -66,12 +66,12 @@ class UpdateState:
     temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
     # permanent repositories inside the user's local direcotry
     users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
-    # a list of repositories which are already present inside a user's local
+    # a dictionary of repositories which are already present inside a user's local and
     # directory when the update is started
-    repos_on_disk: List[str] = field(factory=list)
-    # a list of repositories which are not present inside a user's local
+    repos_on_disk: Dict[str, GitRepository] = field(factory=dict)
+    # a dictionary of repositories which are not present inside a user's local
     # directory when the update is started
-    repos_not_on_disk: List[str] = field(factory=list)
+    repos_not_on_disk: Dict[str, GitRepository] = field(factory=dict)
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
@@ -264,10 +264,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     )
     def set_existing_repositories(self):
         self.state.existing_repo = False
-        self.state.repos_on_disk = []
+        self.state.repos_on_disk = {}
         if self.auth_path is not None:
             auth_repo = AuthenticationRepository(path=self.auth_path)
-            if auth_repo.is_git_repository:
+            if auth_repo.is_git_repository_root:
                 self.state.existing_repo = True
                 # load target repositories in order to check if they are clean or synced
                 # after updating the authentication repotiory, we need to load them again
@@ -281,11 +281,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
                     auth_repo,
                 )
-                self.state.repos_on_disk = [
-                    target_repo
+                self.state.repos_on_disk = {
+                    target_repo.name: target_repo
                     for target_repo in target_repositories.values()
-                    if target_repo.is_git_repository
-                ]
+                    if target_repo.is_git_repository_root
+                }
                 repositoriesdb.clear_repositories_db()
         return UpdateStatus.SUCCESS
 
@@ -307,7 +307,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         auth_repo.default_branch,
                     )
                 # check target repositories which are on disk
-                for repository in self.state.repos_on_disk:
+                for repository in self.state.repos_on_disk.values():
                     if repository.something_to_commit():
                         raise RepositoryNotCleanError(repository.name)
 
@@ -338,7 +338,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         if self.operation == OperationType.CLONE_OR_UPDATE:
             if (
                 self.auth_path is not None
-                and AuthenticationRepository(path=self.auth_path).is_git_repository
+                and AuthenticationRepository(path=self.auth_path).is_git_repository_root
             ):
                 self.operation = OperationType.UPDATE
             else:
@@ -619,8 +619,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_end(INFO, "Finished cloning target repositories", logger=taf_logger)
     def clone_target_repositories_to_temp(self):
         try:
-            self.state.repos_on_disk = []
-            self.state.repos_not_on_disk = []
+            self.state.repos_on_disk = {}
+            self.state.repos_not_on_disk = {}
             for temp_repo in self.state.temp_target_repositories.values():
                 users_repo = self.state.users_target_repositories[temp_repo.name]
                 is_git_repository = users_repo.is_git_repository_root
@@ -630,10 +630,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         users_repo.get_remote_url(),
                         is_bare=True,
                     )
-                    self.state.repos_on_disk.append(users_repo)
+                    self.state.repos_on_disk[users_repo.name] = users_repo
                 else:
                     temp_repo.clone(bare=True)
-                    self.state.repos_not_on_disk.append(users_repo)
+                    self.state.repos_not_on_disk[users_repo.name] = users_repo
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -844,7 +844,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     )
     def check_if_local_target_repositories_clean(self):
         try:
-            for repository in self.state.repos_on_disk:
+            for repository in self.state.repos_on_disk.values():
                 if repository.something_to_commit():
                     raise RepositoryNotCleanError(repository.name)
                 for branch in self.state.target_branches_data_from_auth_repo[
@@ -1078,20 +1078,18 @@ but commit not on branch {current_branch}"
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
-            for repository in self.state.repos_not_on_disk:
+            for repository_name in self.state.repos_not_on_disk:
                 users_target_repo = self.state.users_target_repositories[
-                    repository.name
+                    repository_name
                 ]
-                temp_target_repo = self.state.temp_target_repositories[repository.name]
+                temp_target_repo = self.state.temp_target_repositories[repository_name]
                 users_target_repo.clone_from_disk(
                     temp_target_repo.path, temp_target_repo.get_remote_url()
                 )
 
-            for repository in self.state.repos_on_disk:
-                users_target_repo = self.state.users_target_repositories[
-                    repository.name
-                ]
-                temp_target_repo = self.state.temp_target_repositories[repository.name]
+            for repo_name in self.state.repos_on_disk:
+                users_target_repo = self.state.users_target_repositories[repo_name]
+                temp_target_repo = self.state.temp_target_repositories[repo_name]
                 users_target_repo.fetch_from_disk(temp_target_repo.path)
             return self.state.update_status
         except Exception as e:
