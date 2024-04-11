@@ -787,6 +787,9 @@ class GitRepository:
             )
 
         local_branch = repo.branches.get(branch_name)
+        if local_branch is None:
+            # local branch does not exist
+            return False
         upstream_full_name = local_branch.upstream_name
         if not upstream_full_name:
             # no upstream branch - not pushed
@@ -800,12 +803,14 @@ class GitRepository:
         merge_base = repo.merge_base(local_branch.target, remote_branch.target)
 
         # Check for commits in local branch since the merge base that are not in the remote branch
-        unpushed_commits = [
-            commit
-            for commit in repo.walk(local_branch.target, pygit2.GIT_SORT_TOPOLOGICAL)
-            if commit.id != merge_base
-            and not repo.descendant_of(remote_branch.target, commit.id)
-        ]
+        unpushed_commits = []
+        for commit in repo.walk(local_branch.target, pygit2.GIT_SORT_TOPOLOGICAL):
+            if commit.id != merge_base and not repo.descendant_of(
+                remote_branch.target, commit.id
+            ):
+                unpushed_commits.append(commit)
+            else:
+                break
 
         return bool(unpushed_commits)
 
