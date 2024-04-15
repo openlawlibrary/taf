@@ -1501,6 +1501,23 @@ class GitRepository:
         except Exception:
             return None
 
+    def update_local_branch(self, branch, remote_name="origin"):
+        """
+        Updates ref of a local branch of a bare repository where merging is not possible
+        """
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                self,
+                message="Could not find top commit. pygit repository could not be instantiated.",
+            )
+        remote_branch_ref = f"refs/remotes/{remote_name}/{branch}"
+        remote_branch_commit = repo.lookup_reference(remote_branch_ref).target
+
+        # Update the local branch to point to the latest commit from the remote branch
+        local_branch_ref = f"refs/heads/{branch}"
+        repo.references.create(local_branch_ref, remote_branch_commit, force=True)
+
     def _determine_default_branch(self) -> Optional[str]:
         """Determine the default branch of the repository"""
         # try to get the default branch from the local repository
