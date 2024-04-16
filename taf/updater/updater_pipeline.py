@@ -769,7 +769,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     branch, include_remotes=False
                 )
                 branch_exists = repository.branch_exists(branch, include_remotes=True)
-                if repository.name in self.state.repos_not_on_disk:
+                if repository.name in self.state.repos_on_disk:
                     if self.only_validate:
                         if not branch_exists:
                             self.state.targets_data = {}
@@ -1090,6 +1090,10 @@ but commit not on branch {current_branch}"
             for repo_name in self.state.repos_on_disk:
                 users_target_repo = self.state.users_target_repositories[repo_name]
                 temp_target_repo = self.state.temp_target_repositories[repo_name]
+                for branch in self.state.validated_commits_per_target_repos_branches[
+                    repo_name
+                ]:
+                    temp_target_repo.update_local_branch(branch=branch)
                 users_target_repo.fetch_from_disk(temp_target_repo.path)
             return self.state.update_status
         except Exception as e:
