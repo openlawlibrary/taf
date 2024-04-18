@@ -1451,18 +1451,6 @@ class GitRepository:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
-        if url:
-            urls = [url]
-        elif self.urls:
-            urls = self.urls
-        else:
-            remote_url = self.get_remote_url()
-            if remote_url is None:
-                raise GitError(
-                    self,
-                    message="URL not specified and could not be automatically determined. Cannot check if synced",
-                )
-            urls = [remote_url]
 
         branch_name = branch or self.default_branch
         if branch_name is None:
@@ -1470,17 +1458,24 @@ class GitRepository:
                 self,
                 message="Branch not specified and default branch could not be determined",
             )
-        for url in urls:
-            tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
-            if not tracking_branch:
-                return False
-            try:
-                local_commit = self.top_commit_of_branch(branch_name)
-            except GitError as e:
-                if "unknown revision or path not in the working tree" not in str(e):
-                    raise e
-                local_commit = None
 
+        tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
+        if not tracking_branch:
+            return False
+        try:
+            local_commit = self.top_commit_of_branch(branch_name)
+        except GitError as e:
+            if "unknown revision or path not in the working tree" not in str(e):
+                raise e
+            local_commit = None
+
+        if not url:
+            url = self.get_remote_url()
+            if url is None:
+                raise GitError(
+                    self,
+                    message="URL not specified and could not be automatically determined. Cannot check if synced",
+                )
         remote_commit = self.get_last_remote_commit(url, tracking_branch)
 
         return local_commit == remote_commit
