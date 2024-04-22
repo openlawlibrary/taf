@@ -1452,6 +1452,19 @@ class GitRepository:
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
 
+        if url:
+            urls = [url]
+        elif self.urls:
+            urls = self.urls
+        else:
+            remote_url = self.get_remote_url()
+            if remote_url is None:
+                raise GitError(
+                    self,
+                    message="URL not specified and could not be automatically determined. Cannot check if synced",
+                )
+            urls = [remote_url]
+
         branch_name = branch or self.default_branch
         if branch_name is None:
             raise GitError(
@@ -1469,14 +1482,10 @@ class GitRepository:
                 raise e
             local_commit = None
 
-        if not url:
-            url = self.get_remote_url()
-            if url is None:
-                raise GitError(
-                    self,
-                    message="URL not specified and could not be automatically determined. Cannot check if synced",
-                )
-        remote_commit = self.get_last_remote_commit(url, tracking_branch)
+        for url in urls:
+            remote_commit = self.get_last_remote_commit(url, tracking_branch)
+            if remote_commit is not None:
+                break
 
         return local_commit == remote_commit
 
@@ -1608,7 +1617,8 @@ class GitRepository:
                 for url in urls:
                     self._validate_url(url)
             else:
-                urls = [_find_url(self.path, url) for url in urls]
+                # resolve paths and deduplicate
+                urls = list({_find_url(self.path, url) for url in urls})
         return urls
 
 
