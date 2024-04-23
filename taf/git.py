@@ -1451,6 +1451,7 @@ class GitRepository:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
+
         if url:
             urls = [url]
         elif self.urls:
@@ -1470,18 +1471,21 @@ class GitRepository:
                 self,
                 message="Branch not specified and default branch could not be determined",
             )
-        for url in urls:
-            tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
-            if not tracking_branch:
-                return False
-            try:
-                local_commit = self.top_commit_of_branch(branch_name)
-            except GitError as e:
-                if "unknown revision or path not in the working tree" not in str(e):
-                    raise e
-                local_commit = None
 
-        remote_commit = self.get_last_remote_commit(url, tracking_branch)
+        tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
+        if not tracking_branch:
+            return False
+        try:
+            local_commit = self.top_commit_of_branch(branch_name)
+        except GitError as e:
+            if "unknown revision or path not in the working tree" not in str(e):
+                raise e
+            local_commit = None
+
+        for url in urls:
+            remote_commit = self.get_last_remote_commit(url, tracking_branch)
+            if remote_commit is not None:
+                break
 
         return local_commit == remote_commit
 
@@ -1613,7 +1617,8 @@ class GitRepository:
                 for url in urls:
                     self._validate_url(url)
             else:
-                urls = [_find_url(self.path, url) for url in urls]
+                # resolve paths and deduplicate
+                urls = list({_find_url(self.path, url) for url in urls})
         return urls
 
 

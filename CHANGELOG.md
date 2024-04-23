@@ -20,12 +20,15 @@ and this project adheres to [Semantic Versioning][semver].
 - Check if repositories are clean before running the updater ([416])
 - Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged ([404], [415])
 
+### Fixed
+
+- When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
+
+[419]: https://github.com/openlawlibrary/taf/pull/419
 [418]: https://github.com/openlawlibrary/taf/pull/418
 [416]: https://github.com/openlawlibrary/taf/pull/416
 [415]: https://github.com/openlawlibrary/taf/pull/415
 [404]: https://github.com/openlawlibrary/taf/pull/404
-
-### Fixed
 
 ## [0.29.3] - 03/15/2024
 
