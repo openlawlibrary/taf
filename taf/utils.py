@@ -22,6 +22,10 @@ from json import JSONDecoder
 import taf.settings
 from taf.exceptions import PINMissmatchError
 from taf.log import taf_logger
+from typing import List, Optional, Tuple, Dict, Any
+import securesystemslib
+from securesystemslib.hash import digest_fileobject
+from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
 
 
 def _iso_parse(date):
@@ -304,6 +308,85 @@ def to_tuf_datetime_format(start_date, interval):
     datetime_object = start_date + datetime.timedelta(interval)
     datetime_object = datetime_object.replace(microsecond=0)
     return datetime_object.isoformat() + "Z"
+
+
+def get_file_details(
+    filepath: str,
+    hash_algorithms: List[str] = ["sha256"],
+    storage_backend: Optional[StorageBackendInterface] = None,
+) -> Tuple[int, Dict[str, str]]:
+
+    # Making sure that the format of 'filepath' is a path string.
+    if not isinstance(filepath, str) or not filepath:
+        raise securesystemslib.exceptions.FormatError(
+            "The filepath must be a non-empty string."
+        )
+
+    if not isinstance(hash_algorithms, list):
+        raise securesystemslib.exceptions.FormatError(
+            "The hash_algorithms must be a list."
+        )
+    for algo in hash_algorithms:
+        if algo not in hash_algorithms:  # Add any other valid algorithms as needed
+            raise securesystemslib.exceptions.FormatError(
+                f"Invalid hash algorithm: {algo}"
+            )
+
+    if storage_backend is None:
+        storage_backend = FilesystemBackend()
+
+    # Getting the file length
+    if not os.path.isabs(filepath):
+        raise securesystemslib.exceptions.FormatError(
+            "The 'filepath' must be an absolute path"
+        )
+
+    # Check if the file exists and get its size
+    if not os.path.isfile(filepath):
+        raise securesystemslib.exceptions.StorageError(
+            f"The file at '{filepath}' cannot be opened or found"
+        )
+
+    file_length = os.path.getsize(filepath)
+
+    # Getting the file hashes
+    file_hashes = {}
+    with storage_backend.get(filepath) as fileobj:
+        for algorithm in hash_algorithms:
+            digest_object = digest_fileobject(fileobj, algorithm)
+            file_hashes.update({algorithm: digest_object.hexdigest()})
+            fileobj.seek(
+                0
+            )  # Reset file object position after reading for the next hash
+
+    return file_length, file_hashes
+
+
+def load_json_file(
+    filepath: str, storage_backend: Optional[StorageBackendInterface] = None
+) -> Any:
+    if not isinstance(filepath, str) or not filepath:
+        raise securesystemslib.exceptions.FormatError(
+            "The filepath must be a non-empty string."
+        )
+
+    if storage_backend is None:
+        storage_backend = FilesystemBackend()
+
+    deserialized_object = None
+    with storage_backend.get(filepath) as file_obj:
+        raw_data = file_obj.read().decode("utf-8")
+
+        try:
+            deserialized_object = json.loads(raw_data)
+
+        except (ValueError, TypeError):
+            raise securesystemslib.exceptions.Error(
+                "Cannot deserialize to a" " Python object: " + filepath
+            )
+
+        else:
+            return deserialized_object
 
 
 class timed_run:
