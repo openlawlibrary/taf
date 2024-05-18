@@ -908,3 +908,18 @@ def _update_role(
         auth_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
         auth_repo.update_role_yubikeys(role, yubikeys, write=False)
+
+
+def list_roles(auth_repo: AuthenticationRepository) -> None:
+    """
+    Print a list of all defined roles with their thresholds and parent roles.
+    """
+    all_roles = auth_repo.get_all_roles()
+    for role in all_roles:
+        threshold = auth_repo.get_role_threshold(role)
+        if role not in MAIN_ROLES:
+            parent_role = auth_repo.find_delegated_roles_parent(role)
+            print(f"{role} (threshold: {threshold}) - parent: {parent_role}")
+        else:
+            print(f"{role} (threshold: {threshold})")
+

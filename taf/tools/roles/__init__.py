@@ -1,7 +1,8 @@
 import click
-from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key as add_roles_signing_key
+from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key as add_roles_signing_key, list_roles
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
+from taf.auth_repo import AuthenticationRepository
 from taf.tools.cli import catch_cli_exception
 
 from taf.api.roles import add_role_paths as _add_role_paths
@@ -215,3 +216,13 @@ def attach_to_group(group):
             role=role,
         )
         print("\n".join(key_infos))
+
+    @roles.command()
+    @catch_cli_exception(handle=TAFError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    def list(path):
+        """
+        List all defined roles with their thresholds and parent roles.
+        """
+        auth_repo = AuthenticationRepository(path=path)
+        list_roles(auth_repo)

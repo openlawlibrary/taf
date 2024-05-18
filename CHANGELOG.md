@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
 - Clone target repositories to temp ([412, 418])
 - Add architecture overview documentation ([405])
 
