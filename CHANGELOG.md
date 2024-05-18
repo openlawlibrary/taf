@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Reimplemented get_file_details function to not rely on old securesystemslib functions ([420])
 - Clone target repositories to temp ([412, 418])
 - Add architecture overview documentation ([405])
 
+[420]: https://github.com/openlawlibrary/taf/pull/420
 [412]: https://github.com/openlawlibrary/taf/pull/412
 [405]: https://github.com/openlawlibrary/taf/pull/405
+
 
 ### Changed
 
