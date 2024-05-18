@@ -3,13 +3,14 @@ from pathlib import Path
 
 import pytest
 import tuf
+import json
 
 import taf.exceptions
 import taf.yubikey as yk
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.tests import TEST_WITH_REAL_YK
 from taf.tests.yubikey_utils import VALID_PIN
-from taf.utils import to_tuf_datetime_format, load_json_file
+from taf.utils import to_tuf_datetime_format
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
@@ -44,7 +45,7 @@ def test_update_snapshot_valid_key(repositories, snapshot_key):
         [snapshot_key], start_date=start_date, interval=interval
     )
     new_snapshot_metadata = str(Path(taf_happy_path.metadata_path) / "snapshot.json")
-    signable = load_json_file(new_snapshot_metadata)
+    signable = json.loads(new_snapshot_metadata)
     tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
     actual_expiration_date = signable["signed"]["expires"]
 
@@ -72,7 +73,7 @@ def test_update_timestamp_valid_key(repositories, timestamp_key):
         [timestamp_key], start_date=start_date, interval=interval
     )
     new_timestamp_metadata = str(Path(taf_happy_path.metadata_path) / "timestamp.json")
-    signable = load_json_file(new_timestamp_metadata)
+    signable = json.loads(new_timestamp_metadata)
     tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
     actual_expiration_date = signable["signed"]["expires"]
 
