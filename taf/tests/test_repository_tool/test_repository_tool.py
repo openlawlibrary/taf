@@ -2,8 +2,8 @@ import datetime
 from pathlib import Path
 
 import pytest
-import securesystemslib
 import tuf
+import json
 
 import taf.exceptions
 import taf.yubikey as yk
@@ -44,8 +44,9 @@ def test_update_snapshot_valid_key(repositories, snapshot_key):
     taf_happy_path.update_snapshot_keystores(
         [snapshot_key], start_date=start_date, interval=interval
     )
-    new_snapshot_metadata = str(Path(taf_happy_path.metadata_path) / "snapshot.json")
-    signable = securesystemslib.util.load_json_file(new_snapshot_metadata)
+    new_snapshot_metadata_path = Path(taf_happy_path.metadata_path) / "snapshot.json"
+    new_snapshot_metadata = new_snapshot_metadata_path.read_text()
+    signable = json.loads(new_snapshot_metadata)
     tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
     actual_expiration_date = signable["signed"]["expires"]
 
@@ -72,8 +73,9 @@ def test_update_timestamp_valid_key(repositories, timestamp_key):
     taf_happy_path.update_timestamp_keystores(
         [timestamp_key], start_date=start_date, interval=interval
     )
-    new_timestamp_metadata = str(Path(taf_happy_path.metadata_path) / "timestamp.json")
-    signable = securesystemslib.util.load_json_file(new_timestamp_metadata)
+    new_timestamp_metadata_path = Path(taf_happy_path.metadata_path) / "timestamp.json"
+    new_timestamp_metadata = new_timestamp_metadata_path.read_text()
+    signable = json.loads(new_timestamp_metadata)
     tuf.formats.SIGNABLE_SCHEMA.check_match(signable)
     actual_expiration_date = signable["signed"]["expires"]
 
