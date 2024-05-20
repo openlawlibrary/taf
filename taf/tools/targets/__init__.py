@@ -1,3 +1,5 @@
+
+
 import click
 from taf.api.targets import (
     list_targets,
@@ -7,6 +9,7 @@ from taf.api.targets import (
     export_targets_history,
     update_and_sign_targets,
     update_target_repos_from_repositories_json,
+    taf_status,
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -53,7 +56,7 @@ def attach_to_group(group):
         In this case, serve: latest will be added to the custom part of the target repository's entry in
         repositories.json.
 
-        If the repository does ot exists, it is sufficient to provide its namespace prefixed name
+        If the repository does not exist, it is sufficient to provide its namespace prefixed name
         instead of the full filesystem path. If the repository's path is not provided, it is expected
         to be located in the same library root directory as the authentication repository,
         in a directory whose name corresponds to its name. If authentication repository's path
@@ -233,6 +236,25 @@ def attach_to_group(group):
                     prompt_for_keys=prompt_for_keys,
                     commit=not no_commit
                 )
+        except TAFError as e:
+            click.echo()
+            click.echo(str(e))
+            click.echo()
+
+    @targets.command(context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    ))
+    @catch_cli_exception(handle=TAFError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
+    @click.pass_context
+    def status(ctx, path, library_dir):
+        """
+        Print the status of the authentication repository
+        """
+        try:
+            taf_status(path, library_dir)
         except TAFError as e:
             click.echo()
             click.echo(str(e))
