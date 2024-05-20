@@ -13,8 +13,7 @@ from tuf.repository_tool import Targets
 from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
-from taf.models.types import RolesIterator
-from taf.models.types import TargetsRole
+from taf.models.types import RolesIterator, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
@@ -35,16 +34,13 @@ from taf.constants import (
     DEFAULT_RSA_SIGNATURE_SCHEME,
 )
 from taf.keystore import default_keystore_path, new_public_key_cmd_prompt
-from taf.repository_tool import (
-    is_delegated_role,
-)
+from taf.repository_tool import is_delegated_role
 from taf.utils import get_key_size, read_input_dict
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
 
 
 MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
-
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
@@ -922,4 +918,3 @@ def list_roles(auth_repo: AuthenticationRepository) -> None:
             print(f"{role} (threshold: {threshold}) - parent: {parent_role}")
         else:
             print(f"{role} (threshold: {threshold})")
-
