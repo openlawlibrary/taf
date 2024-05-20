@@ -911,11 +911,18 @@ def list_roles(auth_repo: AuthenticationRepository) -> None:
     """
     Print a list of all defined roles with their thresholds and parent roles.
     """
-    all_roles = auth_repo.get_all_roles()
-    for role in all_roles:
+
+    def print_role_and_children(role: str, indent: int = 0) -> None:
         threshold = auth_repo.get_role_threshold(role)
-        if role not in MAIN_ROLES:
-            parent_role = auth_repo.find_delegated_roles_parent(role)
-            print(f"{role} (threshold: {threshold}) - parent: {parent_role}")
-        else:
-            print(f"{role} (threshold: {threshold})")
+        indent_str = " " * indent
+        print(f"{indent_str}{role} (threshold: {threshold})")
+
+        # Retrieve children (delegated roles)
+        delegations = auth_repo.get_delegations_info(role)
+        if delegations:
+            children = [role_info["name"] for role_info in delegations.get("roles", [])]
+            for child in children:
+                print_role_and_children(child, indent + 2)
+
+    for role in MAIN_ROLES:
+        print_role_and_children(role)
