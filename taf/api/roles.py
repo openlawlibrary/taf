@@ -42,6 +42,7 @@ from taf.models.types import RolesKeysData
 
 MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
 
+
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
 @log_on_error(
