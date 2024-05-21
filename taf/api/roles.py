@@ -13,8 +13,7 @@ from tuf.repository_tool import Targets
 from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
 from taf.models.converter import from_dict
-from taf.models.types import RolesIterator
-from taf.models.types import TargetsRole
+from taf.models.types import RolesIterator, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
@@ -35,9 +34,7 @@ from taf.constants import (
     DEFAULT_RSA_SIGNATURE_SCHEME,
 )
 from taf.keystore import default_keystore_path, new_public_key_cmd_prompt
-from taf.repository_tool import (
-    is_delegated_role,
-)
+from taf.repository_tool import is_delegated_role
 from taf.utils import get_key_size, read_input_dict
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
@@ -908,3 +905,24 @@ def _update_role(
         auth_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
         auth_repo.update_role_yubikeys(role, yubikeys, write=False)
+
+
+def list_roles(auth_repo: AuthenticationRepository) -> None:
+    """
+    Print a list of all defined roles with their thresholds and parent roles.
+    """
+
+    def print_role_and_children(role: str, indent: int = 0) -> None:
+        threshold = auth_repo.get_role_threshold(role)
+        indent_str = " " * indent
+        print(f"{indent_str}{role} (threshold: {threshold})")
+
+        # Retrieve children (delegated roles)
+        delegations = auth_repo.get_delegations_info(role)
+        if delegations:
+            children = [role_info["name"] for role_info in delegations.get("roles", [])]
+            for child in children:
+                print_role_and_children(child, indent + 2)
+
+    for role in MAIN_ROLES:
+        print_role_and_children(role)
