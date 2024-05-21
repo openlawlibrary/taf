@@ -1,6 +1,7 @@
 from logging import ERROR, INFO
 from typing import Optional
 import click
+import os
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._roles import setup_role
 from taf.messages import git_commit_message
@@ -116,6 +117,42 @@ def create_repository(
         write=True,
         no_commit_warning=True,
     )
+
+    # Create the .git/hooks directory and add the pre-push hook script if it does not exist
+    hooks_dir = Path(auth_repo.path) / ".git" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    pre_push_script = hooks_dir / "pre-push"
+    if not pre_push_script.exists():
+        pre_push_script_content = """#!/bin/bash
+
+# Path to the TAF CLI executable
+TAF_CLI="taf"
+
+# Run the TAF validation command
+$TAF_CLI repo validate
+VALIDATION_STATUS=$?
+
+# Check the validation status
+if [ $VALIDATION_STATUS -ne 0 ]; then
+  echo "TAF validation failed. Push aborted."
+  exit 1
+fi
+
+# Allow the push if validation passes
+exit 0
+"""
+
+        with open(pre_push_script, "w") as file:
+            file.write(pre_push_script_content)
+
+        # Make the pre-push script executable
+        pre_push_script.chmod(0o755)
+
+        # Verify that the pre-push hook has been added
+        if pre_push_script.exists() and os.access(pre_push_script, os.X_OK):
+            print("Pre-push hook added successfully.")
+
     if not updated:
         repository.writeall()
 
