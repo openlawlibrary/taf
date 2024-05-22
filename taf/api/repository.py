@@ -122,9 +122,9 @@ def create_repository(
     pre_push_script = hooks_dir / "pre-push"
     resources_pre_push_script = Path(__file__).parent / ".." / "resources" / "pre-push"
     shutil.copy(resources_pre_push_script, pre_push_script)
-    set_executable_permission(pre_push_script)
-    if pre_push_script.exists() and os.access(pre_push_script, os.X_OK):
-        print("Pre-push hook added successfully.")
+    script_permission = set_executable_permission(pre_push_script)
+    if pre_push_script.exists() and script_permission:
+        taf_logger.info("Pre-push hook added successfully.")
 
     if not updated:
         repository.writeall()

@@ -320,9 +320,7 @@ def set_executable_permission(file_path: Path) -> None:
             # Try to set permissions using icacls
             result = subprocess.run(f"icacls {file_path} /grant Users:F")
             if result != 0:
-                raise RuntimeError(
-                    f"Failed to set executable permission on Windows for {file_path}"
-                )
+                raise RuntimeError()
         else:
             # Unix-like systems
             file_path.chmod(0o755)
@@ -331,7 +329,10 @@ def set_executable_permission(file_path: Path) -> None:
 
     # Check if permissions were set correctly
     if not os.access(file_path, os.X_OK):
-        print(f"Warning: Unable to set executable permission for {file_path}.")
+        print(f"Failed to set pre-push git hook executable permission. Please set it manually for {file_path}.")
+        return False
+    else:
+        return True
 
 
 def get_file_details(
