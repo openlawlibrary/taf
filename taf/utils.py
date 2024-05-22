@@ -1,3 +1,4 @@
+import platform
 import click
 import errno
 import datetime
@@ -307,6 +308,30 @@ def to_tuf_datetime_format(start_date, interval):
     datetime_object = start_date + datetime.timedelta(interval)
     datetime_object = datetime_object.replace(microsecond=0)
     return datetime_object.isoformat() + "Z"
+
+
+def set_executable_permission(file_path: Path) -> None:
+    """
+    Set executable permission for the given file path.
+    Handles cross-platform differences.
+    """
+    try:
+        if platform.system() == "Windows":
+            # Try to set permissions using icacls
+            result = subprocess.run(f"icacls {file_path} /grant Users:F")
+            if result != 0:
+                raise RuntimeError(
+                    f"Failed to set executable permission on Windows for {file_path}"
+                )
+        else:
+            # Unix-like systems
+            file_path.chmod(0o755)
+    except Exception as e:
+        print(f"Error setting executable permission: {e}")
+
+    # Check if permissions were set correctly
+    if not os.access(file_path, os.X_OK):
+        print(f"Warning: Unable to set executable permission for {file_path}.")
 
 
 def get_file_details(

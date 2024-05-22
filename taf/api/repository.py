@@ -1,4 +1,5 @@
 from logging import ERROR, INFO
+import shutil
 from typing import Optional
 import click
 import os
@@ -20,6 +21,7 @@ from taf.api.targets import register_target_files
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
+from taf.utils import set_executable_permission
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
@@ -85,8 +87,7 @@ def create_repository(
     )
     if signing_keys is None:
         return
-    # set threshold and register keys of main roles
-    # we cannot do the same for the delegated roles until delegations are created
+
     for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
         setup_role(
             role,
@@ -99,14 +100,12 @@ def create_repository(
         roles_keys_data.roles.targets, repository, verification_keys, signing_keys
     )
 
-    # if the repository is a test repository, add a target file called test-auth-repo
     if test:
         test_auth_file = (
             Path(auth_repo.path, auth_repo.targets_path) / auth_repo.TEST_REPO_FLAG_FILE
         )
         test_auth_file.touch()
 
-    # register and sign target files (if any)
     auth_repo._tuf_repository = repository
     updated = register_target_files(
         path,
@@ -118,40 +117,14 @@ def create_repository(
         no_commit_warning=True,
     )
 
-    # Create the .git/hooks directory and add the pre-push hook script if it does not exist
     hooks_dir = Path(auth_repo.path) / ".git" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
-
     pre_push_script = hooks_dir / "pre-push"
-    if not pre_push_script.exists():
-        pre_push_script_content = """#!/bin/bash
-
-# Path to the TAF CLI executable
-TAF_CLI="taf"
-
-# Run the TAF validation command
-$TAF_CLI repo validate
-VALIDATION_STATUS=$?
-
-# Check the validation status
-if [ $VALIDATION_STATUS -ne 0 ]; then
-  echo "TAF validation failed. Push aborted."
-  exit 1
-fi
-
-# Allow the push if validation passes
-exit 0
-"""
-
-        with open(pre_push_script, "w") as file:
-            file.write(pre_push_script_content)
-
-        # Make the pre-push script executable
-        pre_push_script.chmod(0o755)
-
-        # Verify that the pre-push hook has been added
-        if pre_push_script.exists() and os.access(pre_push_script, os.X_OK):
-            print("Pre-push hook added successfully.")
+    resources_pre_push_script = Path(__file__).parent / ".." / "resources" / "pre-push"
+    shutil.copy(resources_pre_push_script, pre_push_script)
+    set_executable_permission(pre_push_script)
+    if pre_push_script.exists() and os.access(pre_push_script, os.X_OK):
+        print("Pre-push hook added successfully.")
 
     if not updated:
         repository.writeall()

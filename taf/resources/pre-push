@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Path to the TAF CLI executable
+TAF_CLI="taf"
+
+# Run the TAF validation command
+$TAF_CLI repo validate
+VALIDATION_STATUS=$?
+
+# Check the validation status
+if [ $VALIDATION_STATUS -ne 0 ]; then
+  echo "TAF validation failed. Push aborted."
+  exit 1
+fi
+
+# Allow the push if validation passes
+exit 0
