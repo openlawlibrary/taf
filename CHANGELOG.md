@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- New function taf targets status that prints the state of whole library ([422])
+- New function taf repo status that prints the state of whole library ([422])
 - New function taf roles list that lists all roles in an authentication repository ([421])
 - Reimplemented get_file_details function to not rely on old securesystemslib functions ([420])
 - Clone target repositories to temp ([412, 418])

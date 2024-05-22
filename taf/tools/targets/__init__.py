@@ -8,8 +8,7 @@ from taf.api.targets import (
     remove_target_repo,
     export_targets_history,
     update_and_sign_targets,
-    update_target_repos_from_repositories_json,
-    taf_status,
+    update_target_repos_from_repositories_json
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -236,25 +235,6 @@ def attach_to_group(group):
                     prompt_for_keys=prompt_for_keys,
                     commit=not no_commit
                 )
-        except TAFError as e:
-            click.echo()
-            click.echo(str(e))
-            click.echo()
-
-    @targets.command(context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    ))
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
-    @click.pass_context
-    def status(ctx, path, library_dir):
-        """
-        Print the status of the authentication repository
-        """
-        try:
-            taf_status(path, library_dir)
         except TAFError as e:
             click.echo()
             click.echo(str(e))

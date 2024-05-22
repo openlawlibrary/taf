@@ -14,11 +14,12 @@ from taf.api.roles import (
     create_delegations,
     _initialize_roles_and_keystore,
 )
-from taf.api.targets import register_target_files
+from taf.api.targets import list_targets, register_target_files
 
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
+import taf.repositoriesdb as repositoriesdb
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
@@ -156,3 +157,52 @@ def _check_if_can_create_repository(auth_repo: AuthenticationRepository) -> bool
             ):
                 return False
     return True
+
+
+def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) -> None:
+    """
+    Prints a list of target repositories of an authentication repository, their states,
+    and the dependencies of the authentication repository.
+
+    Arguments:
+        path: Authentication repository's location
+        library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
+        indent (optional): Indentation level for nested dependencies.
+
+    Side Effects:
+       None
+
+    Returns:
+        None
+    """
+    # Get the authentication repository status
+    auth_repo = AuthenticationRepository(path=path)
+    head_commit = auth_repo.head_commit_sha()
+    if head_commit is None:
+        print("Repository is empty")
+        return
+
+    # Print authentication repository status
+    indent_str = " " * indent
+    print(f"{indent_str}Authentication Repository: {auth_repo.path.resolve()}")
+    print(f"{indent_str}Head Commit: {head_commit}")
+    print(f"{indent_str}Bare: {auth_repo.is_bare_repository()}")
+    print(f"{indent_str}Up to Date: {auth_repo.synced_with_remote()}")
+    print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
+    print(f"{indent_str}\nTarget Repositories Status:")
+    # Call the list_targets function
+    list_targets(path=path, library_dir=library_dir)
+
+    # Load and list dependencies
+    print(f"{indent_str}\nDependencies:")
+    repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
+    if auth_repo.dependencies:
+        for dep_name, dep_repo in auth_repo.dependencies.items():
+            print(f"{indent_str}- {dep_name}: {dep_repo.path}")
+            # Recursively call taf_status for each dependency
+            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+                dep_repo, [dep_repo.head_commit_sha()]
+            ).values()
+
+            for child_auth_repo in child_auth_repos:
+                taf_status(str(child_auth_repo.path), library_dir, indent + 2)
