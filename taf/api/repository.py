@@ -2,7 +2,6 @@ from logging import ERROR, INFO
 import shutil
 from typing import Optional
 import click
-import os
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._roles import setup_role
 from taf.messages import git_commit_message

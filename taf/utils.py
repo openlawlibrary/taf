@@ -310,29 +310,25 @@ def to_tuf_datetime_format(start_date, interval):
     return datetime_object.isoformat() + "Z"
 
 
-def set_executable_permission(file_path: Path) -> None:
+def set_executable_permission(file_path: Path) -> bool:
     """
-    Set executable permission for the given file path.
-    Handles cross-platform differences.
+    Set executable permission for the given file path on Unix-like systems.
     """
     try:
-        if platform.system() == "Windows":
-            # Try to set permissions using icacls
-            result = subprocess.run(f"icacls {file_path} /grant Users:F")
-            if result != 0:
-                raise RuntimeError()
-        else:
+        if platform.system() != "Windows":
             # Unix-like systems
             file_path.chmod(0o755)
     except Exception as e:
         print(f"Error setting executable permission: {e}")
-
-    # Check if permissions were set correctly
-    if not os.access(file_path, os.X_OK):
-        print(f"Failed to set pre-push git hook executable permission. Please set it manually for {file_path}.")
         return False
-    else:
-        return True
+
+    # Check if permissions were set correctly on Unix-like systems
+    if platform.system() != "Windows" and not os.access(file_path, os.X_OK):
+        print(
+            f"Failed to set pre-push git hook executable permission. Please set it manually for {file_path}."
+        )
+        return False
+    return True
 
 
 def get_file_details(
