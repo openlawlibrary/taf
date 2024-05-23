@@ -3,21 +3,8 @@
 # Path to the TAF CLI executable
 TAF_CLI="taf"
 
-# Get the name of the current directory (AUTH_REPO_NAME)
-AUTH_REPO_NAME=$(basename "$(pwd)")
-
-# Path to the last validated commit file (one directory above the current directory)
-LAST_VALIDATED_COMMIT_FILE="../_${AUTH_REPO_NAME}/last_validated_commit"
-
-# Check if the last validated commit file exists
-if [ -f "$LAST_VALIDATED_COMMIT_FILE" ]; then
-  VALIDATION_CMD="$TAF_CLI repo validate --latest-commit"
-else
-  VALIDATION_CMD="$TAF_CLI repo validate"
-fi
-
-# Run the TAF validation command
-$VALIDATION_CMD
+# Run the TAF validation command with --from-latest
+$TAF_CLI repo validate --from-latest
 VALIDATION_STATUS=$?
 
 # Check the validation status
