@@ -1374,8 +1374,8 @@ class GitRepository:
         """Push all changes"""
         if branch is None:
             branch = self.get_current_branch()
-        
-        hook_path = Path(self.path) / '.git' / 'hooks' / 'pre-push'
+
+        hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
         if hook_path.exists():
             self._log_info("Validating and pushing...")
 
