@@ -268,5 +268,9 @@ def attach_to_group(group):
         auth_repo = AuthenticationRepository(path=path)
         if from_latest:
             from_commit = auth_repo.last_validated_commit
+            if from_commit is None:
+                print("No last validated commit found. Starting validation from the beginning \n")
+            else:
+                print(f"Starting validation from the last validated commit: {from_commit} \n")
 
         validate_repository(path, library_dir, from_commit, exclude_target, strict)
