@@ -198,11 +198,14 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
     if auth_repo.dependencies:
         for dep_name, dep_repo in auth_repo.dependencies.items():
-            print(f"{indent_str}- {dep_name}: {dep_repo.path}")
-            # Recursively call taf_status for each dependency
-            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-                dep_repo, [dep_repo.head_commit_sha()]
-            ).values()
+            if isinstance(dep_repo, AuthenticationRepository):
+                print(f"{indent_str}- {dep_name}: {dep_repo.path}")
+                # Recursively call taf_status for each dependency
+                child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+                    dep_repo, [dep_repo.head_commit_sha() or ""]
+                ).values()
 
-            for child_auth_repo in child_auth_repos:
-                taf_status(str(child_auth_repo.path), library_dir, indent + 2)
+                for child_auth_repo in child_auth_repos:
+                    taf_status(str(child_auth_repo.path), library_dir, indent + 2)
+            else:
+                print(f"{indent_str}- {dep_name}: {dep_repo}")

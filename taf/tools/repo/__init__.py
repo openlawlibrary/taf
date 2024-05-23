@@ -41,15 +41,15 @@ def repo():
 
 @repo.command()
 @catch_cli_exception(handle=TAFError)
-@click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-@click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores the needed information")
-@click.option("--keystore", default=None, help="Location of the keystore files")
-@click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be committed automatically")
-@click.option("--test", is_flag=True, default=False, help="Indicates if the created repository is a test authentication repository")
+@click.option("--path", default=".", help="Location of the auth repository, defaults to current directory")
+@click.option("--keys-description", help="Dictionary or path to JSON file with key info")
+@click.option("--keystore", default=None, help="Location of keystore files")
+@click.option("--no-commit", is_flag=True, default=False, help="Do not commit changes automatically")
+@click.option("--test", is_flag=True, default=False, help="Create a test authentication repository")
 def create(path, keys_description, keystore, no_commit, test):
     """
-    Create a new authentication repository at the specified location by registering
-    signing keys and generating initial metadata files.
+    Create a new authentication repository at the exact location by registering signing keys and
+    generating initial metadata files.
     """
     create_repository(
         path=path,
