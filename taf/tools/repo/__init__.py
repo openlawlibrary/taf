@@ -1,6 +1,7 @@
 import click
 import json
 from taf.api.repository import create_repository
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
@@ -250,11 +251,12 @@ def attach_to_group(group):
                   "calculated based on authentication repository's path. "
                   "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     @click.option("--from-commit", default=None, help="First commit which should be validated.")
+    @click.option("--from-latest", is_flag=True, default=False, help="Use the last validated commit as the starting point.")
     @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
-    def validate(path, library_dir, from_commit, exclude_target, strict):
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
         """
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
@@ -263,4 +265,8 @@ def attach_to_group(group):
         Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during validate if any/all warnings are found. By default, --strict is disabled.
         """
+        auth_repo = AuthenticationRepository(path=path)
+        if from_latest:
+            from_commit = auth_repo.last_validated_commit
+
         validate_repository(path, library_dir, from_commit, exclude_target, strict)
