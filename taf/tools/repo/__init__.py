@@ -43,13 +43,10 @@ def attach_to_group(group):
     @repo.command()
     @catch_cli_exception(handle=TAFError)
     @click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True))
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                "keys or a path to a json file which stores the needed information")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be "
-                "committed automatically")
-    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
-                "is a test authentication repository")
+    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores the needed information.")
+    @click.option("--keystore", default=None, help="Location of the keystore files.")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be committed automatically.")
+    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository is a test authentication repository.")
     def create(path, keys_description, keystore, no_commit, test):
         """
         \b

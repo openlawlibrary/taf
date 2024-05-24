@@ -468,7 +468,6 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
     else:
         print(infos_json_str)
     return infos_json
-        
 
 
 def _enter_role_info(
@@ -589,7 +588,9 @@ def _initialize_roles_and_keystore(
                 f"Keystore not specified. Using default location {default_keystore_path()}"
             )
             if not Path(default_keystore_path()).is_dir():
-                raise TAFError(f"Default Keystore Path {default_keystore_path()} doesn't exist")
+                raise TAFError(
+                    f"Default Keystore Path {default_keystore_path()} doesn't exist"
+                )
         keystore = roles_key_infos_dict.get("keystore") or default_keystore_path()
         if roles_key_infos is not None and type(roles_key_infos) == str:
             roles_key_infos_path = Path(roles_key_infos)
