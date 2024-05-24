@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Path to the TAF CLI executable
+TAF_CLI="taf"
+
+# Get the last validated commit using the new CLI command
+LAST_VALIDATED_COMMIT=$($TAF_CLI repo latest-commit)
+if [ $? -ne 0 ]; then
+  echo "Failed to retrieve the last validated commit."
+  exit 1
+fi
+
+# Log the commit information before running the validation
+if [ -z "$LAST_VALIDATED_COMMIT" ]; then
+  echo "No last validated commit found. Starting validation from the beginning"
+else
+  echo "Starting validation from the last validated commit: $LAST_VALIDATED_COMMIT"
+fi
+
+# Run the TAF validation command with --from-latest
+$TAF_CLI repo validate --from-latest
+VALIDATION_STATUS=$?
+
+# Check the validation status
+if [ $VALIDATION_STATUS -ne 0 ]; then
+  echo "TAF validation failed. Push aborted."
+  exit 1
+fi
+
+# Allow the push if validation passes
+exit 0
