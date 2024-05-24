@@ -468,6 +468,7 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
     else:
         print(infos_json_str)
     return infos_json
+        
 
 
 def _enter_role_info(
@@ -480,11 +481,11 @@ def _enter_role_info(
 
     role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
     if role_info["yubikey"]:
-        # in case of yubikeys, length and shceme have to have specific values
+        # in case of yubikeys, length and scheme have to have specific values
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
     else:
-        # if keystore is specified and contaisn keys corresponding to this role
+        # if keystore is specified and contains keys corresponding to this role
         # get key size based on the public key
         keystore_length = 0
         if keystore is not None:
@@ -529,17 +530,18 @@ def _enter_role_info(
 
 def _read_val(input_type, name, param=None, required=False):
     default_value_msg = ""
+    default_value = None
     if param is not None:
-        default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
-        if default is not None:
-            default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
+        default_value = DEFAULT_ROLE_SETUP_PARAMS[param]
+        if default_value is not None:
+            default_value_msg = f"(default {default_value}) "
 
     while True:
         try:
             val = input(f"Enter {name} and press ENTER {default_value_msg}")
             if not val:
                 if not required:
-                    return DEFAULT_ROLE_SETUP_PARAMS.get(param)
+                    return default_value
                 else:
                     continue
             return input_type(val)
@@ -577,6 +579,7 @@ def _initialize_roles_and_keystore(
         a yubikey for each role, key length and signing scheme for each role) and keystore file path
     """
     roles_key_infos_dict = read_input_dict(roles_key_infos)
+
     if keystore is None:
         # if keystore path is specified in roles_key_infos and is a relative path
         # it should be relative to the location of the file
@@ -585,6 +588,8 @@ def _initialize_roles_and_keystore(
             taf_logger.info(
                 f"Keystore not specified. Using default location {default_keystore_path()}"
             )
+            if not Path(default_keystore_path()).is_dir():
+                raise TAFError(f"Default Keystore Path {default_keystore_path()} doesn't exist")
         keystore = roles_key_infos_dict.get("keystore") or default_keystore_path()
         if roles_key_infos is not None and type(roles_key_infos) == str:
             roles_key_infos_path = Path(roles_key_infos)
@@ -599,7 +604,6 @@ def _initialize_roles_and_keystore(
                     keystore = str(keystore_path)
 
     if enter_info and not len(roles_key_infos_dict):
-        # ask the user to enter roles, number of keys etc.
         roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
 
     return roles_key_infos_dict, keystore

@@ -60,17 +60,12 @@ def create_repository(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-
     if not _check_if_can_create_repository(auth_repo):
         return
 
     roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
-
-    keystore_path = Path(keystore)
-    if not keystore_path.is_dir():
-        keystore_path.mkdir(parents=False)
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     repository = create_new_repository(
