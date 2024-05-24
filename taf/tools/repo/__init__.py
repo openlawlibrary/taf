@@ -231,7 +231,14 @@ def update_repo_command():
 
 
 def validate_repo_command():
-    @click.command(help="Validates an authentication repository which is already on the file system and its target repositories.")
+    @click.command(help="""
+        Validates an authentication repository which is already on the file system
+        and its target repositories (which are also expected to be on the file system).
+        Does not clone repositories, fetch changes or merge commits.
+
+        Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
+        during validate if any/all warnings are found. By default, --strict is disabled.
+        """)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
