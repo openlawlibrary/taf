@@ -176,6 +176,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
         None
     """
     # Get the authentication repository status
+    print()
     auth_repo = AuthenticationRepository(path=path)
     head_commit = auth_repo.head_commit_sha()
     if head_commit is None:
@@ -189,23 +190,21 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     print(f"{indent_str}Bare: {auth_repo.is_bare_repository()}")
     print(f"{indent_str}Up to Date: {auth_repo.synced_with_remote()}")
     print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
-    print(f"{indent_str}\nTarget Repositories Status:")
+    print(f"{indent_str}Target Repositories Status:")
     # Call the list_targets function
     list_targets(path=path, library_dir=library_dir)
 
-    # Load and list dependencies
-    print(f"{indent_str}\nDependencies:")
     repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
     if auth_repo.dependencies:
         for dep_name, dep_repo in auth_repo.dependencies.items():
-            if isinstance(dep_repo, AuthenticationRepository):
-                print(f"{indent_str}- {dep_name}: {dep_repo.path}")
-                # Recursively call taf_status for each dependency
-                child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-                    dep_repo, [dep_repo.head_commit_sha() or ""]
-                ).values()
+            if isinstance(dep_repo, dict):
+                # Derive path from the current directory
+                repo_path = Path(path).parent / dep_name
+                dep_repo = AuthenticationRepository(path=str(repo_path))
 
-                for child_auth_repo in child_auth_repos:
-                    taf_status(str(child_auth_repo.path), library_dir, indent + 2)
+            if isinstance(dep_repo, AuthenticationRepository):
+                # repositoriesdb.load_dependencies(dep_repo, library_dir=library_dir)
+                print(f"{indent_str}\nDependencies:")
+                taf_status(str(dep_repo.path), library_dir, indent + 3)
             else:
-                print(f"{indent_str}- {dep_name}: {dep_repo}")
+                print(f"{indent_str}- {dep_name}: {dep_repo} (type: {type(dep_repo)})")
