@@ -194,17 +194,11 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     # Call the list_targets function
     list_targets(path=path, library_dir=library_dir)
 
+    # Load dependencies using repositoriesdb.get_auth_repositories
     repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)
-    if auth_repo.dependencies:
-        for dep_name, dep_repo in auth_repo.dependencies.items():
-            if isinstance(dep_repo, dict):
-                # Derive path from the current directory
-                repo_path = Path(path).parent / dep_name
-                dep_repo = AuthenticationRepository(path=str(repo_path))
-
-            if isinstance(dep_repo, AuthenticationRepository):
-                # repositoriesdb.load_dependencies(dep_repo, library_dir=library_dir)
-                print(f"{indent_str}\nDependencies:")
-                taf_status(str(dep_repo.path), library_dir, indent + 3)
-            else:
-                print(f"{indent_str}- {dep_name}: {dep_repo} (type: {type(dep_repo)})")
+    dependencies = repositoriesdb.get_auth_repositories(auth_repo, head_commit)
+    if dependencies:
+        print(f"{indent_str}Dependencies:")
+        for dep_repo in dependencies.values():
+            print(f"{indent_str}- {dep_repo.name}")
+            taf_status(str(dep_repo.path), library_dir, indent + 3)
