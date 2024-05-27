@@ -1,4 +1,5 @@
 from logging import ERROR, INFO
+import shutil
 from typing import Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
@@ -20,6 +21,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
+from taf.utils import set_executable_permission
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
@@ -85,8 +87,7 @@ def create_repository(
     )
     if signing_keys is None:
         return
-    # set threshold and register keys of main roles
-    # we cannot do the same for the delegated roles until delegations are created
+
     for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
         setup_role(
             role,
@@ -99,14 +100,12 @@ def create_repository(
         roles_keys_data.roles.targets, repository, verification_keys, signing_keys
     )
 
-    # if the repository is a test repository, add a target file called test-auth-repo
     if test:
         test_auth_file = (
             Path(auth_repo.path, auth_repo.targets_path) / auth_repo.TEST_REPO_FLAG_FILE
         )
         test_auth_file.touch()
 
-    # register and sign target files (if any)
     auth_repo._tuf_repository = repository
     updated = register_target_files(
         path,
@@ -117,6 +116,16 @@ def create_repository(
         write=True,
         no_commit_warning=True,
     )
+
+    hooks_dir = Path(auth_repo.path) / ".git" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    pre_push_script = hooks_dir / "pre-push"
+    resources_pre_push_script = Path(__file__).parent / ".." / "resources" / "pre-push"
+    shutil.copy(resources_pre_push_script, pre_push_script)
+    script_permission = set_executable_permission(pre_push_script)
+    if pre_push_script.exists() and script_permission:
+        taf_logger.info("Pre-push hook added successfully.")
+
     if not updated:
         repository.writeall()
 
