@@ -130,7 +130,7 @@ def add_target_repo(
     elif role != "targets":
         # delegated role paths are not specified for the top-level targets role
         # the targets role is responsible for signing all paths not
-        # delegates to another target role
+        # delegated to another target role
         taf_logger.info("Role already exists")
         add_role_paths(
             paths=[target_name],
