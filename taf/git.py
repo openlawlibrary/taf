@@ -1375,6 +1375,10 @@ class GitRepository:
         if branch is None:
             branch = self.get_current_branch()
 
+        hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
+        if hook_path.exists():
+            self._log_info("Validating and pushing...")
+
         upstream_flag = "-u" if set_upstream else ""
         force_flag = "-f" if force else ""
         self._git(

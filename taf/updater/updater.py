@@ -659,7 +659,7 @@ def validate_repository(
             raise error
     except Exception as e:
         raise ValidationFailedError(
-            f"Validation or repository {auth_repo_name or ''} failed due to error: {e}"
+            f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
         )
     settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = None

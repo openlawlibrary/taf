@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Fix add_target_repo when signing role is the top-level targets role ([431])
+- New git hook that validates repo before push ([422])
 - New function taf roles list that lists all roles in an authentication repository ([421])
 - Reimplemented get_file_details function to not rely on old securesystemslib functions ([420])
 - Clone target repositories to temp ([412, 418])
 - Add architecture overview documentation ([405])
 
 [431]: https://github.com/openlawlibrary/taf/pull/431
+[422]: https://github.com/openlawlibrary/taf/pull/422
 [421]: https://github.com/openlawlibrary/taf/pull/421
 [420]: https://github.com/openlawlibrary/taf/pull/420
 [412]: https://github.com/openlawlibrary/taf/pull/412
