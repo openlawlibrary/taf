@@ -577,7 +577,7 @@ def update_target_repos_from_repositories_json(
 @check_if_clean
 def update_and_sign_targets(
     path: str,
-    library_dir: str,
+    library_dir: Optional[str],
     target_types: list,
     keystore: str,
     roles_key_infos: str,
@@ -608,7 +608,7 @@ def update_and_sign_targets(
     repo_path = Path(path).resolve()
     auth_repo = AuthenticationRepository(path=repo_path)
     if library_dir is None:
-        library_dir = str(path.parent.parent)
+        library_dir = str(repo_path.parent.parent)  # Ensure this uses the Path object
     repositoriesdb.load_repositories(auth_repo)
     nonexistent_target_types = []
     target_names = []
