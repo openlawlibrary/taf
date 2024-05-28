@@ -1,6 +1,6 @@
 import click
 import json
-from taf.api.repository import create_repository, taf_status
+from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
@@ -271,20 +271,6 @@ def latest_commit_command():
     return latest_commit
 
 
-def status_command():
-    @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
-    def status(path, library_dir):
-        try:
-            taf_status(path, library_dir)
-        except TAFError as e:
-            click.echo()
-            click.echo(f"Error: {e}")
-            click.echo()
-    return status
-
-
 def attach_to_group(group):
     repo = click.Group(name='repo')
 
@@ -293,6 +279,5 @@ def attach_to_group(group):
     repo.add_command(update_repo_command(), name='update')
     repo.add_command(validate_repo_command(), name='validate')
     repo.add_command(latest_commit_command(), name='latest-commit')
-    repo.add_command(status_command(), name='status')
 
     group.add_command(repo)
