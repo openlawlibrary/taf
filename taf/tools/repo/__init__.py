@@ -79,7 +79,7 @@ def create_repo_command():
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """)
     @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.argument("path", type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True))
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -96,7 +96,6 @@ def create_repo_command():
             test=test,
         )
     return create
-
 
 def clone_repo_command():
     @click.command(help="""
