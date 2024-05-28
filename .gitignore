@@ -125,9 +125,12 @@ dmypy.json
 # error logs
 *.err
 
-# extenral libs
+# external libs
 *.dylib
 *.dll
 
 # IDE
 .vscode/settings.json
+
+# macOS specific files
+.DS_Store
