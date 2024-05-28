@@ -1,3 +1,5 @@
+
+
 import click
 from taf.api.targets import (
     list_targets,
@@ -6,7 +8,7 @@ from taf.api.targets import (
     remove_target_repo,
     export_targets_history,
     update_and_sign_targets,
-    update_target_repos_from_repositories_json,
+    update_target_repos_from_repositories_json
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -53,7 +55,7 @@ def attach_to_group(group):
         In this case, serve: latest will be added to the custom part of the target repository's entry in
         repositories.json.
 
-        If the repository does ot exists, it is sufficient to provide its namespace prefixed name
+        If the repository does not exist, it is sufficient to provide its namespace prefixed name
         instead of the full filesystem path. If the repository's path is not provided, it is expected
         to be located in the same library root directory as the authentication repository,
         in a directory whose name corresponds to its name. If authentication repository's path

@@ -1,6 +1,6 @@
 import click
 import json
-from taf.api.repository import create_repository
+from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
@@ -100,7 +100,7 @@ def create_repo_command():
 
 def clone_repo_command():
     @click.command(help="""
-        Validate and clone the authentication repository and target repositories. URL of the
+        Validate and clone authentication repositories and target repositories. URL of the
         remote authentication repository must be specified when calling this command. If the remote repository's URL is a file system path, the --from-fs flag must be used.
 
         The path to the authentication repository directory either read from targets/protected/info.json
@@ -169,7 +169,7 @@ def clone_repo_command():
 
 def update_repo_command():
     @click.command(help="""
-        Update and validate the local authentication repository and target repositories.
+        Update and validate local authentication repositories and target repositories.
 
         If the authentication repository and the target repositories are in the same root directory,
         the locations of the target repositories are calculated based on the authentication repository's
@@ -271,6 +271,20 @@ def latest_commit_command():
     return latest_commit
 
 
+def status_command():
+    @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
+    def status(path, library_dir):
+        try:
+            taf_status(path, library_dir)
+        except TAFError as e:
+            click.echo()
+            click.echo(f"Error: {e}")
+            click.echo()
+    return status
+
+
 def attach_to_group(group):
     repo = click.Group(name='repo')
 
@@ -279,5 +293,6 @@ def attach_to_group(group):
     repo.add_command(update_repo_command(), name='update')
     repo.add_command(validate_repo_command(), name='validate')
     repo.add_command(latest_commit_command(), name='latest-commit')
+    repo.add_command(status_command(), name='status')
 
     group.add_command(repo)
