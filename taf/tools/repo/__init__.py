@@ -97,6 +97,7 @@ def create_repo_command():
         )
     return create
 
+
 def clone_repo_command():
     @click.command(help="""
         Validate and clone authentication repositories and target repositories. URL of the
