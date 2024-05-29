@@ -33,7 +33,7 @@ from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
     DEFAULT_RSA_SIGNATURE_SCHEME,
 )
-from taf.keystore import default_keystore_path, new_public_key_cmd_prompt
+from taf.keystore import new_public_key_cmd_prompt
 from taf.repository_tool import is_delegated_role
 from taf.utils import get_key_size, read_input_dict
 from taf.log import taf_logger
@@ -555,7 +555,7 @@ def _initialize_roles_and_keystore(
 ) -> Tuple[Dict, str]:
     """
     Read information about roles and keys from a json file or ask the user to enter
-    this information if not specified through a json file enter_info is True
+    this information if not specified through a json file and enter_info is True
 
     Arguments:
         roles_key_infos: A dictionary containing information about the roles:
@@ -566,7 +566,7 @@ def _initialize_roles_and_keystore(
             - scheme (the default scheme is rsa-pkcs1v15-sha256)
             - keystore path, if not specified via keystore option
         keystore: Location of the keystore files.
-        enter_info (optional): Indicates if the user should be asked to enter information about the.
+        enter_info (optional): Indicates if the user should be asked to enter information about the
         roles and keys if not specified. Set to True by default.
 
     Side Effects:
@@ -577,35 +577,33 @@ def _initialize_roles_and_keystore(
         parent roles of roles, threshold of signatures per role, indicator if metadata should be signed using
         a yubikey for each role, key length and signing scheme for each role) and keystore file path
     """
+
+    def resolve_keystore_path(keystore: str, roles_key_infos: Optional[str]) -> str:
+        keystore_path = Path(keystore).expanduser().resolve()
+        if roles_key_infos:
+            roles_key_infos_path = Path(roles_key_infos)
+            if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
+                keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
+        return str(keystore_path)
+
     roles_key_infos_dict = read_input_dict(roles_key_infos)
 
     if keystore is None:
-        # if keystore path is specified in roles_key_infos and is a relative path
-        # it should be relative to the location of the file
-        # roles_key_infos can either be path to a json file, or a dictionary (or not provided)
-        if "keystore" not in roles_key_infos_dict:
-            taf_logger.info(
-                f"Keystore not specified. Using default location {default_keystore_path()}"
-            )
-            if not Path(default_keystore_path()).is_dir():
-                raise TAFError(
-                    f"Default Keystore Path {default_keystore_path()} doesn't exist"
-                )
-        keystore = roles_key_infos_dict.get("keystore") or default_keystore_path()
-        if roles_key_infos is not None and type(roles_key_infos) == str:
-            roles_key_infos_path = Path(roles_key_infos)
-            if roles_key_infos_path.is_file() and "keystore" in roles_key_infos_dict:
-                keystore_path = (
-                    Path(roles_key_infos_dict["keystore"]).expanduser().resolve()
-                )
-                if not keystore_path.is_absolute():
-                    keystore_path = (
-                        roles_key_infos_path.parent / keystore_path
-                    ).resolve()
-                    keystore = str(keystore_path)
+        keystore = roles_key_infos_dict.get("keystore")
+        if keystore:
+            keystore = resolve_keystore_path(keystore, roles_key_infos)
 
-    if enter_info and not len(roles_key_infos_dict):
+    if enter_info and not roles_key_infos_dict:
         roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
+        keystore = roles_key_infos_dict.get("keystore")
+        if keystore:
+            keystore = resolve_keystore_path(keystore, roles_key_infos)
+
+    if not keystore:
+        raise TAFError("Please provide keystore path.")
+
+    if not Path(keystore).exists():
+        raise TAFError(f"Keystore path {keystore} does not exist.")
 
     return roles_key_infos_dict, keystore
 
