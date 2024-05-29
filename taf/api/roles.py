@@ -438,9 +438,10 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
             "Enter keystore location if keys should be loaded from or generated to keystore files (leave empty otherwise): "
         )
         if len(keystore):
-            if not Path(keystore).is_dir():
-                taf_logger.info(f"{keystore} does not exist")
-                keystore = None
+            keystore_path = Path(keystore)
+            if not keystore_path.is_dir():
+                keystore_path.mkdir(parents=True, exist_ok=True)
+                print(f"Creating keystore directory at {keystore_path}")
 
     if keystore:
         infos_json["keystore"] = keystore
@@ -602,9 +603,10 @@ def _initialize_roles_and_keystore(
     if not keystore:
         raise TAFError("Please provide keystore path.")
 
-    if not Path(keystore).exists():
-        raise TAFError(f"Keystore path {keystore} does not exist.")
-
+    keystore_path = Path(keystore)
+    if not keystore_path.exists():
+        keystore_path.mkdir(parents=True, exist_ok=True)
+        print(f"Created keystore directory at {keystore}")
     return roles_key_infos_dict, keystore
 
 
