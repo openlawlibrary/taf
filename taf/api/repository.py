@@ -65,7 +65,7 @@ def create_repository(
     if not _check_if_can_create_repository(auth_repo):
         return
 
-    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
@@ -78,6 +78,7 @@ def create_repository(
         roles=roles_keys_data.roles,
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
+        skip_prompt=skip_prompt,
     )
     if signing_keys is None:
         return

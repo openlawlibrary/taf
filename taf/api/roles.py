@@ -246,7 +246,7 @@ def add_roles(
     """
     auth_repo = AuthenticationRepository(path=path)
 
-    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
@@ -350,7 +350,7 @@ def add_signing_key(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    _, keystore = _initialize_roles_and_keystore(
+    _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
 
@@ -542,7 +542,7 @@ def _initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
-) -> Tuple[Dict, str]:
+) -> Tuple[Dict, str, bool]:
     """
     Read information about roles and keys from a json file or ask the user to enter
     this information if not specified through a json file and enter_info is True.
@@ -567,6 +567,8 @@ def _initialize_roles_and_keystore(
         parent roles of roles, threshold of signatures per role, indicator if metadata should be signed using
         a yubikey for each role, key length and signing scheme for each role) and keystore file path.
     """
+
+    skip_prompt = False
 
     roles_key_infos_dict = read_input_dict(roles_key_infos)
 
@@ -593,12 +595,14 @@ def _initialize_roles_and_keystore(
                     if use_keystore in ["y", "n"]:
                         break
                 if use_keystore == "y":
-                    keystore = input("Please provide keystore path: ").strip()
+                    keystore = input(
+                        "Enter keystore path (default ./keystore): "
+                    ).strip()
                 else:
                     print(
-                        "Assuming the keys will be entered using and printed to the command line."
+                        "Keys will be entered using the command line and saved to ./keystore"
                     )
-                    keystore = "."
+                    keystore = "./keystore"
 
     keystore = resolve_keystore_path(keystore, roles_key_infos)
     roles_key_infos_dict["keystore"] = keystore
@@ -617,13 +621,14 @@ def _initialize_roles_and_keystore(
             keystore_path.mkdir(parents=True, exist_ok=True)
             roles_key_infos_dict["keystore"] = keystore
             print(f"Created keystore directory at {keystore}")
+            skip_prompt = True
             break
         else:
             enter_new_path = (
                 input("Do you want to enter a different path? [y/N]: ").strip().lower()
             )
             if enter_new_path == "y":
-                keystore = input("Please provide a different keystore path: ").strip()
+                keystore = input("Enter a different keystore path: ").strip()
                 keystore = resolve_keystore_path(keystore, roles_key_infos)
                 roles_key_infos_dict["keystore"] = keystore
             else:
@@ -631,9 +636,10 @@ def _initialize_roles_and_keystore(
                     "Assuming the keys will be entered using and printed to the command line."
                 )
                 keystore = "."
+                skip_prompt = True
                 break
 
-    return roles_key_infos_dict, keystore
+    return roles_key_infos_dict, keystore, skip_prompt
 
 
 def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
