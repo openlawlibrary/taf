@@ -35,7 +35,7 @@ from taf.constants import (
 )
 from taf.keystore import new_public_key_cmd_prompt
 from taf.repository_tool import is_delegated_role
-from taf.utils import get_key_size, read_input_dict
+from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
 
@@ -233,7 +233,6 @@ def add_roles(
         path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
         roles_key_infos: Path to a json file which contains information about repository's roles and keys.
-        auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -433,16 +432,6 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
         role_key_infos[role] = _enter_role_info(role, role == "targets", keystore)
     infos_json["roles"] = role_key_infos
 
-    while keystore is None:
-        keystore = input(
-            "Enter keystore location if keys should be loaded from or generated to keystore files (leave empty otherwise): "
-        )
-        if len(keystore):
-            keystore_path = Path(keystore)
-            if not keystore_path.is_dir():
-                keystore_path.mkdir(parents=True, exist_ok=True)
-                print(f"Creating keystore directory at {keystore_path}")
-
     if keystore:
         infos_json["keystore"] = keystore
 
@@ -556,7 +545,7 @@ def _initialize_roles_and_keystore(
 ) -> Tuple[Dict, str]:
     """
     Read information about roles and keys from a json file or ask the user to enter
-    this information if not specified through a json file and enter_info is True
+    this information if not specified through a json file and enter_info is True.
 
     Arguments:
         roles_key_infos: A dictionary containing information about the roles:
@@ -576,37 +565,74 @@ def _initialize_roles_and_keystore(
     Returns:
         A dictionary containing entered information about taf roles and keys (total number of keys per role,
         parent roles of roles, threshold of signatures per role, indicator if metadata should be signed using
-        a yubikey for each role, key length and signing scheme for each role) and keystore file path
+        a yubikey for each role, key length and signing scheme for each role) and keystore file path.
     """
-
-    def resolve_keystore_path(keystore: str, roles_key_infos: Optional[str]) -> str:
-        keystore_path = Path(keystore).expanduser().resolve()
-        if roles_key_infos:
-            roles_key_infos_path = Path(roles_key_infos)
-            if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
-                keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
-        return str(keystore_path)
 
     roles_key_infos_dict = read_input_dict(roles_key_infos)
 
-    if keystore is None:
-        keystore = roles_key_infos_dict.get("keystore")
-        if keystore:
-            keystore = resolve_keystore_path(keystore, roles_key_infos)
+    if not roles_key_infos_dict and enter_info:
+        roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
 
-    if enter_info and not roles_key_infos_dict:
-        roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
-        keystore = roles_key_infos_dict.get("keystore")
-        if keystore:
-            keystore = resolve_keystore_path(keystore, roles_key_infos)
+    # Check if all keys should be loaded from/stored to Yubikeys
+    use_yubikeys = all(
+        role_info.get("yubikey", False) for role_info in roles_key_infos_dict.values()
+    )
 
-    if not keystore:
-        raise TAFError("Please provide keystore path.")
+    if not use_yubikeys:
+        if not keystore:
+            keystore = roles_key_infos_dict.get("keystore")
+            if not keystore:
+                while True:
+                    use_keystore = (
+                        input(
+                            "Do you want to save/load keys from keystore files? [y/N]: "
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if use_keystore in ["y", "n"]:
+                        break
+                if use_keystore == "y":
+                    keystore = input("Please provide keystore path: ").strip()
+                else:
+                    print(
+                        "Assuming the keys will be entered using and printed to the command line."
+                    )
+                    keystore = "."
 
-    keystore_path = Path(keystore)
-    if not keystore_path.exists():
-        keystore_path.mkdir(parents=True, exist_ok=True)
-        print(f"Created keystore directory at {keystore}")
+    keystore = resolve_keystore_path(keystore, roles_key_infos)
+    roles_key_infos_dict["keystore"] = keystore
+    while True:
+        keystore_path = Path(keystore)
+        if keystore_path.exists():
+            break
+        create_keystore = (
+            input(
+                f"Keystore directory {keystore_path} does not exist. Do you want to create it? [y/N]: "
+            )
+            .strip()
+            .lower()
+        )
+        if create_keystore == "y":
+            keystore_path.mkdir(parents=True, exist_ok=True)
+            roles_key_infos_dict["keystore"] = keystore
+            print(f"Created keystore directory at {keystore}")
+            break
+        else:
+            enter_new_path = (
+                input("Do you want to enter a different path? [y/N]: ").strip().lower()
+            )
+            if enter_new_path == "y":
+                keystore = input("Please provide a different keystore path: ").strip()
+                keystore = resolve_keystore_path(keystore, roles_key_infos)
+                roles_key_infos_dict["keystore"] = keystore
+            else:
+                print(
+                    "Assuming the keys will be entered using and printed to the command line."
+                )
+                keystore = "."
+                break
+
     return roles_key_infos_dict, keystore
 
 
