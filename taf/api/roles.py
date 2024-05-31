@@ -592,11 +592,12 @@ def _initialize_roles_and_keystore(
                 if use_keystore in ["y", "n"]:
                     break
             if use_keystore == "y":
-                keystore = input("Enter keystore path (default ./keystore): ").strip()
-            else:
-                print(
-                    "Keys will be entered using the command line and saved to ./keystore"
+                keystore = (
+                    input("Enter keystore path (default ./keystore): ").strip()
+                    or "./keystore"
                 )
+            else:
+                taf_logger.info("Keys will be entered/printed from/to command line")
 
     if keystore is not None:
         keystore = resolve_keystore_path(keystore, roles_key_infos)
@@ -913,7 +914,7 @@ def _remove_path_from_role_info(
 def _update_role(
     auth_repo: AuthenticationRepository,
     role: str,
-    keystore: str,
+    keystore: Optional[str],
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
 ) -> None:
