@@ -468,9 +468,10 @@ def _setup_keystore_key(
             )
         else:
             rsa_key = keys.generate_rsa_key(bits=length)
-            public_key = rsa_key["keyval"]["public"]
-            private_key = rsa_key["keyval"]["private"]
-            print(f"{role_name} key:\n\n{private_key}\n\n")
+            private_key_val = rsa_key["keyval"]["private"]
+            print(f"{role_name} key:\n\n{private_key_val}\n\n")
+            public_key = rsa_key
+            private_key = rsa_key
 
     return public_key, private_key
 
