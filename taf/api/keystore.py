@@ -65,7 +65,7 @@ def generate_keys(keystore: str, roles_key_infos: str) -> None:
     Returns:
         None
     """
-    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 

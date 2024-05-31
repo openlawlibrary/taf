@@ -349,7 +349,7 @@ def register_target_files(
     Returns:
         True if there were targets that were updated, False otherwise
     """
-    _, keystore = _initialize_roles_and_keystore(
+    _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
     if taf_repo is None:
