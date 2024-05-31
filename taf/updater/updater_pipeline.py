@@ -148,10 +148,7 @@ class Pipeline:
         concurrent_steps = self.concurrent_steps()
 
         with ThreadPoolExecutor() as executor:
-            future_to_step = {
-                executor.submit(self.timed_execution, step): step
-                for step in concurrent_steps
-            }
+            future_to_step = {executor.submit(step): step for step in concurrent_steps}
 
             for future in as_completed(future_to_step):
                 step = future_to_step[future]
