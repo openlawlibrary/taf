@@ -542,7 +542,7 @@ def _initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
-) -> Tuple[Dict, str, bool]:
+) -> Tuple[Dict, Optional[str], bool]:
     """
     Read information about roles and keys from a json file or ask the user to enter
     this information if not specified through a json file and enter_info is True.
@@ -592,14 +592,11 @@ def _initialize_roles_and_keystore(
                 if use_keystore in ["y", "n"]:
                     break
             if use_keystore == "y":
-                keystore = input(
-                    "Enter keystore path (default ./keystore): "
-                ).strip()
+                keystore = input("Enter keystore path (default ./keystore): ").strip()
             else:
                 print(
                     "Keys will be entered using the command line and saved to ./keystore"
                 )
-
 
     if keystore is not None:
         keystore = resolve_keystore_path(keystore, roles_key_infos)
