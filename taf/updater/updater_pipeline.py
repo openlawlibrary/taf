@@ -12,6 +12,7 @@ from attr import attrs, define, field
 from taf.git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
+import time
 
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
@@ -62,16 +63,9 @@ class UpdateState:
     errors: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
     last_validated_commit: str = field(factory=str)
-    # repositories inside the temp folder which are created and cleaned up
-    # during the update process
     temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
-    # permanent repositories inside the user's local direcotry
     users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
-    # a dictionary of repositories which are already present inside a user's local and
-    # directory when the update is started
     repos_on_disk: Dict[str, GitRepository] = field(factory=dict)
-    # a dictionary of repositories which are not present inside a user's local
-    # directory when the update is started
     repos_not_on_disk: Dict[str, GitRepository] = field(factory=dict)
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
@@ -153,7 +147,12 @@ class Pipeline:
             for future in as_completed(future_to_step):
                 step = future_to_step[future]
                 try:
+                    start_time = time.time()
                     result = future.result()
+                    end_time = time.time()
+                    print(
+                        f"Step {step.__name__} took {end_time - start_time:.2f} seconds"
+                    )
                     if result == UpdateStatus.FAILED:
                         self.state.update_status = UpdateStatus.FAILED
                         raise UpdateFailedError(f"Step {step.__name__} failed.")
@@ -173,7 +172,12 @@ class Pipeline:
                 try:
                     if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
                         self.current_step = step
+                        start_time = time.time()
                         update_status = step()
+                        end_time = time.time()
+                        print(
+                            f"Step {step.__name__} took {end_time - start_time:.2f} seconds"
+                        )
                         combined_status = combine_statuses(
                             self.state.update_status, update_status
                         )
@@ -641,10 +645,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             self.state.repos_on_disk = {}
             self.state.repos_not_on_disk = {}
-            for temp_repo in self.state.temp_target_repositories.values():
-                users_repo = self.state.users_target_repositories[temp_repo.name]
-                is_git_repository = users_repo.is_git_repository_root
-                if is_git_repository:
+
+            def clone_repo_to_temp(temp_repo, users_repo):
+                if users_repo.is_git_repository_root:
                     temp_repo.clone_from_disk(
                         users_repo.path,
                         users_repo.get_remote_url(),
@@ -654,6 +657,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     temp_repo.clone(bare=True)
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
+
+            with ThreadPoolExecutor() as executor:
+                futures = []
+                for temp_repo in self.state.temp_target_repositories.values():
+                    users_repo = self.state.users_target_repositories[temp_repo.name]
+                    futures.append(
+                        executor.submit(clone_repo_to_temp, temp_repo, users_repo)
+                    )
+
+                for future in as_completed(futures):
+                    future.result()
+
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -1289,13 +1304,13 @@ def _clone_validation_repo(url):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
-    to a the temp directory and will be deleted one the update is done.
+    to the temp directory and will be deleted once the update is done.
 
     If repository_name isn't provided (default value), extract it from info.json.
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(
+    validation_auth_repo = GitRepository(
         path=path, urls=[url], alias="Validation repository"
     )
     validation_auth_repo.clone(bare=True)
