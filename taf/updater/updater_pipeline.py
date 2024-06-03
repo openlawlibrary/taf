@@ -62,9 +62,16 @@ class UpdateState:
     errors: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
     last_validated_commit: str = field(factory=str)
+    # repositories inside the temp folder which are created and cleaned up
+    # during the update process
     temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
+    # permanent repositories inside the user's local direcotry
     users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
+    # a dictionary of repositories which are already present inside a user's local and
+    # directory when the update is started
     repos_on_disk: Dict[str, GitRepository] = field(factory=dict)
+    # a dictionary of repositories which are not present inside a user's local
+    # directory when the update is started
     repos_not_on_disk: Dict[str, GitRepository] = field(factory=dict)
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
@@ -329,6 +336,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         settings.update_from_filesystem = self.update_from_filesystem
         settings.conf_directory_root = self.conf_directory_root
 
+        # set last validated commit before running the updater
+        # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE_OR_UPDATE:
             if (
                 self.auth_path is not None
@@ -355,6 +364,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 validation_repo = future_validation_repo.result()
 
+            # check if auth path is provided and if that is not the case
+            # check if info.json exists. info.json will be read after validation
+            # at revision determined by the last validated commit
+            # but we do not want the user to have to wait for the validation to be over
+            # before raising an error because info.json is missing
             top_commit_of_validation_repo = validation_repo.top_commit_of_branch(
                 validation_repo.default_branch
             )
@@ -376,6 +390,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if last_validated_remote_commit is None and error is not None:
                 raise error
 
+            # having validated the repository, read info.json from the last
+            # valid commit if it is not the same as the most recent commit
             if self.state.auth_repo_name is None:
                 if top_commit_of_validation_repo != last_validated_remote_commit:
                     self.state.auth_repo_name = (
@@ -400,6 +416,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
 
+            # used for testing purposes
             if settings.overwrite_last_validated_commit:
                 self.state.last_validated_commit = settings.last_validated_commit
             else:
@@ -451,6 +468,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
         finally:
+            # always clean up repository updater
             if git_updater is not None:
                 git_updater.cleanup()
 
@@ -755,6 +773,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
     def get_target_repositories_commits(self):
+        """Returns a list of newly fetched commits belonging to the specified branch."""
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
 
         def fetch_commits(repository, branch, old_head):
@@ -1268,13 +1287,13 @@ def _clone_validation_repo(url):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
-    to the temp directory and will be deleted once the update is done.
+    to a the temp directory and will be deleted one the update is done.
 
     If repository_name isn't provided (default value), extract it from info.json.
     """
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = GitRepository(
+    validation_auth_repo = AuthenticationRepository(
         path=path, urls=[url], alias="Validation repository"
     )
     validation_auth_repo.clone(bare=True)
