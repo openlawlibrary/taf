@@ -336,8 +336,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         settings.update_from_filesystem = self.update_from_filesystem
         settings.conf_directory_root = self.conf_directory_root
 
-        # set last validated commit before running the updater
-        # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE_OR_UPDATE:
             if (
                 self.auth_path is not None
@@ -346,7 +344,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.operation = OperationType.UPDATE
             else:
                 self.operation = OperationType.CLONE
-
+        # set last validated commit before running the updater
+        # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
             settings.last_validated_commit = None
         elif not settings.overwrite_last_validated_commit:
