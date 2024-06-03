@@ -358,9 +358,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    @log_on_start(
-        INFO, "Cloning repository and running TUF updater...", logger=taf_logger
-    )
+    @log_on_start(INFO, "Cloning repository and running TUF updater...", logger=taf_logger)
     @cleanup_decorator
     def clone_remote_and_run_tuf_updater(self):
         settings.update_from_filesystem = self.update_from_filesystem
@@ -375,8 +373,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 self.operation = OperationType.CLONE
 
-        # set last validated commit before running the updater
-        # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
             settings.last_validated_commit = None
         elif not settings.overwrite_last_validated_commit:
@@ -389,14 +385,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             validation_repo = _clone_validation_repo(self.url)
 
-            # check if auth path is provided and if that is not the case
-            # check if info.json exists. info.json will be read after validation
-            # at revision determined by the last validated commit
-            # but we do not want the user to have to wait for the validation to be over
-            # before raising an error because info.json is missing
-            top_commit_of_validation_repo = validation_repo.top_commit_of_branch(
-                validation_repo.default_branch
-            )
+            top_commit_of_validation_repo = validation_repo.top_commit_of_branch(validation_repo.default_branch)
             auth_repo_name = None
             git_updater = None
 
@@ -404,19 +393,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 auth_repo_name = GitRepository(path=self.auth_path).name
                 self.state.auth_repo_name = auth_repo_name
             else:
-                auth_repo_name = _get_repository_name_raise_error_if_not_defined(
-                    validation_repo, top_commit_of_validation_repo
-                )
+                auth_repo_name = _get_repository_name_raise_error_if_not_defined(validation_repo, top_commit_of_validation_repo)
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
-            last_validated_remote_commit, error = _run_tuf_updater(
-                git_updater, auth_repo_name
-            )
+            last_validated_remote_commit, error = _run_tuf_updater(git_updater, auth_repo_name)
             if last_validated_remote_commit is None and error is not None:
                 raise error
 
-            # having validated the repository, read info.json from the last
-            # valid commit if it is not the same as the most recent commit
             if self.state.auth_repo_name is None:
                 if top_commit_of_validation_repo != last_validated_remote_commit:
                     self.state.auth_repo_name = (
@@ -441,7 +424,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
 
-            # used for testing purposes
             if settings.overwrite_last_validated_commit:
                 self.state.last_validated_commit = settings.last_validated_commit
             else:
@@ -493,7 +475,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
         finally:
-            # always clean up repository updater
             if git_updater is not None:
                 git_updater.cleanup()
 
