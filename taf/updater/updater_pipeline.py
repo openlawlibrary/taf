@@ -12,7 +12,6 @@ from attr import attrs, define, field
 from taf.git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
-import time
 
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
@@ -138,62 +137,24 @@ class Pipeline:
 
     def run(self):
         self.state.errors = []
-
-        concurrent_steps = self.concurrent_steps()
-
-        with ThreadPoolExecutor() as executor:
-            future_to_step = {executor.submit(step): step for step in concurrent_steps}
-
-            for future in as_completed(future_to_step):
-                step = future_to_step[future]
-                try:
-                    start_time = time.time()
-                    result = future.result()
-                    end_time = time.time()
-                    print(
-                        f"Step {step.__name__} took {end_time - start_time:.2f} seconds"
-                    )
-                    if result == UpdateStatus.FAILED:
-                        self.state.update_status = UpdateStatus.FAILED
-                        raise UpdateFailedError(f"Step {step.__name__} failed.")
-                except Exception as e:
-                    self.state.errors.append(e)
-                    self.state.event = Event.FAILED
-                    self.state.update_status = UpdateStatus.FAILED
-                    break
-
-        if self.state.update_status == UpdateStatus.FAILED:
-            self.handle_error(self.state.errors[-1])
-            self.set_output()
-            return
-
         for step, step_run_mode in self.steps:
-            if step not in concurrent_steps:
-                try:
-                    if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
-                        self.current_step = step
-                        start_time = time.time()
-                        update_status = step()
-                        end_time = time.time()
-                        print(
-                            f"Step {step.__name__} took {end_time - start_time:.2f} seconds"
-                        )
-                        combined_status = combine_statuses(
-                            self.state.update_status, update_status
-                        )
-                        self.state.update_status = combined_status
-                        if combined_status == UpdateStatus.FAILED:
-                            message = "\n".join(
-                                str(error) for error in self.state.errors
-                            )
-                            raise UpdateFailedError(message)
-                except Exception as e:
-                    self.handle_error(e)
-                    break
-                except KeyboardInterrupt as e:
-                    self.handle_error(e)
-                    break
+            try:
+                if step_run_mode == RunMode.ALL or step_run_mode == self.run_mode:
+                    self.current_step = step
+                    update_status = step()
+                    combined_status = combine_statuses(
+                        self.state.update_status, update_status
+                    )
+                    self.state.update_status = combined_status
+                    if combined_status == UpdateStatus.FAILED:
+                        message = "\n".join(str(error) for error in self.state.errors)
+                        raise UpdateFailedError(message)
 
+            except Exception as e:
+                self.handle_error(e)
+                break
+            except KeyboardInterrupt as e:
+                self.handle_error(e)
         self.set_output()
 
     def handle_error(self, e):
@@ -234,6 +195,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         checkout,
         excluded_target_globs,
     ):
+
         super().__init__(
             steps=[
                 (self.set_existing_repositories, RunMode.UPDATE),
@@ -246,7 +208,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (self.clone_target_repositories_to_temp, RunMode.UPDATE),
                 (self.determine_start_commits, RunMode.ALL),
                 (self.get_targets_data_from_auth_repo, RunMode.ALL),
-                (self.check_if_local_target_repositories_clean, RunMode.UPDATE),
+                (
+                    self.check_if_local_target_repositories_clean,
+                    RunMode.UPDATE,
+                ),
                 (self.get_target_repositories_commits, RunMode.ALL),
                 (self.validate_target_repositories, RunMode.ALL),
                 (
@@ -279,12 +244,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state = UpdateState()
         self.state.targets_data = {}
         self._output = None
-
-    def concurrent_steps(self):
-        return [
-            self.set_existing_repositories,
-            self.check_if_local_repositories_clean,
-        ]
 
     @property
     def output(self):
