@@ -348,7 +348,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             self.state.auth_commits_since_last_validated = None
 
-            validation_repo = _clone_validation_repo(self.url)
+            # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
+            with ThreadPoolExecutor() as executor:
+                future_validation_repo = executor.submit(
+                    _clone_validation_repo, self.url
+                )
+                validation_repo = future_validation_repo.result()
 
             top_commit_of_validation_repo = validation_repo.top_commit_of_branch(
                 validation_repo.default_branch
