@@ -648,35 +648,25 @@ class GitRepository:
         local_path: Path,
         remote_url: Optional[str] = None,
         is_bare: bool = False,
-        keep_remote: bool = False,
+        keep_remote=False,
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
-
-        try:
-            pygit2.clone_repository(local_path, self.path, bare=is_bare)
-        except Exception as e:
-            raise GitError(
-                f"Could not clone repository from local path {local_path}: {str(e)}"
-            )
-
+        pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
-            raise GitError(
-                f"Cloned repository at {self.path} is not a valid git repository"
-            )
-
+            raise GitError(f"Could not clone repository from local path {local_path}")
         repo = self.pygit_repo
         if repo is None:
             raise GitError(
                 "Cloning from disk could not be completed. pygit repo could not be instantiated"
             )
-
         if not keep_remote:
             self.remove_remote("origin")
             if remote_url is not None:
                 self.add_remote("origin", remote_url)
                 self.fetch()
-                for branch in repo.branches.local:
-                    self.set_upstream(str(branch))
+                if repo is not None:
+                    for branch in repo.branches.local:
+                        self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
