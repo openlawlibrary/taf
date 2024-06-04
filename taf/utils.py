@@ -1,3 +1,4 @@
+import platform
 import click
 import errno
 import datetime
@@ -307,6 +308,42 @@ def to_tuf_datetime_format(start_date, interval):
     datetime_object = start_date + datetime.timedelta(interval)
     datetime_object = datetime_object.replace(microsecond=0)
     return datetime_object.isoformat() + "Z"
+
+
+def set_executable_permission(file_path: Path) -> bool:
+    """
+    Set executable permission for the given file path on Unix-like systems.
+    """
+    try:
+        if platform.system() != "Windows":
+            # Unix-like systems
+            file_path.chmod(0o755)
+    except Exception as e:
+        print(f"Error setting executable permission: {e}")
+        return False
+
+    # Check if permissions were set correctly on Unix-like systems
+    if platform.system() != "Windows" and not os.access(file_path, os.X_OK):
+        print(
+            f"Failed to set pre-push git hook executable permission. Please set it manually for {file_path}."
+        )
+        return False
+    return True
+
+
+def resolve_keystore_path(
+    keystore: Optional[str], roles_key_infos: Optional[str]
+) -> str:
+    if not keystore:
+        return ""
+
+    keystore_path = Path(keystore).expanduser().resolve()
+    if roles_key_infos:
+        roles_key_infos_path = Path(roles_key_infos)
+        if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
+            keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
+
+    return str(keystore_path)
 
 
 def get_file_details(

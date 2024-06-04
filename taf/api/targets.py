@@ -127,7 +127,10 @@ def add_target_repo(
             auth_repo=auth_repo,
             prompt_for_keys=prompt_for_keys,
         )
-    else:
+    elif role != "targets":
+        # delegated role paths are not specified for the top-level targets role
+        # the targets role is responsible for signing all paths not
+        # delegated to another target role
         taf_logger.info("Role already exists")
         add_role_paths(
             paths=[target_name],
@@ -346,7 +349,7 @@ def register_target_files(
     Returns:
         True if there were targets that were updated, False otherwise
     """
-    _, keystore = _initialize_roles_and_keystore(
+    _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
     if taf_repo is None:
@@ -574,7 +577,7 @@ def update_target_repos_from_repositories_json(
 @check_if_clean
 def update_and_sign_targets(
     path: str,
-    library_dir: str,
+    library_dir: Optional[str],
     target_types: list,
     keystore: str,
     roles_key_infos: str,
@@ -605,7 +608,7 @@ def update_and_sign_targets(
     repo_path = Path(path).resolve()
     auth_repo = AuthenticationRepository(path=repo_path)
     if library_dir is None:
-        library_dir = str(path.parent.parent)
+        library_dir = str(repo_path.parent.parent)  # Ensure this uses the Path object
     repositoriesdb.load_repositories(auth_repo)
     nonexistent_target_types = []
     target_names = []

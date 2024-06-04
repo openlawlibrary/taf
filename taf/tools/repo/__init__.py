@@ -1,6 +1,7 @@
 import click
 import json
-from taf.api.repository import create_repository
+from taf.api.repository import create_repository, taf_status
+from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
@@ -34,24 +35,8 @@ def start_profiling():
     atexit.register(exit_profiler)
 
 
-def attach_to_group(group):
-
-    @group.group()
-    def repo():
-        pass
-
-    @repo.command()
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores the needed information")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be "
-                  "committed automatically")
-    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
-                  "is a test authentication repository")
-    def create(path, keys_description, keystore, no_commit, test):
-        """
+def create_repo_command():
+    @click.command(help="""
         \b
         Create a new authentication repository at the specified location by registering
         signing keys and generating initial metadata files. Information about the roles
@@ -92,7 +77,17 @@ def attach_to_group(group):
 
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
-        """
+        """)
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("path", type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True))
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores the needed information")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates if the changes should be "
+                  "committed automatically")
+    @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
+                  "is a test authentication repository")
+    def create(path, keys_description, keystore, no_commit, test):
         create_repository(
             path=path,
             keystore=keystore,
@@ -100,18 +95,12 @@ def attach_to_group(group):
             commit=not no_commit,
             test=test,
         )
+    return create
 
-    @repo.command()
-    @catch_cli_exception(handle=UpdateFailedError)
-    @click.argument("url")
-    @common_update_options
-    @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
-    @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
-    def clone(path, url, library_dir, from_fs, expected_repo_type,
-              scripts_root_dir, profile, format_output, exclude_target, strict):
-        """
-        Validate and clone the authentication repository and target repositories. URL of the
+
+def clone_repo_command():
+    @click.command(help="""
+        Validate and clone authentication repositories and target repositories. URL of the
         remote authentication repository must be specified when calling this command. If the remote repository's URL is a file system path, the --from-fs flag must be used.
 
         The path to the authentication repository directory either read from targets/protected/info.json
@@ -142,8 +131,14 @@ def attach_to_group(group):
         The update can be performed in strict or non-strict mode. Strict mode is enabled by specifying
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
-        """
-
+        """)
+    @catch_cli_exception(handle=UpdateFailedError)
+    @click.argument("url")
+    @common_update_options
+    @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
+    @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
         if profile:
             start_profiling()
 
@@ -162,28 +157,19 @@ def attach_to_group(group):
         try:
             clone_repository(config)
             if format_output:
-                print(json.dumps({
-                    'updateSuccessful': True
-                }))
+                print(json.dumps({'updateSuccessful': True}))
         except Exception as e:
             if format_output:
-                error_data = {
-                    'updateSuccessful': False,
-                    'error': str(e)
-                }
+                error_data = {'updateSuccessful': False, 'error': str(e)}
                 print(json.dumps(error_data))
             else:
                 raise e
+    return clone
 
-    @repo.command()
-    @catch_cli_exception(handle=UpdateFailedError)
-    @common_update_options
-    @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    def update(path, library_dir, expected_repo_type,
-               scripts_root_dir, profile, format_output, exclude_target, strict):
-        """
-        Update and validate the local authentication repository and target repositories.
+
+def update_repo_command():
+    @click.command(help="""
+        Update and validate local authentication repositories and target repositories.
 
         If the authentication repository and the target repositories are in the same root directory,
         the locations of the target repositories are calculated based on the authentication repository's
@@ -212,8 +198,12 @@ def attach_to_group(group):
         The update can be performed in strict or non-strict mode. Strict mode is enabled by specifying
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
-        """
-
+        """)
+    @catch_cli_exception(handle=UpdateFailedError)
+    @common_update_options
+    @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
         if profile:
             start_profiling()
 
@@ -230,37 +220,79 @@ def attach_to_group(group):
         try:
             update_repository(config)
             if format_output:
-                print(json.dumps({
-                    'updateSuccessful': True
-                }))
+                print(json.dumps({'updateSuccessful': True}))
         except Exception as e:
             if format_output:
-                error_data = {
-                    'updateSuccessful': False,
-                    'error': str(e)
-                }
+                error_data = {'updateSuccessful': False, 'error': str(e)}
                 print(json.dumps(error_data))
             else:
                 raise e
+    return update
 
-    @repo.command()
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
-                  "optionally, authentication repository are located. If omitted it is "
-                  "calculated based on authentication repository's path. "
-                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
-    @click.option("--from-commit", default=None, help="First commit which should be validated.")
-    @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
-                  "ignored during update.")
-    @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
-                  "if warnings are raised")
-    def validate(path, library_dir, from_commit, exclude_target, strict):
-        """
+
+def validate_repo_command():
+    @click.command(help="""
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
         Does not clone repositories, fetch changes or merge commits.
 
         Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during validate if any/all warnings are found. By default, --strict is disabled.
-        """
+        """)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--library-dir", default=None, help="Directory where target repositories and, "
+                  "optionally, authentication repository are located. If omitted it is "
+                  "calculated based on authentication repository's path. "
+                  "Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
+    @click.option("--from-commit", default=None, help="First commit which should be validated.")
+    @click.option("--from-latest", is_flag=True, default=False, help="Use the last validated commit as the starting point.")
+    @click.option("--exclude-target", multiple=True, help="globs defining which target repositories should be "
+                  "ignored during update.")
+    @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
+                  "if warnings are raised")
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
+        auth_repo = AuthenticationRepository(path=path)
+        if from_latest:
+            from_commit = auth_repo.last_validated_commit
         validate_repository(path, library_dir, from_commit, exclude_target, strict)
+    return validate
+
+
+def latest_commit_command():
+    @click.command(help="Fetch and print the last validated commit hash.")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    def latest_commit(path):
+        auth_repo = AuthenticationRepository(path=path)
+        last_validated_commit = auth_repo.last_validated_commit
+        if last_validated_commit:
+            print(last_validated_commit)
+        else:
+            print('')
+    return latest_commit
+
+
+def status_command():
+    @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
+    def status(path, library_dir):
+        try:
+            taf_status(path, library_dir)
+        except TAFError as e:
+            click.echo()
+            click.echo(f"Error: {e}")
+            click.echo()
+    return status
+
+
+def attach_to_group(group):
+    repo = click.Group(name='repo')
+
+    repo.add_command(create_repo_command(), name='create')
+    repo.add_command(clone_repo_command(), name='clone')
+    repo.add_command(update_repo_command(), name='update')
+    repo.add_command(validate_repo_command(), name='validate')
+    repo.add_command(latest_commit_command(), name='latest-commit')
+    repo.add_command(status_command(), name='status')
+
+    group.add_command(repo)
