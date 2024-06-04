@@ -331,6 +331,21 @@ def set_executable_permission(file_path: Path) -> bool:
     return True
 
 
+def resolve_keystore_path(
+    keystore: Optional[str], roles_key_infos: Optional[str]
+) -> str:
+    if not keystore:
+        return ""
+
+    keystore_path = Path(keystore).expanduser().resolve()
+    if roles_key_infos:
+        roles_key_infos_path = Path(roles_key_infos)
+        if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
+            keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
+
+    return str(keystore_path)
+
+
 def get_file_details(
     filepath: str,
     hash_algorithms: List[str] = ["sha256"],
