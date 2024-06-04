@@ -21,7 +21,6 @@ def attach_to_group(group):
     @click.option("--out-of-band-commit", default=None, help="Out-of-band commit SHA")
     @click.option("--dependency-path", default=None, help="Dependency's filesystem path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
                   "located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "

@@ -1,4 +1,5 @@
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 import functools
 from logging import DEBUG, INFO
@@ -356,7 +357,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             self.state.auth_commits_since_last_validated = None
 
-            validation_repo = _clone_validation_repo(self.url)
+            # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
+            with ThreadPoolExecutor() as executor:
+                future_validation_repo = executor.submit(
+                    _clone_validation_repo, self.url
+                )
+                validation_repo = future_validation_repo.result()
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
@@ -621,10 +627,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             self.state.repos_on_disk = {}
             self.state.repos_not_on_disk = {}
-            for temp_repo in self.state.temp_target_repositories.values():
-                users_repo = self.state.users_target_repositories[temp_repo.name]
-                is_git_repository = users_repo.is_git_repository_root
-                if is_git_repository:
+
+            def clone_repo_to_temp(temp_repo, users_repo):
+                if users_repo.is_git_repository_root:
                     temp_repo.clone_from_disk(
                         users_repo.path,
                         users_repo.get_remote_url(),
@@ -634,6 +639,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     temp_repo.clone(bare=True)
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
+
+            with ThreadPoolExecutor() as executor:
+                futures = []
+                for temp_repo in self.state.temp_target_repositories.values():
+                    users_repo = self.state.users_target_repositories[temp_repo.name]
+                    futures.append(
+                        executor.submit(clone_repo_to_temp, temp_repo, users_repo)
+                    )
+
+                for future in as_completed(futures):
+                    future.result()
+
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -758,83 +775,93 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
-        for repository in self.state.temp_target_repositories.values():
-            if repository.name not in self.state.target_branches_data_from_auth_repo:
-                # exists in repositories.json, not target files
-                continue
-            for branch in self.state.target_branches_data_from_auth_repo[
-                repository.name
-            ]:
-                local_branch_exists = repository.branch_exists(
-                    branch, include_remotes=False
-                )
-                branch_exists = repository.branch_exists(branch, include_remotes=True)
-                if repository.name in self.state.repos_on_disk:
-                    if self.only_validate:
-                        if not branch_exists:
-                            self.state.targets_data = {}
-                            msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
-                            taf_logger.error(msg)
-                            raise UpdateFailedError(msg)
-                    else:
-                        repository.fetch(branch=branch)
 
-                old_head = self.state.old_heads_per_target_repos_branches[
-                    repository.name
-                ].get(branch)
-                if old_head is not None:
-                    if not self.only_validate:
-                        fetched_commits = repository.all_commits_on_branch(
-                            branch=f"origin/{branch}"
-                        )
+        def fetch_commits(repository, branch, old_head):
+            fetched_commits_on_target_repo_branch = []
+            local_branch_exists = repository.branch_exists(
+                branch, include_remotes=False
+            )
+            branch_exists = repository.branch_exists(branch, include_remotes=True)
 
-                        # if the local branch does not exist (the branch was not checked out locally)
-                        # fetched commits will include already validated commits
-                        # check which commits are newer that the previous head commit
-                        if old_head in fetched_commits:
-                            fetched_commits_on_target_repo_branch = fetched_commits[
-                                fetched_commits.index(old_head) + 1 : :
-                            ]
-                        else:
-                            fetched_commits_on_target_repo_branch = (
-                                repository.all_commits_since_commit(old_head, branch)
-                            )
-                            for commit in fetched_commits:
-                                if commit not in fetched_commits_on_target_repo_branch:
-                                    fetched_commits_on_target_repo_branch.append(commit)
+            if repository.name in self.state.repos_on_disk:
+                if self.only_validate:
+                    if not branch_exists:
+                        self.state.targets_data = {}
+                        msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
+                        taf_logger.error(msg)
+                        raise UpdateFailedError(msg)
+                else:
+                    repository.fetch(branch=branch)
+
+            if old_head is not None:
+                if not self.only_validate:
+                    fetched_commits = repository.all_commits_on_branch(
+                        branch=f"origin/{branch}"
+                    )
+                    if old_head in fetched_commits:
+                        fetched_commits_on_target_repo_branch = fetched_commits[
+                            fetched_commits.index(old_head) + 1 :
+                        ]
                     else:
                         fetched_commits_on_target_repo_branch = (
                             repository.all_commits_since_commit(old_head, branch)
                         )
-                    fetched_commits_on_target_repo_branch.insert(0, old_head)
-                else:
-                    if local_branch_exists:
-                        # this happens in the case when last_validated_commit does not exist
-                        # we want to validate all commits, so combine existing commits and
-                        # fetched commits
-                        fetched_commits_on_target_repo_branch = (
-                            repository.all_commits_on_branch(
-                                branch=branch, reverse=True
-                            )
-                        )
-                    else:
-                        fetched_commits_on_target_repo_branch = []
-                    try:
-                        fetched_commits = repository.all_commits_on_branch(
-                            branch=f"origin/{branch}"
-                        )
-
-                        # if the local branch does not exist (the branch was not checked out locally)
-                        # fetched commits will include already validated commits
-                        # check which commits are newer that the previous head commit
                         for commit in fetched_commits:
                             if commit not in fetched_commits_on_target_repo_branch:
                                 fetched_commits_on_target_repo_branch.append(commit)
-                    except GitError:
-                        pass
-                self.state.fetched_commits_per_target_repos_branches[repository.name][
-                    branch
-                ] = fetched_commits_on_target_repo_branch
+                else:
+                    fetched_commits_on_target_repo_branch = (
+                        repository.all_commits_since_commit(old_head, branch)
+                    )
+                fetched_commits_on_target_repo_branch.insert(0, old_head)
+            else:
+                if local_branch_exists:
+                    fetched_commits_on_target_repo_branch = (
+                        repository.all_commits_on_branch(branch=branch, reverse=True)
+                    )
+                else:
+                    fetched_commits_on_target_repo_branch = []
+                try:
+                    fetched_commits = repository.all_commits_on_branch(
+                        branch=f"origin/{branch}"
+                    )
+                    for commit in fetched_commits:
+                        if commit not in fetched_commits_on_target_repo_branch:
+                            fetched_commits_on_target_repo_branch.append(commit)
+                except GitError:
+                    pass
+
+            return branch, fetched_commits_on_target_repo_branch
+
+        with ThreadPoolExecutor() as executor:
+            future_to_branch = {
+                executor.submit(
+                    fetch_commits,
+                    repository,
+                    branch,
+                    self.state.old_heads_per_target_repos_branches[repository.name].get(
+                        branch
+                    ),
+                ): repository.name
+                for repository in self.state.temp_target_repositories.values()
+                if repository.name in self.state.target_branches_data_from_auth_repo
+                for branch in self.state.target_branches_data_from_auth_repo[
+                    repository.name
+                ]
+            }
+
+            for future in as_completed(future_to_branch):
+                try:
+                    branch, commits = future.result()
+                    repository_name = future_to_branch[future]
+                    self.state.fetched_commits_per_target_repos_branches[
+                        repository_name
+                    ][branch] = commits
+                except Exception as e:
+                    self.state.errors.append(e)
+                    self.state.event = Event.FAILED
+                    return UpdateStatus.FAILED
+
         return UpdateStatus.SUCCESS
 
     @log_on_start(
