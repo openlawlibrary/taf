@@ -344,7 +344,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.operation = OperationType.UPDATE
             else:
                 self.operation = OperationType.CLONE
-                
+
         # set last validated commit before running the updater
         # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
