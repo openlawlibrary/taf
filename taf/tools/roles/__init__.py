@@ -1,20 +1,17 @@
 import click
-from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key as add_roles_signing_key, list_roles
+from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.auth_repo import AuthenticationRepository
 from taf.tools.cli import catch_cli_exception
 
-from taf.api.roles import add_role_paths as _add_role_paths
+from taf.api.roles import add_role_paths
 
 
-def attach_to_group(group):
-
-    @group.group()
-    def roles():
-        pass
-
-    @roles.command()
+def add_role_command():
+    @click.command(help="""Add a new delegated target role, specifying which paths are delegated to the new role.
+        Its parent role, number of signing keys and signatures threshold can also be defined.
+        Update and sign all metadata files and commit.
+        """)
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -22,19 +19,12 @@ def attach_to_group(group):
     @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--keys-number", default=1, help="Number of signing keys. Defaults to 1")
-    @click.option("--threshold", default=1, help="An integer number of keys of that "
-                  "role whose signatures are required in order to consider a file as being properly signed by that role")
+    @click.option("--threshold", default=1, help="An integer number of keys of that role whose signatures are required in order to consider a file as being properly signed by that role")
     @click.option("--yubikey", is_flag=True, default=None, help="A flag determining if the new role should be signed using a Yubikey")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
-                  "committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
-                  "located inside the keystore directory")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def add(role, path, parent_role, delegated_path, keystore, keys_number, threshold, yubikey, scheme, no_commit, prompt_for_keys):
-        """Add a new delegated target role, specifying which paths are delegated to the new role.
-        Its parent role, number of signing keys and signatures threshold can also be defined.
-        Update and sign all metadata files and commit.
-        """
         if not path:
             print("Specify at least one path")
             return
@@ -52,20 +42,11 @@ def attach_to_group(group):
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
         )
+    return add
 
-    @roles.command()
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.argument("keys-description")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
-                  "used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
-                  "committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
-                  "located inside the keystore directory")
-    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        """Add one or more target roles. Information about the roles
+
+def add_multiple_roles_command():
+    @click.command(help="""Add one or more target roles. Information about the roles
         can be provided through a dictionary - either specified directly or contained
         by a .json file whose path is specified when calling this command. This allows
         definition of:
@@ -94,7 +75,15 @@ def attach_to_group(group):
             },
             "keystore": "keystore_path"
         }
-        """
+        """)
+    @catch_cli_exception(handle=TAFError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.argument("keys-description")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
         add_roles(
             path=path,
             keystore=keystore,
@@ -103,27 +92,24 @@ def attach_to_group(group):
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
         )
+    return add_multiple
 
-    @roles.command()
+
+def add_role_paths_command():
+    @click.command(help="Add a new delegated target role, specifying which paths are delegated to the new role. Its parent role, number of signing keys and signatures threshold can also be defined. Update and sign all metadata files and commit.")
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
-                  "committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
-                  "located inside the keystore directory")
-    def add_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
-        """Add a new delegated target role, specifying which paths are delegated to the new role.
-        Its parent role, number of signing keys and signatures threshold can also be defined.
-        Update and sign all metadata files and commit.
-        """
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
         if not delegated_path:
             print("Specify at least one path")
             return
 
-        _add_role_paths(
+        add_role_paths(
             paths=delegated_path,
             delegated_role=role,
             keystore=keystore,
@@ -132,26 +118,24 @@ def attach_to_group(group):
             prompt_for_keys=prompt_for_keys,
             push=not no_commit,
         )
+    return adding_role_paths
 
-    @roles.command()
+
+def remove_role_command():
+    @click.command(help="""Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
+        If targets should also be deleted, target files are remove and their corresponding entires are removed
+        from repositoires.json. If targets should not get removed, the target files are signed using the
+        removed role's parent role
+        """)
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
-                  "used for signing")
-    @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this "
-                  "role also be removed. If not removed, they are signed by the parent role")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
-                  "committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
-                  "located inside the keystore directory",)
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
-        """Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
-        If targets should also be deleted, target files are remove and their corresponding entires are removed
-        from repositoires.json. If targets should not get removed, the target files are signed using the
-        removed role's parent role
-        """
         remove_role(
             path=path,
             role=role,
@@ -161,25 +145,11 @@ def attach_to_group(group):
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
         )
+    return remove
 
-    @roles.command()
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys "
-                  "the new key should be added")
-    @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to "
-                  "the private key which should be registered as the role's signing key")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores the needed information")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme "
-                  "used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be "
-                  "committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not "
-                  "located inside the keystore directory")
-    def add_signing_key(path, role, pub_key_path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        """
+
+def add_signing_key_command():
+    @click.command(help="""
         Add a new signing key. This will make it possible to a sign metadata files
         corresponding to the specified roles with another key. Although private keys are
         used for signing, key identifiers are calculated based on the public keys. This
@@ -187,11 +157,22 @@ def attach_to_group(group):
         a new signing key. Public key can be loaded from a file, in which case it is
         necessary to specify its path as the pub_key parameter's value. If this option
         is not used when calling this command, the key can be directly entered later.
-        """
-        if not len(role):
+        """)
+    @catch_cli_exception(handle=TAFError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys the new key should be added")
+    @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores the needed information")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def adding_signing_key(path, role, pub_key_path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
+        if not role:
             print("Specify at least one role")
             return
-        add_roles_signing_key(
+
+        add_signing_key(
             path=path,
             roles=role,
             pub_key_path=pub_key_path,
@@ -201,28 +182,34 @@ def attach_to_group(group):
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys
         )
+    return adding_signing_key
 
-    @roles.command()
+
+def list_keys_command():
+    @click.command(help="""
+        List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
+        include additional information read from these certificates, like name or organization.
+        """)
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def list_keys(role, path):
-        """
-        List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
-        include additional information read from these certificates, like name or organization.
-        """
         key_infos = list_keys_of_role(
             path=path,
             role=role,
         )
         print("\n".join(key_infos))
+    return list_keys
 
-    @roles.command()
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    def list(path):
-        """
-        List all defined roles with their thresholds and parent roles.
-        """
-        auth_repo = AuthenticationRepository(path=path)
-        list_roles(auth_repo)
+
+def attach_to_group(group):
+    roles_group = click.Group(name='roles')
+
+    roles_group.add_command(add_role_command(), name='add')
+    roles_group.add_command(add_multiple_roles_command(), name='add-multiple')
+    roles_group.add_command(add_role_paths_command(), name='add-role-paths')
+    roles_group.add_command(remove_role_command(), name='remove')
+    roles_group.add_command(add_signing_key_command(), name='add-signing-key')
+    roles_group.add_command(list_keys_command(), name='list-keys')
+
+    group.add_command(roles_group)
