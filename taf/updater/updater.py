@@ -231,7 +231,7 @@ def clone_repository(config: RepositoryConfig):
 
     if config.path and is_non_empty_directory(config.path):
         raise UpdateFailedError(
-            f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+            f"Destination path {config.path} already exists and is not an empty directory. Run 'taf repo update' to update it."
         )
 
     config.operation = OperationType.CLONE
@@ -269,7 +269,7 @@ def update_repository(config: RepositoryConfig):
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
         raise UpdateFailedError(
-            f"{config.path} is not a Git repository. Run `taf repo clone` instead"
+            f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
         )
 
     taf_logger.info(f"Updating repository {auth_repo.name}")
