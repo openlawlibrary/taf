@@ -11,7 +11,7 @@ from taf.api.utils._roles import _role_obj, create_delegations
 from taf.messages import git_commit_message
 from tuf.repository_tool import Targets
 from taf.api.utils._git import check_if_clean, commit_and_push
-from taf.exceptions import TAFError
+from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import RolesIterator, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
@@ -542,7 +542,7 @@ def _initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
-) -> Tuple[Dict, str, bool]:
+) -> Tuple[Dict, Optional[str], bool]:
     """
     Read information about roles and keys from a json file or ask the user to enter
     this information if not specified through a json file and enter_info is True.
@@ -580,64 +580,62 @@ def _initialize_roles_and_keystore(
         role_info.get("yubikey", False) for role_info in roles_key_infos_dict.values()
     )
 
-    if not use_yubikeys:
+    if not use_yubikeys and not keystore:
+        keystore = roles_key_infos_dict.get("keystore")
         if not keystore:
-            keystore = roles_key_infos_dict.get("keystore")
-            if not keystore:
-                while True:
-                    use_keystore = (
-                        input(
-                            "Do you want to save/load keys from keystore files? [y/N]: "
-                        )
-                        .strip()
-                        .lower()
-                    )
-                    if use_keystore in ["y", "n"]:
-                        break
-                if use_keystore == "y":
-                    keystore = input(
-                        "Enter keystore path (default ./keystore): "
-                    ).strip()
-                else:
-                    print(
-                        "Keys will be entered using the command line and saved to ./keystore"
-                    )
-                    keystore = "./keystore"
-
-    keystore = resolve_keystore_path(keystore, roles_key_infos)
-    roles_key_infos_dict["keystore"] = keystore
-    while True:
-        keystore_path = Path(keystore)
-        if keystore_path.exists():
-            break
-        create_keystore = (
-            input(
-                f"Keystore directory {keystore_path} does not exist. Do you want to create it? [y/N]: "
-            )
-            .strip()
-            .lower()
-        )
-        if create_keystore == "y":
-            keystore_path.mkdir(parents=True, exist_ok=True)
-            roles_key_infos_dict["keystore"] = keystore
-            print(f"Created keystore directory at {keystore}")
-            skip_prompt = True
-            break
-        else:
-            enter_new_path = (
-                input("Do you want to enter a different path? [y/N]: ").strip().lower()
-            )
-            if enter_new_path == "y":
-                keystore = input("Enter a different keystore path: ").strip()
-                keystore = resolve_keystore_path(keystore, roles_key_infos)
-                roles_key_infos_dict["keystore"] = keystore
-            else:
-                print(
-                    "Assuming the keys will be entered using and printed to the command line."
+            while True:
+                use_keystore = (
+                    input("Do you want to save/load keys from keystore files? [y/N]: ")
+                    .strip()
+                    .lower()
                 )
-                keystore = "."
+                if use_keystore in ["y", "n"]:
+                    break
+            if use_keystore == "y":
+                keystore = (
+                    input("Enter keystore path (default ./keystore): ").strip()
+                    or "./keystore"
+                )
+            else:
+                taf_logger.info(
+                    "Keys will be entered and then printed from the command line..."
+                )
+
+    if keystore is not None:
+        keystore = resolve_keystore_path(keystore, roles_key_infos)
+        roles_key_infos_dict["keystore"] = keystore
+
+        while True:
+            keystore_path = Path(keystore)
+            if keystore_path.exists():
+                break
+            create_keystore = (
+                input(
+                    f"Keystore directory {keystore_path} does not exist. Do you want to create it? [y/N]: "
+                )
+                .strip()
+                .lower()
+            )
+            if create_keystore == "y":
+                keystore_path.mkdir(parents=True, exist_ok=True)
+                roles_key_infos_dict["keystore"] = keystore
+                print(f"Created keystore directory at {keystore}")
                 skip_prompt = True
                 break
+            else:
+                enter_new_path = (
+                    input(
+                        "Do you want to enter a different path to the keystore? [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if enter_new_path == "y":
+                    keystore = input("New keystore path: ").strip()
+                    keystore = resolve_keystore_path(keystore, roles_key_infos)
+                    roles_key_infos_dict["keystore"] = keystore
+                else:
+                    raise KeystoreError("Keystore not found")
 
     return roles_key_infos_dict, keystore, skip_prompt
 
@@ -920,7 +918,7 @@ def _remove_path_from_role_info(
 def _update_role(
     auth_repo: AuthenticationRepository,
     role: str,
-    keystore: str,
+    keystore: Optional[str],
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
 ) -> None:

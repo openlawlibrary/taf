@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Fix generation of keys when they should be printed to the command line ([435])
 - Made Updater faster through parallelization ([434])
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
 - Fix add_target_repo when signing role is the top-level targets role ([431])
@@ -19,8 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Clone target repositories to temp ([412, 418])
 - Add architecture overview documentation ([405])
 
-
-
+[435]: https://github.com/openlawlibrary/taf/pull/435
 [434]: https://github.com/openlawlibrary/taf/pull/434
 [432]: https://github.com/openlawlibrary/taf/pull/432
 [431]: https://github.com/openlawlibrary/taf/pull/431
