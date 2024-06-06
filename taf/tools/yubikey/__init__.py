@@ -42,7 +42,7 @@ def get_roles_command():
         for role, paths in roles_with_paths.items():
             print(f"\n{role}")
             for path in paths:
-                print(f"\n  -{path}")
+                print(f"\n -{path}")
     return get_roles
 
 
