@@ -597,7 +597,9 @@ def _initialize_roles_and_keystore(
                     or "./keystore"
                 )
             else:
-                taf_logger.info("Keys will be entered and then printed from the command line...")
+                taf_logger.info(
+                    "Keys will be entered and then printed from the command line..."
+                )
 
     if keystore is not None:
         keystore = resolve_keystore_path(keystore, roles_key_infos)
@@ -622,7 +624,9 @@ def _initialize_roles_and_keystore(
                 break
             else:
                 enter_new_path = (
-                    input("Do you want to enter a different path to the keystore? [y/N]: ")
+                    input(
+                        "Do you want to enter a different path to the keystore? [y/N]: "
+                    )
                     .strip()
                     .lower()
                 )
