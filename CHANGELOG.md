@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
-- Support for Python 3.11 and 3.12
+- Support for Python 3.11 and 3.12 ([440])
 - Fix generation of keys when they should be printed to the command line ([435])
 - Made Updater faster through parallelization ([434])
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Clone target repositories to temp ([412, 418])
 - Add architecture overview documentation ([405])
 
+[440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
 [434]: https://github.com/openlawlibrary/taf/pull/434
 [432]: https://github.com/openlawlibrary/taf/pull/432

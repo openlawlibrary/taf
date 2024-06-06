@@ -48,12 +48,10 @@ tests_require = [
 yubikey_require = ["yubikey-manager==4.0.*"]
 
 # Determine the appropriate version of pygit2 based on the Python version
-if sys.version_info >= (3, 9):
+if sys.version_info > (3, 10):
     pygit2_version = "pygit2==1.14.1"
-elif sys.version_info >= (3, 8) and sys.version_info < (3, 9):
-    pygit2_version = "pygit2==1.13.3"
 elif sys.version_info >= (3, 7) and sys.version_info <= (3, 10):
-    pygit2_version = "pygit2==1.10.1"
+    pygit2_version = "pygit2==1.9.*"
 
 kwargs = {
     "name": PACKAGE_NAME,
