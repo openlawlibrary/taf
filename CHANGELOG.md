@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
-
+- Support for Python 3.11 and 3.12
 - Fix generation of keys when they should be printed to the command line ([435])
 - Made Updater faster through parallelization ([434])
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])

@@ -1,5 +1,6 @@
 from setuptools import find_packages, setup
 from importlib.util import find_spec
+import sys
 
 PACKAGE_NAME = "taf"
 VERSION = "0.29.3"
@@ -46,6 +47,14 @@ tests_require = [
 
 yubikey_require = ["yubikey-manager==4.0.*"]
 
+# Determine the appropriate version of pygit2 based on the Python version
+if sys.version_info >= (3, 9):
+    pygit2_version = "pygit2==1.14.1"
+elif sys.version_info >= (3, 8) and sys.version_info < (3, 9):
+    pygit2_version = "pygit2==1.13.3"
+elif sys.version_info >= (3, 7) and sys.version_info <= (3, 10):
+    pygit2_version = "pygit2==1.10.1"
+
 kwargs = {
     "name": PACKAGE_NAME,
     "version": VERSION,
@@ -63,13 +72,13 @@ kwargs = {
     "zip_safe": False,
     "install_requires": [
         "cattrs>=23.1.2",
-        "click==7.*",
+        "click==8.*",
         "colorama>=0.3.9",
         "oll-tuf==0.20.0.dev2",
         "cryptography==38.0.*",
         "securesystemslib==0.25.*",
         "loguru==0.6.*",
-        "pygit2==1.9.*",
+        pygit2_version,
         "pyOpenSSL==22.1.*",
         "logdecorator==2.*",
     ],
@@ -99,6 +108,8 @@ kwargs = {
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }
