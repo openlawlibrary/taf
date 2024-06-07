@@ -248,7 +248,6 @@ def load_repositories(
         if repositories is None:
             continue
 
-
         # target repositories are defined in both repositories.json and targets.json
         repositories = repositories["repositories"]
         if repositories is None:
