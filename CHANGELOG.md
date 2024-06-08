@@ -8,17 +8,29 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
+
+
 - Support for Python 3.11 and 3.12 ([440])
-- Fix generation of keys when they should be printed to the command line ([435])
-- Made Updater faster through parallelization ([434])
-- Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
 - Fix add_target_repo when signing role is the top-level targets role ([431])
 - New git hook that validates repo before push ([423])
 - New function taf repo status that prints the state of whole library ([422])
 - New function taf roles list that lists all roles in an authentication repository ([421])
-- Reimplemented get_file_details function to not rely on old securesystemslib functions ([420])
-- Clone target repositories to temp ([412, 418])
+- Clone target repositories to temp ([412], [418])
 - Add architecture overview documentation ([405])
+
+### Changed
+
+- Only load the latest mirrors.jon ([441])
+- Fix generation of keys when they should be printed to the command line ([435])
+- Made Updater faster through parallelization ([434])
+- Reimplemented get_file_details function to not rely on old securesystemslib functions ([420])
+- Check if repositories are clean before running the updater ([416])
+- Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged ([404], [415])
+
+### Fixed
+
+- Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
+- When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
 
 [440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
@@ -29,23 +41,12 @@ and this project adheres to [Semantic Versioning][semver].
 [422]: https://github.com/openlawlibrary/taf/pull/422
 [421]: https://github.com/openlawlibrary/taf/pull/421
 [420]: https://github.com/openlawlibrary/taf/pull/420
-[412]: https://github.com/openlawlibrary/taf/pull/412
-[405]: https://github.com/openlawlibrary/taf/pull/405
-
-
-### Changed
-
-- Check if repositories are clean before running the updater ([416])
-- Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged ([404], [415])
-
-### Fixed
-
-- When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
-
 [419]: https://github.com/openlawlibrary/taf/pull/419
 [418]: https://github.com/openlawlibrary/taf/pull/418
 [416]: https://github.com/openlawlibrary/taf/pull/416
 [415]: https://github.com/openlawlibrary/taf/pull/415
+[412]: https://github.com/openlawlibrary/taf/pull/412
+[405]: https://github.com/openlawlibrary/taf/pull/405
 [404]: https://github.com/openlawlibrary/taf/pull/404
 
 ## [0.29.3] - 03/15/2024
