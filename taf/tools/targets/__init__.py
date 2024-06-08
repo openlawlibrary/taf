@@ -42,7 +42,7 @@ def add_repo_command():
         `namespace1\\repo1`, the target's path will be set to `E:\\examples\\root\\namespace1\\repo1`.""")
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--target-name", required=True, default=None, help="Namespace prefixed name of the target repository")
+    @click.argument("target-name")
     @click.option("--target-path", default=None, help="Target repository's filesystem path")
     @click.option("--role", default="targets", help="Signing role of the corresponding target file. Can be a new role, in which case it will be necessary to enter its information when prompted")
     @click.option("--keystore", default=None, help="Location of the keystore files")
