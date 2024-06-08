@@ -87,10 +87,10 @@ def add_target_repo(
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
 
-    if target_name is not None:
-        target_repo = GitRepository(library_dir, target_name)
-    elif target_path is not None:
+    if target_path is not None:
         target_repo = GitRepository(path=target_path)
+    elif target_name is not None:
+        target_repo = GitRepository(library_dir, target_name)
     else:
         raise TAFError(
             "Cannot add new target repository. Specify either target name (and library dir) or target path"
