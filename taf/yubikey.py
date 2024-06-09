@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from tuf.repository_tool import import_rsakey_from_pem
-from ykman.device import list_all_devices, connect_to_device
+from ykman.device import list_all_devices
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
     KEY_TYPE,
@@ -110,31 +110,34 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
     # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
     # public keys.
     if pub_key_pem is not None:
-        for _, info in list_all_devices():
-            connection, _, device = connect_to_device(
-                info.serial, [SmartCardConnection]
-            )
-            session = PivSession(connection)
-            device_pub_key_pem = (
-                session.get_certificate(SLOT.SIGNATURE)
-                .public_key()
-                .public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        for dev, info in list_all_devices():
+            # Connect to a YubiKey over a SmartCardConnection, which is needed for PIV.
+            with dev.open_connection(SmartCardConnection) as connection:
+                session = PivSession(connection)
+                device_pub_key_pem = (
+                    session.get_certificate(SLOT.SIGNATURE)
+                    .public_key()
+                    .public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
+                    .decode("utf-8")
                 )
-                .decode("utf-8")
-            )
-            # Tries to match without last newline char
-            if (
-                device_pub_key_pem == pub_key_pem
-                or device_pub_key_pem[:-1] == pub_key_pem
-            ):
-                break
-            yield session, device.serial
+                # Tries to match without last newline char
+                if (
+                    device_pub_key_pem == pub_key_pem
+                    or device_pub_key_pem[:-1] == pub_key_pem
+                ):
+                    break
+                yield session, info.serial
     else:
-        connection, _, device = connect_to_device(serial, [SmartCardConnection])
-        session = PivSession(connection)
-        yield session, device.serial
+        for dev, info in list_all_devices():
+            if info.serial == serial:
+                with dev.open_connection(SmartCardConnection) as connection:
+                    session = PivSession(connection)
+                    yield session, info.serial
+            else:
+                pass
 
 
 def is_inserted():
