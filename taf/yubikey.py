@@ -132,7 +132,7 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                 yield session, info.serial
     else:
         for dev, info in list_all_devices():
-            if info.serial == serial:
+            if serial is None or info.serial == serial:
                 with dev.open_connection(SmartCardConnection) as connection:
                     session = PivSession(connection)
                     yield session, info.serial
