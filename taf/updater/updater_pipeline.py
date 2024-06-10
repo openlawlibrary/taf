@@ -475,11 +475,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def _validate_operation_type(self):
         if self.operation == OperationType.CLONE and self.state.existing_repo:
             raise UpdateFailedError(
-                f"Destination path {self.state.users_auth_repo.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+                f"Destination path {self.state.users_auth_repo.path} already exists and is not an empty directory. Run 'taf repo update' to update it."
             )
         elif self.operation == OperationType.UPDATE and not self.state.existing_repo:
             raise UpdateFailedError(
-                f"{self.state.users_auth_repo.path} is not a Git repository. Run `taf repo clone` instead"
+                f"{self.state.users_auth_repo.path} is not a Git repository. Run 'taf repo clone' instead"
             )
 
     @log_on_start(

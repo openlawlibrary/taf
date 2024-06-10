@@ -88,7 +88,7 @@ def load_sorted_keys_of_new_roles(
     auth_repo: AuthenticationRepository,
     roles: Union[MainRoles, TargetsRole],
     yubikeys_data: Optional[Dict[str, UserKeyData]],
-    keystore: str,
+    keystore: Optional[str],
     yubikeys: Optional[Dict[str, Dict]] = None,
     existing_roles: Optional[List[str]] = None,
     skip_prompt: Optional[bool] = False,
@@ -211,7 +211,7 @@ def load_signing_keys(
     if keystore is not None:
         keystore_path = Path(keystore).expanduser().resolve()
     else:
-        print("Keystore location not provided")
+        taf_logger.info("Keystore location not provided")
 
     def _load_and_append_yubikeys(
         key_name, role, retry_on_failure, hide_already_loaded_message
@@ -226,7 +226,7 @@ def load_signing_keys(
         )
         if public_key is not None and public_key not in yubikeys:
             yubikeys.append(public_key)
-            print(f"Successfully loaded {key_name} from inserted YubiKey")
+            taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
             return True
         return False
 
@@ -468,9 +468,10 @@ def _setup_keystore_key(
             )
         else:
             rsa_key = keys.generate_rsa_key(bits=length)
-            public_key = rsa_key["keyval"]["public"]
-            private_key = rsa_key["keyval"]["private"]
-            print(f"{role_name} key:\n\n{private_key}\n\n")
+            private_key_val = rsa_key["keyval"]["private"]
+            print(f"{role_name} key:\n\n{private_key_val}\n\n")
+            public_key = rsa_key
+            private_key = rsa_key
 
     return public_key, private_key
 

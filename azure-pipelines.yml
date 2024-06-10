@@ -81,7 +81,40 @@ strategy:
       pythonVersion: "3.10"
       platform: x86
       winArch: "win32"
-
+    # py311
+    linux-ubuntu-22-04-py311:
+      imageName: "ubuntu-22.04"
+      pythonVersion: "3.11"
+    macOS-py311:
+      imageName: "macOS-11"
+      pythonVersion: "3.11"
+    windows-64bit-py311:
+      imageName: "windows-2022"
+      pythonVersion: "3.11"
+      platform: x64
+      winArch: "win64"
+    windows-32bit-py311:
+      imageName: "windows-2022"
+      pythonVersion: "3.11"
+      platform: x86
+      winArch: "win32"
+    # py312
+    linux-ubuntu-22-04-py312:
+      imageName: "ubuntu-22.04"
+      pythonVersion: "3.12"
+    macOS-py312:
+      imageName: "macOS-11"
+      pythonVersion: "3.12"
+    windows-64bit-py312:
+      imageName: "windows-2022"
+      pythonVersion: "3.12"
+      platform: x64
+      winArch: "win64"
+    windows-32bit-py312:
+      imageName: "windows-2022"
+      pythonVersion: "3.12"
+      platform: x86
+      winArch: "win32"
 pool:
   vmImage: $(imageName)
 

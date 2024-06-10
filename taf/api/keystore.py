@@ -7,6 +7,7 @@ from tuf.repository_tool import (
     generate_and_write_rsa_keypair,
     generate_and_write_unencrypted_rsa_keypair,
 )
+from securesystemslib import keys
 
 from taf.api.roles import _initialize_roles_and_keystore
 from taf.keys import get_key_name
@@ -44,7 +45,7 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
 
 
-def generate_keys(keystore: str, roles_key_infos: str) -> None:
+def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
     of TUF roles. If more than one key should be generated per role, a counter is appended
@@ -74,8 +75,13 @@ def generate_keys(keystore: str, roles_key_infos: str) -> None:
         if not role.is_yubikey:
             for key_num in range(role.number):
                 key_name = get_key_name(role.name, key_num, role.number)
-                key_path = str(Path(keystore, key_name))
-                password = input(
-                    "Enter keystore password and press ENTER (can be left empty)"
-                )
-                _generate_rsa_key(key_path, password, role.length)
+                if keystore is not None:
+                    password = input(
+                        "Enter keystore password and press ENTER (can be left empty)"
+                    )
+                    key_path = str(Path(keystore, key_name))
+                    _generate_rsa_key(key_path, password, role.length)
+                else:
+                    rsa_key = keys.generate_rsa_key(role.length)
+                    private_key_val = rsa_key["keyval"]["private"]
+                    print(f"{role.name} key:\n\n{private_key_val}\n\n")
