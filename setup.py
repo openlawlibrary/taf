@@ -45,7 +45,7 @@ tests_require = [
     "jsonschema==3.2.0",
 ]
 
-yubikey_require = ["yubikey-manager==4.0.*"]
+yubikey_require = ["yubikey-manager==5.1.*"]
 
 # Determine the appropriate version of pygit2 based on the Python version
 if sys.version_info > (3, 10):
