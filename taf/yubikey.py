@@ -350,9 +350,8 @@ def setup(
                     private_key_pem, pem_pwd, default_backend()
                 )
 
-            ctrl.put_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
-            pub_key = private_key.public_key()
-
+        ctrl.put_key(SLOT.SIGNATURE, private_key, PIN_POLICY.ALWAYS)
+        pub_key = private_key.public_key()
         ctrl.authenticate(MANAGEMENT_KEY_TYPE.TDES, mgm_key)
         ctrl.verify_pin(DEFAULT_PIN)
 
