@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
+- Support for Yubikey Manager 5.1.x ([444])
 - Support for Python 3.11 and 3.12 ([440])
 - Fix generation of keys when they should be printed to the command line ([435])
 - Made Updater faster through parallelization ([434])
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Clone target repositories to temp ([412, 418])
 - Add architecture overview documentation ([405])
 
+[444]: https://github.com/openlawlibrary/taf/pull/444
 [440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
 [434]: https://github.com/openlawlibrary/taf/pull/434
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Dropped support for Yubikey Manager 4.x [444]
 - Check if repositories are clean before running the updater ([416])
 - Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged ([404], [415])
 
