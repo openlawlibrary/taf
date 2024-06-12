@@ -5,11 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
 
 ### Added
 
 - Added workflow to build standalone executable of TAF ([447])
+
+### Changed
+
+### Fixed
+
+[447]: https://github.com/openlawlibrary/taf/pull/447
+
+
+## [0.30.0] - 06/12/2024
+
+
+### Added
+
+>>>>>>> master
 - Support for Yubikey Manager 5.1.x ([444])
 - Support for Python 3.11 and 3.12 ([440])
 - Fix add_target_repo when signing role is the top-level targets role ([431])
@@ -18,6 +33,8 @@ and this project adheres to [Semantic Versioning][semver].
 - New function taf roles list that lists all roles in an authentication repository ([421])
 - Clone target repositories to temp ([412], [418])
 - Add architecture overview documentation ([405])
+- Add a command for adding delegated paths to a role ([391])
+- Check if metadata files at revision match those downloaded by TUF updater ([389])
 
 ### Changed
 
@@ -31,10 +48,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix YubiKey setup ([445])
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
 - When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
+- Disable check if metadata files at revision match ([403])
+- Fix `clone_or_pull` ([402])
 
-[447]: https://github.com/openlawlibrary/taf/pull/447
+
+[445]: https://github.com/openlawlibrary/taf/pull/445
 [444]: https://github.com/openlawlibrary/taf/pull/444
 [440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
@@ -52,35 +73,11 @@ and this project adheres to [Semantic Versioning][semver].
 [412]: https://github.com/openlawlibrary/taf/pull/412
 [405]: https://github.com/openlawlibrary/taf/pull/405
 [404]: https://github.com/openlawlibrary/taf/pull/404
-
-## [0.29.3] - 03/15/2024
-
-### Added
-
-### Changed
-
-### Fixed
-
-- Disable check if metadata files at revision match ([403])
-
 [403]: https://github.com/openlawlibrary/taf/pull/403
-
-## [0.29.2] - 03/14/2024
-
-### Added
-
-- Add a command for adding delegated paths to a role ([391])
-- Check if metadata files at revision match those downloaded by TUF updater ([389])
-
-### Changed
-
-### Fixed
-
-- Fix `clone_or_pull` ([402])
-
 [402]: https://github.com/openlawlibrary/taf/pull/402
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
+
 
 ## [0.29.1] - 02/07/2024
 
@@ -1118,9 +1115,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.3...HEAD
-[0.29.3]: https://github.com/openlawlibrary/taf/compare/v0.29.2...v0.29.3
-[0.29.2]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.29.2
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/openlawlibrary/taf/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/openlawlibrary/taf/compare/v0.27.0...v0.28.0
