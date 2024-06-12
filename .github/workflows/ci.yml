@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-2019, macos-latest]
+        os: [ubuntu, windows, macos]
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu'
         run: |
           sudo apt-get update
           sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
@@ -42,25 +42,25 @@ jobs:
           pytest taf/tests
 
       - name: Build standalone executable with Docker (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu'
         run: |
           docker build -t taf-linux -f .github/dockerimages/Dockerfile.linux .
           docker cp $(docker create --rm taf-linux):/usr/src/app/taf/dist/taf taf-linux
 
       - name: Build standalone executable with Docker (Windows)
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows'
         run: |
           docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
           docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
 
       - name: Build standalone executable with Docker (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos'
         run: |
           docker build -t taf-macos -f .github/dockerimages/Dockerfile.macos .
           docker cp $(docker create --rm taf-macos):/usr/src/app/taf/dist/taf taf-macos
 
       - name: Test standalone executable (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu'
         id: test-linux
         run: |
           ./taf-linux --help > actual_output.txt
@@ -73,7 +73,7 @@ jobs:
           fi
 
       - name: Test standalone executable (Windows)
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows'
         id: test-windows
         run: |
           taf-windows.exe --help > actual_output.txt
@@ -86,7 +86,7 @@ jobs:
           fi
 
       - name: Test standalone executable (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos'
         id: test-macos
         run: |
           ./taf-macos --help > actual_output.txt
@@ -99,21 +99,21 @@ jobs:
           fi
 
       - name: Upload standalone executable (Linux)
-        if: matrix.os == 'ubuntu-latest' && env.upload == 'true'
+        if: matrix.os == 'ubuntu' && env.upload == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-linux
           path: taf-linux
 
       - name: Upload standalone executable (Windows)
-        if: matrix.os == 'windows-2019' && env.upload == 'true'
+        if: matrix.os == 'windows' && env.upload == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-windows
           path: taf-windows
 
       - name: Upload standalone executable (macOS)
-        if: matrix.os == 'macos-latest' && env.upload == 'true'
+        if: matrix.os == 'macos' && env.upload == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-macos
