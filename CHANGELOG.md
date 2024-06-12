@@ -30,9 +30,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix YubiKey setup ([445])
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
 - When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
 
+[445]: https://github.com/openlawlibrary/taf/pull/445
 [444]: https://github.com/openlawlibrary/taf/pull/444
 [440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
