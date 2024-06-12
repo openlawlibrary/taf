@@ -24,7 +24,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
->>>>>>> master
 - Support for Yubikey Manager 5.1.x ([444])
 - Support for Python 3.11 and 3.12 ([440])
 - Fix add_target_repo when signing role is the top-level targets role ([431])
@@ -53,7 +52,6 @@ and this project adheres to [Semantic Versioning][semver].
 - When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
 - Disable check if metadata files at revision match ([403])
 - Fix `clone_or_pull` ([402])
-
 
 [445]: https://github.com/openlawlibrary/taf/pull/445
 [444]: https://github.com/openlawlibrary/taf/pull/444
