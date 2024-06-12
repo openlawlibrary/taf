@@ -1,29 +1,84 @@
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+      - test-github-actions
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, windows-2019, macos-latest]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
-          pip install -e .[ci,test,yubikey] # Install with CI deps
+          pip install -e .[ci,test,yubikey]
+
       - name: setup github user
         shell: bash
         run: |
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
+
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
           pytest taf/tests
+
+      - name: Build standalone executable with Docker (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          docker build -t taf-linux -f .github/dockerimages/Dockerfile.linux .
+          docker cp $(docker create --rm taf-linux):/usr/src/app/taf/dist/taf taf-linux
+
+      - name: Build standalone executable with Docker (Windows)
+        if: matrix.os == 'windows-2019'
+        run: |
+          docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
+          docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
+
+      - name: Upload standalone executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-linux
+          path: taf-linux
+
+      - name: Upload standalone executable (Windows)
+        if: matrix.os == 'windows-2019'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-windows
+          path: taf-windows
+
+      - name: Install PyInstaller on MacOS
+        if: matrix.os == 'macos-latest'
+        run: pip install pyinstaller
+
+      - name: Build standalone executable with PyInstaller on MacOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          chmod +x dist/taf
+
+      - name: Upload standalone executable (MacOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-macos
+          path: dist/taf

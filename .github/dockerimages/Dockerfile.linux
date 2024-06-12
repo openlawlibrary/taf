@@ -1,0 +1,23 @@
+# Use an official Python runtime as a parent image
+FROM python:3.8-slim
+
+# Set the working directory in the container
+WORKDIR /usr/src/app
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y binutils git
+
+# Copy the TAF source code into the container
+COPY . .
+
+# Install all necessary Python packages
+RUN pip install -e .
+
+# Install PyInstaller
+RUN pip install pyinstaller
+
+# Run PyInstaller to create the standalone executable
+RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+
+# Make the executable runnable
+RUN chmod +x dist/taf
