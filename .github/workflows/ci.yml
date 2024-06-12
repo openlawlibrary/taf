@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-2019]
+        os: [ubuntu-latest, windows-2019, macos-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
-          pip install -e .[ci,test,yubikey] # Install with CI deps
+          pip install -e .[ci,test,yubikey]
 
       - name: setup github user
         shell: bash
@@ -52,6 +52,12 @@ jobs:
         run: |
           docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
           docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
+
+      - name: Build standalone executable with Docker (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          docker build -t taf-macos -f .github/dockerimages/Dockerfile.macos .
+          docker cp $(docker create --rm taf-macos):/usr/src/app/taf/dist/taf taf-macos
 
       - name: Test standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -79,6 +85,19 @@ jobs:
             echo "upload=true" >> $GITHUB_ENV
           fi
 
+      - name: Test standalone executable (macOS)
+        if: matrix.os == 'macos-latest'
+        id: test-macos
+        run: |
+          ./taf-macos --help > actual_output.txt
+          if ! diff -q actual_output.txt expected_output.txt; then
+            echo "Output does not match expected result"
+            echo "upload=false" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "upload=true" >> $GITHUB_ENV
+          fi
+
       - name: Upload standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest' && env.upload == 'true'
         uses: actions/upload-artifact@v3
@@ -92,3 +111,10 @@ jobs:
         with:
           name: taf-executable-windows
           path: taf-windows
+
+      - name: Upload standalone executable (macOS)
+        if: matrix.os == 'macos-latest' && env.upload == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-macos
+          path: taf-macos
