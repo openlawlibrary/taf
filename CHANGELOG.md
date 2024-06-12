@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added workflow to build standalone executable of TAF ([447])
 - Support for Yubikey Manager 5.1.x ([444])
 - Support for Python 3.11 and 3.12 ([440])
 - Fix add_target_repo when signing role is the top-level targets role ([431])
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
 - When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
 
+[447]: https://github.com/openlawlibrary/taf/pull/447
 [444]: https://github.com/openlawlibrary/taf/pull/444
 [440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
