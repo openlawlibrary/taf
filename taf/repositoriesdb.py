@@ -92,6 +92,7 @@ def load_dependencies(
     if library_dir is None:
         library_dir = str(Path(auth_repo.path).parent.parent)
 
+    mirrors = load_mirrors_json(auth_repo, commits[-1])
     for commit in commits:
         dependencies_dict: Dict = {}
         # check if already loaded
@@ -104,7 +105,6 @@ def load_dependencies(
         if dependencies is None:
             continue
 
-        mirrors = load_mirrors_json(auth_repo, commit)
         dependencies = dependencies["dependencies"]
         if dependencies is None:
             continue
@@ -235,6 +235,7 @@ def load_repositories(
         only_load_targets = True
 
     skipped_targets = []
+    mirrors = load_mirrors_json(auth_repo, commits[-1])
     for commit in commits:
         repositories_dict: Dict = {}
         # check if already loaded
@@ -246,8 +247,6 @@ def load_repositories(
         repositories = load_repositories_json(auth_repo, commit)
         if repositories is None:
             continue
-
-        mirrors = load_mirrors_json(auth_repo, commit)
 
         # target repositories are defined in both repositories.json and targets.json
         repositories = repositories["repositories"]
@@ -599,21 +598,6 @@ def get_repositories_by_custom_data(
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom_data} not found"
     )
-
-
-def get_repo_urls(
-    auth_repo: AuthenticationRepository, repo_name: str, commit: Optional[str] = None
-) -> Optional[List[str]]:
-    if commit is None:
-        commit = auth_repo.head_commit_sha()
-        if commit is None:
-            raise TAFError(
-                "Could not load urls. Commit is not specified and head commit could not be determined"
-            )
-    mirrors = load_mirrors_json(auth_repo, commit)
-    if mirrors is not None:
-        return _get_urls(mirrors, repo_name)
-    return None
 
 
 def _initialize_repository(
