@@ -53,15 +53,41 @@ jobs:
           docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
           docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
 
-      - name: Upload standalone executable (Linux)
+      - name: Test standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
+        id: test-linux
+        run: |
+          ./taf-linux --help > actual_output.txt
+          if ! diff -q actual_output.txt expected_output.txt; then
+            echo "Output does not match expected result"
+            echo "upload=false" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "upload=true" >> $GITHUB_ENV
+          fi
+
+      - name: Test standalone executable (Windows)
+        if: matrix.os == 'windows-2019'
+        id: test-windows
+        run: |
+          taf-windows.exe --help > actual_output.txt
+          if ! diff -q actual_output.txt expected_output.txt; then
+            echo "Output does not match expected result"
+            echo "upload=false" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "upload=true" >> $GITHUB_ENV
+          fi
+
+      - name: Upload standalone executable (Linux)
+        if: matrix.os == 'ubuntu-latest' && env.upload == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-linux
           path: taf-linux
 
       - name: Upload standalone executable (Windows)
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' && env.upload == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-windows
