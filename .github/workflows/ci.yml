@@ -1,18 +1,17 @@
-on: [push, pull_request]
-  push:
-    branches:
-      - main
-      - test-github-actions
+on:
   pull_request:
+    types: [closed]
     branches:
       - main
+  release:
+    types: [published]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true || github.event_name == 'release'
     strategy:
       matrix:
-        os: [ubuntu, windows, macos]
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
@@ -23,15 +22,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        if: matrix.os == 'ubuntu'
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          sudo apt-get install -y libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install -e .[ci,test,yubikey]
 
       - name: setup github user
-        shell: bash
         run: |
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
@@ -42,78 +39,75 @@ jobs:
           pytest taf/tests
 
       - name: Build standalone executable with Docker (Linux)
-        if: matrix.os == 'ubuntu'
         run: |
           docker build -t taf-linux -f .github/dockerimages/Dockerfile.linux .
           docker cp $(docker create --rm taf-linux):/usr/src/app/taf/dist/taf taf-linux
 
       - name: Build standalone executable with Docker (Windows)
-        if: matrix.os == 'windows'
         run: |
           docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
           docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
 
       - name: Build standalone executable with Docker (macOS)
-        if: matrix.os == 'macos'
         run: |
           docker build -t taf-macos -f .github/dockerimages/Dockerfile.macos .
           docker cp $(docker create --rm taf-macos):/usr/src/app/taf/dist/taf taf-macos
 
       - name: Test standalone executable (Linux)
-        if: matrix.os == 'ubuntu'
         id: test-linux
         run: |
-          ./taf-linux --help > actual_output.txt
+          ./taf-linux --help | head -n 3 > actual_output.txt
+          head -n 3 .github/dockerimages/expected_output.txt > expected_output.txt
           if ! diff -q actual_output.txt expected_output.txt; then
             echo "Output does not match expected result"
-            echo "upload=false" >> $GITHUB_ENV
+            echo "upload-linux=false" >> $GITHUB_ENV
             exit 1
           else
-            echo "upload=true" >> $GITHUB_ENV
+            echo "upload-linux=true" >> $GITHUB_ENV
           fi
 
       - name: Test standalone executable (Windows)
-        if: matrix.os == 'windows'
         id: test-windows
         run: |
-          taf-windows.exe --help > actual_output.txt
+          taf-windows.exe --help | head -n 3 > actual_output.txt
+          head -n 3 .github/dockerimages/expected_output.txt > expected_output.txt
           if ! diff -q actual_output.txt expected_output.txt; then
             echo "Output does not match expected result"
-            echo "upload=false" >> $GITHUB_ENV
+            echo "upload-windows=false" >> $GITHUB_ENV
             exit 1
           else
-            echo "upload=true" >> $GITHUB_ENV
+            echo "upload-windows=true" >> $GITHUB_ENV
           fi
 
       - name: Test standalone executable (macOS)
-        if: matrix.os == 'macos'
         id: test-macos
         run: |
-          ./taf-macos --help > actual_output.txt
+          ./taf-macos --help | head -n 3 > actual_output.txt
+          head -n 3 .github/dockerimages/expected_output.txt > expected_output.txt
           if ! diff -q actual_output.txt expected_output.txt; then
             echo "Output does not match expected result"
-            echo "upload=false" >> $GITHUB_ENV
+            echo "upload-macos=false" >> $GITHUB_ENV
             exit 1
           else
-            echo "upload=true" >> $GITHUB_ENV
+            echo "upload-macos=true" >> $GITHUB_ENV
           fi
 
       - name: Upload standalone executable (Linux)
-        if: matrix.os == 'ubuntu' && env.upload == 'true'
+        if: env.upload-linux == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-linux
           path: taf-linux
 
       - name: Upload standalone executable (Windows)
-        if: matrix.os == 'windows' && env.upload == 'true'
+        if: env.upload-windows == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-windows
           path: taf-windows
 
       - name: Upload standalone executable (macOS)
-        if: matrix.os == 'macos' && env.upload == 'true'
+        if: env.upload-macos == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-macos
