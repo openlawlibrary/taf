@@ -1,37 +1,26 @@
-# Use the latest Wine image from il2horusteam
-FROM il2horusteam/wine:latest as wine-base
+# Use the Wine Docker image 
+FROM madduci/docker-wine as wine-base
+
+USER root
 
 # Remove the problematic repository, install Python, Pip, Rust, and other dependencies
-# We remove the Wine Debian repository because the repository doesn't have a release file, causing an error at apt-get update
 #Rust is required for the windows version of the cryptography package
-RUN sed -i '/^deb .*Emulators.*Wine.*Debian_10/d' /etc/apt/sources.list.d/* && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install -y python3 python3-pip zlib1g-dev libffi-dev git curl build-essential cmake pkg-config libssl-dev && \
     pip3 install pyinstaller && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-# Install libgit2 version 1.4.x
-RUN curl -LO https://github.com/libgit2/libgit2/archive/refs/tags/v1.4.4.tar.gz && \
-    tar -xzvf v1.4.4.tar.gz && \
-    cd libgit2-1.4.4 && \
-    cmake . && \
-    make && \
-    make install && \
-    ldconfig && \
-    cd .. && \
-    rm -rf libgit2-1.4.4 v1.4.4.tar.gz
-
 # Set the environment for Rust
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# Clone the TAF repository and print the contents to verify
+RUN git clone https://github.com/openlawlibrary/taf.git 
+
+# Create the /taf directory and move the cloned repo there
+RUN mkdir -p /taf && mv taf/* /taf/
+
 # Set the working directory in the container
 WORKDIR /taf
-
-# Copy the TAF source code into the container
-COPY . .
-
-# Install all necessary Python packages
-RUN pip3 install -e .
 
 # Run PyInstaller to create the standalone executable
 RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
