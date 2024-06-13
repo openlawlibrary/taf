@@ -1,0 +1,13 @@
+template_str = """
+{
+    "repositories": {
+        {% for target in targets_data %}
+        "{{ target.name }}": {
+            "custom": {
+                "allow-unauthenticated-commits": {{ target.allow_unauthenticated_commits | lower }}
+            }
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    }
+}
+"""
