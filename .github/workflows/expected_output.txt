@@ -1,16 +1,3 @@
 Usage: taf [OPTIONS] COMMAND [ARGS]...
 
   TAF Command Line Interface
-
-Options:
-  --version  Show the version and exit.
-  --help     Show this message and exit.
-
-Commands:
-  dependencies
-  keystore
-  metadata
-  repo
-  roles
-  targets
-  yubikey
