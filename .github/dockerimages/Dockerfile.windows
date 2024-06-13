@@ -1,7 +1,9 @@
 # Use the latest Wine image from il2horusteam
 FROM il2horusteam/wine:latest as wine-base
 
-# Remove the problematic repository, install dependencies and Rust
+# Remove the problematic repository, install Python, Pip, Rust, and other dependencies
+# We remove the Wine Debian repository because the repository doesn't have a release file, causing an error at apt-get update
+#Rust is required for the windows version of the cryptography package
 RUN sed -i '/^deb .*Emulators.*Wine.*Debian_10/d' /etc/apt/sources.list.d/* && \
     apt-get update && \
     apt-get install -y python3 python3-pip zlib1g-dev libffi-dev git curl build-essential cmake pkg-config libssl-dev && \
