@@ -45,18 +45,6 @@ RUN cd /home/arch/deps && \
 # Install pyinstaller and other necessary Python packages as non-root
 RUN pip3.8 install --user cffi pyinstaller
 
-# Manually download and install Rust
-RUN curl -sSf https://sh.rustup.rs -o rustup-init.sh && \
-    sh rustup-init.sh -y --no-modify-path && \
-    rm rustup-init.sh
-
-# Set the environment for Rust and source the profile
-ENV PATH="/home/arch/.cargo/bin:${PATH}"
-RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
-
-# Verify Rust installation
-RUN /bin/bash -c "source $HOME/.cargo/env && rustc --version"
-
 # Clone the TAF repository
 RUN git clone https://github.com/openlawlibrary/taf.git
 
