@@ -1,58 +1,39 @@
-# Use the latest macOS compatible image (experimental)
-FROM bot62726170686f67/macos-cross-rust:latest
+# Use the latest macOS compatible image
+FROM sickcodes/docker-osx:latest
 
-# Install dependencies for building Python and Rust
-RUN mkdir -p /home/arch/deps && cd /home/arch/deps && \
-    curl -O https://www.openssl.org/source/openssl-1.1.1u.tar.gz && \
-    tar -xzf openssl-1.1.1u.tar.gz && \
-    cd openssl-1.1.1u && \
-    ./config --prefix=/home/arch/openssl --openssldir=/home/arch/openssl && \
-    make && \
-    make install
+# Install Homebrew
+RUN curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash
 
-# Set environment variables for OpenSSL
-ENV LDFLAGS="-L/home/arch/openssl/lib"
-ENV CPPFLAGS="-I/home/arch/openssl/include"
-ENV PKG_CONFIG_PATH="/home/arch/openssl/lib/pkgconfig"
-ENV PATH="/home/arch/openssl/bin:$PATH"
-ENV LD_LIBRARY_PATH="/home/arch/openssl/lib:$LD_LIBRARY_PATH"
+# Add Homebrew to the PATH
+ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
-# Download and install Python 3.8 from source with OpenSSL and enable shared library
-RUN cd /home/arch/deps && \
-    curl -O https://www.python.org/ftp/python/3.8.16/Python-3.8.16.tgz && \
-    tar -xzf Python-3.8.16.tgz && \
-    cd Python-3.8.16 && \
-    ./configure --with-openssl=/home/arch/openssl --enable-optimizations --enable-shared && \
-    make && \
-    make altinstall
+# Install Python 3 using Homebrew
+RUN brew install python
 
-# Set environment variables for shared Python library
-ENV LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+# Verify Python and pip installation
+RUN python3 --version && pip3 --version
 
-# Verify Python 3.8 installation
-RUN python3.8 --version
-
-# Switch to non-root user for pip installation
+# Switch to non-root user for pip installation and repo cloning
 RUN mkdir -p /home/arch/.local/bin
 ENV PATH="/home/arch/.local/bin:$PATH"
 
-# Install pip
-RUN cd /home/arch/deps && \
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-    python3.8 get-pip.py --user && \
-    pip3.8 install --upgrade setuptools wheel --user
+# Upgrade setuptools and wheel with the --break-system-packages flag
+RUN pip3 install --upgrade setuptools wheel --user --break-system-packages
 
-# Install pyinstaller and other necessary Python packages as non-root
-RUN pip3.8 install --user cffi pyinstaller
+# Install pyinstaller and other necessary Python packages as non-root with the --break-system-packages flag
+RUN pip3 install --user cffi pyinstaller --break-system-packages
 
-# Clone the TAF repository
-RUN git clone https://github.com/openlawlibrary/taf.git
+# Clone the TAF repository and print the contents to verify
+RUN git clone https://github.com/openlawlibrary/taf.git 
+
+# Create the /taf directory and move the cloned repo there
+RUN mkdir -p /taf && mv taf/* /taf/
 
 # Change working directory to the cloned repository
 WORKDIR /taf
 
-# Install all necessary Python packages as non-root
-RUN pip3.8 install -e .
+# Install all necessary Python packages as non-root with the --break-system-packages flag
+RUN pip3 install -e . --break-system-packages
 
 # Run PyInstaller to create the standalone executable
 RUN ~/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
