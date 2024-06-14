@@ -57,6 +57,7 @@ from datetime import datetime
 
 import taf.settings as settings
 
+from taf.taf.tests.test_updater.update_utils import _get_valid_update_time, check_if_commits_match, check_last_validated_commit, update_and_check_commit_shas
 from tuf.ngclient._internal import trusted_metadata_set
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
@@ -141,7 +142,7 @@ def test_valid_update_no_client_repo(
 ):
     repositories = updater_repositories[test_name]
     origin_dir = origin_dir / test_name
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.CLONE,
         None,
         repositories,
@@ -160,7 +161,7 @@ def test_excluded_targets_update_no_client_repo(
     repositories = updater_repositories["test-updater-valid"]
     origin_dir = origin_dir / "test-updater-valid"
     excluded_target_globs = ["*/TargetRepo1"]
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.CLONE,
         None,
         repositories,
@@ -192,7 +193,7 @@ def test_valid_update_no_auth_repo_one_target_repo_exists(
     repositories = updater_repositories[test_name]
     origin_dir = origin_dir / test_name
     _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.CLONE, None, repositories, origin_dir, client_dir, test_repo
     )
 
@@ -223,7 +224,7 @@ def test_valid_update_existing_client_repos(
     _create_last_validated_commit(
         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
     )
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
     )
 
@@ -250,7 +251,7 @@ def test_no_update_necessary(
     _create_last_validated_commit(
         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
     )
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.UPDATE,
         client_repos,
         repositories,
@@ -416,7 +417,7 @@ def test_no_target_repositories(updater_repositories, origin_dir, client_dir):
     origin_dir = origin_dir / "test-updater-valid"
     client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
     _create_last_validated_commit(client_dir, client_auth_repo.head_commit_sha())
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.UPDATE, None, repositories, origin_dir, client_dir, False
     )
 
@@ -431,7 +432,7 @@ def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
     )
     # update without setting the last validated commit
     # update should start from the beginning and be successful
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
     )
 
@@ -449,7 +450,7 @@ def test_older_last_validated_commit(updater_repositories, origin_dir, client_di
 
     _create_last_validated_commit(client_dir, first_commit)
     # try to update without setting the last validated commit
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
     )
 
@@ -492,7 +493,7 @@ def test_update_repo_target_in_indeterminate_state(
 
     targets_repo_path = client_dir / TARGET_REPO_REL_PATH
 
-    _update_and_check_commit_shas(
+    update_and_check_commit_shas(
         OperationType.CLONE,
         None,
         repositories,
@@ -526,13 +527,6 @@ def test_update_repository_with_dependencies(
     )
 
 
-def _check_last_validated_commit(clients_auth_repo_path):
-    # check if last validated commit is created and the saved commit is correct
-    client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
-    head_sha = client_auth_repo.head_commit_sha()
-    last_validated_commit = client_auth_repo.last_validated_commit
-    assert head_sha == last_validated_commit
-
 
 def _check_if_last_validated_commit_exists(clients_auth_repo_path, should_exist):
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
@@ -544,40 +538,6 @@ def _check_if_last_validated_commit_exists(clients_auth_repo_path, should_exist)
             client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
             == last_validated_commit
         )
-
-
-def _check_if_commits_match(
-    repositories,
-    origin_dir,
-    client_dir,
-    start_head_shas=None,
-    excluded_target_globs=None,
-):
-    excluded_target_globs = excluded_target_globs or []
-    for repository_rel_path in repositories:
-        if any(
-            fnmatch.fnmatch(repository_rel_path, excluded_target_glob)
-            for excluded_target_glob in excluded_target_globs
-        ):
-            continue
-        origin_repo = GitRepository(origin_dir, repository_rel_path)
-        client_repo = GitRepository(client_dir, repository_rel_path)
-        for branch in origin_repo.branches():
-            # ensures that git log will work
-            client_repo.checkout_branch(branch)
-            start_commit = None
-            if start_head_shas is not None:
-                start_commit = start_head_shas[repository_rel_path].get(branch)
-            origin_auth_repo_commits = origin_repo.all_commits_since_commit(
-                start_commit, branch=branch
-            )
-            client_auth_repo_commits = client_repo.all_commits_since_commit(
-                start_commit, branch=branch
-            )
-            for origin_commit, client_commit in zip(
-                origin_auth_repo_commits, client_auth_repo_commits
-            ):
-                assert origin_commit == client_commit
 
 
 def _clone_client_repositories(repositories, origin_dir, client_dir):
@@ -659,50 +619,6 @@ def _get_head_commit_shas(client_repos):
     return start_head_shas
 
 
-def _get_valid_update_time(origin_auth_repo_path):
-    # read timestamp.json expiration date
-    timestamp_path = Path(origin_auth_repo_path, "metadata", "timestamp.json")
-    timestamp_data = json.loads(timestamp_path.read_text())
-    expires = timestamp_data["signed"]["expires"]
-    return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%Y-%m-%d")
-
-
-def _update_and_check_commit_shas(
-    operation,
-    client_repos,
-    repositories,
-    origin_dir,
-    client_dir,
-    expected_repo_type=UpdateType.EITHER,
-    auth_repo_name_exists=True,
-    excluded_target_globs=None,
-):
-    start_head_shas = _get_head_commit_shas(client_repos)
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-    origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
-
-    config = RepositoryConfig(
-        operation=operation,
-        url=str(origin_auth_repo_path),
-        update_from_filesystem=True,
-        path=str(clients_auth_repo_path) if auth_repo_name_exists else None,
-        library_dir=str(client_dir),
-        expected_repo_type=expected_repo_type,
-        excluded_target_globs=excluded_target_globs,
-    )
-
-    with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
-        if operation == OperationType.CLONE:
-            clone_repository(config)
-        else:
-            update_repository(config)
-
-    _check_if_commits_match(
-        repositories, origin_dir, client_dir, start_head_shas, excluded_target_globs
-    )
-    if not excluded_target_globs:
-        _check_last_validated_commit(clients_auth_repo_path)
-
 
 def _update_full_library(
     operation,
@@ -751,8 +667,8 @@ def _update_full_library(
         repositories[auth_repo_name] = repos["auth_repo"]
         for target_repo in repos["target_repos"]:
             repositories[target_repo.name] = target_repo
-        _check_last_validated_commit(client_dir / repos["auth_repo"].name)
-    _check_if_commits_match(
+        check_last_validated_commit(client_dir / repos["auth_repo"].name)
+    check_if_commits_match(
         repositories, origin_dir, client_dir, start_head_shas, excluded_target_globs
     )
 

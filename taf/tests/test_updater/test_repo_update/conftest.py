@@ -11,6 +11,8 @@ from taf.repositoriesdb import (
     MIRRORS_JSON_NAME,
     REPOSITORIES_JSON_NAME,
 )
+from taf.api.metadata import update_metadata_expiration_date
+from taf.tests.test_updater.conftest import RepositoryConfig
 from taf.tests.conftest import (
     TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
@@ -21,7 +23,7 @@ from taf.utils import on_rm_error
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-from jinja2 import Environment, BaseLoader
+
 
 original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet
 
@@ -36,104 +38,17 @@ ROOT_REPO_NAMESPACE = "root"
 
 # test_config.py
 
-class RepositoryConfig:
-    def __init__(self, name, allow_unauthenticated_commits=False):
-        self.name = name
-        self.allow_unauthenticated_commits = allow_unauthenticated_commits
 
-class TestConfig:
-
-    def __init__(self, library_dir, auth_repo_config: RepositoryConfig, target_repo_configs: RepositoryConfig):
-        self.library_dir = library_dir
-        self.auth_repo_config = auth_repo_config
-        self.target_repo_configs = target_repo_configs
-
-
-def initialize_git_repo(library_dir: Path, repo_name: str):
-    repo_path = Path(library_dir, repo_name)
-    repo_path.mkdir(parents=True, exist_ok=True)
-    repo = GitRepository(repo_path=repo_path)
-    repo.init_repo()
-
-def create_repositories_json(library_dir, repo_name, targets_config: list[RepositoryConfig]):
-    repo_path = Path(library_dir, repo_name)
-    targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
-    targets_dir_path.mkdir(parents=True, exist_ok=True)
-    if len(targets_config):
-        repositories_json = create_repositories_json(targets_config)
-        (targets_dir_path / REPOSITORIES_JSON_NAME).write_text(repositories_json)
-
-def create_mirrors_json(library_dir, repo_name):
-    repo_path = Path(library_dir, repo_name)
-    targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
-    targets_dir_path.mkdir(parents=True, exist_ok=True)
-    mirrors = {"mirrors": [f"{library_dir}/{{org_name}}/{{repo_name}}"]}
-    mirrors_path = repo_path / MIRRORS_JSON_NAME
-    mirrors_path.write_text(json.dumps(mirrors))
-
-
-def create_authentication_repository(library_dir, repo_name, keys_description):
-    repo_path = Path(library_dir, repo_name)
-    create_repository(
-        str(repo_path), str(KEYSTORE_PATH), keys_description, commit=True
-    )
-
-def sign_target_files(library_dir, repo_name, keystore):
-    repo_path = Path(library_dir, repo_name)
-    register_target_files(str(repo_path), keystore)
-
-def initialize_target_repositories(library_dir, targets_config: list[RepositoryConfig]):
-    for target_config in targets_config:
-        target_repo = initialize_git_repo(library_dir=library_dir, repo_name=target_config.name)
-        # create some files, content of these repositories is not important
-        for i in range(1, 3):
-            (target_repo.path / f"test{i}.txt").write_text(f"Test file {i}")
-        target_repo.commit("Initial commit")
-        return target_repo
-
-def sign_target_repositories(library_dir, repo_name, keystore):
-    repo_path = Path(library_dir, repo_name)
-    update_target_repos_from_repositories_json(
-        str(repo_path),
-        str(library_dir),
-        str(keystore),
-    )
 
 def update_target_repositories(library_dir, repo_name, targets_config: list[RepositoryConfig]):
     for target_config in targets_config:
         target_repo = GitRepository(library_dir, target_config.name)
         update_target_files(target_repo, "Update target files")
 
-class TaskManager:
-    def __init__(self, library_dir, repo_name):
-        self.library_dir = library_dir
-        self.repo_name = repo_name
-        self.tasks = []
 
-    def add_task(self, func, **kwargs):
-        # Create a task with repo_path set, and only variable parameters need passing later
-        task = partial(func, library_dir=self.library_dir, repo_name=self.repo_name **kwargs)
-        self.tasks.append(task)
-
-    def run_tasks(self):
-        for task in self.tasks:
-            task()
-
-
-def valid_repository_setup_no_unauthenticated_commits(repo_name, keys_description, targets_config):
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(initialize_git_repo)
-    setup_manager.add_task(create_repositories_json, targets_config=targets_config)
-    setup_manager.add_task(create_mirrors_json)
-    setup_manager.add_task(create_authentication_repository, keys_description)
-    setup_manager.add_task(initialize_target_repositories, targets_config=targets_config)
-    setup_manager.add_task(sign_target_repositories, keystore=KEYSTORE_PATH)
-    setup_manager.add_task(update_target_repositories, targets_config=targets_config)
-    setup_manager.add_task(sign_target_repositories, keystore=KEYSTORE_PATH)
-    setup_manager.add_task(update_target_repositories, targets_config=targets_config)
-    setup_manager.add_task(sign_target_repositories, keystore=KEYSTORE_PATH)
-    setup_manager.run_tasks()
-
+def update_expiration_dates(library_dir, repo_name, keystore, roles=["snapshot", "timestamp"]):
+    repo_path = Path(library_dir, repo_name)
+    update_metadata_expiration_date(str(repo_path), roles=roles, keystore=keystore)
 
 
 @fixture(scope="session", autouse=True)
@@ -151,11 +66,10 @@ def initialize_repo(namespace, repo_name):
     return repo
 
 
-
-
 def initialize_target_repo(namespace, repo_name):
     repo = initialize_repo(namespace, repo_name)
     # create some files
+    # it is not important what these repositories contain
     for i in range(1, 3):
         (repo.path / f"test{i}.txt").write_text(f"Test file {i}")
     repo.commit("Initial commit")
@@ -172,12 +86,6 @@ def update_target_files(target_repo, commit_message):
             file_path.write_text(new_content, encoding="utf-8")
     target_repo.commit(commit_message)
 
-
-def create_repositories_json(targets_data: list[RepositoryConfig]):
-    template_str = (TEST_INIT_DATA_PATH / "repositories.j2").read_text()
-    env = Environment(loader=BaseLoader())
-    template = env.from_string(template_str)
-    return template.render(targets_data=targets_data)
 
 def create_and_write_json(template_path, substitutions, output_path):
     template = template_path.read_text()
