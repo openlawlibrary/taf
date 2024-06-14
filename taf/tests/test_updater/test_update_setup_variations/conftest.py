@@ -26,6 +26,12 @@ def origin_auth_repo(request):
     else:
         raise ValueError(f"Unsupported setup type: {setup_type}")
 
+    namespace = repo_name.split("/")[0]
+    client_path = CLIENT_DIR_PATH / namespace
+    origin_path = TEST_DATA_ORIGIN_PATH / namespace
+    shutil.rmtree(origin_path, onerror=on_rm_error)
+    shutil.rmtree(client_path, onerror=on_rm_error)
+
 def setup_repository_all_files_initially(repo_name, targets_config):
     setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
     setup_manager.add_task(create_repositories_json, [{"targets_config": targets_config}])
@@ -37,11 +43,6 @@ def setup_repository_all_files_initially(repo_name, targets_config):
     setup_manager.run_tasks()
     auth_repo =  AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
     yield auth_repo
-
-    namespace = repo_name.split("/")[0]
-    client_path = CLIENT_DIR_PATH / namespace
-    shutil.rmtree(auth_repo.path.parent, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
 
 def setup_repository_no_info_json(repo_name, targets_config):
 
@@ -55,11 +56,6 @@ def setup_repository_no_info_json(repo_name, targets_config):
 
     auth_repo =  AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
     yield auth_repo
-
-    namespace = repo_name.split("/")[0]
-    client_path = CLIENT_DIR_PATH / namespace
-    shutil.rmtree(auth_repo.path.parent, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
 
 def setup_repository_mirrors_added_later(repo_name, targets_config):
 
@@ -75,11 +71,6 @@ def setup_repository_mirrors_added_later(repo_name, targets_config):
     auth_repo =  AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
     yield auth_repo
 
-    namespace = repo_name.split("/")[0]
-    client_path = CLIENT_DIR_PATH / namespace
-    shutil.rmtree(auth_repo.path.parent, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
-
 def setup_repository_repositories_and_mirrors_added_later(repo_name, targets_config):
 
     setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
@@ -94,11 +85,6 @@ def setup_repository_repositories_and_mirrors_added_later(repo_name, targets_con
     auth_repo =  AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
     yield auth_repo
 
-    namespace = repo_name.split("/")[0]
-    client_path = CLIENT_DIR_PATH / namespace
-    shutil.rmtree(auth_repo.path.parent, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
-
 
 def setup_repository_no_target_repositories(repo_name, targets_config):
 
@@ -111,8 +97,3 @@ def setup_repository_no_target_repositories(repo_name, targets_config):
 
     auth_repo =  AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
     yield auth_repo
-
-    namespace = repo_name.split("/")[0]
-    client_path = CLIENT_DIR_PATH / namespace
-    shutil.rmtree(auth_repo.path.parent, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
