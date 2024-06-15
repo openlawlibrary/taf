@@ -6,7 +6,7 @@ on:
     types: [published]
 
 jobs:
-  build-and-test:
+  run-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -37,7 +37,9 @@ jobs:
           pytest taf/tests
 
   build-and-test-executables:
+    needs: run-tests
     runs-on: ubuntu-latest
+    if: ${{ needs.run-tests.result == 'success' }}
     steps:
       - uses: actions/checkout@v3
 
