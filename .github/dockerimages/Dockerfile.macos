@@ -35,8 +35,12 @@ RUN pip3 install -e . --break-system-packages
 # Run PyInstaller to create the standalone executable
 RUN ~/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
+# List files in the dist directory to ensure the executable is created
+RUN ls
+RUN ls -la dist/
+
 # Make the executable runnable
 RUN chmod +x dist/taf
 
 # Set the entry point
-ENTRYPOINT ["dist/taf"]
+ENTRYPOINT ["taf/dist/taf"]
