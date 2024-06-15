@@ -13,10 +13,6 @@ RUN brew install python
 # Verify Python and pip installation
 RUN python3 --version && pip3 --version
 
-# Switch to non-root user for pip installation and repo cloning
-RUN mkdir -p /home/arch/.local/bin
-ENV PATH="/home/arch/.local/bin:$PATH"
-
 # Upgrade setuptools and wheel with the --break-system-packages flag
 RUN pip3 install --upgrade setuptools wheel --user --break-system-packages
 
@@ -38,8 +34,5 @@ RUN ~/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 # Make the executable runnable
 RUN chmod +x dist/taf
 
-# Set the working directory to where the executable is located
-WORKDIR /taf/dist
-
 # Set the entry point
-ENTRYPOINT ["./taf"]
+ENTRYPOINT ["taf/dist/taf"]
