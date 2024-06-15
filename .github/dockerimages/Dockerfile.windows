@@ -26,7 +26,7 @@ WORKDIR /taf
 RUN pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
 
 # Make the executable runnable
-RUN chmod +x dist/taf
+RUN chmod +x dist/taf.exe
 
 # Set the entry point
 ENTRYPOINT ["dist/taf"]
