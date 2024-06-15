@@ -1,10 +1,9 @@
-# Use the Wine Docker image 
-FROM madduci/docker-wine as wine-base
+# Use a base image with Wine and MinGW installed for cross-compiling
+FROM manofthemountain/docker-wine-mingw:latest
 
 USER root
 
-# Remove the problematic repository, install Python, Pip, Rust, and other dependencies
-#Rust is required for the windows version of the cryptography package
+# Install Python, Pip, Rust, and other dependencies
 RUN apt-get update && \
     apt-get install -y python3 python3-pip zlib1g-dev libffi-dev git curl build-essential cmake pkg-config libssl-dev && \
     pip3 install pyinstaller && \
@@ -13,7 +12,7 @@ RUN apt-get update && \
 # Set the environment for Rust
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Clone the TAF repository and print the contents to verify
+# Clone the TAF repository
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
 # Create the /taf directory and move the cloned repo there
@@ -22,11 +21,11 @@ RUN mkdir -p /taf && mv taf/* /taf/
 # Set the working directory in the container
 WORKDIR /taf
 
-# Run PyInstaller to create the standalone executable
-RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+# Run PyInstaller to create the standalone Windows executable
+RUN pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
 
 # Make the executable runnable
-RUN chmod +x dist/taf
+RUN chmod +x dist/taf.exe
 
 # Set the entry point
-ENTRYPOINT ["dist/taf"]
+ENTRYPOINT ["dist/taf.exe"]
