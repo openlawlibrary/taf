@@ -4,7 +4,7 @@ FROM sickcodes/docker-osx:latest
 # Install Homebrew
 RUN curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash
 
-# Add Homebrew to the PATH
+# Add Homebrew to the PATH for all users
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 
 # Install Python 3 using Homebrew
@@ -17,26 +17,26 @@ RUN python3 --version && pip3 --version
 RUN mkdir -p /home/arch/.local/bin
 ENV PATH="/home/arch/.local/bin:$PATH"
 
-# Upgrade setuptools and wheel with the --break-system-packages flag
-RUN pip3 install --upgrade setuptools wheel --user --break-system-packages
+# Upgrade setuptools and wheel
+RUN pip3 install --upgrade setuptools wheel --user
 
-# Install pyinstaller and other necessary Python packages as non-root with the --break-system-packages flag
-RUN pip3 install --user cffi pyinstaller --break-system-packages
+# Install pyinstaller and other necessary Python packages
+RUN pip3 install --user cffi pyinstaller
 
 # Clone the TAF repository and print the contents to verify
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
 # Change working directory to the cloned repository
-WORKDIR taf
+WORKDIR /taf
 
-# Install all necessary Python packages as non-root with the --break-system-packages flag
-RUN pip3 install -e . --break-system-packages
+# Install all necessary Python packages
+RUN pip3 install -e .
 
 # Run PyInstaller to create the standalone executable
-RUN ~/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+RUN /home/arch/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
 # Make the executable runnable
-RUN chmod +x dist/taf
+RUN chmod +x /taf/dist/taf
 
 # Set the entry point
-ENTRYPOINT ["dist/taf"]
+ENTRYPOINT ["/taf/dist/taf"]
