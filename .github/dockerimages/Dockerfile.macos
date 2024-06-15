@@ -26,11 +26,8 @@ RUN pip3 install --user cffi pyinstaller --break-system-packages
 # Clone the TAF repository and print the contents to verify
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
-# Create the /taf directory and move the cloned repo there
-RUN mkdir -p /taf && mv taf/* /taf/
-
 # Change working directory to the cloned repository
-WORKDIR /taf
+WORKDIR taf
 
 # Install all necessary Python packages as non-root with the --break-system-packages flag
 RUN pip3 install -e . --break-system-packages
