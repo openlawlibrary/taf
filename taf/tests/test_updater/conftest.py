@@ -1,3 +1,4 @@
+import pytest
 from collections import defaultdict
 import json
 from pathlib import Path
@@ -6,7 +7,10 @@ from jinja2 import Environment, BaseLoader
 from taf.updater.types.update import UpdateType
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.api.repository import create_repository
-from taf.api.targets import register_target_files, update_target_repos_from_repositories_json
+from taf.api.targets import (
+    register_target_files,
+    update_target_repos_from_repositories_json,
+)
 from taf.git import GitRepository
 from taf.repositoriesdb import (
     DEPENDENCIES_JSON_NAME,
@@ -22,13 +26,14 @@ from taf.tests.conftest import (
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
+
 class RepositoryConfig:
     def __init__(self, name, allow_unauthenticated_commits=False):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
 
-class Task:
 
+class Task:
     def __init__(self, library_dir, repo_name, functions, func_params=None):
         if func_params is None:
             func_params = []
@@ -42,7 +47,11 @@ class Task:
             kwargs = {}
             if index < len(func_params):
                 kwargs = func_params[index]
-            self.functions.append(partial(function, library_dir=library_dir, repo_name=repo_name, **kwargs))
+            self.functions.append(
+                partial(
+                    function, library_dir=library_dir, repo_name=repo_name, **kwargs
+                )
+            )
 
     def run(self):
         for function in self.functions:
@@ -71,7 +80,10 @@ def initialize_git_repo(library_dir: Path, repo_name: str):
     repo.init_repo()
     return repo
 
-def create_repositories_json(library_dir, repo_name, targets_config: list[RepositoryConfig]):
+
+def create_repositories_json(
+    library_dir, repo_name, targets_config: list[RepositoryConfig]
+):
     repo_path = Path(library_dir, repo_name)
     targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
     targets_dir_path.mkdir(parents=True, exist_ok=True)
@@ -86,7 +98,10 @@ def create_info_json(library_dir, repo_name):
     protected_dir = targets_dir_path / "protected"
     protected_dir.mkdir(parents=True, exist_ok=True)
     info_json_path = protected_dir / "info.json"
-    info_content = {"namespace": repo_name.split("/")[0], "name": repo_name.split("/")[1]}
+    info_content = {
+        "namespace": repo_name.split("/")[0],
+        "name": repo_name.split("/")[1],
+    }
     info_json_path.write_text(json.dumps(info_content))
 
 
@@ -99,10 +114,16 @@ def create_mirrors_json(library_dir, repo_name):
     mirrors_path.write_text(json.dumps(mirrors))
 
 
-def create_authentication_repository(library_dir, repo_name, keys_description):
+def create_authentication_repository(
+    library_dir, repo_name, keys_description, is_test_repo=False
+):
     repo_path = Path(library_dir, repo_name)
     create_repository(
-        str(repo_path), str(KEYSTORE_PATH), keys_description, commit=True
+        str(repo_path),
+        str(KEYSTORE_PATH),
+        keys_description,
+        commit=True,
+        test=is_test_repo,
     )
 
 
@@ -113,7 +134,9 @@ def sign_target_files(library_dir, repo_name, keystore):
 
 def initialize_target_repositories(library_dir, repo_name, targets_config: list):
     for target_config in targets_config:
-        target_repo = initialize_git_repo(library_dir=library_dir, repo_name=target_config.name)
+        target_repo = initialize_git_repo(
+            library_dir=library_dir, repo_name=target_config.name
+        )
         # create some files, content of these repositories is not important
         for i in range(1, 3):
             (target_repo.path / f"test{i}.txt").write_text(f"Test file {i}")

@@ -57,7 +57,12 @@ from datetime import datetime
 
 import taf.settings as settings
 
-from taf.taf.tests.test_updater.update_utils import _get_valid_update_time, check_if_commits_match, check_last_validated_commit, update_and_check_commit_shas
+from taf.taf.tests.test_updater.update_utils import (
+    _get_valid_update_time,
+    check_if_commits_match,
+    check_last_validated_commit,
+    update_and_check_commit_shas,
+)
 from tuf.ngclient._internal import trusted_metadata_set
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
@@ -527,7 +532,6 @@ def test_update_repository_with_dependencies(
     )
 
 
-
 def _check_if_last_validated_commit_exists(clients_auth_repo_path, should_exist):
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     last_validated_commit = client_auth_repo.last_validated_commit
@@ -617,7 +621,6 @@ def _get_head_commit_shas(client_repos):
                     branch
                 )
     return start_head_shas
-
 
 
 def _update_full_library(

@@ -18,6 +18,7 @@ def check_last_validated_commit(clients_auth_repo_path):
     last_validated_commit = client_auth_repo.last_validated_commit
     assert head_sha == last_validated_commit
 
+
 def check_if_commits_match(
     repositories,
     origin_repo,
@@ -49,6 +50,7 @@ def check_if_commits_match(
             ):
                 assert origin_commit == client_commit
 
+
 def _get_valid_update_time(origin_auth_repo_path):
     # read timestamp.json expiration date
     timestamp_path = origin_auth_repo_path / "metadata" / "timestamp.json"
@@ -68,7 +70,9 @@ def _get_head_commit_shas(client_repos):
     return start_head_shas
 
 
-def load_target_repositories(auth_repo, library_dir, excluded_target_globs, commits=None):
+def load_target_repositories(
+    auth_repo, library_dir, excluded_target_globs, commits=None
+):
     repositoriesdb.load_repositories(
         auth_repo,
         library_dir=library_dir,
@@ -76,12 +80,11 @@ def load_target_repositories(auth_repo, library_dir, excluded_target_globs, comm
         excluded_target_globs=excluded_target_globs,
         commits=commits,
     )
-    return (
-        repositoriesdb.get_deduplicated_repositories(
-            auth_repo,
-            commits=commits,
-        )
+    return repositoriesdb.get_deduplicated_repositories(
+        auth_repo,
+        commits=commits,
     )
+
 
 def update_and_check_commit_shas(
     operation,
@@ -112,10 +115,16 @@ def update_and_check_commit_shas(
         else:
             update_repository(config)
 
-    target_repositories = load_target_repositories(origin_auth_repo, clients_dir, excluded_target_globs)
+    target_repositories = load_target_repositories(
+        origin_auth_repo, clients_dir, excluded_target_globs
+    )
 
     check_if_commits_match(
-        target_repositories, origin_auth_repo, clients_auth_repo, start_head_shas, excluded_target_globs
+        target_repositories,
+        origin_auth_repo,
+        clients_auth_repo,
+        start_head_shas,
+        excluded_target_globs,
     )
     if not excluded_target_globs:
         check_last_validated_commit(clients_auth_repo_path)

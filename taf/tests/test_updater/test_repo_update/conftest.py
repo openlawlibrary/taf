@@ -4,7 +4,10 @@ import re
 import shutil
 from functools import partial
 from taf.api.repository import create_repository
-from taf.api.targets import register_target_files, update_target_repos_from_repositories_json
+from taf.api.targets import (
+    register_target_files,
+    update_target_repos_from_repositories_json,
+)
 from taf.git import GitRepository
 from taf.repositoriesdb import (
     DEPENDENCIES_JSON_NAME,
@@ -39,14 +42,17 @@ ROOT_REPO_NAMESPACE = "root"
 # test_config.py
 
 
-
-def update_target_repositories(library_dir, repo_name, targets_config: list[RepositoryConfig]):
+def update_target_repositories(
+    library_dir, repo_name, targets_config: list[RepositoryConfig]
+):
     for target_config in targets_config:
         target_repo = GitRepository(library_dir, target_config.name)
         update_target_files(target_repo, "Update target files")
 
 
-def update_expiration_dates(library_dir, repo_name, keystore, roles=["snapshot", "timestamp"]):
+def update_expiration_dates(
+    library_dir, repo_name, keystore, roles=["snapshot", "timestamp"]
+):
     repo_path = Path(library_dir, repo_name)
     update_metadata_expiration_date(str(repo_path), roles=roles, keystore=keystore)
 
