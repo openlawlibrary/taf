@@ -23,7 +23,7 @@ RUN pip3 install --user cffi pyinstaller --break-system-packages
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
 # Change working directory to the cloned repository
-WORKDIR taf
+WORKDIR /home/arch/OSX-KVM/taf
 
 # Install all necessary Python packages as non-root with the --break-system-packages flag
 RUN pip3 install -e . --break-system-packages
@@ -31,5 +31,20 @@ RUN pip3 install -e . --break-system-packages
 # Run PyInstaller to create the standalone executable
 RUN ~/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
+# Print the full path of the generated executable
+RUN find $(pwd) -name taf -type f -exec echo "Full path of generated executable: {}" \;
+
+# List the contents of the dist directory to verify the executable
+RUN ls -l /home/arch/OSX-KVM/taf/dist
+
+# Set the working directory to dist
+WORKDIR /home/arch/OSX-KVM/taf/dist
+
 # Make the executable runnable
-RUN chmod +x dist/taf
+RUN chmod +x taf
+
+# List the contents of the current directory to verify the executable
+RUN ls -l
+
+# Set the entry point
+ENTRYPOINT ["./taf"]
