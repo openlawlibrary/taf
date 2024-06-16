@@ -44,4 +44,4 @@ RUN mkdir -p /usr/src/app && mv dist/taf.app /usr/src/app/
 RUN find /usr/src/app -name taf.app -type f -exec echo "Full path of moved executable: {}" \;
 
 # Set the entry point to the executable
-ENTRYPOINT ["/usr/src/app/dist"]
+ENTRYPOINT ["/usr/src/app"]
