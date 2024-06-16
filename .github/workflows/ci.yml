@@ -63,6 +63,10 @@ jobs:
         run: |
           ./taf-linux --help | head -n 3 > actual_output.txt
           head -n 3 .github/workflows/expected_output.txt > expected_output.txt
+          echo "Expected Output:"
+          cat expected_output.txt
+          echo "Actual Output:"
+          cat actual_output.txt
           if ! diff -q actual_output.txt expected_output.txt; then
             echo "Output does not match expected result"
             echo "upload-linux=false" >> $GITHUB_ENV
@@ -70,12 +74,16 @@ jobs:
           else
             echo "upload-linux=true" >> $GITHUB_ENV
           fi
-
+      
       - name: Test standalone executable (Windows)
         id: test-windows
         run: |
           taf-windows.exe --help | head -n 3 > actual_output.txt
           head -n 3 .github/workflows/expected_output.txt > expected_output.txt
+          echo "Expected Output:"
+          cat expected_output.txt
+          echo "Actual Output:"
+          cat actual_output.txt
           if ! diff -q actual_output.txt expected_output.txt; then
             echo "Output does not match expected result"
             echo "upload-windows=false" >> $GITHUB_ENV
@@ -83,12 +91,16 @@ jobs:
           else
             echo "upload-windows=true" >> $GITHUB_ENV
           fi
-
+      
       - name: Test standalone executable (macOS)
         id: test-macos
         run: |
           ./taf-macos --help | head -n 3 > actual_output.txt
           head -n 3 .github/workflows/expected_output.txt > expected_output.txt
+          echo "Expected Output:"
+          cat expected_output.txt
+          echo "Actual Output:"
+          cat actual_output.txt
           if ! diff -q actual_output.txt expected_output.txt; then
             echo "Output does not match expected result"
             echo "upload-macos=false" >> $GITHUB_ENV
