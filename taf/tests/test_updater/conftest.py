@@ -4,7 +4,13 @@ import json
 from pathlib import Path
 from functools import partial
 from jinja2 import Environment, BaseLoader
-from taf.updater.types.update import UpdateType
+from taf.api.metadata import (
+    _update_expiration_date_of_role,
+    update_metadata_expiration_date,
+)
+from taf.auth_repo import AuthenticationRepository
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.messages import git_commit_message
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.api.repository import create_repository
 from taf.api.targets import (
@@ -22,6 +28,7 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
+from taf.api.utils._git import check_if_clean, commit_and_push
 
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -132,7 +139,9 @@ def sign_target_files(library_dir, repo_name, keystore):
     register_target_files(str(repo_path), keystore, write=True)
 
 
-def initialize_target_repositories(library_dir, repo_name, targets_config: list, create_new_repo=True):
+def initialize_target_repositories(
+    library_dir, repo_name, targets_config: list, create_new_repo=True
+):
     for target_config in targets_config:
         if create_new_repo:
             target_repo = initialize_git_repo(
@@ -160,3 +169,106 @@ def generate_repositories_json(targets_data: list[RepositoryConfig]):
     env = Environment(loader=BaseLoader())
     template = env.from_string(template_str)
     return template.render(targets_data=targets_data)
+
+
+def setup_base_repositories(repo_name, targets_config, is_test_repo):
+    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
+    setup_manager.add_task(
+        create_repositories_json, [{"targets_config": targets_config}]
+    )
+    setup_manager.add_task(create_mirrors_json)
+    setup_manager.add_task(create_info_json)
+    setup_manager.add_task(
+        create_authentication_repository,
+        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
+    )
+    setup_manager.add_task(
+        initialize_target_repositories, [{"targets_config": targets_config}]
+    )
+    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
+    setup_manager.run_tasks()
+    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    return auth_repo
+
+
+def add_valid_target_commits(auth_repo, targets_config):
+    for target_config in targets_config:
+        target_repo = GitRepository(auth_repo.path.parent.parent, target_config.name)
+        update_target_files(target_repo, "Update target files")
+    sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
+
+
+def add_unauthenticated_commits(auth_repo, targets_config):
+    for target_config in targets_config:
+        if target_config.allow_unauthenticated_commits:
+            target_repo = GitRepository(
+                auth_repo.path.parent.parent, target_config.name
+            )
+            update_target_files(target_repo, "Update target files")
+
+
+def create_new_target_orphan_branches(auth_repo, targets_config, branch_name):
+    for target_config in targets_config:
+        target_repo = GitRepository(auth_repo.path.parent.parent, target_config.name)
+        target_repo.checkout_orphan_branch(branch_name)
+    initialize_target_repositories(
+        auth_repo.path.parent.parent,
+        auth_repo.name,
+        targets_config,
+        create_new_repo=False,
+    )
+    sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
+
+
+def update_expiration_dates(auth_repo, roles=["snapshot", "timestamp"]):
+    update_metadata_expiration_date(
+        str(auth_repo.path), roles=roles, keystore=KEYSTORE_PATH, interval=None
+    )
+
+
+def update_role_metadata_without_signing(auth_repo, role):
+    _update_expiration_date_of_role(
+        auth_repo=auth_repo,
+        role=role,
+        loaded_yubikeys={},
+        start_date=None,
+        keystore=KEYSTORE_PATH,
+        interval=None,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=False,
+    )
+
+
+def update_and_sign_metadata_without_clean_check(auth_repo, roles):
+    if "root" or "targets" in roles:
+        if "snapshot" not in roles:
+            roles.append("snapshot")
+        if "timestamp" not in roles:
+            roles.append("timestamp")
+
+    roles = ["root", "snapshot", "timestamp"]
+    for role in roles:
+        _update_expiration_date_of_role(
+            auth_repo=auth_repo,
+            role=role,
+            loaded_yubikeys={},
+            start_date=None,
+            keystore=KEYSTORE_PATH,
+            interval=None,
+            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+            prompt_for_keys=False,
+        )
+
+    commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
+    commit_and_push(auth_repo, commit_msg=commit_msg, push=False)
+
+
+def update_target_files(target_repo, commit_message):
+    text_to_add = "Some text to add"
+    # Iterate over all files in the repository directory
+    for file_path in target_repo.path.iterdir():
+        if file_path.is_file():
+            existing_content = file_path.read_text(encoding="utf-8")
+            new_content = existing_content + "\n" + text_to_add
+            file_path.write_text(new_content, encoding="utf-8")
+    target_repo.commit(commit_message)
