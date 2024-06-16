@@ -1,7 +1,9 @@
 import json
-from pathlib import Path
+import pytest
 import re
 import shutil
+from freezegun import freeze_time
+from pathlib import Path
 from functools import partial
 from taf.api.repository import create_repository
 from taf.api.targets import (
@@ -15,8 +17,10 @@ from taf.repositoriesdb import (
     REPOSITORIES_JSON_NAME,
 )
 from taf.api.metadata import update_metadata_expiration_date
-from taf.tests.test_updater.conftest import RepositoryConfig
+from taf.auth_repo import AuthenticationRepository
+from taf.tests.test_updater.conftest import KEYS_DESCRIPTION, RepositoryConfig, TaskManager, create_authentication_repository, create_info_json, create_mirrors_json, create_repositories_json, initialize_target_repositories, sign_target_repositories
 from taf.tests.conftest import (
+    CLIENT_DIR_PATH,
     TEST_DATA_ORIGIN_PATH,
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
@@ -41,27 +45,114 @@ ROOT_REPO_NAMESPACE = "root"
 
 # test_config.py
 
+@pytest.fixture(scope="function")
+def origin_auth_repo(request):
+    targets_config_list = request.param["targets_config"]
+    is_test_repo = request.param.get("is_test_repo", False)
+    date = request.param.get("data")
+    test_name = request.node.name.split("[")[0]
+    targets_config = [
+        RepositoryConfig(
+            f"{test_name}/{targets_config['name']}",
+            targets_config.get("allow_unauthenticated_commits", False),
+        )
+        for targets_config in targets_config_list
+    ]
+    repo_name = f"{test_name}/auth"
+    update_instructions = request.param.get('update_instructions', [])
 
-def update_target_repositories(
-    library_dir, repo_name, targets_config: list[RepositoryConfig]
-):
+    if date is not None:
+        with freeze_time(date):
+            auth_repo = setup_base_repositories(repo_name, targets_config, is_test_repo)
+    else:
+        auth_repo = setup_base_repositories(repo_name, targets_config, is_test_repo)
+
+    # Apply updates
+    for instruction in update_instructions:
+        action = instruction.get('action')
+        params = instruction.get('params', {})
+        date = params.get("date")
+        number = params.get("number", 1)
+
+        if date is not None:
+            with freeze_time(date):
+                _execute_action(action, auth_repo, targets_config, params, number)
+        else:
+            _execute_action(action, auth_repo, targets_config, params, number)
+
+    yield auth_repo
+
+    namespace = repo_name.split("/")[0]
+    client_path = CLIENT_DIR_PATH / namespace
+    origin_path = TEST_DATA_ORIGIN_PATH / namespace
+    shutil.rmtree(origin_path, onerror=on_rm_error)
+    shutil.rmtree(client_path, onerror=on_rm_error)
+
+
+def _execute_action(action, auth_repo, targets_config, params, number=1):
+    for _ in range(number):
+        if action == "add_valid_target_commits":
+            add_valid_target_commits(auth_repo, targets_config)
+        elif action == "update_expiration_dates":
+            roles = params.get("roles", ["snapshot", "timestamp"])
+            update_expiration_dates(auth_repo, KEYSTORE_PATH, roles=roles)
+        elif action == "add_unauthenticated_commits":
+            add_unauthenticated_commits(auth_repo, targets_config)
+        elif action == "create_new_target_orphan_branches":
+            branch_name = params["branch_name"]
+            create_new_target_orphan_branches(auth_repo, targets_config, branch_name)
+        else:
+            raise ValueError(f"Unknown action: {action}")
+
+def setup_base_repositories(repo_name, targets_config, is_test_repo):
+    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
+    setup_manager.add_task(
+        create_repositories_json, [{"targets_config": targets_config}]
+    )
+    setup_manager.add_task(create_mirrors_json)
+    setup_manager.add_task(create_info_json)
+    setup_manager.add_task(
+        create_authentication_repository,
+        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
+    )
+    setup_manager.add_task(
+        initialize_target_repositories, [{"targets_config": targets_config}]
+    )
+    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
+    setup_manager.run_tasks()
+    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    return auth_repo
+
+
+def add_valid_target_commits(auth_repo, targets_config, no_commit=False):
     for target_config in targets_config:
-        target_repo = GitRepository(library_dir, target_config.name)
+        target_repo = GitRepository(auth_repo.path.parent.parent, target_config.name)
         update_target_files(target_repo, "Update target files")
+    sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
+def add_unauthenticated_commits(auth_repo, targets_config):
+    for target_config in targets_config:
+        if target_config.allow_unauthenticated_commits:
+            target_repo = GitRepository(auth_repo.path.parent.parent, target_config.name)
+            update_target_files(target_repo, "Update target files")
+
+def create_new_target_orphan_branches(auth_repo, targets_config, branch_name):
+    for target_config in targets_config:
+        target_repo = GitRepository(auth_repo.path.parent.parent, target_config.name)
+        target_repo.checkout_orphan_branch(branch_name)
+    initialize_target_repositories(auth_repo.path.parent.parent, auth_repo.name, targets_config, create_new_repo=False)
+    sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 def update_expiration_dates(
-    library_dir, repo_name, keystore, roles=["snapshot", "timestamp"]
+   auth_repo, keystore, roles=["snapshot", "timestamp"]
 ):
-    repo_path = Path(library_dir, repo_name)
-    update_metadata_expiration_date(str(repo_path), roles=roles, keystore=keystore)
+    update_metadata_expiration_date(str(auth_repo.path), roles=roles, keystore=keystore, interval=None)
 
-
-@fixture(scope="session", autouse=True)
-def updater_repositories():
-    test_dir = "test-updater"
-    with origin_repos_group(test_dir) as origins:
-        yield origins
+# @fixture(scope="session", autouse=True)
+# def updater_repositories():
+#     test_dir = "test-updater"
+#     with origin_repos_group(test_dir) as origins:
+#         yield origins
 
 
 def initialize_repo(namespace, repo_name):
@@ -73,7 +164,13 @@ def initialize_repo(namespace, repo_name):
 
 
 def initialize_target_repo(namespace, repo_name):
-    repo = initialize_repo(namespace, repo_name)
+    repo_path = TEST_DATA_ORIGIN_PATH / namespace / repo_name
+
+    if not repo_path.is_dir():
+        repo = initialize_repo(namespace, repo_name)
+    else:
+        repo = GitRepository(path=repo_path)
+
     # create some files
     # it is not important what these repositories contain
     for i in range(1, 3):

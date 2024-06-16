@@ -132,11 +132,14 @@ def sign_target_files(library_dir, repo_name, keystore):
     register_target_files(str(repo_path), keystore, write=True)
 
 
-def initialize_target_repositories(library_dir, repo_name, targets_config: list):
+def initialize_target_repositories(library_dir, repo_name, targets_config: list, create_new_repo=True):
     for target_config in targets_config:
-        target_repo = initialize_git_repo(
-            library_dir=library_dir, repo_name=target_config.name
-        )
+        if create_new_repo:
+            target_repo = initialize_git_repo(
+                library_dir=library_dir, repo_name=target_config.name
+            )
+        else:
+            target_repo = GitRepository(library_dir, target_config.name)
         # create some files, content of these repositories is not important
         for i in range(1, 3):
             (target_repo.path / f"test{i}.txt").write_text(f"Test file {i}")
