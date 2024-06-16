@@ -28,8 +28,15 @@ RUN pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
 # Make the executable runnable
 RUN chmod +x dist/taf.exe
 
-# Verify the standalone executable
-RUN wine dist/taf.exe --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+# Ensure Wine is fully configured
+RUN winecfg && sleep 5
+
+# Output the help text to a file for inspection
+RUN wine dist/taf.exe > help_output.txt
+RUN cat help_output.txt
+
+# Verify the standalone executable by checking the output file
+RUN grep -q "TAF Command Line Interface" help_output.txt || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
 # Set the entry point
-ENTRYPOINT ["dist/taf"]
+ENTRYPOINT ["dist/taf.exe"]
