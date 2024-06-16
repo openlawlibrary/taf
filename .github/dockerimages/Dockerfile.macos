@@ -33,6 +33,3 @@ RUN ~/.local/bin/pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
 # Make the executable runnable
 RUN chmod +x dist/taf
-
-# Set the entry point
-ENTRYPOINT ["/home/arch/OSX-KVM/taf/dist/taf"]
