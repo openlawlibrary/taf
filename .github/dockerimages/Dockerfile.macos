@@ -34,5 +34,8 @@ RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 # Make the executable runnable
 RUN chmod +x dist/taf
 
+# Verify the path to the generated executable
+RUN find /home/arch/OSX-KVM/taf -name taf -type f -exec echo "Full path of generated executable: {}" \;
+
 # Set the entry point
 ENTRYPOINT ["/home/arch/OSX-KVM/taf/dist/taf"]
