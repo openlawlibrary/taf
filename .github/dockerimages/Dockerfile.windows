@@ -16,8 +16,11 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # Clone the TAF repository
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
+# Create the /taf directory and move the cloned repo there
+RUN mkdir -p /taf && mv taf/* /taf/
+
 # Set the working directory in the container
-WORKDIR taf
+WORKDIR /taf
 
 # Install all necessary Python packages
 RUN pip3 install -e .
@@ -27,6 +30,9 @@ RUN pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
 
 # Make the executable runnable
 RUN chmod +x dist/taf.exe
+
+# Verify the standalone executable
+RUN wine dist/taf.exe | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
 # Set the entry point
 ENTRYPOINT ["dist/taf.exe"]
