@@ -31,6 +31,9 @@ RUN pip3 install -e . --break-system-packages
 # Run PyInstaller to create the standalone executable
 RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
+#Change user to enable directory permissions
+USER root
+
 # Make the executable runnable
 RUN chmod +x dist/taf
 
