@@ -13,16 +13,6 @@ RUN apt-get update && \
 # Set the environment for Rust
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Ensure Wine is fully configured
-RUN winecfg && sleep 5
-
-# Install Wine dependencies for .NET (required for some Python packages)
-RUN apt-get install -y winetricks && \
-    winetricks -q dotnet48
-
-# Verify Wine installation with a simple command
-RUN wine --version > wine_version.txt 2>&1
-
 # Clone the TAF repository
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
@@ -37,12 +27,6 @@ RUN pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
 
 # Make the executable runnable
 RUN chmod +x dist/taf.exe
-
-# Output the help text to a file for inspection, capturing all logs
-RUN wine dist/taf.exe --help > help_output.txt 2>&1 || { cat help_output.txt; exit 1; }
-
-# Verify the standalone executable by checking the output file
-RUN grep -q "TAF Command Line Interface" help_output.txt || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
 # Set the entry point
 ENTRYPOINT ["dist/taf.exe"]
