@@ -29,19 +29,25 @@ WORKDIR /home/arch/OSX-KVM/taf
 RUN pip3 install -e . --break-system-packages
 
 # Run PyInstaller to create the standalone executable
-RUN pyinstaller --onefile --name taf.app -y taf/tools/cli/taf.py
+RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
-#Set user to root to move file
+# Check the contents of the dist directory
+RUN ls -l dist/
+
+# Print the full path of the current directory
+RUN pwd
+
+# Set user to root to move file
 USER root
 
 # Make the executable runnable
-RUN chmod +x dist/taf.app
+RUN chmod +x dist/taf
 
 # Create the target directory and move the executable
-RUN mkdir -p /usr/src/app && mv dist/taf.app /usr/src/app/
+RUN mkdir -p /usr/src/app/taf/dist && mv dist/taf /usr/src/app/taf/dist/
 
 # Verify the location of the moved executable
-RUN find /usr/src/app -name taf.app -type f -exec echo "Full path of moved executable: {}" \;
+RUN find /usr/src/app/taf/dist -name taf -type f -exec echo "Full path of moved executable: {}" \;
 
 # Set the entry point to the executable
-ENTRYPOINT ["/usr/src/app"]
+ENTRYPOINT ["/usr/src/app/taf/dist/taf"]
