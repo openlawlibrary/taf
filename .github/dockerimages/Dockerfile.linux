@@ -24,3 +24,9 @@ RUN pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
 
 # Make the executable runnable
 RUN chmod +x dist/taf
+
+# Verify the standalone executable
+RUN ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+
+# Command to run the executable by default
+CMD ["./dist/taf"]
