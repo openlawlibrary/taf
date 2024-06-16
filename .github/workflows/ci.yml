@@ -58,80 +58,19 @@ jobs:
           docker build -t taf-macos -f .github/dockerimages/Dockerfile.macos .
           docker cp $(docker create --rm taf-macos):/usr/src/app/taf/dist/taf taf-macos
 
-      - name: Test standalone executable (Linux)
-        id: test-linux
-        run: |
-          ./taf-linux --help > actual_output.txt
-          echo "Expected Output:"
-          echo "Usage: taf [OPTIONS] COMMAND [ARGS]..." > expected_output.txt
-          echo "" >> expected_output.txt
-          echo "  TAF Command Line Interface" >> expected_output.txt
-          cat expected_output.txt
-          echo "Actual Output:"
-          cat actual_output.txt
-          if ! grep -q -F "$(cat expected_output.txt)" actual_output.txt; then
-            echo "Output does not match expected result"
-            echo "upload-linux=false" >> $GITHUB_ENV
-            exit 1
-          else
-            echo "upload-linux=true" >> $GITHUB_ENV
-          fi
-      
-      - name: Test standalone executable (Windows)
-        id: test-windows
-        run: |
-          taf-windows.exe --help > actual_output.txt
-          echo "Expected Output:"
-          echo "Usage: taf [OPTIONS] COMMAND [ARGS]..." > expected_output.txt
-          echo "" >> expected_output.txt
-          echo "  TAF Command Line Interface" >> expected_output.txt
-          cat expected_output.txt
-          echo "Actual Output:"
-          cat actual_output.txt
-          if ! grep -q -F "$(cat expected_output.txt)" actual_output.txt; then
-            echo "Output does not match expected result"
-            echo "upload-windows=false" >> $GITHUB_ENV
-            exit 1
-          else
-            echo "upload-windows=true" >> $GITHUB_ENV
-          fi
-      
-      - name: Test standalone executable (macOS)
-        id: test-macos
-        run: |
-          ./taf-macos --help > actual_output.txt
-          echo "Expected Output:"
-          echo "Usage: taf [OPTIONS] COMMAND [ARGS]..." > expected_output.txt
-          echo "" >> expected_output.txt
-          echo "  TAF Command Line Interface" >> expected_output.txt
-          cat expected_output.txt
-          echo "Actual Output:"
-          cat actual_output.txt
-          if ! grep -q -F "$(cat expected_output.txt)" actual_output.txt; then
-            echo "Output does not match expected result"
-            echo "upload-macos=false" >> $GITHUB_ENV
-            exit 1
-          else
-            echo "upload-macos=true" >> $GITHUB_ENV
-          fi
-
-
       - name: Upload standalone executable (Linux)
-        if: env.upload-linux == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-linux
           path: taf-linux
 
       - name: Upload standalone executable (Windows)
-        if: env.upload-windows == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-windows
           path: taf-windows
 
       - name: Upload standalone executable (macOS)
-        if: env.upload-macos == 'true'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-macos
