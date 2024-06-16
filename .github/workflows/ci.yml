@@ -48,15 +48,15 @@ jobs:
           docker build -t taf-linux -f .github/dockerimages/Dockerfile.linux .
           docker cp $(docker create --rm taf-linux):/usr/src/app/taf/dist/taf taf-linux
 
-      - name: Build and test standalone executable with Docker (Windows)
-        run: |
-          docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
-          docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
-
       - name: Build and test standalone executable with Docker (macOS)
         run: |
           docker build -t taf-macos -f .github/dockerimages/Dockerfile.macos .
           docker cp $(docker create --rm taf-macos):/usr/src/app/taf/dist/taf taf-macos
+
+      - name: Build and test standalone executable with Docker (Windows)
+        run: |
+          docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
+          docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
 
       - name: Upload standalone executable (Linux)
         uses: actions/upload-artifact@v3
@@ -64,14 +64,14 @@ jobs:
           name: taf-executable-linux
           path: taf-linux
 
-      - name: Upload standalone executable (Windows)
-        uses: actions/upload-artifact@v3
-        with:
-          name: taf-executable-windows
-          path: taf-windows
-
       - name: Upload standalone executable (macOS)
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-macos
           path: taf-macos
+
+      - name: Upload standalone executable (Windows)
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-windows
+          path: taf-windows
