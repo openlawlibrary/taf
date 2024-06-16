@@ -4,7 +4,7 @@ FROM madduci/docker-wine as wine-base
 USER root
 
 # Remove the problematic repository from the wine base image, install Python, Pip, Rust, and other dependencies
-#Rust is required for the windows version of the cryptography package
+# Rust is required for the windows version of the cryptography package
 RUN apt-get update && \
     apt-get install -y python3 python3-pip zlib1g-dev libffi-dev git curl build-essential cmake pkg-config libssl-dev && \
     pip3 install pyinstaller && \
@@ -13,20 +13,23 @@ RUN apt-get update && \
 # Set the environment for Rust
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Clone the TAF repository and print the contents to verify
+# Clone the TAF repository
 RUN git clone https://github.com/openlawlibrary/taf.git 
 
-# Create the /taf directory and move the cloned repo there
-RUN mkdir -p /taf && mv taf/* /taf/
-
 # Set the working directory in the container
-WORKDIR /taf
+WORKDIR taf
+
+# Install all necessary Python packages
+RUN pip3 install -e .
 
 # Run PyInstaller to create the standalone executable
 RUN pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
 
 # Make the executable runnable
 RUN chmod +x dist/taf.exe
+
+# Verify the standalone executable
+RUN wine dist/taf.exe --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
 # Set the entry point
 ENTRYPOINT ["dist/taf"]
