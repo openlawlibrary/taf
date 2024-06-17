@@ -74,4 +74,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-windows
-          path: taf-windows
+          path: taf-windows.exe
