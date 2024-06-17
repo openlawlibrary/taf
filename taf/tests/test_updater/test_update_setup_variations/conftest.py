@@ -5,7 +5,6 @@ from taf.tests.conftest import CLIENT_DIR_PATH, KEYSTORE_PATH, TEST_DATA_ORIGIN_
 from taf.tests.test_updater.conftest import (
     KEYS_DESCRIPTION,
     RepositoryConfig,
-    TaskManager,
     create_authentication_repository,
     create_info_json,
     create_mirrors_json,
@@ -61,107 +60,119 @@ def origin_auth_repo(request):
 
 
 def setup_repository_all_files_initially(repo_name, targets_config, is_test_repo):
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(
-        create_repositories_json, [{"targets_config": targets_config}]
+    # Define the origin path
+    origin_path = TEST_DATA_ORIGIN_PATH
+
+    # Execute the tasks directly
+    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_path, repo_name)
+    create_info_json(origin_path, repo_name)
+    create_authentication_repository(
+        origin_path,
+        repo_name,
+        keys_description=KEYS_DESCRIPTION,
+        is_test_repo=is_test_repo,
     )
-    setup_manager.add_task(create_mirrors_json)
-    setup_manager.add_task(create_info_json)
-    setup_manager.add_task(
-        create_authentication_repository,
-        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
+    initialize_target_repositories(
+        origin_path, repo_name, targets_config=targets_config
     )
-    setup_manager.add_task(
-        initialize_target_repositories, [{"targets_config": targets_config}]
-    )
-    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
-    setup_manager.run_tasks()
-    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
+
+    # Yield the authentication repository object
+    auth_repo = AuthenticationRepository(origin_path, repo_name)
     yield auth_repo
 
 
 def setup_repository_no_info_json(repo_name, targets_config, is_test_repo):
+    # Define the origin path
+    origin_path = TEST_DATA_ORIGIN_PATH
 
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(
-        create_repositories_json, [{"targets_config": targets_config}]
+    # Execute the tasks directly
+    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_path, repo_name)
+    create_authentication_repository(
+        origin_path,
+        repo_name,
+        keys_description=KEYS_DESCRIPTION,
+        is_test_repo=is_test_repo,
     )
-    setup_manager.add_task(create_mirrors_json)
-    setup_manager.add_task(
-        create_authentication_repository,
-        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
+    initialize_target_repositories(
+        origin_path, repo_name, targets_config=targets_config
     )
-    setup_manager.add_task(
-        initialize_target_repositories, [{"targets_config": targets_config}]
-    )
-    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
-    setup_manager.run_tasks()
+    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
 
-    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    # Yield the authentication repository object
+    auth_repo = AuthenticationRepository(origin_path, repo_name)
     yield auth_repo
 
 
 def setup_repository_mirrors_added_later(repo_name, targets_config, is_test_repo):
+    # Define the origin path
+    origin_path = TEST_DATA_ORIGIN_PATH
 
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(
-        create_repositories_json, [{"targets_config": targets_config}]
+    # Execute the tasks directly
+    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
+    create_info_json(origin_path, repo_name)
+    create_authentication_repository(
+        origin_path,
+        repo_name,
+        keys_description=KEYS_DESCRIPTION,
+        is_test_repo=is_test_repo,
     )
-    setup_manager.add_task(create_info_json)
-    setup_manager.add_task(
-        create_authentication_repository,
-        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
+    initialize_target_repositories(
+        origin_path, repo_name, targets_config=targets_config
     )
-    setup_manager.add_task(
-        initialize_target_repositories, [{"targets_config": targets_config}]
-    )
-    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
-    setup_manager.add_task(
-        [create_mirrors_json, sign_target_files], [{}, {"keystore": KEYSTORE_PATH}]
-    )
-    setup_manager.run_tasks()
+    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
+    create_mirrors_json(origin_path, repo_name)
+    sign_target_files(origin_path, repo_name, keystore=KEYSTORE_PATH)
 
-    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    # Yield the authentication repository object
+    auth_repo = AuthenticationRepository(origin_path, repo_name)
     yield auth_repo
 
 
 def setup_repository_repositories_and_mirrors_added_later(
     repo_name, targets_config, is_test_repo
 ):
+    # Define the origin path
+    origin_path = TEST_DATA_ORIGIN_PATH
 
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(create_info_json)
-    setup_manager.add_task(
-        create_authentication_repository,
-        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
+    # Execute the tasks directly
+    create_info_json(origin_path, repo_name)
+    create_authentication_repository(
+        origin_path,
+        repo_name,
+        keys_description=KEYS_DESCRIPTION,
+        is_test_repo=is_test_repo,
     )
-    setup_manager.add_task(
-        [create_repositories_json, create_mirrors_json, sign_target_files],
-        [{"targets_config": targets_config}, {}, {"keystore": KEYSTORE_PATH}],
+    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_path, repo_name)
+    sign_target_files(origin_path, repo_name, keystore=KEYSTORE_PATH)
+    initialize_target_repositories(
+        origin_path, repo_name, targets_config=targets_config
     )
-    setup_manager.add_task(
-        initialize_target_repositories, [{"targets_config": targets_config}]
-    )
-    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
-    setup_manager.run_tasks()
+    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
 
-    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    # Yield the authentication repository object
+    auth_repo = AuthenticationRepository(origin_path, repo_name)
     yield auth_repo
 
 
 def setup_repository_no_target_repositories(repo_name, targets_config, is_test_repo):
+    # Define the origin path
+    origin_path = TEST_DATA_ORIGIN_PATH
 
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(create_info_json)
-    setup_manager.add_task(
-        create_repositories_json, [{"targets_config": targets_config}]
+    # Execute the tasks directly
+    create_info_json(origin_path, repo_name)
+    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_path, repo_name)
+    create_authentication_repository(
+        origin_path,
+        repo_name,
+        keys_description=KEYS_DESCRIPTION,
+        is_test_repo=is_test_repo,
     )
-    setup_manager.add_task(create_mirrors_json)
-    setup_manager.add_task(
-        create_authentication_repository,
-        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
-    )
-    setup_manager.run_tasks()
 
-    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
+    # Yield the authentication repository object
+    auth_repo = AuthenticationRepository(origin_path, repo_name)
     yield auth_repo

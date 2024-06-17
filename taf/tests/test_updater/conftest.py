@@ -40,46 +40,6 @@ class RepositoryConfig:
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
 
 
-class Task:
-    def __init__(self, library_dir, repo_name, functions, func_params=None):
-        if func_params is None:
-            func_params = []
-        if not isinstance(functions, list):
-            functions_list = [functions]
-        else:
-            functions_list = functions
-
-        self.functions = []
-        for index, function in enumerate(functions_list):
-            kwargs = {}
-            if index < len(func_params):
-                kwargs = func_params[index]
-            self.functions.append(
-                partial(
-                    function, library_dir=library_dir, repo_name=repo_name, **kwargs
-                )
-            )
-
-    def run(self):
-        for function in self.functions:
-            function()
-
-
-class TaskManager:
-    def __init__(self, library_dir, repo_name):
-        self.library_dir = library_dir
-        self.repo_name = repo_name
-        self.tasks = []
-
-    def add_task(self, functions, func_params=None):
-        task = Task(self.library_dir, self.repo_name, functions, func_params)
-        self.tasks.append(task)
-
-    def run_tasks(self):
-        for task in self.tasks:
-            task.run()
-
-
 def initialize_git_repo(library_dir: Path, repo_name: str):
     repo_path = Path(library_dir, repo_name)
     repo_path.mkdir(parents=True, exist_ok=True)
@@ -179,24 +139,20 @@ def generate_repositories_json(targets_data: list[RepositoryConfig]):
 
 
 def setup_base_repositories(repo_name, targets_config, is_test_repo):
-    setup_manager = TaskManager(TEST_DATA_ORIGIN_PATH, repo_name)
-    setup_manager.add_task(
-        create_repositories_json, [{"targets_config": targets_config}]
-    )
-    setup_manager.add_task(create_mirrors_json)
-    setup_manager.add_task(create_info_json)
-    setup_manager.add_task(
-        create_authentication_repository,
-        [{"keys_description": KEYS_DESCRIPTION, "is_test_repo": is_test_repo}],
-    )
-    setup_manager.add_task(
-        initialize_target_repositories, [{"targets_config": targets_config}]
-    )
-    setup_manager.add_task(sign_target_repositories, [{"keystore": KEYSTORE_PATH}])
-    setup_manager.run_tasks()
-    auth_repo = AuthenticationRepository(TEST_DATA_ORIGIN_PATH, repo_name)
-    return auth_repo
+    # Define the origin path
+    origin_path = TEST_DATA_ORIGIN_PATH
 
+    # Execute the tasks directly
+    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_path, repo_name)
+    create_info_json(origin_path, repo_name)
+    create_authentication_repository(origin_path, repo_name, keys_description=KEYS_DESCRIPTION, is_test_repo=is_test_repo)
+    initialize_target_repositories(origin_path, repo_name, targets_config=targets_config)
+    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
+
+    # Yield the authentication repository object
+    auth_repo = AuthenticationRepository(origin_path, repo_name)
+    return auth_repo
 
 def add_valid_target_commits(auth_repo, targets_config):
     for target_config in targets_config:
