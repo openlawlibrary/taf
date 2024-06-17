@@ -88,6 +88,13 @@ def initialize_git_repo(library_dir: Path, repo_name: str):
     return repo
 
 
+def clone_client_repo(target_name, origin_dir, client_dir):
+    origin_repo_path = str(origin_dir / target_name)
+    client_repo = GitRepository(client_dir, target_name)
+    client_repo.clone_from_disk(origin_repo_path, keep_remote=True)
+    return client_repo
+
+
 def create_repositories_json(
     library_dir, repo_name, targets_config: list[RepositoryConfig]
 ):

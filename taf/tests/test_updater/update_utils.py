@@ -71,7 +71,7 @@ def _get_head_commit_shas(client_repos):
 
 
 def load_target_repositories(
-    auth_repo, library_dir, excluded_target_globs, commits=None
+    auth_repo, library_dir, excluded_target_globs=None, commits=None
 ):
     repositoriesdb.load_repositories(
         auth_repo,
@@ -128,3 +128,14 @@ def update_and_check_commit_shas(
     )
     if not excluded_target_globs:
         check_last_validated_commit(clients_auth_repo_path)
+
+    if excluded_target_globs:
+        repositoriesdb.clear_repositories_db()
+        all_target_repositories = load_target_repositories(
+            origin_auth_repo, clients_dir
+        )
+        for target_repo in all_target_repositories.values():
+            for excluded_target_glob in excluded_target_globs:
+                if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
+                    assert not target_repo.path.is_dir()
+                    break

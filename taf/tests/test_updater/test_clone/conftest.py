@@ -1,3 +1,4 @@
+import re
 import shutil
 import pytest
 from freezegun import freeze_time
@@ -15,12 +16,32 @@ from taf.tests.test_updater.conftest import (
 from taf.utils import on_rm_error
 
 
+@pytest.fixture
+def excluded_target_globs(request):
+    return request.param
+
+
+@pytest.fixture
+def existing_target_repositories(request):
+    return request.param
+
+
 @pytest.fixture(scope="function")
-def origin_auth_repo(request):
+def test_name(request):
+    # Extract the test name and the counter
+    match = re.match(r"(.+)\[.+(\d+)\]", request.node.name)
+    if match:
+        test_name, counter = match.groups()
+        return f"{test_name}{counter}"
+    else:
+        return request.node.name
+
+
+@pytest.fixture(scope="function")
+def origin_auth_repo(request, test_name):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
-    test_name = request.node.name.split("[")[0]
     targets_config = [
         RepositoryConfig(
             f"{test_name}/{targets_config['name']}",
