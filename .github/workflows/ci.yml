@@ -56,7 +56,7 @@ jobs:
       - name: Build and test standalone executable with Docker (Windows)
         run: |
           docker build -t taf-windows -f .github/dockerimages/Dockerfile.windows .
-          docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows
+          docker cp $(docker create --rm taf-windows):/taf/dist/taf.exe taf-windows.exe
 
       - name: Upload standalone executable (Linux)
         uses: actions/upload-artifact@v3
