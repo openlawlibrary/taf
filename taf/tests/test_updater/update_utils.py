@@ -71,8 +71,11 @@ def _get_head_commit_shas(client_repos):
 
 
 def load_target_repositories(
-    auth_repo, library_dir, excluded_target_globs=None, commits=None
+    auth_repo, library_dir=None, excluded_target_globs=None, commits=None
 ):
+    if library_dir is None:
+        library_dir = auth_repo.path.parent.parent
+
     repositoriesdb.load_repositories(
         auth_repo,
         library_dir=library_dir,
@@ -84,6 +87,26 @@ def load_target_repositories(
         auth_repo,
         commits=commits,
     )
+
+
+def clone_repositories(
+    origin_auth_repo,
+    clients_dir,
+    expected_repo_type=UpdateType.EITHER,
+    excluded_target_globs=None):
+
+    config = RepositoryConfig(
+        operation=OperationType.CLONE,
+        url=str(origin_auth_repo.path),
+        update_from_filesystem=True,
+        path=None,
+        library_dir=str(clients_dir),
+        expected_repo_type=expected_repo_type,
+        excluded_target_globs=excluded_target_globs,
+    )
+
+    with freeze_time(_get_valid_update_time(origin_auth_repo.path)):
+        clone_repository(config)
 
 
 def update_and_check_commit_shas(

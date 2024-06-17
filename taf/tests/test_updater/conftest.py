@@ -1,4 +1,4 @@
-import pytest
+from freezegun import freeze_time
 from collections import defaultdict
 import json
 from pathlib import Path
@@ -38,6 +38,42 @@ class RepositoryConfig:
     def __init__(self, name, allow_unauthenticated_commits=False):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
+
+
+def apply_update_instructions(auth_repo, update_instructions, targets_config):
+    for instruction in update_instructions:
+        action = instruction.get("action")
+        params = instruction.get("params", {})
+        date = params.get("date")
+        number = params.get("number", 1)
+
+        if date is not None:
+            with freeze_time(date):
+                _execute_action(action, auth_repo, targets_config, params, number)
+        else:
+            _execute_action(action, auth_repo, targets_config, params, number)
+
+
+def _execute_action(action, auth_repo, targets_config, params, number=1):
+    for _ in range(number):
+        if action == "add_valid_target_commits":
+            add_valid_target_commits(auth_repo, targets_config)
+        elif action == "update_expiration_dates":
+            roles = params.get("roles", ["snapshot", "timestamp"])
+            update_expiration_dates(auth_repo, roles=roles)
+        elif action == "add_unauthenticated_commits":
+            add_unauthenticated_commits(auth_repo, targets_config)
+        elif action == "create_new_target_orphan_branches":
+            branch_name = params["branch_name"]
+            create_new_target_orphan_branches(auth_repo, targets_config, branch_name)
+        elif action == "update_role_metadata_without_signing":
+            role = params["role"]
+            update_role_metadata_without_signing(auth_repo, role)
+        elif action == "update_and_sign_metadata_without_clean_check":
+            roles = params["roles"]
+            update_and_sign_metadata_without_clean_check(auth_repo, roles)
+        else:
+            raise ValueError(f"Unknown action: {action}")
 
 
 def initialize_git_repo(library_dir: Path, repo_name: str):
