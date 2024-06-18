@@ -67,4 +67,3 @@ def origin_auth_repo(request, test_name):
     origin_path = TEST_DATA_ORIGIN_PATH / namespace
     shutil.rmtree(origin_path, onerror=on_rm_error)
     shutil.rmtree(client_path, onerror=on_rm_error)
-

@@ -861,7 +861,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.errors.append(e)
                     self.state.event = Event.FAILED
                     return UpdateStatus.FAILED
-
         return UpdateStatus.SUCCESS
 
     @log_on_start(
@@ -1117,11 +1116,12 @@ but commit not on branch {current_branch}"
             for repo_name in self.state.repos_on_disk:
                 users_target_repo = self.state.users_target_repositories[repo_name]
                 temp_target_repo = self.state.temp_target_repositories[repo_name]
-                for branch in self.state.validated_commits_per_target_repos_branches[
+                branches = self.state.validated_commits_per_target_repos_branches[
                     repo_name
-                ]:
+                ]
+                for branch in branches:
                     temp_target_repo.update_local_branch(branch=branch)
-                users_target_repo.fetch_from_disk(temp_target_repo.path)
+                users_target_repo.fetch_from_disk(temp_target_repo.path, branches)
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)

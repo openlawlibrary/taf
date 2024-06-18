@@ -1024,13 +1024,24 @@ class GitRepository:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
 
-    def fetch_from_disk(self, local_repo_path):
+    def fetch_from_disk(self, local_repo_path, branches):
 
         repo = self.pygit_repo
         temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
         repo.remotes.create(temp_remote_name, local_repo_path)
         remote = repo.remotes[temp_remote_name]
         remote.fetch()
+
+        for branch in branches:
+            remote_branch_name = f"refs/remotes/{temp_remote_name}/{branch}"
+            remote_branch = repo.lookup_reference(remote_branch_name)
+            if remote_branch is not None:
+                local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
+                if local_branch is None:
+                    # Create a new local branch from the remote branch
+                    target_commit = repo[remote_branch.target]
+                    repo.create_branch(branch, target_commit)
+
         repo.remotes.delete(temp_remote_name)
 
     def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:

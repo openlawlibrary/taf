@@ -182,13 +182,21 @@ def setup_base_repositories(repo_name, targets_config, is_test_repo):
     create_repositories_json(origin_path, repo_name, targets_config=targets_config)
     create_mirrors_json(origin_path, repo_name)
     create_info_json(origin_path, repo_name)
-    create_authentication_repository(origin_path, repo_name, keys_description=KEYS_DESCRIPTION, is_test_repo=is_test_repo)
-    initialize_target_repositories(origin_path, repo_name, targets_config=targets_config)
+    create_authentication_repository(
+        origin_path,
+        repo_name,
+        keys_description=KEYS_DESCRIPTION,
+        is_test_repo=is_test_repo,
+    )
+    initialize_target_repositories(
+        origin_path, repo_name, targets_config=targets_config
+    )
     sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
     auth_repo = AuthenticationRepository(origin_path, repo_name)
     return auth_repo
+
 
 def add_valid_target_commits(auth_repo, targets_config):
     for target_config in targets_config:
@@ -210,6 +218,7 @@ def create_new_target_orphan_branches(auth_repo, targets_config, branch_name):
     for target_config in targets_config:
         target_repo = GitRepository(auth_repo.path.parent.parent, target_config.name)
         target_repo.checkout_orphan_branch(branch_name)
+
     initialize_target_repositories(
         auth_repo.path.parent.parent,
         auth_repo.name,

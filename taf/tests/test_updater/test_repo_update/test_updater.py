@@ -123,69 +123,6 @@ def run_around_tests(client_dir):
 
 
 # @pytest.mark.parametrize(
-#     "test_name, num_of_commits_to_revert",
-#     [
-#         ("test-updater-valid", 3),
-#         ("test-updater-allow-unauthenticated-commits", 1),
-#         ("test-updater-multiple-branches", 5),
-#         ("test-updater-delegated-roles", 1),
-#         ("test-updater-updated-root", 1),
-#         ("test-updater-updated-root-old-snapshot", 1),
-#         ("test-updater-updated-root-version-skipped", 1),
-#     ],
-# )
-# def test_valid_update_existing_client_repos(
-#     test_name, num_of_commits_to_revert, updater_repositories, origin_dir, client_dir
-# ):
-#     # clone the origin repositories
-#     # revert them to an older commit
-#     repositories = updater_repositories[test_name]
-#     origin_dir = origin_dir / test_name
-#     client_repos = _clone_and_revert_client_repositories(
-#         repositories, origin_dir, client_dir, num_of_commits_to_revert
-#     )
-#     # create valid last validated commit file
-#     _create_last_validated_commit(
-#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-#     )
-#     update_and_check_commit_shas(
-#         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
-#     )
-
-
-# @pytest.mark.parametrize(
-#     "test_name, test_repo",
-#     [
-#         ("test-updater-valid", UpdateType.OFFICIAL),
-#         ("test-updater-allow-unauthenticated-commits", UpdateType.OFFICIAL),
-#         ("test-updater-test-repo", UpdateType.TEST),
-#         ("test-updater-multiple-branches", UpdateType.OFFICIAL),
-#         ("test-updater-delegated-roles", UpdateType.OFFICIAL),
-#     ],
-# )
-# def test_no_update_necessary(
-#     test_name, test_repo, updater_repositories, origin_dir, client_dir
-# ):
-#     # clone the origin repositories
-#     # revert them to an older commit
-#     repositories = updater_repositories[test_name]
-#     origin_dir = origin_dir / test_name
-#     client_repos = _clone_client_repositories(repositories, origin_dir, client_dir)
-#     # create valid last validated commit file
-#     _create_last_validated_commit(
-#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-#     )
-#     update_and_check_commit_shas(
-#         OperationType.UPDATE,
-#         client_repos,
-#         repositories,
-#         origin_dir,
-#         client_dir,
-#         test_repo,
-#     )
-
-
-# @pytest.mark.parametrize(
 #     "test_name, expected_error, auth_repo_name_exists, expect_partial_update, should_last_validated_exist",
 #     [
 #         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True, True),

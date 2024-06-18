@@ -50,6 +50,12 @@ def origin_auth_repo_and_targets(request, test_name):
         for targets_config in targets_config_list
     ]
     repo_name = f"{test_name}/auth"
+    client_path = CLIENT_DIR_PATH / test_name
+    origin_path = TEST_DATA_ORIGIN_PATH / test_name
+
+    # remove if cleanup was not successful
+    shutil.rmtree(origin_path, onerror=on_rm_error)
+    shutil.rmtree(client_path, onerror=on_rm_error)
 
     if date is not None:
         with freeze_time(date):
@@ -59,8 +65,5 @@ def origin_auth_repo_and_targets(request, test_name):
 
     yield auth_repo, targets_config
 
-    namespace = repo_name.split("/")[0]
-    client_path = CLIENT_DIR_PATH / namespace
-    origin_path = TEST_DATA_ORIGIN_PATH / namespace
     shutil.rmtree(origin_path, onerror=on_rm_error)
     shutil.rmtree(client_path, onerror=on_rm_error)

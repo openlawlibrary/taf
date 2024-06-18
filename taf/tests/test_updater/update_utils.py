@@ -93,7 +93,8 @@ def clone_repositories(
     origin_auth_repo,
     clients_dir,
     expected_repo_type=UpdateType.EITHER,
-    excluded_target_globs=None):
+    excluded_target_globs=None,
+):
 
     config = RepositoryConfig(
         operation=OperationType.CLONE,
