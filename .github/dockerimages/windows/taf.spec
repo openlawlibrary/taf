@@ -31,6 +31,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
+     onefile=True
 )
 coll = COLLECT(
     exe,
