@@ -1,0 +1,26 @@
+# Use the Wine Docker image as the base
+FROM tobix/pywine:3.10 as wine-base
+
+# Install necessary Python packages
+RUN wine pip install requests
+
+# Add the Python script to the container
+COPY clone_repo.py /clone_repo.py
+
+# Run the Python script to download and extract the repository
+RUN wine python /clone_repo.py
+
+# Set the working directory to the directory where the repository was extracted
+WORKDIR /taf-master
+
+# Install Python dependencies
+RUN wine pip install -e .
+
+# Copy the custom PyInstaller spec file and hook
+COPY taf.spec /taf-master/taf.spec
+
+# Run PyInstaller to create the standalone executable
+RUN wine pyinstaller taf.spec
+
+# Verify the standalone executable
+RUN wine dist/taf/taf.exe | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }

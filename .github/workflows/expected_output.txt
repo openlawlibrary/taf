@@ -1,3 +1,0 @@
-Usage: taf [OPTIONS] COMMAND [ARGS]...
-
-  TAF Command Line Interface
