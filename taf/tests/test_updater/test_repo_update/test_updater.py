@@ -85,14 +85,6 @@ from taf.updater.types.update import OperationType
 AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
 
-TARGET_MISSMATCH_PATTERN = r"Update of organization\/auth_repo failed due to error: Failure to validate organization\/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-z]{40}) but repo was at ([0-9a-f]{40})"
-TARGET_ADDITIONAL_COMMIT_PATTERN = r"Update of organization\/auth_repo failed due to error: Failure to validate organization\/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
-TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN = r"Update of organization\/auth_repo failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
-TARGET_MISSING_COMMIT_PATTERN = r"Update of organization/auth_repo failed due to error: Failure to validate organization/auth_repo commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
-NOT_CLEAN_PATTERN = r"^Update of ([\w/]+) failed due to error: Repository ([\w/-]+) should contain only committed changes\."
-INVALID_KEYS_PATTERN = r"^Update of organization/auth_repo failed due to error: Validation of authentication repository organization/auth_repo failed at revision ([0-9a-f]{40}) due to error: ([\w/-]+) was signed by (\d+)/(\d+) keys$"
-INVALID_METADATA_PATTERN = r"^Update of organization/auth_repo failed due to error: Validation of authentication repository organization/auth_repo failed at revision ([0-9a-f]{40}) due to error: Invalid metadata file ([\w/]+\.\w+)$"
-
 
 NO_REPOSITORY_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 ROOT_EXPIRED = "Final root.json is expired"
@@ -122,83 +114,6 @@ def run_around_tests(client_dir):
             shutil.rmtree(str(Path(root) / dir_name), onerror=on_rm_error)
 
 
-# @pytest.mark.parametrize(
-#     "test_name, expected_error, auth_repo_name_exists, expect_partial_update, should_last_validated_exist",
-#     [
-#         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN, True, True, True),
-#         (
-#             "test-updater-additional-target-commit",
-#             TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
-#             True,
-#             True,
-#             True,
-#         ),
-#         # TODO: re-enable when old-snapshot validation is fully supported
-#         # Issue: https://github.com/openlawlibrary/taf/issues/385
-#         # (
-#         #     "test-updater-updated-root-old-snapshot",
-#         #     INVALID_METADATA_PATTERN,
-#         #     True,
-#         #     False,
-#         #     False,
-#         # ),
-#         (
-#             "test-updater-missing-target-commit",
-#             TARGET_ADDITIONAL_COMMIT_PATTERN,
-#             True,
-#             True,
-#             True,
-#         ),
-#         ("test-updater-wrong-key", INVALID_KEYS_PATTERN, True, True, True),
-#         ("test-updater-invalid-version-number", REPLAYED_METADATA, True, True, True),
-#         (
-#             "test-updater-delegated-roles-wrong-sha",
-#             TARGET_MISSMATCH_PATTERN,
-#             True,
-#             True,
-#             True,
-#         ),
-#         (
-#             "test-updater-updated-root-invalid-metadata",
-#             INVALID_KEYS_PATTERN,
-#             True,
-#             True,
-#             True,
-#         ),
-#         ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True, False),
-#         (
-#             "test-updater-invalid-snapshot-meta-field-missing",
-#             METADATA_FIELD_MISSING,
-#             False,
-#             True,
-#             True,
-#         ),
-#     ],
-# )
-# def test_updater_invalid_update(
-#     test_name,
-#     expected_error,
-#     auth_repo_name_exists,
-#     updater_repositories,
-#     client_dir,
-#     expect_partial_update,
-#     should_last_validated_exist,
-# ):
-#     repositories = updater_repositories[test_name]
-#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-
-#     _update_invalid_repos_and_check_if_repos_exist(
-#         OperationType.CLONE,
-#         client_dir,
-#         repositories,
-#         expected_error,
-#         expect_partial_update,
-#         auth_repo_name_exists=auth_repo_name_exists,
-#     )
-#     # make sure that the last validated commit does not exist
-#     _check_if_last_validated_commit_exists(
-#         clients_auth_repo_path, should_last_validated_exist
-#     )
 
 
 # @pytest.mark.parametrize(
@@ -387,17 +302,6 @@ def run_around_tests(client_dir):
 #         excluded_target_globs=None,
 #     )
 
-
-def _check_if_last_validated_commit_exists(clients_auth_repo_path, should_exist):
-    client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
-    last_validated_commit = client_auth_repo.last_validated_commit
-    if not should_exist:
-        assert last_validated_commit is None
-    else:
-        assert (
-            client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
-            == last_validated_commit
-        )
 
 
 def _clone_client_repositories(repositories, origin_dir, client_dir):

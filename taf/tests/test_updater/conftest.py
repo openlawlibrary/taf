@@ -1,8 +1,8 @@
-from freezegun import freeze_time
-from collections import defaultdict
+import random
+import string
 import json
+from freezegun import freeze_time
 from pathlib import Path
-from functools import partial
 from jinja2 import Environment, BaseLoader
 from taf.api.metadata import (
     _update_expiration_date_of_role,
@@ -28,7 +28,7 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import commit_and_push
 
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -62,7 +62,8 @@ def _execute_action(action, auth_repo, targets_config, params, number=1):
             roles = params.get("roles", ["snapshot", "timestamp"])
             update_expiration_dates(auth_repo, roles=roles)
         elif action == "add_unauthenticated_commits":
-            add_unauthenticated_commits(auth_repo, targets_config)
+            include_all_repos = params.get("include_all_repos", False)
+            add_unauthenticated_commits(auth_repo, targets_config, include_all_repos)
         elif action == "create_new_target_orphan_branches":
             branch_name = params["branch_name"]
             create_new_target_orphan_branches(auth_repo, targets_config, branch_name)
@@ -154,7 +155,8 @@ def initialize_target_repositories(
             target_repo = GitRepository(library_dir, target_config.name)
         # create some files, content of these repositories is not important
         for i in range(1, 3):
-            (target_repo.path / f"test{i}.txt").write_text(f"Test file {i}")
+            random_text = _generate_random_text()
+            (target_repo.path / f"test{i}.txt").write_text(random_text)
         target_repo.commit("Initial commit")
 
 
@@ -205,9 +207,9 @@ def add_valid_target_commits(auth_repo, targets_config):
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 
-def add_unauthenticated_commits(auth_repo, targets_config):
+def add_unauthenticated_commits(auth_repo, targets_config, include_all_repos=False):
     for target_config in targets_config:
-        if target_config.allow_unauthenticated_commits:
+        if include_all_repos or target_config.allow_unauthenticated_commits:
             target_repo = GitRepository(
                 auth_repo.path.parent.parent, target_config.name
             )
@@ -227,6 +229,10 @@ def create_new_target_orphan_branches(auth_repo, targets_config, branch_name):
     )
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
+
+def _generate_random_text(length=10):
+    letters = string.ascii_letters
+    return ''.join(random.choice(letters) for i in range(length))
 
 def update_expiration_dates(auth_repo, roles=["snapshot", "timestamp"]):
     update_metadata_expiration_date(
@@ -272,7 +278,7 @@ def update_and_sign_metadata_without_clean_check(auth_repo, roles):
 
 
 def update_target_files(target_repo, commit_message):
-    text_to_add = "Some text to add"
+    text_to_add = _generate_random_text()
     # Iterate over all files in the repository directory
     for file_path in target_repo.path.iterdir():
         if file_path.is_file():

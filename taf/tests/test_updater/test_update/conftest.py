@@ -5,13 +5,7 @@ from freezegun import freeze_time
 from taf.tests.conftest import CLIENT_DIR_PATH, TEST_DATA_ORIGIN_PATH
 from taf.tests.test_updater.conftest import (
     RepositoryConfig,
-    add_unauthenticated_commits,
-    add_valid_target_commits,
-    create_new_target_orphan_branches,
     setup_base_repositories,
-    update_and_sign_metadata_without_clean_check,
-    update_expiration_dates,
-    update_role_metadata_without_signing,
 )
 from taf.utils import on_rm_error
 
