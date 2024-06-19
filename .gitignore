@@ -133,3 +133,9 @@ dmypy.json
 
 # macOS specific files
 .DS_Store
+
+# Ignore all .spec files
+*.spec
+
+# But not this specific one
+!.github/dockerimages/windows/taf.spec
