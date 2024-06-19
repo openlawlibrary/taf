@@ -42,7 +42,7 @@ RUN wine pip install -e .
 COPY .github/dockerimages/windows/taf.spec /taf-master/taf.spec
 
 # Run PyInstaller to create the standalone executable
-RUN wine pyinstaller taf.spec
+RUN wine pyinstaller --onefile taf.spec
 
 # Verify the standalone executable
 RUN wine dist/taf/taf.exe | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
