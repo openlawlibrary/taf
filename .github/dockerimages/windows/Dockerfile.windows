@@ -4,10 +4,32 @@ FROM tobix/pywine:3.10 as wine-base
 # Install necessary Python packages
 RUN wine pip install requests
 
-# Add the Python script to the container
-COPY clone_repo.py /clone_repo.py
+# Write the Python script to a file (Written here so TAF doens't have to import requests)
+RUN echo "\
+import os\n\
+import requests\n\
+import zipfile\n\
+import io\n\
+repo_url = 'https://github.com/openlawlibrary/taf/archive/refs/heads/master.zip'\n\
+clone_dir = '/'\n\
+response = requests.get(repo_url)\n\
+if response.status_code == 200:\n\
+    print('Repository zip file downloaded successfully')\n\
+else:\n\
+    raise Exception(f'Failed to download repository: {response.status_code}')\n\
+with zipfile.ZipFile(io.BytesIO(response.content)) as zip_ref:\n\
+    zip_ref.extractall(clone_dir)\n\
+print(f'Repository successfully extracted to {clone_dir}')\n\
+extracted_dir = os.path.join(clone_dir, 'taf-main')\n\
+if os.path.exists(extracted_dir):\n\
+    for item in os.listdir(extracted_dir):\n\
+        s = os.path.join(extracted_dir, item)\n\
+        d = os.path.join(clone_dir, item)\n\
+        os.rename(s, d)\n\
+    os.rmdir(extracted_dir)\n\
+" > /clone_repo.py
 
-# Run the Python script to download and extract the repository
+# Run the Python script
 RUN wine python /clone_repo.py
 
 # Set the working directory to the directory where the repository was extracted
