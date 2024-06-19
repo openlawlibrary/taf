@@ -39,7 +39,7 @@ WORKDIR /taf-master
 RUN wine pip install -e .
 
 # Copy the custom PyInstaller spec file and hook
-COPY taf.spec /taf-master/taf.spec
+COPY .github/dockerimages/windows/taf.spec /taf-master/taf.spec
 
 # Run PyInstaller to create the standalone executable
 RUN wine pyinstaller taf.spec
