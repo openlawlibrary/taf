@@ -53,19 +53,20 @@ INVALID_METADATA_PATTERN = r"^Update of (\w+)\/(\w+) failed due to error: Valida
 INVALID_VERSION_NUMBER_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: New (\w+) version (\d) must be >= (\d+)$"
 WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is a test repository. Call update with \"--expected-repo-type\" test to update a test repository$"
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
-METADATA_EXPIRED =r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
+METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
+NO_INFO_JSON = f"Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
+UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 
 
 class Task:
-
     def __init__(self, function, date, repetitions, params):
         self.function = function
         self.params = params
         self.date = date
         self.repetitions = repetitions
 
-class SetupManager:
 
+class SetupManager:
     def __init__(self, auth_repo):
         self.auth_repo = auth_repo
         self.target_repos = load_target_repositories(auth_repo).values()
@@ -134,7 +135,9 @@ def origin_auth_repo(request, test_name):
 
     if date is not None:
         with freeze_time(date):
-            auth_repo = _init_auth_repo(setup_type, repo_name, targets_config, is_test_repo)
+            auth_repo = _init_auth_repo(
+                setup_type, repo_name, targets_config, is_test_repo
+            )
     else:
         auth_repo = _init_auth_repo(setup_type, repo_name, targets_config, is_test_repo)
 
@@ -202,26 +205,23 @@ def sign_target_files(library_dir, repo_name, keystore):
     register_target_files(str(repo_path), keystore, write=True)
 
 
-
 def _init_auth_repo(setup_type, repo_name, targets_config, is_test_repo):
     if setup_type == "all_files_initially":
-       return setup_repository_all_files_initially(
+        return setup_repository_all_files_initially(
             repo_name, targets_config, is_test_repo
         )
     elif setup_type == "no_info_json":
-       return setup_repository_no_info_json(
-            repo_name, targets_config, is_test_repo
-        )
+        return setup_repository_no_info_json(repo_name, targets_config, is_test_repo)
     elif setup_type == "mirrors_added_later":
-       return setup_repository_mirrors_added_later(
+        return setup_repository_mirrors_added_later(
             repo_name, targets_config, is_test_repo
         )
     elif setup_type == "repositories_and_mirrors_added_later":
-       return setup_repository_repositories_and_mirrors_added_later(
+        return setup_repository_repositories_and_mirrors_added_later(
             repo_name, targets_config, is_test_repo
         )
     elif setup_type == "no_target_repositories":
-       return setup_repository_no_target_repositories(
+        return setup_repository_no_target_repositories(
             repo_name, targets_config, is_test_repo
         )
     else:
@@ -267,6 +267,7 @@ def generate_repositories_json(targets_data: list[RepositoryConfig]):
     env = Environment(loader=BaseLoader())
     template = env.from_string(template_str)
     return template.render(targets_data=targets_data)
+
 
 def setup_repository_all_files_initially(repo_name, targets_config, is_test_repo):
     # Define the origin path
@@ -393,6 +394,7 @@ def add_valid_unauthenticated_commits(target_repos):
         if target_repo.custom.get("allow-unauthenticated-commits", False):
             update_target_files(target_repo, "Update target files")
 
+
 def add_unauthenticated_commits_to_all_target_repos(target_repos):
     for target_repo in target_repos:
         update_target_files(target_repo, "Update target files")
@@ -410,10 +412,33 @@ def create_new_target_orphan_branches(auth_repo, target_repos, branch_name):
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 
+def create_index_lock(auth_repo, client_dir):
+    # Create an `index.lock` file, indicating that an incomplete git operation took place
+    # index.lock is created by git when a git operation is interrupted.
+    target_repos = load_target_repositories(auth_repo)
+
+    for target_repo in target_repos.values():
+        index_lock = Path(client_dir, target_repo.name, ".git", "index.lock")
+        index_lock.touch()
+        break
+
 
 def _generate_random_text(length=10):
     letters = string.ascii_letters
-    return ''.join(random.choice(letters) for i in range(length))
+    return "".join(random.choice(letters) for i in range(length))
+
+
+def remove_last_validate_commit(auth_repo, client_dir):
+    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
+    Path(client_repo.conf_dir, client_repo.LAST_VALIDATED_FILENAME).unlink()
+    assert client_repo.last_validated_commit is None
+
+
+def revert_last_validated_commit(auth_repo, client_dir):
+    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
+    older_commit = client_repo.all_commits_on_branch(client_repo.default_branch)[-2]
+    client_repo.set_last_validated_commit(older_commit)
+    assert client_repo.last_validated_commit == older_commit
 
 
 def swap_last_two_commits(auth_repo):
@@ -426,7 +451,9 @@ def swap_last_two_commits(auth_repo):
     current_branch = auth_repo.get_current_branch()
     auth_repo._git("rebase -Xtheirs --onto HEAD~2 HEAD~1 HEAD")
     auth_repo._git("cherry-pick -Xtheirs ORIG_HEAD~1")
-    auth_repo._git("update-ref refs/heads/{} {}", current_branch, auth_repo.head_commit_sha())
+    auth_repo._git(
+        "update-ref refs/heads/{} {}", current_branch, auth_repo.head_commit_sha()
+    )
     auth_repo._git("checkout --quiet {}", current_branch)
 
 
@@ -457,6 +484,7 @@ def update_role_metadata_invalid_signature(auth_repo, role):
     content["signed"]["version"] = version + 1
     role_metadata_path.write_text(json.dumps(content))
     auth_repo.commit("Invalid metadata update")
+
 
 def update_and_sign_metadata_without_clean_check(auth_repo, roles):
     if "root" or "targets" in roles:

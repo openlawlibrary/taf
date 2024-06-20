@@ -1,10 +1,32 @@
-
 import pytest
 from taf import settings
 from taf.auth_repo import AuthenticationRepository
-from taf.tests.test_updater.conftest import INVALID_KEYS_PATTERN, INVALID_VERSION_NUMBER_PATTERN, TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN, TARGET_MISSMATCH_PATTERN, WRONG_UPDATE_TYPE_OFFICIAL_REPO, SetupManager, add_unauthenticated_commits_to_all_target_repos, add_valid_target_commits, clone_client_repo, create_new_target_orphan_branches, swap_last_two_commits, update_and_sign_metadata_without_clean_check, update_expiration_dates, update_role_metadata_invalid_signature, update_role_metadata_without_signing
-from taf.tests.test_updater.update_utils import check_if_last_validated_commit_exists, update_invalid_repos_and_check_if_repos_exist
+from taf.tests.test_updater.conftest import (
+    INVALID_KEYS_PATTERN,
+    INVALID_VERSION_NUMBER_PATTERN,
+    METADATA_EXPIRED,
+    NO_INFO_JSON,
+    TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
+    TARGET_MISSMATCH_PATTERN,
+    WRONG_UPDATE_TYPE_OFFICIAL_REPO,
+    WRONG_UPDATE_TYPE_TEST_REPO,
+    SetupManager,
+    add_unauthenticated_commits_to_all_target_repos,
+    add_valid_target_commits,
+    clone_client_repo,
+    create_new_target_orphan_branches,
+    swap_last_two_commits,
+    update_and_sign_metadata_without_clean_check,
+    update_expiration_dates,
+    update_role_metadata_invalid_signature,
+    update_role_metadata_without_signing,
+)
+from taf.tests.test_updater.update_utils import (
+    check_if_last_validated_commit_exists,
+    update_invalid_repos_and_check_if_repos_exist,
+)
 from taf.updater.types.update import OperationType, UpdateType
+
 
 def setup_module(module):
     settings.update_from_filesystem = True
@@ -12,6 +34,7 @@ def setup_module(module):
 
 def teardown_module(module):
     settings.update_from_filesystem = False
+
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
@@ -39,9 +62,7 @@ def test_clone_invalid_target_repositories_top_commits_unsigned(
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, True
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, True)
 
 
 @pytest.mark.parametrize(
@@ -71,23 +92,19 @@ def test_clone_invalid_target_repositories_contain_unsigned_commits(
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, True
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, True)
 
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
-        [
-            {
-                "targets_config": [{"name": "target1"}, {"name": "target2"}],
-            }
-        ],
-    indirect=True
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
 )
-def test_clone_invalid_target_invalid_metadata(
-    origin_auth_repo, client_dir
-):
+def test_clone_invalid_target_invalid_metadata(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates, kwargs={"repetitions": 2})
@@ -103,9 +120,7 @@ def test_clone_invalid_target_invalid_metadata(
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, True
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, True)
 
 
 @pytest.mark.parametrize(
@@ -122,7 +137,7 @@ def test_clone_invalid_target_invalid_metadata(
                 "targets_config": [{"name": "target1"}, {"name": "target2"}],
             },
             ["target1", "target2"],
-        )
+        ),
     ],
     indirect=["origin_auth_repo"],
 )
@@ -151,26 +166,24 @@ def test_clone_invalid_target_repositories_targets_exist(
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, True
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, True)
 
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
-        [
-            {
-                "targets_config": [{"name": "target1"}, {"name": "target2"}],
-            }
-        ],
-    indirect=True
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        }
+    ],
+    indirect=True,
 )
-def test_clone_invalid_target_invalid_metadata(
-    origin_auth_repo, client_dir
-):
+def test_clone_invalid_target_invalid_metadata(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(update_role_metadata_invalid_signature, kwargs={"role": "timestamp"})
+    setup_manager.add_task(
+        update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
+    )
     setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(
@@ -182,9 +195,8 @@ def test_clone_invalid_target_invalid_metadata(
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, True
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, True)
+
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
@@ -196,7 +208,9 @@ def test_clone_invalid_target_invalid_metadata(
     ],
     indirect=True,
 )
-def test_clone_invalid_wrong_update_type_when_official_repo(origin_auth_repo, client_dir):
+def test_clone_invalid_wrong_update_type_when_official_repo(
+    origin_auth_repo, client_dir
+):
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.CLONE,
@@ -204,14 +218,12 @@ def test_clone_invalid_wrong_update_type_when_official_repo(origin_auth_repo, cl
         client_dir,
         WRONG_UPDATE_TYPE_OFFICIAL_REPO,
         False,
-        expected_repo_type=UpdateType.TEST
-
+        expected_repo_type=UpdateType.TEST,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, False
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, False)
+
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
@@ -230,13 +242,11 @@ def test_clone_invalid_wrong_update_type_when_test_repo(origin_auth_repo, client
         client_dir,
         WRONG_UPDATE_TYPE_TEST_REPO,
         False,
-        expected_repo_type=UpdateType.OFFICIAL
+        expected_repo_type=UpdateType.OFFICIAL,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, False
-    )
+    check_if_last_validated_commit_exists(client_auth_repo, False)
 
 
 @pytest.mark.parametrize(
@@ -247,9 +257,11 @@ def test_clone_invalid_wrong_update_type_when_test_repo(origin_auth_repo, client
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
         },
     ],
-    indirect=True
+    indirect=True,
 )
-def test_clone_valid_when_expired_metadata_with_strict_flag(origin_auth_repo, client_dir):
+def test_clone_invalid_when_expired_metadata_with_strict_flag(
+    origin_auth_repo, client_dir
+):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates, kwargs={"date": "2021-01-01"})
     setup_manager.execute_tasks()
@@ -264,9 +276,32 @@ def test_clone_valid_when_expired_metadata_with_strict_flag(origin_auth_repo, cl
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
-    check_if_last_validated_commit_exists(
-        client_auth_repo, True
+    check_if_last_validated_commit_exists(client_auth_repo, True)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "setup_type": "no_info_json",
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_invalid_when_no_info_json_and_no_path(origin_auth_repo, client_dir):
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        NO_INFO_JSON,
+        expect_partial_update=False,
+        auth_repo_name_exists=False,
     )
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    # make sure that the last validated commit does not exist
+    check_if_last_validated_commit_exists(client_auth_repo, False)
 
 
 # # @pytest.mark.parametrize(
@@ -281,14 +316,4 @@ def test_clone_valid_when_expired_metadata_with_strict_flag(origin_auth_repo, cl
 # #         #     False,
 # #         #     False,
 # #         # ),
-# #         ("test-updater-info-missing", NO_REPOSITORY_INFO_JSON, False, True, False),
-# #         (
-# #             "test-updater-invalid-snapshot-meta-field-missing",
-# #             METADATA_FIELD_MISSING,
-# #             False,
-# #             True,
-# #             True,
-# #         ),
-# #     ],
 # # )
-

@@ -85,6 +85,25 @@ def clone_repositories(
         clone_repository(config)
 
 
+def clone_client_auth_repo_without_updater(origin_auth_repo, client_dir):
+    client_repo = GitRepository(
+        client_dir, origin_auth_repo.name, urls=[str(origin_auth_repo.path)]
+    )
+    client_repo.clone()
+    assert client_repo.path.is_dir()
+
+
+def clone_client_target_repos_without_updater(origin_auth_repo, client_dir):
+    client_repo = GitRepository(client_dir, origin_auth_repo.name)
+    orgin_target_repos = load_target_repositories(origin_auth_repo)
+    for target_repo in orgin_target_repos.values():
+        client_repo = GitRepository(
+            client_dir, target_repo.name, urls=[str(target_repo.path)]
+        )
+        client_repo.clone()
+        assert client_repo.path.is_dir()
+
+
 def _get_valid_update_time(origin_auth_repo_path):
     # read timestamp.json expiration date
     timestamp_path = origin_auth_repo_path / "metadata" / "timestamp.json"
@@ -133,12 +152,16 @@ def update_and_check_commit_shas(
 ):
 
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
-    client_repos = {repo_name: repo for repo_name, repo in client_repos.items() if repo.path.is_dir()}
+    client_repos = {
+        repo_name: repo
+        for repo_name, repo in client_repos.items()
+        if repo.path.is_dir()
+    }
 
     clients_auth_repo_path = clients_dir / origin_auth_repo.name
     clients_auth_repo = GitRepository(path=clients_auth_repo_path)
     if clients_auth_repo_path.is_dir():
-        client_repos [clients_auth_repo.name] = clients_auth_repo
+        client_repos[clients_auth_repo.name] = clients_auth_repo
     start_head_shas = _get_head_commit_shas(client_repos)
 
     config = RepositoryConfig(
@@ -156,7 +179,6 @@ def update_and_check_commit_shas(
             clone_repository(config)
         else:
             update_repository(config)
-
 
     origin_root_dir = origin_auth_repo.path.parent.parent
     check_if_commits_match(
@@ -179,6 +201,7 @@ def update_and_check_commit_shas(
                     assert not target_repo.path.is_dir()
                     break
 
+
 def update_invalid_repos_and_check_if_repos_exist(
     operation,
     origin_auth_repo,
@@ -196,8 +219,11 @@ def update_invalid_repos_and_check_if_repos_exist(
     clients_auth_repo_path = clients_dir / origin_auth_repo.name
     clients_auth_repo = GitRepository(path=clients_auth_repo_path)
     client_repos[clients_auth_repo.name] = clients_auth_repo
-    repositories_which_existed_paths = [client_repo.path for client_repo in client_repos.values() if client_repo.path.is_dir()]
-
+    repositories_which_existed_paths = [
+        client_repo.path
+        for client_repo in client_repos.values()
+        if client_repo.path.is_dir()
+    ]
 
     config = RepositoryConfig(
         operation=operation,

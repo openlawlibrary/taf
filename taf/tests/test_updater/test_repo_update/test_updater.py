@@ -112,82 +112,6 @@ def run_around_tests(client_dir):
             shutil.rmtree(str(Path(root) / dir_name), onerror=on_rm_error)
 
 
-
-
-
-
-# def test_no_target_repositories(updater_repositories, origin_dir, client_dir):
-#     repositories = updater_repositories["test-updater-valid"]
-#     origin_dir = origin_dir / "test-updater-valid"
-#     client_auth_repo = _clone_client_repo(AUTH_REPO_REL_PATH, origin_dir, client_dir)
-#     _create_last_validated_commit(client_dir, client_auth_repo.head_commit_sha())
-#     update_and_check_commit_shas(
-#         OperationType.UPDATE, None, repositories, origin_dir, client_dir, False
-#     )
-
-
-# def test_no_last_validated_commit(updater_repositories, origin_dir, client_dir):
-#     # clone the origin repositories
-#     # revert them to an older commit
-#     repositories = updater_repositories["test-updater-valid"]
-#     origin_dir = origin_dir / "test-updater-valid"
-#     client_repos = _clone_and_revert_client_repositories(
-#         repositories, origin_dir, client_dir, 3
-#     )
-#     # update without setting the last validated commit
-#     # update should start from the beginning and be successful
-#     update_and_check_commit_shas(
-#         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
-#     )
-
-
-# def test_older_last_validated_commit(updater_repositories, origin_dir, client_dir):
-#     # clone the origin repositories
-#     # revert them to an older commit
-#     repositories = updater_repositories["test-updater-valid"]
-#     origin_dir = origin_dir / "test-updater-valid"
-#     client_repos = _clone_and_revert_client_repositories(
-#         repositories, origin_dir, client_dir, 3
-#     )
-#     all_commits = client_repos[AUTH_REPO_REL_PATH].all_commits_on_branch()
-#     first_commit = all_commits[0]
-
-#     _create_last_validated_commit(client_dir, first_commit)
-#     # try to update without setting the last validated commit
-#     update_and_check_commit_shas(
-#         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
-#     )
-
-
-
-# def test_update_repo_target_in_indeterminate_state(
-#     updater_repositories, origin_dir, client_dir
-# ):
-#     repositories = updater_repositories[
-#         "test-updater-target-repository-has-indeterminate-state"
-#     ]
-#     origin_dir = origin_dir / "test-updater-target-repository-has-indeterminate-state"
-
-#     targets_repo_path = client_dir / TARGET_REPO_REL_PATH
-
-#     update_and_check_commit_shas(
-#         OperationType.CLONE,
-#         None,
-#         repositories,
-#         origin_dir,
-#         client_dir,
-#         UpdateType.OFFICIAL,
-#     )
-#     # Create an `index.lock` file, indicating that an incomplete git operation took place
-#     # index.lock is created by git when a git operation is interrupted.
-#     index_lock = Path(targets_repo_path, ".git", "index.lock")
-#     index_lock.touch()
-
-#     _update_invalid_repos_and_check_if_repos_exist(
-#         OperationType.UPDATE, client_dir, repositories, NOT_CLEAN_PATTERN, True
-#     )
-
-
 # def test_update_repository_with_dependencies(
 #     library_with_dependencies,
 #     origin_dir,
@@ -202,20 +126,6 @@ def run_around_tests(client_dir):
 #         auth_repo_name_exists=True,
 #         excluded_target_globs=None,
 #     )
-
-
-
-
-
-def _get_head_commit_shas(client_repos):
-    start_head_shas = defaultdict(dict)
-    if client_repos is not None:
-        for repo_rel_path, repo in client_repos.items():
-            for branch in repo.branches():
-                start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
-                    branch
-                )
-    return start_head_shas
 
 
 def _update_full_library(
@@ -269,5 +179,3 @@ def _update_full_library(
     check_if_commits_match(
         repositories, origin_dir, client_dir, start_head_shas, excluded_target_globs
     )
-
-
