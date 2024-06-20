@@ -1,3 +1,4 @@
+from taf.log import disable_console_logging, disable_file_logging
 import pytest
 from taf import settings
 from taf.auth_repo import AuthenticationRepository
@@ -14,18 +15,18 @@ from taf.tests.test_updater.conftest import (
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     clone_client_repo,
-    create_new_target_orphan_branches,
     swap_last_two_commits,
-    update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
     update_role_metadata_invalid_signature,
-    update_role_metadata_without_signing,
 )
 from taf.tests.test_updater.update_utils import (
     check_if_last_validated_commit_exists,
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
+
+disable_console_logging()
+disable_file_logging()
 
 
 def setup_module(module):

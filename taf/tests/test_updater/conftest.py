@@ -1,3 +1,4 @@
+import os
 import re
 import pytest
 import inspect
@@ -27,7 +28,6 @@ from taf.api.targets import (
 )
 from taf.git import GitRepository
 from taf.repositoriesdb import (
-    DEPENDENCIES_JSON_NAME,
     MIRRORS_JSON_NAME,
     REPOSITORIES_JSON_NAME,
 )
@@ -56,6 +56,13 @@ WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Re
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
 NO_INFO_JSON = f"Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
+
+
+@pytest.fixture(autouse=True)
+def run_around_tests(client_dir, origin_dir):
+    yield
+    cleanup_directory(client_dir)
+    cleanup_directory(origin_dir)
 
 
 class Task:
@@ -102,6 +109,16 @@ class RepositoryConfig:
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
 
 
+@pytest.fixture
+def client_dir():
+    yield CLIENT_DIR_PATH
+
+
+@pytest.fixture
+def origin_dir():
+    yield TEST_DATA_ORIGIN_PATH
+
+
 @pytest.fixture(scope="function")
 def test_name(request):
     # Extract the test name and the counter
@@ -114,7 +131,7 @@ def test_name(request):
 
 
 @pytest.fixture(scope="function")
-def origin_auth_repo(request, test_name):
+def origin_auth_repo(request, test_name, origin_dir):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
@@ -128,23 +145,29 @@ def origin_auth_repo(request, test_name):
     ]
     repo_name = f"{test_name}/auth"
 
-    client_path = CLIENT_DIR_PATH / test_name
-    origin_path = TEST_DATA_ORIGIN_PATH / test_name
-    shutil.rmtree(origin_path, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
-
     if date is not None:
         with freeze_time(date):
             auth_repo = _init_auth_repo(
-                setup_type, repo_name, targets_config, is_test_repo
+                origin_dir, setup_type, repo_name, targets_config, is_test_repo
             )
     else:
-        auth_repo = _init_auth_repo(setup_type, repo_name, targets_config, is_test_repo)
+        auth_repo = _init_auth_repo(
+            origin_dir, setup_type, repo_name, targets_config, is_test_repo
+        )
 
     yield auth_repo
 
-    shutil.rmtree(origin_path, onerror=on_rm_error)
-    shutil.rmtree(client_path, onerror=on_rm_error)
+
+def cleanup_directory(directory_path):
+    """Recursively clean up the directory, removing files and directories."""
+    for path in Path(directory_path).rglob("*"):
+        try:
+            if path.is_dir():
+                shutil.rmtree(path, onerror=on_rm_error)
+            else:
+                path.unlink()
+        except Exception as e:
+            pass
 
 
 def clone_client_repo(target_name, origin_dir, client_dir):
@@ -205,24 +228,26 @@ def sign_target_files(library_dir, repo_name, keystore):
     register_target_files(str(repo_path), keystore, write=True)
 
 
-def _init_auth_repo(setup_type, repo_name, targets_config, is_test_repo):
+def _init_auth_repo(origin_dir, setup_type, repo_name, targets_config, is_test_repo):
     if setup_type == "all_files_initially":
         return setup_repository_all_files_initially(
-            repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo
         )
     elif setup_type == "no_info_json":
-        return setup_repository_no_info_json(repo_name, targets_config, is_test_repo)
+        return setup_repository_no_info_json(
+            origin_dir, repo_name, targets_config, is_test_repo
+        )
     elif setup_type == "mirrors_added_later":
         return setup_repository_mirrors_added_later(
-            repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo
         )
     elif setup_type == "repositories_and_mirrors_added_later":
         return setup_repository_repositories_and_mirrors_added_later(
-            repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo
         )
     elif setup_type == "no_target_repositories":
         return setup_repository_no_target_repositories(
-            repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo
         )
     else:
         raise ValueError(f"Unsupported setup type: {setup_type}")
@@ -269,118 +294,117 @@ def generate_repositories_json(targets_data: list[RepositoryConfig]):
     return template.render(targets_data=targets_data)
 
 
-def setup_repository_all_files_initially(repo_name, targets_config, is_test_repo):
+def setup_repository_all_files_initially(
+    origin_dir, repo_name, targets_config, is_test_repo
+):
     # Define the origin path
-    origin_path = TEST_DATA_ORIGIN_PATH
-
     # Execute the tasks directly
-    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
-    create_mirrors_json(origin_path, repo_name)
-    create_info_json(origin_path, repo_name)
+    create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_dir, repo_name)
+    create_info_json(origin_dir, repo_name)
     create_authentication_repository(
-        origin_path,
+        origin_dir,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
     )
-    initialize_target_repositories(
-        origin_path, repo_name, targets_config=targets_config
-    )
-    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
+    if targets_config:
+        initialize_target_repositories(
+            origin_dir, repo_name, targets_config=targets_config
+        )
+        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
-    return AuthenticationRepository(origin_path, repo_name)
+    return AuthenticationRepository(origin_dir, repo_name)
 
 
-def setup_repository_no_info_json(repo_name, targets_config, is_test_repo):
+def setup_repository_no_info_json(origin_dir, repo_name, targets_config, is_test_repo):
     # Define the origin path
-    origin_path = TEST_DATA_ORIGIN_PATH
 
     # Execute the tasks directly
-    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
-    create_mirrors_json(origin_path, repo_name)
+    create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_dir, repo_name)
     create_authentication_repository(
-        origin_path,
+        origin_dir,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
     )
-    initialize_target_repositories(
-        origin_path, repo_name, targets_config=targets_config
-    )
-    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
+    if targets_config:
+        initialize_target_repositories(
+            origin_dir, repo_name, targets_config=targets_config
+        )
+        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
-    return AuthenticationRepository(origin_path, repo_name)
+    return AuthenticationRepository(origin_dir, repo_name)
 
 
-def setup_repository_mirrors_added_later(repo_name, targets_config, is_test_repo):
-    # Define the origin path
-    origin_path = TEST_DATA_ORIGIN_PATH
-
+def setup_repository_mirrors_added_later(
+    origin_dir, repo_name, targets_config, is_test_repo
+):
     # Execute the tasks directly
-    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
-    create_info_json(origin_path, repo_name)
+    create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
+    create_info_json(origin_dir, repo_name)
     create_authentication_repository(
-        origin_path,
+        origin_dir,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
     )
-    initialize_target_repositories(
-        origin_path, repo_name, targets_config=targets_config
-    )
-    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
-    create_mirrors_json(origin_path, repo_name)
-    sign_target_files(origin_path, repo_name, keystore=KEYSTORE_PATH)
+    if targets_config:
+        initialize_target_repositories(
+            origin_dir, repo_name, targets_config=targets_config
+        )
+        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+    create_mirrors_json(origin_dir, repo_name)
+    sign_target_files(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
-    return AuthenticationRepository(origin_path, repo_name)
+    return AuthenticationRepository(origin_dir, repo_name)
 
 
 def setup_repository_repositories_and_mirrors_added_later(
-    repo_name, targets_config, is_test_repo
+    origin_dir, repo_name, targets_config, is_test_repo
 ):
-    # Define the origin path
-    origin_path = TEST_DATA_ORIGIN_PATH
-
     # Execute the tasks directly
-    create_info_json(origin_path, repo_name)
+    create_info_json(origin_dir, repo_name)
     create_authentication_repository(
-        origin_path,
+        origin_dir,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
     )
-    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
-    create_mirrors_json(origin_path, repo_name)
-    sign_target_files(origin_path, repo_name, keystore=KEYSTORE_PATH)
-    initialize_target_repositories(
-        origin_path, repo_name, targets_config=targets_config
-    )
-    sign_target_repositories(origin_path, repo_name, keystore=KEYSTORE_PATH)
+    create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_dir, repo_name)
+    sign_target_files(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+    if targets_config:
+        initialize_target_repositories(
+            origin_dir, repo_name, targets_config=targets_config
+        )
+        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
-    return AuthenticationRepository(origin_path, repo_name)
+    return AuthenticationRepository(origin_dir, repo_name)
 
 
-def setup_repository_no_target_repositories(repo_name, targets_config, is_test_repo):
-    # Define the origin path
-    origin_path = TEST_DATA_ORIGIN_PATH
+def setup_repository_no_target_repositories(
+    origin_dir, repo_name, targets_config, is_test_repo
+):
 
     # Execute the tasks directly
-    create_info_json(origin_path, repo_name)
-    create_repositories_json(origin_path, repo_name, targets_config=targets_config)
-    create_mirrors_json(origin_path, repo_name)
+    create_info_json(origin_dir, repo_name)
+    create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
+    create_mirrors_json(origin_dir, repo_name)
     create_authentication_repository(
-        origin_path,
+        origin_dir,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
     )
 
     # Yield the authentication repository object
-    return AuthenticationRepository(origin_path, repo_name)
+    return AuthenticationRepository(origin_dir, repo_name)
 
 
 def add_valid_target_commits(auth_repo, target_repos):
