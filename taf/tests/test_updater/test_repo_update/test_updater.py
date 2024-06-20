@@ -113,34 +113,7 @@ def run_around_tests(client_dir):
 
 
 
-# @pytest.mark.parametrize(
-#     "test_name, num_of_commits_to_revert, expected_error",
-#     [
-#         ("test-updater-invalid-target-sha", 1, TARGET_MISSMATCH_PATTERN),
-#         ("test-updater-delegated-roles-wrong-sha", 4, TARGET_MISSMATCH_PATTERN),
-#     ],
-# )
-# def test_updater_invalid_target_sha_existing_client_repos(
-#     test_name,
-#     num_of_commits_to_revert,
-#     expected_error,
-#     updater_repositories,
-#     origin_dir,
-#     client_dir,
-# ):
-#     repositories = updater_repositories[test_name]
-#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-#     origin_dir = origin_dir / test_name
-#     client_repos = _clone_and_revert_client_repositories(
-#         repositories, origin_dir, client_dir, num_of_commits_to_revert
-#     )
-#     _create_last_validated_commit(
-#         client_dir, client_repos[AUTH_REPO_REL_PATH].head_commit_sha()
-#     )
-#     _update_invalid_repos_and_check_if_remained_same(
-#         client_repos, client_dir, repositories, expected_error
-#     )
-#     _check_last_validated_commit(clients_auth_repo_path)
+
 
 
 # def test_no_target_repositories(updater_repositories, origin_dir, client_dir):
@@ -232,63 +205,6 @@ def run_around_tests(client_dir):
 
 
 
-def _clone_client_repositories(repositories, origin_dir, client_dir):
-    client_repos = {}
-    for repository_rel_path in repositories:
-        client_repo = _clone_client_repo(repository_rel_path, origin_dir, client_dir)
-        client_repos[repository_rel_path] = client_repo
-    return client_repos
-
-
-def _clone_and_revert_client_repositories(
-    repositories, origin_dir, client_dir, num_of_commits
-):
-    client_repos = {}
-    client_auth_repo = _clone_client_repo(
-        AUTH_REPO_REL_PATH, origin_dir, client_dir, repo_class=AuthenticationRepository
-    )
-    client_auth_repo.reset_num_of_commits(num_of_commits, True)
-    client_auth_repo.reset_remote_tracking_branch(client_auth_repo.default_branch)
-
-    client_repos[AUTH_REPO_REL_PATH] = client_auth_repo
-    client_auth_commits = client_auth_repo.all_commits_on_branch()
-
-    def _get_commit_and_branch(target_name, auth_repo_commit):
-        data = client_auth_repo.get_target(target_name, auth_repo_commit)
-        if data is None:
-            return None, None
-        return data.get("commit"), data.get("branch", "master")
-
-    for repository_rel_path in repositories:
-        if repository_rel_path == AUTH_REPO_REL_PATH:
-            continue
-
-        client_repo = _clone_client_repo(repository_rel_path, origin_dir, client_dir)
-        branches_commits = {}
-        for auth_commit in client_auth_commits:
-            commit, branch = _get_commit_and_branch(repository_rel_path, auth_commit)
-            if branch is not None and commit is not None:
-                branches_commits[branch] = commit
-
-        if branch in branches_commits:
-            client_repo.checkout_branch(branch)
-            client_repo.reset_to_commit(commit, True)
-            client_repo.reset_remote_tracking_branch(branch)
-
-        for branch in client_repo.branches():
-            if branch not in branches_commits:
-                client_repo.delete_local_branch(branch)
-
-        client_repos[repository_rel_path] = client_repo
-
-    return client_repos
-
-
-def _create_last_validated_commit(client_dir, client_auth_repo_head_sha):
-    client_conf_repo = client_dir / "organization/_auth_repo"
-    client_conf_repo.mkdir(parents=True, exist_ok=True)
-    with open(str(client_conf_repo / "last_validated_commit"), "w") as f:
-        f.write(client_auth_repo_head_sha)
 
 
 def _get_head_commit_shas(client_repos):
@@ -354,36 +270,4 @@ def _update_full_library(
         repositories, origin_dir, client_dir, start_head_shas, excluded_target_globs
     )
 
-
-def _update_invalid_repos_and_check_if_remained_same(
-    client_repos,
-    client_dir,
-    repositories,
-    expected_error,
-    expected_repo_type=UpdateType.EITHER,
-):
-
-    start_head_shas = _get_head_commit_shas(client_repos)
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-    origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
-
-    config = RepositoryConfig(
-        operation=OperationType.UPDATE,
-        url=str(origin_auth_repo_path),
-        update_from_filesystem=True,
-        path=str(clients_auth_repo_path),
-        library_dir=str(client_dir),
-        expected_repo_type=expected_repo_type,
-    )
-
-    with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
-        with pytest.raises(UpdateFailedError, match=expected_error):
-            update_repository(config)
-
-    # all repositories should still have the same head commit
-    for repo_path, repo in client_repos.items():
-        for branch in repo.branches():
-            start_commit = start_head_shas[repo_path].get(branch)
-            current_head = repo.top_commit_of_branch(branch)
-            assert current_head == start_commit
 

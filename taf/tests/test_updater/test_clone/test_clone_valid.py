@@ -105,7 +105,7 @@ def test_clone_valid_when_updated_expiration_dates(origin_auth_repo, client_dir)
     ],
     indirect=True
 )
-def test_clone_valid_when_expired_metadata_no_stric_flag(origin_auth_repo, client_dir):
+def test_clone_valid_when_expired_metadata_no_strict_flag(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates, kwargs={"date": "2021-01-01"})
     setup_manager.execute_tasks()
