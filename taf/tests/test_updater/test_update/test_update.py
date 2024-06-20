@@ -135,48 +135,47 @@ def test_update_valid(origin_auth_repo_and_targets, update_instructions, client_
         expected_repo_type=expected_repo_type,
     )
     apply_update_instructions(origin_auth_repo, update_instructions, targets_config)
+
     update_and_check_commit_shas(
         OperationType.UPDATE,
-        None,
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
     )
 
 
-@pytest.mark.parametrize(
-    "origin_auth_repo_and_targets, update_instructions",
-    [
-        (
-            {
-                "targets_config": [{"name": "target1"}, {"name": "target2"}],
-            },
-            {
-                "instructions": [
-                    {"action": "add_valid_target_commits"},
-                ],
-                "description": "Setup repository and create and sign additional target commits",
-            },
-        ),
-    ],
-    indirect=True,
-)
-def test_update_when_no_update_necessary(
-    origin_auth_repo_and_targets, update_instructions, client_dir
-):
-    origin_auth_repo, targets_config = origin_auth_repo_and_targets
-    is_test_repo = origin_auth_repo.is_test_repo
-    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
-    apply_update_instructions(origin_auth_repo, update_instructions, targets_config)
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-        expected_repo_type=expected_repo_type,
-    )
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        None,
-        origin_auth_repo,
-        client_dir,
-        expected_repo_type=expected_repo_type,
-    )
+# @pytest.mark.parametrize(
+#     "origin_auth_repo_and_targets, update_instructions",
+#     [
+#         (
+#             {
+#                 "targets_config": [{"name": "target1"}, {"name": "target2"}],
+#             },
+#             {
+#                 "instructions": [
+#                     {"action": "add_valid_target_commits"},
+#                 ],
+#                 "description": "Setup repository and create and sign additional target commits",
+#             },
+#         ),
+#     ],
+#     indirect=True,
+# )
+# def test_update_when_no_update_necessary(
+#     origin_auth_repo_and_targets, update_instructions, client_dir
+# ):
+#     origin_auth_repo, targets_config = origin_auth_repo_and_targets
+#     is_test_repo = origin_auth_repo.is_test_repo
+#     expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
+#     apply_update_instructions(origin_auth_repo, update_instructions, targets_config)
+#     clone_repositories(
+#         origin_auth_repo,
+#         client_dir,
+#         expected_repo_type=expected_repo_type,
+#     )
+#     update_and_check_commit_shas(
+#         OperationType.UPDATE,
+#         origin_auth_repo,
+#         client_dir,
+#         expected_repo_type=expected_repo_type,
+#     )

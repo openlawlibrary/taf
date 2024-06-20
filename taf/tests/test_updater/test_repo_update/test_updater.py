@@ -86,8 +86,6 @@ AUTH_REPO_REL_PATH = "organization/auth_repo"
 TARGET_REPO_REL_PATH = "namespace/TargetRepo1"
 
 
-NO_REPOSITORY_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
-ROOT_EXPIRED = "Final root.json is expired"
 REPLAYED_METADATA = "New timestamp version 3 must be >= 4"
 METADATA_FIELD_MISSING = "New snapshot is missing info for 'root.json'"
 IS_A_TEST_REPO = f"Repository {AUTH_REPO_REL_PATH} is a test repository."
@@ -113,49 +111,6 @@ def run_around_tests(client_dir):
         for dir_name in dirs:
             shutil.rmtree(str(Path(root) / dir_name), onerror=on_rm_error)
 
-
-
-
-# @pytest.mark.parametrize(
-#     "test_name, expected_error",
-#     [
-#         ("test-updater-invalid-target-sha", TARGET_MISSMATCH_PATTERN),
-#         ("test-updater-missing-target-commit", TARGET_MISSING_COMMIT_PATTERN),
-#     ],
-# )
-# def test_valid_update_no_auth_repo_one_invalid_target_repo_exists(
-#     test_name, expected_error, updater_repositories, client_dir, origin_dir
-# ):
-#     repositories = updater_repositories[test_name]
-#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-#     origin_dir = origin_dir / test_name
-#     _clone_client_repo(TARGET_REPO_REL_PATH, origin_dir, client_dir)
-#     _update_invalid_repos_and_check_if_repos_exist(
-#         OperationType.CLONE, client_dir, repositories, expected_error, True
-#     )
-#     # make sure that the last validated commit does not exist
-#     _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
-
-
-# def test_updater_expired_metadata(updater_repositories, origin_dir, client_dir):
-#     # tuf patch state is shared between tests
-#     # so we manually revert to original tuf implementation
-#     trusted_metadata_set.TrustedMetadataSet = original_tuf_trusted_metadata_set
-
-#     # without using freeze_time, we expect to get metadata expired error
-#     repositories = updater_repositories["test-updater-expired-metadata"]
-#     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-#     _update_invalid_repos_and_check_if_repos_exist(
-#         OperationType.CLONE,
-#         client_dir,
-#         repositories,
-#         ROOT_EXPIRED,
-#         True,
-#         set_time=False,
-#         strict=True,
-#     )
-#     # make sure that the last validated commit does not exist
-#     _check_if_last_validated_commit_exists(clients_auth_repo_path, True)
 
 
 # @pytest.mark.parametrize(
@@ -230,33 +185,6 @@ def run_around_tests(client_dir):
 #         OperationType.UPDATE, client_repos, repositories, origin_dir, client_dir
 #     )
 
-
-# def test_update_test_repo_no_flag(updater_repositories, origin_dir, client_dir):
-#     repositories = updater_repositories["test-updater-test-repo"]
-#     origin_dir = origin_dir / "test-updater-test-repo"
-#     # try to update a test repo, set update type to official
-#     _update_invalid_repos_and_check_if_repos_exist(
-#         OperationType.CLONE,
-#         client_dir,
-#         repositories,
-#         IS_A_TEST_REPO,
-#         False,
-#         UpdateType.OFFICIAL,
-#     )
-
-
-# def test_update_repo_wrong_flag(updater_repositories, origin_dir, client_dir):
-#     repositories = updater_repositories["test-updater-valid"]
-#     origin_dir = origin_dir / "test-updater-valid"
-#     # try to update without setting the last validated commit
-#     _update_invalid_repos_and_check_if_repos_exist(
-#         OperationType.CLONE,
-#         client_dir,
-#         repositories,
-#         NOT_A_TEST_REPO,
-#         False,
-#         UpdateType.TEST,
-#     )
 
 
 # def test_update_repo_target_in_indeterminate_state(
@@ -459,55 +387,3 @@ def _update_invalid_repos_and_check_if_remained_same(
             current_head = repo.top_commit_of_branch(branch)
             assert current_head == start_commit
 
-
-def _update_invalid_repos_and_check_if_repos_exist(
-    operation,
-    client_dir,
-    repositories,
-    expected_error,
-    expect_partial_update,
-    expected_repo_type=UpdateType.EITHER,
-    set_time=True,
-    auth_repo_name_exists=True,
-    strict=False,
-):
-
-    clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
-    origin_auth_repo_path = repositories[AUTH_REPO_REL_PATH]
-    repositories_which_existed = [
-        str(client_dir / repository_rel_path)
-        for repository_rel_path in repositories
-        if (client_dir / repository_rel_path).exists()
-    ]
-
-    config = RepositoryConfig(
-        operation=operation,
-        url=str(origin_auth_repo_path),
-        update_from_filesystem=True,
-        path=str(clients_auth_repo_path) if auth_repo_name_exists else None,
-        library_dir=str(client_dir),
-        expected_repo_type=expected_repo_type,
-        strict=strict,
-    )
-
-    def _update_expect_error():
-        with pytest.raises(UpdateFailedError, match=expected_error):
-            if operation == OperationType.CLONE:
-                clone_repository(config)
-            else:
-                update_repository(config)
-
-    if set_time:
-        with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
-            _update_expect_error()
-    else:
-        _update_expect_error()
-
-    if not expect_partial_update:
-        # the client repositories should not exits
-        for repository_rel_path in repositories:
-            path = client_dir / repository_rel_path
-            if str(path) in repositories_which_existed:
-                assert path.exists()
-            else:
-                assert not path.exists()

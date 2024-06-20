@@ -104,12 +104,11 @@ def _get_head_commit_shas(client_repos):
     return start_head_shas
 
 
-
 def load_target_repositories(
     auth_repo, library_dir=None, excluded_target_globs=None, commits=None
 ):
     if library_dir is None:
-        library_dir = auth_repo.path.path.parent.parent
+        library_dir = auth_repo.path.parent.parent
 
     repositoriesdb.load_repositories(
         auth_repo,
@@ -138,7 +137,8 @@ def update_and_check_commit_shas(
 
     clients_auth_repo_path = clients_dir / origin_auth_repo.name
     clients_auth_repo = GitRepository(path=clients_auth_repo_path)
-    client_repos [clients_auth_repo.name] = clients_auth_repo
+    if clients_auth_repo_path.is_dir():
+        client_repos [clients_auth_repo.name] = clients_auth_repo
     start_head_shas = _get_head_commit_shas(client_repos)
 
     config = RepositoryConfig(
@@ -189,6 +189,7 @@ def update_invalid_repos_and_check_if_repos_exist(
     auth_repo_name_exists=True,
     excluded_target_globs=None,
     set_time=True,
+    strict=False,
 ):
 
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
@@ -206,6 +207,7 @@ def update_invalid_repos_and_check_if_repos_exist(
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
+        strict=strict,
     )
 
     def _update_expect_error():
@@ -223,7 +225,7 @@ def update_invalid_repos_and_check_if_repos_exist(
 
     if not expect_partial_update:
         # the client repositories should not exits
-        for client_repository in client_repos:
+        for client_repository in client_repos.values():
             if client_repository.path in repositories_which_existed_paths:
                 assert client_repository.path.exists()
             else:
