@@ -1,6 +1,7 @@
 import pytest
 from taf import settings
 from taf.auth_repo import AuthenticationRepository
+from taf.log import disable_console_logging
 from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
     INVALID_VERSION_NUMBER_PATTERN,
@@ -23,6 +24,8 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
+
+disable_console_logging()
 
 
 def setup_module(module):

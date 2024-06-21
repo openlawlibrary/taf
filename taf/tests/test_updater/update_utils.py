@@ -173,11 +173,10 @@ def update_and_check_commit_shas(
         excluded_target_globs=excluded_target_globs,
     )
 
-    with freeze_time(_get_valid_update_time(origin_auth_repo.path)):
-        if operation == OperationType.CLONE:
-            clone_repository(config)
-        else:
-            update_repository(config)
+    if operation == OperationType.CLONE:
+        clone_repository(config)
+    else:
+        update_repository(config)
 
     origin_root_dir = origin_auth_repo.path.parent.parent
     check_if_commits_match(
@@ -210,7 +209,6 @@ def update_invalid_repos_and_check_if_repos_exist(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
-    set_time=True,
     strict=False,
 ):
 
@@ -242,11 +240,7 @@ def update_invalid_repos_and_check_if_repos_exist(
             else:
                 update_repository(config)
 
-    if set_time:
-        with freeze_time(_get_valid_update_time(origin_auth_repo.path)):
-            _update_expect_error()
-    else:
-        _update_expect_error()
+    _update_expect_error()
 
     if not expect_partial_update:
         # the client repositories should not exits

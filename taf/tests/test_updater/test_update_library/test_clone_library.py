@@ -3,11 +3,14 @@ from taf.updater.types.update import UpdateType
 
 from taf import settings
 
+from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import (
     check_if_commits_match,
     check_last_validated_commit,
     clone_repositories,
 )
+
+disable_console_logging()
 
 
 def setup_module(module):
