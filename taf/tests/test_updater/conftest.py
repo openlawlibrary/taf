@@ -63,6 +63,7 @@ UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of
 # Disable console logging for all tests
 disable_console_logging()
 
+
 # Update the settings before each test module runs
 @pytest.fixture(scope="module", autouse=True)
 def update_settings_before_module():
