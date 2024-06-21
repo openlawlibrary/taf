@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Updater testing framework rework [453]
+- Update pytest version [453]
+- Drop support for Python 3.7 [453]
 - Dropped support for Yubikey Manager 4.x [444]
 - Only load the latest mirrors.jon ([441])
 - Fix generation of keys when they should be printed to the command line ([435])
@@ -33,6 +36,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
 - When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
 
+[453]: https://github.com/openlawlibrary/taf/pull/453
 [444]: https://github.com/openlawlibrary/taf/pull/444
 [440]: https://github.com/openlawlibrary/taf/pull/440
 [435]: https://github.com/openlawlibrary/taf/pull/435
