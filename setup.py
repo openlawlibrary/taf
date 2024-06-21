@@ -40,9 +40,10 @@ ci_require = [
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
-    "pytest==7.*",
+    "pytest==8.*",
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
+    "jinja2==3.1.*",
 ]
 
 yubikey_require = ["yubikey-manager==5.1.*"]
@@ -102,7 +103,6 @@ kwargs = {
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",

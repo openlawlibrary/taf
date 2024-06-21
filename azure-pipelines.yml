@@ -13,23 +13,6 @@ pr:
 # PLATFORMS
 strategy:
   matrix:
-    # py37
-    linux-ubuntu-20-04-py37:
-      imageName: "ubuntu-20.04"
-      pythonVersion: "3.7"
-    macOS-py37:
-      imageName: "macOS-11"
-      pythonVersion: "3.7"
-    windows-64bit-py37:
-      imageName: "windows-2019"
-      pythonVersion: "3.7"
-      platform: x64
-      winArch: "win64"
-    windows-32bit-py37:
-      imageName: "windows-2019"
-      pythonVersion: "3.7"
-      platform: x86
-      winArch: "win32"
     # py38
     linux-ubuntu-20-04-py38:
       imageName: "ubuntu-20.04"
