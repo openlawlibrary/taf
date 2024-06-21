@@ -104,7 +104,7 @@ class SetupManager:
 
 
 class RepositoryConfig:
-    def __init__(self, name, allow_unauthenticated_commits=False):
+    def __init__(self, name: str, allow_unauthenticated_commits: bool = False):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
 
@@ -131,7 +131,7 @@ def test_name(request):
 
 
 @pytest.fixture(scope="function")
-def origin_auth_repo(request, test_name, origin_dir):
+def origin_auth_repo(request, test_name: str, origin_dir: Path):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
@@ -158,9 +158,9 @@ def origin_auth_repo(request, test_name, origin_dir):
     yield auth_repo
 
 
-def cleanup_directory(directory_path):
+def cleanup_directory(directory_path: Path):
     """Recursively clean up the directory, removing files and directories."""
-    for path in Path(directory_path).rglob("*"):
+    for path in directory_path.rglob("*"):
         try:
             if path.is_dir():
                 shutil.rmtree(path, onerror=on_rm_error)
@@ -170,16 +170,14 @@ def cleanup_directory(directory_path):
             pass
 
 
-def clone_client_repo(target_name, origin_dir, client_dir):
+def clone_client_repo(target_name: str, origin_dir: Path, client_dir: Path):
     origin_repo_path = str(origin_dir / target_name)
     client_repo = GitRepository(client_dir, target_name)
     client_repo.clone_from_disk(origin_repo_path, keep_remote=True)
     return client_repo
 
 
-def create_repositories_json(
-    library_dir, repo_name, targets_config: list[RepositoryConfig]
-):
+def create_repositories_json(library_dir: Path, repo_name: str, targets_config: list):
     repo_path = Path(library_dir, repo_name)
     targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
     targets_dir_path.mkdir(parents=True, exist_ok=True)
@@ -188,7 +186,7 @@ def create_repositories_json(
         (targets_dir_path / REPOSITORIES_JSON_NAME).write_text(repositories_json)
 
 
-def create_info_json(library_dir, repo_name):
+def create_info_json(library_dir: Path, repo_name: str):
     repo_path = Path(library_dir, repo_name)
     targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
     protected_dir = targets_dir_path / "protected"
@@ -201,7 +199,7 @@ def create_info_json(library_dir, repo_name):
     info_json_path.write_text(json.dumps(info_content))
 
 
-def create_mirrors_json(library_dir, repo_name):
+def create_mirrors_json(library_dir: Path, repo_name: str):
     repo_path = Path(library_dir, repo_name)
     targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
     targets_dir_path.mkdir(parents=True, exist_ok=True)
@@ -211,7 +209,7 @@ def create_mirrors_json(library_dir, repo_name):
 
 
 def create_authentication_repository(
-    library_dir, repo_name, keys_description, is_test_repo=False
+    library_dir: Path, repo_name: str, keys_description: str, is_test_repo: bool = False
 ):
     repo_path = Path(library_dir, repo_name)
     create_repository(
@@ -228,7 +226,13 @@ def sign_target_files(library_dir, repo_name, keystore):
     register_target_files(str(repo_path), keystore, write=True)
 
 
-def _init_auth_repo(origin_dir, setup_type, repo_name, targets_config, is_test_repo):
+def _init_auth_repo(
+    origin_dir: Path,
+    setup_type: str,
+    repo_name: str,
+    targets_config: list,
+    is_test_repo: bool,
+) -> AuthenticationRepository:
     if setup_type == "all_files_initially":
         return setup_repository_all_files_initially(
             origin_dir, repo_name, targets_config, is_test_repo
@@ -253,7 +257,7 @@ def _init_auth_repo(origin_dir, setup_type, repo_name, targets_config, is_test_r
         raise ValueError(f"Unsupported setup type: {setup_type}")
 
 
-def initialize_git_repo(library_dir: Path, repo_name: str):
+def initialize_git_repo(library_dir: Path, repo_name: str) -> GitRepository:
     repo_path = Path(library_dir, repo_name)
     repo_path.mkdir(parents=True, exist_ok=True)
     repo = GitRepository(path=repo_path)
@@ -262,7 +266,7 @@ def initialize_git_repo(library_dir: Path, repo_name: str):
 
 
 def initialize_target_repositories(
-    library_dir, repo_name, targets_config: list, create_new_repo=True
+    library_dir: Path, targets_config: list, create_new_repo=True
 ):
     for target_config in targets_config:
         if create_new_repo:
@@ -278,7 +282,7 @@ def initialize_target_repositories(
         target_repo.commit("Initial commit")
 
 
-def sign_target_repositories(library_dir, repo_name, keystore):
+def sign_target_repositories(library_dir: Path, repo_name: str, keystore: Path):
     repo_path = Path(library_dir, repo_name)
     update_target_repos_from_repositories_json(
         str(repo_path),
@@ -287,7 +291,7 @@ def sign_target_repositories(library_dir, repo_name, keystore):
     )
 
 
-def generate_repositories_json(targets_data: list[RepositoryConfig]):
+def generate_repositories_json(targets_data: list):
     template_str = (TEST_INIT_DATA_PATH / "repositories.j2").read_text()
     env = Environment(loader=BaseLoader())
     template = env.from_string(template_str)
@@ -295,8 +299,8 @@ def generate_repositories_json(targets_data: list[RepositoryConfig]):
 
 
 def setup_repository_all_files_initially(
-    origin_dir, repo_name, targets_config, is_test_repo
-):
+    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+) -> AuthenticationRepository:
     # Define the origin path
     # Execute the tasks directly
     create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
@@ -309,16 +313,16 @@ def setup_repository_all_files_initially(
         is_test_repo=is_test_repo,
     )
     if targets_config:
-        initialize_target_repositories(
-            origin_dir, repo_name, targets_config=targets_config
-        )
+        initialize_target_repositories(origin_dir, targets_config=targets_config)
         sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
     return AuthenticationRepository(origin_dir, repo_name)
 
 
-def setup_repository_no_info_json(origin_dir, repo_name, targets_config, is_test_repo):
+def setup_repository_no_info_json(
+    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+) -> AuthenticationRepository:
     # Define the origin path
 
     # Execute the tasks directly
@@ -331,9 +335,7 @@ def setup_repository_no_info_json(origin_dir, repo_name, targets_config, is_test
         is_test_repo=is_test_repo,
     )
     if targets_config:
-        initialize_target_repositories(
-            origin_dir, repo_name, targets_config=targets_config
-        )
+        initialize_target_repositories(origin_dir, targets_config=targets_config)
         sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
@@ -341,8 +343,8 @@ def setup_repository_no_info_json(origin_dir, repo_name, targets_config, is_test
 
 
 def setup_repository_mirrors_added_later(
-    origin_dir, repo_name, targets_config, is_test_repo
-):
+    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+) -> AuthenticationRepository:
     # Execute the tasks directly
     create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
     create_info_json(origin_dir, repo_name)
@@ -353,9 +355,7 @@ def setup_repository_mirrors_added_later(
         is_test_repo=is_test_repo,
     )
     if targets_config:
-        initialize_target_repositories(
-            origin_dir, repo_name, targets_config=targets_config
-        )
+        initialize_target_repositories(origin_dir, targets_config=targets_config)
         sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
     create_mirrors_json(origin_dir, repo_name)
     sign_target_files(origin_dir, repo_name, keystore=KEYSTORE_PATH)
@@ -365,8 +365,8 @@ def setup_repository_mirrors_added_later(
 
 
 def setup_repository_repositories_and_mirrors_added_later(
-    origin_dir, repo_name, targets_config, is_test_repo
-):
+    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+) -> AuthenticationRepository:
     # Execute the tasks directly
     create_info_json(origin_dir, repo_name)
     create_authentication_repository(
@@ -379,9 +379,7 @@ def setup_repository_repositories_and_mirrors_added_later(
     create_mirrors_json(origin_dir, repo_name)
     sign_target_files(origin_dir, repo_name, keystore=KEYSTORE_PATH)
     if targets_config:
-        initialize_target_repositories(
-            origin_dir, repo_name, targets_config=targets_config
-        )
+        initialize_target_repositories(origin_dir, targets_config=targets_config)
         sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
 
     # Yield the authentication repository object
@@ -389,8 +387,8 @@ def setup_repository_repositories_and_mirrors_added_later(
 
 
 def setup_repository_no_target_repositories(
-    origin_dir, repo_name, targets_config, is_test_repo
-):
+    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+) -> AuthenticationRepository:
 
     # Execute the tasks directly
     create_info_json(origin_dir, repo_name)
@@ -407,24 +405,26 @@ def setup_repository_no_target_repositories(
     return AuthenticationRepository(origin_dir, repo_name)
 
 
-def add_valid_target_commits(auth_repo, target_repos):
+def add_valid_target_commits(auth_repo: AuthenticationRepository, target_repos: list):
     for target_repo in target_repos:
         update_target_files(target_repo, "Update target files")
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 
-def add_valid_unauthenticated_commits(target_repos):
+def add_valid_unauthenticated_commits(target_repos: list):
     for target_repo in target_repos:
         if target_repo.custom.get("allow-unauthenticated-commits", False):
             update_target_files(target_repo, "Update target files")
 
 
-def add_unauthenticated_commits_to_all_target_repos(target_repos):
+def add_unauthenticated_commits_to_all_target_repos(target_repos: list):
     for target_repo in target_repos:
         update_target_files(target_repo, "Update target files")
 
 
-def create_new_target_orphan_branches(auth_repo, target_repos, branch_name):
+def create_new_target_orphan_branches(
+    auth_repo: AuthenticationRepository, target_repos: list, branch_name: str
+):
     for target_repo in target_repos:
         target_repo.checkout_orphan_branch(branch_name)
 
@@ -436,7 +436,7 @@ def create_new_target_orphan_branches(auth_repo, target_repos, branch_name):
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 
-def create_index_lock(auth_repo, client_dir):
+def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     # Create an `index.lock` file, indicating that an incomplete git operation took place
     # index.lock is created by git when a git operation is interrupted.
     target_repos = load_target_repositories(auth_repo)
@@ -452,20 +452,20 @@ def _generate_random_text(length=10):
     return "".join(random.choice(letters) for i in range(length))
 
 
-def remove_last_validate_commit(auth_repo, client_dir):
+def remove_last_validate_commit(auth_repo: AuthenticationRepository, client_dir: Path):
     client_repo = AuthenticationRepository(client_dir, auth_repo.name)
     Path(client_repo.conf_dir, client_repo.LAST_VALIDATED_FILENAME).unlink()
     assert client_repo.last_validated_commit is None
 
 
-def revert_last_validated_commit(auth_repo, client_dir):
+def revert_last_validated_commit(auth_repo: AuthenticationRepository, client_dir: Path):
     client_repo = AuthenticationRepository(client_dir, auth_repo.name)
     older_commit = client_repo.all_commits_on_branch(client_repo.default_branch)[-2]
     client_repo.set_last_validated_commit(older_commit)
     assert client_repo.last_validated_commit == older_commit
 
 
-def swap_last_two_commits(auth_repo):
+def swap_last_two_commits(auth_repo: AuthenticationRepository):
     """
     Swap the top two commits of the currently checked out branch of the provided repo.
     This will not work in all cases (if there are modify/delete conflicts for instance)
@@ -481,13 +481,17 @@ def swap_last_two_commits(auth_repo):
     auth_repo._git("checkout --quiet {}", current_branch)
 
 
-def update_expiration_dates(auth_repo, roles=["snapshot", "timestamp"]):
+def update_expiration_dates(
+    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"]
+):
     update_metadata_expiration_date(
         str(auth_repo.path), roles=roles, keystore=KEYSTORE_PATH, interval=None
     )
 
 
-def update_role_metadata_without_signing(auth_repo, role):
+def update_role_metadata_without_signing(
+    auth_repo: AuthenticationRepository, role: str
+):
     _update_expiration_date_of_role(
         auth_repo=auth_repo,
         role=role,
@@ -500,7 +504,9 @@ def update_role_metadata_without_signing(auth_repo, role):
     )
 
 
-def update_role_metadata_invalid_signature(auth_repo, role):
+def update_role_metadata_invalid_signature(
+    auth_repo: AuthenticationRepository, role: str
+):
     role_metadata_path = Path(auth_repo.path, "metadata", f"{role}.json")
     content = json.loads(role_metadata_path.read_text())
     content["signatures"][0]["sign"] = "invalid signature"
@@ -510,7 +516,9 @@ def update_role_metadata_invalid_signature(auth_repo, role):
     auth_repo.commit("Invalid metadata update")
 
 
-def update_and_sign_metadata_without_clean_check(auth_repo, roles):
+def update_and_sign_metadata_without_clean_check(
+    auth_repo: AuthenticationRepository, roles: list
+):
     if "root" or "targets" in roles:
         if "snapshot" not in roles:
             roles.append("snapshot")
@@ -534,7 +542,7 @@ def update_and_sign_metadata_without_clean_check(auth_repo, roles):
     commit_and_push(auth_repo, commit_msg=commit_msg, push=False)
 
 
-def update_target_files(target_repo, commit_message):
+def update_target_files(target_repo: GitRepository, commit_message: str):
     text_to_add = _generate_random_text()
     # Iterate over all files in the repository directory
     for file_path in target_repo.path.iterdir():
