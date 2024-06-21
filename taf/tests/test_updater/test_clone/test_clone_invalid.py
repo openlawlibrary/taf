@@ -4,8 +4,6 @@ from taf.auth_repo import AuthenticationRepository
 from taf.log import disable_console_logging
 from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
-    INVALID_VERSION_NUMBER_PATTERN,
-    METADATA_EXPIRED,
     NO_INFO_JSON,
     TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
     TARGET_MISSMATCH_PATTERN,
