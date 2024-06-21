@@ -1,6 +1,5 @@
 import pytest
 from taf import settings
-from taf.log import disable_console_logging, disable_file_logging
 from taf.tests.test_updater.conftest import (
     TARGET_MISSMATCH_PATTERN,
     UNCOIMITTED_CHANGES,
@@ -14,9 +13,6 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType
-
-disable_console_logging()
-disable_file_logging()
 
 
 def setup_module(module):

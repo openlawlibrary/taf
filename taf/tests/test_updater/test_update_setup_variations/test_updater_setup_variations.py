@@ -1,12 +1,7 @@
-from taf.log import disable_console_logging, disable_file_logging
 import pytest
 from taf import settings
 from taf.tests.test_updater.update_utils import update_and_check_commit_shas
 from taf.updater.types.update import OperationType, UpdateType
-
-
-disable_console_logging()
-disable_file_logging()
 
 
 def setup_module(module):
