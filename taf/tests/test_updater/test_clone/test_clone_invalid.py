@@ -9,6 +9,7 @@ from taf.tests.test_updater.conftest import (
     WRONG_UPDATE_TYPE_OFFICIAL_REPO,
     WRONG_UPDATE_TYPE_TEST_REPO,
     SetupManager,
+    SetupState,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     clone_client_repo,
@@ -242,7 +243,7 @@ def test_clone_invalid_wrong_update_type_when_test_repo(origin_auth_repo, client
     "origin_auth_repo",
     [
         {
-            "setup_type": "no_info_json",
+            "setup_type": SetupState.NO_INFO_JSON,
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
         },
     ],

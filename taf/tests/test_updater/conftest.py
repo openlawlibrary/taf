@@ -1,3 +1,4 @@
+import enum
 import re
 import pytest
 import inspect
@@ -75,6 +76,27 @@ def run_around_tests(client_dir, origin_dir):
     yield
     cleanup_directory(client_dir)
     cleanup_directory(origin_dir)
+
+
+class SetupState(enum.Enum):
+    # All files needed by the framework added during initialization of the
+    # authentication repository
+    # Currently, those are:
+    #   - protected/info.json
+    #   - mirrors.json
+    #   - repositories.json
+    # Target repositories are created and their commits are signed
+    ALL_FILES_INITIALLY = "all_files_initially"
+    # Create an authentication repository without protected/info.json
+    NO_INFO_JSON = "no_info_json"
+    # mirrors.json is not added while initializing the repository
+    # it is added in another commmit later
+    MIRRORS_ADDED_LATER = "mirrors_added_later"
+    # both mirrors.json and repositories.json are added after the
+    # repository's initialization
+    MIRRORS_AND_REPOSITOIRES_ADDED_LATER = "repositories_and_mirrors_added_later"
+    # Create just the authentication repository, without target repositories
+    NO_TARGET_REPOSITORIES = "no_target_repositories"
 
 
 class Task:
@@ -163,7 +185,7 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
-    setup_type = request.param.get("setup_type", "all_files_initially")
+    setup_type = request.param.get("setup_type", SetupState.ALL_FILES_INITIALLY)
     targets_config = [
         RepositoryConfig(
             f"{test_name}/{targets_config['name']}",
@@ -261,23 +283,23 @@ def _init_auth_repo(
     targets_config: list,
     is_test_repo: bool,
 ) -> AuthenticationRepository:
-    if setup_type == "all_files_initially":
+    if setup_type == SetupState.ALL_FILES_INITIALLY:
         return setup_repository_all_files_initially(
             origin_dir, repo_name, targets_config, is_test_repo
         )
-    elif setup_type == "no_info_json":
+    elif setup_type == SetupState.NO_INFO_JSON:
         return setup_repository_no_info_json(
             origin_dir, repo_name, targets_config, is_test_repo
         )
-    elif setup_type == "mirrors_added_later":
+    elif setup_type == SetupState.MIRRORS_ADDED_LATER:
         return setup_repository_mirrors_added_later(
             origin_dir, repo_name, targets_config, is_test_repo
         )
-    elif setup_type == "repositories_and_mirrors_added_later":
+    elif setup_type == SetupState.MIRRORS_AND_REPOSITOIRES_ADDED_LATER:
         return setup_repository_repositories_and_mirrors_added_later(
             origin_dir, repo_name, targets_config, is_test_repo
         )
-    elif setup_type == "no_target_repositories":
+    elif setup_type == SetupState.NO_TARGET_REPOSITORIES:
         return setup_repository_no_target_repositories(
             origin_dir, repo_name, targets_config, is_test_repo
         )
