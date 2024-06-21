@@ -1,24 +1,10 @@
 from collections import defaultdict
 from taf.updater.types.update import UpdateType
-
-from taf import settings
-
-from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import (
     check_if_commits_match,
     check_last_validated_commit,
     clone_repositories,
 )
-
-disable_console_logging()
-
-
-def setup_module(module):
-    settings.update_from_filesystem = True
-
-
-def teardown_module(module):
-    settings.update_from_filesystem = False
 
 
 def test_update_repository_with_dependencies(

@@ -1,19 +1,6 @@
 import pytest
-from taf import settings
-from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import update_and_check_commit_shas
 from taf.updater.types.update import OperationType, UpdateType
-
-
-def setup_module(module):
-    settings.update_from_filesystem = True
-
-
-def teardown_module(module):
-    settings.update_from_filesystem = False
-
-
-disable_console_logging()
 
 
 @pytest.mark.parametrize(

@@ -16,8 +16,9 @@ from taf.api.metadata import (
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
-from taf import repositoriesdb
+from taf import repositoriesdb, settings
 from taf.utils import on_rm_error
+from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.api.repository import create_repository
@@ -58,6 +59,17 @@ UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 
 
+# Disable console logging for all tests
+disable_console_logging()
+
+# Update the settings before each test module runs
+@pytest.fixture(scope="module", autouse=True)
+def update_settings_before_module():
+    settings.update_from_filesystem = True
+    yield
+    settings.update_from_filesystem = False
+
+
 @pytest.fixture(autouse=True)
 def run_around_tests(client_dir, origin_dir):
     yield
@@ -66,6 +78,16 @@ def run_around_tests(client_dir, origin_dir):
 
 
 class Task:
+    """
+    Task that is run by the SetupManager.
+    When the task is executed, the specified function will
+    be invoked with the listed parameters, if any.
+    Date can be used to modify the current time, allowing
+    us to set up states where metadata has expired, etc.
+    Repetitions can be set to determine if the function should be called multiple
+    times in sequential order.
+    """
+
     def __init__(self, function, date, repetitions, params):
         self.function = function
         self.params = params
@@ -74,6 +96,12 @@ class Task:
 
 
 class SetupManager:
+    """
+    Class which is meant to make it easier to run setup functions
+    by abstracting away details like how target repositories are
+    loaded and how to simulate execution of function at any date and time
+    """
+
     def __init__(self, auth_repo):
         self.auth_repo = auth_repo
         self.target_repos = load_target_repositories(auth_repo).values()
