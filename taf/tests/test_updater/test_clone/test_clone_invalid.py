@@ -179,7 +179,7 @@ def test_clone_invalid_target_repositories_targets_exist(
     ],
     indirect=True,
 )
-def test_clone_invalid_target_invalid_metadata(origin_auth_repo, client_dir):
+def test_clone_invalid_target_invalid_singature(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(

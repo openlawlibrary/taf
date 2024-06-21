@@ -4,7 +4,6 @@ from collections import defaultdict
 from datetime import datetime
 import fnmatch
 import json
-from pathlib import Path
 from taf import repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository

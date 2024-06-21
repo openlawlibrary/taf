@@ -1,4 +1,3 @@
-import os
 import re
 import pytest
 import inspect
@@ -54,7 +53,7 @@ INVALID_VERSION_NUMBER_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Va
 WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is a test repository. Call update with \"--expected-repo-type\" test to update a test repository$"
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
-NO_INFO_JSON = f"Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
+NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 
 
@@ -166,12 +165,12 @@ def cleanup_directory(directory_path: Path):
                 shutil.rmtree(path, onerror=on_rm_error)
             else:
                 path.unlink()
-        except Exception as e:
+        except Exception:
             pass
 
 
 def clone_client_repo(target_name: str, origin_dir: Path, client_dir: Path):
-    origin_repo_path = str(origin_dir / target_name)
+    origin_repo_path = origin_dir / target_name
     client_repo = GitRepository(client_dir, target_name)
     client_repo.clone_from_disk(origin_repo_path, keep_remote=True)
     return client_repo
