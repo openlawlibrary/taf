@@ -27,7 +27,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def __init__(
         self,
-        library_dir: Optional[Union[str, Path]]= None,
+        library_dir: Optional[Union[str, Path]] = None,
         name: Optional[str] = None,
         urls: Optional[List[str]] = None,
         custom: Optional[Dict] = None,
