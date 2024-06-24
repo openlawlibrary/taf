@@ -189,7 +189,17 @@ class RepositoryConfig:
     # JMC: Addition of --no-deps option to disallow updating of the last validated commit if any part of validation is skipped
     no_deps: bool = field(
         default=False,
-        metadata={"docs": "Optional flag to specify whether or not to update dependencies."}
+        metadata={"docs": "Specifies whether or not to update dependencies. Optional."}
+    )
+    # JMC: Addition of --no-targets option to allow user to skip target repos when validating the authentication repository.
+    no_targets: bool = field(
+        default=False,
+        metadata={"docs": "Flag to skip target repositiory validation and validate only authentication repos. Optional."}
+    )
+    # JMC: Addition of --no-upstream option to allow user to opt out of comparing with the remote repository and be added to clone and update
+    no_upstream: bool = field(
+        default=False,
+        metadata={"docs": "Flag to skip comparison with remote repositories upstream. Optional."}
     )
 
     def __attrs_post_init__(self):
@@ -312,8 +322,10 @@ def _update_or_clone_repository(config: RepositoryConfig):
             scripts_root_dir=config.scripts_root_dir,
             checkout=config.checkout,
             excluded_target_globs=config.excluded_target_globs,
-            # JMC: pass the no_deps flag
+            # JMC: pass the no_deps, no_targets, and no_upstream flags
             no_deps=config.no_deps,
+            no_targets=config.no_targets,
+            no_upstream=config.no_upstream,
         )
         if error:
             raise error
@@ -374,6 +386,8 @@ def _update_named_repository(
     checkout=True,
     excluded_target_globs=None,
     no_deps=False,
+    no_targets=False,
+    no_upstream=False,
 ):
     """
     Arguments:
@@ -433,6 +447,18 @@ def _update_named_repository(
     if url in visited:
         return
     visited.append(url)
+
+    # JMC: Added logic for no_upstream
+    if no_upstream:
+        auth_repo = GitRepository(path=auth_path)
+        if not auth_repo.is_git_repository:
+            raise UpdateFailedError(f"{auth_path} is not a Git repository.")
+        update_status = Event.UNCHANGED
+        auth_repo_name = auth_repo.name
+        commits_data = {}
+        error = None
+        targets_data = {}
+    else:
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
     (
         update_status,
@@ -471,6 +497,8 @@ def _update_named_repository(
     # this second case could be reworked to return the state as of the last validated commit
     # but treat the repository as invalid for now
     commits = []
+    # JMC: if --
+
     # JMC: if --no-deps flag specified by user, last validated commit will not be updated
     if not no_deps:
         if commits_data["after_pull"] is not None:
@@ -550,7 +578,8 @@ def _update_named_repository(
             # do not call the handlers if only validating the repositories
             # if a handler fails and we are in the development mode, revert the update
             # so that it's easy to try again after fixing the handler
-            if not only_validate and not excluded_target_globs:
+            # JMC: Added "and not no_targets:" to this first line of code
+            if not only_validate and not excluded_target_globs and not no_targets:
                 _execute_repo_handlers(
                     update_status,
                     auth_repo,
