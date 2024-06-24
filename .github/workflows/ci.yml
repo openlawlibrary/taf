@@ -6,6 +6,7 @@ on:
     types: [published]
 
 jobs:
+
   run-tests:
     runs-on: ubuntu-latest
     strategy:
@@ -43,40 +44,89 @@ jobs:
 
   build-and-test-executables:
     needs: run-tests
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
     if: ${{ needs.run-tests.result == 'success' }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - name: Build and test standalone executable with Docker (Linux)
-        run: |
-          docker build -t taf-linux -f .github/dockerimages/Dockerfile.linux .
-          docker cp $(docker create --rm taf-linux):/usr/src/app/taf/dist/taf taf-linux
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
 
-      - name: Build and test standalone executable with Docker (macOS)
+      - name: Upgrade pip windows
+        if: matrix.os == 'windows-latest'
         run: |
-          docker build -t taf-macos -f .github/dockerimages/Dockerfile.macos .
-          docker cp $(docker create --rm taf-macos):/usr/src/app/taf/dist/taf taf-macos
+          python -m pip install --upgrade pip setuptools wheel
 
-      - name: Build and test standalone executable with Docker (Windows)
+      - name: Upgrade pip
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: |
-          docker build -t taf-windows -f .github/dockerimages/windows/Dockerfile.windows .
-          docker cp $(docker create --rm taf-windows):/taf-master/dist/taf/taf.exe taf-windows.exe
+          pip install --upgrade pip setuptools wheel
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install swig
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install swig
+
+      - name: Install dependencies
+        run: |
+          pip install .[yubikey]
+          pip install pyinstaller
+
+      - name: Build and test standalone executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          chmod +x dist/taf
+          ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+
+      - name: Build and test standalone executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
+          ./dist/taf.exe --help | Select-String "TAF Command Line Interface" -quiet
+
+      - name: Build and test standalone executable (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
       - name: Upload standalone executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-linux
-          path: taf-linux
-
-      - name: Upload standalone executable (macOS)
-        uses: actions/upload-artifact@v3
-        with:
-          name: taf-executable-macos
-          path: taf-macos
+          path: dist/taf
 
       - name: Upload standalone executable (Windows)
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v3
         with:
           name: taf-executable-windows
-          path: taf-windows.exe
+          path: dist/taf.exe
+
+      - name: Upload standalone executable (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-macos
+          path: dist/taf
