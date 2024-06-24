@@ -497,7 +497,6 @@ def _update_named_repository(
     # this second case could be reworked to return the state as of the last validated commit
     # but treat the repository as invalid for now
     commits = []
-    # JMC: if --
 
     # JMC: if --no-deps flag specified by user, last validated commit will not be updated
     if not no_deps:
