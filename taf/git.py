@@ -235,6 +235,17 @@ class GitRepository:
         return result
 
     def _get_default_branch_from_local(self) -> str:
+        """
+        Get the default branch from the local repository.
+        Try to get the default branch from `refs/remotes/origin/HEAD` first.
+
+        In a repository where the refs/remotes/origin/HEAD does not exist, this error will trigger:
+            fatal: ref refs/remotes/origin/HEAD is not a symbolic ref
+
+        In those cases, get the default branch from `git remote show origin`.
+
+        If the repository does not have a remote set, use `symbolic-ref` HEAD
+        """
         try:
             branch = self._git(
                 "symbolic-ref refs/remotes/origin/HEAD --short", reraise_error=True
@@ -243,16 +254,32 @@ class GitRepository:
         except GitError as e:
             self._log_debug(f"Could not get remote HEAD at {self.path}: {e}")
             pass
-        # NOTE: will not work if local repository is in a detached HEAD
-        branch = self._git("symbolic-ref HEAD --short", reraise_error=True)
-        return branch
-
-    def _get_default_branch_from_remote(self, url: str) -> Optional[str]:
-        if not self.is_git_repository:
+        try:
+            result = self._git("remote show origin", reraise_error=True)
+            match = re.search(r"HEAD branch:(.*)", result)
+            if match is not None:
+                return match.group(1).strip()
+        except (GitError, IndexError) as e:
             self._log_debug(
-                "Repository does not exist. Could not determined default branch from remote"
+                f"Could not get HEAD branch with git remote show origin at {self.path}: {e}"
             )
-            return None
+            pass
+        try:
+            return self._git("symbolic-ref HEAD --short", reraise_error=True)
+        except GitError as e:
+            self._log_debug(f"Could not get HEAD branch at {self.path}: {e}")
+            pass
+        raise GitError(
+            self,
+            message="Could not determine default branch from local repository",
+        )
+
+    def _get_default_branch_from_remote(self, url: str) -> str:
+        if not self.is_git_repository:
+            raise GitError(
+                self,
+                message="Could not get default branch from remote. Not a git repository",
+            )
         branch = self._git(
             f"ls-remote --symref {url} HEAD",
             log_error=True,
@@ -867,7 +894,7 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
-    def get_default_branch(self, url: Optional[str] = None) -> Optional[str]:
+    def get_default_branch(self, url: Optional[str] = None) -> str:
         """Get the default branch of the repository. If url is provided, return the
         default branch from the remote. Otherwise, return the default
         branch from the local repository."""
@@ -1420,9 +1447,7 @@ class GitRepository:
         # try to get the default branch from the local repository
         errors = []
         try:
-            branch = self.get_default_branch()
-            if branch is not None:
-                return branch
+            return self.get_default_branch()
         except GitError as e:
             errors.append(e)
             pass
