@@ -1,13 +1,19 @@
-on: [push, pull_request]
+on:
+  push: {}
+  pull_request:
+    types: [closed]
+  release:
+    types: [published]
 
 jobs:
-  build:
+  run-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
@@ -22,13 +28,112 @@ jobs:
           sudo apt-get update
           sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
-          pip install -e .[ci,test,yubikey] # Install with CI deps
-      - name: setup github user
-        shell: bash
+          pip install wheel  # Ensure wheel is installed
+          pip install -e .[ci,test,yubikey]
+
+      - name: Setup GitHub user
         run: |
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
+
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
           pytest taf/tests
+
+  build-and-test-executables:
+    needs: run-tests
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    if: ${{ needs.run-tests.result == 'success' }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+
+      - name: Upgrade pip windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Upgrade pip
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          pip install --upgrade pip setuptools wheel
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+          libhdf5-serial-dev \
+          zlib1g-dev \
+          libatlas-base-dev \
+          lcov \
+          swig3.0 \
+          libpcsclite-dev \
+          libssl-dev \
+          libgit2-dev \
+          ca-certificates
+          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+          
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install swig
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install swig
+
+      - name: Install dependencies
+        run: |
+          pip install .[yubikey]
+          pip install pyinstaller
+
+      - name: Build and test standalone executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          chmod +x dist/taf
+          ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+
+      - name: Build and test standalone executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
+          ./dist/taf.exe --help | Select-String "TAF Command Line Interface" -quiet
+
+      - name: Build and test standalone executable (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+
+      - name: Upload standalone executable (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-linux
+          path: dist/taf
+
+      - name: Upload standalone executable (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-windows
+          path: dist/taf.exe
+
+      - name: Upload standalone executable (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: taf-executable-macos
+          path: dist/taf
