@@ -89,7 +89,9 @@ jobs:
           prerelease: true
       - name: Set Upload URL output
         id: set_upload_url
-        run: echo "upload_url=${{ steps.create_release.outputs.upload_url }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "upload_url=${{ steps.create_release.outputs.upload_url }}" >> "$GITHUB_OUTPUT"
+          echo "::set-output name=upload_url::$UPLOAD_URL"
 
   build-and-test-executables:
     strategy:
@@ -98,12 +100,14 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - env:
+          UPLOAD_URL: ${{needs.create_release.outputs.upload_url}}
       - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Get Upload URL
         id: get_upload_url
-        run: echo "::set-output name=upload_url::${{ needs.create_release.outputs.upload_url }}"
+        run: echo "$UPLOAD_URL"
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -165,7 +169,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          upload_url: $UPLOAD_URL
           asset_path: dist/taf
           asset_name: taf-linux
         env:
@@ -175,7 +179,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          upload_url: $UPLOAD_URL
           asset_path: dist/taf.exe
           asset_name: taf-windows
         env:
@@ -185,7 +189,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          upload_url: $UPLOAD_URL
           asset_path: dist/taf
           asset_name: taf-macos
         env:
