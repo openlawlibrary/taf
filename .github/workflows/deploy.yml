@@ -1,0 +1,115 @@
+name: Build and Deploy TAF
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build_and_upload:
+    strategy:
+      matrix:
+        # os: [ubuntu-latest, windows-latest, macos-latest]
+        # python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        # architecture: ['x64', 'x86']
+        os: [windows-latest]
+        python-version: ['3.10']
+        architecture: ['x64', 'x86']
+        exclude:
+          # Exclude macOS and Linux with x86 architecture
+          - os: macos-latest
+            architecture: x86
+          - os: ubuntu-latest
+            architecture: x86
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up 32-bit Python on Windows
+        if: matrix.os == 'windows-latest' && matrix.architecture == 'x86'
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: 'x86'
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+
+      - name: Upgrade pip windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Upgrade pip
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          pip install --upgrade pip setuptools wheel
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+
+      - name: Install Windows dependencies
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install swig
+
+      - name: Install macOS dependencies
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install swig
+
+      - name: Install dependencies
+        run: |
+          pip install .[yubikey]
+          pip install pyinstaller
+          pip install twine==3.8.0
+
+      - name: Build TAF
+        run: |
+          python setup.py sdist bdist_wheel clean --all
+
+      # - name: Convert to anylinux (if Ubuntu latest)
+      #   if: matrix.os == 'ubuntu-latest'
+      #   run: |
+      #     pip install auditwheel
+      #     auditwheel repair dist/*.whl --plat manylinux_2_24_x86_64
+
+      # - name: Delete Linux-tagged wheel files
+      #   if: matrix.os == 'ubuntu-latest'
+      #   run: |
+      #     rm -f dist/*-linux_*.whl  # Remove Linux-tagged .whl files in the dist directory
+
+      - name: Upload to TestPyPi
+        # if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+        env:
+          TWINE_USERNAME: ${{ secrets.TEST_PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_PASSWORD }}
+      # - name: Upload wheels to PyPI
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     python -m pip install twine
+      #     twine check dist/*
+      #     twine upload --skip-existing dist/* -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
+      #   env:
+      #     PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
+      #     PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      #   displayName: "Upload wheels"
