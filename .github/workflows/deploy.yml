@@ -138,6 +138,19 @@ jobs:
           pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
           ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
+
+     - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: true
+
+
       - name: Upload standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-release-asset@v1
@@ -147,7 +160,6 @@ jobs:
           asset_name: taf-linux
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
       - name: Upload standalone executable (Windows)
         if: matrix.os == 'windows-latest'
