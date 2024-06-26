@@ -91,7 +91,6 @@ jobs:
         id: set_upload_url
         run: |
           echo "upload_url=${{ steps.create_release.outputs.upload_url }}" >> "$GITHUB_OUTPUT"
-          echo "::set-output name=upload_url::${{needs.create_release.outputs.upload_url}}"
 
   build-and-test-executables:
     needs: create_release
@@ -149,20 +148,20 @@ jobs:
       - name: Build and test standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          pyinstaller --onefile --hidden-import=yubikey_manager --name taf -y taf/tools/cli/taf.py
           chmod +x dist/taf
           ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
       - name: Build and test standalone executable (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          pyinstaller --onefile --name taf.exe -y taf/tools/cli/taf.py
+          pyinstaller --onefile --hidden-import=yubikey_manager  --name taf.exe -y taf/tools/cli/taf.py
           ./dist/taf.exe --help | Select-String "TAF Command Line Interface" -quiet
 
       - name: Build and test standalone executable (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
+          pyinstaller --onefile --hidden-import=yubikey_manager  --name taf -y taf/tools/cli/taf.py
           ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
       - name: Upload standalone executable (Linux)
