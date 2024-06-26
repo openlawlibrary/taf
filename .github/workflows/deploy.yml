@@ -89,7 +89,7 @@ jobs:
           prerelease: true
       - name: Set Upload URL output
         id: set_upload_url
-        run: echo "::set-output name=upload_url::${{ steps.create_release.outputs.upload_url }}"
+        run: echo "upload_url=${{ steps.create_release.outputs.upload_url }}" >> "$GITHUB_OUTPUT"
 
   build-and-test-executables:
     strategy:
