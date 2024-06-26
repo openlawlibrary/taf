@@ -72,6 +72,22 @@ jobs:
       #   displayName: "Upload wheels"
 
 
+  create_release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: test
+          release_name: Release test
+          draft: false
+          prerelease: true
+
   build-and-test-executables:
     strategy:
       matrix:
@@ -138,24 +154,11 @@ jobs:
           pyinstaller --onefile --name taf -y taf/tools/cli/taf.py
           ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: true
-
-
       - name: Upload standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url}}
+          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
           asset_path: dist/taf
           asset_name: taf-linux
         env:
@@ -165,7 +168,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url}}
+          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
           asset_path: dist/taf.exe
           asset_name: taf-windows
         env:
@@ -175,7 +178,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url}}
+          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
           asset_path: dist/taf
           asset_name: taf-macos
         env:
