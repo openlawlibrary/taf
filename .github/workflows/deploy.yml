@@ -139,7 +139,7 @@ jobs:
           ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
 
-     - name: Create Release
+      - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
