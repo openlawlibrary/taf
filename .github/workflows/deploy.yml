@@ -48,6 +48,7 @@ jobs:
 
       - name: Install publishing dependencies
         run: |
+          pip install packaging
           pip install twine==3.8.0
 
       - name: Upload to TestPyPi
