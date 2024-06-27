@@ -1,44 +1,44 @@
-# on:
-#   push: {}
-#   pull_request:
-#     types: [closed]
-#   release:
-#     types: [published]
+on:
+  push: {}
+  pull_request:
+    types: [closed]
+  release:
+    types: [published]
 
-# jobs:
+jobs:
 
-#   run-tests:
-#     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
-#     steps:
-#       - uses: actions/checkout@v3
+  run-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v3
 
-#       - name: Set up Python ${{ matrix.python-version }}
-#         uses: actions/setup-python@v3
-#         with:
-#           python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
 
-#       - name: Upgrade pip, setuptools, and wheel
-#         run: |
-#           pip install --upgrade pip setuptools wheel
+      - name: Upgrade pip, setuptools, and wheel
+        run: |
+          pip install --upgrade pip setuptools wheel
 
-#       - name: Install dependencies
-#         run: |
-#           sudo apt-get update
-#           sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
-#           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
-#           pip install wheel  # Ensure wheel is installed
-#           pip install -e .[ci,test,yubikey]
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+          pip install wheel  # Ensure wheel is installed
+          pip install -e .[ci,test,yubikey]
 
-#       - name: Setup GitHub user
-#         run: |
-#           git config --global user.name oll-bot
-#           git config --global user.email developers@openlawlib.org
+      - name: Setup GitHub user
+        run: |
+          git config --global user.name oll-bot
+          git config --global user.email developers@openlawlib.org
 
-#       - name: Run pre-commit and test with pytest
-#         run: |
-#           pre-commit run --all-files
-#           pytest taf/tests
+      - name: Run pre-commit and test with pytest
+        run: |
+          pre-commit run --all-files
+          pytest taf/tests
 
