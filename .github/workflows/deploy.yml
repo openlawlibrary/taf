@@ -54,22 +54,21 @@ jobs:
       - name: Upload to TestPyPi
         # if: startsWith(github.ref, 'refs/tags/v')
         run: |
+          twine check dist/*
           twine upload --repository-url https://test.pypi.org/legacy/ dist/*
         env:
           TWINE_USERNAME: ${{ secrets.TEST_PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_PASSWORD }}
 
 
-      - name: Upload wheels to PyPI
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          python -m pip install twine
-          twine check dist/*
-          twine upload --skip-existing dist/* -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
-        env:
-          PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        displayName: "Upload wheels"
+      # - name: Upload wheels to PyPI
+      #   if: startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     twine check dist/*
+      #     twine upload --skip-existing dist/* -u ${{ secrets.PYPI_USERNAME }} -p ${{ secrets.PYPI_PASSWORD }}
+      #   env:
+      #     PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
+      #     PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
 
 
   create_release:
