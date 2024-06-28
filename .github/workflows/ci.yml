@@ -9,7 +9,7 @@ on:
 
 jobs:
 
-  run-tests:
+  run_tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -43,14 +43,14 @@ jobs:
         run: |
           pre-commit run --all-files
           pytest taf/tests
+
   build_and_upload_wheel:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
 
     runs-on: ubuntu-latest
-    needs: run-test
+    needs: run_tests
 
     steps:
       - name: Checkout code
