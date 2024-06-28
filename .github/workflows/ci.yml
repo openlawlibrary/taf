@@ -5,7 +5,7 @@ on:
   pull_request:
     types: [closed]
   release:
-    types: [published]
+    types: [created]
 
 jobs:
 
@@ -51,7 +51,7 @@ jobs:
 
     runs-on: ubuntu-latest
     needs: run_tests
-
+    if: github.event_name == 'release'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -119,10 +119,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: test
-          release_name: Release test
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
           draft: false
-          prerelease: true
+          prerelease: false
       - name: Set Upload URL output
         id: set_upload_url
         run: |
