@@ -46,13 +46,10 @@ jobs:
           pytest taf/tests
 
   build_and_upload_wheel:
-    strategy:
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-
     runs-on: ubuntu-latest
     needs: run_tests
     if: github.event_name == 'release'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
