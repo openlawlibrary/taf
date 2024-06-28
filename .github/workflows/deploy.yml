@@ -3,7 +3,6 @@ name: Build and Deploy TAF
 on:
   workflow_run:
     workflows: ["Tests"]
-    branches: [main]
     types:
       - completed
 
