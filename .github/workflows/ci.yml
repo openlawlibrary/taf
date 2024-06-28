@@ -65,7 +65,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-            python-version: ${{ matrix.python-version }}
+          # build it on the minimum version
+          python-version: '3.8'
 
       - name: Upgrade pip
         run: |
@@ -125,7 +126,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          # the newest python that we support
+          python-version: '3.12'
 
       - name: Upgrade pip windows
         if: matrix.os == 'windows-latest'
