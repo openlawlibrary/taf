@@ -154,19 +154,19 @@ jobs:
         run: |
           pyinstaller --onefile --hidden-import=yubikey_manager --name taf-linux -y taf/tools/cli/taf.py
           chmod +x dist/taf
-          ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+          ./dist/taf-linux --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
       - name: Build and test standalone executable (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           pyinstaller --onefile --hidden-import=yubikey_manager  --name taf-winows.exe -y taf/tools/cli/taf.py
-          ./dist/taf.exe --help | Select-String "TAF Command Line Interface" -quiet
+          ./dist/taf-windows.exe --help | Select-String "TAF Command Line Interface" -quiet
 
       - name: Build and test standalone executable (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           pyinstaller --onefile --hidden-import=yubikey_manager  --name taf-macos -y taf/tools/cli/taf.py
-          ./dist/taf --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
+          ./dist/taf-macos --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
       - name: Upload standalone executable (Linux)
         if: matrix.os == 'ubuntu-latest'
