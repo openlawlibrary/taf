@@ -2,8 +2,8 @@ from setuptools import find_packages, setup
 from importlib.util import find_spec
 import sys
 
-PACKAGE_NAME = "test-taf"
-VERSION = "0.30.3"
+PACKAGE_NAME = "taf"
+VERSION = "0.30.0"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
