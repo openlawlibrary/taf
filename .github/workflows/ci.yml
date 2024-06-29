@@ -14,6 +14,9 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+    outputs:
+      first_python_version: ${{ steps.set_outputs.outputs.first }}
+      last_python_version: ${{ steps.set_outputs.outputs.last }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,6 +46,16 @@ jobs:
         run: |
           pre-commit run --all-files
           pytest taf/tests
+
+      - name: Set Outputs
+        id: set_outputs
+        run: |
+          first_python_version=$(echo "${{ toJson(matrix.python-version) }}" | jq -r '.[0]')
+          last_python_version=$(echo "${{ toJson(matrix.python-version) }}" | jq -r '.[-1]')
+          echo "::set-output name=first::$first_python_version"
+          echo "::set-output name=last::$last_python_version"
+        env:
+          matrix: ${{ toJson(matrix) }}
 
   # build_and_upload_wheel:
   #   runs-on: ubuntu-latest
