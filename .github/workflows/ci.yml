@@ -153,7 +153,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           pyinstaller --onefile --hidden-import=yubikey_manager --name taf-linux -y taf/tools/cli/taf.py
-          chmod +x dist/taf
+          chmod +x dist/taf-linux
           ./dist/taf-linux --help | grep "TAF Command Line Interface" || { echo "Error: Expected text not found in the executable output"; exit 1; }
 
       - name: Build and test standalone executable (Windows)
