@@ -159,7 +159,7 @@ jobs:
       - name: Build and test standalone executable (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          pyinstaller --onefile --hidden-import=yubikey_manager  --name taf-winows.exe -y taf/tools/cli/taf.py
+          pyinstaller --onefile --hidden-import=yubikey_manager  --name taf-windows.exe -y taf/tools/cli/taf.py
           ./dist/taf-windows.exe --help | Select-String "TAF Command Line Interface" -quiet
 
       - name: Build and test standalone executable (macOS)
