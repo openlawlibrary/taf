@@ -50,9 +50,8 @@ jobs:
       - name: Set Outputs
         id: set_outputs
         run: |
-          python_versions=($(echo "${{ matrix.python-version }}" | jq -r '.[]'))
-          first_python_version=${python_versions[0]}
-          last_python_version=${python_versions[-1]}
+          first_python_version=${{ matrix.python-version[0] }}
+          last_python_version=${{ matrix.python-version[matrix.python-version.length-1] }}
           echo "::set-output name=first::$first_python_version"
           echo "::set-output name=last::$last_python_version"
 
