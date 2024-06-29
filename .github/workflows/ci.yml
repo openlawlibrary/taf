@@ -50,12 +50,11 @@ jobs:
       - name: Set Outputs
         id: set_outputs
         run: |
-          first_python_version=$(echo "${{ toJson(matrix.python-version) }}" | jq -r '.[0]')
-          last_python_version=$(echo "${{ toJson(matrix.python-version) }}" | jq -r '.[-1]')
+          python_versions=($(echo "${{ matrix.python-version }}" | jq -r '.[]'))
+          first_python_version=${python_versions[0]}
+          last_python_version=${python_versions[-1]}
           echo "::set-output name=first::$first_python_version"
           echo "::set-output name=last::$last_python_version"
-        env:
-          matrix: ${{ toJson(matrix) }}
 
   # build_and_upload_wheel:
   #   runs-on: ubuntu-latest
