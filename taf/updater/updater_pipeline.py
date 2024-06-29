@@ -201,6 +201,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        bare,
     ):
 
         super().__init__(
@@ -248,6 +249,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.out_of_band_authentication = out_of_band_authentication
         self.checkout = checkout
         self.excluded_target_globs = excluded_target_globs
+        self.bare = bare
         self.state = UpdateState()
         self.state.targets_data = {}
         self._output = None
@@ -299,7 +301,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             # check if the auth repo is clean first
             if self.state.existing_repo:
-                auth_repo = AuthenticationRepository(path=self.auth_path)
+                auth_repo = AuthenticationRepository(
+                    path=self.auth_path, bare=self.bare
+                )
                 if auth_repo.something_to_commit():
                     raise RepositoryNotCleanError(auth_repo.name)
                 if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
@@ -354,13 +358,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             last_validated_commit = users_auth_repo.last_validated_commit
             settings.last_validated_commit = last_validated_commit
 
+        git_updater = None  # Initialize git_updater
+
         try:
             self.state.auth_commits_since_last_validated = None
 
             # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
             with ThreadPoolExecutor() as executor:
                 future_validation_repo = executor.submit(
-                    _clone_validation_repo, self.url
+                    _clone_validation_repo, self.url, self.bare
                 )
                 validation_repo = future_validation_repo.result()
 
@@ -373,7 +379,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 validation_repo.default_branch
             )
             auth_repo_name = None
-            git_updater = None
 
             if self.auth_path:
                 auth_repo_name = GitRepository(path=self.auth_path).name
@@ -382,8 +387,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
-
-            git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
+            git_updater = GitUpdater(
+                self.url, self.library_dir, validation_repo.name, self.bare
+            )
             last_validated_remote_commit, error = _run_tuf_updater(
                 git_updater, auth_repo_name
             )
@@ -401,21 +407,19 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                 else:
                     self.state.auth_repo_name = auth_repo_name
-
             self.state.users_auth_repo = AuthenticationRepository(
-                self.library_dir,
-                self.state.auth_repo_name,
+                path=Path(self.library_dir) / self.state.auth_repo_name,
+                library_dir=self.library_dir,
+                name=self.state.auth_repo_name,
                 urls=[self.url],
+                bare=self.bare,
             )
-
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self._validate_operation_type()
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
-
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
-
             # used for testing purposes
             if settings.overwrite_last_validated_commit:
                 self.state.last_validated_commit = settings.last_validated_commit
@@ -423,7 +427,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
                 )
-
             if error is None:
                 self.state.auth_commits_since_last_validated = list(git_updater.commits)
                 taf_logger.info(
@@ -553,7 +556,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.state.existing_repo:
                 self.state.users_auth_repo.fetch(fetch_all=True)
             else:
-                self.state.users_auth_repo.clone()
+                self.state.users_auth_repo.clone(bare=self.bare)
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -571,6 +574,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 commits=self.state.auth_commits_since_last_validated,
                 only_load_targets=True,
                 excluded_target_globs=self.excluded_target_globs,
+                bare=self.bare,
             )
             self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
@@ -590,6 +594,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         repo.name,
                         urls=repo.urls,
                         custom=repo.custom,
+                        bare=self.bare,
                     )
                     for repo in self.state.users_target_repositories.values()
                 }
@@ -633,11 +638,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     temp_repo.clone_from_disk(
                         users_repo.path,
                         users_repo.get_remote_url(),
-                        is_bare=True,
+                        is_bare=self.bare,
                     )
                     self.state.repos_on_disk[users_repo.name] = users_repo
                 else:
-                    temp_repo.clone(bare=True)
+                    temp_repo.clone(bare=self.bare)
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
 
             with ThreadPoolExecutor() as executor:
@@ -1110,9 +1115,10 @@ but commit not on branch {current_branch}"
                 ]
                 temp_target_repo = self.state.temp_target_repositories[repository_name]
                 users_target_repo.clone_from_disk(
-                    temp_target_repo.path, temp_target_repo.get_remote_url()
+                    temp_target_repo.path,
+                    temp_target_repo.get_remote_url(),
+                    is_bare=self.bare,
                 )
-
             for repo_name in self.state.repos_on_disk:
                 users_target_repo = self.state.users_target_repositories[repo_name]
                 temp_target_repo = self.state.temp_target_repositories[repo_name]
@@ -1150,6 +1156,9 @@ but commit not on branch {current_branch}"
         """Determines which commits needs to be merged into the specified branch and
         merge it.
         """
+        if self.bare:
+            taf_logger.info("Skipping merge_commits for bare repository")
+            return UpdateStatus.SUCCESS
         try:
             if self.only_validate:
                 return self.state.update_status
@@ -1283,7 +1292,7 @@ but commit not on branch {current_branch}"
                     )
 
 
-def _clone_validation_repo(url):
+def _clone_validation_repo(url, bare=False):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository
@@ -1294,9 +1303,9 @@ def _clone_validation_repo(url):
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
     validation_auth_repo = AuthenticationRepository(
-        path=path, urls=[url], alias="Validation repository"
+        path=path, urls=[url], alias="Validation repository", bare=bare
     )
-    validation_auth_repo.clone(bare=True)
+    validation_auth_repo.clone(bare=bare)
     validation_auth_repo.fetch(fetch_all=True)
 
     settings.validation_repo_path = validation_auth_repo.path
@@ -1465,6 +1474,8 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
 
+    if repository.bare:
+        return
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError as e:

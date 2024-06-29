@@ -40,6 +40,7 @@ class GitRepository:
         allow_unsafe: Optional[bool] = False,
         path: Optional[Union[Path, str]] = None,
         alias: Optional[str] = None,
+        bare: Optional[bool] = False,
         *args,
         **kwargs,
     ):
@@ -58,6 +59,7 @@ class GitRepository:
           the containing directory is owned by a different user to be ignored
           alias: Repository's alias, which will be used in logging statements to reference it
         """
+        self.bare = bare
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
         if isinstance(path, str):
@@ -126,6 +128,7 @@ class GitRepository:
             "urls": self.urls,
             "default_branch": self.default_branch,
             "custom": self.custom,
+            "bare": self.bare,
         }
 
     logging_functions = {
@@ -152,13 +155,19 @@ class GitRepository:
     @property
     def is_git_repository_root(self) -> bool:
         """Check if path is git repository."""
-        git_path = self.path / ".git"
-        return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
+        if self.bare:
+            return (self.path / "HEAD").is_file()
+        else:
+            git_path = self.path / ".git"
+            return git_path.is_dir() or git_path.is_file()
 
     @property
     def is_git_repository(self) -> bool:
-        repo_path = pygit2.discover_repository(str(self.path))
-        return repo_path is not None
+        if self.bare:
+            return (self.path / "HEAD").is_file()
+        else:
+            repo_path = pygit2.discover_repository(str(self.path))
+            return repo_path is not None
 
     @property
     def initial_commit(self) -> str:
@@ -589,8 +598,10 @@ class GitRepository:
             self._pygit = None
 
     def clone(
-        self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs
+        self, no_checkout: bool = False, bare: Optional[bool] = None, **kwargs
     ) -> None:
+        if bare is None:
+            bare = self.bare  # Use the bare attribute if not explicitly provided
         self._log_info("cloning repository")
 
         self.path.mkdir(exist_ok=True, parents=True)
@@ -1171,9 +1182,11 @@ class GitRepository:
         except GitError:
             return None
 
-    def init_repo(self, bare: Optional[bool] = False) -> None:
+    def init_repo(self, bare: Optional[bool] = None) -> None:
         if self.path.is_dir():
             self.path.mkdir(exist_ok=True, parents=True)
+        if bare is None:
+            bare = self.bare
         flag = "--bare" if bare else ""
         self._git(f"init {flag}", error_if_not_exists=False)
         if self.urls is not None and len(self.urls):

@@ -138,7 +138,8 @@ def clone_repo_command():
     @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
+    def clone(path, url, library_dir, from_fs, bare, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
         if profile:
             start_profiling()
 
@@ -151,7 +152,8 @@ def clone_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
-            strict=strict
+            strict=strict,
+            bare=bare,
         )
 
         try:
@@ -203,7 +205,8 @@ def update_repo_command():
     @common_update_options
     @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    @click.option("--bare", is_flag=True, default=False, help="Update bare repositories")
+    def update(path, library_dir, bare, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
         if profile:
             start_profiling()
 
@@ -214,7 +217,8 @@ def update_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
-            strict=strict
+            strict=strict,
+            bare=bare
         )
 
         try:

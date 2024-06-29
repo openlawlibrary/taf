@@ -76,13 +76,15 @@ class GitUpdater(FetcherInterface):
     def targets_dir(self):
         return str(self.validation_auth_repo.path / "targets")
 
-    def __init__(self, auth_url, repository_directory, repository_name):
+    def __init__(self, auth_url, repository_directory, repository_name, bare=False):
         """
         Args:
         auth_url: repository url of the git repository which we want to clone.
         repository_directory: the client's local repository's location
         repository_name: name of the repository in 'organization/namespace' format.
+        bare: if True, indicates that the repository is a bare repository.
         """
+        self.bare = bare
         self._original_tuf_trusted_metadata_set = (
             trusted_metadata_set.TrustedMetadataSet
         )
@@ -220,7 +222,9 @@ This could mean that the a commit was removed from the remote repository or that
         """
         Used outside of GitUpdater to access validation auth repo.
         """
-        self.validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
+        self.validation_auth_repo = AuthenticationRepository(
+            path=path, urls=[url], bare=self.bare
+        )
 
     def cleanup(self):
         """
