@@ -131,7 +131,6 @@ def load_dependencies(
                     )
             contained_auth_repo = None
             try:
-                print(bare)
                 contained_auth_repo = auth_class(
                     library_dir=library_dir,
                     name=name,
