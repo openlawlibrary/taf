@@ -358,8 +358,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             last_validated_commit = users_auth_repo.last_validated_commit
             settings.last_validated_commit = last_validated_commit
 
-        git_updater = None  # Initialize git_updater
-
         try:
             self.state.auth_commits_since_last_validated = None
 
@@ -379,6 +377,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 validation_repo.default_branch
             )
             auth_repo_name = None
+            git_updater = None
 
             if self.auth_path:
                 auth_repo_name = GitRepository(path=self.auth_path).name

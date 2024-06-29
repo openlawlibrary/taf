@@ -675,7 +675,7 @@ def validate_repository(
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
-            bare=bare,  # Pass the bare argument here
+            bare=bare,
         )
         if error:
             raise error
