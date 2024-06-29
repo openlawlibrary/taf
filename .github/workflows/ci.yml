@@ -84,14 +84,6 @@ jobs:
           pip install packaging
           pip install twine==3.8.0
 
-      # - name: Upload to TestPyPi
-      #   run: |
-      #     twine check dist/*
-      #     twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-      #   env:
-      #     TWINE_USERNAME: ${{ secrets.TEST_PYPI_USERNAME }}
-      #     TWINE_PASSWORD: ${{ secrets.TEST_PYPI_PASSWORD }}
-
       - name: Upload wheels to PyPI
         run: |
           twine check dist/*
