@@ -50,10 +50,8 @@ jobs:
       - name: Set Outputs
         id: set_outputs
         run: |
-          first_python_version=${{ matrix.python-version[0] }}
-          last_python_version=${{ matrix.python-version[matrix.python-version.length-1] }}
-          echo "::set-output name=first::$first_python_version"
-          echo "::set-output name=last::$last_python_version"
+          echo "first_python_version=${{ matrix.python-version[0] }}" >> $GITHUB_ENV
+          echo "last_python_version=${{ matrix.python-version[matrix.python-version.length-1] }}" >> $GITHUB_ENV
 
   # build_and_upload_wheel:
   #   runs-on: ubuntu-latest
