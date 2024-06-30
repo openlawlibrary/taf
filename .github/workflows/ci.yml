@@ -8,35 +8,27 @@ on:
     types: [created]
 
 env:
-  VERSIONS:
-    - '3.8'
-    - '3.9'
-    - '3.10'
-    - '3.11'
-    - '3.12'
-
+  VERSIONS: "['3.8', '3.9', '3.10', '3.11', '3.12']"
 jobs:
 
   setup:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set_matrix.outputs.matrix }}
-      first_version: ${{ steps.set_matrix.outputs.first_version }}
-      last_version: ${{ steps.set_matrix.outputs.last_version }}
+    name: Prepare Python Versions
+    runs-on: ubuntu-latest
+    outputs:
+      all_versions: ${{ steps.step1.outputs.matrix }}
     steps:
-      - name: Set Python versions
-        id: set_matrix
-        run: |
-          echo "matrix=$(jq -cr '@json' <<< "${{ env.VERSIONS }}")" >> $GITHUB_OUTPUT
-          echo "first_version="${{ env.VERSIONS[0] }}" >> $GITHUB_OUTPUT
-          echo "last_version="${{ env.VERSIONS[-1] }}" >> $GITHUB_OUTPUT
+      - name: Create Matrix Variable
+        id: step1
+        run: echo "matrix=${{env.VERSIONS}}" >> $GITHUB_OUTPUT
 
   run_tests:
     runs-on: ubuntu-latest
     needs: setup
     strategy:
       matrix:
-        python-version: ${{ fromJson(needs.setup.outputs.matrix) }}]
+        python-version: ${{ fromJSON(needs.setup.outputs.all_versions) }}
     steps:
       - uses: actions/checkout@v4
 
