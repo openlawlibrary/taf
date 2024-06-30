@@ -14,9 +14,6 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-    name: Prepare Python Versions
-    runs-on: ubuntu-latest
-    outputs:
       all_versions: ${{ steps.step1.outputs.matrix }}
     steps:
       - name: Create Matrix Variable
