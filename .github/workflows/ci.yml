@@ -56,48 +56,48 @@ jobs:
           pre-commit run --all-files
           pytest taf/tests
 
-  # build_and_upload_wheel:
-  #   runs-on: ubuntu-latest
-      # needs: [setup, run_tests]
-  #   if: github.event_name == 'release'
+  build_and_upload_wheel:
+    runs-on: ubuntu-latest
+      needs: [setup, run_tests]
+    if: github.event_name == 'release'
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         # build it on the minimum version
-  #         python-version: ${{ env.PYTHON_VERSIONS[0] }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # build it on the minimum version
+          python-version: ${{ fromJSON(needs.setup.outputs.all_versions[0] }}
 
-  #     - name: Upgrade pip
-  #       run: |
-  #         pip install --upgrade pip setuptools wheel
+      - name: Upgrade pip
+        run: |
+          pip install --upgrade pip setuptools wheel
 
-  #     - name: Install swig
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
-  #         mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+      - name: Install swig
+        run: |
+          sudo apt-get update
+          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
 
-  #     - name: Install and build TAF
-  #       run: |
-  #         pip install .[yubikey]
-  #         python setup.py sdist bdist_wheel clean --all
+      - name: Install and build TAF
+        run: |
+          pip install .[yubikey]
+          python setup.py sdist bdist_wheel clean --all
 
-  #     - name: Install publishing dependencies
-  #       run: |
-  #         pip install packaging
-  #         pip install twine==3.8.0
+      - name: Install publishing dependencies
+        run: |
+          pip install packaging
+          pip install twine==3.8.0
 
-  #     - name: Upload wheels to PyPI
-  #       run: |
-  #         twine check dist/*
-  #         twine upload dist/*
-  #       env:
-  #         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-  #         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      - name: Upload wheels to PyPI
+        run: |
+          twine check dist/*
+          twine upload dist/*
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
 
 
   build-and-test-executables:
@@ -122,7 +122,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           # the newest python that we support
-          python-version: ${{ env.PYTHON_VERSIONS[-1] }}
+          python-version: ${{ fromJSON(needs.setup.outputs.all_versions[0] }}
 
       - name: Upgrade pip windows
         if: matrix.os == 'windows-latest'
