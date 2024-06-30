@@ -7,7 +7,8 @@ on:
   release:
     types: [created]
 
-
+env:
+  VERSIONS: "['3.8', '3.9', '3.10', '3.11', '3.12']"
 
 jobs:
 
@@ -21,11 +22,9 @@ jobs:
       - name: Set Python versions
         id: set_matrix
         run: |
-          VERSIONS=("3.8" "3.9" "3.10" "3.11" "3.12")
-          JSON_VERSIONS=$(printf '%s\n' "${VERSIONS[@]}" | jq -R . | jq -s .)
-          echo "matrix=$JSON_VERSIONS" >> $GITHUB_OUTPUT
-          echo "first_version=${VERSIONS[0]}" >> $GITHUB_OUTPUT
-          echo "last_version=${VERSIONS[-1]}" >> $GITHUB_OUTPUT
+          echo "matrix=$(jq -cr '@json' <<< "${{ env.VERSIONS }}")" >> $GITHUB_OUTPUT
+          echo "first_version="${{ env.VERSIONS[0] }}" >> $GITHUB_OUTPUT
+          echo "last_version="${{ env.VERSIONS[-1] }}" >> $GITHUB_OUTPUT
 
   run_tests:
     runs-on: ubuntu-latest
