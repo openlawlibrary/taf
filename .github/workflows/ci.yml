@@ -22,10 +22,9 @@ jobs:
         id: set_matrix
         run: |
           VERSIONS=("3.8" "3.9" "3.10" "3.11" "3.12")
-          echo "matrix=$(jq -nc '${{VERSIONS}}' | jq -c 'split(" ")' | jq -cr '@json')" >> $GITHUB_OUTPUT
-          echo "first_version=${{VERSIONS[0]}}" >> $GITHUB_OUTPUT
-          echo "last_version=${{VERSIONS[-1]}}" >> $GITHUB_OUTPUT
-
+          echo "matrix=$(echo ${VERSIONS[@]} | jq -R 'split(" ")')" >> $GITHUB_OUTPUT
+          echo "first_version=${VERSIONS[0]}" >> $GITHUB_OUTPUT
+          echo "last_version=${VERSIONS[-1]}" >> $GITHUB_OUTPUT
 
   run_tests:
     runs-on: ubuntu-latest
