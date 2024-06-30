@@ -69,7 +69,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           # build it on the minimum version
-          python-version: ${{ fromJSON(needs.setup.outputs.all_versions[0] }}
+          python-version: ${{ fromJSON(needs.setup.outputs.all_versions)[0] }}
 
       - name: Upgrade pip
         run: |
@@ -122,7 +122,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           # the newest python that we support
-          python-version: ${{ fromJSON(needs.setup.outputs.all_versions[0] }}
+          python-version: ${{ fromJSON(needs.setup.outputs.all_versions)[-1] }}
 
       - name: Upgrade pip windows
         if: matrix.os == 'windows-latest'
