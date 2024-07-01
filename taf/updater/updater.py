@@ -384,8 +384,8 @@ def _update_named_repository(
     scripts_root_dir=None,
     checkout=True,
     excluded_target_globs=None,
-    no_deps=True,
-    no_targets=True,
+    no_deps=False,
+    no_targets=False,
     no_upstream=True,
 ):
     """

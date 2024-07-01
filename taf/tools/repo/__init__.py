@@ -258,11 +258,11 @@ def validate_repo_command():
     @click.option("--no-targets", is_flag=True, default=False, help="Optionally skips target repositiory validation and validates only authentication repositories.")
     # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
         auth_repo = AuthenticationRepository(path=path)
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-        validate_repository(path, library_dir, from_commit, exclude_target, strict)
+        validate_repository(path, library_dir, from_commit, exclude_target, strict, no_targets, no_deps)
     return validate
 
 
