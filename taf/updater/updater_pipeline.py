@@ -17,6 +17,7 @@ import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import (
+    InvalidRepositoryError,
     MissingInfoJsonError,
     RepositoryNotCleanError,
     UpdateFailedError,
@@ -301,9 +302,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             # check if the auth repo is clean first
             if self.state.existing_repo:
-                auth_repo = AuthenticationRepository(
-                    path=self.auth_path, bare=self.bare
-                )
+                auth_repo = AuthenticationRepository(path=self.auth_path)
                 if auth_repo.something_to_commit():
                     raise RepositoryNotCleanError(auth_repo.name)
                 if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
@@ -364,7 +363,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
             with ThreadPoolExecutor() as executor:
                 future_validation_repo = executor.submit(
-                    _clone_validation_repo, self.url, self.bare
+                    _clone_validation_repo, self.url, True
                 )
                 validation_repo = future_validation_repo.result()
 
@@ -407,11 +406,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     self.state.auth_repo_name = auth_repo_name
             self.state.users_auth_repo = AuthenticationRepository(
-                path=Path(self.library_dir) / self.state.auth_repo_name,
+                path=self.auth_path,
                 library_dir=self.library_dir,
                 name=self.state.auth_repo_name,
                 urls=[self.url],
-                bare=self.bare,
             )
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self._validate_operation_type()
@@ -573,7 +571,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 commits=self.state.auth_commits_since_last_validated,
                 only_load_targets=True,
                 excluded_target_globs=self.excluded_target_globs,
-                bare=self.bare,
             )
             self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
@@ -593,7 +590,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         repo.name,
                         urls=repo.urls,
                         custom=repo.custom,
-                        bare=self.bare,
                     )
                     for repo in self.state.users_target_repositories.values()
                 }
@@ -637,7 +633,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     temp_repo.clone_from_disk(
                         users_repo.path,
                         users_repo.get_remote_url(),
-                        is_bare=self.bare,
+                        is_bare=True,
                     )
                     self.state.repos_on_disk[users_repo.name] = users_repo
                 else:
@@ -869,19 +865,30 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(
         DEBUG,
-        "Checking if target repositories contain unpushed commits...",
+        "Checking if target repositories are clean...",
         logger=taf_logger,
     )
     def check_if_local_target_repositories_clean(self):
         try:
             for repository in self.state.repos_on_disk.values():
-                if repository.something_to_commit():
-                    raise RepositoryNotCleanError(repository.name)
-                for branch in self.state.target_branches_data_from_auth_repo[
-                    repository.name
-                ]:
-                    if repository.is_branch_with_unpushed_commits(branch):
-                        raise UnpushedCommitsError(repository.name, branch)
+                if repository.is_bare_repository:
+                    # For bare repositories, ensure they are valid
+                    if not repository.is_git_repository:
+                        raise InvalidRepositoryError(
+                            f"{repository.name} is not a valid git repository."
+                        )
+                    taf_logger.debug(
+                        f"Repo {repository.name} is a bare repository and is valid."
+                    )
+                else:
+                    # For non-bare repositories, check for uncommitted changes and unpushed commits
+                    if repository.something_to_commit():
+                        raise RepositoryNotCleanError(repository.name)
+                    for branch in self.state.target_branches_data_from_auth_repo[
+                        repository.name
+                    ]:
+                        if repository.is_branch_with_unpushed_commits(branch):
+                            raise UnpushedCommitsError(repository.name, branch)
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -1302,9 +1309,9 @@ def _clone_validation_repo(url, bare=False):
     temp_dir = tempfile.mkdtemp()
     path = Path(temp_dir, "auth_repo").absolute()
     validation_auth_repo = AuthenticationRepository(
-        path=path, urls=[url], alias="Validation repository", bare=bare
+        path=path, urls=[url], alias="Validation repository"
     )
-    validation_auth_repo.clone(bare=bare)
+    validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
     settings.validation_repo_path = validation_auth_repo.path
@@ -1472,8 +1479,7 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
-
-    if repository.bare:
+    if repository.is_bare_repository:
         return
     try:
         repository.checkout_branch(branch, raise_anyway=True)

@@ -37,7 +37,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         out_of_band_authentication: Optional[str] = None,
         path: Optional[Union[Path, str]] = None,
         alias: Optional[str] = None,
-        bare: Optional[bool] = False,
         *args,
         **kwargs,
     ):
@@ -64,7 +63,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             allow_unsafe,
             path,
             alias,
-            bare,
             *args,
             **kwargs,
         )
@@ -86,7 +84,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 "conf_directory_root": str(self.conf_directory_root),
                 "out_of_band_authentication": self.out_of_band_authentication,
                 "dependencies": self.dependencies,
-                "bare": self.bare,
             }
         )
         return data

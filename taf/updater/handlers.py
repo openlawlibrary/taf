@@ -223,7 +223,7 @@ This could mean that the a commit was removed from the remote repository or that
         Used outside of GitUpdater to access validation auth repo.
         """
         self.validation_auth_repo = AuthenticationRepository(
-            path=path, urls=[url], bare=self.bare
+            path=path, urls=[url], bare=True
         )
 
     def cleanup(self):

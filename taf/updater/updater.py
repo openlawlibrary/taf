@@ -267,7 +267,7 @@ def update_repository(config: RepositoryConfig):
     """
     settings.strict = config.strict
 
-    auth_repo = GitRepository(path=config.path, bare=config.bare)
+    auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
         raise UpdateFailedError(
             f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
@@ -280,20 +280,18 @@ def update_repository(config: RepositoryConfig):
         if config.url is None:
             raise UpdateFailedError("URL cannot be determined. Please specify it")
 
-    if config.bare:
+    if auth_repo.is_bare_repository:
         # Handle updates for bare repositories
         auth_repo.fetch()
-        auth_repo.bare = True
         validate_repository(
             auth_path=config.path,
             library_dir=config.library_dir,
             validate_from_commit=config.validate_from_commit,
             excluded_target_globs=config.excluded_target_globs,
             strict=config.strict,
-            bare=config.bare,
+            bare=True,
         )
-    else:
-        return _update_or_clone_repository(config)
+    _update_or_clone_repository(config)
 
 
 def _update_or_clone_repository(config: RepositoryConfig):

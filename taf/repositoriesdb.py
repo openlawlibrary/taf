@@ -14,7 +14,9 @@ from taf.exceptions import (
 from taf.git import GitRepository
 from taf.log import taf_logger
 
+
 # Target repositories db
+
 # {
 #     'authentication_repo_path': {
 #         'commit' : {
@@ -53,7 +55,7 @@ def check_if_repositories_json_exists(
         if commit is None:
             raise GitError(
                 auth_repo,
-                message="Could not check if repositories.json exists. Commit is not specified and head commit could not be determined",
+                message="Could not check if repositroies.json exists. Commit is not specified and head commit could not be determined",
             )
     try:
         auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
@@ -67,7 +69,6 @@ def load_dependencies(
     auth_class: Type = AuthenticationRepository,
     library_dir: Optional[str] = None,
     commits: Optional[List[str]] = None,
-    bare: Optional[bool] = False,
 ) -> None:
     global _dependencies_dict
     if auth_repo.path not in _dependencies_dict:
@@ -131,6 +132,8 @@ def load_dependencies(
                     )
             contained_auth_repo = None
             try:
+                # TODO check if repo class is subclass of AuthenticationRepository
+                # or will that get caught by except
                 contained_auth_repo = auth_class(
                     library_dir=library_dir,
                     name=name,
@@ -138,7 +141,6 @@ def load_dependencies(
                     out_of_band_authentication=out_of_band_authentication,
                     default_branch=default_branch,
                     custom=custom,
-                    bare=bare,
                 )
             except Exception as e:
                 taf_logger.error(
@@ -174,14 +176,36 @@ def load_repositories(
     commits: Optional[List[str]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
-    bare: Optional[bool] = False,  # Add bare parameter
 ) -> None:
     """
     Creates target repositories by reading repositories.json and targets.json files
     at the specified revisions, given an authentication repo.
-    If the commits are not specified, targets will be created based on the HEAD pointer
+    If the the commits are not specified, targets will be created based on the HEAD pointer
     of the authentication repository. It is possible to specify git repository class that
     will be created per target.
+    Args:
+        auth_repo: the authentication repository
+        target_classes: a single git repository class, or a dictionary whose keys are
+        target names and values are git repository classes. E.g:
+        {
+            'name1': GitRepo1,
+            'name2': GitRepo2,
+            'default': GitRepo3
+        }
+        When determining a target's class, in case when targets_classes is a dictionary,
+        it is first checked if its name is in a key in the dictionary. If it is not found,
+        it is checked if default class is set, by looking up value of 'default'. If nothing
+        is found, the class is set to TAF's GitRepository.
+        If target_classes is a single class, all targets will be of that type.
+        If target_classes is None, all targets will be of TAF's GitRepository type.
+        library_dir: root directory relative to which the target names are specified
+        commits: Authentication repository's commits at which to read targets.json
+        only_load_targets: specifies if only repositories specified in targets files should be loaded.
+        If set to false, all repositories defined in repositories.json are loaded, regardless of if
+        they are targets or not.
+        roles: a list of roles whose repositories should be loaded. The repositories linked to a specific
+        role are determined based on its targets, so there is no need to set only_load_targets to True.
+        If only_load_targets is True and roles is not set, all roles will be taken into consideration.
     """
     global _repositories_dict
     if auth_repo.path not in _repositories_dict:
@@ -253,7 +277,6 @@ def load_repositories(
                 name,
                 default_branch,
                 auth_repo,
-                bare=bare,
             )
             if git_repo:
                 repositories_dict[name] = git_repo
@@ -433,7 +456,7 @@ def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=
             f" {auth_repo.path} have not been loaded"
         )
     repositories = {}
-    # presuming that the newest commit is the last one
+    # persuming that the newest commit is the last one
     for commit in commits:
         if commit not in all_repositories:
             taf_logger.error(
@@ -578,67 +601,21 @@ def get_repositories_by_custom_data(
 
 
 def _initialize_repository(
-    factory,
-    repo_classes,
-    urls,
-    custom,
-    library_dir,
-    name,
-    default_branch,
-    auth_repo,
-    bare,
+    factory, repo_classes, urls, custom, library_dir, name, default_branch, auth_repo
 ):
     git_repo = None
 
     allow_unsafe = False
-    path = None
-
-    # Determine the path if library_dir and name are provided
-    if library_dir and name:
-        path = Path(library_dir) / name
-
     try:
         if factory is not None:
-            if path:
-                git_repo = factory(
-                    library_dir=library_dir,
-                    name=name,
-                    urls=urls,
-                    custom=custom,
-                    default_branch=default_branch,
-                    allow_unsafe=allow_unsafe,
-                    bare=bare,
-                )
-            else:
-                git_repo = factory(
-                    path=path,
-                    urls=urls,
-                    custom=custom,
-                    default_branch=default_branch,
-                    allow_unsafe=allow_unsafe,
-                    bare=bare,
-                )
+            git_repo = factory(
+                library_dir, name, urls, custom, default_branch, allow_unsafe
+            )
         else:
             git_repo_class = _determine_repo_class(repo_classes, name)
-            if path:
-                git_repo = git_repo_class(
-                    library_dir=library_dir,
-                    name=name,
-                    urls=urls,
-                    custom=custom,
-                    default_branch=default_branch,
-                    allow_unsafe=allow_unsafe,
-                    bare=bare,
-                )
-            else:
-                git_repo = git_repo_class(
-                    path=path,
-                    urls=urls,
-                    custom=custom,
-                    default_branch=default_branch,
-                    allow_unsafe=allow_unsafe,
-                    bare=bare,
-                )
+            git_repo = git_repo_class(
+                library_dir, name, urls, custom, default_branch, allow_unsafe
+            )
     except Exception as e:
         taf_logger.error(
             "Auth repo {}: an error occurred while instantiating repository {}: {}",
@@ -647,7 +624,6 @@ def _initialize_repository(
             str(e),
         )
         raise RepositoryInstantiationError(Path(library_dir, name), str(e))
-
     # allows us to partially update repositories
     if git_repo:
         if not isinstance(git_repo, GitRepository):
@@ -717,6 +693,7 @@ def load_mirrors_json(
 
 
 def _targets_of_roles(auth_repo, commit, roles=None):
+
     with auth_repo.repository_at_revision(commit):
         return auth_repo.get_signed_targets_with_custom_data(roles)
 
