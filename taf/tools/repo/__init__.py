@@ -138,6 +138,8 @@ def clone_repo_command():
     @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
+    # JMC: Addition of --no-deps:
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
         if profile:
             start_profiling()
@@ -203,6 +205,8 @@ def update_repo_command():
     @common_update_options
     @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
+    # JMC: Addition of --no-deps:
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
         if profile:
             start_profiling()
@@ -250,6 +254,10 @@ def validate_repo_command():
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
+    # JMC: Addition of --no-targets:
+    @click.option("--no-targets", is_flag=True, default=False, help="Optionally skips target repositiory validation and validates only authentication repositories.")
+    # JMC: Addition of --no-deps:
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
         auth_repo = AuthenticationRepository(path=path)
         if from_latest:

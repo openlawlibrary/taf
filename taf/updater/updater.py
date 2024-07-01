@@ -186,7 +186,6 @@ class RepositoryConfig:
         default=False,
         metadata={"docs": "Whether update fails if a warning is raised. Optional."},
     )
-    # JMC: Addition of --no-deps option to disallow updating of the last validated commit if any part of validation is skipped
     no_deps: bool = field(
         default=False,
         metadata={"docs": "Specifies whether or not to update dependencies. Optional."}
@@ -198,7 +197,7 @@ class RepositoryConfig:
     )
     # JMC: Addition of --no-upstream option to allow user to opt out of comparing with the remote repository and be added to clone and update
     no_upstream: bool = field(
-        default=False,
+        default=True,
         metadata={"docs": "Flag to skip comparison with remote repositories upstream. Optional."}
     )
 
@@ -385,9 +384,9 @@ def _update_named_repository(
     scripts_root_dir=None,
     checkout=True,
     excluded_target_globs=None,
-    no_deps=False,
-    no_targets=False,
-    no_upstream=False,
+    no_deps=True,
+    no_targets=True,
+    no_upstream=True,
 ):
     """
     Arguments:
@@ -447,18 +446,6 @@ def _update_named_repository(
     if url in visited:
         return
     visited.append(url)
-
-    # JMC: Added logic for no_upstream
-    if no_upstream:
-        auth_repo = GitRepository(path=auth_path)
-        if not auth_repo.is_git_repository:
-            raise UpdateFailedError(f"{auth_path} is not a Git repository.")
-        update_status = Event.UNCHANGED
-        auth_repo_name = auth_repo.name
-        commits_data = {}
-        error = None
-        targets_data = {}
-    else:
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
     (
         update_status,
@@ -617,6 +604,9 @@ def _update_current_repository(
     out_of_band_authentication,
     checkout,
     excluded_target_globs,
+    no_deps,
+    no_targets,
+    no_upstream,
 ):
     updater_pipeline = AuthenticationRepositoryUpdatePipeline(
         operation,
@@ -633,6 +623,10 @@ def _update_current_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        # JMC: Addition of all new flags
+        no_deps,
+        no_targets,
+        no_upstream,
     )
     updater_pipeline.run()
     output = updater_pipeline.output
