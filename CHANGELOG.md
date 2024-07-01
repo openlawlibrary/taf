@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Port release workflow from Azure Pipelines to GitHub Actions ([458])
+- Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
+
 ### Fixed
 
+[458]: https://github.com/openlawlibrary/taf/pull/458
 [447]: https://github.com/openlawlibrary/taf/pull/447
 
 
@@ -97,7 +101,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix GitError exception instantiations ([387])
 - -Fix a minor bug where update status was incorrectly being set in case when a repository with only one commit is cloned ([386])
 
-[387]: https://github.com/openlawlibrary/taf/pull/381
+[387]: https://github.com/openlawlibrary/taf/pull/387
 [386]: https://github.com/openlawlibrary/taf/pull/386
 
 
