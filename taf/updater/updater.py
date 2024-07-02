@@ -188,7 +188,9 @@ class RepositoryConfig:
     )
     bare: bool = field(
         default=False,
-        metadata={"docs": "Whether the repository is bare. Optional."},
+        metadata={
+            "docs": "Whether the repository is bare. For cloning if it is set true all repositories will be cloned as bare repositories. Optional."
+        },
     )
 
     def __attrs_post_init__(self):
@@ -267,6 +269,8 @@ def update_repository(config: RepositoryConfig):
     """
     settings.strict = config.strict
 
+    # if path is not specified, name should be read from info.json
+
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
         raise UpdateFailedError(
@@ -283,15 +287,8 @@ def update_repository(config: RepositoryConfig):
     if auth_repo.is_bare_repository:
         # Handle updates for bare repositories
         auth_repo.fetch()
-        validate_repository(
-            auth_path=config.path,
-            library_dir=config.library_dir,
-            validate_from_commit=config.validate_from_commit,
-            excluded_target_globs=config.excluded_target_globs,
-            strict=config.strict,
-            bare=True,
-        )
-    _update_or_clone_repository(config)
+        config.bare = True
+    return _update_or_clone_repository(config)
 
 
 def _update_or_clone_repository(config: RepositoryConfig):
@@ -519,7 +516,6 @@ def _update_named_repository(
                         out_of_band_authentication=child_auth_repo.out_of_band_authentication,
                         scripts_root_dir=scripts_root_dir,
                         checkout=checkout,
-                        bare=bare,
                     )
                     if error:
                         raise error
@@ -673,7 +669,6 @@ def validate_repository(
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
-            bare=bare,
         )
         if error:
             raise error

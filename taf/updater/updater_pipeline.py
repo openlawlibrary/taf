@@ -363,7 +363,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
             with ThreadPoolExecutor() as executor:
                 future_validation_repo = executor.submit(
-                    _clone_validation_repo, self.url, True
+                    _clone_validation_repo, self.url
                 )
                 validation_repo = future_validation_repo.result()
 
@@ -385,9 +385,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
-            git_updater = GitUpdater(
-                self.url, self.library_dir, validation_repo.name, self.bare
-            )
+            git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit, error = _run_tuf_updater(
                 git_updater, auth_repo_name
             )
@@ -1298,7 +1296,7 @@ but commit not on branch {current_branch}"
                     )
 
 
-def _clone_validation_repo(url, bare=False):
+def _clone_validation_repo(url):
     """
     Clones the authentication repository based on the url specified using the
     mirrors parameter. The repository is cloned as a bare repository

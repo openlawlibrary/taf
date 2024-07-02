@@ -152,10 +152,14 @@ class GitRepository:
     @property
     def is_git_repository(self) -> bool:
         try:
-            repo = pygit2.Repository(str(self.path))
-            if self.is_bare_repository and not repo.is_bare:
+            repo = self.pygit_repo
+            if repo is None:
                 return False
-            if not self.is_bare_repository and repo.head is None:
+            # Check if the repository is bare
+            if self.is_bare_repository:
+                return repo.is_bare
+            # Check if the repository has a HEAD
+            if not self.is_bare_repository and repo.head_is_unborn:
                 return False
             return True
         except (KeyError, ValueError, OSError, pygit2.GitError):
@@ -166,7 +170,9 @@ class GitRepository:
         if not self.is_git_repository:
             return False
         try:
-            repo = pygit2.Repository(str(self.path))
+            repo = self.pygit_repo
+            if repo is None:
+                return False
             if self.is_bare_repository:
                 return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
             else:
@@ -615,10 +621,8 @@ class GitRepository:
             self._pygit = None
 
     def clone(
-        self, no_checkout: bool = False, bare: Optional[bool] = None, **kwargs
+        self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs
     ) -> None:
-        if bare is None:
-            bare = self.is_bare_repository
         self._log_info("cloning repository")
 
         self.path.mkdir(exist_ok=True, parents=True)
@@ -1199,11 +1203,9 @@ class GitRepository:
         except GitError:
             return None
 
-    def init_repo(self, bare: Optional[bool] = None) -> None:
+    def init_repo(self, bare: Optional[bool] = False) -> None:
         if self.path.is_dir():
             self.path.mkdir(exist_ok=True, parents=True)
-        if bare is None:
-            bare = self.is_bare_repository
         flag = "--bare" if bare else ""
         self._git(f"init {flag}", error_if_not_exists=False)
         if self.urls is not None and len(self.urls):
