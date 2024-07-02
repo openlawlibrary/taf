@@ -25,7 +25,7 @@ from taf.exceptions import (
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
-from taf.utils import TempPartition, on_rm_error, set_executable_permission
+from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -230,6 +230,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (self.remove_temp_repositories, RunMode.UPDATE),
                 (self.set_target_repositories_data, RunMode.UPDATE),
                 (self.print_additional_commits, RunMode.ALL),
+                (self.check_pre_push_hook, RunMode.ALL),
             ],
             run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
         )
@@ -1215,8 +1216,6 @@ but commit not on branch {current_branch}"
                         branch_data[branch]["after_pull"] = commit_info
 
                 targets_data[repo_name]["commits"] = branch_data
-
-            ensure_pre_push_hook(self.state.users_auth_repo.path)
             self.state.targets_data = targets_data
             return self.state.update_status
         except Exception as e:
@@ -1283,6 +1282,15 @@ but commit not on branch {current_branch}"
                     taf_logger.info(
                         f"Repository {repo_name}: found commits succeeding the last authenticated commit on branch {branch_name}: {', '.join(formatted_commits)}.\nThese commits were not merged into {branch_name}"
                     )
+
+    def check_pre_push_hook(self):
+        try:
+            ensure_pre_push_hook(self.state.users_auth_repo.path)
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
 
 def _clone_validation_repo(url):
@@ -1514,14 +1522,3 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
-
-
-def ensure_pre_push_hook(auth_repo_path):
-    hooks_dir = Path(auth_repo_path) / ".git" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
-    pre_push_script = hooks_dir / "pre-push"
-    resources_pre_push_script = Path(__file__).parent / ".." / "resources" / "pre-push"
-    if not pre_push_script.exists():
-        shutil.copy(resources_pre_push_script, pre_push_script)
-        set_executable_permission(pre_push_script)
-        taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
