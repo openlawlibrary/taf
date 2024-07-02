@@ -25,7 +25,7 @@ from taf.exceptions import (
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
-from taf.utils import TempPartition, on_rm_error
+from taf.utils import TempPartition, on_rm_error, set_executable_permission
 from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
@@ -1122,6 +1122,7 @@ but commit not on branch {current_branch}"
                 for branch in branches:
                     temp_target_repo.update_local_branch(branch=branch)
                 users_target_repo.fetch_from_disk(temp_target_repo.path, branches)
+
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
@@ -1215,6 +1216,7 @@ but commit not on branch {current_branch}"
 
                 targets_data[repo_name]["commits"] = branch_data
 
+            ensure_pre_push_hook(self.state.users_auth_repo.path)
             self.state.targets_data = targets_data
             return self.state.update_status
         except Exception as e:
@@ -1512,3 +1514,14 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
+
+
+def ensure_pre_push_hook(auth_repo_path):
+    hooks_dir = Path(auth_repo_path) / ".git" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    pre_push_script = hooks_dir / "pre-push"
+    resources_pre_push_script = Path(__file__).parent / ".." / "resources" / "pre-push"
+    if not pre_push_script.exists():
+        shutil.copy(resources_pre_push_script, pre_push_script)
+        set_executable_permission(pre_push_script)
+        taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
