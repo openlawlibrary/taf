@@ -186,6 +186,10 @@ class RepositoryConfig:
         default=False,
         metadata={"docs": "Whether update fails if a warning is raised. Optional."},
     )
+    bare: bool = field(
+        default=False,
+        metadata={"docs": "Whether the repository is bare. Optional."},
+    )
 
     def __attrs_post_init__(self):
         if self.operation == OperationType.CLONE:
@@ -263,9 +267,6 @@ def update_repository(config: RepositoryConfig):
     """
     settings.strict = config.strict
 
-    # if path is not specified, name should be read from info.json
-    # which is available after the remote repository is cloned and validated
-
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
         raise UpdateFailedError(
@@ -279,7 +280,18 @@ def update_repository(config: RepositoryConfig):
         if config.url is None:
             raise UpdateFailedError("URL cannot be determined. Please specify it")
 
-    return _update_or_clone_repository(config)
+    if auth_repo.is_bare_repository:
+        # Handle updates for bare repositories
+        auth_repo.fetch()
+        validate_repository(
+            auth_path=config.path,
+            library_dir=config.library_dir,
+            validate_from_commit=config.validate_from_commit,
+            excluded_target_globs=config.excluded_target_globs,
+            strict=config.strict,
+            bare=True,
+        )
+    _update_or_clone_repository(config)
 
 
 def _update_or_clone_repository(config: RepositoryConfig):
@@ -307,6 +319,7 @@ def _update_or_clone_repository(config: RepositoryConfig):
             scripts_root_dir=config.scripts_root_dir,
             checkout=config.checkout,
             excluded_target_globs=config.excluded_target_globs,
+            bare=config.bare,
         )
         if error:
             raise error
@@ -366,6 +379,7 @@ def _update_named_repository(
     scripts_root_dir=None,
     checkout=True,
     excluded_target_globs=None,
+    bare=False,
 ):
     """
     Arguments:
@@ -448,6 +462,7 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        bare,
     )
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
@@ -504,6 +519,7 @@ def _update_named_repository(
                         out_of_band_authentication=child_auth_repo.out_of_band_authentication,
                         scripts_root_dir=scripts_root_dir,
                         checkout=checkout,
+                        bare=bare,
                     )
                     if error:
                         raise error
@@ -579,6 +595,7 @@ def _update_current_repository(
     out_of_band_authentication,
     checkout,
     excluded_target_globs,
+    bare,
 ):
     updater_pipeline = AuthenticationRepositoryUpdatePipeline(
         operation,
@@ -595,6 +612,7 @@ def _update_current_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        bare,
     )
     updater_pipeline.run()
     output = updater_pipeline.output
@@ -625,6 +643,7 @@ def validate_repository(
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
+    bare=False,
 ):
     settings.strict = strict
 
@@ -654,6 +673,7 @@ def validate_repository(
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
+            bare=bare,
         )
         if error:
             raise error

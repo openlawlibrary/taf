@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added --bare tags for repository cloning and updating ([459])
 - Added workflow to build standalone executable of TAF ([447])
 
 ### Changed
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[459]: https://github.com/openlawlibrary/taf/pull/459
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [447]: https://github.com/openlawlibrary/taf/pull/447
 

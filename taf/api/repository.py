@@ -192,7 +192,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     indent_str = " " * indent
     print(f"{indent_str}Authentication Repository: {auth_repo.path.resolve()}")
     print(f"{indent_str}Head Commit: {head_commit}")
-    print(f"{indent_str}Bare: {auth_repo.is_bare_repository()}")
+    print(f"{indent_str}Bare: {auth_repo.is_bare_repository}")
     print(f"{indent_str}Up to Date: {auth_repo.synced_with_remote()}")
     print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
     print(f"{indent_str}Target Repositories Status:")

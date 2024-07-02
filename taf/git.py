@@ -150,15 +150,32 @@ class GitRepository:
         return self._remotes
 
     @property
-    def is_git_repository_root(self) -> bool:
-        """Check if path is git repository."""
-        git_path = self.path / ".git"
-        return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
+    def is_git_repository(self) -> bool:
+        try:
+            repo = pygit2.Repository(str(self.path))
+            if self.is_bare_repository and not repo.is_bare:
+                return False
+            if not self.is_bare_repository and repo.head is None:
+                return False
+            return True
+        except (KeyError, ValueError, OSError, pygit2.GitError):
+            return False
 
     @property
-    def is_git_repository(self) -> bool:
-        repo_path = pygit2.discover_repository(str(self.path))
-        return repo_path is not None
+    def is_git_repository_root(self) -> bool:
+        if not self.is_git_repository:
+            return False
+        try:
+            repo = pygit2.Repository(str(self.path))
+            if self.is_bare_repository:
+                return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
+            else:
+                git_path = self.path / ".git"
+                return Path(repo.path).resolve() == git_path.resolve() and (
+                    git_path.is_dir() or git_path.is_file()
+                )
+        except (KeyError, ValueError, OSError, pygit2.GitError):
+            return False
 
     @property
     def initial_commit(self) -> str:
@@ -183,6 +200,15 @@ class GitRepository:
         except Exception as e:
             self._log_debug(f"Unable to instantiate pygit2 repo due to error: {str(e)}")
             return None
+
+    @property
+    def is_bare_repository(self) -> bool:
+        if self.pygit_repo is None:
+            self._log_debug(
+                "pygit repository could not be instantiated, assuming not bare"
+            )
+            return False
+        return self.pygit_repo.is_bare
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
@@ -589,8 +615,10 @@ class GitRepository:
             self._pygit = None
 
     def clone(
-        self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs
+        self, no_checkout: bool = False, bare: Optional[bool] = None, **kwargs
     ) -> None:
+        if bare is None:
+            bare = self.is_bare_repository
         self._log_info("cloning repository")
 
         self.path.mkdir(exist_ok=True, parents=True)
@@ -1171,9 +1199,11 @@ class GitRepository:
         except GitError:
             return None
 
-    def init_repo(self, bare: Optional[bool] = False) -> None:
+    def init_repo(self, bare: Optional[bool] = None) -> None:
         if self.path.is_dir():
             self.path.mkdir(exist_ok=True, parents=True)
+        if bare is None:
+            bare = self.is_bare_repository
         flag = "--bare" if bare else ""
         self._git(f"init {flag}", error_if_not_exists=False)
         if self.urls is not None and len(self.urls):
@@ -1184,14 +1214,6 @@ class GitRepository:
             if branch_name.startswith(remote + "/"):
                 return True
         return False
-
-    def is_bare_repository(self) -> bool:
-        if self.pygit_repo is None:
-            raise GitError(
-                self,
-                message="Could determine if bare repository. pygit repository could not be instantiated.",
-            )
-        return self.pygit_repo.is_bare
 
     def list_files_at_revision(self, commit: str, path: str = "") -> List[str]:
         posix_path = Path(path).as_posix()
@@ -1457,7 +1479,12 @@ class GitRepository:
 
     def something_to_commit(self) -> bool:
         """Checks if there are any uncommitted changes"""
-        uncommitted_changes = self._git("status --porcelain")
+        if self.is_bare_repository:
+            # For bare repositories, use `git diff` to check for uncommitted changes
+            uncommitted_changes = self._git("diff --name-only --cached")
+        else:
+            # For non-bare repositories, use `git status`
+            uncommitted_changes = self._git("status --porcelain")
         return bool(uncommitted_changes)
 
     def synced_with_remote(

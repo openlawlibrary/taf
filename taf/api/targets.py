@@ -284,7 +284,7 @@ def list_targets(
         )
         repo_output["cloned"] = local_repo_exists
         if local_repo_exists:
-            repo_output["bare"] = repo.is_bare_repository()
+            repo_output["bare"] = repo.is_bare_repository
             # there will only be one branch since only data corresponding to the top auth commit was loaded
             for branch, branch_data in repo_data.items():
                 repo_output["unsigned"] = False
