@@ -188,17 +188,21 @@ class RepositoryConfig:
     )
     no_deps: bool = field(
         default=False,
-        metadata={"docs": "Specifies whether or not to update dependencies. Optional."}
+        metadata={"docs": "Specifies whether or not to update dependencies. Optional."},
     )
     # JMC: Addition of --no-targets option to allow user to skip target repos when validating the authentication repository.
     no_targets: bool = field(
         default=False,
-        metadata={"docs": "Flag to skip target repositiory validation and validate only authentication repos. Optional."}
+        metadata={
+            "docs": "Flag to skip target repositiory validation and validate only authentication repos. Optional."
+        },
     )
     # JMC: Addition of --no-upstream option to allow user to opt out of comparing with the remote repository and be added to clone and update
     no_upstream: bool = field(
         default=True,
-        metadata={"docs": "Flag to skip comparison with remote repositories upstream. Optional."}
+        metadata={
+            "docs": "Flag to skip comparison with remote repositories upstream. Optional."
+        },
     )
 
     def __attrs_post_init__(self):
@@ -487,9 +491,6 @@ def _update_named_repository(
     # but treat the repository as invalid for now
     commits = []
 
-    # JMC: if --no-deps flag specified by user, last validated commit will not be updated
-    import pdb; pdb.set_trace()
-
     if commits_data["after_pull"] is not None:
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
@@ -513,7 +514,9 @@ def _update_named_repository(
                     auth_repo, commits
                 ).values()
 
-                for child_auth_repo in child_auth_repos: # want to parallelize this; separate PR
+                for (
+                    child_auth_repo
+                ) in child_auth_repos:  # want to parallelize this; separate PR
                     try:
                         _, error = _update_named_repository(
                             operation=OperationType.CLONE_OR_UPDATE,
