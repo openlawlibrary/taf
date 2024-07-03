@@ -207,7 +207,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         super().__init__(
             steps=[
                 (self.set_existing_repositories, RunMode.UPDATE, None), #specify extra method here and runner will call to check if we can have it here
-                (self.check_if_local_repositories_clean, RunMode.UPDATE, None), # run only when want to updatae; valaidation doesn'st change repop sstate; merge will fail without this
+                (self.check_if_local_repositories_clean, RunMode.UPDATE, None), # run only when want to updatae; valaidation doesn't change repop sstate; merge will fail without this
                 (self.clone_remote_and_run_tuf_updater, RunMode.ALL, self.should_update_auth_repos), # should be done regardless of flags
                 (self.validate_out_of_band_and_update_type, RunMode.ALL, self.should_update_auth_repos), # auth repo
                 (self.clone_or_fetch_users_auth_repo, RunMode.UPDATE, self.should_update_auth_repos), # auth repo
@@ -271,6 +271,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def should_validate_target_repos(self):
         if self.no_targets:
             return False
+        if self.no_upstream:
+            # check if self.state.event has changed.
+            # if changed, validate the target repos
+            return self.state.event == Event.CHANGED
         return True
 
     @log_on_start(
