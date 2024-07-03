@@ -151,37 +151,31 @@ class GitRepository:
 
     @property
     def is_git_repository(self) -> bool:
-        try:
-            repo = self.pygit_repo
-            if repo is None:
-                return False
-            # Check if the repository is bare
-            if self.is_bare_repository:
-                return repo.is_bare
-            # Check if the repository has a HEAD
-            if not self.is_bare_repository and repo.head_is_unborn:
-                return False
-            return True
-        except (KeyError, ValueError, OSError, pygit2.GitError):
+        discovered_repo_path = pygit2.discover_repository(str(self.path))
+        if discovered_repo_path is None:
             return False
+        # Ensure the discovered repository path matches self.path
+        repo = pygit2.Repository(discovered_repo_path)
+        if repo is None:
+            return False
+        if self.is_bare_repository:
+            return repo.is_bare
+        return True
 
     @property
     def is_git_repository_root(self) -> bool:
         if not self.is_git_repository:
             return False
-        try:
-            repo = self.pygit_repo
-            if repo is None:
-                return False
-            if self.is_bare_repository:
-                return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
-            else:
-                git_path = self.path / ".git"
-                return Path(repo.path).resolve() == git_path.resolve() and (
-                    git_path.is_dir() or git_path.is_file()
-                )
-        except (KeyError, ValueError, OSError, pygit2.GitError):
+        repo = self.pygit_repo
+        if repo is None:
             return False
+        if self.is_bare_repository:
+            return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
+        else:
+            git_path = self.path / ".git"
+            return Path(repo.path).resolve() == git_path.resolve() and (
+                git_path.is_dir() or git_path.is_file()
+            )
 
     @property
     def initial_commit(self) -> str:

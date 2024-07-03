@@ -66,6 +66,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             *args,
             **kwargs,
         )
+
         if conf_directory_root is None:
             conf_directory_root_path = Path(self.path).parent
         else:

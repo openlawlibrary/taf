@@ -293,6 +293,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.clear_repositories_db()
         return UpdateStatus.SUCCESS
 
+    # return UpdateStatus.SUCCESS if self.state.existing_repo else UpdateStatus.FAILURE
     @log_on_start(
         INFO,
         "Checking if local repositories are clean...",
@@ -303,33 +304,47 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # check if the auth repo is clean first
             if self.state.existing_repo:
                 auth_repo = AuthenticationRepository(path=self.auth_path)
-                if auth_repo.something_to_commit():
-                    raise RepositoryNotCleanError(auth_repo.name)
-                if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
-                    raise UnpushedCommitsError(
-                        auth_repo.name,
-                        auth_repo.default_branch,
+                if auth_repo.is_bare_repository:
+                    taf_logger.info(
+                        f"Skipping clean check for bare repository {auth_repo.name}"
                     )
+                    return UpdateStatus.SUCCESS
+                else:
+                    if auth_repo.something_to_commit():
+                        raise RepositoryNotCleanError(auth_repo.name)
+                    if auth_repo.is_branch_with_unpushed_commits(
+                        auth_repo.default_branch
+                    ):
+                        raise UnpushedCommitsError(
+                            auth_repo.name,
+                            auth_repo.default_branch,
+                        )
+
                 # check target repositories which are on disk
                 for repository in self.state.repos_on_disk.values():
-                    if repository.something_to_commit():
-                        raise RepositoryNotCleanError(repository.name)
+                    if repository.is_bare_repository:
+                        taf_logger.info(
+                            f"Skipping clean check for bare repository {repository.name}"
+                        )
+                    else:
+                        if repository.something_to_commit():
+                            raise RepositoryNotCleanError(repository.name)
 
-                    # read the branch from the most recent target files (before the update)
-                    # and check if it contains unpushed commits
-                    # after the update, check if there are unpushed commits on any of the
-                    # other branches
-                    target = auth_repo.get_target(repository.name)
-                    if not target or "branch" not in target:
-                        continue
-                    branch = target["branch"]
-                    if repository.is_branch_with_unpushed_commits(branch):
-                        raise UnpushedCommitsError(repository.name, branch)
+                        # read the branch from the most recent target files (before the update)
+                        # and check if it contains unpushed commits
+                        # after the update, check if there are unpushed commits on any of the
+                        # other branches
+                        target = auth_repo.get_target(repository.name)
+                        if not target or "branch" not in target:
+                            continue
+                        branch = target["branch"]
+                        if repository.is_branch_with_unpushed_commits(branch):
+                            raise UnpushedCommitsError(repository.name, branch)
+            return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-        return UpdateStatus.SUCCESS
 
     @log_on_start(
         INFO, "Cloning repository and running TUF updater...", logger=taf_logger
@@ -404,7 +419,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     self.state.auth_repo_name = auth_repo_name
             self.state.users_auth_repo = AuthenticationRepository(
-                path=self.auth_path,
                 library_dir=self.library_dir,
                 name=self.state.auth_repo_name,
                 urls=[self.url],

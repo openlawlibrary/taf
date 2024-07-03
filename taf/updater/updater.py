@@ -189,7 +189,7 @@ class RepositoryConfig:
     bare: bool = field(
         default=False,
         metadata={
-            "docs": "Whether the repository is bare. For cloning if it is set true all repositories will be cloned as bare repositories. Optional."
+            "docs": "Whether to clone repositories as bare repositories. If set to true, all repositories will be cloned as bare repositories. Optional."
         },
     )
 
@@ -270,6 +270,7 @@ def update_repository(config: RepositoryConfig):
     settings.strict = config.strict
 
     # if path is not specified, name should be read from info.json
+    # which is available after the remote repository is cloned and validated
 
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
@@ -286,7 +287,6 @@ def update_repository(config: RepositoryConfig):
 
     if auth_repo.is_bare_repository:
         # Handle updates for bare repositories
-        auth_repo.fetch()
         config.bare = True
     return _update_or_clone_repository(config)
 
@@ -669,6 +669,7 @@ def validate_repository(
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
+            bare=bare,
         )
         if error:
             raise error

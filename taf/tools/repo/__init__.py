@@ -254,9 +254,10 @@ def validate_repo_command():
                   "if warnings are raised")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
         auth_repo = AuthenticationRepository(path=path)
+        bare = auth_repo.is_bare_repository
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-        validate_repository(path, library_dir, from_commit, exclude_target, strict)
+        validate_repository(path, library_dir, from_commit, exclude_target, strict, bare)
     return validate
 
 
