@@ -140,7 +140,9 @@ def clone_repo_command():
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
     # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    # JMC: Addition of --no-upstream
+    @click.option("-no-upstream", is_flag=True, default=False, help="Skips comparison with remote repositories upstream")
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_upstream, no_deps):
         if profile:
             start_profiling()
 
@@ -255,9 +257,9 @@ def validate_repo_command():
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
     # JMC: Addition of --no-targets:
-    @click.option("--no-targets", is_flag=True, default=False, help="Optionally skips target repositiory validation and validates only authentication repositories.")
+    @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
     # JMC: Addition of --no-deps:
-    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
         auth_repo = AuthenticationRepository(path=path)
         if from_latest:

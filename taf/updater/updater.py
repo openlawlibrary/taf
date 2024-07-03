@@ -469,6 +469,9 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        no_deps,
+        no_targets,
+        no_upstream
     )
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
@@ -604,6 +607,7 @@ def _update_current_repository(
     out_of_band_authentication,
     checkout,
     excluded_target_globs,
+    # JMC: Addition of new flags
     no_deps,
     no_targets,
     no_upstream,
@@ -623,10 +627,8 @@ def _update_current_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
-        # JMC: Addition of all new flags
-        no_deps,
-        no_targets,
-        no_upstream,
+        no_upstream=no_upstream,
+        no_targets=no_targets,
     )
     updater_pipeline.run()
     output = updater_pipeline.output
@@ -657,6 +659,8 @@ def validate_repository(
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
+    no_targets=False,
+    no_deps=False,
 ):
     settings.strict = strict
 
@@ -686,6 +690,8 @@ def validate_repository(
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
+            no_targets=no_targets,
+            no_deps=no_deps,
         )
         if error:
             raise error
