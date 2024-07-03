@@ -15,11 +15,21 @@ and this project adheres to [Semantic Versioning][semver].
 - Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
   the --no-targets flag ([455])
 
+- Added workflow to build standalone executable of TAF ([447])
+- Added git hook check for updater ([460])
+
 ### Changed
+
+- Port release workflow from Azure Pipelines to GitHub Actions ([458])
+- Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
 ### Fixed
 
+[460]: https://github.com/openlawlibrary/taf/pull/460
+[458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
+[447]: https://github.com/openlawlibrary/taf/pull/447
+
 
 ## [0.30.0] - 06/12/2024
 
@@ -39,6 +49,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Updater testing framework rework [453]
+- Update pytest version [453]
+- Drop support for Python 3.7 [453]
 - Dropped support for Yubikey Manager 4.x [444]
 - Only load the latest mirrors.jon ([441])
 - Fix generation of keys when they should be printed to the command line ([435])
@@ -55,6 +68,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Disable check if metadata files at revision match ([403])
 - Fix `clone_or_pull` ([402])
 
+[453]: https://github.com/openlawlibrary/taf/pull/453
 [445]: https://github.com/openlawlibrary/taf/pull/445
 [444]: https://github.com/openlawlibrary/taf/pull/444
 [440]: https://github.com/openlawlibrary/taf/pull/440
@@ -95,7 +109,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix GitError exception instantiations ([387])
 - -Fix a minor bug where update status was incorrectly being set in case when a repository with only one commit is cloned ([386])
 
-[387]: https://github.com/openlawlibrary/taf/pull/381
+[387]: https://github.com/openlawlibrary/taf/pull/387
 [386]: https://github.com/openlawlibrary/taf/pull/386
 
 

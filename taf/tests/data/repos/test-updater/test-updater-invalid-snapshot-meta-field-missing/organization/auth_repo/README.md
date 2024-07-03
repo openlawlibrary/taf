@@ -1,1 +1,0 @@
-TUF specification excluded `root` meta field in `snapshot.json`.
