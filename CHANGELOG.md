@@ -11,12 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Added workflow to build standalone executable of TAF ([447])
+- Added git hook check for updater ([460])
 
 ### Changed
 
 ### Fixed
 
 [447]: https://github.com/openlawlibrary/taf/pull/447
+[460]: https://github.com/openlawlibrary/taf/pull/460
 
 
 ## [0.30.0] - 06/12/2024
