@@ -902,6 +902,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(INFO, "Validating target repositories...", logger=taf_logger)
     @log_on_end(INFO, "Validation of target repositories finished", logger=taf_logger)
+
     def validate_target_repositories(self):
         """
         Breadth-first update of target repositories
