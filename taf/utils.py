@@ -400,7 +400,7 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
         taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
         return True
 
-    return False
+    return True
 
 
 class timed_run:
