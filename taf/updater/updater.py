@@ -469,9 +469,8 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
-        no_deps,
         no_targets,
-        no_upstream
+        no_upstream,
     )
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
@@ -489,11 +488,14 @@ def _update_named_repository(
     commits = []
 
     # JMC: if --no-deps flag specified by user, last validated commit will not be updated
-    if not no_deps:
-        if commits_data["after_pull"] is not None:
-            if commits_data["before_pull"] is not None:
-                commits = [commits_data["before_pull"]]
-            commits.extend(commits_data["new"])
+    import pdb; pdb.set_trace()
+
+    if commits_data["after_pull"] is not None:
+        if commits_data["before_pull"] is not None:
+            commits = [commits_data["before_pull"]]
+        commits.extend(commits_data["new"])
+    if commits_data["after_pull"] is not None:
+        if not no_deps:
             # TODO
             # need to handle wrong definitions and make sure that the update doesn't fail
             # for now, just take the newest commit and do not worry about updated definitions
@@ -511,7 +513,7 @@ def _update_named_repository(
                     auth_repo, commits
                 ).values()
 
-                for child_auth_repo in child_auth_repos:
+                for child_auth_repo in child_auth_repos: # want to parallelize this; separate PR
                     try:
                         _, error = _update_named_repository(
                             operation=OperationType.CLONE_OR_UPDATE,
@@ -531,6 +533,7 @@ def _update_named_repository(
                             out_of_band_authentication=child_auth_repo.out_of_band_authentication,
                             scripts_root_dir=scripts_root_dir,
                             checkout=checkout,
+                            no_upstream=no_upstream,
                         )
                         if error:
                             raise error
@@ -549,20 +552,20 @@ def _update_named_repository(
                     )
                     update_status = Event.FAILED
 
-            if (
-                not only_validate
-                and len(commits)
-                and (update_status == Event.CHANGED or update_status == Event.PARTIAL)
-            ):
-                # when performing breadth-first update, validation might fail at some point
-                # but we want to update all repository up to it
-                # so set last validated commit to this last valid commit
-                last_commit = commits[-1]
-                # if there were no errors, merge the last validated authentication repository commit
-                _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
-                # update the last validated commit
-                if not excluded_target_globs:
-                    auth_repo.set_last_validated_commit(last_commit)
+        if (
+            not only_validate
+            and len(commits)
+            and (update_status == Event.CHANGED or update_status == Event.PARTIAL)
+        ):
+            # when performing breadth-first update, validation might fail at some point
+            # but we want to update all repository up to it
+            # so set last validated commit to this last valid commit
+            last_commit = commits[-1]
+            # if there were no errors, merge the last validated authentication repository commit
+            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
+            # update the last validated commit
+            if not excluded_target_globs and not no_deps:
+                auth_repo.set_last_validated_commit(last_commit)
 
             # do not call the handlers if only validating the repositories
             # if a handler fails and we are in the development mode, revert the update
@@ -608,7 +611,6 @@ def _update_current_repository(
     checkout,
     excluded_target_globs,
     # JMC: Addition of new flags
-    no_deps,
     no_targets,
     no_upstream,
 ):
