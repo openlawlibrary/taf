@@ -85,3 +85,40 @@ def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
                     rsa_key = keys.generate_rsa_key(role.length)
                     private_key_val = rsa_key["keyval"]["private"]
                     print(f"{role.name} key:\n\n{private_key_val}\n\n")
+
+
+@log_on_start(INFO, "Generating .taf directory", logger=taf_logger)
+def create_taf_directory():
+    # Create the .taf directory
+    taf_directory = Path(".taf")
+    taf_directory.mkdir(exist_ok=True)
+
+    # Create the config.toml file
+    config_file_path = taf_directory / "config.toml"
+    config_file_path.touch()  # Create an empty file
+
+    # Create the keystore directory
+    keystore_directory = taf_directory / "keystore"
+    keystore_directory.mkdir(exist_ok=True)
+    taf_logger.info("Generate .taf directory")
+
+    # Prompt the user if they want to run the generate_keys function
+    while True:
+        use_keystore = (
+            input("Do you want to generate keys in the keystore directory? [y/N]: ")
+            .strip()
+            .lower()
+        )
+        if use_keystore in ["y", "n"]:
+            break
+    if use_keystore == "y":
+        keystore_path = keystore_directory
+        roles_key_infos = input(
+            "Enter the path to the keys description JSON file (can be left empty): "
+        ).strip()
+
+        if roles_key_infos:
+            generate_keys(str(keystore_path), roles_key_infos)
+        else:
+            generate_keys(str(keystore_path), None)
+        taf_logger.info("Completed generating keys in the keystore directory")

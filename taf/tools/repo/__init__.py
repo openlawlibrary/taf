@@ -3,6 +3,7 @@ import json
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
+from taf.utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
@@ -207,13 +208,14 @@ def update_repo_command():
         """)
     @catch_cli_exception(handle=UpdateFailedError)
     @common_update_options
-    @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
     # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     # JMC: Addition of --no-upstream
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream):
+        path = find_valid_repository(path)
         if profile:
             start_profiling()
 
@@ -267,6 +269,7 @@ def validate_repo_command():
     # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
+        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         if from_latest:
             from_commit = auth_repo.last_validated_commit
@@ -278,6 +281,7 @@ def latest_commit_command():
     @click.command(help="Fetch and print the last validated commit hash.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def latest_commit(path):
+        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         last_validated_commit = auth_repo.last_validated_commit
         if last_validated_commit:
@@ -292,6 +296,7 @@ def status_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
     def status(path, library_dir):
+        path = find_valid_repository(path)
         try:
             taf_status(path, library_dir)
         except TAFError as e:
