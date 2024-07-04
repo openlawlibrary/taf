@@ -22,12 +22,13 @@ and this project adheres to [Semantic Versioning][semver].
 - Port release workflow from Azure Pipelines to GitHub Actions ([458])
 - Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
+### Fixed
+
 [460]: https://github.com/openlawlibrary/taf/pull/460
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
-[447]: https://github.com/openlawlibrary/taf/pull/
+[447]: https://github.com/openlawlibrary/taf/pull/447
 
-### Fixed
 
 ## [0.29.2] - 07/04/2024
 
