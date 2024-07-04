@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
+
 ## [Unreleased]
 
 ### Added
@@ -13,10 +15,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-## [0.29.2] - 03/14/2024
+
+## [0.29.2] - 07/04/2024
+
 
 ### Added
 
+- Use git remote show if symbolic-ref fails for default_branch ([457])
 - Add a command for adding delegated paths to a role ([391])
 - Check if metadata files at revision match those downloaded by TUF updater ([389])
 
@@ -26,6 +31,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix `clone_or_pull` ([402])
 
+[457]: https://github.com/openlawlibrary/taf/pull/457
 [402]: https://github.com/openlawlibrary/taf/pull/402
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
