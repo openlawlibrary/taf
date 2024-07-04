@@ -1158,7 +1158,10 @@ but commit not on branch {current_branch}"
                         branch_commits.index(last_validated_commit) + 1 :
                     ]
                     if len(additional_commits):
-                        if not _is_unauthenticated_allowed(repository) and not self.no_upstream:
+                        if (
+                            not _is_unauthenticated_allowed(repository)
+                            and not self.no_upstream
+                        ):
                             raise UpdateFailedError(
                                 f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
                             )
