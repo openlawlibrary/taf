@@ -20,13 +20,21 @@ file_loggers: Dict = {}
 
 
 def disable_console_logging():
-    taf_logger.remove(console_loggers["log"])
-    disable_tuf_console_logging()
+    try:
+        taf_logger.remove(console_loggers["log"])
+        disable_tuf_console_logging()
+    except ValueError:
+        # will be raised if this is called twice
+        pass
 
 
 def disable_file_logging():
-    taf_logger.remove(file_loggers["log"])
-    disable_tuf_console_logging()
+    try:
+        taf_logger.remove(file_loggers["log"])
+        disable_tuf_console_logging()
+    except ValueError:
+        # will be raised if this is called twice
+        pass
 
 
 def disable_tuf_console_logging():

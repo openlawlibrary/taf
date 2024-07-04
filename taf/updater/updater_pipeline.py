@@ -144,7 +144,11 @@ class Pipeline:
         self.state.errors = []
         for step, step_run_mode, should_run_fn in self.steps:
             try:
-                if (step_run_mode == RunMode.ALL or step_run_mode == self.run_mode) and (should_run_fn is None or should_run_fn()): # runs method like object
+                if (
+                    step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
+                ) and (
+                    should_run_fn is None or should_run_fn()
+                ):  # runs method like object
                     self.current_step = step
                     update_status = step()
                     combined_status = combine_statuses(
@@ -199,39 +203,105 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
-        no_targets=False, #do not add to clone or validate, run w/o no targets flag, and output with taf repo validate should see that it is validating messages. run with flag and what might happen is
+        no_targets=False,  # do not add to clone or validate, run w/o no targets flag, and output with taf repo validate should see that it is validating messages. run with flag and what might happen is
         # JMC: Add no_upstream to init
-        no_upstream=False, #add to all
+        no_upstream=False,  # add to all
     ):
 
         super().__init__(
             steps=[
-                (self.set_existing_repositories, RunMode.UPDATE, None), #specify extra method here and runner will call to check if we can have it here
-                (self.check_if_local_repositories_clean, RunMode.UPDATE, None), # run only when want to updatae; valaidation doesn't change repop sstate; merge will fail without this
-                (self.clone_remote_and_run_tuf_updater, RunMode.ALL, self.should_update_auth_repos), # should be done regardless of flags
-                (self.validate_out_of_band_and_update_type, RunMode.ALL, self.should_update_auth_repos), # auth repo
-                (self.clone_or_fetch_users_auth_repo, RunMode.UPDATE, self.should_update_auth_repos), # auth repo
+                (
+                    self.set_existing_repositories,
+                    RunMode.UPDATE,
+                    None,
+                ),  # specify extra method here and runner will call to check if we can have it here
+                (
+                    self.check_if_local_repositories_clean,
+                    RunMode.UPDATE,
+                    None,
+                ),  # run only when want to updatae; valaidation doesn't change repop sstate; merge will fail without this
+                (
+                    self.clone_remote_and_run_tuf_updater,
+                    RunMode.ALL,
+                    self.should_update_auth_repos,
+                ),  # should be done regardless of flags
+                (
+                    self.validate_out_of_band_and_update_type,
+                    RunMode.ALL,
+                    self.should_update_auth_repos,
+                ),  # auth repo
+                (
+                    self.clone_or_fetch_users_auth_repo,
+                    RunMode.UPDATE,
+                    self.should_update_auth_repos,
+                ),  # auth repo
                 # should_validate_target_repos
-                (self.load_target_repositories, RunMode.ALL, self.should_validate_target_repos),
-                (self.check_if_repositories_on_disk, RunMode.LOCAL_VALIDATION, self.should_validate_target_repos),
-                (self.clone_target_repositories_to_temp, RunMode.UPDATE, self.should_validate_target_repos),
-                (self.determine_start_commits, RunMode.ALL, self.should_validate_target_repos),
-                (self.get_targets_data_from_auth_repo, RunMode.ALL, self.should_validate_target_repos),
+                (
+                    self.load_target_repositories,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
+                (
+                    self.check_if_repositories_on_disk,
+                    RunMode.LOCAL_VALIDATION,
+                    self.should_validate_target_repos,
+                ),
+                (
+                    self.clone_target_repositories_to_temp,
+                    RunMode.UPDATE,
+                    self.should_validate_target_repos,
+                ),
+                (
+                    self.determine_start_commits,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
+                (
+                    self.get_targets_data_from_auth_repo,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
                 (
                     self.check_if_local_target_repositories_clean,
-                    RunMode.UPDATE, self.should_validate_target_repos,
+                    RunMode.UPDATE,
+                    self.should_validate_target_repos,
                 ),
-                (self.get_target_repositories_commits, RunMode.ALL, self.should_validate_target_repos),
-                (self.validate_target_repositories, RunMode.ALL, self.should_validate_target_repos),
+                (
+                    self.get_target_repositories_commits,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
+                (
+                    self.validate_target_repositories,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
                 (
                     self.validate_and_set_additional_commits_of_target_repositories,
-                    RunMode.ALL, self.should_validate_target_repos,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
                 ),
-                (self.update_users_target_repositories, RunMode.UPDATE, self.should_validate_target_repos), # fetch commits; END UPDATE TARGET REPOS
-                (self.merge_commits, RunMode.UPDATE, None), # merge fetched commits
-                (self.remove_temp_repositories, RunMode.UPDATE, None), # only removes auth repo with --no-targets
-                (self.set_target_repositories_data, RunMode.UPDATE, self.should_validate_target_repos), # skipped with no-targets
-                (self.print_additional_commits, RunMode.ALL, self.should_validate_target_repos), # skipped with no-targets; prints all other commits that exist but are not merged
+                (
+                    self.update_users_target_repositories,
+                    RunMode.UPDATE,
+                    self.should_validate_target_repos,
+                ),  # fetch commits; END UPDATE TARGET REPOS
+                (self.merge_commits, RunMode.UPDATE, None),  # merge fetched commits
+                (
+                    self.remove_temp_repositories,
+                    RunMode.UPDATE,
+                    None,
+                ),  # only removes auth repo with --no-targets
+                (
+                    self.set_target_repositories_data,
+                    RunMode.UPDATE,
+                    self.should_validate_target_repos,
+                ),  # skipped with no-targets
+                (
+                    self.print_additional_commits,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),  # skipped with no-targets; prints all other commits that exist but are not merged
             ],
             run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
         )
@@ -280,8 +350,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @log_on_start(
         DEBUG, "Checking which repositories are already on disk...", logger=taf_logger
     )
-
-
     def set_existing_repositories(self):
         self.state.existing_repo = False
         self.state.repos_on_disk = {}
@@ -906,7 +974,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(INFO, "Validating target repositories...", logger=taf_logger)
     @log_on_end(INFO, "Validation of target repositories finished", logger=taf_logger)
-
     def validate_target_repositories(self):
         """
         Breadth-first update of target repositories
@@ -1089,7 +1156,10 @@ but commit not on branch {current_branch}"
                         branch_commits.index(last_validated_commit) + 1 :
                     ]
                     if len(additional_commits):
-                        if not _is_unauthenticated_allowed(repository):
+                        if (
+                            not _is_unauthenticated_allowed(repository)
+                            and not self.no_upstream
+                        ):
                             raise UpdateFailedError(
                                 f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
                             )
