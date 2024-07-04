@@ -14,11 +14,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Generate public key from private key if .pub file is missing ([462])
 - Port release workflow from Azure Pipelines to GitHub Actions ([458])
 - Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
 ### Fixed
 
+[462]: https://github.com/openlawlibrary/taf/pull/462
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [447]: https://github.com/openlawlibrary/taf/pull/447
 
