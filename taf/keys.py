@@ -167,6 +167,11 @@ def load_sorted_keys_of_new_roles(
         raise SigningError("Could not load keys of new roles")
 
 
+@log_on_start(
+    INFO,
+    "Public key {key_name}.pub not found. Generating from private key.",
+    logger=taf_logger,
+)
 def _generate_public_key_from_private(keystore_path, key_name, scheme):
     """Generate public key from the private key and return the key object"""
     try:
@@ -176,18 +181,12 @@ def _generate_public_key_from_private(keystore_path, key_name, scheme):
         public_key_pem = priv_key["keyval"]["public"]
         public_key_path = keystore_path / f"{key_name}.pub"
         public_key_path.write_text(public_key_pem)
-        taf_logger.info(f"Generated public key for {key_name} at {public_key_path}")
         return import_rsa_publickey_from_file(str(public_key_path), scheme=scheme)
     except Exception as e:
         taf_logger.error(f"Error generating public key for {key_name}: {e}")
         return None
 
 
-@log_on_start(
-    INFO,
-    "Public key {key_name}.pub not found. Generating from private key.",
-    logger=taf_logger,
-)
 def _load_from_keystore(
     taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
 ):
