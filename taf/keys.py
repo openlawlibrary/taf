@@ -28,6 +28,10 @@ from taf.keystore import (
 )
 from taf import YubikeyMissingLibrary
 from securesystemslib import keys
+from securesystemslib.interface import (
+    import_rsa_privatekey_from_file,
+    import_rsa_publickey_from_file,
+)
 
 try:
     import taf.yubikey as yk
@@ -163,6 +167,27 @@ def load_sorted_keys_of_new_roles(
         raise SigningError("Could not load keys of new roles")
 
 
+def _generate_public_key_from_private(keystore_path, key_name, scheme):
+    """Generate public key from the private key and return the key object"""
+    try:
+        priv_key = import_rsa_privatekey_from_file(
+            str(keystore_path / key_name), scheme=scheme
+        )
+        public_key_pem = priv_key["keyval"]["public"]
+        public_key_path = keystore_path / f"{key_name}.pub"
+        public_key_path.write_text(public_key_pem)
+        taf_logger.info(f"Generated public key for {key_name} at {public_key_path}")
+        return import_rsa_publickey_from_file(str(public_key_path), scheme=scheme)
+    except Exception as e:
+        taf_logger.error(f"Error generating public key for {key_name}: {e}")
+        return None
+
+
+@log_on_start(
+    INFO,
+    "Public key {key_name}.pub not found. Generating from private key.",
+    logger=taf_logger,
+)
 def _load_from_keystore(
     taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
 ):
@@ -175,9 +200,14 @@ def _load_from_keystore(
             )
             # load only valid keys
             if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
+                # Check if the public key is missing and generate it if necessary
+                public_key_path = keystore_path / f"{key_name}.pub"
+                if not public_key_path.exists():
+                    _generate_public_key_from_private(keystore_path, key_name, scheme)
                 return key
         except KeystoreError:
             pass
+
     return None
 
 
@@ -233,7 +263,6 @@ def load_signing_keys(
     keystore_files = []
     if keystore is not None:
         keystore_files = get_keystore_keys_of_role(keystore, role)
-
     prompt_for_yubikey = True
     use_yubikey_for_signing_confirmed = False
     while not all_loaded and num_of_signatures < signing_keys_num:
@@ -249,7 +278,6 @@ def load_signing_keys(
                 keys.append(key)
                 num_of_signatures += 1
                 continue
-
         if num_of_signatures >= threshold:
             if use_yubikey_for_signing_confirmed:
                 if not click.confirm(
