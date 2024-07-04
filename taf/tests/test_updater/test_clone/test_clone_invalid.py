@@ -47,7 +47,6 @@ def test_clone_invalid_target_repositories_top_commits_unsigned(
         client_dir,
         TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
         True,
-        no_upstream=False,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
@@ -78,7 +77,6 @@ def test_clone_invalid_target_repositories_contain_unsigned_commits(
         client_dir,
         TARGET_MISSMATCH_PATTERN,
         True,
-        no_upstream=False,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
@@ -155,7 +153,6 @@ def test_clone_invalid_target_repositories_targets_exist(
         client_dir,
         TARGET_MISSMATCH_PATTERN,
         True,
-        no_upstream=False,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     # make sure that the last validated commit does not exist
