@@ -186,6 +186,20 @@ class RepositoryConfig:
         default=False,
         metadata={"docs": "Whether update fails if a warning is raised. Optional."},
     )
+    no_deps: bool = field(
+        default=False,
+        metadata={"docs": "Specifies whether or not to update dependencies. Optional."}
+    )
+    # JMC: Addition of --no-targets option to allow user to skip target repos when validating the authentication repository.
+    no_targets: bool = field(
+        default=False,
+        metadata={"docs": "Flag to skip target repositiory validation and validate only authentication repos. Optional."}
+    )
+    # JMC: Addition of --no-upstream option to allow user to opt out of comparing with the remote repository and be added to clone and update
+    no_upstream: bool = field(
+        default=True,
+        metadata={"docs": "Flag to skip comparison with remote repositories upstream. Optional."}
+    )
 
     def __attrs_post_init__(self):
         if self.operation == OperationType.CLONE:
@@ -231,7 +245,7 @@ def clone_repository(config: RepositoryConfig):
 
     if config.path and is_non_empty_directory(config.path):
         raise UpdateFailedError(
-            f"Destination path {config.path} already exists and is not an empty directory. Run `taf repo update` to update it."
+            f"Destination path {config.path} already exists and is not an empty directory. Run 'taf repo update' to update it."
         )
 
     config.operation = OperationType.CLONE
@@ -269,7 +283,7 @@ def update_repository(config: RepositoryConfig):
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
         raise UpdateFailedError(
-            f"{config.path} is not a Git repository. Run `taf repo clone` instead"
+            f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
         )
 
     taf_logger.info(f"Updating repository {auth_repo.name}")
@@ -307,6 +321,10 @@ def _update_or_clone_repository(config: RepositoryConfig):
             scripts_root_dir=config.scripts_root_dir,
             checkout=config.checkout,
             excluded_target_globs=config.excluded_target_globs,
+            # JMC: pass the no_deps, no_targets, and no_upstream flags
+            no_deps=config.no_deps,
+            no_targets=config.no_targets,
+            no_upstream=config.no_upstream,
         )
         if error:
             raise error
@@ -366,6 +384,9 @@ def _update_named_repository(
     scripts_root_dir=None,
     checkout=True,
     excluded_target_globs=None,
+    no_deps=False,
+    no_targets=False,
+    no_upstream=True,
 ):
     """
     Arguments:
@@ -448,6 +469,8 @@ def _update_named_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        no_targets,
+        no_upstream,
     )
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
@@ -463,64 +486,71 @@ def _update_named_repository(
     # this second case could be reworked to return the state as of the last validated commit
     # but treat the repository as invalid for now
     commits = []
+
+    # JMC: if --no-deps flag specified by user, last validated commit will not be updated
+    import pdb; pdb.set_trace()
+
     if commits_data["after_pull"] is not None:
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
-        # TODO
-        # need to handle wrong definitions and make sure that the update doesn't fail
-        # for now, just take the newest commit and do not worry about updated definitions
-        # latest_commit = commits[-1::]
-        repositoriesdb.load_dependencies(
-            auth_repo,
-            library_dir=library_dir,
-            commits=commits,
-        )
+    if commits_data["after_pull"] is not None:
+        if not no_deps:
+            # TODO
+            # need to handle wrong definitions and make sure that the update doesn't fail
+            # for now, just take the newest commit and do not worry about updated definitions
+            # latest_commit = commits[-1::]
+            repositoriesdb.load_dependencies(
+                auth_repo,
+                library_dir=library_dir,
+                commits=commits,
+            )
 
-        if update_status != Event.FAILED:
-            errors = []
-            # load the repositories from dependencies.json and update these repositories
-            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-                auth_repo, commits
-            ).values()
+            if update_status != Event.FAILED:
+                errors = []
+                # load the repositories from dependencies.json and update these repositories
+                child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+                    auth_repo, commits
+                ).values()
 
-            for child_auth_repo in child_auth_repos:
-                try:
-                    _, error = _update_named_repository(
-                        operation=OperationType.CLONE_OR_UPDATE,
-                        url=child_auth_repo.urls[0],
-                        auth_path=child_auth_repo.path,
-                        library_dir=library_dir,
-                        update_from_filesystem=update_from_filesystem,
-                        expected_repo_type=expected_repo_type,
-                        target_repo_classes=target_repo_classes,
-                        target_factory=target_factory,
-                        only_validate=only_validate,
-                        validate_from_commit=validate_from_commit,
-                        conf_directory_root=conf_directory_root,
-                        visited=visited,
-                        repos_update_data=repos_update_data,
-                        transient_data=transient_data,
-                        out_of_band_authentication=child_auth_repo.out_of_band_authentication,
-                        scripts_root_dir=scripts_root_dir,
-                        checkout=checkout,
+                for child_auth_repo in child_auth_repos: # want to parallelize this; separate PR
+                    try:
+                        _, error = _update_named_repository(
+                            operation=OperationType.CLONE_OR_UPDATE,
+                            url=child_auth_repo.urls[0],
+                            auth_path=child_auth_repo.path,
+                            library_dir=library_dir,
+                            update_from_filesystem=update_from_filesystem,
+                            expected_repo_type=expected_repo_type,
+                            target_repo_classes=target_repo_classes,
+                            target_factory=target_factory,
+                            only_validate=only_validate,
+                            validate_from_commit=validate_from_commit,
+                            conf_directory_root=conf_directory_root,
+                            visited=visited,
+                            repos_update_data=repos_update_data,
+                            transient_data=transient_data,
+                            out_of_band_authentication=child_auth_repo.out_of_band_authentication,
+                            scripts_root_dir=scripts_root_dir,
+                            checkout=checkout,
+                            no_upstream=no_upstream,
+                        )
+                        if error:
+                            raise error
+                    except Exception as e:
+                        errors.append(str(e))
+
+                if len(errors):
+                    errors = "\n".join(errors)
+                    taf_logger.error(
+                        "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
+                        auth_repo.name,
+                        errors,
                     )
-                    if error:
-                        raise error
-                except Exception as e:
-                    errors.append(str(e))
-
-            if len(errors):
-                errors = "\n".join(errors)
-                taf_logger.error(
-                    "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
-                    auth_repo.name,
-                    errors,
-                )
-                error = UpdateFailedError(
-                    f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
-                )
-                update_status = Event.FAILED
+                    error = UpdateFailedError(
+                        f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
+                    )
+                    update_status = Event.FAILED
 
         if (
             not only_validate
@@ -532,34 +562,33 @@ def _update_named_repository(
             # so set last validated commit to this last valid commit
             last_commit = commits[-1]
             # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(
-                auth_repo, auth_repo.default_branch, last_commit, checkout, True
-            )
+            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
             # update the last validated commit
-            if not excluded_target_globs:
+            if not excluded_target_globs and not no_deps:
                 auth_repo.set_last_validated_commit(last_commit)
 
-        # do not call the handlers if only validating the repositories
-        # if a handler fails and we are in the development mode, revert the update
-        # so that it's easy to try again after fixing the handler
-        if not only_validate and not excluded_target_globs:
-            _execute_repo_handlers(
-                update_status,
-                auth_repo,
-                scripts_root_dir,
-                commits_data,
-                error,
-                targets_data,
-                transient_data,
-            )
-    if repos_update_data is not None:
-        repos_update_data[auth_repo.name] = {
-            "auth_repo": auth_repo,
-            "update_status": update_status,
-            "commits_data": commits_data,
-            "error": error,
-            "targets_data": targets_data,
-        }
+            # do not call the handlers if only validating the repositories
+            # if a handler fails and we are in the development mode, revert the update
+            # so that it's easy to try again after fixing the handler
+            # JMC: Added "and not no_targets:" to this first line of code
+            if not only_validate and not excluded_target_globs and not no_targets:
+                _execute_repo_handlers(
+                    update_status,
+                    auth_repo,
+                    scripts_root_dir,
+                    commits_data,
+                    error,
+                    targets_data,
+                    transient_data,
+                )
+        if repos_update_data is not None:
+            repos_update_data[auth_repo.name] = {
+                "auth_repo": auth_repo,
+                "update_status": update_status,
+                "commits_data": commits_data,
+                "error": error,
+                "targets_data": targets_data,
+            }
 
     repositoriesdb.clear_repositories_db()
 
@@ -581,6 +610,9 @@ def _update_current_repository(
     out_of_band_authentication,
     checkout,
     excluded_target_globs,
+    # JMC: Addition of new flags
+    no_targets,
+    no_upstream,
 ):
     updater_pipeline = AuthenticationRepositoryUpdatePipeline(
         operation,
@@ -597,6 +629,8 @@ def _update_current_repository(
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        no_upstream=no_upstream,
+        no_targets=no_targets,
     )
     updater_pipeline.run()
     output = updater_pipeline.output
@@ -627,6 +661,8 @@ def validate_repository(
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
+    no_targets=False,
+    no_deps=False,
 ):
     settings.strict = strict
 
@@ -656,12 +692,14 @@ def validate_repository(
             only_validate=True,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
+            no_targets=no_targets,
+            no_deps=no_deps,
         )
         if error:
             raise error
     except Exception as e:
         raise ValidationFailedError(
-            f"Validation or repository {auth_repo_name or ''} failed due to error: {e}"
+            f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
         )
     settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = None

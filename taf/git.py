@@ -4,6 +4,7 @@ import json
 import itertools
 import os
 import re
+import uuid
 import pygit2
 import subprocess
 import logging
@@ -365,6 +366,8 @@ class GitRepository:
             )
         if branch:
             branch_obj = repo.branches.get(branch)
+            if branch_obj is None:
+                return []
             latest_commit_id = branch_obj.target
         else:
             latest_commit_id = repo[repo.head.target].id
@@ -667,6 +670,31 @@ class GitRepository:
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
+    def clone_from_disk(
+        self,
+        local_path: Path,
+        remote_url: Optional[str] = None,
+        is_bare: bool = False,
+        keep_remote=False,
+    ) -> None:
+        self.path.mkdir(parents=True, exist_ok=True)
+        pygit2.clone_repository(local_path, self.path, bare=is_bare)
+        if not self.is_git_repository:
+            raise GitError(f"Could not clone repository from local path {local_path}")
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                "Cloning from disk could not be completed. pygit repo could not be instantiated"
+            )
+        if not keep_remote:
+            self.remove_remote("origin")
+            if remote_url is not None:
+                self.add_remote("origin", remote_url)
+                self.fetch()
+                if repo is not None:
+                    for branch in repo.branches.local:
+                        self.set_upstream(str(branch))
+
     def clone_or_pull(
         self,
         branches: Optional[List[str]] = None,
@@ -776,6 +804,42 @@ class GitRepository:
             log_error=True,
             reraise_error=True,
         )
+
+    def is_branch_with_unpushed_commits(self, branch_name):
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                self,
+                message="pygit repository could not be instantiated.",
+            )
+
+        local_branch = repo.branches.get(branch_name)
+        if local_branch is None:
+            # local branch does not exist
+            return False
+        upstream_full_name = local_branch.upstream_name
+        if not upstream_full_name:
+            # no upstream branch - not pushed
+            return True
+        parts = upstream_full_name.split("/")
+        upstream_name = "/".join(parts[2:])
+
+        remote_branch = repo.branches.get(upstream_name)
+
+        # Get the last common ancestor of local and remote branches
+        merge_base = repo.merge_base(local_branch.target, remote_branch.target)
+
+        # Check for commits in local branch since the merge base that are not in the remote branch
+        unpushed_commits = []
+        for commit in repo.walk(local_branch.target, pygit2.GIT_SORT_TOPOLOGICAL):
+            if commit.id != merge_base and not repo.descendant_of(
+                remote_branch.target, commit.id
+            ):
+                unpushed_commits.append(commit)
+            else:
+                break
+
+        return bool(unpushed_commits)
 
     def commit(self, message: str) -> str:
         self._git("add -A")
@@ -987,6 +1051,26 @@ class GitRepository:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
 
+    def fetch_from_disk(self, local_repo_path, branches):
+
+        repo = self.pygit_repo
+        temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
+        repo.remotes.create(temp_remote_name, local_repo_path)
+        remote = repo.remotes[temp_remote_name]
+        remote.fetch()
+
+        for branch in branches:
+            remote_branch_name = f"refs/remotes/{temp_remote_name}/{branch}"
+            remote_branch = repo.lookup_reference(remote_branch_name)
+            if remote_branch is not None:
+                local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
+                if local_branch is None:
+                    # Create a new local branch from the remote branch
+                    target_commit = repo[remote_branch.target]
+                    repo.create_branch(branch, target_commit)
+
+        repo.remotes.delete(temp_remote_name)
+
     def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
         """Returns path of the workree where the branch is checked out, or None if not checked out in any worktree"""
         worktrees = self.list_worktrees()
@@ -1002,6 +1086,11 @@ class GitRepository:
         include_remotes: bool = False,
         sort_key_func: Optional[Callable[[str], bool]] = None,
     ) -> Optional[str]:
+        """
+        Fetches changes from a local repository on disk.
+        Temporarily adds it as a remote to the current repository
+        and removes that remote after the operation is completed.
+        """
 
         branch_tips = {}
         repo: pygit2.Repository = self.pygit_repo
@@ -1324,6 +1413,10 @@ class GitRepository:
         if branch is None:
             branch = self.get_current_branch()
 
+        hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
+        if hook_path.exists():
+            self._log_info("Validating and pushing...")
+
         upstream_flag = "-u" if set_upstream else ""
         force_flag = "-f" if force else ""
         self._git(
@@ -1363,6 +1456,14 @@ class GitRepository:
         flag = "--hard" if hard else "--soft"
         self._git(f"reset {flag} {commit}")
 
+    def reset_remote_tracking_branch(self, branch_name) -> None:
+        """
+        Set top commit of origing/branch to the top comit of the local branch
+        Used while testing the updater
+        """
+        commit_sha = self.top_commit_of_branch(branch_name)
+        self._git(f"update-ref refs/remotes/origin/{branch_name} {commit_sha}")
+
     def reset_to_head(self) -> None:
         self._git("reset --hard HEAD")
 
@@ -1392,6 +1493,7 @@ class GitRepository:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
+
         if url:
             urls = [url]
         elif self.urls:
@@ -1411,18 +1513,21 @@ class GitRepository:
                 self,
                 message="Branch not specified and default branch could not be determined",
             )
-        for url in urls:
-            tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
-            if not tracking_branch:
-                return False
-            try:
-                local_commit = self.top_commit_of_branch(branch_name)
-            except GitError as e:
-                if "unknown revision or path not in the working tree" not in str(e):
-                    raise e
-                local_commit = None
 
-        remote_commit = self.get_last_remote_commit(url, tracking_branch)
+        tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
+        if not tracking_branch:
+            return False
+        try:
+            local_commit = self.top_commit_of_branch(branch_name)
+        except GitError as e:
+            if "unknown revision or path not in the working tree" not in str(e):
+                raise e
+            local_commit = None
+
+        for url in urls:
+            remote_commit = self.get_last_remote_commit(url, tracking_branch)
+            if remote_commit is not None:
+                break
 
         return local_commit == remote_commit
 
@@ -1441,6 +1546,23 @@ class GitRepository:
             return repo.revparse_single(branch_name).id.hex
         except Exception:
             return None
+
+    def update_local_branch(self, branch, remote_name="origin"):
+        """
+        Updates ref of a local branch of a bare repository where merging is not possible
+        """
+        repo = self.pygit_repo
+        if repo is None:
+            raise GitError(
+                self,
+                message="Could not find top commit. pygit repository could not be instantiated.",
+            )
+        remote_branch_ref = f"refs/remotes/{remote_name}/{branch}"
+        remote_branch_commit = repo.lookup_reference(remote_branch_ref).target
+
+        # Update the local branch to point to the latest commit from the remote branch
+        local_branch_ref = f"refs/heads/{branch}"
+        repo.references.create(local_branch_ref, remote_branch_commit, force=True)
 
     def _determine_default_branch(self) -> Optional[str]:
         """Determine the default branch of the repository"""
@@ -1535,7 +1657,8 @@ class GitRepository:
                 for url in urls:
                     self._validate_url(url)
             else:
-                urls = [_find_url(self.path, url) for url in urls]
+                # resolve paths and deduplicate
+                urls = list({_find_url(self.path, url) for url in urls})
         return urls
 
 

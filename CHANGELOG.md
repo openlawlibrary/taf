@@ -5,16 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
-
 ## [Unreleased]
 
 ### Added
+- New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455])
+- New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
+- New flag --no-upstream allowing users to skip upstream comparisons ([455])
+- Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
+  the --no-targets flag ([455])
+
+- Added workflow to build standalone executable of TAF ([447])
+- Added git hook check for updater ([460])
 
 ### Changed
 
-### Fixed
+- Port release workflow from Azure Pipelines to GitHub Actions ([458])
+- Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
+[460]: https://github.com/openlawlibrary/taf/pull/460
+[458]: https://github.com/openlawlibrary/taf/pull/458
+[455]: https://github.com/openlawlibrary/taf/pull/455
+[447]: https://github.com/openlawlibrary/taf/pull/
+
+### Fixed
 
 ## [0.29.2] - 07/04/2024
 
@@ -36,6 +49,69 @@ and this project adheres to [Semantic Versioning][semver].
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
 
+
+## [0.30.0] - 06/12/2024
+
+
+### Added
+
+- Support for Yubikey Manager 5.1.x ([444])
+- Support for Python 3.11 and 3.12 ([440])
+- Fix add_target_repo when signing role is the top-level targets role ([431])
+- New git hook that validates repo before push ([423])
+- New function taf repo status that prints the state of whole library ([422])
+- New function taf roles list that lists all roles in an authentication repository ([421])
+- Clone target repositories to temp ([412], [418])
+- Add architecture overview documentation ([405])
+- Add a command for adding delegated paths to a role ([391])
+- Check if metadata files at revision match those downloaded by TUF updater ([389])
+
+### Changed
+
+- Updater testing framework rework [453]
+- Update pytest version [453]
+- Drop support for Python 3.7 [453]
+- Dropped support for Yubikey Manager 4.x [444]
+- Only load the latest mirrors.jon ([441])
+- Fix generation of keys when they should be printed to the command line ([435])
+- Made Updater faster through parallelization ([434])
+- Reimplemented get_file_details function to not rely on old securesystemslib functions ([420])
+- Check if repositories are clean before running the updater ([416])
+- Only show merging commits messages if actually merging commits. Rework logic for checking if a commits should be merged ([404], [415])
+
+### Fixed
+
+- Fix YubiKey setup ([445])
+- Fixes repeating error messages in taf repo create and manual entry of keys-description ([432])
+- When checking if branch is synced, find first remote that works, instead of only trying the last remote url ([419])
+- Disable check if metadata files at revision match ([403])
+- Fix `clone_or_pull` ([402])
+
+[453]: https://github.com/openlawlibrary/taf/pull/453
+[445]: https://github.com/openlawlibrary/taf/pull/445
+[444]: https://github.com/openlawlibrary/taf/pull/444
+[440]: https://github.com/openlawlibrary/taf/pull/440
+[435]: https://github.com/openlawlibrary/taf/pull/435
+[434]: https://github.com/openlawlibrary/taf/pull/434
+[432]: https://github.com/openlawlibrary/taf/pull/432
+[431]: https://github.com/openlawlibrary/taf/pull/431
+[423]: https://github.com/openlawlibrary/taf/pull/423
+[422]: https://github.com/openlawlibrary/taf/pull/422
+[421]: https://github.com/openlawlibrary/taf/pull/421
+[420]: https://github.com/openlawlibrary/taf/pull/420
+[419]: https://github.com/openlawlibrary/taf/pull/419
+[418]: https://github.com/openlawlibrary/taf/pull/418
+[416]: https://github.com/openlawlibrary/taf/pull/416
+[415]: https://github.com/openlawlibrary/taf/pull/415
+[412]: https://github.com/openlawlibrary/taf/pull/412
+[405]: https://github.com/openlawlibrary/taf/pull/405
+[404]: https://github.com/openlawlibrary/taf/pull/404
+[403]: https://github.com/openlawlibrary/taf/pull/403
+[402]: https://github.com/openlawlibrary/taf/pull/402
+[391]: https://github.com/openlawlibrary/taf/pull/391
+[389]: https://github.com/openlawlibrary/taf/pull/389
+
+
 ## [0.29.1] - 02/07/2024
 
 ### Added
@@ -52,7 +128,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix GitError exception instantiations ([387])
 - -Fix a minor bug where update status was incorrectly being set in case when a repository with only one commit is cloned ([386])
 
-[387]: https://github.com/openlawlibrary/taf/pull/381
+[387]: https://github.com/openlawlibrary/taf/pull/387
 [386]: https://github.com/openlawlibrary/taf/pull/386
 
 
@@ -1072,8 +1148,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.29.2...HEAD
-[0.29.2]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.29.2
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/openlawlibrary/taf/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/openlawlibrary/taf/compare/v0.27.0...v0.28.0

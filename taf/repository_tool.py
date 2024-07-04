@@ -12,7 +12,6 @@ import securesystemslib
 import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
-from securesystemslib.util import get_file_details
 from tuf.exceptions import Error as TUFError, RepositoryError
 from tuf.repository_tool import (
     METADATA_DIRECTORY_NAME,
@@ -38,7 +37,7 @@ from taf.exceptions import (
     KeystoreError,
 )
 from taf.git import GitRepository
-from taf.utils import normalize_file_line_endings, on_rm_error
+from taf.utils import normalize_file_line_endings, on_rm_error, get_file_details
 
 try:
     import taf.yubikey as yk

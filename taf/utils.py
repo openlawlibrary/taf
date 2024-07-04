@@ -1,3 +1,4 @@
+import platform
 import click
 import errno
 import datetime
@@ -22,6 +23,9 @@ from json import JSONDecoder
 import taf.settings
 from taf.exceptions import PINMissmatchError
 from taf.log import taf_logger
+from typing import List, Optional, Tuple, Dict
+from securesystemslib.hash import digest_fileobject
+from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
 
 
 def _iso_parse(date):
@@ -306,6 +310,99 @@ def to_tuf_datetime_format(start_date, interval):
     return datetime_object.isoformat() + "Z"
 
 
+def resolve_keystore_path(
+    keystore: Optional[str], roles_key_infos: Optional[str]
+) -> str:
+    if not keystore:
+        return ""
+
+    keystore_path = Path(keystore).expanduser().resolve()
+    if roles_key_infos:
+        roles_key_infos_path = Path(roles_key_infos)
+        if roles_key_infos_path.is_file() and not keystore_path.is_absolute():
+            keystore_path = (roles_key_infos_path.parent / keystore_path).resolve()
+
+    return str(keystore_path)
+
+
+def get_file_details(
+    filepath: str,
+    hash_algorithms: List[str] = ["sha256"],
+    storage_backend: Optional[StorageBackendInterface] = None,
+) -> Tuple[int, Dict[str, str]]:
+
+    # Making sure that the format of 'filepath' is a path string.
+    if not isinstance(filepath, str) or not filepath:
+        raise ValueError("The filepath must be a non-empty string.")
+
+    if not isinstance(hash_algorithms, list):
+        raise ValueError("The hash_algorithms must be a list.")
+    for algo in hash_algorithms:
+        if algo not in ["sha256", "sha512"]:  # Add any other valid algorithms as needed
+            raise ValueError(f"Invalid hash algorithm: {algo}")
+
+    if storage_backend is None:
+        storage_backend = FilesystemBackend()
+
+    # Getting the file length
+    if not os.path.isabs(filepath):
+        raise ValueError("The 'filepath' must be an absolute path")
+
+    # Check if the file exists and get its size
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError(f"The file at '{filepath}' cannot be opened or found")
+
+    file_length = os.path.getsize(filepath)
+
+    # Getting the file hashes
+    file_hashes = {}
+    with storage_backend.get(filepath) as fileobj:
+        for algorithm in hash_algorithms:
+            digest_object = digest_fileobject(fileobj, algorithm)
+            file_hashes.update({algorithm: digest_object.hexdigest()})
+            fileobj.seek(
+                0
+            )  # Reset file object position after reading for the next hash
+
+    return file_length, file_hashes
+
+
+def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
+    hooks_dir = auth_repo_path / ".git" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    pre_push_script = hooks_dir / "pre-push"
+    resources_pre_push_script = (
+        Path(__file__).parent / "resources" / "pre-push"
+    ).resolve()
+
+    if not pre_push_script.exists():
+        if not resources_pre_push_script.exists():
+            taf_logger.error(
+                f"Resources pre-push script not found at {resources_pre_push_script}"
+            )
+            return False
+
+        shutil.copy(resources_pre_push_script, pre_push_script)
+        try:
+            if platform.system() != "Windows":
+                # Unix-like systems
+                pre_push_script.chmod(0o755)
+        except Exception as e:
+            taf_logger.error(f"Error setting executable permission: {e}")
+            return False
+
+        # Check if permissions were set correctly on Unix-like systems
+        if platform.system() != "Windows" and not os.access(pre_push_script, os.X_OK):
+            taf_logger.error(
+                f"Failed to set pre-push git hook executable permission. Please set it manually for {pre_push_script}."
+            )
+            return False
+        taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
+        return True
+
+    return True
+
+
 class timed_run:
     """Decorator to let us capture the elapsed time and optionally print a timer and start/end
     messages around function calls"""
@@ -335,3 +432,33 @@ class timed_run:
             return result
 
         return wrapper_func
+
+
+class TempPartition:
+    def __init__(self, ref_path):
+        self.ref_partition = self.get_partition_root(ref_path)
+        temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
+
+        if temp_dir_partition == self.ref_partition:
+            self.temp_dir = Path(tempfile.mkdtemp())
+        else:
+            taf_dir = self.ref_partition / ".taf"
+            taf_dir.mkdir(exist_ok=True)
+            self.temp_dir = tempfile.mkdtemp(dir=str(taf_dir))
+
+    def get_partition_root(self, path):
+        # Get the root directory of the partition containing the specified path
+        while not os.path.ismount(path):
+            path = path.parent
+        return path
+
+    def cleanup(self):
+        # Remove the temporary directory and the ".taf" directory
+        if Path(self.temp_dir).is_dir():
+            shutil.rmtree(self.temp_dir, onerror=on_rm_error)
+
+    def __enter__(self):
+        return self.temp_dir, self.partition
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cleanup()

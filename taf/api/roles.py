@@ -11,10 +11,9 @@ from taf.api.utils._roles import _role_obj, create_delegations
 from taf.messages import git_commit_message
 from tuf.repository_tool import Targets
 from taf.api.utils._git import check_if_clean, commit_and_push
-from taf.exceptions import TAFError
+from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
-from taf.models.types import RolesIterator
-from taf.models.types import TargetsRole
+from taf.models.types import RolesIterator, TargetsRole
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
@@ -34,11 +33,9 @@ from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
     DEFAULT_RSA_SIGNATURE_SCHEME,
 )
-from taf.keystore import default_keystore_path, new_public_key_cmd_prompt
-from taf.repository_tool import (
-    is_delegated_role,
-)
-from taf.utils import get_key_size, read_input_dict
+from taf.keystore import new_public_key_cmd_prompt
+from taf.repository_tool import is_delegated_role
+from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
 
@@ -236,7 +233,6 @@ def add_roles(
         path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
         roles_key_infos: Path to a json file which contains information about repository's roles and keys.
-        auth_repo (optional): Instance of the authentication repository. Will be created if not passed into the function.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -250,7 +246,7 @@ def add_roles(
     """
     auth_repo = AuthenticationRepository(path=path)
 
-    roles_key_infos_dict, keystore = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
@@ -354,7 +350,7 @@ def add_signing_key(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    _, keystore = _initialize_roles_and_keystore(
+    _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
 
@@ -436,15 +432,6 @@ def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) 
         role_key_infos[role] = _enter_role_info(role, role == "targets", keystore)
     infos_json["roles"] = role_key_infos
 
-    while keystore is None:
-        keystore = input(
-            "Enter keystore location if keys should be loaded from or generated to keystore files (leave empty otherwise): "
-        )
-        if len(keystore):
-            if not Path(keystore).is_dir():
-                taf_logger.info(f"{keystore} does not exist")
-                keystore = None
-
     if keystore:
         infos_json["keystore"] = keystore
 
@@ -483,11 +470,11 @@ def _enter_role_info(
 
     role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
     if role_info["yubikey"]:
-        # in case of yubikeys, length and shceme have to have specific values
+        # in case of yubikeys, length and scheme have to have specific values
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
     else:
-        # if keystore is specified and contaisn keys corresponding to this role
+        # if keystore is specified and contains keys corresponding to this role
         # get key size based on the public key
         keystore_length = 0
         if keystore is not None:
@@ -532,17 +519,18 @@ def _enter_role_info(
 
 def _read_val(input_type, name, param=None, required=False):
     default_value_msg = ""
+    default_value = None
     if param is not None:
-        default = DEFAULT_ROLE_SETUP_PARAMS.get(param)
-        if default is not None:
-            default_value_msg = f"(default {DEFAULT_ROLE_SETUP_PARAMS[param]}) "
+        default_value = DEFAULT_ROLE_SETUP_PARAMS[param]
+        if default_value is not None:
+            default_value_msg = f"(default {default_value}) "
 
     while True:
         try:
             val = input(f"Enter {name} and press ENTER {default_value_msg}")
             if not val:
                 if not required:
-                    return DEFAULT_ROLE_SETUP_PARAMS.get(param)
+                    return default_value
                 else:
                     continue
             return input_type(val)
@@ -554,10 +542,10 @@ def _initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
-) -> Tuple[Dict, str]:
+) -> Tuple[Dict, Optional[str], bool]:
     """
     Read information about roles and keys from a json file or ask the user to enter
-    this information if not specified through a json file enter_info is True
+    this information if not specified through a json file and enter_info is True.
 
     Arguments:
         roles_key_infos: A dictionary containing information about the roles:
@@ -568,7 +556,7 @@ def _initialize_roles_and_keystore(
             - scheme (the default scheme is rsa-pkcs1v15-sha256)
             - keystore path, if not specified via keystore option
         keystore: Location of the keystore files.
-        enter_info (optional): Indicates if the user should be asked to enter information about the.
+        enter_info (optional): Indicates if the user should be asked to enter information about the
         roles and keys if not specified. Set to True by default.
 
     Side Effects:
@@ -577,35 +565,79 @@ def _initialize_roles_and_keystore(
     Returns:
         A dictionary containing entered information about taf roles and keys (total number of keys per role,
         parent roles of roles, threshold of signatures per role, indicator if metadata should be signed using
-        a yubikey for each role, key length and signing scheme for each role) and keystore file path
+        a yubikey for each role, key length and signing scheme for each role) and keystore file path.
     """
+
+    skip_prompt = False
+
     roles_key_infos_dict = read_input_dict(roles_key_infos)
-    if keystore is None:
-        # if keystore path is specified in roles_key_infos and is a relative path
-        # it should be relative to the location of the file
-        # roles_key_infos can either be path to a json file, or a dictionary (or not provided)
-        if "keystore" not in roles_key_infos_dict:
-            taf_logger.info(
-                f"Keystore not specified. Using default location {default_keystore_path()}"
-            )
-        keystore = roles_key_infos_dict.get("keystore") or default_keystore_path()
-        if roles_key_infos is not None and type(roles_key_infos) == str:
-            roles_key_infos_path = Path(roles_key_infos)
-            if roles_key_infos_path.is_file() and "keystore" in roles_key_infos_dict:
-                keystore_path = (
-                    Path(roles_key_infos_dict["keystore"]).expanduser().resolve()
+
+    if not roles_key_infos_dict and enter_info:
+        roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
+
+    # Check if all keys should be loaded from/stored to Yubikeys
+    use_yubikeys = all(
+        role_info.get("yubikey", False) for role_info in roles_key_infos_dict.values()
+    )
+
+    if not use_yubikeys and not keystore:
+        keystore = roles_key_infos_dict.get("keystore")
+        if not keystore:
+            while True:
+                use_keystore = (
+                    input("Do you want to save/load keys from keystore files? [y/N]: ")
+                    .strip()
+                    .lower()
                 )
-                if not keystore_path.is_absolute():
-                    keystore_path = (
-                        roles_key_infos_path.parent / keystore_path
-                    ).resolve()
-                    keystore = str(keystore_path)
+                if use_keystore in ["y", "n"]:
+                    break
+            if use_keystore == "y":
+                keystore = (
+                    input("Enter keystore path (default ./keystore): ").strip()
+                    or "./keystore"
+                )
+            else:
+                taf_logger.info(
+                    "Keys will be entered and then printed from the command line..."
+                )
 
-    if enter_info and not len(roles_key_infos_dict):
-        # ask the user to enter roles, number of keys etc.
-        roles_key_infos_dict = _enter_roles_infos(keystore, roles_key_infos)
+    if keystore is not None:
+        keystore = resolve_keystore_path(keystore, roles_key_infos)
+        roles_key_infos_dict["keystore"] = keystore
 
-    return roles_key_infos_dict, keystore
+        while True:
+            keystore_path = Path(keystore)
+            if keystore_path.exists():
+                break
+            create_keystore = (
+                input(
+                    f"Keystore directory {keystore_path} does not exist. Do you want to create it? [y/N]: "
+                )
+                .strip()
+                .lower()
+            )
+            if create_keystore == "y":
+                keystore_path.mkdir(parents=True, exist_ok=True)
+                roles_key_infos_dict["keystore"] = keystore
+                print(f"Created keystore directory at {keystore}")
+                skip_prompt = True
+                break
+            else:
+                enter_new_path = (
+                    input(
+                        "Do you want to enter a different path to the keystore? [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if enter_new_path == "y":
+                    keystore = input("New keystore path: ").strip()
+                    keystore = resolve_keystore_path(keystore, roles_key_infos)
+                    roles_key_infos_dict["keystore"] = keystore
+                else:
+                    raise KeystoreError("Keystore not found")
+
+    return roles_key_infos_dict, keystore, skip_prompt
 
 
 def _get_roles_key_size(role: str, keystore: str, keys_num: int) -> int:
@@ -886,7 +918,7 @@ def _remove_path_from_role_info(
 def _update_role(
     auth_repo: AuthenticationRepository,
     role: str,
-    keystore: str,
+    keystore: Optional[str],
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
 ) -> None:
@@ -908,3 +940,24 @@ def _update_role(
         auth_repo.update_role_keystores(role, keystore_keys, write=False)
     if len(yubikeys):
         auth_repo.update_role_yubikeys(role, yubikeys, write=False)
+
+
+def list_roles(auth_repo: AuthenticationRepository) -> None:
+    """
+    Print a list of all defined roles with their thresholds and parent roles.
+    """
+
+    def print_role_and_children(role: str, indent: int = 0) -> None:
+        threshold = auth_repo.get_role_threshold(role)
+        indent_str = " " * indent
+        print(f"{indent_str}{role} (threshold: {threshold})")
+
+        # Retrieve children (delegated roles)
+        delegations = auth_repo.get_delegations_info(role)
+        if delegations:
+            children = [role_info["name"] for role_info in delegations.get("roles", [])]
+            for child in children:
+                print_role_and_children(child, indent + 2)
+
+    for role in MAIN_ROLES:
+        print_role_and_children(role)

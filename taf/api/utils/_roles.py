@@ -10,11 +10,7 @@ from taf import YubikeyMissingLibrary
 from taf.keys import get_key_name
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE
-from taf.repository_tool import (
-    MAIN_ROLES,
-    Repository,
-    yubikey_signature_provider,
-)
+from taf.repository_tool import MAIN_ROLES, Repository, yubikey_signature_provider
 from taf.models.types import Role
 from taf.log import taf_logger
 
@@ -156,3 +152,10 @@ def _role_obj(
         if parent is None:
             return tuf_repository.targets(role)
         return parent(role)
+
+
+def list_roles(repository: AuthenticationRepository) -> List[str]:
+    """
+    Return a list of all defined roles, main roles combined with delegated targets roles.
+    """
+    return repository.get_all_roles()
