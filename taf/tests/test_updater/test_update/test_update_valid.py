@@ -1,6 +1,7 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
     create_new_target_orphan_branches,
@@ -341,4 +342,34 @@ def test_update_valid_when_last_validated_commit_reverted(origin_auth_repo, clie
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_when_no_upstream_when_contain_unsigned_commits(
+    origin_auth_repo, client_dir
+):
+
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        no_upstream=True,
     )

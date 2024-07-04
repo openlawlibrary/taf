@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
-- New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455])
+- New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455], [463])
 - New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
-- New flag --no-upstream allowing users to skip upstream comparisons ([455])
+- New flag --no-upstream allowing users to skip upstream comparisons ([455], [463])
 - Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
   the --no-targets flag ([455])
 
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[463]: https://github.com/openlawlibrary/taf/pull/463
 [460]: https://github.com/openlawlibrary/taf/pull/460
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455

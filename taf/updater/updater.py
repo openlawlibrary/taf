@@ -491,11 +491,11 @@ def _update_named_repository(
     # but treat the repository as invalid for now
     commits = []
 
-    # JMC: if --no-deps flag specified by user, last validated commit will not be updated
     if commits_data["after_pull"] is not None:
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
+
     if commits_data["after_pull"] is not None:
         if not no_deps:
             # TODO
@@ -585,14 +585,15 @@ def _update_named_repository(
                     targets_data,
                     transient_data,
                 )
-        if repos_update_data is not None:
-            repos_update_data[auth_repo.name] = {
-                "auth_repo": auth_repo,
-                "update_status": update_status,
-                "commits_data": commits_data,
-                "error": error,
-                "targets_data": targets_data,
-            }
+
+    if repos_update_data is not None:
+        repos_update_data[auth_repo.name] = {
+            "auth_repo": auth_repo,
+            "update_status": update_status,
+            "commits_data": commits_data,
+            "error": error,
+            "targets_data": targets_data,
+        }
 
     repositoriesdb.clear_repositories_db()
 
