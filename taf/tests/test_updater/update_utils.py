@@ -148,6 +148,7 @@ def update_and_check_commit_shas(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
+    no_upstream=False,
 ):
 
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
@@ -171,6 +172,7 @@ def update_and_check_commit_shas(
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
+        no_upstream=no_upstream,
     )
 
     if operation == OperationType.CLONE:
@@ -210,6 +212,7 @@ def update_invalid_repos_and_check_if_repos_exist(
     auth_repo_name_exists=True,
     excluded_target_globs=None,
     strict=False,
+    no_upstream=False,
 ):
 
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
@@ -231,6 +234,7 @@ def update_invalid_repos_and_check_if_repos_exist(
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
         strict=strict,
+        no_upstream=no_upstream,
     )
 
     def _update_expect_error():

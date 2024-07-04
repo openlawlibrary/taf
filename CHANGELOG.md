@@ -5,12 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
+- New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455], [463])
+- New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
+- New flag --no-upstream allowing users to skip upstream comparisons ([455], [463])
+- Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
+  the --no-targets flag ([455])
 
 - Added workflow to build standalone executable of TAF ([447])
+- Added git hook check for updater ([460])
 
 ### Changed
 
@@ -20,9 +25,34 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+[463]: https://github.com/openlawlibrary/taf/pull/463
 [462]: https://github.com/openlawlibrary/taf/pull/462
+[460]: https://github.com/openlawlibrary/taf/pull/460
 [458]: https://github.com/openlawlibrary/taf/pull/458
+[455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447
+
+
+## [0.29.2] - 07/04/2024
+
+
+### Added
+
+- Use git remote show if symbolic-ref fails for default_branch ([457])
+- Add a command for adding delegated paths to a role ([391])
+- Check if metadata files at revision match those downloaded by TUF updater ([389])
+
+### Changed
+
+### Fixed
+
+- Fix `clone_or_pull` ([402])
+
+[457]: https://github.com/openlawlibrary/taf/pull/457
+[402]: https://github.com/openlawlibrary/taf/pull/402
+[391]: https://github.com/openlawlibrary/taf/pull/391
+[389]: https://github.com/openlawlibrary/taf/pull/389
 
 
 ## [0.30.0] - 06/12/2024
