@@ -1,6 +1,7 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
     clone_client_repo,
@@ -258,4 +259,30 @@ def test_clone_when_targets_exist_not_auth_repo(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_valid_when_no_upstream_top_commits_unsigned(
+    origin_auth_repo, client_dir
+):
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+        no_upstream=True,
     )
