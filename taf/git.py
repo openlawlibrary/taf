@@ -20,6 +20,7 @@ from taf.exceptions import (
     FetchException,
     InvalidRepositoryError,
     GitError,
+    UpdateFailedError,
 )
 from taf.log import taf_logger
 from taf.utils import run
@@ -1446,6 +1447,17 @@ class GitRepository:
     def reset_to_commit(self, commit: str, hard: Optional[bool] = False) -> None:
         flag = "--hard" if hard else "--soft"
         self._git(f"reset {flag} {commit}")
+
+    def update_ref_for_bare_repository(self, branch: str, commit_sha: str) -> None:
+        """
+        Update the reference of the branch to the given commit SHA in a bare repository.
+        """
+        try:
+            self._git(f"update-ref refs/heads/{branch} {commit_sha}")
+        except GitError:
+            raise UpdateFailedError(
+                f"Could not update branch {branch} to commit {commit_sha} in bare repository {self.name}."
+            )
 
     def reset_remote_tracking_branch(self, branch_name) -> None:
         """

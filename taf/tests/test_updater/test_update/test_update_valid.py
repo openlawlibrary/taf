@@ -48,6 +48,33 @@ def test_update_valid_happy_path(origin_auth_repo, client_dir):
     "origin_auth_repo",
     [
         {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_happy_path_bare_flag(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        bare=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
             "targets_config": [
                 {"name": "target1", "allow_unauthenticated_commits": True},
                 {"name": "target2", "allow_unauthenticated_commits": True},

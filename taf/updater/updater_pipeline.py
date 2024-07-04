@@ -1174,9 +1174,6 @@ but commit not on branch {current_branch}"
         """Determines which commits needs to be merged into the specified branch and
         merge it.
         """
-        if self.bare:
-            taf_logger.info("Skipping merge_commits for bare repository")
-            return UpdateStatus.SUCCESS
         try:
             if self.only_validate:
                 return self.state.update_status
@@ -1492,7 +1489,9 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
     if repository.is_bare_repository:
+        repository.update_ref_for_bare_repository(branch, commit_to_merge)
         return
+
     try:
         repository.checkout_branch(branch, raise_anyway=True)
     except GitError as e:
@@ -1513,9 +1512,11 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
 
     if repository.top_commit_of_branch(branch) == commit_to_merge:
         return
+
     commits_since_to_merge = repository.all_commits_since_commit(
         commit_to_merge, branch=branch
     )
+
     if not len(commits_since_to_merge):
         taf_logger.info(
             "{} Merging commit {} into branch {}",
