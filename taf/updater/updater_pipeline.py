@@ -802,23 +802,22 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         last_validated_commit = last_validated_repository_commits_data[
                             "commit"
                         ]
-
+                        branch_exists = repository.branch_exists(
+                            current_branch, include_remotes=False
+                        )
+                        if not branch_exists:
+                            is_initial_state_in_sync = False
+                            break
                         if repository.is_bare_repository:
-                            # fetches the top commit of the remote branch (origin/{current_branch})
-                            remote_branch = f"origin/{current_branch}"
-                            top_commit_of_branch = repository.top_commit_of_branch(
-                                remote_branch
-                            )
+                            try:
+                                top_commit_of_branch = repository.top_commit_of_remote_branch(
+                                    current_branch,
+                                    users_target_repositories=self.state.users_target_repositories,
+                                )
+                            except GitError:
+                                is_initial_state_in_sync = False
+                                break
                         else:
-                            if not repository.branch_exists(
-                                current_branch, include_remotes=False
-                            ):
-                                repository.checkout_branch(current_branch, create=True)
-                                if not repository.branch_exists(
-                                    current_branch, include_remotes=False
-                                ):
-                                    continue
-
                             top_commit_of_branch = repository.top_commit_of_branch(
                                 current_branch
                             )
