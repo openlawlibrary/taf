@@ -802,16 +802,28 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         last_validated_commit = last_validated_repository_commits_data[
                             "commit"
                         ]
+                        repository.fetch()
 
-                        branch_exists = repository.branch_exists(
-                            current_branch, include_remotes=False
-                        )
-                        if not branch_exists:
-                            is_initial_state_in_sync = False
-                            break
-                        top_commit_of_branch = repository.top_commit_of_branch(
-                            current_branch
-                        )
+                        if repository.is_bare_repository:
+                            # fetches the top commit of the remote branch (origin/{current_branch})
+                            remote_branch = f"origin/{current_branch}"
+                            top_commit_of_branch = repository.top_commit_of_branch(
+                                remote_branch
+                            )
+                        else:
+                            if not repository.branch_exists(
+                                current_branch, include_remotes=False
+                            ):
+                                repository.checkout_branch(current_branch, create=True)
+                                if not repository.branch_exists(
+                                    current_branch, include_remotes=False
+                                ):
+                                    continue
+
+                            top_commit_of_branch = repository.top_commit_of_branch(
+                                current_branch
+                            )
+
                         if top_commit_of_branch != last_validated_commit:
                             # check if top commit is newer (which is fine, it will be validated)
                             # or older, meaning that the authentication repository contains
@@ -826,9 +838,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                 is_initial_state_in_sync = False
                                 break
 
-                        self.state.old_heads_per_target_repos_branches[repository.name][
-                            current_branch
-                        ] = last_validated_commit
+                            self.state.old_heads_per_target_repos_branches[
+                                repository.name
+                            ][current_branch] = last_validated_commit
 
             if not is_initial_state_in_sync:
                 taf_logger.info(

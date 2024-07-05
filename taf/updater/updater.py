@@ -190,18 +190,18 @@ class RepositoryConfig:
         default=False,
         metadata={
             "docs": "Whether to clone repositories as bare repositories. If set to true, all repositories will be cloned as bare repositories. Optional."
+        },
+    )
     no_deps: bool = field(
         default=False,
         metadata={"docs": "Specifies whether or not to update dependencies. Optional."},
     )
-    # JMC: Addition of --no-targets option to allow user to skip target repos when validating the authentication repository.
     no_targets: bool = field(
         default=False,
         metadata={
             "docs": "Flag to skip target repositiory validation and validate only authentication repos. Optional."
         },
     )
-    # JMC: Addition of --no-upstream option to allow user to opt out of comparing with the remote repository and be added to clone and update
     no_upstream: bool = field(
         default=True,
         metadata={

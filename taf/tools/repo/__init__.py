@@ -139,12 +139,9 @@ def clone_repo_command():
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
     @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
-    def clone(path, url, library_dir, from_fs, bare, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
-    # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
-    # JMC: Addition of --no-upstream
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, upstream, no_deps):
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps):
         if profile:
             start_profiling()
 
