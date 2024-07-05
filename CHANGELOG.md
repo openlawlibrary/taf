@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
@@ -21,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Generate public key from private key if .pub file is missing ([462])
 - Port release workflow from Azure Pipelines to GitHub Actions ([458])
 - Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
@@ -28,10 +28,32 @@ and this project adheres to [Semantic Versioning][semver].
 
 [466]: https://github.com/openlawlibrary/taf/pull/466
 [463]: https://github.com/openlawlibrary/taf/pull/463
+[462]: https://github.com/openlawlibrary/taf/pull/462
 [460]: https://github.com/openlawlibrary/taf/pull/460
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447
+
+
+## [0.29.2] - 07/04/2024
+
+
+### Added
+
+- Use git remote show if symbolic-ref fails for default_branch ([457])
+- Add a command for adding delegated paths to a role ([391])
+- Check if metadata files at revision match those downloaded by TUF updater ([389])
+
+### Changed
+
+### Fixed
+
+- Fix `clone_or_pull` ([402])
+
+[457]: https://github.com/openlawlibrary/taf/pull/457
+[402]: https://github.com/openlawlibrary/taf/pull/402
+[391]: https://github.com/openlawlibrary/taf/pull/391
+[389]: https://github.com/openlawlibrary/taf/pull/389
 
 
 ## [0.30.0] - 06/12/2024
