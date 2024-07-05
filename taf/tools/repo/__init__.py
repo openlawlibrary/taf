@@ -140,6 +140,11 @@ def clone_repo_command():
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
     @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
     def clone(path, url, library_dir, from_fs, bare, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    # JMC: Addition of --no-deps:
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
+    # JMC: Addition of --no-upstream
+    @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, upstream, no_deps):
         if profile:
             start_profiling()
 
@@ -154,6 +159,8 @@ def clone_repo_command():
             excluded_target_globs=exclude_target,
             strict=strict,
             bare=bare,
+            no_upstream=not upstream,
+            no_deps=no_deps,
         )
 
         try:
@@ -205,7 +212,11 @@ def update_repo_command():
     @common_update_options
     @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    # JMC: Addition of --no-deps:
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
+    # JMC: Addition of --no-upstream
+    @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream):
         if profile:
             start_profiling()
 
@@ -217,6 +228,8 @@ def update_repo_command():
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
             strict=strict,
+            no_upstream=not upstream,
+            no_deps=no_deps,
         )
 
         try:
@@ -252,12 +265,16 @@ def validate_repo_command():
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
+    # JMC: Addition of --no-targets:
+    @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
+    # JMC: Addition of --no-deps:
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-        validate_repository(path, library_dir, from_commit, exclude_target, strict, bare)
+        validate_repository(path, library_dir, from_commit, exclude_target, strict, bare, no_targets, no_deps)
     return validate
 
 
