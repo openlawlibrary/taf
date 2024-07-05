@@ -802,7 +802,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         last_validated_commit = last_validated_repository_commits_data[
                             "commit"
                         ]
-                        repository.fetch()
 
                         if repository.is_bare_repository:
                             # fetches the top commit of the remote branch (origin/{current_branch})
