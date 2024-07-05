@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
+- Improved usability (TAF finds the repo if current directory has no repo, create a .taf directory to manage keys) ([466])
 - New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455], [463])
 - New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
 - New flag --no-upstream allowing users to skip upstream comparisons ([455], [463])
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[466]: https://github.com/openlawlibrary/taf/pull/466
 [463]: https://github.com/openlawlibrary/taf/pull/463
 [460]: https://github.com/openlawlibrary/taf/pull/460
 [458]: https://github.com/openlawlibrary/taf/pull/458

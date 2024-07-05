@@ -370,7 +370,6 @@ def get_file_details(
 
 
 def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
-    print(auth_repo_path)
     hooks_dir = auth_repo_path / ".git" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
     pre_push_script = hooks_dir / "pre-push"
