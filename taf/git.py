@@ -1623,28 +1623,15 @@ class GitRepository:
         )
         return None
 
-    def top_commit_of_remote_branch(
-        self, branch, remote="origin", users_target_repositories=None
-    ):
+    def top_commit_of_remote_branch(self, branch, remote="origin"):
         """
         Fetches the top commit of the specified remote branch.
-        If the remote branch does not exist, checks if the local repository has the branch and creates it if necessary.
         """
         remote_branch = f"{remote}/{branch}"
         if not self.branch_exists(remote_branch, include_remotes=True):
-            # If remote branch does not exist, handle the case
-            if (
-                users_target_repositories
-                and self.name in users_target_repositories
-                and branch in users_target_repositories[self.name].branches
-            ):
-                raise GitError(
-                    f"Branch {branch} does not exist in the remote repository."
-                )
-            else:
-                raise GitError(
-                    f"Branch {branch} does not exist in both remote and local repositories."
-                )
+            raise GitError(
+                f"Branch {remote_branch} does not exist in the remote repository."
+            )
         return self.top_commit_of_branch(remote_branch)
 
     def _remove_remote_prefix(self, branch_name):

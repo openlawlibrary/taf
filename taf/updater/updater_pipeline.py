@@ -802,25 +802,34 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         last_validated_commit = last_validated_repository_commits_data[
                             "commit"
                         ]
-                        branch_exists = repository.branch_exists(
-                            current_branch, include_remotes=False
-                        )
-                        if not branch_exists:
-                            is_initial_state_in_sync = False
-                            break
                         if repository.is_bare_repository:
                             try:
-                                top_commit_of_branch = repository.top_commit_of_remote_branch(
-                                    current_branch,
-                                    users_target_repositories=self.state.users_target_repositories,
+                                top_commit_of_branch = (
+                                    repository.top_commit_of_remote_branch(
+                                        current_branch
+                                    )
                                 )
                             except GitError:
+                                # Check if the user's local repository has the branch
+                                if current_branch in repository.branches:
+                                    # Create the branch in the temp repository
+                                    repository.create_branch(current_branch)
+                                    top_commit_of_branch = (
+                                        repository.top_commit_of_branch(current_branch)
+                                    )
+                                else:
+                                    is_initial_state_in_sync = False
+                                    break
+                        else:
+                            if not repository.branch_exists(
+                                current_branch, include_remotes=False
+                            ):
                                 is_initial_state_in_sync = False
                                 break
-                        else:
-                            top_commit_of_branch = repository.top_commit_of_branch(
-                                current_branch
-                            )
+
+                        top_commit_of_branch = repository.top_commit_of_branch(
+                            current_branch
+                        )
 
                         if top_commit_of_branch != last_validated_commit:
                             # check if top commit is newer (which is fine, it will be validated)
@@ -857,7 +866,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 # start validation from the beginning, so also removed
                 # information about the top commits of user's repositories
-                for repository in self.state.temp_target_repositories.values():
+                for repository in self.state.users_target_repositories.values():
                     for branch in self.state.old_heads_per_target_repos_branches[
                         repository.name
                     ]:
