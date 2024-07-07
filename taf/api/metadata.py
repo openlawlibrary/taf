@@ -4,12 +4,12 @@ from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
 from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.exceptions import TAFError
-from taf.git import GitRepository
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.repository_tool import Repository, is_delegated_role
 from taf.log import taf_logger
+from taf.taf.auth_repo import AuthenticationRepository
 
 
 @log_on_error(
@@ -152,7 +152,7 @@ def update_metadata_expiration_date(
     if not commit:
         print("\nPlease commit manually.\n")
     else:
-        auth_repo = GitRepository(path=path)
+        auth_repo = AuthenticationRepository(path=path)
         commit_msg = git_commit_message(
             "update-expiration-dates", roles=",".join(roles)
         )

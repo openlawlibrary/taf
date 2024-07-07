@@ -371,7 +371,7 @@ def register_target_files(
     if write:
         taf_repo.writeall()
         if commit:
-            auth_repo = GitRepository(path=taf_repo.path)
+            auth_repo = AuthenticationRepository(path=taf_repo.path)
             commit_msg = git_commit_message("update-targets")
             commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
         elif not no_commit_warning:
