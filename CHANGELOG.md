@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
   the --no-targets flag ([455])
 
+- Added --bare tags for repository cloning and updating ([459])
 - Added workflow to build standalone executable of TAF ([447])
 - Added git hook check for updater ([460])
 
@@ -25,10 +26,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
 [463]: https://github.com/openlawlibrary/taf/pull/463
 [462]: https://github.com/openlawlibrary/taf/pull/462
 [460]: https://github.com/openlawlibrary/taf/pull/460
+[459]: https://github.com/openlawlibrary/taf/pull/459
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447
