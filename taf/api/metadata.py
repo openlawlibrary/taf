@@ -9,7 +9,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.repository_tool import Repository, is_delegated_role
 from taf.log import taf_logger
-from taf.taf.auth_repo import AuthenticationRepository
+from taf.auth_repo import AuthenticationRepository
 
 
 @log_on_error(
