@@ -45,6 +45,21 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
 
 
+def find_taf_directory():
+    """Look for the .taf directory within the library root."""
+    library_root = (
+        Path(__file__).resolve().parent
+    )  # Adjusted to determine the library root
+    print(library_root)
+    current_dir = library_root
+    while current_dir != current_dir.root:
+        taf_directory = current_dir / ".taf"
+        if taf_directory.exists() and taf_directory.is_dir():
+            return taf_directory
+        current_dir = current_dir.parent
+    return None
+
+
 def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
@@ -66,6 +81,12 @@ def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
     Returns:
         None
     """
+    if keystore is None:
+        taf_directory = find_taf_directory()
+        if taf_directory:
+            keystore = taf_directory / "keystore"
+        else:
+            keystore = "./keystore"
     roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
@@ -79,6 +100,7 @@ def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
                     password = input(
                         "Enter keystore password and press ENTER (can be left empty)"
                     )
+                    print(Path(keystore, key_name))
                     key_path = str(Path(keystore, key_name))
                     _generate_rsa_key(key_path, password, role.length)
                 else:
