@@ -27,7 +27,8 @@ from taf.updater.lifecycle_handlers import (
     Event,
 )
 from cattr import unstructure
-
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 
 disable_tuf_console_logging()
 
@@ -525,9 +526,11 @@ def _update_named_repository(
                     auth_repo, commits
                 ).values()
 
-                for (
-                    child_auth_repo
-                ) in child_auth_repos:  # want to parallelize this; separate PR
+                # JMC: Add parallelism for child repo updating
+                def update_child_repo(child_auth_repo):
+                #for (
+                #    child_auth_repo
+                #) in child_auth_repos:  # want to parallelize this; separate PR
                     try:
                         _, error = _update_named_repository(
                             operation=OperationType.CLONE_OR_UPDATE,
@@ -549,10 +552,20 @@ def _update_named_repository(
                             checkout=checkout,
                             no_upstream=no_upstream,
                         )
-                        if error:
-                            raise error
+                        #if error:
+                        #    raise error
+                        return error
                     except Exception as e:
                         errors.append(str(e))
+
+                # JMC: utilize ThreadPoolExecutor to run the update process in multiple threads
+                with ThreadPoolExecutor() as executor:
+                    futures = {executor.submit(update_child_repo, repo): repo for repo in child_auth_repos}
+                    for future in concurrent.futures.as_completed(futures):
+                        error = future.result()
+                        if error:
+                            errors.append(str(error))
+
 
                 if len(errors):
                     errors = "\n".join(errors)
@@ -659,7 +672,6 @@ def _update_current_repository(
         output.error,
         output.targets_data,
     )
-
 
 def _update_transient_data(
     transient_data, repos_update_data: Dict[str, str]

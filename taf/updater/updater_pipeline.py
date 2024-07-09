@@ -139,6 +139,7 @@ def format_commit(commit):
 
 class Pipeline:
     def __init__(self, steps, run_mode):
+        self.state = None
         self.steps = steps
         self.current_step = None
         self.run_mode = run_mode
