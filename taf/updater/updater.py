@@ -192,6 +192,12 @@ class RepositoryConfig:
             "docs": "Whether to clone repositories as bare repositories. If set to true, all repositories will be cloned as bare repositories. Optional."
         },
     )
+    force: bool = field(
+        default=False,
+        metadata={
+            "docs": "Whether to force update repositories. If set to true, all repositories will be forcefully updated."
+        },
+    )
     no_deps: bool = field(
         default=False,
         metadata={"docs": "Specifies whether or not to update dependencies. Optional."},
@@ -333,6 +339,7 @@ def _update_or_clone_repository(config: RepositoryConfig):
             checkout=config.checkout,
             excluded_target_globs=config.excluded_target_globs,
             bare=config.bare,
+            force=config.force,
             # JMC: pass the no_deps, no_targets, and no_upstream flags
             no_deps=config.no_deps,
             no_targets=config.no_targets,
@@ -397,6 +404,7 @@ def _update_named_repository(
     checkout=True,
     excluded_target_globs=None,
     bare=False,
+    force=False,
     no_deps=False,
     no_targets=False,
     no_upstream=True,
@@ -483,6 +491,7 @@ def _update_named_repository(
         checkout,
         excluded_target_globs,
         bare,
+        force,
         no_targets,
         no_upstream,
     )
@@ -626,6 +635,7 @@ def _update_current_repository(
     checkout,
     excluded_target_globs,
     bare,
+    force,
     # JMC: Addition of new flags
     no_targets,
     no_upstream,
@@ -646,6 +656,7 @@ def _update_current_repository(
         checkout,
         excluded_target_globs,
         bare,
+        force,
         no_upstream=no_upstream,
         no_targets=no_targets,
     )

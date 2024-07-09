@@ -642,6 +642,14 @@ class GitRepository:
             self._pygit.cleanup()
             self._pygit = None
 
+    def clean_and_reset(self):
+        """Cleans the untracked files and resets the HEAD to the latest commit."""
+        try:
+            self.clean()
+            self.reset_to_head()
+        except GitError as e:
+            raise GitError(f"Failed to clean and reset the repository: {e}")
+
     def clone(
         self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs
     ) -> None:
