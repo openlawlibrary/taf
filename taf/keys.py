@@ -10,6 +10,7 @@ from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
+from taf.utils import find_keystore
 from tuf.repository_tool import (
     generate_and_write_unencrypted_rsa_keypair,
     generate_and_write_rsa_keypair,
@@ -236,11 +237,14 @@ def load_signing_keys(
     # if the keystore file is not found, ask the user if they want to sign
     # using yubikey and to insert it if that is the case
 
-    keystore_path = None
-    if keystore is not None:
-        keystore_path = Path(keystore).expanduser().resolve()
-    else:
-        taf_logger.info("Keystore location not provided")
+    if keystore is None:
+        keystore_path = find_keystore(Path.cwd())
+        if keystore_path is None:
+            taf_logger.warning("No keystore provided and no default keystore found")
+        else:
+            keystore = str(keystore_path)
+
+    keystore_path = Path(keystore).expanduser().resolve() if keystore else None
 
     def _load_and_append_yubikeys(
         key_name, role, retry_on_failure, hide_already_loaded_message
@@ -340,6 +344,12 @@ def setup_roles_keys(
             yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir
         )
     else:
+        if keystore is None:
+            keystore_path = find_keystore(Path.cwd())
+            if keystore_path is None:
+                taf_logger.warning("No keystore provided and no default keystore found")
+            else:
+                keystore = str(keystore_path)
         default_params = RoleSetupParams()
         for key_num in range(role.number):
             key_name = get_key_name(role.name, key_num, role.number)

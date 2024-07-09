@@ -12,7 +12,7 @@ import shutil
 import uuid
 from getpass import getpass
 from functools import wraps
-from pathlib import Path, PosixPath
+from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import (
@@ -21,13 +21,11 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from json import JSONDecoder
 import taf.settings
-from taf.exceptions import InvalidRepositoryError, PINMissmatchError
+from taf.exceptions import PINMissmatchError
 from taf.log import taf_logger
 from typing import List, Optional, Tuple, Dict
 from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
-from tuf.repository_tool import load_repository
-from tuf.exceptions import RepositoryError
 
 
 def _iso_parse(date):
@@ -405,42 +403,17 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
     return True
 
 
-def find_valid_repository(path: PosixPath) -> PosixPath:
+def find_keystore(path: Path) -> Optional[Path]:
     """
-    Find a valid TUF repository starting from the given path and traversing subdirectories if needed.
+    Find keystore starting from the given path and traversing parent directories if needed.
     """
-
-    def try_load_repository(repo_path: PosixPath) -> bool:
-        try:
-            load_repository(str(repo_path))
-            taf_logger.info(f"Loaded valid TUF repository from {repo_path}")
-            return True
-        except RepositoryError:
-            return False
-
-    # First, try to load the repository from the given path
-    if try_load_repository(path):
-        return path
-
-    taf_logger.info(
-        f"Current directory {path} is not a valid TUF repository. Searching subdirectories..."
-    )
-
-    subdirs = [subdir for subdir in PosixPath(path).iterdir() if subdir.is_dir()]
-
-    # Check if there is exactly one subdirectory and if it is a valid repository
-    if len(subdirs) == 1:
-        only_subdir_path = subdirs[0]
-        if try_load_repository(only_subdir_path):
-            return only_subdir_path
-
-    # If the current directory is not a valid repository, iterate over subdirectories
-    for subdir_path in subdirs:
-        if try_load_repository(subdir_path):
-            return subdir_path
-    raise InvalidRepositoryError(
-        f"Could not find a valid TUF repository in {path} or any of its subdirectories."
-    )
+    for parent in [path] + list(path.parents):
+        keystore_path = parent / "keystore"
+        if keystore_path.exists() and keystore_path.is_dir():
+            taf_logger.info(f"Found default keystore at {keystore_path}")
+            return keystore_path
+    taf_logger.info(f"No default keystore found starting from {path}")
+    return None
 
 
 class timed_run:

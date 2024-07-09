@@ -2,8 +2,9 @@ import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import SigningError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
-from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE, find_valid_repository
+from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
 

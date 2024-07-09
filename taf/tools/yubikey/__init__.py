@@ -2,7 +2,7 @@ import click
 import json
 from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, get_yk_roles, setup_signing_yubikey, setup_test_yubikey
 from taf.exceptions import YubikeyError
-from taf.taf.utils import find_valid_repository
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 
 

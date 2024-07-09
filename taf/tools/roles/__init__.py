@@ -2,7 +2,7 @@ import click
 from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.utils import find_valid_repository
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 
 from taf.api.roles import add_role_paths

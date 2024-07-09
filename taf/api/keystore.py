@@ -10,6 +10,7 @@ from tuf.repository_tool import (
 from securesystemslib import keys
 
 from taf.api.roles import _initialize_roles_and_keystore
+from taf.api.conf import find_taf_directory
 from taf.keys import get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
@@ -43,21 +44,6 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         generate_and_write_rsa_keypair(filepath=key_path, bits=bits, password=password)
     else:
         generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
-
-
-def find_taf_directory():
-    """Look for the .taf directory within the library root."""
-    library_root = (
-        Path(__file__).resolve().parent
-    )  # Adjusted to determine the library root
-    print(library_root)
-    current_dir = library_root
-    while current_dir != current_dir.root:
-        taf_directory = current_dir / ".taf"
-        if taf_directory.exists() and taf_directory.is_dir():
-            return taf_directory
-        current_dir = current_dir.parent
-    return None
 
 
 def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
@@ -107,40 +93,3 @@ def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
                     rsa_key = keys.generate_rsa_key(role.length)
                     private_key_val = rsa_key["keyval"]["private"]
                     print(f"{role.name} key:\n\n{private_key_val}\n\n")
-
-
-@log_on_start(INFO, "Generating .taf directory", logger=taf_logger)
-def create_taf_directory():
-    # Create the .taf directory
-    taf_directory = Path(".taf")
-    taf_directory.mkdir(exist_ok=True)
-
-    # Create the config.toml file
-    config_file_path = taf_directory / "config.toml"
-    config_file_path.touch()  # Create an empty file
-
-    # Create the keystore directory
-    keystore_directory = taf_directory / "keystore"
-    keystore_directory.mkdir(exist_ok=True)
-    taf_logger.info("Generate .taf directory")
-
-    # Prompt the user if they want to run the generate_keys function
-    while True:
-        use_keystore = (
-            input("Do you want to generate keys in the keystore directory? [y/N]: ")
-            .strip()
-            .lower()
-        )
-        if use_keystore in ["y", "n"]:
-            break
-    if use_keystore == "y":
-        keystore_path = keystore_directory
-        roles_key_infos = input(
-            "Enter the path to the keys description JSON file (can be left empty): "
-        ).strip()
-
-        if roles_key_infos:
-            generate_keys(str(keystore_path), roles_key_infos)
-        else:
-            generate_keys(str(keystore_path), None)
-        taf_logger.info("Completed generating keys in the keystore directory")

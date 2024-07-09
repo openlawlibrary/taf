@@ -1,5 +1,5 @@
 import click
-from taf.api.keystore import generate_keys,create_taf_directory
+from taf.api.keystore import generate_keys
 
 
 def generate_keys_command():
@@ -37,17 +37,9 @@ def generate_keys_command():
     return generate
 
 
-def create_taf_directory_command():
-    @click.command(help="Create a .taf directory")
-    def _create_taf_directory_command():
-        create_taf_directory()
-    return _create_taf_directory_command
-
-
 def attach_to_group(group):
     keystore_group = click.Group(name='keystore')
     keystore_group.add_command(generate_keys_command(), name='generate')
-    keystore_group.add_command(create_taf_directory_command(), name='create-taf-directory')
     group.add_command(keystore_group)
 
 

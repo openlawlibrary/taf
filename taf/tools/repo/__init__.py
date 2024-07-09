@@ -3,7 +3,7 @@ import json
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
-from taf.utils import find_valid_repository
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
