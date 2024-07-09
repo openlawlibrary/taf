@@ -1,6 +1,7 @@
 import click
 from taf.api.conf import init
 
+
 def init_command():
     @click.option("--path", default=".", help=".taf directory's location. If not specified, set to the current directory")
     @click.option("--build-keys", is_flag=True, default=False, help="Specify to generate keys after creating .taf directory.")

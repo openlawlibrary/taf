@@ -15,6 +15,7 @@ from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 
+
 def find_taf_directory():
     """Look for the .taf directory within the library root."""
     library_root = (

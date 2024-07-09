@@ -1,8 +1,8 @@
-from logging import INFO
 from typing import Optional
 from pathlib import Path
 from taf.api.keystore import generate_keys
 from taf.log import taf_logger
+
 
 def init(path: Optional[str] = None, build_keys: bool = False):
     # Determine the directory path
