@@ -10,11 +10,24 @@ from tuf.repository_tool import (
 from securesystemslib import keys
 
 from taf.api.roles import _initialize_roles_and_keystore
-from taf.api.conf import find_taf_directory
 from taf.keys import get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
+
+def find_taf_directory():
+    """Look for the .taf directory within the library root."""
+    library_root = (
+        Path(__file__).resolve().parent.parent
+    )  # Adjusted to determine the library root
+    print(library_root)
+    current_dir = library_root
+    while current_dir != current_dir.root:
+        taf_directory = current_dir / ".taf"
+        if taf_directory.exists() and taf_directory.is_dir():
+            return taf_directory
+        current_dir = current_dir.parent
+    return None
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)

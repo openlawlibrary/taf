@@ -4,20 +4,6 @@ from pathlib import Path
 from taf.api.keystore import generate_keys
 from taf.log import taf_logger
 
-def find_taf_directory():
-    """Look for the .taf directory within the library root."""
-    library_root = (
-        Path(__file__).resolve().parent.parent
-    )  # Adjusted to determine the library root
-    print(library_root)
-    current_dir = library_root
-    while current_dir != current_dir.root:
-        taf_directory = current_dir / ".taf"
-        if taf_directory.exists() and taf_directory.is_dir():
-            return taf_directory
-        current_dir = current_dir.parent
-    return None
-
 def init(path: Optional[str] = None, build_keys: bool = False):
     # Determine the directory path
     if path:
