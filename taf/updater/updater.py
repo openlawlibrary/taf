@@ -526,46 +526,46 @@ def _update_named_repository(
                     auth_repo, commits
                 ).values()
 
-                # JMC: Add parallelism for child repo updating
+                # JMC: Add parallelism for parallel execution of child repo updates to improve performance;
+                # ThreadPoolExecutor manages a pool of worker threads for concurrent updates
                 def update_child_repo(child_auth_repo):
-                #for (
-                #    child_auth_repo
-                #) in child_auth_repos:  # want to parallelize this; separate PR
-                    try:
-                        _, error = _update_named_repository(
-                            operation=OperationType.CLONE_OR_UPDATE,
-                            url=child_auth_repo.urls[0],
-                            auth_path=child_auth_repo.path,
-                            library_dir=library_dir,
-                            update_from_filesystem=update_from_filesystem,
-                            expected_repo_type=expected_repo_type,
-                            target_repo_classes=target_repo_classes,
-                            target_factory=target_factory,
-                            only_validate=only_validate,
-                            validate_from_commit=validate_from_commit,
-                            conf_directory_root=conf_directory_root,
-                            visited=visited,
-                            repos_update_data=repos_update_data,
-                            transient_data=transient_data,
-                            out_of_band_authentication=child_auth_repo.out_of_band_authentication,
-                            scripts_root_dir=scripts_root_dir,
-                            checkout=checkout,
-                            no_upstream=no_upstream,
-                        )
-                        #if error:
-                        #    raise error
-                        return error
-                    except Exception as e:
-                        errors.append(str(e))
+                    #for (
+                    #        child_auth_repo
+                    #) in child_auth_repos:  # want to parallelize this; separate PR
+                        try:
+                            _, error = _update_named_repository(
+                                operation=OperationType.CLONE_OR_UPDATE,
+                                url=child_auth_repo.urls[0],
+                                auth_path=child_auth_repo.path,
+                                library_dir=library_dir,
+                                update_from_filesystem=update_from_filesystem,
+                                expected_repo_type=expected_repo_type,
+                                target_repo_classes=target_repo_classes,
+                                target_factory=target_factory,
+                                only_validate=only_validate,
+                                validate_from_commit=validate_from_commit,
+                                conf_directory_root=conf_directory_root,
+                                visited=visited,
+                                repos_update_data=repos_update_data,
+                                transient_data=transient_data,
+                                out_of_band_authentication=child_auth_repo.out_of_band_authentication,
+                                scripts_root_dir=scripts_root_dir,
+                                checkout=checkout,
+                                no_upstream=no_upstream,
+                            )
+                            if error:
+                                raise error
+                            return error
+                        except Exception as e:
+                            errors.append(str(e))
 
-                # JMC: utilize ThreadPoolExecutor to run the update process in multiple threads
-                with ThreadPoolExecutor() as executor:
-                    futures = {executor.submit(update_child_repo, repo): repo for repo in child_auth_repos}
-                    for future in concurrent.futures.as_completed(futures):
-                        error = future.result()
-                        if error:
-                            errors.append(str(error))
-
+                        # JMC: utilize ThreadPoolExecutor to run the update process in multiple threads
+                        with ThreadPoolExecutor() as executor:
+                            futures = {executor.submit(update_child_repo, repo): repo for repo in child_auth_repos}
+                            for future in concurrent.futures.as_completed(futures):
+                                error = future.result()
+                                if error:
+                                    errors.append(str(error))
 
                 if len(errors):
                     errors = "\n".join(errors)
