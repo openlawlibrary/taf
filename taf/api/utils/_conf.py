@@ -2,6 +2,7 @@ from taf.log import taf_logger
 from pathlib import Path
 from typing import Optional
 
+
 def find_taf_directory(auth_repo_path: Path) -> Optional[Path]:
     """Look for the .taf directory within the archive root.
 
@@ -23,6 +24,7 @@ def find_taf_directory(auth_repo_path: Path) -> Optional[Path]:
 
     taf_logger.info(f"No .taf directory found starting from {archive_root}")
     return None
+
 
 def find_keystore(path: Path) -> Optional[Path]:
     """
