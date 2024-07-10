@@ -403,19 +403,6 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
     return True
 
 
-def find_keystore(path: Path) -> Optional[Path]:
-    """
-    Find keystore starting from the given path and traversing parent directories if needed.
-    """
-    for parent in [path] + list(path.parents):
-        keystore_path = parent / "keystore"
-        if keystore_path.exists() and keystore_path.is_dir():
-            taf_logger.info(f"Found default keystore at {keystore_path}")
-            return keystore_path
-    taf_logger.info(f"No default keystore found starting from {path}")
-    return None
-
-
 class timed_run:
     """Decorator to let us capture the elapsed time and optionally print a timer and start/end
     messages around function calls"""

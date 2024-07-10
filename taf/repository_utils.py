@@ -1,4 +1,7 @@
-# File for Utility functions that cause circular import errors in utils.py
+"""
+This module contains utility functions that cause circular import errors in utils.py.
+"""
+
 from pathlib import Path
 from taf.exceptions import GitError, InvalidRepositoryError
 from taf.auth_repo import AuthenticationRepository
@@ -18,8 +21,7 @@ def find_valid_repository(path: Path) -> Path:
                     f"Loaded valid authentication repository from {repo_path}"
                 )
                 return True
-            else:
-                return False
+            return False
         except GitError:
             return False
 
@@ -32,10 +34,9 @@ def find_valid_repository(path: Path) -> Path:
     taf_logger.debug(
         f"Current directory {path} is not a valid authentication repository. Searching subdirectories..."
     )
-    subdirs = [subdir for subdir in path.iterdir() if subdir.is_dir()]
-    for subdir_path in subdirs:
-        if try_load_repository(subdir_path):
-            return subdir_path
+    for subdir in path.iterdir():
+        if subdir.is_dir() and try_load_repository(subdir):
+            return subdir
     # Search parent directories
     taf_logger.debug(
         f"Current directory {path} is not a valid authentication repository. Searching parent directories..."

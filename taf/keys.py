@@ -10,7 +10,7 @@ from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
-from taf.utils import find_keystore
+from taf.api.utils._conf import find_keystore
 from tuf.repository_tool import (
     generate_and_write_unencrypted_rsa_keypair,
     generate_and_write_rsa_keypair,
