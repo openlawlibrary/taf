@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
@@ -13,6 +12,19 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
+
+
+## [0.30.1] - 07/10/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+Build: use correct `sys.version_info` comparison when installing `pygit2` ([470])
+
+[470]: https://github.com/openlawlibrary/taf/pull/470
 
 
 ## [0.30.0] - 06/12/2024
@@ -1109,7 +1121,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/openlawlibrary/taf/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/openlawlibrary/taf/compare/v0.28.0...v0.29.0
