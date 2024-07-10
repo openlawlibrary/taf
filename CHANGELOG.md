@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Added workflow to build standalone executable of TAF ([447])
 - Added git hook check for updater ([460])
 
+- Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
+
 ### Changed
 
 - Generate public key from private key if .pub file is missing ([462])
@@ -32,6 +34,7 @@ and this project adheres to [Semantic Versioning][semver].
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447
+[472]: https://github.com/openlawlibrary/taf/pull/472
 
 
 ## [0.29.2] - 07/04/2024
