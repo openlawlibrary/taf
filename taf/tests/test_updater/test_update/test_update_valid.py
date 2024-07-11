@@ -1,14 +1,17 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_file_without_commit,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
     create_new_target_orphan_branches,
+    remove_commits,
     remove_last_validate_commit,
     revert_last_validated_commit,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
+    update_file_without_commit,
     update_role_metadata_without_signing,
 )
 from taf.tests.test_updater.update_utils import (
@@ -399,4 +402,143 @@ def test_update_valid_when_no_upstream_when_contain_unsigned_commits(
         origin_auth_repo,
         client_dir,
         no_upstream=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_dirty_index_auth_repo_update_file(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
+    update_file_without_commit(str(auth_repo_path), "dirty_file.txt", "update content")
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_dirty_index_auth_repo_add_file(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
+    add_file_without_commit(str(auth_repo_path), "new_file.txt", "new file content")
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_dirty_index_target_repo_update_file(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    target_repo_path = origin_auth_repo.path / "namespace/target1"
+    update_file_without_commit(
+        str(target_repo_path), "dirty_file.txt", "update content"
+    )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_dirty_index_target_repo_add_file(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    target_repo_path = origin_auth_repo.path / "namespace/target1"
+    add_file_without_commit(str(target_repo_path), "new_file.txt", "new file content")
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_remove_commits_from_target_repo(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    target_repo_path = (
+        origin_auth_repo.path / "targets/test_remove_commits_from_target_repo0/target1"
+    )
+
+    remove_commits(
+        str(target_repo_path),
+        1,
+        repo_name="targets/test_remove_commits_from_target_repo0/target1",
+    )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
     )

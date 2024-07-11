@@ -648,7 +648,9 @@ class GitRepository:
             self.clean()
             self.reset_to_head()
         except GitError as e:
-            raise GitError(f"Failed to clean and reset the repository: {e}")
+            raise GitError(
+                self, message=f"Failed to clean and reset the repository: {e}"
+            )
 
     def clone(
         self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs

@@ -1,4 +1,5 @@
 import enum
+import os
 import re
 import pytest
 import inspect
@@ -18,6 +19,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf import repositoriesdb, settings
+from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
@@ -231,7 +233,14 @@ def clone_client_repo(target_name: str, origin_dir: Path, client_dir: Path):
 def create_repositories_json(library_dir: Path, repo_name: str, targets_config: list):
     repo_path = Path(library_dir, repo_name)
     targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
-    targets_dir_path.mkdir(parents=True, exist_ok=True)
+
+    try:
+        targets_dir_path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        # Attempt to fix permissions
+        os.chmod(repo_path, 0o775)
+        targets_dir_path.mkdir(parents=True, exist_ok=True)
+
     if len(targets_config):
         repositories_json = generate_repositories_json(targets_config)
         (targets_dir_path / REPOSITORIES_JSON_NAME).write_text(repositories_json)
@@ -602,3 +611,31 @@ def update_target_files(target_repo: GitRepository, commit_message: str):
             new_content = existing_content + "\n" + text_to_add
             file_path.write_text(new_content, encoding="utf-8")
     target_repo.commit(commit_message)
+
+
+def update_file_without_commit(repo_path: str, filename: str, content: str):
+    file_path = Path(repo_path) / filename
+    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+    if file_path.exists():
+        with file_path.open("a") as file:
+            file.write(content)
+    else:
+        with file_path.open("w") as file:
+            file.write(content)
+
+
+def add_file_without_commit(repo_path: str, filename: str, content: str):
+    file_path = Path(repo_path) / filename
+    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+    with file_path.open("w") as file:
+        file.write(content)
+
+
+def remove_commits(repo_path: str, num_of_commits: int, repo_name: str):
+    repo = GitRepository(path=Path(repo_path))
+    print(repo)  # Log the state of the repository object
+
+    try:
+        repo.clean_and_reset()
+    except GitError as e:
+        print(f"{str(e)}")
