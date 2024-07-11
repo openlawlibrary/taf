@@ -26,7 +26,9 @@ def add_role_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def add(role, path, parent_role, delegated_path, keystore, keys_number, threshold, yubikey, scheme, no_commit, prompt_for_keys):
-        path = find_valid_repository(path)
+        if not path:
+            print("Specify at least one path")
+        delegated_path = find_valid_repository(delegated_path)
 
         add_role(
             path=path,
