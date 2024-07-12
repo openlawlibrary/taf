@@ -148,6 +148,7 @@ def update_and_check_commit_shas(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
+    bare=False,
     no_upstream=False,
 ):
 
@@ -172,6 +173,7 @@ def update_and_check_commit_shas(
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
+        bare=bare,
         no_upstream=no_upstream,
     )
 
