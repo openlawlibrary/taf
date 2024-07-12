@@ -403,19 +403,32 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if auth_repo.something_to_commit():
                         if self.force:
                             taf_logger.info(
-                                f"Cleaning and resetting repository {auth_repo.name} for forced update"
+                                f"Resetting repository {auth_repo.name} to clean state for a forced update."
                             )
                             auth_repo.clean_and_reset()
                         else:
+                            taf_logger.error(
+                                f"Respository {auth_repo.name} not clean. You can run a forced update with --force."
+                            )
                             raise RepositoryNotCleanError(auth_repo.name)
                     if auth_repo.is_branch_with_unpushed_commits(
                         auth_repo.default_branch
                     ):
                         if self.force:
                             taf_logger.info(
-                                f"Cleaning and resetting repository {auth_repo.name} for forced update"
+                                f"Resetting repository {auth_repo.name} to clean state for a forced update."
                             )
                             auth_repo.clean_and_reset()
+                            auth_repo.reset_num_of_commits(
+                                num_of_commits=len(
+                                    auth_repo.all_commits_since_commit(
+                                        auth_repo.get_last_remote_commit(
+                                            auth_repo.urls[0]
+                                        )
+                                    )
+                                ),
+                                hard=True,
+                            )
                         else:
                             raise UnpushedCommitsError(
                                 auth_repo.name, auth_repo.default_branch
@@ -431,7 +444,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         if repository.something_to_commit():
                             if self.force:
                                 taf_logger.info(
-                                    f"Cleaning and resetting repository {repository.name} for forced update"
+                                    f"Resetting repository {auth_repo.name} to clean state for a forced update."
                                 )
                                 repository.clean_and_reset()
                             else:
@@ -448,7 +461,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         if repository.is_branch_with_unpushed_commits(branch):
                             if self.force:
                                 taf_logger.info(
-                                    f"Cleaning and resetting repository {repository.name} for forced update"
+                                    f"Resetting repository {auth_repo.name} to clean state for a forced update."
                                 )
                                 repository.clean_and_reset()
                             else:
@@ -883,11 +896,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         # start validation from the beginning, so also removed
         # information about the top commits of user's repositories
         for repository in self.state.users_target_repositories.values():
-            if self.force:
-                taf_logger.info(
-                    f"Cleaning and resetting repository {repository.name} for forced update"
-                )
-                repository.clean_and_reset()
             for branch in self.state.old_heads_per_target_repos_branches[
                 repository.name
             ]:
