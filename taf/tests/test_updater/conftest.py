@@ -633,9 +633,23 @@ def add_file_without_commit(repo_path: str, filename: str, content: str):
 
 def remove_commits(repo_path: str, num_of_commits: int, repo_name: str):
     repo = GitRepository(path=Path(repo_path))
-    print(repo)  # Log the state of the repository object
 
     try:
         repo.clean_and_reset()
     except GitError as e:
         print(f"{str(e)}")
+
+
+def checkout_detached_head(repo_path: str):
+    """Checks out the repository to a detached HEAD state."""
+    repo = GitRepository(path=Path(repo_path))
+    head_commit_sha = repo.head_commit_sha()
+    if head_commit_sha:
+        repo.checkout_commit(head_commit_sha)
+
+
+def create_index_lock_in_repo(repo_path: str):
+    """Creates an index.lock file to simulate an interrupted git operation."""
+    repo = GitRepository(path=Path(repo_path))
+    index_lock_path = repo.path / ".git" / "index.lock"
+    index_lock_path.touch()

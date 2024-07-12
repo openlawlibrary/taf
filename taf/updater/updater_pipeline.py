@@ -843,7 +843,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     f"Repository {self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning"
                 )
                 self._update_state_for_initial_sync()
-                self._reset_target_repositories()
+                self.reset_target_repositories(reset_to_target_files=self.force)
 
             return UpdateStatus.SUCCESS
         except Exception as e:
@@ -892,16 +892,32 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         return True
 
-    def _reset_target_repositories(self):
-        # start validation from the beginning, so also removed
-        # information about the top commits of user's repositories
+    def reset_target_repositories(self, reset_to_target_files=False):
         for repository in self.state.users_target_repositories.values():
+            # Reset information about the top commits of user's repositories
             for branch in self.state.old_heads_per_target_repos_branches[
                 repository.name
             ]:
                 self.state.old_heads_per_target_repos_branches[repository.name][
                     branch
                 ] = None
+
+        if reset_to_target_files:
+            for repository in self.state.temp_target_repositories.values():
+                target_data = self.state.targets_data_by_auth_commits.get(
+                    repository.name, {}
+                )
+                if target_data:
+                    last_validated_commit_data = target_data.get(
+                        self.state.last_validated_commit, {}
+                    )
+                    if last_validated_commit_data:
+                        branch = last_validated_commit_data.get(
+                            "branch", repository.default_branch
+                        )
+                        commit = last_validated_commit_data.get("commit")
+                        if branch and commit:
+                            repository.reset_to_commit(commit, hard=True)
 
     def _update_state_for_initial_sync(self):
         self.state.last_validated_commit = None
@@ -1337,7 +1353,7 @@ but commit not on branch {current_branch}"
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
                     _merge_commit(
-                        repository, branch, commit_to_merge, force_revert=True
+                        repository, branch, commit_to_merge, force_revert=self.force
                     )
             return self.state.update_status
         except Exception as e:

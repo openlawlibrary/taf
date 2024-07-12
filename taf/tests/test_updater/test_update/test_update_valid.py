@@ -5,6 +5,7 @@ from taf.tests.test_updater.conftest import (
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
+    checkout_detached_head,
     create_new_target_orphan_branches,
     remove_commits,
     remove_last_validate_commit,
@@ -535,6 +536,64 @@ def test_update_valid_remove_commits_from_target_repo(origin_auth_repo, client_d
         1,
         repo_name="targets/test_remove_commits_from_target_repo0/target1",
     )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_invalid_with_force_flag_when_repos_not_clean(
+    origin_auth_repo, client_dir
+):
+    # Set up a scenario where repositories are not clean
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    update_file_without_commit(
+        str(origin_auth_repo.path), "dirty_file.txt", "some changes"
+    )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_invalid_with_force_flag_when_detached_head(
+    origin_auth_repo, client_dir
+):
+    # Set up a scenario where the auth repo is in a detached HEAD state
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    checkout_detached_head(str(origin_auth_repo.path))
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
