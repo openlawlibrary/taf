@@ -146,7 +146,11 @@ def load_sorted_keys_of_new_roles(
             if role.name in existing_roles:
                 continue
             keystore_keys, _ = setup_roles_keys(
-                role, auth_repo.path, keystore=keystore, skip_prompt=skip_prompt
+                role,
+                auth_repo,
+                auth_repo.path,
+                keystore=keystore,
+                skip_prompt=skip_prompt,
             )
             for public_key, private_key in keystore_keys:
                 signing_keys.setdefault(role.name, []).append(private_key)
@@ -157,6 +161,7 @@ def load_sorted_keys_of_new_roles(
                 continue
             _, yubikey_keys = setup_roles_keys(
                 role,
+                auth_repo=auth_repo,
                 certs_dir=auth_repo.certs_dir,
                 yubikeys=yubikeys,
                 users_yubikeys_details=yubikeys_data,
@@ -238,7 +243,7 @@ def load_signing_keys(
     # using yubikey and to insert it if that is the case
 
     if keystore is None:
-        keystore_path = find_keystore(Path.cwd())
+        keystore_path = find_keystore(taf_repo.path)
         if keystore_path is None:
             taf_logger.warning("No keystore provided and no default keystore found")
         else:
@@ -319,6 +324,7 @@ def load_signing_keys(
 
 def setup_roles_keys(
     role: Role,
+    auth_repo: AuthenticationRepository,
     certs_dir: Optional[Union[Path, str]] = None,
     keystore: Optional[str] = None,
     yubikeys: Optional[Dict] = None,
@@ -345,7 +351,7 @@ def setup_roles_keys(
         )
     else:
         if keystore is None:
-            keystore_path = find_keystore(Path.cwd())
+            keystore_path = find_keystore(auth_repo.path)
             if keystore_path is None:
                 taf_logger.warning("No keystore provided and no default keystore found")
             else:

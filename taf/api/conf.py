@@ -1,4 +1,4 @@
-from shutil import copytree
+from shutil import Error, copytree
 from typing import Optional
 from pathlib import Path
 from taf.api.keystore import generate_keys
@@ -7,7 +7,6 @@ from taf.log import taf_logger
 
 def init(
     path: Optional[str] = None,
-    should_generate_keys: bool = False,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
 ):
@@ -33,7 +32,7 @@ def init(
     keystore_directory.mkdir(exist_ok=True)
 
     # If any of these parameters exist you can assume the user wants to generate keys
-    if not should_generate_keys and not keystore and not roles_key_infos:
+    if not keystore and not roles_key_infos:
         # Prompt the user if they want to run the generate_keys function
         while True:
             use_keystore = (
@@ -69,8 +68,16 @@ def init(
                         )
         # Check if keystore is specified now. If so copy the keys
         if keystore:
-            copytree(keystore, keystore_directory, dirs_exist_ok=True)
-            taf_logger.info(f"Copied keystore from {keystore} to {keystore_directory}")
+            try:
+                copytree(keystore, keystore_directory, dirs_exist_ok=True)
+                taf_logger.info(
+                    f"Copied keystore from {keystore} to {keystore_directory}"
+                )
+            except FileNotFoundError:
+                taf_logger.error(f"Provided keystore path {keystore} not found.")
+            except Error as e:
+                taf_logger.error(f"Error occurred while copying keystore: {e}")
+
         # If there is no keystore path specified, ask for keys description and generate keys
         elif not roles_key_infos:
             roles_key_infos = input(
