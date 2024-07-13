@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
 
+- Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
+
 ### Changed
 
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
@@ -40,6 +42,7 @@ and this project adheres to [Semantic Versioning][semver].
 [455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447
 [472]: https://github.com/openlawlibrary/taf/pull/472
+[473]: https://github.com/openlawlibrary/taf/pull/473
 
 
 ## [0.29.2] - 07/04/2024
