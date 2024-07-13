@@ -5,7 +5,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
-from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
+from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
 
 
 def common_update_options(f):
@@ -146,7 +146,7 @@ def clone_repo_command():
         if profile:
             start_profiling()
 
-        config = RepositoryConfig(
+        config = UpdateConfig(
             operation=OperationType.CLONE,
             url=url,
             path=path,
@@ -217,7 +217,7 @@ def update_repo_command():
         if profile:
             start_profiling()
 
-        config = RepositoryConfig(
+        config = UpdateConfig(
             operation=OperationType.UPDATE,
             path=path,
             library_dir=library_dir,
