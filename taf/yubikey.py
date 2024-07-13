@@ -32,6 +32,7 @@ from yubikit.piv import (
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
+from getpass import getpass
 
 DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
@@ -436,7 +437,8 @@ def yubikey_prompt(
         if retrying:
             if prompt_message is None:
                 prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
-            input(prompt_message)
+            # JMC: hide input with getpass()
+            getpass(prompt_message)
         # make sure that YubiKey is inserted
         try:
             serial_num = get_serial_num()
