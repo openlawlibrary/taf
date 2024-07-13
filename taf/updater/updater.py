@@ -1,5 +1,34 @@
+"""
+The general idea of the updater is the following:
+- We have a git repository which contains the metadata files. These metadata files
+are in the 'metadata' directory
+- Clients have a clone of that repository on their local machine and want to update it
+- We don't want to simply pull the updates. We want to verify that the new commits
+(committed after the most recent one in the client's local repository)
+- For each of the new commits, we want to check if all metadata is valid. The set of
+metadata should be valid as a whole at that revision. Not only do we want to make sure
+that a metadata which is supposed to be changed was indeed updated and is valid, but
+also to make sure that if a metadata file should not be updated, it remained the same.
+- We also want to make sure that all targets metadata is valid (including the delegated roles)
+- We do not want to simply update the metadata to the latest version, without skipping
+these checks. We want to check each commit, not just the last one.
+- If we are checking a commit which is not the latest one, we do not want to report an error
+if the metadata expired. We want to make sure that that was valid at the time when the
+metadata was committed.
+- We can rely on the TUF's way of handling metadata, by using the current and previous
+directories. We just want to automatically create and update them. They should not
+remain on the client's machine.
+- We do not want to modify TUF's updater to much, but still need to get around the fact
+that TUF skips mirrors which do not have valid and/or current metadata files. Also, we
+do not simply want to find the latest metadata, we want to validate everything in-between.
+That is why the idea is to call refresh multiple times, until the last commit is reached.
+The 'GitUpdater' updater is designed in such a way that for each new call it
+loads data from a most recent commit.
+"""
+
 from logging import ERROR
 
+from shutil import copy
 from typing import Dict, Tuple, Any
 from attr import define, field
 from logdecorator import log_on_error
@@ -111,7 +140,7 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
 
 
 @define
-class RepositoryConfig:
+class UpdateConfig:
     operation: OperationType = field(converter=OperationType)
     url: str = field(
         metadata={"docs": "URL of the remote authentication repository"}, default=None
@@ -229,12 +258,12 @@ class RepositoryConfig:
     reraise=True,
 )
 @timed_run("Cloning repositories")
-def clone_repository(config: RepositoryConfig):
+def clone_repository(config: UpdateConfig):
     """
     Validate and clone an authentication repository and its target repositories, as well
     as its dependencies (linked authentication repositories and their targets) recursively.
     Arguments:
-        config: RepositoryConfig instance containing all configurations.
+        config: UpdateConfig instance containing all configurations.
 
     Side Effects:
         If only_validate is not set to True, updates authentication repository (pulls new changes) and its target
@@ -265,13 +294,13 @@ def clone_repository(config: RepositoryConfig):
     reraise=True,
 )
 @timed_run("Updating repository")
-def update_repository(config: RepositoryConfig):
+def update_repository(config: UpdateConfig):
     """
     Validate and update an authentication repository and its target repositories, as well
     as its dependencies (linked authentication repositories and their targets) recursively.
 
     Arguments:
-        config: RepositoryConfig instance containing all configurations.
+        config: UpdateConfig instance containing all configurations.
 
     Side Effects:
         If only_validate is not set to True, updates authentication repository (pulls new changes) and its target
@@ -301,38 +330,27 @@ def update_repository(config: RepositoryConfig):
     return _update_or_clone_repository(config)
 
 
-def _update_or_clone_repository(config: RepositoryConfig):
+def _update_or_clone_repository(config: UpdateConfig):
     repos_update_data: Dict = {}
     transient_data: Dict = {}
     root_error = None
     auth_repo_name = None
     try:
+        updater_pipeline = AuthenticationRepositoryUpdatePipeline(
+            config
+        )
+        updater_pipeline.run()
+        update_output = updater_pipeline.output
+        auth_repo_name = update_output.auth_repo_name
+        if update_output.error:
+            raise update_output.error
 
-        auth_repo_name, error = _update_named_repository(
-            config.operation,
-            config.url,
-            config.path,
-            config.library_dir,
-            config.update_from_filesystem,
-            config.expected_repo_type,
-            config.target_repo_classes,
-            config.target_factory,
-            config.only_validate,
-            config.validate_from_commit,
-            None,
+        _process_repo_update(
+            update_config=config,
+            update_output=update_output,
             repos_update_data=repos_update_data,
             transient_data=transient_data,
-            out_of_band_authentication=config.out_of_band_authentication,
-            scripts_root_dir=config.scripts_root_dir,
-            checkout=config.checkout,
-            excluded_target_globs=config.excluded_target_globs,
-            # JMC: pass the no_deps, no_targets, and no_upstream flags
-            no_deps=config.no_deps,
-            no_targets=config.no_targets,
-            no_upstream=config.no_upstream,
         )
-        if error:
-            raise error
     except Exception as e:
         root_error = UpdateFailedError(
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
@@ -370,113 +388,36 @@ def _update_or_clone_repository(config: RepositoryConfig):
     return unstructure(update_data)
 
 
-def _update_named_repository(
-    operation,
-    url,
-    auth_path,
-    library_dir,
-    update_from_filesystem,
-    expected_repo_type,
-    target_repo_classes=None,
-    target_factory=None,
-    only_validate=False,
-    validate_from_commit=None,
-    conf_directory_root=None,
+def _process_repo_update(
+    update_config,
+    update_output,
     visited=None,
     repos_update_data=None,
     transient_data=None,
-    out_of_band_authentication=None,
-    scripts_root_dir=None,
-    checkout=True,
-    excluded_target_globs=None,
-    no_deps=False,
-    no_targets=False,
-    no_upstream=True,
 ):
     """
     Arguments:
-        url: URL of the remote authentication repository
-        clients_library_dir: Directory where client's target repositories are located.
-        auth_repo_name: Authentication repository's name
-        update_from_filesystem (optional): A flag which indicates if the URL is actually a file system path
-        expected_repo_type (optional): Indicates if the authentication repository which needs to be updated is
-            a test repository, official repository, or if the type is not important
-            and should not be validated
-        target_repo_classes (optional): A class or a dictionary used when instantiating target repositories.
-            See repositoriesdb load_repositories for more details
-        target_factory: A git repositories factory used when instantiating target repositories.
-            See repositoriesdb load_repositories for more details
-        only_validate (optional): a flag that specifies if the repositories should only be validated without
-            being updated
-        validate_from_commit (optional): commit from which the validation should start, allowing shorter
-            execution time
+        update_config: update configuration
         visited (optional): Authentication repositories which were already processed
         repos_update_data (optional): update status, commits data, targets data of the repository which was updated
-        out_of_band_authentication (optional): out-of-band authentication commit's sha
-        scripts_root_dir (optional): local directory which does not have to be contained by the authentication
             repository. Used for testing purposes while developing the scripts
-        checkout (optional): Whether to checkout last validated commits after update is done
-        excluded_target_globs (options): globs specifying target repositories which should not get validated and updated.
-        strict (optional): Whether or not update fails if a warning is raised
+        transient_data: transient data...
 
-    The general idea of the updater is the following:
-    - We have a git repository which contains the metadata files. These metadata files
-    are in the 'metadata' directory
-    - Clients have a clone of that repository on their local machine and want to update it
-    - We don't want to simply pull the updates. We want to verify that the new commits
-    (committed after the most recent one in the client's local repository)
-    - For each of the new commits, we want to check if all metadata is valid. The set of
-    metadata should be valid as a whole at that revision. Not only do we want to make sure
-    that a metadata which is supposed to be changed was indeed updated and is valid, but
-    also to make sure that if a metadata file should not be updated, it remained the same.
-    - We also want to make sure that all targets metadata is valid (including the delegated roles)
-    - We do not want to simply update the metadata to the latest version, without skipping
-    these checks. We want to check each commit, not just the last one.
-    - If we are checking a commit which is not the latest one, we do not want to report an error
-    if the metadata expired. We want to make sure that that was valid at the time when the
-    metadata was committed.
-    - We can rely on the TUF's way of handling metadata, by using the current and previous
-    directories. We just want to automatically create and update them. They should not
-    remain on the client's machine.
-    - We do not want to modify TUF's updater to much, but still need to get around the fact
-    that TUF skips mirrors which do not have valid and/or current metadata files. Also, we
-    do not simply want to find the latest metadata, we want to validate everything in-between.
-    That is why the idea is to call refresh multiple times, until the last commit is reached.
-    The 'GitUpdater' updater is designed in such a way that for each new call it
-    loads data from a most recent commit.
     """
+
     if visited is None:
         visited = []
     # if there is a recursive dependency
-    if url in visited:
+    if update_config.url in visited:
         return
-    visited.append(url)
+    visited.append(update_config.url)
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-    (
-        update_status,
-        auth_repo,
-        auth_repo_name,
-        commits_data,
-        error,
-        targets_data,
-    ) = _update_current_repository(
-        operation,
-        url,
-        auth_path,
-        library_dir,
-        update_from_filesystem,
-        expected_repo_type,
-        target_repo_classes,
-        target_factory,
-        only_validate,
-        validate_from_commit,
-        conf_directory_root,
-        out_of_band_authentication,
-        checkout,
-        excluded_target_globs,
-        no_targets,
-        no_upstream,
-    )
+
+    update_status = update_output.event
+    auth_repo = update_output.users_auth_repo
+    commits_data = update_output.commits_data
+    error = update_output.error,
+    targets_data = update_output.targets_data,
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
     # or info.json is missing from protected
@@ -497,105 +438,69 @@ def _update_named_repository(
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
 
-    if commits_data["after_pull"] is not None:
-        if not no_deps:
-            # TODO
-            # need to handle wrong definitions and make sure that the update doesn't fail
+    if commits_data["after_pull"] is not None and not update_config.no_deps:
+
+        if update_status != Event.FAILED:
+
             # for now, just take the newest commit and do not worry about updated definitions
             # latest_commit = commits[-1::]
             repositoriesdb.load_dependencies(
                 auth_repo,
-                library_dir=library_dir,
+                library_dir=update_config.library_dir,
                 commits=commits,
             )
 
-            if update_status != Event.FAILED:
-                errors = []
-                # load the repositories from dependencies.json and update these repositories
-                child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-                    auth_repo, commits
-                ).values()
+            # load the repositories from dependencies.json and update these repositories
+            child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
+                auth_repo, commits
+            ).values()
 
-                # JMC: Add parallelism for parallel execution of child repo updates to improve performance;
-                # ThreadPoolExecutor manages a pool of worker threads for concurrent updates
-                def update_child_repo(child_auth_repo):
-                    # for (
-                    #        child_auth_repo
-                    # ) in child_auth_repos:  # want to parallelize this; separate PR
-                    try:
-                        _, error = _update_named_repository(
-                            operation=OperationType.CLONE_OR_UPDATE,
-                            url=child_auth_repo.urls[0],
-                            auth_path=child_auth_repo.path,
-                            library_dir=library_dir,
-                            update_from_filesystem=update_from_filesystem,
-                            expected_repo_type=expected_repo_type,
-                            target_repo_classes=target_repo_classes,
-                            target_factory=target_factory,
-                            only_validate=only_validate,
-                            validate_from_commit=validate_from_commit,
-                            conf_directory_root=conf_directory_root,
-                            visited=visited,
-                            repos_update_data=repos_update_data,
-                            transient_data=transient_data,
-                            out_of_band_authentication=child_auth_repo.out_of_band_authentication,
-                            scripts_root_dir=scripts_root_dir,
-                            checkout=checkout,
-                            no_upstream=no_upstream,
-                        )
-                        if error:
-                            raise error
-                        return error
-                    except Exception as e:
-                        errors.append(str(e))
+            outputs, errors = _update_dependencies(update_config, child_auth_repos)
+            if len(errors):
+                errors = "\n".join(errors)
+                taf_logger.error(
+                    "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
+                    auth_repo.name,
+                    errors,
+                )
+                error = UpdateFailedError(
+                    f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
+                )
+                update_status = Event.FAILED
+            else:
+                for output in outputs:
+                    repo = output.users_auth_repo
+                    child_config = copy.copy(update_config)
+                    child_config.url = repo.urls[0]
+                    child_config.out_of_band_authentication = repo.out_of_band_authentication
+                    child_config.path = repo.path,
+                    _process_repo_update(child_config, output, visited, transient_data, repos_update_data)
 
-                    # JMC: utilize ThreadPoolExecutor to run the update process in multiple threads
-                    with ThreadPoolExecutor() as executor:
-                        futures = {
-                            executor.submit(update_child_repo, repo): repo
-                            for repo in child_auth_repos
-                        }
-                        for future in concurrent.futures.as_completed(futures):
-                            error = future.result()
-                            if error:
-                                errors.append(str(error))
-
-                if len(errors):
-                    errors = "\n".join(errors)
-                    taf_logger.error(
-                        "Update of {} failed. One or more referenced authentication repositories could not be validated:\n {}",
-                        auth_repo.name,
-                        errors,
-                    )
-                    error = UpdateFailedError(
-                        f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
-                    )
-                    update_status = Event.FAILED
 
         if (
-            not only_validate
+            not update_config.only_validate
             and len(commits)
             and (update_status == Event.CHANGED or update_status == Event.PARTIAL)
         ):
             # when performing breadth-first update, validation might fail at some point
-            # but we want to update all repository up to it
+            # but we want to update all repositories up to it
             # so set last validated commit to this last valid commit
             last_commit = commits[-1]
             # if there were no errors, merge the last validated authentication repository commit
             _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
             # update the last validated commit
-            if not excluded_target_globs and not no_deps:
+            if not update_config.excluded_target_globs and not update_config.no_deps:
                 auth_repo.set_last_validated_commit(last_commit)
 
             # do not call the handlers if only validating the repositories
             # if a handler fails and we are in the development mode, revert the update
             # so that it's easy to try again after fixing the handler
             # JMC: Added "and not no_targets:" to this first line of code
-            if not only_validate and not excluded_target_globs and not no_targets:
+            if not update_config.only_validate and not update_config.excluded_target_globs and not update_config.no_targets:
                 _execute_repo_handlers(
                     update_status,
                     auth_repo,
-                    scripts_root_dir,
+                    update_config.scripts_root_dir,
                     commits_data,
                     error,
                     targets_data,
@@ -613,56 +518,42 @@ def _update_named_repository(
 
     repositoriesdb.clear_repositories_db()
 
-    return auth_repo_name, error
 
+def _update_dependencies(update_config, child_auth_repos):
 
-def _update_current_repository(
-    operation,
-    url,
-    auth_path,
-    library_dir,
-    update_from_filesystem,
-    expected_repo_type,
-    target_repo_classes,
-    target_factory,
-    only_validate,
-    validate_from_commit,
-    conf_directory_root,
-    out_of_band_authentication,
-    checkout,
-    excluded_target_globs,
-    # JMC: Addition of new flags
-    no_targets,
-    no_upstream,
-):
-    updater_pipeline = AuthenticationRepositoryUpdatePipeline(
-        operation,
-        url,
-        auth_path,
-        library_dir,
-        update_from_filesystem,
-        expected_repo_type,
-        target_repo_classes,
-        target_factory,
-        only_validate,
-        validate_from_commit,
-        conf_directory_root,
-        out_of_band_authentication,
-        checkout,
-        excluded_target_globs,
-        no_upstream=no_upstream,
-        no_targets=no_targets,
-    )
-    updater_pipeline.run()
-    output = updater_pipeline.output
-    return (
-        output.event,
-        output.users_auth_repo,
-        output.auth_repo_name,
-        output.commits_data,
-        output.error,
-        output.targets_data,
-    )
+    # for now, just take the newest commit and do not worry about updated definitions
+    # latest_commit = commits[-1::]
+    outputs = {}
+    errors = []
+
+    def _update_child_repo(updater_pipeline):
+        try:
+            updater_pipeline.run()
+            output = updater_pipeline.output
+            error = output.error
+            if error:
+                raise error
+            return output, error
+        except Exception as e:
+            return None, e
+
+    with ThreadPoolExecutor() as executor:
+        futures = {}
+        for repo in child_auth_repos:
+            child_config = copy.copy(update_config)
+            child_config.url = repo.urls[0]
+            child_config.out_of_band_authentication = repo.out_of_band_authentication
+            child_config.path = repo.path,
+            futures[executor.submit(_update_child_repo), AuthenticationRepositoryUpdatePipeline(child_config)] = repo
+
+        for future in concurrent.futures.as_completed(futures):
+            output, error = future.result()
+            if error:
+                errors.append(str(error))
+            if output:
+                outputs.append(output)
+    return outputs, errors
+
 
 
 def _update_transient_data(
@@ -703,21 +594,24 @@ def validate_repository(
     settings.last_validated_commit = validate_from_commit
     auth_repo_name = None
     try:
-        auth_repo_name, error = _update_named_repository(
-            operation=OperationType.UPDATE,
-            url=str(auth_path),
-            auth_path=str(auth_path),
-            library_dir=library_dir,
-            update_from_filesystem=True,
-            expected_repo_type=expected_repo_type,
-            only_validate=True,
-            validate_from_commit=validate_from_commit,
-            excluded_target_globs=excluded_target_globs,
-            no_targets=no_targets,
-            no_deps=no_deps,
+        # update
+        config = UpdateConfig(
+            auth_path=auth_path, library_dir=library_dir, validate_from_commit=validate_from_commit,
+            excluded_target_globs=excluded_target_globs, strict=strict, no_targets=no_targets, no_deps=no_deps,
+            expected_repo_type=expected_repo_type)
+        updater_pipeline = AuthenticationRepositoryUpdatePipeline(
+            config
         )
-        if error:
-            raise error
+        updater_pipeline.run()
+        update_output = updater_pipeline.output
+        auth_repo_name = update_output.auth_repo_name
+        if update_output.error:
+            raise update_output.error
+
+        _process_repo_update(
+           config,
+           update_output,
+        )
     except Exception as e:
         raise ValidationFailedError(
             f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
