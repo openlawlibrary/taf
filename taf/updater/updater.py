@@ -25,10 +25,9 @@ That is why the idea is to call refresh multiple times, until the last commit is
 The 'GitUpdater' updater is designed in such a way that for each new call it
 loads data from a most recent commit.
 """
-
+import copy
 from logging import ERROR
 
-from shutil import copy
 from typing import Dict, Tuple, Any
 from attr import define, field
 from logdecorator import log_on_error
@@ -454,7 +453,6 @@ def _process_repo_update(
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
-
             outputs, errors = _update_dependencies(update_config, child_auth_repos)
             if len(errors):
                 errors = "\n".join(errors)
@@ -541,10 +539,11 @@ def _update_dependencies(update_config, child_auth_repos):
         futures = {}
         for repo in child_auth_repos:
             child_config = copy.copy(update_config)
+            child_config.operation = OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE
             child_config.url = repo.urls[0]
             child_config.out_of_band_authentication = repo.out_of_band_authentication
-            child_config.path = repo.path,
-            futures[executor.submit(_update_child_repo), AuthenticationRepositoryUpdatePipeline(child_config)] = repo
+            child_config.path = repo.path
+            futures[executor.submit(_update_child_repo, AuthenticationRepositoryUpdatePipeline(child_config))] = repo
 
         for future in concurrent.futures.as_completed(futures):
             output, error = future.result()
