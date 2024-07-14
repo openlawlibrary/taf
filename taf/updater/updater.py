@@ -471,8 +471,8 @@ def _process_repo_update(
                     child_config = copy.copy(update_config)
                     child_config.url = repo.urls[0]
                     child_config.out_of_band_authentication = repo.out_of_band_authentication
-                    child_config.path = repo.path,
-                    _process_repo_update(child_config, output, visited, transient_data, repos_update_data)
+                    child_config.path = repo.path
+                    _process_repo_update(child_config, output, visited, repos_update_data, transient_data)
 
 
         if (
@@ -521,7 +521,7 @@ def _update_dependencies(update_config, child_auth_repos):
 
     # for now, just take the newest commit and do not worry about updated definitions
     # latest_commit = commits[-1::]
-    outputs = {}
+    outputs = []
     errors = []
 
     def _update_child_repo(updater_pipeline):
@@ -538,12 +538,22 @@ def _update_dependencies(update_config, child_auth_repos):
     with ThreadPoolExecutor() as executor:
         futures = {}
         for repo in child_auth_repos:
+            if repo.is_git_repository:
+                # this does not work when run in parallel
+                repositoriesdb.load_repositories(
+                    repo,
+                    library_dir=update_config.library_dir,
+                    only_load_targets=True,
+                    excluded_target_globs=update_config.excluded_target_globs,
+                )
             child_config = copy.copy(update_config)
             child_config.operation = OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE
             child_config.url = repo.urls[0]
             child_config.out_of_band_authentication = repo.out_of_band_authentication
             child_config.path = repo.path
-            futures[executor.submit(_update_child_repo, AuthenticationRepositoryUpdatePipeline(child_config))] = repo
+            pipeline = AuthenticationRepositoryUpdatePipeline(child_config)
+            future = executor.submit(_update_child_repo, pipeline)
+            futures[future] = repo
 
         for future in concurrent.futures.as_completed(futures):
             output, error = future.result()

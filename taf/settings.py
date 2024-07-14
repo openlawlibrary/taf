@@ -12,7 +12,7 @@ update_from_filesystem = False
 
 validate_repo_name = True
 
-validation_repo_path = None
+validation_repo_path = {}
 
 default_branch = None
 
@@ -24,7 +24,7 @@ strict = False
 # Useful when validating a local repository
 overwrite_last_validated_commit = False
 
-last_validated_commit = None
+last_validated_commit = {}
 
 # determines if script files will be loaded from disk
 development_mode = False

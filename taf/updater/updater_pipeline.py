@@ -422,11 +422,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         # set last validated commit before running the updater
         # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
-            settings.last_validated_commit = None
+            settings.last_validated_commit = {}
         elif not settings.overwrite_last_validated_commit:
             users_auth_repo = AuthenticationRepository(path=self.auth_path)
             last_validated_commit = users_auth_repo.last_validated_commit
-            settings.last_validated_commit = last_validated_commit
+            settings.last_validated_commit[users_auth_repo.name] = last_validated_commit
 
         try:
             self.state.auth_commits_since_last_validated = None
@@ -1382,7 +1382,7 @@ def _clone_validation_repo(url):
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
-    settings.validation_repo_path = validation_auth_repo.path
+    settings.validation_repo_path[validation_auth_repo.name] = validation_auth_repo.path
 
     validation_auth_repo.cleanup()
     return validation_auth_repo
