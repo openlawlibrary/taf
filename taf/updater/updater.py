@@ -215,18 +215,22 @@ class UpdateConfig:
         default=False,
         metadata={"docs": "Whether update fails if a warning is raised. Optional."},
     )
+    bare: bool = field(
+        default=False,
+        metadata={
+            "docs": "Whether to clone repositories as bare repositories. If set to true, all repositories will be cloned as bare repositories. Optional."
+        },
+    )
     no_deps: bool = field(
         default=False,
         metadata={"docs": "Specifies whether or not to update dependencies. Optional."},
     )
-    # JMC: Addition of --no-targets option to allow user to skip target repos when validating the authentication repository.
     no_targets: bool = field(
         default=False,
         metadata={
             "docs": "Flag to skip target repositiory validation and validate only authentication repos. Optional."
         },
     )
-    # JMC: Addition of --no-upstream option to allow user to opt out of comparing with the remote repository and be added to clone and update
     no_upstream: bool = field(
         default=True,
         metadata={
@@ -326,6 +330,9 @@ def update_repository(config: UpdateConfig):
         if config.url is None:
             raise UpdateFailedError("URL cannot be determined. Please specify it")
 
+    if auth_repo.is_bare_repository:
+        # Handle updates for bare repositories
+        config.bare = True
     return _update_or_clone_repository(config)
 
 
@@ -409,7 +416,6 @@ def _process_repo_update(
         return
     visited.append(update_config.url)
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
-
     update_status = update_output.event
     auth_repo = update_output.users_auth_repo
     commits_data = update_output.commits_data
@@ -570,7 +576,6 @@ def _update_dependencies(update_config, child_auth_repos):
                 outputs.append(output)
     return outputs, errors
 
-
 def _update_transient_data(
     transient_data, repos_update_data: Dict[str, str]
 ) -> Dict[str, Any]:
@@ -588,6 +593,7 @@ def validate_repository(
     validate_from_commit=None,
     excluded_target_globs=None,
     strict=False,
+    bare=False,
     no_targets=False,
     no_deps=False,
 ):
@@ -616,6 +622,7 @@ def validate_repository(
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
             strict=strict,
+            bare=bare,
             no_targets=no_targets,
             no_deps=no_deps,
             expected_repo_type=expected_repo_type,
