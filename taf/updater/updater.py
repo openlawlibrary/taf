@@ -335,9 +335,7 @@ def _update_or_clone_repository(config: UpdateConfig):
     root_error = None
     auth_repo_name = None
     try:
-        updater_pipeline = AuthenticationRepositoryUpdatePipeline(
-            config
-        )
+        updater_pipeline = AuthenticationRepositoryUpdatePipeline(config)
         updater_pipeline.run()
         update_output = updater_pipeline.output
         auth_repo_name = update_output.auth_repo_name
@@ -415,8 +413,8 @@ def _process_repo_update(
     update_status = update_output.event
     auth_repo = update_output.users_auth_repo
     commits_data = update_output.commits_data
-    error = update_output.error,
-    targets_data = update_output.targets_data,
+    error = (update_output.error,)
+    targets_data = (update_output.targets_data,)
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
     # or info.json is missing from protected
@@ -470,10 +468,13 @@ def _process_repo_update(
                     repo = output.users_auth_repo
                     child_config = copy.copy(update_config)
                     child_config.url = repo.urls[0]
-                    child_config.out_of_band_authentication = repo.out_of_band_authentication
+                    child_config.out_of_band_authentication = (
+                        repo.out_of_band_authentication
+                    )
                     child_config.path = repo.path
-                    _process_repo_update(child_config, output, visited, repos_update_data, transient_data)
-
+                    _process_repo_update(
+                        child_config, output, visited, repos_update_data, transient_data
+                    )
 
         if (
             not update_config.only_validate
@@ -494,7 +495,11 @@ def _process_repo_update(
             # if a handler fails and we are in the development mode, revert the update
             # so that it's easy to try again after fixing the handler
             # JMC: Added "and not no_targets:" to this first line of code
-            if not update_config.only_validate and not update_config.excluded_target_globs and not update_config.no_targets:
+            if (
+                not update_config.only_validate
+                and not update_config.excluded_target_globs
+                and not update_config.no_targets
+            ):
                 _execute_repo_handlers(
                     update_status,
                     auth_repo,
@@ -547,7 +552,9 @@ def _update_dependencies(update_config, child_auth_repos):
                     excluded_target_globs=update_config.excluded_target_globs,
                 )
             child_config = copy.copy(update_config)
-            child_config.operation = OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE
+            child_config.operation = (
+                OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE
+            )
             child_config.url = repo.urls[0]
             child_config.out_of_band_authentication = repo.out_of_band_authentication
             child_config.path = repo.path
@@ -562,7 +569,6 @@ def _update_dependencies(update_config, child_auth_repos):
             if output:
                 outputs.append(output)
     return outputs, errors
-
 
 
 def _update_transient_data(
@@ -605,12 +611,16 @@ def validate_repository(
     try:
         # update
         config = UpdateConfig(
-            auth_path=auth_path, library_dir=library_dir, validate_from_commit=validate_from_commit,
-            excluded_target_globs=excluded_target_globs, strict=strict, no_targets=no_targets, no_deps=no_deps,
-            expected_repo_type=expected_repo_type)
-        updater_pipeline = AuthenticationRepositoryUpdatePipeline(
-            config
+            auth_path=auth_path,
+            library_dir=library_dir,
+            validate_from_commit=validate_from_commit,
+            excluded_target_globs=excluded_target_globs,
+            strict=strict,
+            no_targets=no_targets,
+            no_deps=no_deps,
+            expected_repo_type=expected_repo_type,
         )
+        updater_pipeline = AuthenticationRepositoryUpdatePipeline(config)
         updater_pipeline.run()
         update_output = updater_pipeline.output
         auth_repo_name = update_output.auth_repo_name
@@ -618,8 +628,8 @@ def validate_repository(
             raise update_output.error
 
         _process_repo_update(
-           config,
-           update_output,
+            config,
+            update_output,
         )
     except Exception as e:
         raise ValidationFailedError(

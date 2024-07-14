@@ -82,9 +82,9 @@ class UpdateState:
     validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
-    additional_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = (
-        field(factory=dict)
-    )
+    additional_commits_per_target_repos_branches: Dict[
+        str, Dict[str, List[str]]
+    ] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
     temp_root: TempPartition = field(default=None)
 
@@ -292,7 +292,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ),  # skipped with no-targets; prints all other commits that exist but are not merged
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
             ],
-            run_mode=RunMode.LOCAL_VALIDATION if update_config.only_validate else RunMode.UPDATE,
+            run_mode=RunMode.LOCAL_VALIDATION
+            if update_config.only_validate
+            else RunMode.UPDATE,
         )
 
         self.operation = update_config.operation
@@ -1277,10 +1279,12 @@ but commit not on branch {current_branch}"
                         ).get(branch)
                         branch_data[branch]["new"] = [commit_info]
                         branch_data[branch]["after_pull"] = [commit_info]
-                        branch_data[branch]["unauthenticated"] = (
-                            self.state.additional_commits_per_target_repos_branches.get(
-                                repo_name, {}
-                            ).get(branch, [])
+                        branch_data[branch][
+                            "unauthenticated"
+                        ] = self.state.additional_commits_per_target_repos_branches.get(
+                            repo_name, {}
+                        ).get(
+                            branch, []
                         )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head
