@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Added workflow to build standalone executable of TAF ([447])
 - Added git hook check for updater ([460])
 
+- Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
+
 ### Changed
 
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
@@ -37,6 +39,7 @@ and this project adheres to [Semantic Versioning][semver].
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447
+[473]: https://github.com/openlawlibrary/taf/pull/473
 
 
 ## [0.29.2] - 07/04/2024
