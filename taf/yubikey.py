@@ -437,7 +437,6 @@ def yubikey_prompt(
         if retrying:
             if prompt_message is None:
                 prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
-            # JMC: hide input with getpass()
             getpass(prompt_message)
         # make sure that YubiKey is inserted
         try:
