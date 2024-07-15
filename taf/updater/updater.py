@@ -346,15 +346,15 @@ def _update_or_clone_repository(config: UpdateConfig):
         updater_pipeline.run()
         update_output = updater_pipeline.output
         auth_repo_name = update_output.auth_repo_name
-        if update_output.error:
-            raise update_output.error
-
         _process_repo_update(
             update_config=config,
             update_output=update_output,
             repos_update_data=repos_update_data,
             transient_data=transient_data,
         )
+        if update_output.error:
+            raise update_output.error
+
     except Exception as e:
         root_error = UpdateFailedError(
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
