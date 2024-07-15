@@ -14,6 +14,7 @@ from taf.repository_tool import (
     get_role_metadata_path,
     get_target_path,
 )
+from taf.constants import INFO_JSON_PATH
 
 
 class AuthenticationRepository(GitRepository, TAFRepository):
@@ -172,6 +173,18 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return self.safely_get_json(commit, metadata_path)
         else:
             return self.get_json(commit, metadata_path)
+
+    def get_info_json(
+        self, commit: Optional[str] = None, safely: bool = True
+    ) -> Optional[Dict]:
+        if commit is None:
+            commit = self.head_commit_sha()
+        if commit is None:
+            return None
+        if safely:
+            return self.safely_get_json(commit, INFO_JSON_PATH)
+        else:
+            return self.get_json(commit, INFO_JSON_PATH)
 
     def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
