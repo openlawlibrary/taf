@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
+- Improved usability (TAF finds the repo if current directory has no repo, create a .taf directory to manage keys) ([466])
 - New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455], [463])
 - New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
 - New flag --no-upstream allowing users to skip upstream comparisons ([455], [463])
 - Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
   the --no-targets flag ([455])
 
+- Added --bare tags for repository cloning and updating ([459])
 - Added workflow to build standalone executable of TAF ([447])
 - Added git hook check for updater ([460])
 
@@ -21,16 +23,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Enhanced commit_and_push for better error logging and update the last validated commit ([469])
 - Generate public key from private key if .pub file is missing ([462])
 - Port release workflow from Azure Pipelines to GitHub Actions ([458])
 - Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
 ### Fixed
 
-
+[469]: https://github.com/openlawlibrary/taf/pull/469
+[466]: https://github.com/openlawlibrary/taf/pull/466
 [463]: https://github.com/openlawlibrary/taf/pull/463
 [462]: https://github.com/openlawlibrary/taf/pull/462
 [460]: https://github.com/openlawlibrary/taf/pull/460
+[459]: https://github.com/openlawlibrary/taf/pull/459
 [458]: https://github.com/openlawlibrary/taf/pull/458
 [455]: https://github.com/openlawlibrary/taf/pull/455
 [447]: https://github.com/openlawlibrary/taf/pull/447

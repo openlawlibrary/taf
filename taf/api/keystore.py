@@ -3,6 +3,7 @@ from typing import Optional
 from logdecorator import log_on_start, log_on_end
 from pathlib import Path
 from taf.models.types import RolesKeysData
+from taf.api.utils._conf import find_taf_directory
 from tuf.repository_tool import (
     generate_and_write_rsa_keypair,
     generate_and_write_unencrypted_rsa_keypair,
@@ -45,7 +46,9 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
 
 
-def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
+def generate_keys(
+    auth_repo_path: Path, keystore: Optional[str], roles_key_infos: str
+) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
     of TUF roles. If more than one key should be generated per role, a counter is appended
@@ -66,6 +69,12 @@ def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
     Returns:
         None
     """
+    if keystore is None:
+        taf_directory = find_taf_directory(auth_repo_path)
+        if taf_directory:
+            keystore = str(taf_directory / "keystore")
+        else:
+            keystore = "./keystore"
     roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
