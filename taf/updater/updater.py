@@ -576,6 +576,7 @@ def _update_dependencies(update_config, child_auth_repos):
                 outputs.append(output)
     return outputs, errors
 
+
 def _update_transient_data(
     transient_data, repos_update_data: Dict[str, str]
 ) -> Dict[str, Any]:
@@ -612,12 +613,14 @@ def validate_repository(
         else UpdateType.OFFICIAL
     )
     settings.overwrite_last_validated_commit = True
-    settings.last_validated_commit = validate_from_commit
+    settings.last_validated_commit[auth_path] = validate_from_commit
     auth_repo_name = None
+
     try:
-        # update
         config = UpdateConfig(
-            auth_path=auth_path,
+            operation=OperationType.UPDATE,
+            url=str(auth_path),
+            path=auth_path,
             library_dir=library_dir,
             validate_from_commit=validate_from_commit,
             excluded_target_globs=excluded_target_globs,
@@ -626,6 +629,8 @@ def validate_repository(
             no_targets=no_targets,
             no_deps=no_deps,
             expected_repo_type=expected_repo_type,
+            update_from_filesystem=True,
+            only_validate=True,
         )
         updater_pipeline = AuthenticationRepositoryUpdatePipeline(config)
         updater_pipeline.run()
@@ -643,4 +648,4 @@ def validate_repository(
             f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
         )
     settings.overwrite_last_validated_commit = False
-    settings.last_validated_commit = None
+    settings.last_validated_commit = {}

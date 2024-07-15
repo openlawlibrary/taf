@@ -502,10 +502,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
             if self.operation == OperationType.UPDATE:
-                self._validate_last_validated_commit(settings.last_validated_commit)
+                self._validate_last_validated_commit(
+                    settings.last_validated_commit.get(self.state.users_auth_repo.name)
+                )
             # used for testing purposes
             if settings.overwrite_last_validated_commit:
-                self.state.last_validated_commit = settings.last_validated_commit
+                self.state.last_validated_commit = settings.last_validated_commit.get(
+                    self.state.users_auth_repo.name
+                )
             else:
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
