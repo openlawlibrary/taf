@@ -32,7 +32,6 @@ from yubikit.piv import (
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
-from getpass import getpass
 
 DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
