@@ -995,6 +995,16 @@ class GitRepository:
         """Get commit sha of HEAD~{behind_head}"""
         return self._git("rev-parse HEAD~{}", behind_head)
 
+    def get_current_commit(self) -> Optional[str]:
+        """
+        Returns the SHA of the current commit.
+        """
+        try:
+            return self._git("rev-parse HEAD").strip()
+        except GitError as e:
+            self._log_error(f"Error getting current commit: {e}")
+            return None
+
     def get_default_branch(self, url: Optional[str] = None) -> str:
         """Get the default branch of the repository. If url is provided, return the
         default branch from the remote. Otherwise, return the default

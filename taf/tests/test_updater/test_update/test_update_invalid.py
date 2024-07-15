@@ -1,4 +1,5 @@
 import pytest
+from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
     TARGET_MISSMATCH_PATTERN,
     UNCOIMITTED_CHANGES,
@@ -95,13 +96,24 @@ def test_dirty_index_auth_repo_update_file(origin_auth_repo, client_dir):
         client_dir,
     )
 
-    auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
-    update_file_without_commit(str(auth_repo_path), "dirty_file.txt", "update content")
+    clients_auth_repo_path = client_dir / origin_auth_repo.name
+    update_file_without_commit(str(clients_auth_repo_path), "dirty_file.txt")
 
+    try:
+        # Attempt to update, which should fail due to uncommitted changes
+        update_and_check_commit_shas(
+            OperationType.UPDATE,
+            origin_auth_repo,
+            client_dir,
+        )
+        assert False, "Update should have failed due to uncommitted changes"
+    except UpdateFailedError as e:
+        assert f"Unexpected error: {e}"
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        force=True,
     )
 
 
@@ -121,7 +133,7 @@ def test_dirty_index_auth_repo_add_file(origin_auth_repo, client_dir):
     )
 
     auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
-    add_file_without_commit(str(auth_repo_path), "new_file.txt", "new file content")
+    add_file_without_commit(str(auth_repo_path), "new_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -146,9 +158,7 @@ def test_dirty_index_target_repo_update_file(origin_auth_repo, client_dir):
     )
 
     target_repo_path = origin_auth_repo.path / "namespace/target1"
-    update_file_without_commit(
-        str(target_repo_path), "dirty_file.txt", "update content"
-    )
+    update_file_without_commit(str(target_repo_path), "dirty_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -173,7 +183,7 @@ def test_dirty_index_target_repo_add_file(origin_auth_repo, client_dir):
     )
 
     target_repo_path = origin_auth_repo.path / "namespace/target1"
-    add_file_without_commit(str(target_repo_path), "new_file.txt", "new file content")
+    add_file_without_commit(str(target_repo_path), "new_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -201,11 +211,7 @@ def test_remove_commits_from_target_repo(origin_auth_repo, client_dir):
         origin_auth_repo.path / "targets/test_remove_commits_from_target_repo0/target1"
     )
 
-    remove_commits(
-        str(target_repo_path),
-        1,
-        repo_name="targets/test_remove_commits_from_target_repo0/target1",
-    )
+    remove_commits(str(target_repo_path))
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -223,24 +229,15 @@ def test_remove_commits_from_target_repo(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_invalid_with_force_flag_when_repos_not_clean(
-    origin_auth_repo, client_dir
-):
+def test_update_invalid_when_repos_not_clean(origin_auth_repo, client_dir):
     clone_repositories(
         origin_auth_repo,
         client_dir,
     )
 
-    update_file_without_commit(
-        str(origin_auth_repo.path), "dirty_file.txt", "some changes"
-    )
+    update_file_without_commit(str(origin_auth_repo.path), "dirty_file.txt")
 
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        force=True,
-    )
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
 
 
 @pytest.mark.parametrize(
@@ -252,9 +249,7 @@ def test_update_invalid_with_force_flag_when_repos_not_clean(
     ],
     indirect=True,
 )
-def test_update_invalid_with_force_flag_when_detached_head(
-    origin_auth_repo, client_dir
-):
+def test_update_invalid_when_detached_head(origin_auth_repo, client_dir):
     # Set up a scenario where the auth repo is in a detached HEAD state
     clone_repositories(
         origin_auth_repo,
@@ -266,5 +261,4 @@ def test_update_invalid_with_force_flag_when_detached_head(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        force=True,
     )

@@ -419,16 +419,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                 f"Resetting repository {auth_repo.name} to clean state for a forced update."
                             )
                             auth_repo.clean_and_reset()
-                            auth_repo.reset_num_of_commits(
-                                num_of_commits=len(
-                                    auth_repo.all_commits_since_commit(
-                                        auth_repo.get_last_remote_commit(
-                                            auth_repo.urls[0]
-                                        )
-                                    )
-                                ),
-                                hard=True,
+                            last_remote_commit = auth_repo.get_last_remote_commit(
+                                auth_repo.urls[0]
                             )
+                            if last_remote_commit:
+                                auth_repo.reset_to_commit(last_remote_commit, hard=True)
                         else:
                             raise UnpushedCommitsError(
                                 auth_repo.name, auth_repo.default_branch
@@ -843,7 +838,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     f"Repository {self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning"
                 )
                 self._update_state_for_initial_sync()
-                self.reset_target_repositories(reset_to_target_files=self.force)
+                self.reset_target_repositories()
 
             return UpdateStatus.SUCCESS
         except Exception as e:
@@ -892,7 +887,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         return True
 
-    def reset_target_repositories(self, reset_to_target_files=False):
+    def reset_target_repositories(self):
         for repository in self.state.users_target_repositories.values():
             # Reset information about the top commits of user's repositories
             for branch in self.state.old_heads_per_target_repos_branches[
@@ -901,23 +896,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.old_heads_per_target_repos_branches[repository.name][
                     branch
                 ] = None
-
-        if reset_to_target_files:
-            for repository in self.state.temp_target_repositories.values():
-                target_data = self.state.targets_data_by_auth_commits.get(
-                    repository.name, {}
-                )
-                if target_data:
-                    last_validated_commit_data = target_data.get(
-                        self.state.last_validated_commit, {}
-                    )
-                    if last_validated_commit_data:
-                        branch = last_validated_commit_data.get(
-                            "branch", repository.default_branch
-                        )
-                        commit = last_validated_commit_data.get("commit")
-                        if branch and commit:
-                            repository.reset_to_commit(commit, hard=True)
 
     def _update_state_for_initial_sync(self):
         self.state.last_validated_commit = None

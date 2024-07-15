@@ -152,7 +152,6 @@ def update_and_check_commit_shas(
     bare=False,
     no_upstream=False,
 ):
-
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
         repo_name: repo

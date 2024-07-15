@@ -613,29 +613,31 @@ def update_target_files(target_repo: GitRepository, commit_message: str):
     target_repo.commit(commit_message)
 
 
-def update_file_without_commit(repo_path: str, filename: str, content: str):
+def update_file_without_commit(repo_path: str, filename: str):
+    text_to_add = _generate_random_text()
     file_path = Path(repo_path) / filename
     file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
     if file_path.exists():
         with file_path.open("a") as file:
-            file.write(content)
+            file.write(text_to_add)
     else:
         with file_path.open("w") as file:
-            file.write(content)
+            file.write(text_to_add)
 
 
-def add_file_without_commit(repo_path: str, filename: str, content: str):
+def add_file_without_commit(repo_path: str, filename: str):
+    text_to_add = _generate_random_text()
     file_path = Path(repo_path) / filename
     file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
     with file_path.open("w") as file:
-        file.write(content)
+        file.write(text_to_add)
 
 
-def remove_commits(repo_path: str, num_of_commits: int, repo_name: str):
+def remove_commits(repo_path: str, num_commits: int = 1):
     repo = GitRepository(path=Path(repo_path))
 
     try:
-        repo.clean_and_reset()
+        repo.reset_num_of_commits(num_commits, hard=True)
     except GitError as e:
         print(f"{str(e)}")
 
@@ -653,3 +655,9 @@ def create_index_lock_in_repo(repo_path: str):
     repo = GitRepository(path=Path(repo_path))
     index_lock_path = repo.path / ".git" / "index.lock"
     index_lock_path.touch()
+
+
+def commit_file_to_repo(repo_path: str, file_name: str, commit_message: str):
+    repo = GitRepository(path=Path(repo_path))
+    repo._git("add", file_name)
+    repo.commit(commit_message)

@@ -421,8 +421,8 @@ def test_update_valid_dirty_index_auth_repo_update_file(origin_auth_repo, client
         client_dir,
     )
 
-    auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
-    update_file_without_commit(str(auth_repo_path), "dirty_file.txt", "update content")
+    clients_auth_repo_path = client_dir / origin_auth_repo.name
+    update_file_without_commit(str(clients_auth_repo_path), "dirty_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -448,7 +448,7 @@ def test_update_valid_dirty_index_auth_repo_add_file(origin_auth_repo, client_di
     )
 
     auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
-    add_file_without_commit(str(auth_repo_path), "new_file.txt", "new file content")
+    add_file_without_commit(str(auth_repo_path), "new_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -474,9 +474,7 @@ def test_update_valid_dirty_index_target_repo_update_file(origin_auth_repo, clie
     )
 
     target_repo_path = origin_auth_repo.path / "namespace/target1"
-    update_file_without_commit(
-        str(target_repo_path), "dirty_file.txt", "update content"
-    )
+    update_file_without_commit(str(target_repo_path), "dirty_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -502,7 +500,7 @@ def test_update_valid_dirty_index_target_repo_add_file(origin_auth_repo, client_
     )
 
     target_repo_path = origin_auth_repo.path / "namespace/target1"
-    add_file_without_commit(str(target_repo_path), "new_file.txt", "new file content")
+    add_file_without_commit(str(target_repo_path), "new_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -531,11 +529,7 @@ def test_update_valid_remove_commits_from_target_repo(origin_auth_repo, client_d
         origin_auth_repo.path / "targets/test_remove_commits_from_target_repo0/target1"
     )
 
-    remove_commits(
-        str(target_repo_path),
-        1,
-        repo_name="targets/test_remove_commits_from_target_repo0/target1",
-    )
+    remove_commits(str(target_repo_path))
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -554,7 +548,7 @@ def test_update_valid_remove_commits_from_target_repo(origin_auth_repo, client_d
     ],
     indirect=True,
 )
-def test_update_invalid_with_force_flag_when_repos_not_clean(
+def test_update_valid_with_force_flag_when_repos_not_clean(
     origin_auth_repo, client_dir
 ):
     # Set up a scenario where repositories are not clean
@@ -563,9 +557,7 @@ def test_update_invalid_with_force_flag_when_repos_not_clean(
         client_dir,
     )
 
-    update_file_without_commit(
-        str(origin_auth_repo.path), "dirty_file.txt", "some changes"
-    )
+    update_file_without_commit(str(origin_auth_repo.path), "dirty_file.txt")
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -584,9 +576,7 @@ def test_update_invalid_with_force_flag_when_repos_not_clean(
     ],
     indirect=True,
 )
-def test_update_invalid_with_force_flag_when_detached_head(
-    origin_auth_repo, client_dir
-):
+def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
     # Set up a scenario where the auth repo is in a detached HEAD state
     clone_repositories(
         origin_auth_repo,
@@ -599,5 +589,45 @@ def test_update_invalid_with_force_flag_when_detached_head(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_partial_with_invalid_commits(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    # Step 1: Add valid signed target commits
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    # Set last successful commit
+    last_valid_commit = origin_auth_repo.get_current_commit()
+    origin_auth_repo.set_last_validated_commit(last_valid_commit)
+
+    # Step 2: Add more valid signed target commits
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    # Step 3: Add invalid commits
+    update_file_without_commit(
+        str(origin_auth_repo.path / "targets/target1"), "invalid_file.txt"
+    )
+
+    # Perform update which should result in a partial update and removal of invalid commits
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
     )
