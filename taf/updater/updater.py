@@ -419,7 +419,7 @@ def _process_repo_update(
     update_status = update_output.event
     auth_repo = update_output.users_auth_repo
     commits_data = update_output.commits_data
-    error = (update_output.error,)
+    error = update_output.error
     targets_data = (update_output.targets_data,)
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,

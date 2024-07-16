@@ -185,7 +185,6 @@ class Pipeline:
                 self.current_step.__name__,
                 str(e),
             )
-        self.state.errors.append(e)
 
     def set_output(self):
         pass
@@ -437,24 +436,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 self.operation = OperationType.CLONE
 
-        # set last validated commit before running the updater
-        # this last validated commit is read from the settings
-        if self.operation == OperationType.CLONE:
-            settings.last_validated_commit = {}
-        elif not settings.overwrite_last_validated_commit:
-            users_auth_repo = AuthenticationRepository(path=self.auth_path)
-            last_validated_commit = users_auth_repo.last_validated_commit
-            settings.last_validated_commit[users_auth_repo.name] = last_validated_commit
-
         try:
             self.state.auth_commits_since_last_validated = None
 
-            # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
-            with ThreadPoolExecutor() as executor:
-                future_validation_repo = executor.submit(
-                    _clone_validation_repo, self.url
-                )
-                validation_repo = future_validation_repo.result()
+            validation_repo = _clone_validation_repo(self.url)
+
+            # set last validated commit before running the updater
+            # this last validated commit is read from the settings
+            if self.operation == OperationType.CLONE:
+                settings.last_validated_commit = {}
+            elif not settings.overwrite_last_validated_commit:
+                users_auth_repo = AuthenticationRepository(path=self.auth_path)
+                last_validated_commit = users_auth_repo.last_validated_commit
+                settings.last_validated_commit[
+                    validation_repo.name
+                ] = last_validated_commit
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
@@ -503,12 +499,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(
-                    settings.last_validated_commit.get(self.state.users_auth_repo.name)
+                    settings.last_validated_commit.get(
+                        self.state.validation_auth_repo.name
+                    )
                 )
             # used for testing purposes
             if settings.overwrite_last_validated_commit:
                 self.state.last_validated_commit = settings.last_validated_commit.get(
-                    self.state.users_auth_repo.name
+                    self.state.validation_auth_repo.name
                 )
             else:
                 self.state.last_validated_commit = (
