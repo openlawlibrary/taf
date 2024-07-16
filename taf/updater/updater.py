@@ -340,7 +340,6 @@ def _update_or_clone_repository(config: RepositoryConfig):
             excluded_target_globs=config.excluded_target_globs,
             bare=config.bare,
             force=config.force,
-            # JMC: pass the no_deps, no_targets, and no_upstream flags
             no_deps=config.no_deps,
             no_targets=config.no_targets,
             no_upstream=config.no_upstream,
@@ -593,7 +592,6 @@ def _update_named_repository(
             # do not call the handlers if only validating the repositories
             # if a handler fails and we are in the development mode, revert the update
             # so that it's easy to try again after fixing the handler
-            # JMC: Added "and not no_targets:" to this first line of code
             if not only_validate and not excluded_target_globs and not no_targets:
                 _execute_repo_handlers(
                     update_status,
@@ -636,7 +634,6 @@ def _update_current_repository(
     excluded_target_globs,
     bare,
     force,
-    # JMC: Addition of new flags
     no_targets,
     no_upstream,
 ):
