@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
+
+- New flag --force allowing forced updates ([471])
 - Improved usability (TAF finds the repo if current directory has no repo, create a .taf directory to manage keys) ([466])
 - New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455], [463])
 - New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
@@ -30,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[471]: https://github.com/openlawlibrary/taf/pull/471
 [469]: https://github.com/openlawlibrary/taf/pull/469
 [466]: https://github.com/openlawlibrary/taf/pull/466
 [463]: https://github.com/openlawlibrary/taf/pull/463

@@ -142,7 +142,7 @@ def clone_repo_command():
     @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps):
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, force, upstream, no_deps):
         if profile:
             start_profiling()
 
@@ -157,6 +157,7 @@ def clone_repo_command():
             excluded_target_globs=exclude_target,
             strict=strict,
             bare=bare,
+            force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
         )
@@ -210,11 +211,10 @@ def update_repo_command():
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    # JMC: Addition of --no-deps:
+    @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
-    # JMC: Addition of --no-upstream
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream):
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, force, no_deps, upstream):
         path = find_valid_repository(path)
         if profile:
             start_profiling()
@@ -227,6 +227,7 @@ def update_repo_command():
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
             strict=strict,
+            force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
         )
