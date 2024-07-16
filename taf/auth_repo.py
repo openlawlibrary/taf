@@ -177,14 +177,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     def get_info_json(
         self, commit: Optional[str] = None, safely: bool = True
     ) -> Optional[Dict]:
-        if commit is None:
-            commit = self.head_commit_sha()
-        if commit is None:
+        head_commit = commit or self.head_commit_sha()
+        if head_commit is None:
             return None
         if safely:
-            return self.safely_get_json(commit, INFO_JSON_PATH)
+            return self.safely_get_json(head_commit, INFO_JSON_PATH)
         else:
-            return self.get_json(commit, INFO_JSON_PATH)
+            return self.get_json(head_commit, INFO_JSON_PATH)
 
     def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
