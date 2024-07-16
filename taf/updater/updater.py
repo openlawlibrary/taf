@@ -500,7 +500,6 @@ def _process_repo_update(
             # do not call the handlers if only validating the repositories
             # if a handler fails and we are in the development mode, revert the update
             # so that it's easy to try again after fixing the handler
-            # JMC: Added "and not no_targets:" to this first line of code
             if (
                 not update_config.only_validate
                 and not update_config.excluded_target_globs
