@@ -401,11 +401,10 @@ def _process_repo_update(
 ):
     """
     Arguments:
-        update_config: update configuration
+        update_config: update configuration object containing all relevant information, like remote url, operation type, local paths
         visited (optional): Authentication repositories which were already processed
         repos_update_data (optional): update status, commits data, targets data of the repository which was updated
-            repository. Used for testing purposes while developing the scripts
-        transient_data: transient data...
+        transient_data (optinal): data passed from one lifecycle handler to the next one
 
     """
 
