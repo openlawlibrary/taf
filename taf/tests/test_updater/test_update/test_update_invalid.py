@@ -1,20 +1,19 @@
 import pytest
-from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
+    REMOVED_COMMITS_PATTERN,
     TARGET_MISSMATCH_PATTERN,
+    FORCED_UPATE_PATTERN,
     UNCOIMITTED_CHANGES,
     SetupManager,
     add_file_without_commit,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
-    checkout_detached_head,
     create_index_lock,
     update_file_without_commit,
     remove_commits,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
-    update_and_check_commit_shas,
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType
@@ -96,24 +95,15 @@ def test_dirty_index_auth_repo_update_file(origin_auth_repo, client_dir):
         client_dir,
     )
 
-    clients_auth_repo_path = client_dir / origin_auth_repo.name
-    update_file_without_commit(str(clients_auth_repo_path), "dirty_file.txt")
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    update_file_without_commit(str(client_auth_repo_path), "dirty_file.txt")
 
-    try:
-        # Attempt to update, which should fail due to uncommitted changes
-        update_and_check_commit_shas(
-            OperationType.UPDATE,
-            origin_auth_repo,
-            client_dir,
-        )
-        assert False, "Update should have failed due to uncommitted changes"
-    except UpdateFailedError as e:
-        assert f"Unexpected error: {e}"
-    update_and_check_commit_shas(
+    update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        force=True,
+        FORCED_UPATE_PATTERN,
+        True,
     )
 
 
@@ -131,14 +121,15 @@ def test_dirty_index_auth_repo_add_file(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
     )
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    add_file_without_commit(str(client_auth_repo_path), "new_file.txt")
 
-    auth_repo_path = origin_auth_repo.path / "namespace/auth_repo"
-    add_file_without_commit(str(auth_repo_path), "new_file.txt")
-
-    update_and_check_commit_shas(
+    update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        FORCED_UPATE_PATTERN,
+        True,
     )
 
 
@@ -157,13 +148,15 @@ def test_dirty_index_target_repo_update_file(origin_auth_repo, client_dir):
         client_dir,
     )
 
-    target_repo_path = origin_auth_repo.path / "namespace/target1"
-    update_file_without_commit(str(target_repo_path), "dirty_file.txt")
+    client_target_repo_path = client_dir / origin_auth_repo.name / "namespace/target1"
+    update_file_without_commit(str(client_target_repo_path), "dirty_file.txt")
 
-    update_and_check_commit_shas(
+    update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        FORCED_UPATE_PATTERN,
+        True,
     )
 
 
@@ -182,13 +175,15 @@ def test_dirty_index_target_repo_add_file(origin_auth_repo, client_dir):
         client_dir,
     )
 
-    target_repo_path = origin_auth_repo.path / "namespace/target1"
-    add_file_without_commit(str(target_repo_path), "new_file.txt")
+    client_target_repo_path = client_dir / origin_auth_repo.name / "namespace/target1"
+    add_file_without_commit(str(client_target_repo_path), "new_file.txt")
 
-    update_and_check_commit_shas(
+    update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        FORCED_UPATE_PATTERN,
+        True,
     )
 
 
@@ -207,16 +202,16 @@ def test_remove_commits_from_target_repo(origin_auth_repo, client_dir):
         client_dir,
     )
 
-    target_repo_path = (
-        origin_auth_repo.path / "targets/test_remove_commits_from_target_repo0/target1"
-    )
+    client_target_repo_path = client_dir / origin_auth_repo.name
 
-    remove_commits(str(target_repo_path))
+    remove_commits(str(client_target_repo_path))
 
-    update_and_check_commit_shas(
+    update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        REMOVED_COMMITS_PATTERN,
+        True,
     )
 
 
@@ -234,31 +229,14 @@ def test_update_invalid_when_repos_not_clean(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
     )
+    client_auth_repo_path = client_dir / origin_auth_repo.name
 
-    update_file_without_commit(str(origin_auth_repo.path), "dirty_file.txt")
+    update_file_without_commit(str(client_auth_repo_path), "dirty_file.txt")
 
-    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [{"name": "target1"}, {"name": "target2"}],
-        },
-    ],
-    indirect=True,
-)
-def test_update_invalid_when_detached_head(origin_auth_repo, client_dir):
-    # Set up a scenario where the auth repo is in a detached HEAD state
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
-    checkout_detached_head(str(origin_auth_repo.path))
-
-    update_and_check_commit_shas(
+    update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        FORCED_UPATE_PATTERN,
+        True,
     )

@@ -60,6 +60,8 @@ METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of aut
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
+FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([\w/-]+)/(\w+) has uncommitted changes. Commit and push or revert the changes and run the command again."
+REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
 
 
 # Disable console logging for all tests
@@ -657,7 +659,9 @@ def create_index_lock_in_repo(repo_path: str):
     index_lock_path.touch()
 
 
-def commit_file_to_repo(repo_path: str, file_name: str, commit_message: str):
-    repo = GitRepository(path=Path(repo_path))
-    repo._git("add", file_name)
-    repo.commit(commit_message)
+def set_head_commit(auth_repo: AuthenticationRepository):
+    last_valid_commit = auth_repo.head_commit_sha()
+    if last_valid_commit is not None:
+        auth_repo.set_last_validated_commit(last_valid_commit)
+    else:
+        raise ValueError("Failed to retrieve the last valid commit SHA.")
