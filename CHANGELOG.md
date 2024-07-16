@@ -18,12 +18,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add info.json data loading ([476])
+
 ### Changed
 
 ### Fixed
 
 Build: use correct `sys.version_info` comparison when installing `pygit2` ([470])
 
+[476]: https://github.com/openlawlibrary/taf/pull/476
 [470]: https://github.com/openlawlibrary/taf/pull/470
 
 

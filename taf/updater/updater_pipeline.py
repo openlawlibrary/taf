@@ -12,6 +12,7 @@ from attr import attrs, define, field
 from taf.git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
+from taf.constants import INFO_JSON_PATH
 
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
@@ -28,12 +29,9 @@ from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error
 from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
-PROTECTED_DIRECTORY_NAME = "protected"
-INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
 
 class UpdateStatus(Enum):

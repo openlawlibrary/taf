@@ -2,6 +2,7 @@
 # generating repository
 import datetime
 from typing import List, Optional
+from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 import attrs
 
@@ -9,6 +10,8 @@ import attrs
 DEFAULT_RSA_SIGNATURE_SCHEME = "rsa-pkcs1v15-sha256"
 
 CAPSTONE = "capstone"
+PROTECTED_DIRECTORY_NAME = "protected"
+INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
 
 @attrs.define
