@@ -221,6 +221,12 @@ class UpdateConfig:
             "docs": "Whether to clone repositories as bare repositories. If set to true, all repositories will be cloned as bare repositories. Optional."
         },
     )
+    force: bool = field(
+        default=False,
+        metadata={
+            "docs": "Whether to force update repositories. If set to true, all repositories will be forcefully updated."
+        },
+    )
     no_deps: bool = field(
         default=False,
         metadata={"docs": "Specifies whether or not to update dependencies. Optional."},

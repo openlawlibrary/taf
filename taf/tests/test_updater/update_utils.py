@@ -148,10 +148,10 @@ def update_and_check_commit_shas(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
+    force=False,
     bare=False,
     no_upstream=False,
 ):
-
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
         repo_name: repo
@@ -174,6 +174,7 @@ def update_and_check_commit_shas(
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
         bare=bare,
+        force=force,
         no_upstream=no_upstream,
     )
 
