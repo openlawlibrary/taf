@@ -142,7 +142,7 @@ def clone_repo_command():
     @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, force, upstream, no_deps):
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps):
         if profile:
             start_profiling()
 
@@ -157,7 +157,6 @@ def clone_repo_command():
             excluded_target_globs=exclude_target,
             strict=strict,
             bare=bare,
-            force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
         )
