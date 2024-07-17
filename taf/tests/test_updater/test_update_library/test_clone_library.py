@@ -1,4 +1,5 @@
 from collections import defaultdict
+import pytest
 from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
     check_if_commits_match,
@@ -7,6 +8,23 @@ from taf.tests.test_updater.update_utils import (
 )
 
 
+@pytest.mark.parametrize(
+    "library_with_dependencies",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+            "dependencies_config": [
+                {"name": "namespace1/dependency1"},
+                {"name": "namespace2/dependency2"},
+                {"name": "namespace3/dependency3"},
+                {"name": "namespace4/dependency4"},
+                {"name": "namespace5/dependency5"},
+                {"name": "namespace6/dependency6"},
+            ],
+        },
+    ],
+    indirect=True,
+)
 def test_update_repository_with_dependencies(
     library_with_dependencies,
     origin_dir,
