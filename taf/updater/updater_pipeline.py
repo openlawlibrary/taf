@@ -380,6 +380,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
+                self.auth_path = Path(self.library_dir, auth_repo_name)
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit, error = _run_tuf_updater(
@@ -401,8 +402,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.auth_repo_name = auth_repo_name
 
             self.state.users_auth_repo = AuthenticationRepository(
-                self.library_dir,
-                self.state.auth_repo_name,
+                path=self.auth_path,
                 urls=[self.url],
             )
 
