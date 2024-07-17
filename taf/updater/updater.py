@@ -508,10 +508,12 @@ def _update_named_repository(
     # this second case could be reworked to return the state as of the last validated commit
     # but treat the repository as invalid for now
     commits = []
+
     if commits_data["after_pull"] is not None:
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
+
     if commits_data["after_pull"] is not None:
         if not no_deps:
             # TODO
@@ -523,12 +525,14 @@ def _update_named_repository(
                 library_dir=library_dir,
                 commits=commits,
             )
+
             if update_status != Event.FAILED:
                 errors = []
                 # load the repositories from dependencies.json and update these repositories
                 child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                     auth_repo, commits
                 ).values()
+
                 for (
                     child_auth_repo
                 ) in child_auth_repos:  # want to parallelize this; separate PR
@@ -598,6 +602,7 @@ def _update_named_repository(
                     targets_data,
                     transient_data,
                 )
+
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {
             "auth_repo": auth_repo,

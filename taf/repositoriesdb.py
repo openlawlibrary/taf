@@ -108,6 +108,7 @@ def load_dependencies(
         dependencies = dependencies["dependencies"]
         if dependencies is None:
             continue
+
         for name, repo_data in dependencies.items():
             try:
                 if mirrors:
