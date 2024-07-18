@@ -275,7 +275,6 @@ def validate_repo_command():
         validate_repository(path, library_dir, from_commit, exclude_target, strict, bare, no_targets, no_deps)
     return validate
 
-
 def latest_commit_command():
     @click.command(help="Fetch and print the last validated commit hash.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
