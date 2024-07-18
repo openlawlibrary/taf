@@ -83,9 +83,9 @@ class UpdateState:
     validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
-    additional_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = (
-        field(factory=dict)
-    )
+    additional_commits_per_target_repos_branches: Dict[
+        str, Dict[str, List[str]]
+    ] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
     temp_root: TempPartition = field(default=None)
 
@@ -93,9 +93,9 @@ class UpdateState:
 @attrs
 class UpdateOutput:
     event: str = field()
-    users_auth_repo: Any = field()
-    auth_repo_name: str = field()
-    commits_data: Dict[str, Any] = field()
+    users_auth_repo: Optional[Any] = field(default=None)
+    auth_repo_name: Optional[str] = field(default=None)
+    commits_data: Optional[Dict[str, Any]] = field(default=None)
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
 
@@ -193,24 +193,7 @@ class Pipeline:
 class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def __init__(
         self,
-        operation,
-        url,
-        auth_path,
-        library_dir,
-        update_from_filesystem,
-        expected_repo_type,
-        target_repo_classes,
-        target_factory,
-        only_validate,
-        validate_from_commit,
-        conf_directory_root,
-        out_of_band_authentication,
-        checkout,
-        excluded_target_globs,
-        bare,
-        force,
-        no_targets=False,  # do not add to clone or validate, run w/o no targets flag, and output with taf repo validate should see that it is validating messages. run with flag and what might happen is
-        no_upstream=False,  # add to all
+        update_config,
     ):
 
         super().__init__(
@@ -309,27 +292,27 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ),  # skipped with no-targets; prints all other commits that exist but are not merged
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
             ],
-            run_mode=RunMode.LOCAL_VALIDATION if only_validate else RunMode.UPDATE,
+            run_mode=RunMode.LOCAL_VALIDATION
+            if update_config.only_validate
+            else RunMode.UPDATE,
         )
-
-        self.operation = operation
-        self.url = url
-        self.library_dir = library_dir
-        self.auth_path = auth_path
-        self.update_from_filesystem = update_from_filesystem
-        self.expected_repo_type = expected_repo_type
-        self.target_repo_classes = target_repo_classes
-        self.target_factory = target_factory
-        self.only_validate = only_validate
-        self.validate_from_commit = validate_from_commit
-        self.conf_directory_root = conf_directory_root
-        self.out_of_band_authentication = out_of_band_authentication
-        self.checkout = checkout
-        self.excluded_target_globs = excluded_target_globs
-        self.bare = bare
-        self.force = force
-        self.no_targets = no_targets
-        self.no_upstream = no_upstream
+        self.operation = update_config.operation
+        self.url = update_config.url
+        self.library_dir = update_config.library_dir
+        self.auth_path = update_config.path
+        self.update_from_filesystem = update_config.update_from_filesystem
+        self.expected_repo_type = update_config.expected_repo_type
+        self.target_repo_classes = update_config.target_repo_classes
+        self.target_factory = update_config.target_factory
+        self.only_validate = update_config.only_validate
+        self.validate_from_commit = update_config.validate_from_commit
+        self.out_of_band_authentication = update_config.out_of_band_authentication
+        self.checkout = update_config.checkout
+        self.bare = update_config.bare
+        self.excluded_target_globs = update_config.excluded_target_globs
+        self.no_targets = update_config.no_targets
+        self.no_upstream = update_config.no_upstream
+        self.force = update_config.force
         self.state = UpdateState()
         self.state.targets_data = {}
         self._output = None
@@ -474,7 +457,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     @cleanup_decorator
     def clone_remote_and_run_tuf_updater(self):
         settings.update_from_filesystem = self.update_from_filesystem
-        settings.conf_directory_root = self.conf_directory_root
 
         if self.operation == OperationType.CLONE_OR_UPDATE:
             if (
@@ -484,24 +466,22 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.operation = OperationType.UPDATE
             else:
                 self.operation = OperationType.CLONE
-        # set last validated commit before running the updater
-        # this last validated commit is read from the settings
-        if self.operation == OperationType.CLONE:
-            settings.last_validated_commit = None
-        elif not settings.overwrite_last_validated_commit:
-            users_auth_repo = AuthenticationRepository(path=self.auth_path)
-            last_validated_commit = users_auth_repo.last_validated_commit
-            settings.last_validated_commit = last_validated_commit
 
         try:
             self.state.auth_commits_since_last_validated = None
 
-            # Use ThreadPoolExecutor to run _clone_validation_repo in a separate thread
-            with ThreadPoolExecutor() as executor:
-                future_validation_repo = executor.submit(
-                    _clone_validation_repo, self.url
-                )
-                validation_repo = future_validation_repo.result()
+            validation_repo = _clone_validation_repo(self.url)
+
+            # set last validated commit before running the updater
+            # this last validated commit is read from the settings
+            if self.operation == OperationType.CLONE:
+                settings.last_validated_commit = {}
+            elif not settings.overwrite_last_validated_commit:
+                users_auth_repo = AuthenticationRepository(path=self.auth_path)
+                last_validated_commit = users_auth_repo.last_validated_commit
+                settings.last_validated_commit[
+                    validation_repo.name
+                ] = last_validated_commit
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
@@ -548,10 +528,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
             if self.operation == OperationType.UPDATE:
-                self._validate_last_validated_commit(settings.last_validated_commit)
+                self._validate_last_validated_commit(
+                    settings.last_validated_commit.get(
+                        self.state.validation_auth_repo.name
+                    )
+                )
             # used for testing purposes
             if settings.overwrite_last_validated_commit:
-                self.state.last_validated_commit = settings.last_validated_commit
+                self.state.last_validated_commit = settings.last_validated_commit.get(
+                    self.state.validation_auth_repo.name
+                )
             else:
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
@@ -595,7 +581,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.library_dir,
                     self.state.auth_repo_name,
                     urls=[self.url],
-                    conf_directory_root=self.conf_directory_root,
                 )
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
@@ -1366,10 +1351,12 @@ but commit not on branch {current_branch}"
                         ).get(branch)
                         branch_data[branch]["new"] = [commit_info]
                         branch_data[branch]["after_pull"] = [commit_info]
-                        branch_data[branch]["unauthenticated"] = (
-                            self.state.additional_commits_per_target_repos_branches.get(
-                                repo_name, {}
-                            ).get(branch, [])
+                        branch_data[branch][
+                            "unauthenticated"
+                        ] = self.state.additional_commits_per_target_repos_branches.get(
+                            repo_name, {}
+                        ).get(
+                            branch, []
                         )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head
@@ -1471,7 +1458,7 @@ def _clone_validation_repo(url):
     validation_auth_repo.clone(bare=True)
     validation_auth_repo.fetch(fetch_all=True)
 
-    settings.validation_repo_path = validation_auth_repo.path
+    settings.validation_repo_path[validation_auth_repo.name] = validation_auth_repo.path
 
     validation_auth_repo.cleanup()
     return validation_auth_repo
