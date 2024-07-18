@@ -264,9 +264,7 @@ def validate_repo_command():
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
-    # JMC: Addition of --no-targets:
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
-    # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
         path = find_valid_repository(path)
