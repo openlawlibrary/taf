@@ -347,10 +347,10 @@ def _update_or_clone_repository(config: RepositoryConfig):
         if error:
             raise error
     except Exception as e:
+        print(e)
         root_error = UpdateFailedError(
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
         )
-
     update_data = {}
     if not config.excluded_target_globs:
         # after all repositories have been updated

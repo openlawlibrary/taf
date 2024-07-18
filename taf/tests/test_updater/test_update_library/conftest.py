@@ -11,10 +11,6 @@ from taf.tests.conftest import KEYSTORE_PATH, TEST_INIT_DATA_PATH
 from tuf.ngclient._internal import trusted_metadata_set
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
-NAMESPACE1 = "namespace1"
-NAMESPACE2 = "namespace2"
-TARGET1_NAME = "target1"
-TARGET2_NAME = "target2"
 ROOT_REPO_NAMESPACE = "root"
 AUTH_NAME = "auth"
 
@@ -29,38 +25,37 @@ def create_and_write_json(template_path, substitutions, output_path):
 
 
 @pytest.fixture
-def library_with_dependencies(origin_dir):
+def library_with_dependencies(origin_dir, request):
     library = {}
+    dependencies_config = request.param["dependencies_config"]
+    initial_commits = {}
 
-    namespaces = [NAMESPACE1, NAMESPACE2]
-
-    initial_commits = []
-    for namespace in namespaces:
+    for dep in dependencies_config:
+        namespace = dep["name"]
         targets_config = [
-            RepositoryConfig(f"{namespace}/{TARGET1_NAME}"),
-            RepositoryConfig(f"{namespace}/{TARGET2_NAME}"),
+            RepositoryConfig(target["name"]) for target in dep.get("targets_config", [])
         ]
-        repo_name = f"{namespace}/auth"
         auth_repo = setup_repository_all_files_initially(
-            origin_dir, repo_name, targets_config, False
+            origin_dir, namespace, targets_config, False
         )
         target_repos = load_target_repositories(auth_repo).values()
         library[auth_repo.name] = {
             "auth_repo": auth_repo,
             "target_repos": list(target_repos),
         }
-        initial_commits.append(
-            auth_repo.get_first_commit_on_branch(auth_repo.default_branch)
+        initial_commits[namespace] = auth_repo.get_first_commit_on_branch(
+            auth_repo.default_branch
         )
 
-    root_repo_name = f"{ROOT_REPO_NAMESPACE}/auth"
+    root_repo_name = f"{ROOT_REPO_NAMESPACE}/{AUTH_NAME}"
     root_auth_repo = setup_repository_all_files_initially(
         origin_dir, root_repo_name, [], False
     )
     (root_auth_repo.path / TARGETS_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
+
     create_and_write_json(
         TEST_INIT_DATA_PATH / DEPENDENCIES_JSON_NAME,
-        {"commit1": initial_commits[0], "commit2": initial_commits[1]},
+        {f"commit{i+1}": commit for i, commit in enumerate(initial_commits.values())},
         root_auth_repo.path / TARGETS_DIRECTORY_NAME / DEPENDENCIES_JSON_NAME,
     )
     sign_target_files(origin_dir, root_repo_name, keystore=KEYSTORE_PATH)

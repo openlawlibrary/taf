@@ -14,12 +14,20 @@ from taf.tests.test_updater.update_utils import (
         {
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
             "dependencies_config": [
-                {"name": "namespace1/dependency1"},
-                {"name": "namespace2/dependency2"},
-                {"name": "namespace3/dependency3"},
-                {"name": "namespace4/dependency4"},
-                {"name": "namespace5/dependency5"},
-                {"name": "namespace6/dependency6"},
+                {
+                    "name": "namespace1/auth",
+                    "targets_config": [
+                        {"name": "namespace1/target1"},
+                        {"name": "namespace1/target2"},
+                    ],
+                },
+                {
+                    "name": "namespace2/auth",
+                    "targets_config": [
+                        {"name": "namespace2/target1"},
+                        {"name": "namespace2/target2"},
+                    ],
+                },
             ],
         },
     ],
