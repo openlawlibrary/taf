@@ -2,6 +2,7 @@ import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import SigningError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
@@ -28,6 +29,7 @@ def check_expiration_dates_command():
     @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
     @click.option("--start-date", default=datetime.datetime.now(), help="Date to which expiration interval is added", type=ISO_DATE)
     def checking_expiration_dates(path, interval, start_date):
+        path = find_valid_repository(path)
         check_expiration_dates(path=path, interval=interval, start_date=start_date)
     return checking_expiration_dates
 
@@ -57,6 +59,7 @@ def update_expiration_dates_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys):
+        path = find_valid_repository(path)
         if not len(role):
             print("Specify at least one role")
             return

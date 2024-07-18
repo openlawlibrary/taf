@@ -2,6 +2,7 @@ import click
 from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 
 from taf.api.roles import add_role_paths
@@ -27,7 +28,7 @@ def add_role_command():
     def add(role, path, parent_role, delegated_path, keystore, keys_number, threshold, yubikey, scheme, no_commit, prompt_for_keys):
         if not path:
             print("Specify at least one path")
-            return
+        delegated_path = find_valid_repository(delegated_path)
 
         add_role(
             path=path,
@@ -84,6 +85,7 @@ def add_multiple_roles_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
+        path = find_valid_repository(path)
         add_roles(
             path=path,
             keystore=keystore,
@@ -105,6 +107,7 @@ def add_role_paths_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
+        path = find_valid_repository(path)
         if not delegated_path:
             print("Specify at least one path")
             return
@@ -136,6 +139,7 @@ def remove_role_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
+        path = find_valid_repository(path)
         remove_role(
             path=path,
             role=role,
@@ -168,6 +172,7 @@ def add_signing_key_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def adding_signing_key(path, role, pub_key_path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
+        path = find_valid_repository(path)
         if not role:
             print("Specify at least one role")
             return
@@ -194,6 +199,7 @@ def list_keys_command():
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def list_keys(role, path):
+        path = find_valid_repository(path)
         key_infos = list_keys_of_role(
             path=path,
             role=role,

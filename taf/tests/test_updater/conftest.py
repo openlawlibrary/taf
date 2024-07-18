@@ -1,4 +1,5 @@
 import enum
+import os
 import re
 import pytest
 import inspect
@@ -18,6 +19,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf import repositoriesdb, settings
+from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
@@ -58,6 +60,8 @@ METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of aut
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
 UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
+FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([\w/-]+)/(\w+) has uncommitted changes. Commit and push or revert the changes and run the command again."
+REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
 
 
 # Disable console logging for all tests
@@ -231,7 +235,14 @@ def clone_client_repo(target_name: str, origin_dir: Path, client_dir: Path):
 def create_repositories_json(library_dir: Path, repo_name: str, targets_config: list):
     repo_path = Path(library_dir, repo_name)
     targets_dir_path = repo_path / TARGETS_DIRECTORY_NAME
-    targets_dir_path.mkdir(parents=True, exist_ok=True)
+
+    try:
+        targets_dir_path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        # Attempt to fix permissions
+        os.chmod(repo_path, 0o775)
+        targets_dir_path.mkdir(parents=True, exist_ok=True)
+
     if len(targets_config):
         repositories_json = generate_repositories_json(targets_config)
         (targets_dir_path / REPOSITORIES_JSON_NAME).write_text(repositories_json)
@@ -602,3 +613,55 @@ def update_target_files(target_repo: GitRepository, commit_message: str):
             new_content = existing_content + "\n" + text_to_add
             file_path.write_text(new_content, encoding="utf-8")
     target_repo.commit(commit_message)
+
+
+def update_file_without_commit(repo_path: str, filename: str):
+    text_to_add = _generate_random_text()
+    file_path = Path(repo_path) / filename
+    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+    if file_path.exists():
+        with file_path.open("a") as file:
+            file.write(text_to_add)
+    else:
+        with file_path.open("w") as file:
+            file.write(text_to_add)
+
+
+def add_file_without_commit(repo_path: str, filename: str):
+    text_to_add = _generate_random_text()
+    file_path = Path(repo_path) / filename
+    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+    with file_path.open("w") as file:
+        file.write(text_to_add)
+
+
+def remove_commits(repo_path: str, num_commits: int = 1):
+    repo = GitRepository(path=Path(repo_path))
+
+    try:
+        repo.reset_num_of_commits(num_commits, hard=True)
+    except GitError as e:
+        print(f"{str(e)}")
+
+
+def checkout_detached_head(repo_path: str):
+    """Checks out the repository to a detached HEAD state."""
+    repo = GitRepository(path=Path(repo_path))
+    head_commit_sha = repo.head_commit_sha()
+    if head_commit_sha:
+        repo.checkout_commit(head_commit_sha)
+
+
+def create_index_lock_in_repo(repo_path: str):
+    """Creates an index.lock file to simulate an interrupted git operation."""
+    repo = GitRepository(path=Path(repo_path))
+    index_lock_path = repo.path / ".git" / "index.lock"
+    index_lock_path.touch()
+
+
+def set_head_commit(auth_repo: AuthenticationRepository):
+    last_valid_commit = auth_repo.head_commit_sha()
+    if last_valid_commit is not None:
+        auth_repo.set_last_validated_commit(last_valid_commit)
+    else:
+        raise ValueError("Failed to retrieve the last valid commit SHA.")

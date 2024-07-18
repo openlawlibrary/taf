@@ -17,6 +17,7 @@ import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import (
+    InvalidRepositoryError,
     MissingInfoJsonError,
     RepositoryNotCleanError,
     UpdateFailedError,
@@ -206,8 +207,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         out_of_band_authentication,
         checkout,
         excluded_target_globs,
+        bare,
+        force,
         no_targets=False,  # do not add to clone or validate, run w/o no targets flag, and output with taf repo validate should see that it is validating messages. run with flag and what might happen is
-        # JMC: Add no_upstream to init
         no_upstream=False,  # add to all
     ):
 
@@ -324,7 +326,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.out_of_band_authentication = out_of_band_authentication
         self.checkout = checkout
         self.excluded_target_globs = excluded_target_globs
-        # JMC: Add no_upstream flag
+        self.bare = bare
+        self.force = force
         self.no_targets = no_targets
         self.no_upstream = no_upstream
         self.state = UpdateState()
@@ -381,6 +384,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.clear_repositories_db()
         return UpdateStatus.SUCCESS
 
+    # return UpdateStatus.SUCCESS if self.state.existing_repo else UpdateStatus.FAILURE
     @log_on_start(
         INFO,
         "Checking if local repositories are clean...",
@@ -391,33 +395,78 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # check if the auth repo is clean first
             if self.state.existing_repo:
                 auth_repo = AuthenticationRepository(path=self.auth_path)
-                if auth_repo.something_to_commit():
-                    raise RepositoryNotCleanError(auth_repo.name)
-                if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
-                    raise UnpushedCommitsError(
-                        auth_repo.name,
-                        auth_repo.default_branch,
+                if auth_repo.is_bare_repository:
+                    taf_logger.info(
+                        f"Skipping clean check for bare repository {auth_repo.name}"
                     )
+                    return UpdateStatus.SUCCESS
+                else:
+                    if auth_repo.something_to_commit():
+                        if self.force:
+                            taf_logger.info(
+                                f"Resetting repository {auth_repo.name} to clean state for a forced update."
+                            )
+                            auth_repo.clean_and_reset()
+                        else:
+                            taf_logger.error(
+                                f"Respository {auth_repo.name} not clean. You can run a forced update with --force."
+                            )
+                            raise RepositoryNotCleanError(auth_repo.name)
+                    if auth_repo.is_branch_with_unpushed_commits(
+                        auth_repo.default_branch
+                    ):
+                        if self.force:
+                            taf_logger.info(
+                                f"Resetting repository {auth_repo.name} to clean state for a forced update."
+                            )
+                            auth_repo.clean_and_reset()
+                            last_remote_commit = auth_repo.get_last_remote_commit(
+                                auth_repo.urls[0]
+                            )
+                            if last_remote_commit:
+                                auth_repo.reset_to_commit(last_remote_commit, hard=True)
+                        else:
+                            raise UnpushedCommitsError(
+                                auth_repo.name, auth_repo.default_branch
+                            )
+
                 # check target repositories which are on disk
                 for repository in self.state.repos_on_disk.values():
-                    if repository.something_to_commit():
-                        raise RepositoryNotCleanError(repository.name)
+                    if repository.is_bare_repository:
+                        taf_logger.info(
+                            f"Skipping clean check for bare repository {repository.name}"
+                        )
+                    else:
+                        if repository.something_to_commit():
+                            if self.force:
+                                taf_logger.info(
+                                    f"Resetting repository {auth_repo.name} to clean state for a forced update."
+                                )
+                                repository.clean_and_reset()
+                            else:
+                                raise RepositoryNotCleanError(repository.name)
 
-                    # read the branch from the most recent target files (before the update)
-                    # and check if it contains unpushed commits
-                    # after the update, check if there are unpushed commits on any of the
-                    # other branches
-                    target = auth_repo.get_target(repository.name)
-                    if not target or "branch" not in target:
-                        continue
-                    branch = target["branch"]
-                    if repository.is_branch_with_unpushed_commits(branch):
-                        raise UnpushedCommitsError(repository.name, branch)
+                        # read the branch from the most recent target files (before the update)
+                        # and check if it contains unpushed commits
+                        # after the update, check if there are unpushed commits on any of the
+                        # other branches
+                        target = auth_repo.get_target(repository.name)
+                        if not target or "branch" not in target:
+                            continue
+                        branch = target["branch"]
+                        if repository.is_branch_with_unpushed_commits(branch):
+                            if self.force:
+                                taf_logger.info(
+                                    f"Resetting repository {auth_repo.name} to clean state for a forced update."
+                                )
+                                repository.clean_and_reset()
+                            else:
+                                raise UnpushedCommitsError(repository.name, branch)
+            return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-        return UpdateStatus.SUCCESS
 
     @log_on_start(
         INFO, "Cloning repository and running TUF updater...", logger=taf_logger
@@ -435,7 +484,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.operation = OperationType.UPDATE
             else:
                 self.operation = OperationType.CLONE
-
         # set last validated commit before running the updater
         # this last validated commit is read from the settings
         if self.operation == OperationType.CLONE:
@@ -465,7 +513,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
             auth_repo_name = None
             git_updater = None
-
             if self.auth_path:
                 auth_repo_name = GitRepository(path=self.auth_path).name
                 self.state.auth_repo_name = auth_repo_name
@@ -473,7 +520,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
-
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit, error = _run_tuf_updater(
                 git_updater, auth_repo_name
@@ -492,21 +538,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                 else:
                     self.state.auth_repo_name = auth_repo_name
-
             self.state.users_auth_repo = AuthenticationRepository(
-                self.library_dir,
-                self.state.auth_repo_name,
+                library_dir=self.library_dir,
+                name=self.state.auth_repo_name,
                 urls=[self.url],
             )
-
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
             self._validate_operation_type()
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
-
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(settings.last_validated_commit)
-
             # used for testing purposes
             if settings.overwrite_last_validated_commit:
                 self.state.last_validated_commit = settings.last_validated_commit
@@ -514,7 +556,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
                 )
-
             if error is None:
                 self.state.auth_commits_since_last_validated = list(git_updater.commits)
                 taf_logger.info(
@@ -644,7 +685,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if self.state.existing_repo:
                 self.state.users_auth_repo.fetch(fetch_all=True)
             else:
-                self.state.users_auth_repo.clone()
+                self.state.users_auth_repo.clone(bare=self.bare)
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -728,7 +769,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                     self.state.repos_on_disk[users_repo.name] = users_repo
                 else:
-                    temp_repo.clone(bare=True)
+                    temp_repo.clone(bare=self.bare)
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
 
             with ThreadPoolExecutor() as executor:
@@ -787,70 +828,88 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         if repository.name in self.state.repos_not_on_disk:
                             is_initial_state_in_sync = False
                             break
-                        current_branch = last_validated_repository_commits_data.get(
-                            "branch", repository.default_branch
-                        )
-                        last_validated_commit = last_validated_repository_commits_data[
-                            "commit"
-                        ]
-
-                        branch_exists = repository.branch_exists(
-                            current_branch, include_remotes=False
-                        )
-                        if not branch_exists:
+                        if not self._is_repository_in_sync(
+                            repository, last_validated_repository_commits_data
+                        ):
                             is_initial_state_in_sync = False
                             break
-                        top_commit_of_branch = repository.top_commit_of_branch(
-                            current_branch
-                        )
-                        if top_commit_of_branch != last_validated_commit:
-                            # check if top commit is newer (which is fine, it will be validated)
-                            # or older, meaning that the authentication repository contains
-                            # additional commits, so it would be necessary to find older auth repo
-                            # commit and start the validation from there
-                            if (
-                                current_branch
-                                not in repository.branches_containing_commit(
-                                    last_validated_commit
-                                )
-                            ):
-                                is_initial_state_in_sync = False
-                                break
-
-                        self.state.old_heads_per_target_repos_branches[repository.name][
-                            current_branch
-                        ] = last_validated_commit
 
             if not is_initial_state_in_sync:
                 taf_logger.info(
                     f"Repository {self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning"
                 )
-                self.state.last_validated_commit = None
-                self.state.auth_commits_since_last_validated = (
-                    self.state.users_auth_repo.all_commits_on_branch(
-                        self.state.users_auth_repo.default_branch
-                    )
-                )
-                self.state.targets_data_by_auth_commits = (
-                    self.state.users_auth_repo.targets_data_by_auth_commits(
-                        self.state.auth_commits_since_last_validated
-                    )
-                )
-                # start validation from the beginning, so also removed
-                # information about the top commits of user's repositories
-                for repository in self.state.temp_target_repositories.values():
-                    for branch in self.state.old_heads_per_target_repos_branches[
-                        repository.name
-                    ]:
-                        self.state.old_heads_per_target_repos_branches[repository.name][
-                            branch
-                        ] = None
+                self._update_state_for_initial_sync()
+                self.reset_target_repositories()
 
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def _is_repository_in_sync(self, repository, last_validated_commit_data):
+        current_branch = last_validated_commit_data.get(
+            "branch", repository.default_branch
+        )
+        last_validated_commit = last_validated_commit_data["commit"]
+
+        if repository.is_bare_repository:
+            try:
+                top_commit_of_branch = repository.top_commit_of_remote_branch(
+                    current_branch
+                )
+            except GitError:
+                # Check if the user's local repository has the branch
+                if current_branch in repository.branches:
+                    repository.create_branch(current_branch)
+                    # Create the branch in the temp repository
+                    top_commit_of_branch = repository.top_commit_of_branch(
+                        current_branch
+                    )
+                else:
+                    return False
+        else:
+            if not repository.branch_exists(current_branch, include_remotes=False):
+                return False
+            top_commit_of_branch = repository.top_commit_of_branch(current_branch)
+
+        if top_commit_of_branch != last_validated_commit:
+            # check if top commit is newer (which is fine, it will be validated)
+            # or older, meaning that the authentication repository contains
+            # additional commits, so it would be necessary to find older auth repo
+            # commit and start the validation from there
+            if current_branch not in repository.branches_containing_commit(
+                last_validated_commit
+            ):
+                return False
+            self.state.old_heads_per_target_repos_branches[repository.name][
+                current_branch
+            ] = last_validated_commit
+
+        return True
+
+    def reset_target_repositories(self):
+        for repository in self.state.users_target_repositories.values():
+            # Reset information about the top commits of user's repositories
+            for branch in self.state.old_heads_per_target_repos_branches[
+                repository.name
+            ]:
+                self.state.old_heads_per_target_repos_branches[repository.name][
+                    branch
+                ] = None
+
+    def _update_state_for_initial_sync(self):
+        self.state.last_validated_commit = None
+        self.state.auth_commits_since_last_validated = (
+            self.state.users_auth_repo.all_commits_on_branch(
+                self.state.users_auth_repo.default_branch
+            )
+        )
+        self.state.targets_data_by_auth_commits = (
+            self.state.users_auth_repo.targets_data_by_auth_commits(
+                self.state.auth_commits_since_last_validated
+            )
+        )
 
     def get_targets_data_from_auth_repo(self):
         repo_branches = {}
@@ -956,19 +1015,30 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @log_on_start(
         DEBUG,
-        "Checking if target repositories contain unpushed commits...",
+        "Checking if target repositories are clean...",
         logger=taf_logger,
     )
     def check_if_local_target_repositories_clean(self):
         try:
             for repository in self.state.repos_on_disk.values():
-                if repository.something_to_commit():
-                    raise RepositoryNotCleanError(repository.name)
-                for branch in self.state.target_branches_data_from_auth_repo[
-                    repository.name
-                ]:
-                    if repository.is_branch_with_unpushed_commits(branch):
-                        raise UnpushedCommitsError(repository.name, branch)
+                if repository.is_bare_repository:
+                    # For bare repositories, ensure they are valid
+                    if not repository.is_git_repository:
+                        raise InvalidRepositoryError(
+                            f"{repository.name} is not a valid git repository."
+                        )
+                    taf_logger.debug(
+                        f"Repo {repository.name} is a bare repository and is valid."
+                    )
+                else:
+                    # For non-bare repositories, check for uncommitted changes and unpushed commits
+                    if repository.something_to_commit():
+                        raise RepositoryNotCleanError(repository.name)
+                    for branch in self.state.target_branches_data_from_auth_repo[
+                        repository.name
+                    ]:
+                        if repository.is_branch_with_unpushed_commits(branch):
+                            raise UnpushedCommitsError(repository.name, branch)
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -1204,9 +1274,10 @@ but commit not on branch {current_branch}"
                 ]
                 temp_target_repo = self.state.temp_target_repositories[repository_name]
                 users_target_repo.clone_from_disk(
-                    temp_target_repo.path, temp_target_repo.get_remote_url()
+                    temp_target_repo.path,
+                    temp_target_repo.get_remote_url(),
+                    is_bare=self.bare,
                 )
-
             for repo_name in self.state.repos_on_disk:
                 users_target_repo = self.state.users_target_repositories[repo_name]
                 temp_target_repo = self.state.temp_target_repositories[repo_name]
@@ -1261,7 +1332,7 @@ but commit not on branch {current_branch}"
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
                     _merge_commit(
-                        repository, branch, commit_to_merge, force_revert=True
+                        repository, branch, commit_to_merge, force_revert=self.force
                     )
             return self.state.update_status
         except Exception as e:
@@ -1472,7 +1543,6 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         current_targets = git_fetcher.get_current_targets()
         for target_path in current_targets:
             target_filepath = target_path.replace("\\", "/")
-
             targetinfo = updater.get_targetinfo(target_filepath)
             target_data = git_fetcher.get_current_target_data(target_filepath, raw=True)
             targetinfo.verify_length_and_hashes(target_data)
@@ -1565,6 +1635,9 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     """Merge the specified commit into the given branch and check out the branch.
     If the repository cannot contain unauthenticated commits, check out the merged commit.
     """
+    if repository.is_bare_repository:
+        repository.update_ref_for_bare_repository(branch, commit_to_merge)
+        return
 
     try:
         repository.checkout_branch(branch, raise_anyway=True)
@@ -1586,9 +1659,11 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
 
     if repository.top_commit_of_branch(branch) == commit_to_merge:
         return
+
     commits_since_to_merge = repository.all_commits_since_commit(
         commit_to_merge, branch=branch
     )
+
     if not len(commits_since_to_merge):
         taf_logger.info(
             "{} Merging commit {} into branch {}",
