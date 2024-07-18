@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Added functionality for parallel execution of child repo during clone and update for performance enhancement [474]
+- Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
 - Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
 - New flag --force allowing forced updates ([471])
 - Improved usability (TAF finds the repo if current directory has no repo, create a .taf directory to manage keys) ([466])
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Added --bare tags for repository cloning and updating ([459])
 - Added workflow to build standalone executable of TAF ([447])
 
+
 ### Changed
 
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
@@ -31,8 +32,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-[474]: https://github.com/openlawlibrary/taf/pull/474
 [473]: https://github.com/openlawlibrary/taf/pull/473
+[472]: https://github.com/openlawlibrary/taf/pull/472
 [471]: https://github.com/openlawlibrary/taf/pull/471
 [469]: https://github.com/openlawlibrary/taf/pull/469
 [466]: https://github.com/openlawlibrary/taf/pull/466
