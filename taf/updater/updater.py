@@ -347,7 +347,6 @@ def _update_or_clone_repository(config: RepositoryConfig):
         if error:
             raise error
     except Exception as e:
-        print(e)
         root_error = UpdateFailedError(
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
         )
