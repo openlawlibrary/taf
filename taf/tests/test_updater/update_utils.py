@@ -126,11 +126,25 @@ def update_full_library(
 
     origin_root_repo = library_dict["root/auth"]["auth_repo"]
 
+    # Clone the repository first
     clone_repositories(
         origin_root_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
     )
+
+    # Update the repository to reflect changes in client repositories
+    config = RepositoryConfig(
+        operation=OperationType.UPDATE,
+        url=str(origin_root_repo.path),
+        update_from_filesystem=True,
+        path=str(client_dir / origin_root_repo.name),
+        library_dir=str(client_dir),
+        expected_repo_type=expected_repo_type,
+        excluded_target_globs=excluded_target_globs,
+    )
+
+    update_repository(config)
 
     repositories = {}
     for auth_repo_name, repos in library_dict.items():
@@ -290,7 +304,7 @@ def update_invalid_repos_and_check_if_repos_exist(
     _update_expect_error()
 
     if not expect_partial_update:
-        # the client repositories should not exits
+        # the client repositories should not exist
         for client_repository in client_repos.values():
             if client_repository.path in repositories_which_existed_paths:
                 assert client_repository.path.exists()

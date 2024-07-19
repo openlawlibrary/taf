@@ -1,3 +1,4 @@
+# test_update_library.py
 import pytest
 from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
@@ -52,6 +53,7 @@ def test_update_with_invalid_dependency_repo(
     )
     setup_manager.execute_tasks()
 
+    # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN):
         update_full_library(
             library_with_dependencies,
@@ -106,6 +108,7 @@ def test_update_invalid_target_repo(
     )
     setup_manager.execute_tasks()
 
+    # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=CANNOT_CLONE_TARGET_PATTERN):
         update_full_library(
             library_with_dependencies,
@@ -160,7 +163,7 @@ def test_update_all_except_invalid(
     )
     setup_manager.execute_tasks()
 
-    # Try to update the library and expect an UpdateFailedError for the invalid repository
+    # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=CANNOT_CLONE_TARGET_PATTERN):
         update_full_library(
             library_with_dependencies,
@@ -170,6 +173,7 @@ def test_update_all_except_invalid(
             excluded_target_globs=None,
         )
 
+    # Verify that the valid repositories were updated successfully
     for auth_repo_name, repo_info in library_with_dependencies.items():
         auth_repo = repo_info["auth_repo"]
         for target_repo in repo_info["target_repos"]:
