@@ -667,3 +667,20 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         auth_repo.set_last_validated_commit(last_valid_commit)
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
+
+
+def invalidate_target_repo(library_with_dependencies, namespace, target_name):
+    """
+    Invalidate the given target repository by introducing errors in its structure.
+    """
+    target_repo = next(
+        repo
+        for repo in library_with_dependencies[namespace]["target_repos"]
+        if repo.name == target_name
+    )
+
+    # Remove the .git directory to invalidate the repository
+    git_dir = target_repo.path / ".git"
+    if git_dir.exists():
+        shutil.rmtree(git_dir, ignore_errors=True)
+    print(f"Invalidated target repo {target_name} by removing .git directory")

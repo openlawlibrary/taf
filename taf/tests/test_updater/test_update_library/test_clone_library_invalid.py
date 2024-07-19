@@ -6,10 +6,10 @@ from taf.tests.test_updater.conftest import (
     INVALID_TIMESTAMP_PATTERN,
     SetupManager,
     update_role_metadata_invalid_signature,
+    invalidate_target_repo,
 )
 from taf.updater.types.update import OperationType, UpdateType
 from taf.tests.test_updater.update_utils import (
-    invalidate_target_repo,
     update_and_check_commit_shas,
     check_if_commits_match,
     update_full_library,
