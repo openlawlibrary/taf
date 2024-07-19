@@ -104,7 +104,7 @@ def clone_client_target_repos_without_updater(origin_auth_repo, client_dir):
         assert client_repo.path.is_dir()
 
 
-def _clone_full_library(
+def update_full_library(
     library_dict,
     origin_dir,
     client_dir,
