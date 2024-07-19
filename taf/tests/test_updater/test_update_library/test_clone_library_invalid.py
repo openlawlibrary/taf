@@ -1,6 +1,8 @@
 import pytest
 from taf.exceptions import UpdateFailedError
 from taf.tests.test_updater.conftest import (
+    CANNOT_CLONE_TARGET_PATTERN,
+    INVALID_TIMESTAMP_PATTERN,
     SetupManager,
     update_role_metadata_invalid_signature,
 )
@@ -9,48 +11,8 @@ from taf.tests.test_updater.update_utils import (
     _clone_full_library,
     invalidate_target_repo,
     update_and_check_commit_shas,
+    check_if_commits_match,
 )
-
-
-@pytest.mark.parametrize(
-    "library_with_dependencies",
-    [
-        {
-            "targets_config": [{"name": "target1"}, {"name": "target2"}],
-            "dependencies_config": [
-                {
-                    "name": "namespace1/auth",
-                    "targets_config": [
-                        {"name": "namespace1/target1"},
-                        {"name": "namespace1/target2"},
-                    ],
-                },
-                {
-                    "name": "namespace2/auth",
-                    "targets_config": [
-                        {"name": "namespace2/target1"},
-                        {"name": "namespace2/target2"},
-                    ],
-                },
-                # Add additional dependencies as needed
-            ],
-        },
-    ],
-    indirect=True,
-)
-def test_update_repository_with_dependencies(
-    library_with_dependencies,
-    origin_dir,
-    client_dir,
-):
-    _clone_full_library(
-        library_with_dependencies,
-        origin_dir,
-        client_dir,
-        expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=None,
-    )
-
 
 @pytest.mark.parametrize(
     "library_with_dependencies",
@@ -81,7 +43,6 @@ def test_update_repository_with_dependencies(
 def test_update_with_invalid_dependency_repo(
     library_with_dependencies, origin_dir, client_dir
 ):
-
     # Invalidate one of the authentication repositories in dependencies
     dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
@@ -90,14 +51,15 @@ def test_update_with_invalid_dependency_repo(
     )
     setup_manager.execute_tasks()
 
-    with pytest.raises(UpdateFailedError, match=".*"):
+
+    with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN):
         _clone_full_library(
             library_with_dependencies,
             origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
-        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -132,19 +94,21 @@ def test_update_invalid_target_repo(
     client_dir,
 ):
     # Invalidate one of the target repositories
-    invalidate_target_repo(
-        library_with_dependencies, "namespace1/auth", "namespace1/target1"
+    auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
+    setup_manager = SetupManager(auth_repo)
+    setup_manager.add_task(
+        invalidate_target_repo, kwargs={"library_with_dependencies": library_with_dependencies, "namespace": "namespace1/auth", "target_name": "namespace1/target1"}
     )
+    setup_manager.execute_tasks()
 
-    with pytest.raises(UpdateFailedError, match=".*"):
+    with pytest.raises(UpdateFailedError, match=CANNOT_CLONE_TARGET_PATTERN):
         _clone_full_library(
             library_with_dependencies,
             origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
-        )
-
+    )
 
 @pytest.mark.parametrize(
     "library_with_dependencies",
@@ -177,14 +141,16 @@ def test_update_all_except_invalid(
     origin_dir,
     client_dir,
 ):
-
     # Invalidate one of the target repositories of a referenced authentication repository
-    invalidate_target_repo(
-        library_with_dependencies, "namespace1/auth", "namespace1/target1"
+    auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
+    setup_manager = SetupManager(auth_repo)
+    setup_manager.add_task(
+        invalidate_target_repo, kwargs={"library_with_dependencies": library_with_dependencies, "namespace": "namespace1/auth", "target_name": "namespace1/target1"}
     )
+    setup_manager.execute_tasks()
 
     # Try to update the library and expect an UpdateFailedError for the invalid repository
-    with pytest.raises(UpdateFailedError, match=".*"):
+    with pytest.raises(UpdateFailedError, match=CANNOT_CLONE_TARGET_PATTERN):
         _clone_full_library(
             library_with_dependencies,
             origin_dir,
@@ -202,6 +168,11 @@ def test_update_all_except_invalid(
                         OperationType.UPDATE,
                         auth_repo,
                         client_dir,
+                    )
+                    # Verify that the commit SHAs are the same
+                    check_if_commits_match(
+                        {auth_repo_name: auth_repo, target_repo.name: target_repo},
+                        origin_dir,
                     )
                 except UpdateFailedError as e:
                     print(f"Failed to update repository {target_repo.name}: {e}")

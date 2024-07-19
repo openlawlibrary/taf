@@ -31,19 +31,19 @@ def library_with_dependencies(origin_dir, request):
     initial_commits = {}
 
     for dep in dependencies_config:
-        namespace = dep["name"]
+        dependency_name = dep["name"]
         targets_config = [
             RepositoryConfig(target["name"]) for target in dep.get("targets_config", [])
         ]
         auth_repo = setup_repository_all_files_initially(
-            origin_dir, namespace, targets_config, False
+            origin_dir, dependency_name, targets_config, False
         )
         target_repos = load_target_repositories(auth_repo).values()
         library[auth_repo.name] = {
             "auth_repo": auth_repo,
             "target_repos": list(target_repos),
         }
-        initial_commits[namespace] = auth_repo.get_first_commit_on_branch(
+        initial_commits[dependency_name] = auth_repo.get_first_commit_on_branch(
             auth_repo.default_branch
         )
 
