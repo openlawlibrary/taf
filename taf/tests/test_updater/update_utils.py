@@ -1,3 +1,4 @@
+import shutil
 import pytest
 from freezegun import freeze_time
 from collections import defaultdict
@@ -101,6 +102,45 @@ def clone_client_target_repos_without_updater(origin_auth_repo, client_dir):
         )
         client_repo.clone()
         assert client_repo.path.is_dir()
+
+
+def _clone_full_library(
+    library_dict,
+    origin_dir,
+    client_dir,
+    expected_repo_type=UpdateType.EITHER,
+    excluded_target_globs=None,
+):
+
+    all_repositories = []
+    for repo_info in library_dict.values():
+        # Add the auth repository
+        all_repositories.append(repo_info["auth_repo"])
+        # Extend the list with all target repositories
+        all_repositories.extend(repo_info["target_repos"])
+
+    start_head_shas = defaultdict(dict)
+    for repo in all_repositories:
+        for branch in repo.branches():
+            start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
+
+    origin_root_repo = library_dict["root/auth"]["auth_repo"]
+
+    clone_repositories(
+        origin_root_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+
+    repositories = {}
+    for auth_repo_name, repos in library_dict.items():
+        repositories[auth_repo_name] = repos["auth_repo"]
+        for target_repo in repos["target_repos"]:
+            repositories[target_repo.name] = target_repo
+        check_last_validated_commit(client_dir / repos["auth_repo"].name)
+    check_if_commits_match(
+        repositories, origin_dir, start_head_shas, excluded_target_globs
+    )
 
 
 def _get_valid_update_time(origin_auth_repo_path):
@@ -256,3 +296,31 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def invalidate_auth_repo(auth_repo):
+    print(f"Invalidating auth repository: {auth_repo.name}")
+
+    # Corrupt the metadata file
+    root_json_path = auth_repo.path / "metadata" / "root.json"
+    if root_json_path.exists():
+        with open(root_json_path, "w") as f:
+            f.write("corrupted content")
+        print(f"Corrupted root.json at {root_json_path}")
+
+
+def invalidate_target_repo(library_with_dependencies, namespace, target_name):
+    """
+    Invalidate the given target repository by introducing errors in its structure.
+    """
+    target_repo = next(
+        repo
+        for repo in library_with_dependencies[namespace]["target_repos"]
+        if repo.name == target_name
+    )
+
+    # Remove the .git directory to invalidate the repository
+    git_dir = target_repo.path / ".git"
+    if git_dir.exists():
+        shutil.rmtree(git_dir, ignore_errors=True)
+    print(f"Invalidated target repo {target_name} by removing .git directory")
