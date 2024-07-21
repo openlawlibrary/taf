@@ -1,18 +1,5 @@
 import click
-import taf.tools.dependencies as dependencies_cli
-import taf.tools.keystore as keystore_cli
-import taf.tools.repo as repo_cli
-import taf.tools.targets as targets_cli
-import taf.tools.metadata as metadata_cli
-import taf.tools.conf as conf_cli
-
-try:
-    import taf.tools.yubikey as yubikey_cli
-except ImportError:
-    yubikey_cli = None  # type: ignore
-
-
-import taf.tools.roles as roles_cli
+import importlib
 
 
 @click.group()
@@ -22,15 +9,58 @@ def taf():
     pass
 
 
-dependencies_cli.attach_to_group(taf)
-keystore_cli.attach_to_group(taf)
-conf_cli.attach_to_group(taf)
-repo_cli.attach_to_group(taf)
-targets_cli.attach_to_group(taf)
-metadata_cli.attach_to_group(taf)
-if yubikey_cli:
-    yubikey_cli.attach_to_group(taf)
-roles_cli.attach_to_group(taf)
+def lazy_load_dependencies():
+    module = importlib.import_module('taf.tools.dependencies')
+    module.attach_to_group(taf)
 
 
-taf()
+def lazy_load_keystore():
+    module = importlib.import_module('taf.tools.keystore')
+    module.attach_to_group(taf)
+
+
+def lazy_load_conf():
+    module = importlib.import_module('taf.tools.conf')
+    module.attach_to_group(taf)
+
+
+def lazy_load_repo():
+    module = importlib.import_module('taf.tools.repo')
+    module.attach_to_group(taf)
+
+
+def lazy_load_targets():
+    module = importlib.import_module('taf.tools.targets')
+    module.attach_to_group(taf)
+
+
+def lazy_load_metadata():
+    module = importlib.import_module('taf.tools.metadata')
+    module.attach_to_group(taf)
+
+
+def lazy_load_roles():
+    module = importlib.import_module('taf.tools.roles')
+    module.attach_to_group(taf)
+
+
+def lazy_load_yubikey():
+    try:
+        module = importlib.import_module('taf.tools.yubikey')
+        module.attach_to_group(taf)
+    except ImportError:
+        pass
+
+
+# Attach the lazy loaders
+lazy_load_dependencies()
+lazy_load_keystore()
+lazy_load_conf()
+lazy_load_repo()
+lazy_load_targets()
+lazy_load_metadata()
+lazy_load_roles()
+lazy_load_yubikey()
+
+if __name__ == '__main__':
+    taf()
