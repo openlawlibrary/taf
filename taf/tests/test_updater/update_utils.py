@@ -107,6 +107,7 @@ def update_full_library(
     library_dict,
     origin_dir,
     client_dir,
+    operation=OperationType.CLONE,
     expected_repo_type=UpdateType.EITHER,
     excluded_target_globs=None,
 ):
@@ -125,25 +126,26 @@ def update_full_library(
 
     origin_root_repo = library_dict["root/auth"]["auth_repo"]
 
-    # Clone the repository first
-    clone_repositories(
-        origin_root_repo,
-        client_dir,
-        expected_repo_type=expected_repo_type,
-    )
+    # Perform the requested operation (clone or update)
+    if operation == OperationType.CLONE:
+        clone_repositories(
+            origin_root_repo,
+            client_dir,
+            expected_repo_type=expected_repo_type,
+        )
+    elif operation == OperationType.UPDATE:
 
-    # Update the repository to reflect changes in client repositories
-    config = RepositoryConfig(
-        operation=OperationType.UPDATE,
-        url=str(origin_root_repo.path),
-        update_from_filesystem=True,
-        path=str(client_dir / origin_root_repo.name),
-        library_dir=str(client_dir),
-        expected_repo_type=expected_repo_type,
-        excluded_target_globs=excluded_target_globs,
-    )
+        config = RepositoryConfig(
+            operation=OperationType.UPDATE,
+            url=str(origin_root_repo.path),
+            update_from_filesystem=True,
+            path=str(client_dir / origin_root_repo.name),
+            library_dir=str(client_dir),
+            expected_repo_type=expected_repo_type,
+            excluded_target_globs=excluded_target_globs,
+        )
 
-    update_repository(config)
+        update_repository(config)
 
     repositories = {}
     for auth_repo_name, repos in library_dict.items():

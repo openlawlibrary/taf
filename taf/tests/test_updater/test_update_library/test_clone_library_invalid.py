@@ -59,6 +59,15 @@ def test_update_with_invalid_dependency_repo(
             library_with_dependencies,
             origin_dir,
             client_dir,
+            operation=OperationType.CLONE,
+            expected_repo_type=UpdateType.EITHER,
+            excluded_target_globs=None,
+        )
+        update_full_library(
+            library_with_dependencies,
+            origin_dir,
+            client_dir,
+            operation=OperationType.UPDATE,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
         )
@@ -114,6 +123,15 @@ def test_update_invalid_target_repo(
             library_with_dependencies,
             origin_dir,
             client_dir,
+            operation=OperationType.CLONE,
+            expected_repo_type=UpdateType.EITHER,
+            excluded_target_globs=None,
+        )
+        update_full_library(
+            library_with_dependencies,
+            origin_dir,
+            client_dir,
+            operation=OperationType.UPDATE,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
         )
@@ -169,6 +187,15 @@ def test_update_all_except_invalid(
             library_with_dependencies,
             origin_dir,
             client_dir,
+            operation=OperationType.CLONE,
+            expected_repo_type=UpdateType.EITHER,
+            excluded_target_globs=None,
+        )
+        update_full_library(
+            library_with_dependencies,
+            origin_dir,
+            client_dir,
+            operation=OperationType.UPDATE,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
         )
