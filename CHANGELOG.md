@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added lazy loading to CLi [481]
 - Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
 - Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
 - New flag --force allowing forced updates ([471])
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[481]: https://github.com/openlawlibrary/taf/pull/481
 [473]: https://github.com/openlawlibrary/taf/pull/473
 [472]: https://github.com/openlawlibrary/taf/pull/472
 [471]: https://github.com/openlawlibrary/taf/pull/471
