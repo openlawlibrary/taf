@@ -1,9 +1,9 @@
 import pytest
+from taf.tests.test_updater.conftest import SetupManager, add_valid_target_commits
 from taf.updater.types.update import OperationType, UpdateType
 from taf.tests.test_updater.update_utils import (
-    update_full_library,
+    update_full_library
 )
-
 
 @pytest.mark.parametrize(
     "library_with_dependencies",
@@ -31,7 +31,7 @@ from taf.tests.test_updater.update_utils import (
     ],
     indirect=True,
 )
-def test_clone_repository_with_dependencies(
+def test_update_repository_with_dependencies(
     library_with_dependencies,
     client_dir,
 ):
@@ -42,3 +42,15 @@ def test_clone_repository_with_dependencies(
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
     )
+    auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
+    setup_manager = SetupManager(auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+    update_full_library(
+        library_with_dependencies,
+        client_dir,
+        operation=OperationType.UPDATE,
+        expected_repo_type=UpdateType.EITHER,
+        excluded_target_globs=None,
+    )
+

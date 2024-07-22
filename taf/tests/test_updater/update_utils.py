@@ -105,7 +105,6 @@ def clone_client_target_repos_without_updater(origin_auth_repo, client_dir):
 
 def update_full_library(
     library_dict,
-    origin_dir,
     client_dir,
     operation=OperationType.CLONE,
     expected_repo_type=UpdateType.EITHER,
@@ -119,11 +118,6 @@ def update_full_library(
         # Extend the list with all target repositories
         all_repositories.extend(repo_info["target_repos"])
 
-    start_head_shas = defaultdict(dict)
-    for repo in all_repositories:
-        for branch in repo.branches():
-            start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
-
     origin_root_repo = library_dict["root/auth"]["auth_repo"]
 
     # Perform the requested operation (clone or update)
@@ -132,30 +126,15 @@ def update_full_library(
             origin_root_repo,
             client_dir,
             expected_repo_type=expected_repo_type,
-        )
-    elif operation == OperationType.UPDATE:
-
-        config = RepositoryConfig(
-            operation=OperationType.UPDATE,
-            url=str(origin_root_repo.path),
-            update_from_filesystem=True,
-            path=str(client_dir / origin_root_repo.name),
-            library_dir=str(client_dir),
-            expected_repo_type=expected_repo_type,
             excluded_target_globs=excluded_target_globs,
         )
-
-        update_repository(config)
-
-    repositories = {}
-    for auth_repo_name, repos in library_dict.items():
-        repositories[auth_repo_name] = repos["auth_repo"]
-        for target_repo in repos["target_repos"]:
-            repositories[target_repo.name] = target_repo
-        check_last_validated_commit(client_dir / repos["auth_repo"].name)
-    check_if_commits_match(
-        repositories, origin_dir, start_head_shas, excluded_target_globs
-    )
+    elif operation == OperationType.UPDATE:
+        update_and_check_commit_shas(
+            operation,
+            origin_root_repo,
+            client_dir,
+            excluded_target_globs=excluded_target_globs,
+        )
 
 
 def _get_valid_update_time(origin_auth_repo_path):
@@ -311,3 +290,48 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def validate_updated_repositories(
+    library_with_dependencies,
+    origin_dir,
+    client_dir,
+    valid_target_name,
+    invalid_target_name,
+):
+
+    all_repositories = []
+    for repo_info in library_with_dependencies.values():
+        all_repositories.append(repo_info["auth_repo"])
+        all_repositories.extend(repo_info["target_repos"])
+
+    start_head_shas = defaultdict(dict)
+    for repo in all_repositories:
+        for branch in repo.branches():
+            start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
+
+    try:
+        update_full_library(
+            library_with_dependencies,
+            client_dir,
+            operation=OperationType.UPDATE,
+            expected_repo_type=UpdateType.EITHER,
+            excluded_target_globs=None,
+        )
+    except UpdateFailedError as e:
+        return e
+
+    for auth_repo_name, repo_info in library_with_dependencies.items():
+        auth_repo = repo_info["auth_repo"]
+        for target_repo in repo_info["target_repos"]:
+            if target_repo.name == valid_target_name:
+                check_if_commits_match(
+                    {auth_repo_name: auth_repo, target_repo.name: target_repo},
+                    origin_dir,
+                    start_head_shas,
+                )
+            elif target_repo.name == invalid_target_name:
+                for branch in start_head_shas[target_repo.name]:
+                    assert start_head_shas[target_repo.name][
+                        branch
+                    ] == target_repo.top_commit_of_branch(branch)
