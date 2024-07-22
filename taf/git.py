@@ -22,14 +22,27 @@ from taf.exceptions import (
     GitError,
     UpdateFailedError,
 )
-from taf.log import taf_logger
 from taf.utils import run
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
+from loguru import logger as taf_logger
+from taf.log import configure_logging
+from taf.congif import verbosity_level
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-
+# JMC: Verbosity
+def log_decorator(level):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            if verbosity_level >= level:
+                taf_logger.log(level, f"Started {func.__name__} for {self.name}")
+            result = func(self, *args, **kwargs)
+            if verbosity_level >= level:
+                taf_logger.log(level, f"Finished {func.__name__} for {self.name}")
+            return result
+        return wrapper
+    return decorator
 class GitRepository:
     def __init__(
         self,
@@ -59,6 +72,7 @@ class GitRepository:
           the containing directory is owned by a different user to be ignored
           alias: Repository's alias, which will be used in logging statements to reference it
         """
+        self.verbosity_level = verbosity_level
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
         if isinstance(path, str):
@@ -105,7 +119,7 @@ class GitRepository:
 
     @property
     def pygit(self):
-        if self._pygit is None:
+        if self._pygit is None: # we don't know why this is "none"
             try:
                 self._pygit = PyGitRepository(self)
             except Exception:
@@ -331,7 +345,11 @@ class GitRepository:
         self._log(self.logging_functions[logging.WARNING], message)
 
     def _log_error(self, message: str) -> None:
-        self._log(self.logging_functions[logging.ERROR], message)
+        if verbosity_level >=2:
+            taf_logger.error(message)
+        else:
+            taf_logger.warning(message)
+        #self._log(self.logging_functions[logging.ERROR], message)
 
     def _log_critical(self, message: str) -> None:
         self._log(self.logging_functions[logging.CRITICAL], message)

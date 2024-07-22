@@ -9,8 +9,8 @@ import tuf.log
 import tuf.repository_tool
 import tuf.exceptions
 from loguru import logger as taf_logger
-
 import taf.settings as settings
+from taf.congif import verbosity_level
 
 _CONSOLE_FORMAT_STRING = "\n{message}\n"
 _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message}\n"
@@ -18,6 +18,16 @@ _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message
 console_loggers: Dict = {}
 file_loggers: Dict = {}
 
+# JMC: Verbosity
+def configure_logging(verbosity):
+    if verbosity == 1:
+        logging_lvl = logging.WARNING
+    elif verbosity == 2:
+        logging_lvl = logging.INFO
+    else:
+        logging_lvl = logging.DEBUG
+    taf_logger.remove()
+    taf_logger.add(sys.stdout, level=logging_lvl)
 
 def disable_console_logging():
     try:
