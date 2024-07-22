@@ -306,13 +306,10 @@ def status_command():
 
 
 def attach_to_group(group):
-    repo = click.Group(name='repo')
 
-    repo.add_command(create_repo_command(), name='create')
-    repo.add_command(clone_repo_command(), name='clone')
-    repo.add_command(update_repo_command(), name='update')
-    repo.add_command(validate_repo_command(), name='validate')
-    repo.add_command(latest_commit_command(), name='latest-commit')
-    repo.add_command(status_command(), name='status')
-
-    group.add_command(repo)
+    group.add_command(create_repo_command(), name='create')
+    group.add_command(clone_repo_command(), name='clone')
+    group.add_command(update_repo_command(), name='update')
+    group.add_command(validate_repo_command(), name='validate')
+    group.add_command(latest_commit_command(), name='latest-commit')
+    group.add_command(status_command(), name='status')

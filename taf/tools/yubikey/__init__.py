@@ -76,13 +76,10 @@ def setup_test_key_command():
 
 
 def attach_to_group(group):
-    yubikey_group = click.Group(name='yubikey')
 
-    yubikey_group.add_command(check_pin_command(), name='check-pin')
-    yubikey_group.add_command(export_pub_key_command(), name='export-pub-key')
-    yubikey_group.add_command(get_roles_command(), name='get-roles')
-    yubikey_group.add_command(export_certificate_command(), name='export-certificate')
-    yubikey_group.add_command(setup_signing_key_command(), name='setup-signing-key')
-    yubikey_group.add_command(setup_test_key_command(), name='setup-test-key')
-
-    group.add_command(yubikey_group)
+    group.add_command(check_pin_command(), name='check-pin')
+    group.add_command(export_pub_key_command(), name='export-pub-key')
+    group.add_command(get_roles_command(), name='get-roles')
+    group.add_command(export_certificate_command(), name='export-certificate')
+    group.add_command(setup_signing_key_command(), name='setup-signing-key')
+    group.add_command(setup_test_key_command(), name='setup-test-key')

@@ -40,9 +40,7 @@ def generate_keys_command():
 
 
 def attach_to_group(group):
-    keystore_group = click.Group(name='keystore')
-    keystore_group.add_command(generate_keys_command(), name='generate')
-    group.add_command(keystore_group)
+    group.add_command(generate_keys_command(), name='generate')
 
 
 @click.group()
