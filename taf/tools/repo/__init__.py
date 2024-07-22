@@ -1,10 +1,5 @@
-import sys
-
 import click
 import json
-import argparse
-from loguru import logger as taf_logger
-import logging
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -12,22 +7,7 @@ from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
-from taf.congif import set_verbosity_level
 
-# JMC: Verbosity
-def parse_args():
-    parser = argparse.ArgumentParser(description="TAF Repository Updater")
-    parser.add_argument('-v', '-vv', action='count', default=1, help="Increase verbosity level for output information")
-def configure_logging(verbosity_level):
-    if verbosity_level == 1:
-        logging_level = logging.WARNING
-    elif verbosity_level == 2:
-        logging_level = logging.INFO
-    else:
-        logging_level = logging.DEBUG
-
-    taf_logger.remove()
-    taf_logger.add(sys.stdout, level=logging_level)
 
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
@@ -230,14 +210,11 @@ def update_repo_command():
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
+    # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
+    # JMC: Addition of --no-upstream
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    @click.option("-v", "--verbosity", count=True, help="Increase output verbosity of logging messages")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream, verbosity):
-        verbosity_level = verbosity or 1
-        set_verbosity_level(verbosity_level)
-        configure_logging(verbosity_level)
-
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream):
         path = find_valid_repository(path)
         if profile:
             start_profiling()
@@ -287,7 +264,9 @@ def validate_repo_command():
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
+    # JMC: Addition of --no-targets:
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
+    # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
         path = find_valid_repository(path)

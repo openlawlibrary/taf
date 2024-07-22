@@ -660,6 +660,16 @@ class GitRepository:
             self._pygit.cleanup()
             self._pygit = None
 
+    def clean_and_reset(self):
+        """Cleans the untracked files and resets the HEAD to the latest commit."""
+        try:
+            self.clean()
+            self.reset_to_head()
+        except GitError as e:
+            raise GitError(
+                self, message=f"Failed to clean and reset the repository: {e}"
+            )
+
     def clone(
         self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs
     ) -> None:
@@ -1471,7 +1481,10 @@ class GitRepository:
             self._git("remote remove {}", remote_name)
         except GitError as e:
             if "No such remote" not in str(e):
-                raise
+                self._git("remote rename {remote_name} local")
+                self._log_warning(
+                    f"Could not remove remote {remote_name}. It was renamed to 'local'. Remove it manually"
+                )
 
     def remote_exists(self, remote_name):
         repo = self.pygit_repo

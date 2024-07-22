@@ -9,7 +9,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
 from taf.updater.types.update import OperationType, UpdateType
-from taf.updater.updater import RepositoryConfig, clone_repository, update_repository
+from taf.updater.updater import UpdateConfig, clone_repository, update_repository
 
 
 def check_last_validated_commit(clients_auth_repo_path):
@@ -70,7 +70,7 @@ def clone_repositories(
     excluded_target_globs=None,
 ):
 
-    config = RepositoryConfig(
+    config = UpdateConfig(
         operation=OperationType.CLONE,
         url=str(origin_auth_repo.path),
         update_from_filesystem=True,
@@ -148,10 +148,10 @@ def update_and_check_commit_shas(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
+    force=False,
     bare=False,
     no_upstream=False,
 ):
-
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
         repo_name: repo
@@ -165,7 +165,7 @@ def update_and_check_commit_shas(
         client_repos[clients_auth_repo.name] = clients_auth_repo
     start_head_shas = _get_head_commit_shas(client_repos)
 
-    config = RepositoryConfig(
+    config = UpdateConfig(
         operation=operation,
         url=str(origin_auth_repo.path),
         update_from_filesystem=True,
@@ -174,6 +174,7 @@ def update_and_check_commit_shas(
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
         bare=bare,
+        force=force,
         no_upstream=no_upstream,
     )
 
@@ -227,7 +228,7 @@ def update_invalid_repos_and_check_if_repos_exist(
         if client_repo.path.is_dir()
     ]
 
-    config = RepositoryConfig(
+    config = UpdateConfig(
         operation=operation,
         url=str(origin_auth_repo.path),
         update_from_filesystem=True,
