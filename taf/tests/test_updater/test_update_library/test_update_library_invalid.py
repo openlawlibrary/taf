@@ -9,9 +9,9 @@ from taf.tests.test_updater.conftest import (
     add_valid_target_commits,
     update_role_metadata_invalid_signature,
 )
-from taf.updater.types.update import OperationType, UpdateType
+from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
-    update_full_library,
+    clone_repositories,
     validate_updated_repositories,
 )
 
@@ -43,14 +43,14 @@ from taf.tests.test_updater.update_utils import (
     indirect=True,
 )
 def test_update_with_invalid_dependency_repo(
-    library_with_dependencies, client_dir
+    library_with_dependencies, origin_dir, client_dir
 ):
-    update_full_library(
-            library_with_dependencies,
-            client_dir,
-            operation=OperationType.CLONE,
-            expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
+
+    clone_repositories(
+        library_with_dependencies["root/auth"]["auth_repo"],
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+        excluded_target_globs=None,
     )
     # Invalidate one of the authentication repositories in dependencies
     dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
@@ -61,13 +61,7 @@ def test_update_with_invalid_dependency_repo(
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN):
-        update_full_library(
-            library_with_dependencies,
-            client_dir,
-            operation=OperationType.UPDATE,
-            expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
-    )
+        validate_updated_repositories(library_with_dependencies, origin_dir, client_dir)
 
 
 @pytest.mark.parametrize(
@@ -98,12 +92,12 @@ def test_update_with_invalid_dependency_repo(
 )
 def test_update_invalid_target_repo(
     library_with_dependencies,
+    origin_dir,
     client_dir,
 ):
-    update_full_library(
-        library_with_dependencies,
+    clone_repositories(
+        library_with_dependencies["root/auth"]["auth_repo"],
         client_dir,
-        operation=OperationType.CLONE,
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
     )
@@ -116,13 +110,8 @@ def test_update_invalid_target_repo(
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=TARGET_MISMATCH_PATTERN_DEPENDENCIES):
-        update_full_library(
-            library_with_dependencies,
-            client_dir,
-            operation=OperationType.UPDATE,
-            expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
-    )
+        validate_updated_repositories(library_with_dependencies, origin_dir, client_dir)
+
 
 @pytest.mark.parametrize(
     "library_with_dependencies",
@@ -155,10 +144,9 @@ def test_update_all_except_invalid(
     origin_dir,
     client_dir,
 ):
-    update_full_library(
-        library_with_dependencies,
+    clone_repositories(
+        library_with_dependencies["root/auth"]["auth_repo"],
         client_dir,
-        operation=OperationType.CLONE,
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
     )
@@ -173,17 +161,16 @@ def test_update_all_except_invalid(
 
     # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=TARGET_MISMATCH_PATTERN_DEPENDENCIES):
-        update_full_library(
-            library_with_dependencies,
-            client_dir,
-            operation=OperationType.UPDATE,
-            expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
-    )
+        validate_updated_repositories(library_with_dependencies, origin_dir, client_dir)
+
     # Push valid commits to another target repository
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    # Validate that the valid repositories were updated successfully
-    validate_updated_repositories(library_with_dependencies, origin_dir, client_dir, "namespace2/target1", "namespace1/target1")
-
+    # Validate that the valid repositories were updated successfully, skipping the invalid ones
+    validate_updated_repositories(
+        library_with_dependencies,
+        origin_dir,
+        client_dir,
+        invalid_target_names=["namespace1/target1"],
+    )

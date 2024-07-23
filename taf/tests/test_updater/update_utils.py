@@ -103,40 +103,6 @@ def clone_client_target_repos_without_updater(origin_auth_repo, client_dir):
         assert client_repo.path.is_dir()
 
 
-def update_full_library(
-    library_dict,
-    client_dir,
-    operation=OperationType.CLONE,
-    expected_repo_type=UpdateType.EITHER,
-    excluded_target_globs=None,
-):
-
-    all_repositories = []
-    for repo_info in library_dict.values():
-        # Add the auth repository
-        all_repositories.append(repo_info["auth_repo"])
-        # Extend the list with all target repositories
-        all_repositories.extend(repo_info["target_repos"])
-
-    origin_root_repo = library_dict["root/auth"]["auth_repo"]
-
-    # Perform the requested operation (clone or update)
-    if operation == OperationType.CLONE:
-        clone_repositories(
-            origin_root_repo,
-            client_dir,
-            expected_repo_type=expected_repo_type,
-            excluded_target_globs=excluded_target_globs,
-        )
-    elif operation == OperationType.UPDATE:
-        update_and_check_commit_shas(
-            operation,
-            origin_root_repo,
-            client_dir,
-            excluded_target_globs=excluded_target_globs,
-        )
-
-
 def _get_valid_update_time(origin_auth_repo_path):
     # read timestamp.json expiration date
     timestamp_path = origin_auth_repo_path / "metadata" / "timestamp.json"
@@ -296,9 +262,11 @@ def validate_updated_repositories(
     library_with_dependencies,
     origin_dir,
     client_dir,
-    valid_target_name,
-    invalid_target_name,
+    invalid_target_names=None,
+    excluded_target_globs=None,
 ):
+    if invalid_target_names is None:
+        invalid_target_names = []
 
     all_repositories = []
     for repo_info in library_with_dependencies.values():
@@ -310,28 +278,43 @@ def validate_updated_repositories(
         for branch in repo.branches():
             start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
 
+    origin_root_repo = library_with_dependencies["root/auth"]["auth_repo"]
+
     try:
-        update_full_library(
-            library_with_dependencies,
+        update_and_check_commit_shas(
+            OperationType.UPDATE,
+            origin_root_repo,
             client_dir,
-            operation=OperationType.UPDATE,
-            expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
+            excluded_target_globs=excluded_target_globs,
         )
     except UpdateFailedError as e:
-        return e
+        if any(
+            invalid_target_name in str(e)
+            for invalid_target_name in invalid_target_names
+        ):
+            pass  # Skip the repositories that are invalid
+        else:
+            raise e
+
+    def check_repository_state(repo_name):
+        repo = next(repo for repo in all_repositories if repo.name == repo_name)
+        for branch in start_head_shas[repo_name]:
+            assert start_head_shas[repo_name][branch] == repo.top_commit_of_branch(
+                branch
+            )
 
     for auth_repo_name, repo_info in library_with_dependencies.items():
         auth_repo = repo_info["auth_repo"]
         for target_repo in repo_info["target_repos"]:
-            if target_repo.name == valid_target_name:
+            if target_repo.name not in invalid_target_names:
                 check_if_commits_match(
                     {auth_repo_name: auth_repo, target_repo.name: target_repo},
                     origin_dir,
                     start_head_shas,
                 )
-            elif target_repo.name == invalid_target_name:
-                for branch in start_head_shas[target_repo.name]:
-                    assert start_head_shas[target_repo.name][
-                        branch
-                    ] == target_repo.top_commit_of_branch(branch)
+            else:
+                check_repository_state(target_repo.name)
+
+    for auth_repo_name, repo_info in library_with_dependencies.items():
+        if repo_info["auth_repo"].name in invalid_target_names:
+            check_repository_state(repo_info["auth_repo"].name)

@@ -1,7 +1,7 @@
 import pytest
-from taf.updater.types.update import OperationType, UpdateType
+from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
-    update_full_library,
+    clone_repositories,
 )
 
 
@@ -35,10 +35,9 @@ def test_clone_repository_with_dependencies(
     library_with_dependencies,
     client_dir,
 ):
-    update_full_library(
-        library_with_dependencies,
+    clone_repositories(
+        library_with_dependencies["root/auth"]["auth_repo"],
         client_dir,
-        operation=OperationType.CLONE,
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
     )
