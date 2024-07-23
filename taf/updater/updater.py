@@ -1,3 +1,4 @@
+import logging
 from logging import ERROR
 
 from typing import Dict, Tuple, Any
@@ -31,6 +32,9 @@ from cattr import unstructure
 
 disable_tuf_console_logging()
 
+# JMC: Verbosity
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 def _check_update_status(repos_update_data: Dict[str, Any]) -> Tuple[Event, str]:
     # helper function to set update status of update handler based on repo status.
@@ -307,11 +311,21 @@ def update_repository(config: RepositoryConfig):
     return _update_or_clone_repository(config)
 
 
-def _update_or_clone_repository(config: RepositoryConfig):
+def _update_or_clone_repository(config: RepositoryConfig, verbosity: int=1):
     repos_update_data: Dict = {}
     transient_data: Dict = {}
     root_error = None
     auth_repo_name = None
+
+    if verbosity == 1:
+       logger.setLevel(logging.WARNING)
+    elif verbosity == 2:
+        logger.setLevel(logging.INFO)
+    elif verbosity == 3:
+        logger.setLevel(logging.DEBUG)
+
+    if verbosity >= 1:
+        logger.info(f"{auth_repo_name}: updating...")
     try:
 
         auth_repo_name, error = _update_named_repository(
@@ -333,7 +347,6 @@ def _update_or_clone_repository(config: RepositoryConfig):
             checkout=config.checkout,
             excluded_target_globs=config.excluded_target_globs,
             bare=config.bare,
-            # JMC: pass the no_deps, no_targets, and no_upstream flags
             no_deps=config.no_deps,
             no_targets=config.no_targets,
             no_upstream=config.no_upstream,
@@ -372,9 +385,14 @@ def _update_or_clone_repository(config: RepositoryConfig):
             root_auth_repo,
         )
 
+    if verbosity >= 1:
+        logger.debug(f"{auth_repo_name}: finished updating")
+
+    if verbosity
     if root_error:
         raise root_error
     return unstructure(update_data)
+
 
 
 def _update_named_repository(
@@ -584,7 +602,6 @@ def _update_named_repository(
             # do not call the handlers if only validating the repositories
             # if a handler fails and we are in the development mode, revert the update
             # so that it's easy to try again after fixing the handler
-            # JMC: Added "and not no_targets:" to this first line of code
             if not only_validate and not excluded_target_globs and not no_targets:
                 _execute_repo_handlers(
                     update_status,
@@ -626,7 +643,6 @@ def _update_current_repository(
     checkout,
     excluded_target_globs,
     bare,
-    # JMC: Addition of new flags
     no_targets,
     no_upstream,
 ):

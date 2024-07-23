@@ -27,7 +27,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
 from loguru import logger as taf_logger
 from taf.log import configure_logging
-from taf.congif import verbosity_level
+from taf.config import verbosity_level
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 

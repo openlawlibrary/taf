@@ -1,5 +1,6 @@
 import click
 import json
+import sys
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -7,7 +8,21 @@ from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
+from taf.config import set_verbosity_level
+from loguru import logger as taf_logger
+import logging
 
+# JMC: Verbosity
+def configure_logging(level):
+    if level == 1:
+        logging_level = logging.WARNING
+    elif level == 2:
+        logging_level = logging.INFO
+    else:
+        logging_level = logging.DEBUG
+
+    taf_logger.remove()
+    taf_logger.add(sys.stdout, level=logging_level)
 
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
@@ -174,7 +189,7 @@ def clone_repo_command():
     return clone
 
 
-def update_repo_command():
+def update_repo_command(verbose):
     @click.command(help="""
         Update and validate local authentication repositories and target repositories.
 
@@ -210,11 +225,20 @@ def update_repo_command():
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
-    # JMC: Addition of --no-upstream
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream):
+    @click.option("-v", "--verbosity", count=True, default=False, help="Displays varied levels of log and debug information based on the verbosity")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream, verbosity):
+        #verbosity_level = verbosity or 1
+        #set_verbosity_level(verbosity_level)
+        #configure_logging(verbosity_level)
+
+        verbosity = min(verbose, 2) + 1 # maps to 1, 2, or 3
+        #update_repository(verbosity)
+        def update_repository(verbosity):
+            from taf.updater import _update_or_clone_repository
+            _update_or_clone_repository("repo_name", verbosity)
+
         path = find_valid_repository(path)
         if profile:
             start_profiling()
@@ -264,9 +288,7 @@ def validate_repo_command():
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
-    # JMC: Addition of --no-targets:
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
-    # JMC: Addition of --no-deps:
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
         path = find_valid_repository(path)

@@ -10,7 +10,7 @@ import tuf.repository_tool
 import tuf.exceptions
 from loguru import logger as taf_logger
 import taf.settings as settings
-from taf.congif import verbosity_level
+from taf.config import verbosity_level
 
 _CONSOLE_FORMAT_STRING = "\n{message}\n"
 _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message}\n"
