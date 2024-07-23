@@ -1463,7 +1463,10 @@ class GitRepository:
             self._git("remote remove {}", remote_name)
         except GitError as e:
             if "No such remote" not in str(e):
-                raise
+                self._git("remote rename {remote_name} local")
+                self._log_warning(
+                    f"Could not remove remote {remote_name}. It was renamed to 'local'. Remove it manually"
+                )
 
     def remote_exists(self, remote_name):
         repo = self.pygit_repo

@@ -14,6 +14,7 @@ def validate_branch(
     updated_roles,
     check_capstone_roles=None,
     check_branch_roles=None,
+    check_branch_lengths_fun=None,
 ):
     """
     Validates corresponding branches of the authentication repository
@@ -45,7 +46,10 @@ def validate_branch(
         branch_name, merge_branches[auth_repo]
     )
 
-    _check_lengths_of_branches(targets_and_commits, branch_name)
+    if check_branch_lengths_fun:
+        check_branch_lengths_fun(targets_and_commits, branch_name)
+    else:
+        _check_lengths_of_branches(targets_and_commits, branch_name)
 
     unmodified_roles_and_versions = {
         role_name: None

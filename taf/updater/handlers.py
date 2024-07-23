@@ -83,12 +83,13 @@ class GitUpdater(FetcherInterface):
         repository_directory: the client's local repository's location
         repository_name: name of the repository in 'organization/namespace' format.
         """
+        self.repository_name = repository_name
         self._original_tuf_trusted_metadata_set = (
             trusted_metadata_set.TrustedMetadataSet
         )
         self._patch_tuf_metadata_set(GitTrustedMetadataSet)
 
-        validation_path = settings.validation_repo_path
+        validation_path = settings.validation_repo_path.get(repository_name)
 
         self.set_validation_repo(validation_path, auth_url)
 
@@ -132,7 +133,7 @@ class GitUpdater(FetcherInterface):
         We have to presume that the initial metadata is correct though (or at least
         the initial root.json).
         """
-        last_validated_commit = settings.last_validated_commit
+        last_validated_commit = settings.last_validated_commit.get(self.repository_name)
 
         try:
             commits_since = self.validation_auth_repo.all_commits_since_commit(
