@@ -20,6 +20,7 @@ from taf.exceptions import (
     FetchException,
     InvalidRepositoryError,
     GitError,
+    UpdateFailedError,
 )
 from taf.log import taf_logger
 from taf.utils import run
@@ -150,15 +151,32 @@ class GitRepository:
         return self._remotes
 
     @property
-    def is_git_repository_root(self) -> bool:
-        """Check if path is git repository."""
-        git_path = self.path / ".git"
-        return self.is_git_repository and (git_path.is_dir() or git_path.is_file())
+    def is_git_repository(self) -> bool:
+        discovered_repo_path = pygit2.discover_repository(str(self.path))
+        if discovered_repo_path is None:
+            return False
+        # Ensure the discovered repository path matches self.path
+        repo = pygit2.Repository(discovered_repo_path)
+        if repo is None:
+            return False
+        if self.is_bare_repository:
+            return repo.is_bare
+        return True
 
     @property
-    def is_git_repository(self) -> bool:
-        repo_path = pygit2.discover_repository(str(self.path))
-        return repo_path is not None
+    def is_git_repository_root(self) -> bool:
+        if not self.is_git_repository:
+            return False
+        repo = self.pygit_repo
+        if repo is None:
+            return False
+        if self.is_bare_repository:
+            return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
+        else:
+            git_path = self.path / ".git"
+            return Path(repo.path).resolve() == git_path.resolve() and (
+                git_path.is_dir() or git_path.is_file()
+            )
 
     @property
     def initial_commit(self) -> str:
@@ -183,6 +201,15 @@ class GitRepository:
         except Exception as e:
             self._log_debug(f"Unable to instantiate pygit2 repo due to error: {str(e)}")
             return None
+
+    @property
+    def is_bare_repository(self) -> bool:
+        if self.pygit_repo is None:
+            self._log_debug(
+                "pygit repository could not be instantiated, assuming not bare"
+            )
+            return False
+        return self.pygit_repo.is_bare
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
@@ -614,6 +641,16 @@ class GitRepository:
         if self._pygit is not None:
             self._pygit.cleanup()
             self._pygit = None
+
+    def clean_and_reset(self):
+        """Cleans the untracked files and resets the HEAD to the latest commit."""
+        try:
+            self.clean()
+            self.reset_to_head()
+        except GitError as e:
+            raise GitError(
+                self, message=f"Failed to clean and reset the repository: {e}"
+            )
 
     def clone(
         self, no_checkout: bool = False, bare: Optional[bool] = False, **kwargs
@@ -1051,13 +1088,24 @@ class GitRepository:
                 branch = ""
             self._git("fetch {} {}", remote, branch, log_error=True)
 
-    def fetch_from_disk(self, local_repo_path):
+    def fetch_from_disk(self, local_repo_path, branches):
 
         repo = self.pygit_repo
         temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
         repo.remotes.create(temp_remote_name, local_repo_path)
         remote = repo.remotes[temp_remote_name]
         remote.fetch()
+
+        for branch in branches:
+            remote_branch_name = f"refs/remotes/{temp_remote_name}/{branch}"
+            remote_branch = repo.lookup_reference(remote_branch_name)
+            if remote_branch is not None:
+                local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
+                if local_branch is None:
+                    # Create a new local branch from the remote branch
+                    target_commit = repo[remote_branch.target]
+                    repo.create_branch(branch, target_commit)
+
         repo.remotes.delete(temp_remote_name)
 
     def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
@@ -1200,14 +1248,6 @@ class GitRepository:
             if branch_name.startswith(remote + "/"):
                 return True
         return False
-
-    def is_bare_repository(self) -> bool:
-        if self.pygit_repo is None:
-            raise GitError(
-                self,
-                message="Could determine if bare repository. pygit repository could not be instantiated.",
-            )
-        return self.pygit_repo.is_bare
 
     def list_files_at_revision(self, commit: str, path: str = "") -> List[str]:
         posix_path = Path(path).as_posix()
@@ -1423,7 +1463,10 @@ class GitRepository:
             self._git("remote remove {}", remote_name)
         except GitError as e:
             if "No such remote" not in str(e):
-                raise
+                self._git("remote rename {remote_name} local")
+                self._log_warning(
+                    f"Could not remove remote {remote_name}. It was renamed to 'local'. Remove it manually"
+                )
 
     def remote_exists(self, remote_name):
         repo = self.pygit_repo
@@ -1444,6 +1487,17 @@ class GitRepository:
     def reset_to_commit(self, commit: str, hard: Optional[bool] = False) -> None:
         flag = "--hard" if hard else "--soft"
         self._git(f"reset {flag} {commit}")
+
+    def update_ref_for_bare_repository(self, branch: str, commit_sha: str) -> None:
+        """
+        Update the reference of the branch to the given commit SHA in a bare repository.
+        """
+        try:
+            self._git(f"update-ref refs/heads/{branch} {commit_sha}")
+        except GitError:
+            raise UpdateFailedError(
+                f"Could not update branch {branch} to commit {commit_sha} in bare repository {self.name}."
+            )
 
     def reset_remote_tracking_branch(self, branch_name) -> None:
         """
@@ -1473,7 +1527,12 @@ class GitRepository:
 
     def something_to_commit(self) -> bool:
         """Checks if there are any uncommitted changes"""
-        uncommitted_changes = self._git("status --porcelain")
+        if self.is_bare_repository:
+            # For bare repositories, use `git diff` to check for uncommitted changes
+            uncommitted_changes = self._git("diff --name-only --cached")
+        else:
+            # For non-bare repositories, use `git status`
+            uncommitted_changes = self._git("status --porcelain")
         return bool(uncommitted_changes)
 
     def synced_with_remote(
@@ -1576,6 +1635,17 @@ class GitRepository:
             f"Cannot determine default branch with git -C at {self.path}: {errors}"
         )
         return None
+
+    def top_commit_of_remote_branch(self, branch, remote="origin"):
+        """
+        Fetches the top commit of the specified remote branch.
+        """
+        remote_branch = f"{remote}/{branch}"
+        if not self.branch_exists(remote_branch, include_remotes=True):
+            raise GitError(
+                f"Branch {remote_branch} does not exist in the remote repository."
+            )
+        return self.top_commit_of_branch(remote_branch)
 
     def _remove_remote_prefix(self, branch_name):
         for remote in self.remotes:

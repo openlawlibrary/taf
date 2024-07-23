@@ -1,5 +1,4 @@
 from logging import ERROR, INFO
-import shutil
 from typing import Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
@@ -21,7 +20,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
-from taf.utils import set_executable_permission
+from taf.utils import ensure_pre_push_hook
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
@@ -113,14 +112,7 @@ def create_repository(
         no_commit_warning=True,
     )
 
-    hooks_dir = Path(auth_repo.path) / ".git" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
-    pre_push_script = hooks_dir / "pre-push"
-    resources_pre_push_script = Path(__file__).parent / ".." / "resources" / "pre-push"
-    shutil.copy(resources_pre_push_script, pre_push_script)
-    script_permission = set_executable_permission(pre_push_script)
-    if pre_push_script.exists() and script_permission:
-        taf_logger.info("Pre-push hook added successfully.")
+    ensure_pre_push_hook(auth_repo.path)
 
     if not updated:
         repository.writeall()
@@ -192,7 +184,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     indent_str = " " * indent
     print(f"{indent_str}Authentication Repository: {auth_repo.path.resolve()}")
     print(f"{indent_str}Head Commit: {head_commit}")
-    print(f"{indent_str}Bare: {auth_repo.is_bare_repository()}")
+    print(f"{indent_str}Bare: {auth_repo.is_bare_repository}")
     print(f"{indent_str}Up to Date: {auth_repo.synced_with_remote()}")
     print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
     print(f"{indent_str}Target Repositories Status:")

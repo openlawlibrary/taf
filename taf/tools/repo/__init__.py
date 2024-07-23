@@ -3,9 +3,10 @@ import json
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
-from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
+from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
 
 
 def common_update_options(f):
@@ -138,11 +139,14 @@ def clone_repo_command():
     @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, set to the current directory")
     @click.option("--from-fs", is_flag=True, default=False, help="Indicates if we want to clone a repository from the filesystem")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
+    @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps):
         if profile:
             start_profiling()
 
-        config = RepositoryConfig(
+        config = UpdateConfig(
             operation=OperationType.CLONE,
             url=url,
             path=path,
@@ -151,7 +155,10 @@ def clone_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
-            strict=strict
+            strict=strict,
+            bare=bare,
+            no_upstream=not upstream,
+            no_deps=no_deps,
         )
 
         try:
@@ -201,20 +208,27 @@ def update_repo_command():
         """)
     @catch_cli_exception(handle=UpdateFailedError)
     @common_update_options
-    @click.option("--path", default=None, help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict):
+    @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
+    @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, force, no_deps, upstream):
+        path = find_valid_repository(path)
         if profile:
             start_profiling()
 
-        config = RepositoryConfig(
+        config = UpdateConfig(
             operation=OperationType.UPDATE,
             path=path,
             library_dir=library_dir,
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
-            strict=strict
+            strict=strict,
+            force=force,
+            no_upstream=not upstream,
+            no_deps=no_deps,
         )
 
         try:
@@ -250,11 +264,15 @@ def validate_repo_command():
                   "ignored during update.")
     @click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error"
                   "if warnings are raised")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict):
+    @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
+    @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
+        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
+        bare = auth_repo.is_bare_repository
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-        validate_repository(path, library_dir, from_commit, exclude_target, strict)
+        validate_repository(path, library_dir, from_commit, exclude_target, strict, bare, no_targets, no_deps)
     return validate
 
 
@@ -262,6 +280,7 @@ def latest_commit_command():
     @click.command(help="Fetch and print the last validated commit hash.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def latest_commit(path):
+        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         last_validated_commit = auth_repo.last_validated_commit
         if last_validated_commit:
@@ -276,6 +295,7 @@ def status_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
     def status(path, library_dir):
+        path = find_valid_repository(path)
         try:
             taf_status(path, library_dir)
         except TAFError as e:

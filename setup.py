@@ -15,19 +15,6 @@ with open("README.md", encoding="utf-8") as file_object:
 
 packages = find_packages()
 
-# Create platform specific wheel
-# https://stackoverflow.com/a/45150383/9669050
-try:
-    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
-
-    class bdist_wheel(_bdist_wheel):
-        def finalize_options(self):
-            _bdist_wheel.finalize_options(self)
-            self.root_is_pure = False
-
-except ImportError:
-    bdist_wheel = None  # type: ignore
-
 ci_require = [
     "bandit>=1.6.0",
     "black>=19.3b0",
@@ -40,9 +27,10 @@ ci_require = [
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
-    "pytest==7.*",
+    "pytest==8.*",
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
+    "jinja2==3.1.*",
 ]
 
 yubikey_require = ["yubikey-manager==5.1.*"]
@@ -64,7 +52,6 @@ kwargs = {
     "author_email": AUTHOR_EMAIL,
     "keywords": KEYWORDS,
     "packages": packages,
-    "cmdclass": {"bdist_wheel": bdist_wheel},
     "include_package_data": True,
     "data_files": [("lib/site-packages/taf", ["./LICENSE.md", "./README.md"])],
     "zip_safe": False,
@@ -102,7 +89,6 @@ kwargs = {
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
