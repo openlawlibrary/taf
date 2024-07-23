@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 
-## [0.30.1] - 07/10/2024
+## [0.30.1] - 07/23/2024
 
 ### Added
 
@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-Build: use correct `sys.version_info` comparison when installing `pygit2` ([470])
+- Build: use correct `sys.version_info` comparison when installing `pygit2` ([470])
+- Validate branch can be modified with check branch length function ([470])
 
 [476]: https://github.com/openlawlibrary/taf/pull/476
 [470]: https://github.com/openlawlibrary/taf/pull/470
