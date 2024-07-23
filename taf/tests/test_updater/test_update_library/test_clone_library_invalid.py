@@ -11,9 +11,7 @@ from taf.tests.test_updater.conftest import (
     invalidate_root_repo,
 )
 from taf.updater.types.update import UpdateType
-from taf.tests.test_updater.update_utils import (
-    clone_repositories,
-)
+from taf.tests.test_updater.update_utils import _clone_full_library
 
 
 @pytest.mark.parametrize(
@@ -42,7 +40,9 @@ from taf.tests.test_updater.update_utils import (
     ],
     indirect=True,
 )
-def test_clone_with_invalid_dependency_repo(library_with_dependencies, client_dir):
+def test_clone_with_invalid_dependency_repo(
+    library_with_dependencies, origin_dir, client_dir
+):
     # Invalidate one of the authentication repositories in dependencies
     dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
@@ -53,8 +53,9 @@ def test_clone_with_invalid_dependency_repo(library_with_dependencies, client_di
 
     # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN):
-        clone_repositories(
-            library_with_dependencies["root/auth"]["auth_repo"],
+        _clone_full_library(
+            library_with_dependencies,
+            origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
@@ -89,6 +90,7 @@ def test_clone_with_invalid_dependency_repo(library_with_dependencies, client_di
 )
 def test_clone_invalid_target_repo(
     library_with_dependencies,
+    origin_dir,
     client_dir,
 ):
     # Invalidate one of the target repositories
@@ -105,8 +107,9 @@ def test_clone_invalid_target_repo(
     setup_manager.execute_tasks()
     # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=CANNOT_CLONE_TARGET_PATTERN):
-        clone_repositories(
-            library_with_dependencies["root/auth"]["auth_repo"],
+        _clone_full_library(
+            library_with_dependencies,
+            origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,
@@ -139,7 +142,9 @@ def test_clone_invalid_target_repo(
     ],
     indirect=True,
 )
-def test_clone_with_invalid_root_repo(library_with_dependencies, client_dir):
+def test_clone_with_invalid_root_repo(
+    library_with_dependencies, origin_dir, client_dir
+):
     # Invalidate the root repository
     root_repo = library_with_dependencies["root/auth"]["auth_repo"]
     setup_manager = SetupManager(root_repo)
@@ -147,8 +152,9 @@ def test_clone_with_invalid_root_repo(library_with_dependencies, client_dir):
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=INVALID_ROOT_REPO_PATTERN):
-        clone_repositories(
-            library_with_dependencies["root/auth"]["auth_repo"],
+        _clone_full_library(
+            library_with_dependencies,
+            origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
             excluded_target_globs=None,

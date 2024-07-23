@@ -65,7 +65,7 @@ FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
 INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
-INVALID_ROOT_REPO_PATTERN = r"^Update of repository failed due to error: Cannot clone .+ from any of the following URLs: \['.+/root/auth'\]$"
+INVALID_ROOT_REPO_PATTERN = r"^Update of (\w+)/(\w+) failed. One or more referenced authentication repositories could not be validated: Repository (\w+)/(\w+) is missing .git directory\.$"
 
 
 # Disable console logging for all tests

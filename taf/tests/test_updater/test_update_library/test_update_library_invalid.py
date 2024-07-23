@@ -11,8 +11,8 @@ from taf.tests.test_updater.conftest import (
 )
 from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
-    clone_repositories,
-    validate_updated_repositories,
+    _clone_full_library,
+    update_and_validate_repositories,
 )
 
 
@@ -46,8 +46,9 @@ def test_update_with_invalid_dependency_repo(
     library_with_dependencies, origin_dir, client_dir
 ):
 
-    clone_repositories(
-        library_with_dependencies["root/auth"]["auth_repo"],
+    _clone_full_library(
+        library_with_dependencies,
+        origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
@@ -61,7 +62,9 @@ def test_update_with_invalid_dependency_repo(
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN):
-        validate_updated_repositories(library_with_dependencies, origin_dir, client_dir)
+        update_and_validate_repositories(
+            library_with_dependencies, origin_dir, client_dir
+        )
 
 
 @pytest.mark.parametrize(
@@ -95,8 +98,9 @@ def test_update_invalid_target_repo(
     origin_dir,
     client_dir,
 ):
-    clone_repositories(
-        library_with_dependencies["root/auth"]["auth_repo"],
+    _clone_full_library(
+        library_with_dependencies,
+        origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
@@ -110,7 +114,9 @@ def test_update_invalid_target_repo(
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=TARGET_MISMATCH_PATTERN_DEPENDENCIES):
-        validate_updated_repositories(library_with_dependencies, origin_dir, client_dir)
+        update_and_validate_repositories(
+            library_with_dependencies, origin_dir, client_dir
+        )
 
 
 @pytest.mark.parametrize(
@@ -144,8 +150,9 @@ def test_update_all_except_invalid(
     origin_dir,
     client_dir,
 ):
-    clone_repositories(
-        library_with_dependencies["root/auth"]["auth_repo"],
+    _clone_full_library(
+        library_with_dependencies,
+        origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
@@ -161,14 +168,16 @@ def test_update_all_except_invalid(
 
     # Run the updater which will clone and then update
     with pytest.raises(UpdateFailedError, match=TARGET_MISMATCH_PATTERN_DEPENDENCIES):
-        validate_updated_repositories(library_with_dependencies, origin_dir, client_dir)
+        update_and_validate_repositories(
+            library_with_dependencies, origin_dir, client_dir
+        )
 
     # Push valid commits to another target repository
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
     # Validate that the valid repositories were updated successfully, skipping the invalid ones
-    validate_updated_repositories(
+    update_and_validate_repositories(
         library_with_dependencies,
         origin_dir,
         client_dir,

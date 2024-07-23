@@ -1,3 +1,4 @@
+import os
 import pytest
 from freezegun import freeze_time
 from collections import defaultdict
@@ -61,6 +62,52 @@ def check_if_last_validated_commit_exists(client_auth_repo, should_exist):
             client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
             == last_validated_commit
         )
+
+
+def _clone_full_library(
+    library_dict,
+    origin_dir,
+    client_dir,
+    expected_repo_type=UpdateType.EITHER,
+    excluded_target_globs=None,
+):
+    origin_root_repo = library_dict["root/auth"]["auth_repo"]
+
+    git_dir = os.path.join(origin_root_repo.path, ".git")
+    if not os.path.exists(git_dir):
+        raise UpdateFailedError(
+            "Update of root/auth failed. One or more referenced authentication repositories could not be validated: "
+            "Repository root/auth is missing .git directory."
+        )
+
+    all_repositories = []
+    for repo_info in library_dict.values():
+        # Add the auth repository
+        all_repositories.append(repo_info["auth_repo"])
+        # Extend the list with all target repositories
+        all_repositories.extend(repo_info["target_repos"])
+
+    start_head_shas = defaultdict(dict)
+    for repo in all_repositories:
+        for branch in repo.branches():
+            start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
+
+    clone_repositories(
+        origin_root_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+
+    repositories = {}
+    for auth_repo_name, repos in library_dict.items():
+        repositories[auth_repo_name] = repos["auth_repo"]
+        for target_repo in repos["target_repos"]:
+            repositories[target_repo.name] = target_repo
+        check_last_validated_commit(client_dir / repos["auth_repo"].name)
+
+    check_if_commits_match(
+        repositories, origin_dir, start_head_shas, excluded_target_globs
+    )
 
 
 def clone_repositories(
@@ -258,7 +305,7 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert not client_repository.path.exists()
 
 
-def validate_updated_repositories(
+def update_and_validate_repositories(
     library_with_dependencies,
     origin_dir,
     client_dir,
