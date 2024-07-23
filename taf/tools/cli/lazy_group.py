@@ -1,6 +1,7 @@
 import importlib
 import click
 
+
 class LazyGroup(click.Group):
     def __init__(self, *args, lazy_subcommands=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -21,3 +22,23 @@ class LazyGroup(click.Group):
         group = click.Group(name=cmd_name)
         function(group)
         return group
+
+    def format_commands(self, ctx, formatter):
+        rows = []
+        sub_commands = set(self.lazy_subcommands.keys())
+        loaded_commands = set(super().list_commands(ctx))
+
+        for subcommand in sorted(loaded_commands | sub_commands):
+            if subcommand in self.lazy_subcommands:
+                # Load the command to get its help text
+                cmd = self._lazy_load(subcommand)
+            else:
+                cmd = self.get_command(ctx, subcommand)
+                if cmd is None:
+                    continue
+            help = cmd.get_short_help_str()
+            rows.append((subcommand, help))
+
+        if rows:
+            with formatter.section('Commands'):
+                formatter.write_dl(rows)
