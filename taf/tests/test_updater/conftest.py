@@ -65,8 +65,7 @@ FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
 INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
-INVALID_ROOT_REPO_PATTERN = r"^Update of (\w+)/(\w+) failed. One or more referenced authentication repositories could not be validated: Repository (\w+)/(\w+) is missing .git directory\.$"
-
+INVALID_TIMESTAMP_PATTERN_ROOT = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 
 # Disable console logging for all tests
 disable_console_logging()
@@ -669,29 +668,3 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         auth_repo.set_last_validated_commit(last_valid_commit)
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
-
-
-def invalidate_target_repo(library_with_dependencies, namespace, target_name):
-    """
-    Invalidate the given target repository by introducing errors in its structure.
-    """
-    target_repo = next(
-        repo
-        for repo in library_with_dependencies[namespace]["target_repos"]
-        if repo.name == target_name
-    )
-
-    # Remove the .git directory to invalidate the repository
-    git_dir = target_repo.path / ".git"
-    if git_dir.exists():
-        shutil.rmtree(git_dir, ignore_errors=True)
-
-
-def invalidate_root_repo(auth_repo):
-    """
-    Invalidate the root repository by removing the .git directory.
-    """
-    git_dir = auth_repo.path / ".git"
-    if git_dir.exists() and git_dir.is_dir():
-        shutil.rmtree(git_dir)
-    print(f"Invalidated root repo by removing .git directory at {git_dir}")

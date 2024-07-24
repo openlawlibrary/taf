@@ -75,16 +75,16 @@ def _clone_full_library(
 
     git_dir = os.path.join(origin_root_repo.path, ".git")
     if not os.path.exists(git_dir):
-        raise UpdateFailedError(
-            "Update of root/auth failed. One or more referenced authentication repositories could not be validated: "
+        # Log a warning and skip cloning this repository
+        print(
+            "Warning: Update of root/auth failed. One or more referenced authentication repositories could not be validated: "
             "Repository root/auth is missing .git directory."
         )
+        return
 
     all_repositories = []
     for repo_info in library_dict.values():
-        # Add the auth repository
         all_repositories.append(repo_info["auth_repo"])
-        # Extend the list with all target repositories
         all_repositories.extend(repo_info["target_repos"])
 
     start_head_shas = defaultdict(dict)
