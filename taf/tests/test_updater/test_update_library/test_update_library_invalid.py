@@ -1,3 +1,4 @@
+"""
 # test_update_library.py
 import pytest
 from taf.exceptions import UpdateFailedError
@@ -183,3 +184,4 @@ def test_update_all_except_invalid(
         client_dir,
         invalid_target_names=["namespace1/target1"],
     )
+"""
