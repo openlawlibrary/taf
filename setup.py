@@ -76,7 +76,7 @@ kwargs = {
     "tests_require": tests_require,
     "entry_points": {
         "console_scripts": [
-            "taf = taf.tools.cli.taf:main",
+            "taf = taf.tools.cli.taf:taf",
             "olc = taf.tools.cli.olc:main",
         ],
     },
