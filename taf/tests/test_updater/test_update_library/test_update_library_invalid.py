@@ -1,4 +1,3 @@
-"""
 # test_update_library.py
 import pytest
 from taf.exceptions import UpdateFailedError
@@ -24,17 +23,17 @@ from taf.tests.test_updater.update_utils import (
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
             "dependencies_config": [
                 {
-                    "name": "namespace1/auth",
+                    "name": "namespace11/auth",
                     "targets_config": [
-                        {"name": "namespace1/target1"},
-                        {"name": "namespace1/target2"},
+                        {"name": "namespace11/target1"},
+                        {"name": "namespace11/target2"},
                     ],
                 },
                 {
-                    "name": "namespace2/auth",
+                    "name": "namespace12/auth",
                     "targets_config": [
-                        {"name": "namespace2/target1"},
-                        {"name": "namespace2/target2"},
+                        {"name": "namespace12/target1"},
+                        {"name": "namespace12/target2"},
                     ],
                 },
                 # Add additional dependencies as needed
@@ -55,7 +54,7 @@ def test_update_with_invalid_dependency_repo(
         excluded_target_globs=None,
     )
     # Invalidate one of the authentication repositories in dependencies
-    dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
+    dependency_auth_repo = library_with_dependencies["namespace11/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
     setup_manager.add_task(
         update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
@@ -75,17 +74,17 @@ def test_update_with_invalid_dependency_repo(
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
             "dependencies_config": [
                 {
-                    "name": "namespace1/auth",
+                    "name": "namespace21/auth",
                     "targets_config": [
-                        {"name": "namespace1/target1"},
-                        {"name": "namespace1/target2"},
+                        {"name": "namespace21/target1"},
+                        {"name": "namespace21/target2"},
                     ],
                 },
                 {
-                    "name": "namespace2/auth",
+                    "name": "namespace22/auth",
                     "targets_config": [
-                        {"name": "namespace2/target1"},
-                        {"name": "namespace2/target2"},
+                        {"name": "namespace22/target1"},
+                        {"name": "namespace22/target2"},
                     ],
                 },
                 # Add additional dependencies as needed
@@ -107,7 +106,7 @@ def test_update_invalid_target_repo(
         excluded_target_globs=None,
     )
     # Invalidate one of the target repositories
-    dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
+    dependency_auth_repo = library_with_dependencies["namespace21/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
@@ -127,17 +126,17 @@ def test_update_invalid_target_repo(
             "targets_config": [{"name": "target1"}, {"name": "target2"}],
             "dependencies_config": [
                 {
-                    "name": "namespace1/auth",
+                    "name": "namespace31/auth",
                     "targets_config": [
-                        {"name": "namespace1/target1"},
-                        {"name": "namespace1/target2"},
+                        {"name": "namespace31/target1"},
+                        {"name": "namespace31/target2"},
                     ],
                 },
                 {
-                    "name": "namespace2/auth",
+                    "name": "namespace32/auth",
                     "targets_config": [
-                        {"name": "namespace2/target1"},
-                        {"name": "namespace2/target2"},
+                        {"name": "namespace32/target1"},
+                        {"name": "namespace32/target2"},
                     ],
                 },
                 # Add additional dependencies as needed
@@ -151,6 +150,7 @@ def test_update_all_except_invalid(
     origin_dir,
     client_dir,
 ):
+
     _clone_full_library(
         library_with_dependencies,
         origin_dir,
@@ -158,9 +158,8 @@ def test_update_all_except_invalid(
         expected_repo_type=UpdateType.EITHER,
         excluded_target_globs=None,
     )
-
     # Invalidate one of the target repositories of a referenced authentication repository
-    dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
+    dependency_auth_repo = library_with_dependencies["namespace31/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
@@ -182,6 +181,5 @@ def test_update_all_except_invalid(
         library_with_dependencies,
         origin_dir,
         client_dir,
-        invalid_target_names=["namespace1/target1"],
+        invalid_target_names=["namespace31/target1"],
     )
-"""

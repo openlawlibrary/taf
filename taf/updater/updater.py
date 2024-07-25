@@ -358,8 +358,8 @@ def _update_or_clone_repository(config: UpdateConfig):
             repos_update_data=repos_update_data,
             transient_data=transient_data,
         )
-        if update_output.error:
-            raise update_output.error
+        if repos_update_data[auth_repo_name].get("error"):
+            raise repos_update_data[auth_repo_name]["error"]
 
     except Exception as e:
         root_error = UpdateFailedError(
@@ -473,9 +473,12 @@ def _process_repo_update(
                 error = UpdateFailedError(
                     f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
                 )
-                update_status = Event.FAILED
-            else:
-                for output in outputs:
+
+            for output in outputs:
+                child_update_status = output.event
+                if child_update_status == Event.FAILED:
+                    update_status = Event.FAILED
+                else:
                     repo = output.users_auth_repo
                     child_config = copy.copy(update_config)
                     child_config.url = repo.urls[0]
