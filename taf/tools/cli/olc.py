@@ -1,14 +1,15 @@
 import click
-import taf.tools.repo as repo_cli
+from taf.tools.cli.lazy_group import LazyGroup
 
 
-@click.group()
+@click.group(cls=LazyGroup, lazy_subcommands={
+    "repo": "taf.tools.repo.attach_to_group"
+})
+@click.version_option()
 def olc():
-    """TAF Command Line Interface"""
+    """OLC Command Line Interface"""
     pass
 
 
-repo_cli.attach_to_group(olc)
-
-
-olc()
+if __name__ == '__main__':
+    olc()

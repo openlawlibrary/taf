@@ -1,36 +1,22 @@
 import click
-import taf.tools.dependencies as dependencies_cli
-import taf.tools.keystore as keystore_cli
-import taf.tools.repo as repo_cli
-import taf.tools.targets as targets_cli
-import taf.tools.metadata as metadata_cli
-import taf.tools.conf as conf_cli
-
-try:
-    import taf.tools.yubikey as yubikey_cli
-except ImportError:
-    yubikey_cli = None  # type: ignore
+from .lazy_group import LazyGroup
 
 
-import taf.tools.roles as roles_cli
-
-
-@click.group()
+@click.group(cls=LazyGroup, lazy_subcommands={
+    "dependencies": "taf.tools.dependencies.attach_to_group",
+    "keystore": "taf.tools.keystore.attach_to_group",
+    "conf": "taf.tools.conf.attach_to_group",
+    "repo": "taf.tools.repo.attach_to_group",
+    "targets": "taf.tools.targets.attach_to_group",
+    "metadata": "taf.tools.metadata.attach_to_group",
+    "roles": "taf.tools.roles.attach_to_group",
+    "yubikey": "taf.tools.yubikey.attach_to_group",
+})
 @click.version_option()
 def taf():
     """TAF Command Line Interface"""
     pass
 
 
-dependencies_cli.attach_to_group(taf)
-keystore_cli.attach_to_group(taf)
-conf_cli.attach_to_group(taf)
-repo_cli.attach_to_group(taf)
-targets_cli.attach_to_group(taf)
-metadata_cli.attach_to_group(taf)
-if yubikey_cli:
-    yubikey_cli.attach_to_group(taf)
-roles_cli.attach_to_group(taf)
-
-
-taf()
+if __name__ == '__main__':
+    taf()

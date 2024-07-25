@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
+- - Added lazy loading to CLI [481]
 - Testing repositories with dependencies ([479], [487])
-- Added functionality for parallel execution of child repo during clone and update for performance enhancement ([472])
-- Hid plaintext when users are prompted to insert YubiKey and press ENTER ([473])
+- Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
+- Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
 - New flag --force allowing forced updates ([471])
 - Improved usability (TAF finds the repo if current directory has no repo, create a .taf directory to manage keys) ([466])
 - Added git hook check for updater ([460])
@@ -35,6 +37,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 
 [487]: https://github.com/openlawlibrary/taf/pull/487
+[481]: https://github.com/openlawlibrary/taf/pull/481
 [479]: https://github.com/openlawlibrary/taf/pull/479
 [473]: https://github.com/openlawlibrary/taf/pull/473
 [472]: https://github.com/openlawlibrary/taf/pull/472
