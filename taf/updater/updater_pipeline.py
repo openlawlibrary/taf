@@ -12,6 +12,7 @@ from attr import attrs, define, field
 from taf.git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
+from taf.constants import INFO_JSON_PATH
 
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
@@ -29,12 +30,9 @@ from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
-PROTECTED_DIRECTORY_NAME = "protected"
-INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
 
 
 class UpdateStatus(Enum):
@@ -292,9 +290,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ),  # skipped with no-targets; prints all other commits that exist but are not merged
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
             ],
-            run_mode=RunMode.LOCAL_VALIDATION
-            if update_config.only_validate
-            else RunMode.UPDATE,
+            run_mode=(
+                RunMode.LOCAL_VALIDATION
+                if update_config.only_validate
+                else RunMode.UPDATE
+            ),
         )
         self.operation = update_config.operation
         self.url = update_config.url
@@ -500,6 +500,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 auth_repo_name = _get_repository_name_raise_error_if_not_defined(
                     validation_repo, top_commit_of_validation_repo
                 )
+                self.auth_path = Path(self.library_dir, auth_repo_name)
+
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit, error = _run_tuf_updater(
                 git_updater, auth_repo_name
@@ -519,8 +521,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     self.state.auth_repo_name = auth_repo_name
             self.state.users_auth_repo = AuthenticationRepository(
-                library_dir=self.library_dir,
-                name=self.state.auth_repo_name,
+                path=self.auth_path,
                 urls=[self.url],
             )
             self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root

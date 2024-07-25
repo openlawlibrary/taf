@@ -3,7 +3,7 @@ from importlib.util import find_spec
 import sys
 
 PACKAGE_NAME = "taf"
-VERSION = "0.30.0"
+VERSION = "0.30.1"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -36,9 +36,9 @@ tests_require = [
 yubikey_require = ["yubikey-manager==5.1.*"]
 
 # Determine the appropriate version of pygit2 based on the Python version
-if sys.version_info > (3, 10):
+if sys.version_info >= (3, 11):
     pygit2_version = "pygit2==1.14.1"
-elif sys.version_info >= (3, 7) and sys.version_info <= (3, 10):
+elif sys.version_info >= (3, 7) and sys.version_info < (3, 11):
     pygit2_version = "pygit2==1.9.*"
 
 kwargs = {
