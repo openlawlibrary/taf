@@ -218,14 +218,11 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
 
 def cleanup_directory(directory_path: Path):
     """Recursively clean up the directory, removing files and directories."""
-    for path in directory_path.rglob("*"):
-        try:
-            if path.is_dir():
-                shutil.rmtree(path, onerror=on_rm_error)
-            else:
-                path.unlink()
-        except Exception:
-            pass
+    try:
+        if directory_path.is_dir():
+            shutil.rmtree(directory_path, onerror=on_rm_error)
+    except Exception:
+        pass
 
 
 def clone_client_repo(target_name: str, origin_dir: Path, client_dir: Path):

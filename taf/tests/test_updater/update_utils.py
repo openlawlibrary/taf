@@ -343,7 +343,7 @@ def update_and_validate_repositories(
         else:
             raise e
 
-    def check_repository_state(repo_name):
+    def _check_if_invalid_repo_remain_same(repo_name):
         repo = next(repo for repo in all_repositories if repo.name == repo_name)
         for branch in start_head_shas[repo_name]:
             assert start_head_shas[repo_name][branch] == repo.top_commit_of_branch(
@@ -360,8 +360,8 @@ def update_and_validate_repositories(
                     start_head_shas,
                 )
             else:
-                check_repository_state(target_repo.name)
+                _check_if_invalid_repo_remain_same(target_repo.name)
 
     for auth_repo_name, repo_info in library_with_dependencies.items():
         if repo_info["auth_repo"].name in invalid_target_names:
-            check_repository_state(repo_info["auth_repo"].name)
+            _check_if_invalid_repo_remain_same(repo_info["auth_repo"].name)
