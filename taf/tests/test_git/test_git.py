@@ -13,3 +13,15 @@ def test_is_branch_with_unpushed_commits(repository, clone_repository):
     (clone_repository.path / "test3.txt").write_text("Updated test3")
     clone_repository.commit(message="Update test3.txt")
     assert clone_repository.is_branch_with_unpushed_commits(branch)
+
+import pytest
+import tempfile
+from taf.exceptions import GitError
+from taf.git import GitRepository
+
+
+def test_head_commit_sha():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        repo = GitRepository(path=tmpdirname)
+        with pytest.raises(GitError, match=f"{tmpdirname} is not a git repository"):
+            repo.head_commit_sha() is not None
