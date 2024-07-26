@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Added new tests to test out of sync repositories and manual updates [488]
 - Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
 - Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
 - New flag --force allowing forced updates ([471])
@@ -31,7 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Remove platform-specific builds, do not package DLLs which are no longer necessary ([458])
 
 ### Fixed
-
+[488]: https://github.com/openlawlibrary/taf/pull/488
 [473]: https://github.com/openlawlibrary/taf/pull/473
 [472]: https://github.com/openlawlibrary/taf/pull/472
 [471]: https://github.com/openlawlibrary/taf/pull/471
