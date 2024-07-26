@@ -256,3 +256,26 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def assert_repositories_updated(client_dir, origin_auth_repo):
+    """
+    Asserts that the repositories in the client directory are updated
+    to match the commits in the origin authentication repository.
+
+    Args:
+        client_dir (Path): Path to the client directory.
+        origin_auth_repo (AuthenticationRepository): The origin authentication repository.
+    """
+    # Load the target repositories from the origin auth repo
+    client_repos = {
+        repo.name: GitRepository(client_dir, repo.name)
+        for repo in load_target_repositories(origin_auth_repo).values()
+    }
+    # Add the origin authentication repository itself to the client repositories
+    client_repos[origin_auth_repo.name] = GitRepository(
+        client_dir, origin_auth_repo.name
+    )
+
+    # Perform the check if commits match
+    check_if_commits_match(client_repos, origin_auth_repo.path.parent.parent)

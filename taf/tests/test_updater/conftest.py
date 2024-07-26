@@ -47,6 +47,7 @@ KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
 
 TARGET_MISSMATCH_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Failure to validate (\w+)\/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-z]{40}) but repo was at ([0-9a-f]{40})"
+TARGET_MISMATCH_PATTERN_DEPENDENCIES = r"Update of (\w+)/(\w+) failed due to error: Update of (\w+)/(\w+) failed. One or more referenced authentication repositories could not be validated:\n Failure to validate (\w+)/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but repo was at ([0-9a-f]{40})"
 TARGET_ADDITIONAL_COMMIT_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Failure to validate (\w+)\/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
 TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
 TARGET_MISSING_COMMIT_PATTERN = r"Update of (\w+)/(\w+) failed due to error: Failure to validate (\w+)/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
@@ -62,7 +63,9 @@ UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([\w/-]+)/(\w+) has uncommitted changes. Commit and push or revert the changes and run the command again."
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
-
+INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
+CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
+INVALID_TIMESTAMP_PATTERN_ROOT = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 
 # Disable console logging for all tests
 disable_console_logging()
@@ -665,3 +668,16 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         auth_repo.set_last_validated_commit(last_valid_commit)
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
+
+
+def sync_auth_repo(auth_repo):
+    # Simulate syncing auth repo with remote
+    auth_repo.pull()
+
+
+def sync_target_repos_with_remote(origin_auth_repo: Path, client_dir: Path):
+    target_repos = list(load_target_repositories(origin_auth_repo).values())
+    for target_repo in target_repos:
+        client_repo = GitRepository(client_dir, target_repo.name)
+        client_repo.fetch()
+        client_repo.pull()
