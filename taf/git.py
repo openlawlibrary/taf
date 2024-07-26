@@ -115,7 +115,7 @@ class GitRepository:
                 self._pygit = PyGitRepository(self)
             except Exception as e:
                 raise PygitError(
-                    "Failed to instantiate PyGitRepository"
+                    f"Failed to instantiate PyGitRepository"
                 )
         return self._pygit
 

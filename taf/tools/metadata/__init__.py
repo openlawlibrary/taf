@@ -2,14 +2,14 @@ import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import SigningError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
 
 def check_expiration_dates_command():
-    @click.command(
-        help="""Check if the expiration dates of the metadata roles is still within an interval threshold.
+    @click.command(help="""Check if the expiration dates of the metadata roles is still within an interval threshold.
         Expiration date is calculated by adding interval to start date. Interval is specified in days.
         The default value for interval in method is set to 30 days.
         Result contains metadata roles which have already expired and also roles which will expire (within the interval).
@@ -24,34 +24,18 @@ def check_expiration_dates_command():
         Given a 30 day interval from today (2022-07-22):
             timestamp will expire on 2022-07-22
             snapshot will expire on 2022-07-28
-            root will expire on 2022-08-19"""
-    )
-    @click.option(
-        "--path",
-        default=".",
-        help="Authentication repository's location. If not specified, set to the current directory",
-    )
-    @click.option(
-        "--interval",
-        default=30,
-        type=int,
-        help="Number of days added to the start date",
-    )
-    @click.option(
-        "--start-date",
-        default=datetime.datetime.now(),
-        help="Date to which expiration interval is added",
-        type=ISO_DATE,
-    )
+            root will expire on 2022-08-19""")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
+    @click.option("--start-date", default=datetime.datetime.now(), help="Date to which expiration interval is added", type=ISO_DATE)
     def checking_expiration_dates(path, interval, start_date):
+        path = find_valid_repository(path)
         check_expiration_dates(path=path, interval=interval, start_date=start_date)
-
     return checking_expiration_dates
 
 
 def update_expiration_dates_command():
-    @click.command(
-        help="""Update expiration date of the metadata file corresponding to the specified role.
+    @click.command(help="""Update expiration date of the metadata file corresponding to the specified role.
         The new expiration date is calculated by adding interval to start date. The default
         value of the start date parameter is the current date, while default interval depends
         on the role and is:
@@ -64,52 +48,18 @@ def update_expiration_dates_command():
         that is not the case, it will be needed to either enter the signing key directly or
         sign the file using a yubikey.
 
-        If targets or other delegated role is updated, automatically sign snapshot and timestamp."""
-    )
+        If targets or other delegated role is updated, automatically sign snapshot and timestamp.""")
     @catch_cli_exception(handle=SigningError)
-    @click.option(
-        "--path",
-        default=".",
-        help="Authentication repository's location. If not specified, set to the current directory",
-    )
-    @click.option(
-        "--role",
-        multiple=True,
-        help="A list of roles which expiration date should get updated",
-    )
-    @click.option(
-        "--interval",
-        default=None,
-        type=int,
-        help="Number of days added to the start date",
-    )
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--role", multiple=True, help="A list of roles which expiration date should get updated")
+    @click.option("--interval", default=None, type=int, help="Number of days added to the start date")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option(
-        "--scheme",
-        default=DEFAULT_RSA_SIGNATURE_SCHEME,
-        help="A signature scheme used for signing",
-    )
-    @click.option(
-        "--start-date",
-        default=datetime.datetime.now(),
-        type=ISO_DATE,
-        help="Date to which the interval is added",
-    )
-    @click.option(
-        "--no-commit",
-        is_flag=True,
-        default=False,
-        help="Indicates that the changes should not be committed automatically",
-    )
-    @click.option(
-        "--prompt-for-keys",
-        is_flag=True,
-        default=False,
-        help="Whether to ask the user to enter their key if not located inside the keystore directory",
-    )
-    def update_expiration_dates(
-        path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys
-    ):
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--start-date", default=datetime.datetime.now(), type=ISO_DATE, help="Date to which the interval is added")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys):
+        path = find_valid_repository(path)
         if not len(role):
             print("Specify at least one role")
             return
@@ -121,20 +71,11 @@ def update_expiration_dates_command():
             scheme=scheme,
             start_date=start_date,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys,
+            prompt_for_keys=prompt_for_keys
         )
-
     return update_expiration_dates
 
 
 def attach_to_group(group):
-    metadata_group = click.Group(name="metadata")
-
-    metadata_group.add_command(
-        check_expiration_dates_command(), name="check-expiration-dates"
-    )
-    metadata_group.add_command(
-        update_expiration_dates_command(), name="update-expiration-dates"
-    )
-
-    group.add_command(metadata_group)
+    group.add_command(check_expiration_dates_command(), name='check-expiration-dates')
+    group.add_command(update_expiration_dates_command(), name='update-expiration-dates')
