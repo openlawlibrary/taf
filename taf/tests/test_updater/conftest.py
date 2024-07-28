@@ -679,5 +679,4 @@ def sync_target_repos_with_remote(origin_auth_repo: Path, client_dir: Path):
     target_repos = list(load_target_repositories(origin_auth_repo).values())
     for target_repo in target_repos:
         client_repo = GitRepository(client_dir, target_repo.name)
-        client_repo.fetch()
         client_repo.pull()
