@@ -1,28 +1,26 @@
+import logging
 import click
 import json
-import sys
+from taf.log  import set_logging, taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
-from taf.updater.updater import OperationType, RepositoryConfig, clone_repository, update_repository, validate_repository
-from taf.config import set_verbosity_level
-from loguru import logger as taf_logger
-import logging
+from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
 
-# JMC: Verbosity
-def configure_logging(level):
-    if level == 1:
-        logging_level = logging.WARNING
-    elif level == 2:
-        logging_level = logging.INFO
-    else:
-        logging_level = logging.DEBUG
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('taf')
 
-    taf_logger.remove()
-    taf_logger.add(sys.stdout, level=logging_level)
+def set_verbosity(verbosity):
+    if verbosity == 1:
+        logger.setLevel(logging.INFO)
+    elif verbosity == 2:
+        logger.setLevel(logging.WARNING)
+    elif verbosity == 3:
+        logger.setLevel(logging.DEBUG)
+    set_logging(verbosity)
 
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
@@ -161,7 +159,7 @@ def clone_repo_command():
         if profile:
             start_profiling()
 
-        config = RepositoryConfig(
+        config = UpdateConfig(
             operation=OperationType.CLONE,
             url=url,
             path=path,
@@ -189,7 +187,7 @@ def clone_repo_command():
     return clone
 
 
-def update_repo_command(verbose):
+def update_repo_command():
     @click.command(help="""
         Update and validate local authentication repositories and target repositories.
 
@@ -225,25 +223,25 @@ def update_repo_command(verbose):
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")
+    @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    @click.option("-v", "--verbosity", count=True, default=False, help="Displays varied levels of log and debug information based on the verbosity")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, upstream, verbosity):
-        #verbosity_level = verbosity or 1
-        #set_verbosity_level(verbosity_level)
-        #configure_logging(verbosity_level)
+    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of log and debug information based on the verbosity")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
+        verbosity = min(verbosity + 1, 3) # should map 0 --> 1, 1--> 2, 2+ --> 3
+        set_logging(verbosity)
 
-        verbosity = min(verbose, 2) + 1 # maps to 1, 2, or 3
-        #update_repository(verbosity)
-        def update_repository(verbosity):
-            from taf.updater import _update_or_clone_repository
-            _update_or_clone_repository("repo_name", verbosity)
+        # Logging messages according to classification
+        taf_logger.info("This message will always be displayed.")
+        taf_logger.notice("This is a NOTICE level message.")
+        taf_logger.warning("This is a WARNING level message.")
+        taf_logger.debug("This is a DEBUG level message.")
 
         path = find_valid_repository(path)
         if profile:
             start_profiling()
 
-        config = RepositoryConfig(
+        config = UpdateConfig(
             operation=OperationType.UPDATE,
             path=path,
             library_dir=library_dir,
@@ -251,6 +249,7 @@ def update_repo_command(verbose):
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
             strict=strict,
+            force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
         )

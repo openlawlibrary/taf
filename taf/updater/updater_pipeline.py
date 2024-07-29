@@ -6,6 +6,7 @@ from logging import DEBUG, INFO
 from pathlib import Path
 import re
 import shutil
+import logging
 import tempfile
 from typing import Any, Dict, List, Optional
 from attr import attrs, define, field
@@ -32,6 +33,7 @@ from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
+
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 PROTECTED_DIRECTORY_NAME = "protected"
 INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
@@ -48,6 +50,7 @@ class RunMode(Enum):
     LOCAL_VALIDATION = 2
     ALL = 3
 
+logger = logging.getLogger('taf.updater_pipeline') # should this be logger = taf_logger?
 
 @define
 class UpdateState:
@@ -146,6 +149,7 @@ class Pipeline:
 
     def run(self):
         self.state.errors = []
+        logger.info(f"Running pipeline in {self.run_mode} mode.")
         for step, step_run_mode, should_run_fn in self.steps:
             try:
                 if (
@@ -279,17 +283,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.remove_temp_repositories,
                     RunMode.UPDATE,
                     None,
-                ),  # only removes auth repo with --no-targets
+                ),
                 (
                     self.set_target_repositories_data,
                     RunMode.UPDATE,
                     self.should_validate_target_repos,
-                ),  # skipped with no-targets
+                ),
                 (
                     self.print_additional_commits,
                     RunMode.ALL,
                     self.should_validate_target_repos,
-                ),  # skipped with no-targets; prints all other commits that exist but are not merged
+                ),
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
             ],
             run_mode=RunMode.LOCAL_VALIDATION
@@ -337,10 +341,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return self.state.event == Event.CHANGED
         return True
 
-    @log_on_start(
+    '''@log_on_start(
         DEBUG, "Checking which repositories are already on disk...", logger=taf_logger
-    )
+    )'''
     def set_existing_repositories(self):
+        taf_logger.info("Checking which repositories are already on disk...")
         self.state.existing_repo = False
         self.state.repos_on_disk = {}
         if self.auth_path is not None:
@@ -370,13 +375,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     # return UpdateStatus.SUCCESS if self.state.existing_repo else UpdateStatus.FAILURE
     @log_on_start(
         INFO,
-        "Checking if local repositories are clean...",
+        ".Checking if local repositories are clean...",
         logger=taf_logger,
     )
     def check_if_local_repositories_clean(self):
         try:
             # check if the auth repo is clean first
             if self.state.existing_repo:
+                #taf_logger.info(f"Checking if local repositories are clean...")
                 auth_repo = AuthenticationRepository(path=self.auth_path)
                 if auth_repo.is_bare_repository:
                     taf_logger.info(

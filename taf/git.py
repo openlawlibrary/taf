@@ -4,8 +4,10 @@ import json
 import itertools
 import os
 import re
+import sys
 import uuid
 import pygit2
+import logging
 import subprocess
 import logging
 from collections import OrderedDict
@@ -26,23 +28,21 @@ from taf.utils import run
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
 from loguru import logger as taf_logger
-from taf.log import configure_logging
-from taf.config import verbosity_level
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-# JMC: Verbosity
-def log_decorator(level):
-    def decorator(func):
-        def wrapper(self, *args, **kwargs):
-            if verbosity_level >= level:
-                taf_logger.log(level, f"Started {func.__name__} for {self.name}")
-            result = func(self, *args, **kwargs)
-            if verbosity_level >= level:
-                taf_logger.log(level, f"Finished {func.__name__} for {self.name}")
-            return result
-        return wrapper
-    return decorator
+logger = logging.getLogger('taf')
+
+def set_verbosity(verbosity):
+    global verbosity_level
+    verbosity_level = verbosity
+    if verbosity == 1:
+        logger.setLevel(logging.INFO)
+    elif verbosity == 2:
+        logger.setLevel(logging.WARNING)
+    elif verbosity == 3:
+        logger.setLevel(logging.DEBUG)
+
 class GitRepository:
     def __init__(
         self,
@@ -54,6 +54,7 @@ class GitRepository:
         allow_unsafe: Optional[bool] = False,
         path: Optional[Union[Path, str]] = None,
         alias: Optional[str] = None,
+        verbosity: int = 1,
         *args,
         **kwargs,
     ):
@@ -72,7 +73,10 @@ class GitRepository:
           the containing directory is owned by a different user to be ignored
           alias: Repository's alias, which will be used in logging statements to reference it
         """
-        self.verbosity_level = verbosity_level
+
+        self.verbosity = verbosity
+        set_verbosity(self.verbosity)
+
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)
         if isinstance(path, str):
@@ -114,6 +118,7 @@ class GitRepository:
         if default_branch is None:
             default_branch = self._determine_default_branch()
         self.default_branch = default_branch
+
 
     _pygit = None
 
@@ -760,6 +765,7 @@ class GitRepository:
         Clone or fetch the specified branch for the given repo.
         Return old and new HEAD.
         """
+        logger.info(f"{self.name}: started cloning or pulling repository...")
         try:
             old_head = self.head_commit_sha()
         except GitError:

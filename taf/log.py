@@ -10,7 +10,6 @@ import tuf.repository_tool
 import tuf.exceptions
 from loguru import logger as taf_logger
 import taf.settings as settings
-from taf.config import verbosity_level
 
 _CONSOLE_FORMAT_STRING = "\n{message}\n"
 _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message}\n"
@@ -18,16 +17,13 @@ _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message
 console_loggers: Dict = {}
 file_loggers: Dict = {}
 
-# JMC: Verbosity
-def configure_logging(verbosity):
-    if verbosity == 1:
-        logging_lvl = logging.WARNING
-    elif verbosity == 2:
-        logging_lvl = logging.INFO
-    else:
-        logging_lvl = logging.DEBUG
-    taf_logger.remove()
-    taf_logger.add(sys.stdout, level=logging_lvl)
+# JMC: Add NOTICE logging level
+NOTICE = 25
+logging.addLevelName(25, "NOTICE")
+
+def notice(self, message, *args, **kws):
+    taf_logger.log("NOTICE", message, *args, **kws)
+    taf_logger.notice = notice()
 
 def disable_console_logging():
     try:
@@ -37,7 +33,6 @@ def disable_console_logging():
         # will be raised if this is called twice
         pass
 
-
 def disable_file_logging():
     try:
         taf_logger.remove(file_loggers["log"])
@@ -46,13 +41,11 @@ def disable_file_logging():
         # will be raised if this is called twice
         pass
 
-
 def disable_tuf_console_logging():
     try:
         tuf.log.set_console_log_level(logging.CRITICAL)
     except securesystemslib.exceptions.Error:
         pass
-
 
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
@@ -61,7 +54,6 @@ def disable_tuf_file_logging():
         logging.getLogger("tuf").setLevel(logging.CRITICAL)
     logging.getLogger("securesystemslib_keys").setLevel(logging.CRITICAL)
     logging.getLogger("securesystemslib_util").setLevel(logging.CRITICAL)
-
 
 def _get_log_location():
     location = settings.LOGS_LOCATION or os.environ.get("TAF_LOG")
@@ -72,6 +64,34 @@ def _get_log_location():
         location = Path(location)
     return location
 
+# JMC: Verbosity Additions
+VERBOSITY_LEVELS = {
+    1: NOTICE,
+    2: logging.INFO,
+    3: logging.DEBUG
+}
+
+#taf_logger = logging.getLogger("taf")
+
+def set_logging(verbosity):
+    log_level = VERBOSITY_LEVELS.get(verbosity, logging.WARNING)
+    taf_logger.remove()
+    taf_logger.add(sys.stderr, level=log_level, format="{time} - {name} - {level} - {message}")
+    logs_location = _get_log_location()
+    taf_logger.add(logs_location / "taf.log", level=log_level, format="{time} - {name} - {level} - {message}")
+
+
+    '''taf_logger.setLevel(VERBOSITY_LEVELS.get(verbosity, logging.WARNING))
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    taf_logger.addHandler(console_handler)
+
+    logs_location = _get_log_location()
+    global file_handler
+    file_handler = logging.FileHandler(logs_location / "taf.log")
+    file_handler.setFormatter(formatter)
+    taf_logger.addHandler(file_handler)'''
 
 taf_logger.remove()
 
