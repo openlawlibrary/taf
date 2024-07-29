@@ -5,7 +5,7 @@ from taf.log import taf_logger as logger
 from taf.exceptions import GitError
 from taf.exceptions import PygitError
 import os.path
-import logging 
+import logging
 
 
 class PyGitRepository:
@@ -123,10 +123,3 @@ class PyGitRepository:
                 message=f"fatal: Path '{path}' does not exist in '{commit}'",
             )
         return self._list_files_at_revision(root)
-    
-    def __init__(self, path: str):
-        try:
-            self.repo = pygit2.Repository(path)
-        except Exception as e:
-            logging.error(f"Failed to instantiate PyGitRepository: {str(e)}")
-            raise PygitError(f"Failed to instantiate PyGitRepository: {str(e)}")

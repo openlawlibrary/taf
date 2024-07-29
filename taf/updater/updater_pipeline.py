@@ -81,9 +81,9 @@ class UpdateState:
     validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
-    additional_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = (
-        field(factory=dict)
-    )
+    additional_commits_per_target_repos_branches: Dict[
+        str, Dict[str, List[str]]
+    ] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
     temp_root: TempPartition = field(default=None)
 
@@ -1352,10 +1352,12 @@ but commit not on branch {current_branch}"
                         ).get(branch)
                         branch_data[branch]["new"] = [commit_info]
                         branch_data[branch]["after_pull"] = [commit_info]
-                        branch_data[branch]["unauthenticated"] = (
-                            self.state.additional_commits_per_target_repos_branches.get(
-                                repo_name, {}
-                            ).get(branch, [])
+                        branch_data[branch][
+                            "unauthenticated"
+                        ] = self.state.additional_commits_per_target_repos_branches.get(
+                            repo_name, {}
+                        ).get(
+                            branch, []
                         )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head

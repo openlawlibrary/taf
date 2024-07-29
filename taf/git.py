@@ -114,10 +114,13 @@ class GitRepository:
         if self._pygit is None:
             try:
                 self._pygit = PyGitRepository(self)
+                if not self._pygit:
+                    raise PygitError("PyGitRepository instance is None")
+
             except Exception as e:
-                raise PygitError(
-                    f"Failed to instantiate PyGitRepository due to error: {e}"
-                )
+                error_message = f"Failed to instantiate PyGitRepository: {e}"
+                logging.error(error_message)
+                raise PygitError(error_message)
         return self._pygit
 
     @classmethod
