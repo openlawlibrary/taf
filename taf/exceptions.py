@@ -173,8 +173,8 @@ class TimestampMetadataUpdateError(MetadataUpdateError):
 
 class PygitError(TAFError):
     pass
-        
-         
+
+
 class NoSpeculativeBranchError(TAFError):
     pass
 

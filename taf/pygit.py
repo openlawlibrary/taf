@@ -3,9 +3,7 @@ import pygit2
 from collections import defaultdict
 from taf.log import taf_logger as logger
 from taf.exceptions import GitError
-from taf.exceptions import PygitError
 import os.path
-import logging
 
 
 class PyGitRepository:

@@ -207,6 +207,8 @@ class GitRepository:
 
     @property
     def pygit_repo(self) -> Optional[pygit2.Repository]:
+        if self.pygit.repo is None:
+            raise PygitError(f"Failed to instantiate PyGitRepository")
         return self.pygit.repo
 
     @property
