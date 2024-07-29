@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 import tempfile
 from taf.exceptions import GitError
@@ -35,6 +36,10 @@ def test_is_git_repository_root_non_bare(repository):
 
 def test_head_commit_sha():
     with tempfile.TemporaryDirectory() as tmpdirname:
+        repo_path = Path(tmpdirname).as_posix()
         repo = GitRepository(path=tmpdirname)
-        with pytest.raises(GitError, match=f"{tmpdirname} is not a git repository"):
+        with pytest.raises(
+            GitError,
+            match=f"Repo {repo.name}: The path '{repo_path}' is not a Git repository.",
+        ):
             repo.head_commit_sha() is not None

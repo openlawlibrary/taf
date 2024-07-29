@@ -109,7 +109,7 @@ class GitRepository:
         if not self.is_git_repository:
             raise GitError(
                 self,
-                message=f"The path '{self.path}' is not a Git repository.",
+                message=f"The path '{self.path.as_posix()}' is not a Git repository.",
             )
         if self._pygit is None:
             try:
