@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
+- Checking git repos existence and changing imprecise and undescriptive error messages accordingly 
 
 - Fix `clone_or_pull` ([402])
 

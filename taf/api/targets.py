@@ -299,10 +299,11 @@ def list_targets(
                             last_signed_commit
                         ):
                             branch_top_commit = repo.top_commit_of_branch(branch)
-                            repo_output[
-                                "unsigned"
-                            ] = branch_top_commit in repo.all_commits_since_commit(
-                                last_signed_commit, branch
+                            repo_output["unsigned"] = (
+                                branch_top_commit
+                                in repo.all_commits_since_commit(
+                                    last_signed_commit, branch
+                                )
                             )
             repo_output["something-to-commit"] = repo.something_to_commit()
 
