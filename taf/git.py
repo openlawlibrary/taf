@@ -181,6 +181,7 @@ class GitRepository:
 
         except GitError:
             return False
+        return False
 
     @property
     def is_git_repository_root(self) -> bool:
