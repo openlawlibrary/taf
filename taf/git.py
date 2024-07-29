@@ -111,7 +111,7 @@ class GitRepository:
                 self,
                 message=f"The path '{self.path}' is not a Git repository.",
             )
-        if self._pygit is None: 
+        if self._pygit is None:
             try:
                 self._pygit = PyGitRepository(self)
             except Exception as e:
@@ -205,7 +205,6 @@ class GitRepository:
     @property
     def pygit_repo(self) -> Optional[pygit2.Repository]:
         return self.pygit.repo
-        
 
     @property
     def is_bare_repository(self) -> bool:
