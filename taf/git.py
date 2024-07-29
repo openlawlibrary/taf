@@ -163,16 +163,24 @@ class GitRepository:
 
     @property
     def is_git_repository(self) -> bool:
-        discovered_repo_path = pygit2.discover_repository(str(self.path))
-        if discovered_repo_path is None:
+        """Check if the given path is the root of a Git repository."""
+        # This is used when instantiating a PyGitRepository repo, so do not use
+        # it here
+        # Check for a .git directory or file (submodule or bare repo)
+        if (self.path / ".git").exists():
+            return True
+
+        # Use 'git rev-parse --is-inside-work-tree' to check if it's a git repository
+        try:
+            result = self._git("rev-parse --is-inside-work-tree", reraise_error=True)
+            if result == "true":
+                return True
+            result = self._git("rev-parse --is-bare-repository", reraise_error=True)
+            if result == "true":
+                return True
+
+        except GitError:
             return False
-        # Ensure the discovered repository path matches self.path
-        repo = pygit2.Repository(discovered_repo_path)
-        if repo is None:
-            return False
-        if self.is_bare_repository:
-            return repo.is_bare
-        return True
 
     @property
     def is_git_repository_root(self) -> bool:
