@@ -14,6 +14,17 @@ def test_is_branch_with_unpushed_commits(repository, clone_repository):
     clone_repository.commit(message="Update test3.txt")
     assert clone_repository.is_branch_with_unpushed_commits(branch)
 
+def test_is_git_repository_root_bare(repository):
+    repository.init_repo(bare=True)
+    assert repository.is_git_repository
+    assert repository.is_git_repository_root
+
+
+def test_is_git_repository_root_non_bare(repository):
+    repository.init_repo(bare=False)
+    assert repository.is_git_repository
+    assert repository.is_git_repository_root
+
 import pytest
 import tempfile
 from taf.exceptions import GitError

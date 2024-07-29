@@ -1,9 +1,9 @@
 {
     "dependencies": {
-        "namespace1/auth": {
+        "{name1}": {
             "out-of-band-authentication": "{commit1}"
         },
-        "namespace2/auth": {
+        "{name2}": {
             "out-of-band-authentication": "{commit2}"
         }
     }

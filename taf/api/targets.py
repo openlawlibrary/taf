@@ -284,7 +284,7 @@ def list_targets(
         )
         repo_output["cloned"] = local_repo_exists
         if local_repo_exists:
-            repo_output["bare"] = repo.is_bare_repository()
+            repo_output["bare"] = repo.is_bare_repository
             # there will only be one branch since only data corresponding to the top auth commit was loaded
             for branch, branch_data in repo_data.items():
                 repo_output["unsigned"] = False
@@ -372,7 +372,7 @@ def register_target_files(
     if write:
         taf_repo.writeall()
         if commit:
-            auth_repo = GitRepository(path=taf_repo.path)
+            auth_repo = AuthenticationRepository(path=taf_repo.path)
             commit_msg = git_commit_message("update-targets")
             commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
         elif not no_commit_warning:
