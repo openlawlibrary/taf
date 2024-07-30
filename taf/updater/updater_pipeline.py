@@ -657,7 +657,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if users_head_sha not in commits_since:
                 msg = f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
                 taf_logger.error(msg)
-                raise UpdateFailedError(msg)
+                if self.force:
+                    taf_logger.info(
+                        "Forcing update: setting last validated commit to the top commit of the local repository."
+                    )
+                    self.state.users_auth_repo.set_last_validated_commit(users_head_sha)
+                else:
+                    raise UpdateFailedError(msg)
 
     @log_on_start(
         INFO,
@@ -672,6 +678,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo.fetch(fetch_all=True)
             else:
                 self.state.users_auth_repo.clone(bare=self.bare)
+            self._validate_last_validated_commit(
+                self.state.users_auth_repo.last_validated_commit
+            )
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
