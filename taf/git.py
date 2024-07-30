@@ -109,15 +109,18 @@ class GitRepository:
         if not self.is_git_repository:
             raise GitError(
                 self,
-                message=f"The path '{self.path}' is not a Git repository.",
+                message=f"The path '{self.path.as_posix()}' is not a Git repository.",
             )
         if self._pygit is None:
             try:
                 self._pygit = PyGitRepository(self)
+                if not self._pygit:
+                    raise PygitError("PyGitRepository instance is None")
+
             except Exception as e:
-                raise PygitError(
-                    f"Failed to instantiate PyGitRepository due to error: {e}"
-                )
+                error_message = f"Failed to instantiate PyGitRepository: {e}"
+                logging.error(error_message)
+                raise PygitError(error_message)
         return self._pygit
 
     @classmethod
@@ -160,16 +163,25 @@ class GitRepository:
 
     @property
     def is_git_repository(self) -> bool:
-        discovered_repo_path = pygit2.discover_repository(str(self.path))
-        if discovered_repo_path is None:
+        """Check if the given path is the root of a Git repository."""
+        # This is used when instantiating a PyGitRepository repo, so do not use
+        # it here
+        # Check for a .git directory or file (submodule or bare repo)
+        if (self.path / ".git").exists():
+            return True
+
+        # Use 'git rev-parse --is-inside-work-tree' to check if it's a git repository
+        try:
+            result = self._git("rev-parse --is-inside-work-tree", reraise_error=True)
+            if result == "true":
+                return True
+            result = self._git("rev-parse --is-bare-repository", reraise_error=True)
+            if result == "true":
+                return True
+
+        except GitError:
             return False
-        # Ensure the discovered repository path matches self.path
-        repo = pygit2.Repository(discovered_repo_path)
-        if repo is None:
-            return False
-        if self.is_bare_repository:
-            return repo.is_bare
-        return True
+        return False
 
     @property
     def is_git_repository_root(self) -> bool:
@@ -203,7 +215,9 @@ class GitRepository:
         return f"Repo {self.name}: "
 
     @property
-    def pygit_repo(self) -> Optional[pygit2.Repository]:
+    def pygit_repo(self) -> pygit2.Repository:
+        if self.pygit.repo is None:
+            raise PygitError("Failed to instantiate PyGitRepository")
         return self.pygit.repo
 
     @property

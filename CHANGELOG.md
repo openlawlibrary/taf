@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 
-- - Added lazy loading to CLI [481]
+- Added lazy loading to CLI [481]
 - Testing repositories with dependencies ([479], [487])
 - Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
 - Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Raise a more descriptive error if `pygit2` repository cannot be instantiated  ([485], [489])
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
 - Generate public key from private key if .pub file is missing ([462])
 - Port release workflow from Azure Pipelines to GitHub Actions ([458])
@@ -35,8 +36,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-
+[487]: https://github.com/openlawlibrary/taf/pull/489
 [487]: https://github.com/openlawlibrary/taf/pull/487
+[487]: https://github.com/openlawlibrary/taf/pull/485
 [481]: https://github.com/openlawlibrary/taf/pull/481
 [479]: https://github.com/openlawlibrary/taf/pull/479
 [473]: https://github.com/openlawlibrary/taf/pull/473
