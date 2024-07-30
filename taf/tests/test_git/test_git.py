@@ -1,4 +1,3 @@
-from pathlib import Path
 import pytest
 import tempfile
 from taf.exceptions import GitError
