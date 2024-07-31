@@ -44,7 +44,6 @@ def disable_console_logging():
     except ValueError:
         # will be raised if this is called twice
         pass
-
 def disable_file_logging():
     try:
         taf_logger.remove(file_loggers["log"])
@@ -76,10 +75,8 @@ def _get_log_location():
         location = Path(location)
     return location
 
-def get_taf_logger():
-    return taf_logger
-
 if settings.ENABLE_CONSOLE_LOGGING:
+    #import pdb; pdb.set_trace()
     console_loggers["log"] = taf_logger.add(
         sys.stdout, format=_CONSOLE_FORMAT_STRING, level=VERBOSITY_LEVELS.get(settings.VERBOSITY, "NOTICE")
     )

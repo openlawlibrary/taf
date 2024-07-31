@@ -1,7 +1,7 @@
 import logging
 import click
 import json
-from taf.log import taf_logger, get_taf_logger
+from taf.log import taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -12,7 +12,6 @@ from taf.updater.updater import OperationType, UpdateConfig, clone_repository, u
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('taf')
-taf_logger = get_taf_logger()
 
 #def set_verbosity(verbosity):
    # if verbosity == 1:
@@ -232,6 +231,12 @@ def update_repo_command():
         # map 0 --> 1, 1--> 1, 2+ --> 2
         verbosity = min(verbosity, 2)
         #set_logging(verbosity)
+
+        # Logging messages according to classification
+        taf_logger.info("This message will always be displayed.")
+        taf_logger.notice("This is a NOTICE level message.")
+        taf_logger.warning("This is a WARNING level message.")
+        taf_logger.debug("This is a DEBUG level message.")
 
         path = find_valid_repository(path)
         if profile:
