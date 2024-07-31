@@ -18,10 +18,22 @@ _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message
 console_loggers: Dict = {}
 file_loggers: Dict = {}
 
+# JMC: Add NOTICE logging level
+NOTICE = 25
+taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
+taf_logger.log("NOTICE", "Validation repository {repo}: cloning repository...")
+
+def notice(self, message, *args, **kws):
+    if self.isEnabledFor(NOTICE):
+        self._log(NOTICE, message, args, **kws)
+logging.Logger.notice = notice
 
 def disable_console_logging():
     try:
-        taf_logger.remove(console_loggers["log"])
+        for handler in taf_logger.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                taf_logger.removeHandler(handler)
+        #taf_logger.remove(console_loggers["log"])
         disable_tuf_console_logging()
     except ValueError:
         # will be raised if this is called twice
@@ -30,7 +42,10 @@ def disable_console_logging():
 
 def disable_file_logging():
     try:
-        taf_logger.remove(file_loggers["log"])
+        for handler in taf_logger.handlers:
+            if isinstance(handler, logging.FileHandler):
+                taf_logger.removeHandler()
+        #taf_logger.remove(file_loggers["log"])
         disable_tuf_console_logging()
     except ValueError:
         # will be raised if this is called twice
@@ -62,10 +77,29 @@ def _get_log_location():
         location = Path(location)
     return location
 
+VERBOSITY_LEVELS = {
+    1: NOTICE,
+    2: logging.INFO,
+    3: logging.DEBUG
+}
 
-taf_logger.remove()
+def set_logging(verbosity):
+    taf_logger.setLevel(VERBOSITY_LEVELS.get(verbosity, logging.WARNING))
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    taf_logger.addHandler(console_handler)
+
+    log_location = _get_log_location()
+    global file_handler
+    file_handler = logging.FileHandler(log_location / "taf.log")
+    file_handler.setFormatter(formatter)
+    taf_logger.addHandler(file_handler)
+
+#taf_logger.remove()
 
 if settings.ENABLE_CONSOLE_LOGGING:
+    #import pdb; pdb.set_trace()
     console_loggers["log"] = taf_logger.add(
         sys.stdout, format=_CONSOLE_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
     )
