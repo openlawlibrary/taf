@@ -230,6 +230,7 @@ def update_repo_command():
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
         verbosity = min(verbosity + 1, 3) # should map 0 --> 1, 1--> 2, 2+ --> 3
         set_logging(verbosity)
+        #taf_logger._get_taf_logger()
 
         # Logging messages according to classification
         taf_logger.info("This message will always be displayed.")
