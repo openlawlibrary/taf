@@ -44,8 +44,6 @@ def disable_console_logging():
     except ValueError:
         # will be raised if this is called twice
         pass
-
-
 def disable_file_logging():
     try:
         taf_logger.remove(file_loggers["log"])
@@ -79,51 +77,8 @@ def _get_log_location():
         location = Path(location)
     return location
 
-VERBOSITY_LEVELS = {
-    1: "NOTICE",
-    2: "INFO",
-    3: "DEBUG"
-}
-
-def set_logging(verbosity):
-    #log_level = VERBOSITY_LEVELS.get(verbosity, "WARNING")
-    #log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-
-    #taf_logger.remove()
-    # Remove all handlers associated with the logger object.
-    '''for handler in taf_logger.handlers:
-        print(f"Handler: {handler.__class__.__name__}, Level: {logging.getLevelName(handler.level)}")
-'''
-
-    taf_logger.remove()
-    taf_logger.add(sys.stderr, level=VERBOSITY_LEVELS.get(verbosity, "WARNING"))
-
-    log_location = _get_log_location()
-    taf_logger.add(log_location / "taf.log", level=VERBOSITY_LEVELS.get(verbosity, "WARNING"))
-
-    # Add console handler
-    #taf_logger.add(sys.stderr, level=log_level, format=log_format)
-
-    # Add file handler
-    #log_location = _get_log_location()
-    #taf_logger.add(str(log_location / "taf.log"), level=log_level, format=log_format)
-
-    '''taf_logger.remove()
-    log_level = VERBOSITY_LEVELS.get(verbosity, "WARNING")
-    log_format = log_format = "{time} - {name} - {level} - {message}"
-    #taf_logger.add(sys.stderr, level=VERBOSITY_LEVELS.get(verbosity, "WARNING"))
-
-    taf_logger.add(sys.stderr, level=log_level, format=log_format)
-
-    # Add file handler
-    log_location = _get_log_location()
-    taf_logger.add(str(log_location / "taf.log"), level=log_level, format=log_format)
-'''
-
-def get_taf_logger():
-    return taf_logger
-
 if settings.ENABLE_CONSOLE_LOGGING:
+    #import pdb; pdb.set_trace()
     console_loggers["log"] = taf_logger.add(
         sys.stdout, format=_CONSOLE_FORMAT_STRING, level=VERBOSITY_LEVELS.get(settings.VERBOSITY, "NOTICE")
     )
