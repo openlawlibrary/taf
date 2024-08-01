@@ -1,5 +1,6 @@
 import click
 import json
+from taf.log import set_logging, taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -213,22 +214,22 @@ def update_repo_command():
     @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-<<<<<<< HEAD
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, force, no_deps, upstream):
-=======
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of log and debug information based on the verbosity")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
         verbosity = min(verbosity + 1, 3) # should map 0 --> 1, 1--> 2, 2+ --> 3
         set_logging(verbosity)
-        #taf_logger._get_taf_logger()
 
+        print(f"Logger level: {taf_logger.level(taf_logger)}")
+        ''''print("Logger handlers:")
+        for handler in taf_logger._core.handlers.values():
+            print(f"Handler: {handler.__class__.__name__}, Level: {handler._level}, Sink: {handler._name}")
+'''
         # Logging messages according to classification
         taf_logger.info("This message will always be displayed.")
-        taf_logger.notice("This is a NOTICE level message.")
+        taf_logger.notice("NOTICE", "This is a NOTICE level message.")
         taf_logger.warning("This is a WARNING level message.")
         taf_logger.debug("This is a DEBUG level message.")
 
->>>>>>> 6aaef8e (feat: addition of NOTICE logging level)
         path = find_valid_repository(path)
         if profile:
             start_profiling()
