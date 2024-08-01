@@ -36,6 +36,10 @@ from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.log import taf_logger
 
+#logger = get_taf_logger()
+taf_logger.info(f"This is an info message.")
+taf_logger.info(f"This is an info message.")
+
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 
 

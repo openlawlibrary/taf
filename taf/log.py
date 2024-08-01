@@ -10,6 +10,7 @@ import tuf.log
 import tuf.repository_tool
 import tuf.exceptions
 from loguru import logger as taf_logger
+from logging import handlers
 import taf.settings as settings
 
 _CONSOLE_FORMAT_STRING = "\n{message}\n"
@@ -77,8 +78,11 @@ def _get_log_location():
         location = Path(location)
     return location
 
+
+
+    taf_logger.remove()
+
 if settings.ENABLE_CONSOLE_LOGGING:
-    #import pdb; pdb.set_trace()
     console_loggers["log"] = taf_logger.add(
         sys.stdout, format=_CONSOLE_FORMAT_STRING, level=VERBOSITY_LEVELS.get(settings.VERBOSITY, "NOTICE")
     )

@@ -1,6 +1,6 @@
 import click
 import json
-from taf.log import taf_logger
+from taf.log import set_logging, taf_logger, get_taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -26,7 +26,6 @@ def common_update_options(f):
     f = click.option("--exclude-target", multiple=True, help="Globs defining which target repositories should be ignored during update.")(f)
     f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
     return f
-
 
 def start_profiling():
     import cProfile
@@ -230,7 +229,7 @@ def update_repo_command():
 
         # Logging messages according to classification
         taf_logger.info("This message will always be displayed.")
-        taf_logger.notice("This is a NOTICE level message.")
+        taf_logger.notice("NOTICE", "This is a NOTICE level message.")
         taf_logger.warning("This is a WARNING level message.")
         taf_logger.debug("This is a DEBUG level message.")
 
