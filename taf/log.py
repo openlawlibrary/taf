@@ -20,13 +20,6 @@ file_loggers: Dict = {}
 # JMC: Add NOTICE logging level
 NOTICE = 25
 taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
-#taf_logger.log("NOTICE", "Validation repository {repo}: cloning repository...")
-
-def notice(self, message, *args, **kwargs):
-    if self.isEnabledFor(NOTICE):
-        self._log("NOTICE", message, args, **kwargs)
-#taf_logger.__class__.notice = notice
-taf_logger.notice = notice
 
 def disable_file_logging():
     try:

@@ -219,14 +219,9 @@ def update_repo_command():
         verbosity = min(verbosity + 1, 3) # should map 0 --> 1, 1--> 2, 2+ --> 3
         set_logging(verbosity)
 
-        print(f"Logger level: {taf_logger.level(taf_logger)}")
-        ''''print("Logger handlers:")
-        for handler in taf_logger._core.handlers.values():
-            print(f"Handler: {handler.__class__.__name__}, Level: {handler._level}, Sink: {handler._name}")
-'''
         # Logging messages according to classification
         taf_logger.info("This message will always be displayed.")
-        taf_logger.notice("NOTICE", "This is a NOTICE level message.")
+        taf_logger.notice("This is a NOTICE level message.")
         taf_logger.warning("This is a WARNING level message.")
         taf_logger.debug("This is a DEBUG level message.")
 
