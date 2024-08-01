@@ -321,7 +321,7 @@ def update_repository(config: UpdateConfig):
         None
     """
 
-    taf_logger.notice(f"Updating repository {config.path}")
+    taf_logger.log("NOTICE", f"{config.path}: updating repository...")
     settings.strict = config.strict
 
     # if path is not specified, name should be read from info.json

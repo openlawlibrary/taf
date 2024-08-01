@@ -1,7 +1,7 @@
 import logging
 import click
 import json
-from taf.log  import set_logging, taf_logger
+from taf.log import set_logging, taf_logger, get_taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -12,7 +12,7 @@ from taf.updater.updater import OperationType, UpdateConfig, clone_repository, u
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('taf')
-
+taf_logger = get_taf_logger()
 def set_verbosity(verbosity):
     if verbosity == 1:
         logger.setLevel(logging.INFO)
@@ -230,11 +230,15 @@ def update_repo_command():
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
         verbosity = min(verbosity + 1, 3) # should map 0 --> 1, 1--> 2, 2+ --> 3
         set_logging(verbosity)
-        #taf_logger._get_taf_logger()
 
+        print(f"Logger level: {taf_logger.level(taf_logger)}")
+        ''''print("Logger handlers:")
+        for handler in taf_logger._core.handlers.values():
+            print(f"Handler: {handler.__class__.__name__}, Level: {handler._level}, Sink: {handler._name}")
+'''
         # Logging messages according to classification
         taf_logger.info("This message will always be displayed.")
-        taf_logger.notice("This is a NOTICE level message.")
+        taf_logger.notice("NOTICE", "This is a NOTICE level message.")
         taf_logger.warning("This is a WARNING level message.")
         taf_logger.debug("This is a DEBUG level message.")
 
