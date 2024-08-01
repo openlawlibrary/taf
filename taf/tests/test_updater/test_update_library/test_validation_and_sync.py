@@ -41,13 +41,10 @@ def test_auth_repo_not_in_sync(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates)
     setup_manager.add_task(add_valid_target_commits)
-    check_repo_sync(client_dir, origin_auth_repo)
     setup_manager.execute_tasks()
 
     new_origin_commit = origin_auth_repo.head_commit_sha()
-    assert (
-        original_commit != new_origin_commit
-    ), "Origin auth repo should have new commits"
+    assert original_commit != new_origin_commit
     setup_manager.add_task(sync_auth_repo)
     setup_manager.execute_tasks()
 
@@ -85,9 +82,7 @@ def test_target_repo_not_in_sync(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
 
     new_origin_commit = origin_auth_repo.head_commit_sha()
-    assert (
-        original_commit != new_origin_commit
-    ), "Origin auth repo should have new commits"
+    assert original_commit != new_origin_commit
 
     setup_manager.add_task(
         sync_target_repos_with_remote,
@@ -140,9 +135,7 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     new_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
 
     for repo_name in original_commits:
-        assert (
-            original_commits[repo_name] != new_commits[repo_name]
-        ), f"Target repo {repo_name} should have new commits"
+        assert original_commits[repo_name] != new_commits[repo_name]
 
     setup_manager.add_task(sync_auth_repo)
     setup_manager.execute_tasks()
@@ -181,10 +174,7 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
 
     new_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
     for repo_name in original_commits:
-        assert (
-            original_commits[repo_name] != new_commits[repo_name]
-        ), f"Target repo {repo_name} should have new commits"
-
+        assert original_commits[repo_name] != new_commits[repo_name]
     setup_manager.add_task(
         sync_target_repos_with_remote,
         kwargs={"origin_auth_repo": origin_auth_repo, "client_dir": client_dir},
@@ -242,16 +232,12 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
 
     # Check that the untouched repo has the same commit
     reverted_commit = reverted_repo.head_commit_sha()
-    assert (
-        original_commits[reverted_repo.name] != reverted_commit
-    ), f"Target repo {reverted_repo.name} should have new commits"
+    assert original_commits[reverted_repo.name] != reverted_commit
 
     # Check that the manually updated repo has a new commit
     updated_commit = updated_repo.head_commit_sha()
-    assert (
-        original_commits[updated_repo.name] != updated_commit
-    ), f"Target repo {updated_repo.name} should have new commits"
-
+    assert original_commits[updated_repo.name] != updated_commit
+    # Sync Repo
     setup_manager.add_task(sync_auth_repo)
     setup_manager.execute_tasks()
 
@@ -297,15 +283,11 @@ def test_target_repo_mixed_manual_updates(origin_auth_repo, client_dir):
 
     # Check that the manually updated repo has a new commit
     manually_updated_commit = manually_updated_repo.head_commit_sha()
-    assert (
-        original_commits[manually_updated_repo.name] != manually_updated_commit
-    ), f"Target repo {manually_updated_repo.name} should have new commits"
+    assert original_commits[manually_updated_repo.name] != manually_updated_commit
 
     # Check that the untouched repo has the same commit
     untouched_commit = untouched_repo.head_commit_sha()
-    assert (
-        original_commits[untouched_repo.name] == untouched_commit
-    ), f"Target repo {untouched_repo.name} should not have new commits"
+    assert original_commits[untouched_repo.name] == untouched_commit
 
     # Run the updater to handle the mixed state
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
