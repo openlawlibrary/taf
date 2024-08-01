@@ -258,7 +258,7 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert not client_repository.path.exists()
 
 
-def assert_repositories_updated(client_dir, origin_auth_repo):
+def check_repo_sync(client_dir, origin_auth_repo):
     """
     Asserts that the repositories in the client directory are updated
     to match the commits in the origin authentication repository.
@@ -277,5 +277,8 @@ def assert_repositories_updated(client_dir, origin_auth_repo):
         client_dir, origin_auth_repo.name
     )
 
-    # Perform the check if commits match
-    check_if_commits_match(client_repos, origin_auth_repo.path.parent.parent)
+    try:
+        check_if_commits_match(client_repos, origin_auth_repo.path.parent.parent)
+    except AssertionError:
+        return False
+    assert True, "The repositories are unexpectedly in sync."
