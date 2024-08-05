@@ -1262,6 +1262,8 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     taf_logger.debug("Removing temp repositories...")
+
+    @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
     def remove_temp_repositories(self):
         if not self.state.temp_root:
             return self.state.update_status
