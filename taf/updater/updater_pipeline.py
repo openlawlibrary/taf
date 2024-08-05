@@ -9,7 +9,11 @@ import shutil
 import logging
 import tempfile
 from typing import Any, Dict, List, Optional
+
 from attr import attrs, define, field
+
+from build.lib.taf.updater.updater_pipeline import _get_repository_name_from_info_json, \
+    _get_repository_name_raise_error_if_not_defined
 from taf.git import GitError
 from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
@@ -28,10 +32,9 @@ from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
-from taf.log import taf_logger
 from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-from taf.log import taf_logger, get_taf_logger
+from taf.log import taf_logger
 
 taf_logger.info(f"This is an info message.")
 taf_logger.log("NOTICE", f"This is an info message.")
@@ -914,7 +917,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
 
-    @log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
+    #@log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
+    taf_logger.debug("Fetching commits of target repositories...")
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
@@ -1254,9 +1258,8 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @log_on_start(
-        DEBUG, "Copying or updating user's target repositories...", logger=taf_logger
-    )
+    #@log_on_start(DEBUG, "Copying or updating user's target repositories...", logger=taf_logger)
+    taf_logger.debug("Copying or updating user's target repositories...")
     def update_users_target_repositories(self):
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
@@ -1287,6 +1290,7 @@ but commit not on branch {current_branch}"
             taf_logger.error(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
 
     @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
     def remove_temp_repositories(self):
@@ -1446,6 +1450,8 @@ but commit not on branch {current_branch}"
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+        for repo_name in self.state.additional_commits_per_target_repos_branches.items():
+            taf_logger.info(f"{repo_name} finished updating!")
 
 
 def _clone_validation_repo(url):
