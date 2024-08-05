@@ -221,7 +221,7 @@ def update_repo_command():
 
         # Logging messages according to classification
         taf_logger.info("This message will always be displayed.")
-        taf_logger.notice("This is a NOTICE level message.")
+        taf_logger.log("NOTICE", "This is a NOTICE level message.")
         taf_logger.warning("This is a WARNING level message.")
         taf_logger.debug("This is a DEBUG level message.")
 
