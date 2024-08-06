@@ -62,10 +62,17 @@ NO_INFO_JSON = "Update of repository failed due to error: Error during info.json
 UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([\w/-]+)/(\w+) has uncommitted changes. Commit and push or revert the changes and run the command again."
-REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
+REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Last validated commit ([0-9a-f]{40}) is not in the remote repository."
 INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
 INVALID_TIMESTAMP_PATTERN_ROOT = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
+TARGET_COMMIT_NOT_ON_BRANCH_PATTERN = r"Update of (\w+\/\w+) failed due to error: Failure to validate (\w+\/\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository (\w+\/\w+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
+TARGET_COMMIT_MISMATCH_PATTERN = (
+    r"Update of (\w+\/\w+) failed due to error: Failure to validate (\w+\/\w+) commit "
+    r"([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository (\w+\/\w+) was "
+    r"supposed to be at commit ([0-9a-f]{40}) but (repo was at|commit not on branch) (\w+)"
+)
+
 
 # Disable console logging for all tests
 disable_console_logging()

@@ -645,25 +645,65 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def _validate_last_validated_commit(self, last_validated_commit):
         branch = self.state.users_auth_repo.default_branch
         users_head_sha = self.state.users_auth_repo.top_commit_of_branch(branch)
-        if last_validated_commit != users_head_sha:
-            # if a user committed something to the repo or manually pulled the changes
-            # last_validated_commit will no longer match the top commit, but the repository
-            # might still be completely valid
-            # committing without pushing is not valid
-            # user_head_sha should be newer than last validated commit
+
+        def validate_commit_in_remote(repo, commit_sha):
+            try:
+                repo.fetch()
+                remote_commits = repo.all_commits_on_branch(repo.default_branch)
+                return commit_sha in remote_commits
+            except GitError:
+                return False
+
+        # Check if the top commit of the user's local repository is valid
+        if not validate_commit_in_remote(self.state.users_auth_repo, users_head_sha):
+            raise UpdateFailedError(
+                f"Top commit {users_head_sha} of the local repository is not in the remote repository."
+            )
+
+        # Check if the last validated commit is valid
+        if last_validated_commit and not validate_commit_in_remote(
+            self.state.users_auth_repo, last_validated_commit
+        ):
+            msg = f"Last validated commit {last_validated_commit} is not in the remote repository."
+            if self.force:
+                taf_logger.warning(
+                    "Forcing update: setting last validated commit to the top commit of the local repository."
+                )
+                self.state.users_auth_repo.set_last_validated_commit(users_head_sha)
+                self.state.last_validated_commit = users_head_sha
+            else:
+                taf_logger.error(msg)
+                raise UpdateFailedError(msg)
+
+        # Check if the top commit is a valid successor to the last validated commit
+        if last_validated_commit and users_head_sha != last_validated_commit:
             commits_since = self.state.users_auth_repo.all_commits_since_commit(
                 since_commit=last_validated_commit, branch=branch
             )
             if users_head_sha not in commits_since:
-                msg = f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
-                taf_logger.error(msg)
+                msg = f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than last successful commit."
                 if self.force:
-                    taf_logger.info(
+                    taf_logger.warning(msg)
+                    taf_logger.warning(
                         "Forcing update: setting last validated commit to the top commit of the local repository."
                     )
                     self.state.users_auth_repo.set_last_validated_commit(users_head_sha)
+                    self.state.last_validated_commit = users_head_sha
                 else:
+                    taf_logger.error(msg)
                     raise UpdateFailedError(msg)
+            else:
+                taf_logger.info(
+                    f"Commit {users_head_sha} is a valid successor of the last validated commit {last_validated_commit}."
+                )
+
+        # Handle the case where there is no last validated commit
+        if not last_validated_commit:
+            taf_logger.info(
+                f"No last validated commit found, using current top commit {users_head_sha}."
+            )
+            self.state.users_auth_repo.set_last_validated_commit(users_head_sha)
+            self.state.last_validated_commit = users_head_sha
 
     @log_on_start(
         INFO,
