@@ -4,10 +4,8 @@ import json
 import itertools
 import os
 import re
-import sys
 import uuid
 import pygit2
-import logging
 import subprocess
 import logging
 from collections import OrderedDict
@@ -73,9 +71,6 @@ class GitRepository:
           the containing directory is owned by a different user to be ignored
           alias: Repository's alias, which will be used in logging statements to reference it
         """
-
-        self.verbosity = verbosity
-        set_verbosity(self.verbosity)
 
         if isinstance(library_dir, str):
             library_dir = Path(library_dir)

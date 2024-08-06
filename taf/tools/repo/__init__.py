@@ -1,7 +1,7 @@
 import logging
 import click
 import json
-from taf.log import set_logging, taf_logger, get_taf_logger
+from taf.log import taf_logger, get_taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -13,14 +13,15 @@ from taf.updater.updater import OperationType, UpdateConfig, clone_repository, u
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('taf')
 taf_logger = get_taf_logger()
-def set_verbosity(verbosity):
-    if verbosity == 1:
-        logger.setLevel(logging.INFO)
-    elif verbosity == 2:
-        logger.setLevel(logging.WARNING)
-    elif verbosity == 3:
-        logger.setLevel(logging.DEBUG)
-    set_logging(verbosity)
+
+#def set_verbosity(verbosity):
+   # if verbosity == 1:
+    #    logger.setLevel(logging.INFO)
+    #elif verbosity == 2:
+     #   logger.setLevel(logging.WARNING)
+    #elif verbosity == 3:
+     #   logger.setLevel(logging.DEBUG)
+    #set_logging(verbosity)
 
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
@@ -230,26 +231,7 @@ def update_repo_command():
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
         # map 0 --> 1, 1--> 1, 2+ --> 2
         verbosity = min(verbosity, 2)
-        set_logging(verbosity)
-        click.get_current_context().obj.verbosity = verbosity
-
-        if click.get_current_context().obj.verbosity == 0:
-            taf_logger.setLevel("NOTICE")
-        elif click.get_current_context().obj.verbosity == 1:
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="NOTICE")
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="WARNING")
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="INFO")
-        else:
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="NOTICE")
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="WARNING")
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="INFO")
-            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="DEBUG")
-
-        # Logging messages according to classification
-        #taf_logger.info("This message will always be displayed.")
-        #taf_logger.log("NOTICE", "{repo_name}: updating repository...")
-        #taf_logger.warning("This is a WARNING level message.")
-        #taf_logger.debug("This is a DEBUG level message.")
+        #set_logging(verbosity)
 
         path = find_valid_repository(path)
         if profile:
@@ -272,6 +254,7 @@ def update_repo_command():
             update_repository(config)
             if format_output:
                 print(json.dumps({'updateSuccessful': True}))
+                taf_logger.log("NOTICE", f"{path}: finished updating repository.")
         except Exception as e:
             if format_output:
                 error_data = {'updateSuccessful': False, 'error': str(e)}
