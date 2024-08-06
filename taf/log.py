@@ -58,16 +58,6 @@ def disable_tuf_console_logging():
     except securesystemslib.exceptions.Error:
         pass
 
-'''
-def log_specification():
-    if click.BOOL("-v"):
-        return taf_logger.log("NOTICE"), taf_logger.log
-    elif click.BOOL("-vv"):
-        return taf_logger.log("NOTICE"), taf_logger.log, taf_logger.debug
-    else:
-        return taf_logger.log("NOTICE")
-'''
-
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
         tuf.log.disable_file_logging()
