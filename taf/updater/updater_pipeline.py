@@ -36,9 +36,6 @@ from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.log import taf_logger
 
-taf_logger.info(f"This is an info message.")
-taf_logger.log("NOTICE", f"This is an info message.")
-
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 PROTECTED_DIRECTORY_NAME = "protected"
 INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
@@ -107,6 +104,11 @@ class UpdateOutput:
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
 
+def start_update(self):
+    for repo_name in self.state.additional_commits_per_target_repos_branches():
+        # This message should be shown regardless of verbosity setting
+        taf_logger.log("NOTICE", f"{repo_name}: updating repository...")
+        taf_logger.info(f"{repo_name}: updating repository...")
 
 def cleanup_decorator(pipeline_function):
     @functools.wraps(pipeline_function)
@@ -154,7 +156,7 @@ class Pipeline:
 
     def run(self):
         self.state.errors = []
-        logger.info(f"Running pipeline in {self.run_mode} mode.")
+        taf_logger.info(f"Running pipeline in {self.run_mode} mode.")
         for step, step_run_mode, should_run_fn in self.steps:
             try:
                 if (
@@ -346,9 +348,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return self.state.event == Event.CHANGED
         return True
 
-    '''@log_on_start(
-        DEBUG, "Checking which repositories are already on disk...", logger=taf_logger
-    )'''
+    taf_logger.debug("Checking which repositories are already on disk...")
     def set_existing_repositories(self):
         taf_logger.info("Checking which repositories are already on disk...")
         self.state.existing_repo = False
@@ -378,11 +378,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     # return UpdateStatus.SUCCESS if self.state.existing_repo else UpdateStatus.FAILURE
-    @log_on_start(
-        INFO,
-        ".Checking if local repositories are clean...",
-        logger=taf_logger,
-    )
+    taf_logger.info(".Checking if local repositories are clean...")
     def check_if_local_repositories_clean(self):
         try:
             # check if the auth repo is clean first
@@ -462,9 +458,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @log_on_start(
-        INFO, "Cloning repository and running TUF updater...", logger=taf_logger
-    )
+    taf_logger.info("Cloning repository and running TUF updater...")
     @cleanup_decorator
     def clone_remote_and_run_tuf_updater(self):
         settings.update_from_filesystem = self.update_from_filesystem
@@ -610,9 +604,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 f"{self.state.users_auth_repo.path} is not a Git repository. Run 'taf repo clone' instead"
             )
 
-    @log_on_start(
-        INFO, "Validating out of band commit and update type", logger=taf_logger
-    )
+    taf_logger.info("Validating out of band commit and update type...")
     def validate_out_of_band_and_update_type(self):
         # this is the repository cloned inside the temp directory
         # we validate it before updating the actual authentication repository
@@ -669,11 +661,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 taf_logger.error(msg)
                 raise UpdateFailedError(msg)
 
-    @log_on_start(
-        INFO,
-        "Cloning or updating user's authentication repository...",
-        logger=taf_logger,
-    )
+    taf_logger.info("Cloning or updating user's authentication repository...")
     def clone_or_fetch_users_auth_repo(self):
         # fetch the latest commit or clone the repository without checkout
         # do not merge before targets are validated as well
@@ -688,7 +676,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    @log_on_start(DEBUG, "Loading target repositories", logger=taf_logger)
+    taf_logger.debug("Loading target repositories...")
     def load_target_repositories(self):
         try:
             repositoriesdb.load_repositories(
@@ -727,11 +715,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @log_on_start(
-        INFO,
-        "Checking if all target repositories are already on disk...",
-        logger=taf_logger,
-    )
+    taf_logger.info("Checking if all target repositories are already on disk...")
     def check_if_repositories_on_disk(self):
         try:
             for repository in self.state.users_target_repositories.values():
@@ -749,8 +733,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @log_on_start(DEBUG, "Cloning target repositories to temp...", logger=taf_logger)
-    @log_on_end(INFO, "Finished cloning target repositories", logger=taf_logger)
+    taf_logger.debug("Cloning target repositories to temp...")
+    taf_logger.info("Finished cloning target repositories.")
+
     def clone_target_repositories_to_temp(self):
         try:
             self.state.repos_on_disk = {}
@@ -785,14 +770,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @log_on_start(
-        INFO, "Validating initial state of target repositories...", logger=taf_logger
-    )
-    @log_on_end(
-        INFO,
-        "Checking initial state of repositories",
-        logger=taf_logger,
-    )
+    taf_logger.info("Validating initial state of target repositories...")
+    taf_logger.info("Checking initial state of repositories...")
     def determine_start_commits(self):
         try:
             self.state.targets_data_by_auth_commits = (
@@ -1687,3 +1666,9 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
+
+def finish_update(self):
+    for repo_name in self.state.additional_commits_per_target_repos_branches():
+        # This message should be shown regardless of verbosity setting
+        taf_logger.log("NOTICE", f"{repo_name}: finished updating...")
+        taf_logger.info(f"{repo_name}: finished updating...")
