@@ -3,7 +3,6 @@ import sys
 import logging
 from typing import Dict
 
-import click
 import securesystemslib
 from pathlib import Path
 
@@ -24,15 +23,19 @@ taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
 
 VERBOSITY_LEVELS = {
     0: "NOTICE",  # Default
-    1: "WARNING", # One -v
-    2: "DEBUG",   # Two -vv
+    1: "WARNING", # -v
+    2: "INFO",   # -vv
+    3: "DEBUG" # -vvv
 }
-def set_logging(verbosity):
-    taf_logger.remove()
-    taf_logger.add(sys.stderr, level=VERBOSITY_LEVELS.get(verbosity, "NOTICE"))
-
-    log_location = _get_log_location()
-    taf_logger.add(log_location / "taf.log", level=VERBOSITY_LEVELS.get(verbosity, "NOTICE"))
+#def set_logging(verbosity):
+ #   if verbosity == 0:
+  #      taf_logger.add(sys.stdout, level="NOTICE")
+   # elif verbosity == 1:
+    #    taf_logger.add(sys.stdout, level="WARNING")
+    #elif verbosity == 2:
+    #    taf_logger.add(sys.stdout, level="INFO")
+    #else:
+       # taf_logger.add(sys.stdout, level="DEBUG")
 
 def disable_console_logging():
     try:
@@ -57,16 +60,6 @@ def disable_tuf_console_logging():
         tuf.log.set_console_log_level(logging.CRITICAL)
     except securesystemslib.exceptions.Error:
         pass
-
-'''
-def log_specification():
-    if click.BOOL("-v"):
-        return taf_logger.log("NOTICE"), taf_logger.log
-    elif click.BOOL("-vv"):
-        return taf_logger.log("NOTICE"), taf_logger.log, taf_logger.debug
-    else:
-        return taf_logger.log("NOTICE")
-'''
 
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
@@ -132,7 +125,7 @@ def get_taf_logger():
 
 if settings.ENABLE_CONSOLE_LOGGING:
     console_loggers["log"] = taf_logger.add(
-        sys.stdout, format=_CONSOLE_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
+        sys.stdout, format=_CONSOLE_FORMAT_STRING, level=VERBOSITY_LEVELS.get(settings.VERBOSITY, "NOTICE")
     )
     tuf.log.set_console_log_level(settings.CONSOLE_LOGGING_LEVEL)
 else:
