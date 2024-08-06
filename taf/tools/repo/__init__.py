@@ -229,13 +229,7 @@ def update_repo_command():
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
         # map 0 --> 1, 1--> 1, 2+ --> 2
         verbosity = min(verbosity, 2)
-        #set_logging(verbosity)
-
-        # Logging messages according to classification
-        taf_logger.info("This message will always be displayed.")
-        taf_logger.log("NOTICE", "This is a NOTICE level message.")
-        taf_logger.warning("This is a WARNING level message.")
-        taf_logger.debug("This is a DEBUG level message.")
+        set_logging(verbosity)
 
         path = find_valid_repository(path)
         if profile:

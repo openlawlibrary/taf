@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 from typing import Dict
-
 import securesystemslib
 from pathlib import Path
 
@@ -10,7 +9,6 @@ import tuf.log
 import tuf.repository_tool
 import tuf.exceptions
 from loguru import logger as taf_logger
-from logging import handlers
 import taf.settings as settings
 
 _CONSOLE_FORMAT_STRING = "\n{message}\n"
@@ -59,6 +57,16 @@ def disable_tuf_console_logging():
     except securesystemslib.exceptions.Error:
         pass
 
+'''
+def log_specification():
+    if click.BOOL("-v"):
+        return taf_logger.log("NOTICE"), taf_logger.log
+    elif click.BOOL("-vv"):
+        return taf_logger.log("NOTICE"), taf_logger.log, taf_logger.debug
+    else:
+        return taf_logger.log("NOTICE")
+'''
+
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
         tuf.log.disable_file_logging()
@@ -76,9 +84,9 @@ def _get_log_location():
         location = Path(location)
     return location
 
-
-
     taf_logger.remove()
+def get_taf_logger():
+    return taf_logger
 
 if settings.ENABLE_CONSOLE_LOGGING:
     console_loggers["log"] = taf_logger.add(

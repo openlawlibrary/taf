@@ -36,9 +36,6 @@ from tuf.ngclient.updater import Updater
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.log import taf_logger
 
-taf_logger.info(f"This is an info message.")
-taf_logger.log("NOTICE", f"This is an info message.")
-
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 PROTECTED_DIRECTORY_NAME = "protected"
 INFO_JSON_PATH = f"{TARGETS_DIRECTORY_NAME}/{PROTECTED_DIRECTORY_NAME}/info.json"
@@ -110,8 +107,7 @@ class UpdateOutput:
 def start_update(self):
     for repo_name in self.state.additional_commits_per_target_repos_branches():
         # This message should be shown regardless of verbosity setting
-        #taf_logger.log("NOTICE", f"{repo_name}: updating repository...")
-        taf_logger.info(f"{repo_name}: updating repository...")
+        taf_logger.log("NOTICE", f"{repo_name}: updating repository...")
 
 def cleanup_decorator(pipeline_function):
     @functools.wraps(pipeline_function)
