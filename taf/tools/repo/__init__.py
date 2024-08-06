@@ -1,7 +1,7 @@
 import logging
 import click
 import json
-from taf.log import set_logging, taf_logger, get_taf_logger
+from taf.log import taf_logger, get_taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
@@ -12,6 +12,7 @@ from taf.updater.updater import OperationType, UpdateConfig, clone_repository, u
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('taf')
+taf_logger = get_taf_logger()
 
 #def set_verbosity(verbosity):
    # if verbosity == 1:
