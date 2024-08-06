@@ -2,6 +2,8 @@ import os
 import sys
 import logging
 from typing import Dict
+
+import click
 import securesystemslib
 from pathlib import Path
 
@@ -17,17 +19,24 @@ _FILE_FORMAT_STRING = "[{time}] [{level}] [{module}:{function}@{line}]\n{message
 console_loggers: Dict = {}
 file_loggers: Dict = {}
 
-# JMC: Add NOTICE logging level
 NOTICE = 25
 taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
 
-def disable_file_logging():
+VERBOSITY_LEVELS = {
+    0: "NOTICE",  # Default
+    1: "WARNING", # One -v
+    2: "DEBUG",   # Two -vv
+}
+def set_logging(verbosity):
+    taf_logger.remove()
+    taf_logger.add(sys.stderr, level=VERBOSITY_LEVELS.get(verbosity, "NOTICE"))
+
+    log_location = _get_log_location()
+    taf_logger.add(log_location / "taf.log", level=VERBOSITY_LEVELS.get(verbosity, "NOTICE"))
+
+def disable_console_logging():
     try:
-        for handler_id in taf_logger._core.handlers.copy():
-            handler = taf_logger._core.handlers[handler_id]
-            if handler.sink != sys.stderr:
-                taf_logger.remove(handler_id)
-        #taf_logger.remove(console_loggers["log"])
+        taf_logger.remove(console_loggers["log"])
         disable_tuf_console_logging()
     except ValueError:
         # will be raised if this is called twice
@@ -36,11 +45,7 @@ def disable_file_logging():
 
 def disable_file_logging():
     try:
-        for handler_id in taf_logger._core.handlers.copy():
-            handler = taf_logger._core.handlers[handler_id]
-            if handler.sink != sys.stderr:
-                taf_logger.remove(handler_id)
-        #taf_logger.remove(file_loggers["log"])
+        taf_logger.remove(file_loggers["log"])
         disable_tuf_console_logging()
     except ValueError:
         # will be raised if this is called twice
@@ -53,6 +58,15 @@ def disable_tuf_console_logging():
     except securesystemslib.exceptions.Error:
         pass
 
+'''
+def log_specification():
+    if click.BOOL("-v"):
+        return taf_logger.log("NOTICE"), taf_logger.log
+    elif click.BOOL("-vv"):
+        return taf_logger.log("NOTICE"), taf_logger.log, taf_logger.debug
+    else:
+        return taf_logger.log("NOTICE")
+'''
 
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
@@ -112,6 +126,7 @@ def set_logging(verbosity):
     log_location = _get_log_location()
     taf_logger.add(str(log_location / "taf.log"), level=log_level, format=log_format)
 '''
+
 def get_taf_logger():
     return taf_logger
 

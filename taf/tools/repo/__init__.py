@@ -216,14 +216,28 @@ def update_repo_command():
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of log and debug information based on the verbosity")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
-        verbosity = min(verbosity + 1, 3) # should map 0 --> 1, 1--> 2, 2+ --> 3
+        # map 0 --> 1, 1--> 1, 2+ --> 2
+        verbosity = min(verbosity, 2)
         set_logging(verbosity)
+        click.get_current_context().obj.verbosity = verbosity
+
+        if click.get_current_context().obj.verbosity == 0:
+            taf_logger.setLevel("NOTICE")
+        elif click.get_current_context().obj.verbosity == 1:
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="NOTICE")
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="WARNING")
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="INFO")
+        else:
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="NOTICE")
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="WARNING")
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="INFO")
+            taf_logger.add('file.log', format="{time:20.00} | {level} | {message}", level="DEBUG")
 
         # Logging messages according to classification
-        taf_logger.info("This message will always be displayed.")
-        taf_logger.log("NOTICE", "This is a NOTICE level message.")
-        taf_logger.warning("This is a WARNING level message.")
-        taf_logger.debug("This is a DEBUG level message.")
+        #taf_logger.info("This message will always be displayed.")
+        #taf_logger.log("NOTICE", "{repo_name}: updating repository...")
+        #taf_logger.warning("This is a WARNING level message.")
+        #taf_logger.debug("This is a DEBUG level message.")
 
         path = find_valid_repository(path)
         if profile:

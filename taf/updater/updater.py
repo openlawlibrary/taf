@@ -326,9 +326,7 @@ def update_repository(config: UpdateConfig):
 
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
-        raise UpdateFailedError(
-            f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
-        )
+        raise UpdateFailedError(f"{config.path} is not a Git repository. Run 'taf repo clone' instead")
 
     taf_logger.info(f"Updating repository {auth_repo.name}")
 
@@ -340,6 +338,7 @@ def update_repository(config: UpdateConfig):
     if auth_repo.is_bare_repository:
         # Handle updates for bare repositories
         config.bare = True
+    taf_logger.log("NOTICE", f"{config.path}: finished updating!")
     return _update_or_clone_repository(config)
 
 
