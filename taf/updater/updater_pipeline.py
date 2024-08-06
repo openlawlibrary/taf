@@ -107,7 +107,7 @@ class UpdateOutput:
 def start_update(self):
     for repo_name in self.state.additional_commits_per_target_repos_branches():
         # This message should be shown regardless of verbosity setting
-        taf_logger.log("NOTICE", f"{repo_name}: updating repository...")
+        #taf_logger.log("NOTICE", f"{repo_name}: updating repository...")
         taf_logger.info(f"{repo_name}: updating repository...")
 
 def cleanup_decorator(pipeline_function):
@@ -896,7 +896,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
 
-    #@log_on_start(DEBUG, "Fetching commits of target repositories", logger=taf_logger)
     taf_logger.debug("Fetching commits of target repositories...")
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
@@ -989,11 +988,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    @log_on_start(
-        DEBUG,
-        "Checking if target repositories are clean...",
-        logger=taf_logger,
-    )
+    taf_logger.debug("Checking if target repositories are clean...")
     def check_if_local_target_repositories_clean(self):
         try:
             for repository in self.state.repos_on_disk.values():
@@ -1021,8 +1016,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    @log_on_start(INFO, "Validating target repositories...", logger=taf_logger)
-    @log_on_end(INFO, "Validation of target repositories finished", logger=taf_logger)
+    taf_logger.info("Validating target repositories...")
+    taf_logger.info("Validation of target repositories finished")
     def validate_target_repositories(self):
         """
         Breadth-first update of target repositories
@@ -1169,11 +1164,7 @@ data repository {repository.name} was supposed to be at commit {current_commit} 
 but commit not on branch {current_branch}"
         )
 
-    @log_on_start(
-        DEBUG,
-        "Validating and setting additional commits of target repositories",
-        logger=taf_logger,
-    )
+    taf_logger.debug("Validating and setting additional commits of target repositories...")
     def validate_and_set_additional_commits_of_target_repositories(self):
         """
         For target repository and for each branch, extract commits following the last validated commit
@@ -1237,7 +1228,6 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    #@log_on_start(DEBUG, "Copying or updating user's target repositories...", logger=taf_logger)
     taf_logger.debug("Copying or updating user's target repositories...")
     def update_users_target_repositories(self):
         if self.state.update_status == UpdateStatus.FAILED:
@@ -1270,8 +1260,7 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-
-    @log_on_start(DEBUG, "Removing temp repositories...", logger=taf_logger)
+    taf_logger.debug("Removing temp repositories...")
     def remove_temp_repositories(self):
         if not self.state.temp_root:
             return self.state.update_status
@@ -1285,9 +1274,7 @@ but commit not on branch {current_branch}"
             )
         return self.state.update_status
 
-    @log_on_start(
-        INFO, "Merging commits into target repositories...", logger=taf_logger
-    )
+    taf_logger.info("Merging commits into target repositories...")
     def merge_commits(self):
         """Determines which commits needs to be merged into the specified branch and
         merge it.
@@ -1475,12 +1462,7 @@ def _get_repository_name_from_info_json(auth_repo, commit_sha):
 def _is_unauthenticated_allowed(repository):
     return repository.custom.get("allow-unauthenticated-commits", False)
 
-
-@log_on_start(
-    INFO,
-    "Running TUF validation of the authentication repository...",
-    logger=taf_logger,
-)
+taf_logger.info("Running TUF validation of the authentication repository...")
 def _run_tuf_updater(git_fetcher, auth_repo_name):
     def _init_updater():
         try:
