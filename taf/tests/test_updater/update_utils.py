@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 from freezegun import freeze_time
 from collections import defaultdict
@@ -282,3 +283,33 @@ def check_repo_sync(client_dir, origin_auth_repo):
     except AssertionError:
         return False
     assert True, "The repositories are unexpectedly in sync."
+
+
+def verify_client_repos_state(client_dir: Path, auth_repo: AuthenticationRepository):
+    """
+    Verify that the client's repositories are in the correct state.
+    This means that the target repositories in the client repo should be in sync with the origin repo,
+    and the client's auth repo should be updated to the last validated commit.
+    """
+    client_auth_repo = AuthenticationRepository(path=client_dir / auth_repo.name)
+    client_target_repos = load_target_repositories(auth_repo, library_dir=client_dir)
+    origin_auth_repo_commit = auth_repo.head_commit_sha()
+
+    # Verify that the target repositories' commits match between client and origin
+    check_if_commits_match(client_target_repos, auth_repo.path.parent.parent)
+
+    # Verify that the client's auth repo commit matches the last validated commit
+    check_last_validated_commit(client_auth_repo.path)
+
+    # Ensure that the target repos in the client differ from the last validated commit
+    for repo_name, client_repo in client_target_repos.items():
+        origin_repo = GitRepository(auth_repo.path.parent.parent, repo_name)
+        client_commit = client_repo.head_commit_sha()
+        origin_commit = origin_repo.head_commit_sha()
+
+        assert (
+            client_commit == origin_commit
+        ), f"Target repo {repo_name} should have the same commit as the origin repo"
+        assert (
+            client_commit != origin_auth_repo_commit
+        ), f"Target repo {repo_name} should not have the same commit as the client's auth repo"

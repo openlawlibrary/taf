@@ -569,6 +569,19 @@ def update_role_metadata_without_signing(
     )
 
 
+def update_existing_file(repo: GitRepository, filename: str, commit_message: str):
+    text_to_add = _generate_random_text()
+    file_path = repo.path / filename
+    if file_path.exists():
+        with file_path.open("a") as file:
+            file.write(f"\n{text_to_add}")
+        repo.commit(commit_message)
+    else:
+        raise FileNotFoundError(
+            f"The file {filename} does not exist in the repository {repo.path}"
+        )
+
+
 def update_role_metadata_invalid_signature(
     auth_repo: AuthenticationRepository, role: str
 ):
@@ -670,7 +683,7 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         raise ValueError("Failed to retrieve the last valid commit SHA.")
 
 
-def sync_auth_repo(auth_repo):
+def sync_auth_repo(auth_repo: AuthenticationRepository):
     # Simulate syncing auth repo with remote
     auth_repo.pull()
 
