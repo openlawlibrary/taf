@@ -2,7 +2,6 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 import functools
-from logging import DEBUG, INFO
 from pathlib import Path
 import re
 import shutil
@@ -14,7 +13,6 @@ from attr import attrs, define, field
 from build.lib.taf.updater.updater_pipeline import _get_repository_name_from_info_json, \
     _get_repository_name_raise_error_if_not_defined
 from taf.git import GitError
-from logdecorator import log_on_end, log_on_start
 from taf.git import GitRepository
 from taf.constants import INFO_JSON_PATH
 
@@ -346,8 +344,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return self.state.event == Event.CHANGED
         return True
 
-    taf_logger.debug("Checking which repositories are already on disk...")
     def set_existing_repositories(self):
+        taf_logger.debug("Checking which repositories are already on disk...")
         self.state.existing_repo = False
         self.state.repos_on_disk = {}
         if self.auth_path is not None:
@@ -375,11 +373,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     # return UpdateStatus.SUCCESS if self.state.existing_repo else UpdateStatus.FAILURE
-    taf_logger.info(".Checking if local repositories are clean...")
     def check_if_local_repositories_clean(self):
         try:
             # check if the auth repo is clean first
             if self.state.existing_repo:
+                taf_logger.info(f"Checking if local repositories are clean...")
                 auth_repo = AuthenticationRepository(path=self.auth_path)
                 if auth_repo.is_bare_repository:
                     taf_logger.info(
@@ -454,9 +452,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    taf_logger.info("Cloning repository and running TUF updater...")
     @cleanup_decorator
     def clone_remote_and_run_tuf_updater(self):
+        taf_logger.info("Cloning repository and running TUF updater...")
         settings.update_from_filesystem = self.update_from_filesystem
 
         if self.operation == OperationType.CLONE_OR_UPDATE:
@@ -601,10 +599,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 f"{self.state.users_auth_repo.path} is not a Git repository. Run 'taf repo clone' instead"
             )
 
-    taf_logger.info("Validating out of band commit and update type...")
     def validate_out_of_band_and_update_type(self):
         # this is the repository cloned inside the temp directory
         # we validate it before updating the actual authentication repository
+        taf_logger.info("Validating out of band commit and update type...")
         try:
             if (
                 self.out_of_band_authentication is not None
@@ -658,10 +656,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 taf_logger.error(msg)
                 raise UpdateFailedError(msg)
 
-    taf_logger.info("Cloning or updating user's authentication repository...")
     def clone_or_fetch_users_auth_repo(self):
         # fetch the latest commit or clone the repository without checkout
         # do not merge before targets are validated as well
+        taf_logger.info("Cloning or updating user's authentication repository...")
         try:
             if self.state.existing_repo:
                 self.state.users_auth_repo.fetch(fetch_all=True)
@@ -673,8 +671,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    taf_logger.debug("Loading target repositories...")
     def load_target_repositories(self):
+        taf_logger.debug("Loading target repositories...")
         try:
             repositoriesdb.load_repositories(
                 self.state.users_auth_repo,
@@ -712,8 +710,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    taf_logger.info("Checking if all target repositories are already on disk...")
     def check_if_repositories_on_disk(self):
+        taf_logger.info("Checking if all target repositories are already on disk...")
         try:
             for repository in self.state.users_target_repositories.values():
                 if not repository.is_git_repository_root:
@@ -730,10 +728,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    taf_logger.debug("Cloning target repositories to temp...")
-    taf_logger.info("Finished cloning target repositories.")
-
     def clone_target_repositories_to_temp(self):
+        taf_logger.debug("Cloning target repositories to temp...")
         try:
             self.state.repos_on_disk = {}
             self.state.repos_not_on_disk = {}
@@ -760,16 +756,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                 for future in as_completed(futures):
                     future.result()
-
+            taf_logger.info("Finished cloning target repositories.")
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    taf_logger.info("Validating initial state of target repositories...")
-    taf_logger.info("Checking initial state of repositories...")
     def determine_start_commits(self):
+        taf_logger.info("Validating initial state of target repositories...")
+        taf_logger.info("Checking initial state of repositories...")
         try:
             self.state.targets_data_by_auth_commits = (
                 self.state.users_auth_repo.targets_data_by_auth_commits(
@@ -893,9 +889,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.target_branches_data_from_auth_repo = repo_branches
         return UpdateStatus.SUCCESS
 
-    taf_logger.debug("Fetching commits of target repositories...")
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
+        taf_logger.debug("Fetching commits of target repositories...")
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
 
         def fetch_commits(repository, branch, old_head):
@@ -985,8 +981,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    taf_logger.debug("Checking if target repositories are clean...")
     def check_if_local_target_repositories_clean(self):
+        taf_logger.debug("Checking if target repositories are clean...")
         try:
             for repository in self.state.repos_on_disk.values():
                 if repository.is_bare_repository:
@@ -1013,13 +1009,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
-    taf_logger.info("Validating target repositories...")
-    taf_logger.info("Validation of target repositories finished")
     def validate_target_repositories(self):
         """
         Breadth-first update of target repositories
         Merge last valid commits at the end of the update
         """
+        taf_logger.info("Validating target repositories...")
         try:
             # need to be set to old head since that is the last validated target
             self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
@@ -1088,6 +1083,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                 # commit processed without an error
                 self.state.validated_auth_commits.append(auth_commit)
+            taf_logger.info("Validation of target repositories finished")
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -1161,7 +1157,6 @@ data repository {repository.name} was supposed to be at commit {current_commit} 
 but commit not on branch {current_branch}"
         )
 
-    taf_logger.debug("Validating and setting additional commits of target repositories...")
     def validate_and_set_additional_commits_of_target_repositories(self):
         """
         For target repository and for each branch, extract commits following the last validated commit
@@ -1170,6 +1165,7 @@ but commit not on branch {current_branch}"
         However, no error will get reported if there are commits which have not yet been signed
         In case of repositories which can contain unauthenticated commits, they do not even need to get signed
         """
+        taf_logger.debug("Validating and setting additional commits of target repositories...")
         # only get additional commits if the validation was complete (not partial, up to a commit)
         self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
         if self.state.update_status != UpdateStatus.SUCCESS:
@@ -1225,8 +1221,8 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    taf_logger.debug("Copying or updating user's target repositories...")
     def update_users_target_repositories(self):
+        taf_logger.debug("Copying or updating user's target repositories...")
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
@@ -1257,9 +1253,8 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    taf_logger.debug("Removing temp repositories...")
-
     def remove_temp_repositories(self):
+        taf_logger.debug("Removing temp repositories...")
         if not self.state.temp_root:
             return self.state.update_status
         try:
@@ -1272,11 +1267,11 @@ but commit not on branch {current_branch}"
             )
         return self.state.update_status
 
-    taf_logger.info("Merging commits into target repositories...")
     def merge_commits(self):
         """Determines which commits needs to be merged into the specified branch and
         merge it.
         """
+        taf_logger.info("Merging commits into target repositories...")
         try:
             if self.only_validate:
                 return self.state.update_status
@@ -1462,8 +1457,8 @@ def _get_repository_name_from_info_json(auth_repo, commit_sha):
 def _is_unauthenticated_allowed(repository):
     return repository.custom.get("allow-unauthenticated-commits", False)
 
-taf_logger.info("Running TUF validation of the authentication repository...")
 def _run_tuf_updater(git_fetcher, auth_repo_name):
+    taf_logger.info("Running TUF validation of the authentication repository...")
     def _init_updater():
         try:
             return Updater(
