@@ -26,6 +26,19 @@ VERBOSITY_LEVELS = {
     2: "INFO",   # -vv
     3: "DEBUG" # -vvv
 }
+def formatter(record):
+    if record["level"].no == NOTICE:
+        return f"<white>{_CONSOLE_FORMAT_STRING}</white>"
+    elif record["level"].no == logging.WARNING:
+        return f"<yellow>{_CONSOLE_FORMAT_STRING}</yellow>"
+    elif record["level"].no == logging.INFO:
+        return f"<blue>{_CONSOLE_FORMAT_STRING}</blue>"
+    elif record["level"].no == logging.DEBUG:
+        return f"<magenta>{_CONSOLE_FORMAT_STRING}</magenta>"
+    elif record["level"].no == logging.ERROR:
+        return f"<red>{_CONSOLE_FORMAT_STRING}</red>"
+    else:
+        return _CONSOLE_FORMAT_STRING
 
 def disable_console_logging():
     try:
@@ -65,37 +78,38 @@ def _get_log_location():
         location = Path(location)
     return location
 
-taf_logger.remove()
-def get_taf_logger():
-    return taf_logger
-
-if settings.ENABLE_CONSOLE_LOGGING:
-    console_loggers["log"] = taf_logger.add(
-        sys.stdout, format=_CONSOLE_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
-    )
-    tuf.log.set_console_log_level(settings.CONSOLE_LOGGING_LEVEL)
-else:
-    # if console logging is disable, remove tuf console logger
-    disable_tuf_console_logging()
-
-if settings.ENABLE_FILE_LOGGING:
-    log_location = _get_log_location()
-    log_path = str(log_location / settings.LOG_FILENAME)
-    file_loggers["log"] = taf_logger.add(
-        log_path, format=_FILE_FORMAT_STRING, level=settings.FILE_LOGGING_LEVEL
-    )
-
-    if settings.SEPARATE_ERRORS:
-        error_log_path = str(log_location / settings.ERROR_LOG_FILENAME)
-        file_loggers["error"] = taf_logger.add(
-            error_log_path,
-            format=_FILE_FORMAT_STRING,
-            level=settings.ERROR_LOGGING_LEVEL,
+def initialize_logger_handlers():
+    taf_logger.remove()
+    if settings.ENABLE_CONSOLE_LOGGING:
+        print("log.py: ", settings.VERBOSITY)
+        console_loggers["log"] = taf_logger.add(
+            sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]
         )
-    try:
-        tuf.log.set_filehandler_log_level(settings.FILE_LOGGING_LEVEL)
-    except tuf.exceptions.Error:
-        pass
-else:
-    # if file logging is disabled, also disable tuf file logging
-    disable_tuf_file_logging()
+        tuf.log.set_console_log_level(settings.CONSOLE_LOGGING_LEVEL)
+    else:
+        # if console logging is disable, remove tuf console logger
+        disable_tuf_console_logging()
+
+    if settings.ENABLE_FILE_LOGGING:
+        log_location = _get_log_location()
+        log_path = str(log_location / settings.LOG_FILENAME)
+        file_loggers["log"] = taf_logger.add(
+            log_path, format=_FILE_FORMAT_STRING, level=settings.FILE_LOGGING_LEVEL
+        )
+
+        if settings.SEPARATE_ERRORS:
+            error_log_path = str(log_location / settings.ERROR_LOG_FILENAME)
+            file_loggers["error"] = taf_logger.add(
+                error_log_path,
+                format=_FILE_FORMAT_STRING,
+                level=settings.ERROR_LOGGING_LEVEL,
+            )
+        try:
+            tuf.log.set_filehandler_log_level(settings.FILE_LOGGING_LEVEL)
+        except tuf.exceptions.Error:
+            pass
+    else:
+        # if file logging is disabled, also disable tuf file logging
+        disable_tuf_file_logging()
+
+initialize_logger_handlers()
