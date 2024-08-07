@@ -2,18 +2,14 @@ import click
 import json
 
 from taf import settings
-from taf.log import taf_logger, get_taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
+from taf.log import initialize_logger_handlers
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('taf')
-taf_logger = get_taf_logger()
 
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
@@ -218,11 +214,13 @@ def update_repo_command():
     @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of log and debug information based on the verbosity")
+    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
+    #@click.option("-vv", help="Displays info level information")
+    #@click.option("-vvv", help="Displays debug level information")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
-        # map 0 --> 1, 1--> 1, 2+ --> 2
-        settings.VERBOSITY = 2
-        #set_logging(verbosity)
+        print("__init__.py: ", verbosity)
+        settings.VERBOSITY = verbosity
+        initialize_logger_handlers()
 
         path = find_valid_repository(path)
         if profile:
@@ -245,7 +243,6 @@ def update_repo_command():
             update_repository(config)
             if format_output:
                 print(json.dumps({'updateSuccessful': True}))
-                taf_logger.log("NOTICE", f"{path}: finished updating repository.")
         except Exception as e:
             if format_output:
                 error_data = {'updateSuccessful': False, 'error': str(e)}
@@ -278,6 +275,7 @@ def validate_repo_command():
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
+        initialize_logger_handlers()
         path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
