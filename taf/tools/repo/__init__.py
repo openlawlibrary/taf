@@ -1,6 +1,8 @@
 import logging
 import click
 import json
+
+from taf import settings
 from taf.log import taf_logger, get_taf_logger
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
@@ -13,15 +15,6 @@ from taf.updater.updater import OperationType, UpdateConfig, clone_repository, u
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('taf')
 taf_logger = get_taf_logger()
-
-#def set_verbosity(verbosity):
-   # if verbosity == 1:
-    #    logger.setLevel(logging.INFO)
-    #elif verbosity == 2:
-     #   logger.setLevel(logging.WARNING)
-    #elif verbosity == 3:
-     #   logger.setLevel(logging.DEBUG)
-    #set_logging(verbosity)
 
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
@@ -229,8 +222,8 @@ def update_repo_command():
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of log and debug information based on the verbosity")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
         # map 0 --> 1, 1--> 1, 2+ --> 2
-        verbosity = min(verbosity, 2)
-        set_logging(verbosity)
+        settings.VERBOSITY = 2
+        #set_logging(verbosity)
 
         path = find_valid_repository(path)
         if profile:

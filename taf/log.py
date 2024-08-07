@@ -26,15 +26,6 @@ VERBOSITY_LEVELS = {
     2: "INFO",   # -vv
     3: "DEBUG" # -vvv
 }
-#def set_logging(verbosity):
- #   if verbosity == 0:
-  #      taf_logger.add(sys.stdout, level="NOTICE")
-   # elif verbosity == 1:
-    #    taf_logger.add(sys.stdout, level="WARNING")
-    #elif verbosity == 2:
-    #    taf_logger.add(sys.stdout, level="INFO")
-    #else:
-       # taf_logger.add(sys.stdout, level="DEBUG")
 
 def disable_console_logging():
     try:
@@ -74,19 +65,18 @@ def _get_log_location():
         location = Path(location)
     return location
 
-    taf_logger.remove()
+taf_logger.remove()
 def get_taf_logger():
     return taf_logger
 
 if settings.ENABLE_CONSOLE_LOGGING:
     console_loggers["log"] = taf_logger.add(
-        sys.stdout, format=_CONSOLE_FORMAT_STRING, level=VERBOSITY_LEVELS.get(settings.VERBOSITY, "NOTICE")
+        sys.stdout, format=_CONSOLE_FORMAT_STRING, level=settings.CONSOLE_LOGGING_LEVEL
     )
     tuf.log.set_console_log_level(settings.CONSOLE_LOGGING_LEVEL)
 else:
     # if console logging is disable, remove tuf console logger
     disable_tuf_console_logging()
-
 
 if settings.ENABLE_FILE_LOGGING:
     log_location = _get_log_location()
