@@ -293,23 +293,76 @@ def verify_client_repos_state(client_dir: Path, auth_repo: AuthenticationReposit
     """
     client_auth_repo = AuthenticationRepository(path=client_dir / auth_repo.name)
     client_target_repos = load_target_repositories(auth_repo, library_dir=client_dir)
-    origin_auth_repo_commit = auth_repo.head_commit_sha()
 
-    # Verify that the target repositories' commits match between client and origin
-    check_if_commits_match(client_target_repos, auth_repo.path.parent.parent)
-
-    # Verify that the client's auth repo commit matches the last validated commit
     check_last_validated_commit(client_auth_repo.path)
 
-    # Ensure that the target repos in the client differ from the last validated commit
+    successful_update = True
     for repo_name, client_repo in client_target_repos.items():
         origin_repo = GitRepository(auth_repo.path.parent.parent, repo_name)
         client_commit = client_repo.head_commit_sha()
         origin_commit = origin_repo.head_commit_sha()
 
+        if client_commit != origin_commit:
+            successful_update = False
+            break
+
+    if successful_update:
+        check_if_commits_match(client_target_repos, auth_repo.path.parent.parent)
+    else:
+        for repo_name, client_repo in client_target_repos.items():
+            origin_repo = GitRepository(auth_repo.path.parent.parent, repo_name)
+            client_commit = client_repo.head_commit_sha()
+
+            # Get the target file path in the client repo
+            target_file_path = client_repo.path / "test1.txt"
+
+            # Ensure the target file exists
+            if not target_file_path.is_file():
+                raise FileNotFoundError(
+                    f"Target file {target_file_path} does not exist"
+                )
+
+            # Extract commit SHA from the target file in the client repo
+            target_commit_sha = client_repo._git(
+                f'log -n 1 --pretty=format:"%H" -- {target_file_path}'
+            ).strip('"')
+
+            # Assert that the top commits of target repositories are the same as the commit SHA specified in the corresponding target files
+            assert (
+                client_commit == target_commit_sha
+            ), f"Target repo {repo_name} should have the same top commit as specified in the corresponding target file"
+            assert (
+                client_commit != origin_commit
+            ), f"Target repo {repo_name} should not have the same commit as specified in the client's auth repo"
+
+
+def verify_partial_update(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, original_commits: dict
+):
+    """
+    Verify that the client's repositories are in the correct state following a partial update.
+    This means that the top commits of target repositories are the same as the top commits of origin repositories,
+    but not the same as the commits specified in the client's auth repo.
+    """
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        origin_auth_repo, library_dir=client_dir
+    )
+
+    # Ensure the last validated commit exists in client's auth repo
+    check_last_validated_commit(client_auth_repo.path)
+
+    for repo_name, client_repo in client_target_repos.items():
+        origin_repo = GitRepository(origin_auth_repo.path.parent.parent, repo_name)
+        client_commit = client_repo.head_commit_sha()
+        origin_commit = origin_repo.head_commit_sha()
+
+        # Assert that the top commits of target repositories are the same as the top commits of origin repositories
         assert (
             client_commit == origin_commit
-        ), f"Target repo {repo_name} should have the same commit as the origin repo"
+        ), f"Target repo {repo_name} should have the same top commit as the origin repo"
+
+        # Assert that the top commits of target repositories are not the same as the commit specified in the client's auth repo
         assert (
-            client_commit != origin_auth_repo_commit
-        ), f"Target repo {repo_name} should not have the same commit as the client's auth repo"
+            client_commit != original_commits[repo_name]
+        ), f"Target repo {repo_name} should not have the same commit as specified in the client's auth repo"

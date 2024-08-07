@@ -681,15 +681,3 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         auth_repo.set_last_validated_commit(last_valid_commit)
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
-
-
-def sync_auth_repo(auth_repo: AuthenticationRepository):
-    # Simulate syncing auth repo with remote
-    auth_repo.pull()
-
-
-def sync_target_repos_with_remote(origin_auth_repo: Path, client_dir: Path):
-    target_repos = list(load_target_repositories(origin_auth_repo).values())
-    for target_repo in target_repos:
-        client_repo = GitRepository(client_dir, target_repo.name)
-        client_repo.pull()
