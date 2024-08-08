@@ -61,7 +61,6 @@ def setup_signing_key_command():
         to the specified directory.
         WARNING - this will delete everything from the inserted key.""")
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default")
-    @click.option("--key-size", default=2048, type=int, help="Size of the RSA key to be generated (Currently supports 1024 and 2048-bits)")
     def setup_signing_key(certs_dir, key_size):
         setup_signing_yubikey(certs_dir, key_size)
     return setup_signing_key
@@ -71,7 +70,6 @@ def setup_test_key_command():
     @click.command(help="""Copies the specified key onto the inserted YubiKey
         WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
-    @click.option("--key-size", default=2048, type=int, help="Size of the RSA key to be generated (Currently supports 1024 and 2048-bits)")
     def setup_test_key(key_path, key_size):
         setup_test_yubikey(key_path, key_size)
     return setup_test_key

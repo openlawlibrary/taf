@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-
+- Removed 2048-bit key restriction [494]
 - Added lazy loading to CLI [481]
 - Testing repositories with dependencies ([479], [487])
 - Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[494]: https://github.com/openlawlibrary/taf/pull/494
 [487]: https://github.com/openlawlibrary/taf/pull/489
 [487]: https://github.com/openlawlibrary/taf/pull/487
 [487]: https://github.com/openlawlibrary/taf/pull/485
