@@ -474,10 +474,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @cleanup_decorator
     def clone_remote_and_run_tuf_updater(self):
-        auth_repo_name = GitRepository(path=self.auth_path).name
-        taf_logger.info(
-            f"{auth_repo_name}: Cloning repository and running TUF updater..."
-        )
+        if self.auth_path:
+            auth_repo_name = GitRepository(path=self.auth_path).name
+            taf_logger.info(
+                f"{auth_repo_name}: Cloning repository and running TUF updater..."
+            )
+        else:
+            taf_logger.info("Cloning repository and running TUF updater...")
         settings.update_from_filesystem = self.update_from_filesystem
 
         if self.operation == OperationType.CLONE_OR_UPDATE:
