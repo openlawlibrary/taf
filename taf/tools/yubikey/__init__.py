@@ -61,8 +61,8 @@ def setup_signing_key_command():
         to the specified directory.
         WARNING - this will delete everything from the inserted key.""")
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default")
-    def setup_signing_key(certs_dir, key_size):
-        setup_signing_yubikey(certs_dir, key_size)
+    def setup_signing_key(certs_dir):
+        setup_signing_yubikey(certs_dir,key_size=2048)
     return setup_signing_key
 
 
@@ -70,13 +70,12 @@ def setup_test_key_command():
     @click.command(help="""Copies the specified key onto the inserted YubiKey
         WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
-    def setup_test_key(key_path, key_size):
-        setup_test_yubikey(key_path, key_size)
+    def setup_test_key(key_path):
+        setup_test_yubikey(key_path,key_size=2048)
     return setup_test_key
 
 
 def attach_to_group(group):
-
     group.add_command(check_pin_command(), name='check-pin')
     group.add_command(export_pub_key_command(), name='export-pub-key')
     group.add_command(get_roles_command(), name='get-roles')
