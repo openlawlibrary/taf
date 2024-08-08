@@ -39,7 +39,7 @@ from taf.updater.updater_pipeline import (
 )
 
 from pathlib import Path
-from taf.log import disable_tuf_console_logging, taf_logger
+from taf.log import taf_logger, disable_tuf_console_logging
 import taf.repositoriesdb as repositoriesdb
 from taf.utils import is_non_empty_directory, timed_run
 import taf.settings as settings
@@ -318,8 +318,6 @@ def update_repository(config: UpdateConfig):
     Returns:
         None
     """
-
-    # taf_logger.log("NOTICE", f"{config.path}: updating repository...")
     settings.strict = config.strict
 
     # if path is not specified, name should be read from info.json
@@ -330,6 +328,8 @@ def update_repository(config: UpdateConfig):
         raise UpdateFailedError(
             f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
         )
+
+    taf_logger.info(f"Updating repository {auth_repo.name}")
 
     if config.url is None:
         config.url = auth_repo.get_remote_url()

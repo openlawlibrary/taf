@@ -273,7 +273,9 @@ def validate_repo_command():
                   "if warnings are raised")
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
+    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity):
+        settings.VERBOSITY = verbosity
         initialize_logger_handlers()
         path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)

@@ -143,7 +143,6 @@ class Pipeline:
 
     def run(self):
         self.state.errors = []
-        taf_logger.info(f"Running pipeline in {self.run_mode} mode.")
         for step, step_run_mode, should_run_fn in self.steps:
             try:
                 if (
@@ -345,15 +344,19 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def start_update(self):
         # This message should be shown regardless of verbosity setting
+        update_text = "validation" if self.only_validate else "update"
         if self.auth_path:
             auth_repo_name = GitRepository(path=self.auth_path).name
-            taf_logger.log("NOTICE", f"{auth_repo_name}: Starting update...")
+            taf_logger.log("NOTICE", f"{auth_repo_name}: Starting {update_text}...")
         else:
-            taf_logger.log("NOTICE", "Starting update...")
+            taf_logger.log("NOTICE", f"Starting {update_text}...")
 
     def finish_update(self):
         # This message should be shown regardless of verbosity setting
-        taf_logger.log("NOTICE", f"{self.state.auth_repo_name}: Finished update!")
+        update_text = "validation" if self.only_validate else "update"
+        taf_logger.log(
+            "NOTICE", f"{self.state.auth_repo_name}: Finished {update_text}!"
+        )
 
     def set_existing_repositories(self):
         taf_logger.debug("Checking which repositories are already on disk...")
