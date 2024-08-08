@@ -359,7 +359,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def set_existing_repositories(self):
-        taf_logger.debug("Checking which repositories are already on disk...")
+        taf_logger.debug(
+            f"{self.state.auth_repo_name}: Checking which repositories are already on disk..."
+        )
         self.state.existing_repo = False
         self.state.repos_on_disk = {}
         if self.auth_path is not None:
@@ -472,7 +474,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @cleanup_decorator
     def clone_remote_and_run_tuf_updater(self):
-        taf_logger.info("Cloning repository and running TUF updater...")
+        auth_repo_name = GitRepository(path=self.auth_path).name
+        taf_logger.info(
+            f"{auth_repo_name}: Cloning repository and running TUF updater..."
+        )
         settings.update_from_filesystem = self.update_from_filesystem
 
         if self.operation == OperationType.CLONE_OR_UPDATE:
@@ -620,7 +625,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def validate_out_of_band_and_update_type(self):
         # this is the repository cloned inside the temp directory
         # we validate it before updating the actual authentication repository
-        taf_logger.info("Validating out of band commit and update type...")
+        taf_logger.info(
+            f"{self.state.auth_repo_name}: Validating out of band commit and update type..."
+        )
         try:
             if (
                 self.out_of_band_authentication is not None
@@ -677,7 +684,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def clone_or_fetch_users_auth_repo(self):
         # fetch the latest commit or clone the repository without checkout
         # do not merge before targets are validated as well
-        taf_logger.info("Cloning or updating user's authentication repository...")
+        taf_logger.info(
+            f"{self.state.auth_repo_name}: Cloning or updating user's authentication repository..."
+        )
         try:
             if self.state.existing_repo:
                 self.state.users_auth_repo.fetch(fetch_all=True)
@@ -690,7 +699,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     def load_target_repositories(self):
-        taf_logger.debug("Loading target repositories...")
+        taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
             repositoriesdb.load_repositories(
                 self.state.users_auth_repo,
@@ -729,7 +738,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def check_if_repositories_on_disk(self):
-        taf_logger.info("Checking if all target repositories are already on disk...")
+        taf_logger.info(
+            f"{self.state.auth_repo_name}: Checking if all target repositories are already on disk..."
+        )
         try:
             for repository in self.state.users_target_repositories.values():
                 if not repository.is_git_repository_root:
@@ -747,7 +758,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def clone_target_repositories_to_temp(self):
-        taf_logger.debug("Cloning target repositories to temp...")
+        taf_logger.debug(
+            f"{self.state.auth_repo_name}: Cloning target repositories to temp..."
+        )
         try:
             self.state.repos_on_disk = {}
             self.state.repos_not_on_disk = {}
@@ -774,7 +787,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                 for future in as_completed(futures):
                     future.result()
-            taf_logger.info("Finished cloning target repositories.")
+            taf_logger.info(
+                f"{self.state.auth_repo_name}: Finished cloning target repositories."
+            )
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -782,8 +797,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def determine_start_commits(self):
-        taf_logger.info("Validating initial state of target repositories...")
-        taf_logger.info("Checking initial state of repositories...")
+        taf_logger.info(
+            f"{self.state.auth_repo_name}: Validating initial state of target repositories..."
+        )
         try:
             self.state.targets_data_by_auth_commits = (
                 self.state.users_auth_repo.targets_data_by_auth_commits(
@@ -822,7 +838,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             if not is_initial_state_in_sync:
                 taf_logger.info(
-                    f"Repository {self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning"
+                    f"{self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning"
                 )
                 self._update_state_for_initial_sync()
                 self.reset_target_repositories()
@@ -909,7 +925,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def get_target_repositories_commits(self):
         """Returns a list of newly fetched commits belonging to the specified branch."""
-        taf_logger.debug("Fetching commits of target repositories...")
+        taf_logger.debug(
+            f"{self.state.auth_repo_name}: Fetching commits of target repositories..."
+        )
         self.state.fetched_commits_per_target_repos_branches = defaultdict(dict)
 
         def fetch_commits(repository, branch, old_head):
@@ -1000,7 +1018,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     def check_if_local_target_repositories_clean(self):
-        taf_logger.debug("Checking if target repositories are clean...")
+        taf_logger.debug(
+            f"{self.state.auth_repo_name}: Checking if target repositories are clean..."
+        )
         try:
             for repository in self.state.repos_on_disk.values():
                 if repository.is_bare_repository:
@@ -1032,7 +1052,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         Breadth-first update of target repositories
         Merge last valid commits at the end of the update
         """
-        taf_logger.info("Validating target repositories...")
+        taf_logger.info(
+            "f{self.state.auth_repo_name}: Validating target repositories..."
+        )
         try:
             # need to be set to old head since that is the last validated target
             self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
@@ -1101,7 +1123,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                 # commit processed without an error
                 self.state.validated_auth_commits.append(auth_commit)
-            taf_logger.info("Validation of target repositories finished")
+            taf_logger.info(
+                f"{self.state.auth_repo_name}: Validation of target repositories finished"
+            )
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -1184,7 +1208,7 @@ but commit not on branch {current_branch}"
         In case of repositories which can contain unauthenticated commits, they do not even need to get signed
         """
         taf_logger.debug(
-            "Validating and setting additional commits of target repositories..."
+            f"{self.state.auth_repo_name}: Validating and setting additional commits of target repositories..."
         )
         # only get additional commits if the validation was complete (not partial, up to a commit)
         self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
@@ -1242,7 +1266,9 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     def update_users_target_repositories(self):
-        taf_logger.debug("Copying or updating user's target repositories...")
+        taf_logger.debug(
+            f"{self.state.auth_repo_name}: Copying or updating user's target repositories..."
+        )
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
@@ -1274,7 +1300,7 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     def remove_temp_repositories(self):
-        taf_logger.debug("Removing temp repositories...")
+        taf_logger.debug(f"{self.state.auth_repo_name}: Removing temp repositories...")
         if not self.state.temp_root:
             return self.state.update_status
         try:
@@ -1291,7 +1317,9 @@ but commit not on branch {current_branch}"
         """Determines which commits needs to be merged into the specified branch and
         merge it.
         """
-        taf_logger.info("Merging commits into target repositories...")
+        taf_logger.info(
+            f"{self.state.auth_repo_name}: Merging commits into target repositories..."
+        )
         try:
             if self.only_validate:
                 return self.state.update_status
@@ -1477,7 +1505,8 @@ def _is_unauthenticated_allowed(repository):
 
 
 def _run_tuf_updater(git_fetcher, auth_repo_name):
-    taf_logger.info("Running TUF validation of the authentication repository...")
+    auth_repo_name = auth_repo_name or ""
+    taf_logger.info(f"{auth_repo_name}: Running TUF validation...")
 
     def _init_updater():
         try:
@@ -1489,7 +1518,9 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
                 fetcher=git_fetcher,
             )
         except Exception as e:
-            taf_logger.error(f"Failed to instantiate TUF Updater due to error: {e}")
+            taf_logger.error(
+                f"{auth_repo_name}: Failed to instantiate TUF Updater due to error: {e}"
+            )
             raise e
 
     last_validated_commit = None
@@ -1510,8 +1541,11 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
 def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
     current_commit = git_fetcher.current_commit
     try:
+        auth_repo_name = auth_repo_name or ""
         updater.refresh()
-        taf_logger.debug("Validated metadata files at revision {}", current_commit)
+        taf_logger.debug(
+            f"{auth_repo_name}: Validated metadata files at revision {current_commit}"
+        )
         # using refresh, we have updated all main roles
         # we still need to update the delegated roles (if there are any)
         # and validate any target files
@@ -1523,9 +1557,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
             targetinfo.verify_length_and_hashes(target_data)
 
             taf_logger.debug(
-                "Successfully validated target file {} at {}",
-                target_filepath,
-                current_commit,
+                f"{auth_repo_name}: Successfully validated target file {target_filepath} at {current_commit}"
             )
         if settings.strict:
             _validate_metadata_on_disk(git_fetcher)
@@ -1536,17 +1568,14 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         ).__name__ or EXPIRED_METADATA_ERROR in str(e)
         if not metadata_expired or settings.strict:
             taf_logger.error(
-                "Validation of authentication repository {} failed at revision {} due to error: {}",
-                auth_repo_name or "",
-                current_commit,
-                e,
+                f"{auth_repo_name}: Validation of authentication repository failed at revision {current_commit} due to error: {e}"
             )
             raise UpdateFailedError(
                 f"Validation of authentication repository {auth_repo_name or ''}"
                 f" failed at revision {current_commit} due to error: {e}"
             )
         taf_logger.warning(
-            f"WARNING: Could not validate authentication repository at revision {current_commit} due to error: {e}"
+            f"WARNING: Could not validate authentication repository {auth_repo_name} at revision {current_commit} due to error: {e}"
         )
 
 
