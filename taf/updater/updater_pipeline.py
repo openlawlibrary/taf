@@ -11,8 +11,10 @@ from typing import Any, Dict, List, Optional
 
 from attr import attrs, define, field
 
-from build.lib.taf.updater.updater_pipeline import _get_repository_name_from_info_json, \
-    _get_repository_name_raise_error_if_not_defined
+from build.lib.taf.updater.updater_pipeline import (
+    _get_repository_name_from_info_json,
+    _get_repository_name_raise_error_if_not_defined,
+)
 from taf.git import GitError
 from taf.git import GitRepository
 
@@ -50,7 +52,11 @@ class RunMode(Enum):
     LOCAL_VALIDATION = 2
     ALL = 3
 
-logger = logging.getLogger('taf.updater_pipeline') # should this be logger = taf_logger?
+
+logger = logging.getLogger(
+    "taf.updater_pipeline"
+)  # should this be logger = taf_logger?
+
 
 @define
 class UpdateState:
@@ -101,6 +107,7 @@ class UpdateOutput:
     commits_data: Optional[Dict[str, Any]] = field(default=None)
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
+
 
 def cleanup_decorator(pipeline_function):
     @functools.wraps(pipeline_function)
@@ -299,14 +306,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_validate_target_repos,
                 ),
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
-                (self.finish_update,
-                 RunMode.ALL,
-                 None
-                 ),
+                (self.finish_update, RunMode.ALL, None),
             ],
-            run_mode=RunMode.LOCAL_VALIDATION
-            if update_config.only_validate
-            else RunMode.UPDATE,
+            run_mode=(
+                RunMode.LOCAL_VALIDATION
+                if update_config.only_validate
+                else RunMode.UPDATE
+            ),
         )
         self.operation = update_config.operation
         self.url = update_config.url
@@ -492,9 +498,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             elif not settings.overwrite_last_validated_commit:
                 users_auth_repo = AuthenticationRepository(path=self.auth_path)
                 last_validated_commit = users_auth_repo.last_validated_commit
-                settings.last_validated_commit[
-                    validation_repo.name
-                ] = last_validated_commit
+                settings.last_validated_commit[validation_repo.name] = (
+                    last_validated_commit
+                )
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
@@ -1178,7 +1184,9 @@ but commit not on branch {current_branch}"
         However, no error will get reported if there are commits which have not yet been signed
         In case of repositories which can contain unauthenticated commits, they do not even need to get signed
         """
-        taf_logger.debug("Validating and setting additional commits of target repositories...")
+        taf_logger.debug(
+            "Validating and setting additional commits of target repositories..."
+        )
         # only get additional commits if the validation was complete (not partial, up to a commit)
         self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
         if self.state.update_status != UpdateStatus.SUCCESS:
@@ -1423,6 +1431,7 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
+
 def _clone_validation_repo(url):
     """
     Clones the authentication repository based on the url specified using the
@@ -1465,8 +1474,10 @@ def _get_repository_name_from_info_json(auth_repo, commit_sha):
 def _is_unauthenticated_allowed(repository):
     return repository.custom.get("allow-unauthenticated-commits", False)
 
+
 def _run_tuf_updater(git_fetcher, auth_repo_name):
     taf_logger.info("Running TUF validation of the authentication repository...")
+
     def _init_updater():
         try:
             return Updater(

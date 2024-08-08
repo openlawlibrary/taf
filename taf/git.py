@@ -29,7 +29,8 @@ from loguru import logger as taf_logger
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-logger = logging.getLogger('taf')
+logger = logging.getLogger("taf")
+
 
 def set_verbosity(verbosity):
     global verbosity_level
@@ -40,6 +41,7 @@ def set_verbosity(verbosity):
         logger.setLevel(logging.WARNING)
     elif verbosity == 3:
         logger.setLevel(logging.DEBUG)
+
 
 class GitRepository:
     def __init__(
@@ -114,12 +116,11 @@ class GitRepository:
             default_branch = self._determine_default_branch()
         self.default_branch = default_branch
 
-
     _pygit = None
 
     @property
     def pygit(self):
-        if self._pygit is None: # we don't know why this is "none"
+        if self._pygit is None:  # we don't know why this is "none"
             try:
                 self._pygit = PyGitRepository(self)
             except Exception:
@@ -345,11 +346,11 @@ class GitRepository:
         self._log(self.logging_functions[logging.WARNING], message)
 
     def _log_error(self, message: str) -> None:
-        if verbosity_level >=2:
+        if verbosity_level >= 2:
             taf_logger.error(message)
         else:
             taf_logger.warning(message)
-        #self._log(self.logging_functions[logging.ERROR], message)
+        # self._log(self.logging_functions[logging.ERROR], message)
 
     def _log_critical(self, message: str) -> None:
         self._log(self.logging_functions[logging.CRITICAL], message)

@@ -25,6 +25,7 @@ That is why the idea is to call refresh multiple times, until the last commit is
 The 'GitUpdater' updater is designed in such a way that for each new call it
 loads data from a most recent commit.
 """
+
 import copy
 from logging import ERROR
 
@@ -321,7 +322,7 @@ def update_repository(config: UpdateConfig):
         None
     """
 
-    #taf_logger.log("NOTICE", f"{config.path}: updating repository...")
+    # taf_logger.log("NOTICE", f"{config.path}: updating repository...")
     settings.strict = config.strict
 
     # if path is not specified, name should be read from info.json
@@ -329,7 +330,9 @@ def update_repository(config: UpdateConfig):
 
     auth_repo = GitRepository(path=config.path)
     if not config.path.is_dir() or not auth_repo.is_git_repository:
-        raise UpdateFailedError(f"{config.path} is not a Git repository. Run 'taf repo clone' instead")
+        raise UpdateFailedError(
+            f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
+        )
 
     if config.url is None:
         config.url = auth_repo.get_remote_url()
