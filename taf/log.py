@@ -26,6 +26,7 @@ VERBOSITY_LEVELS = {
     2: "DEBUG",   # -vv
     3: "TRACE" # -vvv
 }
+
 def formatter(record):
     if record["level"].no == NOTICE:
         return f"<white>{_CONSOLE_FORMAT_STRING}</white>"
