@@ -416,12 +416,13 @@ class timed_run:
     def start(self):
         self.start_time = time.time()
         if self.start_message is not None:
-            print(self.start_message)
+            #This message should be shown regardless of verbosity setting
+            taf_logger.log("NOTICE", self.start_message)
 
     def end(self):
         self.elapsed_time = time.time() - self.start_time
         if self.end_message is not None:
-            print(self.end_message.format(int(self.elapsed_time)))
+            taf_logger.log("NOTICE", self.end_message.format(int(self.elapsed_time)))
 
     def __call__(self, orig_func=None):
         @wraps(orig_func)

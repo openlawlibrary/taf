@@ -99,11 +99,6 @@ class UpdateOutput:
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
 
-def start_update(self):
-    for repo_name in self.state.additional_commits_per_target_repos_branches():
-        # This message should be shown regardless of verbosity setting
-        taf_logger.log("NOTICE", f"{repo_name}: updating repository...")
-
 def cleanup_decorator(pipeline_function):
     @functools.wraps(pipeline_function)
     def wrapper(self, *args, **kwargs):
@@ -204,6 +199,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         super().__init__(
             steps=[
                 (
+                    self.start_update,
+                    RunMode.ALL,
+                    None,
+                ),
+                (
                     self.set_existing_repositories,
                     RunMode.UPDATE,
                     None,
@@ -296,6 +296,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_validate_target_repos,
                 ),  # skipped with no-targets; prints all other commits that exist but are not merged
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
+                (self.finish_update,
+                 RunMode.ALL,
+                 None
+                 ),
             ],
             run_mode=(
                 RunMode.LOCAL_VALIDATION
@@ -343,6 +347,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # if changed, validate the target repos
             return self.state.event == Event.CHANGED
         return True
+
+    def start_update(self):
+        # This message should be shown regardless of verbosity setting
+        auth_repo_name = GitRepository(path=self.auth_path).name
+        taf_logger.log("NOTICE", f"{auth_repo_name}: Starting update...")
+
+    def finish_update(self):
+        # This message should be shown regardless of verbosity setting
+        taf_logger.log("NOTICE", f"{self.state.auth_repo_name}: Finished update!")
 
     def set_existing_repositories(self):
         taf_logger.debug("Checking which repositories are already on disk...")
@@ -1411,9 +1424,6 @@ but commit not on branch {current_branch}"
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-        for repo_name in self.state.additional_commits_per_target_repos_branches.items():
-            taf_logger.info(f"{repo_name} finished updating!")
-
 
 def _clone_validation_repo(url):
     """
@@ -1643,9 +1653,3 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
-
-def finish_update(self):
-    for repo_name in self.state.additional_commits_per_target_repos_branches():
-        # This message should be shown regardless of verbosity setting
-        taf_logger.log("NOTICE", f"{repo_name}: finished updating...")
-        taf_logger.info(f"{repo_name}: finished updating...")

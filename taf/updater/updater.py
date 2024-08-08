@@ -39,7 +39,7 @@ from taf.updater.updater_pipeline import (
 )
 
 from pathlib import Path
-from taf.log import taf_logger, disable_tuf_console_logging
+from taf.log import disable_tuf_console_logging
 import taf.repositoriesdb as repositoriesdb
 from taf.utils import is_non_empty_directory, timed_run
 import taf.settings as settings
@@ -339,7 +339,6 @@ def update_repository(config: UpdateConfig):
     if auth_repo.is_bare_repository:
         # Handle updates for bare repositories
         config.bare = True
-    taf_logger.log("NOTICE", f"{config.path}: finished updating!")
     return _update_or_clone_repository(config)
 
 

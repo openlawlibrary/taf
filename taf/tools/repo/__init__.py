@@ -215,10 +215,7 @@ def update_repo_command():
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    #@click.option("-vv", help="Displays info level information")
-    #@click.option("-vvv", help="Displays debug level information")
     def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
-        print("__init__.py: ", verbosity)
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
 
