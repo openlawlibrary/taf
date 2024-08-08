@@ -62,7 +62,7 @@ kwargs = {
         "oll-tuf==0.20.0.dev2",
         "cryptography==38.0.*",
         "securesystemslib==0.25.*",
-        "loguru==0.6.*",
+        "loguru==0.7.*",
         pygit2_version,
         "pyOpenSSL==22.1.*",
         "logdecorator==2.*",

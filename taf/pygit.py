@@ -1,7 +1,7 @@
 from typing import Dict
 import pygit2
 from collections import defaultdict
-from taf.log import taf_logger as logger
+from taf.log import taf_logger
 from taf.exceptions import GitError
 import os.path
 
@@ -51,12 +51,14 @@ class PyGitRepository:
         for the given commit object,
         get the blob at the given path
         """
-        logger.debug("Get blob at path %s", path)
+        taf_logger.debug(
+            f"Get blob at path {path}",
+        )
         working = self._get_object_at_path(obj, path)
         if working and isinstance(working, pygit2.Blob):
-            logger.debug("Found blob at path %s", "/".join(path))
+            taf_logger.debug(f"Found blob at path {'/'.join(path)}")
             return working
-        logger.debug("Blob not found at path %s", "/".join(path))
+        taf_logger.debug(f"Blob not found at path {'/'.join(path)}")
         return None
 
     def cleanup(self):
