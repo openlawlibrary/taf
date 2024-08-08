@@ -326,7 +326,6 @@ def add_signing_key(
     push: Optional[bool] = True,
     commit_msg: Optional[str] = None,
 ) -> None:
-    print("lol")
     """
     Add a new signing key to the listed roles. Update root metadata if one or more roles is one of the main TUF roles,
     parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
@@ -605,7 +604,6 @@ def _initialize_roles_and_keystore(
                 )
 
     if keystore is not None:
-        print(keystore)
         keystore = resolve_keystore_path(keystore, roles_key_infos)
         roles_key_infos_dict["keystore"] = keystore
 
