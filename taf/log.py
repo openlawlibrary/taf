@@ -22,9 +22,9 @@ taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
 
 VERBOSITY_LEVELS = {
     0: "NOTICE",  # Default
-    1: "WARNING", # -v
-    2: "INFO",   # -vv
-    3: "DEBUG" # -vvv
+    1: "INFO", # -v
+    2: "DEBUG",   # -vv
+    3: "TRACE" # -vvv
 }
 def formatter(record):
     if record["level"].no == NOTICE:
@@ -81,7 +81,6 @@ def _get_log_location():
 def initialize_logger_handlers():
     taf_logger.remove()
     if settings.ENABLE_CONSOLE_LOGGING:
-        print("log.py: ", settings.VERBOSITY)
         console_loggers["log"] = taf_logger.add(
             sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]
         )
