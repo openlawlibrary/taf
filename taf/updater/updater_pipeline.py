@@ -387,7 +387,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # check if the auth repo is clean first
             if self.state.existing_repo:
                 taf_logger.info(f"Checking if local repositories are clean...")
-                auth_repo = AuthenticationRepository(path=self.auth_path)
+                auth_repo = AuthenticationRepository(
+                    path=self.auth_path, urls=[self.url]
+                )
                 if auth_repo.is_bare_repository:
                     taf_logger.info(
                         f"Skipping clean check for bare repository {auth_repo.name}"
