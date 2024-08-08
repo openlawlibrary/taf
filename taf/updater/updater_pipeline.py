@@ -345,8 +345,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def start_update(self):
         # This message should be shown regardless of verbosity setting
-        auth_repo_name = GitRepository(path=self.auth_path).name
-        taf_logger.log("NOTICE", f"{auth_repo_name}: Starting update...")
+        if self.auth_path:
+            auth_repo_name = GitRepository(path=self.auth_path).name
+            taf_logger.log("NOTICE", f"{auth_repo_name}: Starting update...")
+        else:
+            taf_logger.log("NOTICE", "Starting update...")
 
     def finish_update(self):
         # This message should be shown regardless of verbosity setting
