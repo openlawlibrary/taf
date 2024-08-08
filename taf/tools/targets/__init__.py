@@ -219,13 +219,10 @@ def update_and_sign_command():
 
 
 def attach_to_group(group):
-    targets_group = click.Group(name='targets')
 
-    targets_group.add_command(add_repo_command(), name='add-repo')
-    targets_group.add_command(export_history_command(), name='export-history')
-    targets_group.add_command(list_targets_command(), name='list')
-    targets_group.add_command(remove_repo_command(), name='remove-repo')
-    targets_group.add_command(sign_targets_command(), name='sign')
-    targets_group.add_command(update_and_sign_command(), name='update-and-sign')
-
-    group.add_command(targets_group)
+    group.add_command(add_repo_command(), name='add-repo')
+    group.add_command(export_history_command(), name='export-history')
+    group.add_command(list_targets_command(), name='list')
+    group.add_command(remove_repo_command(), name='remove-repo')
+    group.add_command(sign_targets_command(), name='sign')
+    group.add_command(update_and_sign_command(), name='update-and-sign')

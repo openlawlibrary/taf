@@ -518,6 +518,7 @@ def status_command():
 
 
 def attach_to_group(group):
+
     repo = click.Group(name="repo")
 
     repo.add_command(create_repo_command(), name="create")
