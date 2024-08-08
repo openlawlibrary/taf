@@ -77,9 +77,5 @@ def update_expiration_dates_command():
 
 
 def attach_to_group(group):
-    metadata_group = click.Group(name='metadata')
-
-    metadata_group.add_command(check_expiration_dates_command(), name='check-expiration-dates')
-    metadata_group.add_command(update_expiration_dates_command(), name='update-expiration-dates')
-
-    group.add_command(metadata_group)
+    group.add_command(check_expiration_dates_command(), name='check-expiration-dates')
+    group.add_command(update_expiration_dates_command(), name='update-expiration-dates')

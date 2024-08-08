@@ -121,7 +121,9 @@ def get_yk_roles(path: str) -> Dict:
     on_exceptions=TAFError,
     reraise=True,
 )
-def setup_signing_yubikey(certs_dir: Optional[str] = None) -> None:
+def setup_signing_yubikey(
+    certs_dir: Optional[str] = None, key_size: int = 2048
+) -> None:
     """
     Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
     Optionally export and save the certificate to a file.
@@ -146,7 +148,7 @@ def setup_signing_yubikey(certs_dir: Optional[str] = None) -> None:
         pin_repeat=True,
         prompt_message="Please insert the new Yubikey and press ENTER",
     )
-    key = yk.setup_new_yubikey(serial_num)
+    key = yk.setup_new_yubikey(serial_num, key_size=key_size)
     yk.export_yk_certificate(certs_dir, key)
 
 
