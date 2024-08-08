@@ -29,7 +29,6 @@ from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from tuf.ngclient.updater import Updater
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.log import taf_logger
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
@@ -386,9 +385,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             # check if the auth repo is clean first
             if self.state.existing_repo:
-                taf_logger.info(f"Checking if local repositories are clean...")
                 auth_repo = AuthenticationRepository(
                     path=self.auth_path, urls=[self.url]
+                )
+                taf_logger.info(
+                    f"{auth_repo.name}: Checking if local repositories are clean..."
                 )
                 if auth_repo.is_bare_repository:
                     taf_logger.info(

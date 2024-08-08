@@ -11,6 +11,7 @@ from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
 
+
 def common_update_options(f):
     f = click.option("--expected-repo-type", default="either", type=click.Choice(["test", "official", "either"]), help="Indicates expected authentication repository type - test or official.")(f)
     f = click.option("--scripts-root-dir", default=None, help="Scripts root directory, which can be used to move scripts out of the authentication repository for testing purposes.")(f)
@@ -19,6 +20,7 @@ def common_update_options(f):
     f = click.option("--exclude-target", multiple=True, help="Globs defining which target repositories should be ignored during update.")(f)
     f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
     return f
+
 
 def start_profiling():
     import cProfile

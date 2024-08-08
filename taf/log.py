@@ -22,10 +22,11 @@ taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
 
 VERBOSITY_LEVELS = {
     0: "NOTICE",  # Default
-    1: "INFO", # -v
-    2: "DEBUG",   # -vv
-    3: "TRACE" # -vvv
+    1: "INFO",  # -v
+    2: "DEBUG",  # -vv
+    3: "TRACE",  # -vvv
 }
+
 
 def formatter(record):
     if record["level"].no == NOTICE:
@@ -41,6 +42,7 @@ def formatter(record):
     else:
         return _CONSOLE_FORMAT_STRING
 
+
 def disable_console_logging():
     try:
         taf_logger.remove(console_loggers["log"])
@@ -48,6 +50,8 @@ def disable_console_logging():
     except ValueError:
         # will be raised if this is called twice
         pass
+
+
 def disable_file_logging():
     try:
         taf_logger.remove(file_loggers["log"])
@@ -62,6 +66,7 @@ def disable_tuf_console_logging():
         tuf.log.set_console_log_level(logging.CRITICAL)
     except securesystemslib.exceptions.Error:
         pass
+
 
 def disable_tuf_file_logging():
     if tuf.log.file_handler is not None:
@@ -80,6 +85,7 @@ def _get_log_location():
     else:
         location = Path(location)
     return location
+
 
 def initialize_logger_handlers():
     taf_logger.remove()
@@ -113,5 +119,6 @@ def initialize_logger_handlers():
     else:
         # if file logging is disabled, also disable tuf file logging
         disable_tuf_file_logging()
+
 
 initialize_logger_handlers()
