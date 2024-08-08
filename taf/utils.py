@@ -416,7 +416,7 @@ class timed_run:
     def start(self):
         self.start_time = time.time()
         if self.start_message is not None:
-            #This message should be shown regardless of verbosity setting
+            # This message should be shown regardless of verbosity setting
             taf_logger.log("NOTICE", self.start_message)
 
     def end(self):

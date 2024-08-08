@@ -97,6 +97,7 @@ class UpdateOutput:
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
 
+
 def cleanup_decorator(pipeline_function):
     @functools.wraps(pipeline_function)
     def wrapper(self, *args, **kwargs):
@@ -294,10 +295,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_validate_target_repos,
                 ),  # skipped with no-targets; prints all other commits that exist but are not merged
                 (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
-                (self.finish_update,
-                 RunMode.ALL,
-                 None
-                 ),
+                (self.finish_update, RunMode.ALL, None),
             ],
             run_mode=(
                 RunMode.LOCAL_VALIDATION
@@ -1176,7 +1174,9 @@ but commit not on branch {current_branch}"
         However, no error will get reported if there are commits which have not yet been signed
         In case of repositories which can contain unauthenticated commits, they do not even need to get signed
         """
-        taf_logger.debug("Validating and setting additional commits of target repositories...")
+        taf_logger.debug(
+            "Validating and setting additional commits of target repositories..."
+        )
         # only get additional commits if the validation was complete (not partial, up to a commit)
         self.state.additional_commits_per_target_repos_branches = defaultdict(dict)
         if self.state.update_status != UpdateStatus.SUCCESS:
@@ -1423,6 +1423,7 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
+
 def _clone_validation_repo(url):
     """
     Clones the authentication repository based on the url specified using the
@@ -1465,8 +1466,10 @@ def _get_repository_name_from_info_json(auth_repo, commit_sha):
 def _is_unauthenticated_allowed(repository):
     return repository.custom.get("allow-unauthenticated-commits", False)
 
+
 def _run_tuf_updater(git_fetcher, auth_repo_name):
     taf_logger.info("Running TUF validation of the authentication repository...")
+
     def _init_updater():
         try:
             return Updater(
