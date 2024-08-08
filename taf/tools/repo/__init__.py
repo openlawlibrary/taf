@@ -312,7 +312,6 @@ def status_command():
 
 
 def attach_to_group(group):
-
     group.add_command(create_repo_command(), name='create')
     group.add_command(clone_repo_command(), name='clone')
     group.add_command(update_repo_command(), name='update')

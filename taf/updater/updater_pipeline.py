@@ -10,8 +10,6 @@ from typing import Any, Dict, List, Optional
 
 from attr import attrs, define, field
 
-from build.lib.taf.updater.updater_pipeline import _get_repository_name_from_info_json, \
-    _get_repository_name_raise_error_if_not_defined
 from taf.git import GitError
 from taf.git import GitRepository
 from taf.constants import INFO_JSON_PATH
