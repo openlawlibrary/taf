@@ -503,7 +503,10 @@ def _enter_role_info(
             while not len(delegated_paths) or click.confirm("Enter another path?"):
                 delegated_paths.append(
                     _read_val(
-                        str, f"path or glob pattern delegated to {role_name}", "delegated_paths", True
+                        str,
+                        f"path or glob pattern delegated to {role_name}",
+                        "delegated_paths",
+                        True,
                     )
                 )
             delegated_roles[role_name]["paths"] = delegated_paths
@@ -522,7 +525,9 @@ def _read_val(input_type, name, param=None, required=False):
     default_value = None
     if param is not None:
         if not isinstance(param, str):
-            raise TypeError(f"Parameter 'param' must be a string, got {type(param).__name__}")
+            raise TypeError(
+                f"Parameter 'param' must be a string, got {type(param).__name__}"
+            )
         default_value = DEFAULT_ROLE_SETUP_PARAMS[param]
         if default_value is not None:
             default_value_msg = f"(default {default_value}) "
