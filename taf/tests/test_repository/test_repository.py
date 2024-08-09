@@ -133,7 +133,7 @@ def test_to_json_dict():
             else:
                 assert repo_value == attr_value
 
-    for repo_library_dir, repo_name, repo_path, in (
+    for (repo_library_dir, repo_name, repo_path,) in (
         (library_dir, name, None),
         (None, None, Path(library_dir, name)),
     ):

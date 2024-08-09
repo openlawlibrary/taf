@@ -95,9 +95,5 @@ def remove_dependency_command():
 
 
 def attach_to_group(group):
-    dependencies_group = click.Group(name='dependencies')
-
-    dependencies_group.add_command(add_dependency_command(), name='add')
-    dependencies_group.add_command(remove_dependency_command(), name='remove')
-
-    group.add_command(dependencies_group)
+    group.add_command(add_dependency_command(), name='add')
+    group.add_command(remove_dependency_command(), name='remove')
