@@ -683,9 +683,17 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         raise ValueError("Failed to retrieve the last valid commit SHA.")
 
 
-def pull_client_repos(auth_repo: AuthenticationRepository, client_dir: Path):
-    # Load the target repositories from the client directory
+def pull_specific_target_repo(client_dir: Path, repo_name: str):
+    client_target_repo = GitRepository(client_dir, repo_name)
+    client_target_repo.pull()
+
+
+def pull_all_target_repos(auth_repo: AuthenticationRepository, client_dir: Path):
     client_target_repos = load_target_repositories(auth_repo, library_dir=client_dir)
-    # Iterate over each repository and perform a pull operation
     for _, client_repo in client_target_repos.items():
         client_repo.pull()
+
+
+def pull_client_auth_repo(auth_repo: AuthenticationRepository, client_dir: Path):
+    client_auth_repo = AuthenticationRepository(client_dir, auth_repo.name)
+    client_auth_repo.pull()
