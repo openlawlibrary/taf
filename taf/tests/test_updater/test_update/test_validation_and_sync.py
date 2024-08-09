@@ -4,6 +4,7 @@ from taf.tests.test_updater.update_utils import (
     clone_repositories,
     load_target_repositories,
     update_and_check_commit_shas,
+    update_invalid_repos_and_check_if_repos_exist,
     verify_client_repos_state,
     verify_partial_update,
 )
@@ -15,8 +16,10 @@ from taf.tests.test_updater.conftest import (
     pull_client_auth_repo,
     pull_specific_target_repo,
     remove_commits,
+    update_and_sign_metadata_without_clean_check,
     update_existing_file,
     update_expiration_dates,
+    update_role_metadata_invalid_signature,
     update_role_metadata_without_signing,
 )
 
@@ -131,7 +134,7 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_unauthenticated_commits)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(
-        update_role_metadata_without_signing, kwargs={"role": "root"}
+        update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
     )
     setup_manager.execute_tasks()
 
@@ -143,15 +146,16 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     new_origin_commit = origin_auth_repo.head_commit_sha()
     assert original_commit != new_origin_commit
 
-    origin_auth_repo.commit("Committing uncommitted changes before pull")
-
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    update_and_check_commit_shas(
-        OperationType.UPDATE, origin_auth_repo, client_dir, force=True
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        None,
+        True,
     )
-
     verify_partial_update(client_dir, origin_auth_repo, original_commits)
     verify_client_repos_state(client_dir, origin_auth_repo)
 

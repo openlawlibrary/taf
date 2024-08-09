@@ -158,6 +158,9 @@ class SetupManager:
                         task.function(**task.params)
                 else:
                     task.function(**task.params)
+        # remove all tasks once they are all executed
+        # allow for the reuse of the setup manager
+        self.tasks = []
         repositoriesdb.clear_repositories_db()
 
 
