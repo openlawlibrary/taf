@@ -1,5 +1,6 @@
 import os
 import pytest
+from pathlib import Path
 from freezegun import freeze_time
 from collections import defaultdict
 from datetime import datetime
@@ -303,6 +304,93 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def verify_client_repos_state(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository
+):
+    """
+    Verify that the client's repositories are in the correct state.
+    This means that the target repositories in the client repo should be in sync with the origin repo,
+    and the client's auth repo should be updated to the last validated commit.
+    """
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        origin_auth_repo, library_dir=client_dir
+    )
+
+    check_last_validated_commit(client_auth_repo.path)
+
+    successful_update = True
+    for repo_name, client_repo in client_target_repos.items():
+        client_commit = client_repo.head_commit_sha()
+        origin_commit = origin_auth_repo.head_commit_sha()
+
+        if client_commit != origin_commit:
+            successful_update = False
+            break
+
+    if successful_update:
+        check_if_commits_match(client_target_repos, origin_auth_repo.path.parent.parent)
+    else:
+        for repo_name, client_repo in client_target_repos.items():
+            client_commit = client_repo.head_commit_sha()
+
+            # Extract commit SHA from the target file in the client repo
+            target_commit_info = client_auth_repo.get_target(repo_name)
+            target_commit_sha = (
+                target_commit_info.get("commit") if target_commit_info else None
+            )
+
+            # Assert that the top commits of target repositories are the same as the commit SHA specified in the corresponding target files
+            assert (
+                client_commit == target_commit_sha
+            ), f"Target repo {repo_name} should have the same top commit as specified in the corresponding target file"
+            assert (
+                client_commit != origin_commit
+            ), f"Target repo {repo_name} should not have the same commit as specified in the client's auth repo"
+
+
+def verify_partial_update(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, original_commits: dict
+):
+    """
+    Verify that the client's repositories are in the correct state following a partial update.
+    This means that the top commits of the client's local target repositories are different
+    from the top commits of the origin repositories, and they match the most recent valid
+    commit as specified in the client's auth repo.
+    """
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        origin_auth_repo, library_dir=client_dir
+    )
+
+    # Ensure the last validated commit exists in the client's auth repo
+    check_last_validated_commit(client_auth_repo.path)
+
+    for repo_name, client_repo in client_target_repos.items():
+        client_commit = client_repo.head_commit_sha()
+        origin_commit = origin_auth_repo.head_commit_sha()
+
+        # Ensure the client repository commit is different from the origin repo commit
+        assert (
+            client_commit != origin_commit
+        ), f"Target repo {repo_name} should not have the same top commit as the origin repo after a partial update"
+
+        # Verify that the client's repo commit matches the expected commit SHA in the auth repo
+        target = client_auth_repo.get_target(repo_name)
+
+        # Use the get method to safely access the "commit" key
+        expected_commit_sha = target.get("commit") if target else None
+
+        # Ensure expected_commit_sha is not None before proceeding
+        assert (
+            expected_commit_sha is not None
+        ), f"Commit SHA for {repo_name} is missing in the auth repo"
+
+        assert (
+            client_commit == expected_commit_sha
+        ), f"Target repo {repo_name} should have the same top commit as specified in the client's auth repo"
 
 
 def update_and_validate_repositories(

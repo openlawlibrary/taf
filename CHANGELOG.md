@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
+- Added new tests to test out of sync repositories and manual updates [488]
 - Added lazy loading to CLI [481]
 - Testing repositories with dependencies ([479], [487])
 - Hid plaintext when users are prompted to insert YubiKey and press ENTER ([473])
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [493]: https://github.com/openlawlibrary/taf/pull/493
 [489]: https://github.com/openlawlibrary/taf/pull/489
+[488]: https://github.com/openlawlibrary/taf/pull/488
 [487]: https://github.com/openlawlibrary/taf/pull/487
 [487]: https://github.com/openlawlibrary/taf/pull/485
 [481]: https://github.com/openlawlibrary/taf/pull/481
