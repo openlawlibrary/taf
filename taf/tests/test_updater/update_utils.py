@@ -392,6 +392,7 @@ def verify_partial_update(
             client_commit == expected_commit_sha
         ), f"Target repo {repo_name} should have the same top commit as specified in the client's auth repo"
 
+
 def update_and_validate_repositories(
     library_with_dependencies,
     origin_dir,
