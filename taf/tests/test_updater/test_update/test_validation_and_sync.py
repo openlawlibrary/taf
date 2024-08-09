@@ -1,4 +1,5 @@
 import pytest
+from taf.auth_repo import AuthenticationRepository
 from taf.updater.types.update import OperationType
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
@@ -11,10 +12,12 @@ from taf.tests.test_updater.conftest import (
     SetupManager,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
+    pull_client_repos,
     remove_commits,
     update_existing_file,
     update_expiration_dates,
     update_role_metadata_without_signing,
+    update_target_files,
 )
 
 
@@ -45,7 +48,10 @@ def test_auth_repo_not_in_sync(origin_auth_repo, client_dir):
 
     new_origin_commit = origin_auth_repo.head_commit_sha()
     assert original_commit != new_origin_commit
-    origin_auth_repo.pull()
+
+    setup_manager.add_task(pull_client_repos, kwargs={"client_dir":client_dir})
+    setup_manager.execute_tasks()
+    
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
     verify_client_repos_state(client_dir, origin_auth_repo)
@@ -83,10 +89,8 @@ def test_target_repo_not_in_sync(origin_auth_repo, client_dir):
     new_origin_commit = origin_auth_repo.head_commit_sha()
     assert original_commit != new_origin_commit
 
-    # Sync auth repo and check if the last validated commit exists
-    origin_auth_repo.pull()
-
-    verify_client_repos_state(client_dir, origin_auth_repo)
+    setup_manager.add_task(pull_client_repos, kwargs={"client_dir":client_dir})
+    setup_manager.execute_tasks()
 
     # Run the updater to update repositories
     update_and_check_commit_shas(
@@ -140,12 +144,13 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     new_origin_commit = origin_auth_repo.head_commit_sha()
     assert original_commit != new_origin_commit
 
-    # Sync auth repo and check if the last validated commit exists
-    origin_auth_repo.pull()
+    origin_auth_repo.commit("Committing uncommitted changes before pull")
 
-    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+    setup_manager.add_task(pull_client_repos, kwargs={"client_dir":client_dir})
+    setup_manager.execute_tasks()
 
-    # Verify that the client's auth repo is reverted to the last valid commit
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir,force=True)
+
     verify_partial_update(client_dir, origin_auth_repo, original_commits)
     verify_client_repos_state(client_dir, origin_auth_repo)
 
@@ -183,11 +188,11 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     for repo_name in original_commits:
         assert original_commits[repo_name] != new_commits[repo_name]
 
-    # Sync the authentication repo
-    origin_auth_repo.pull()
+    setup_manager.add_task(pull_client_repos, kwargs={"client_dir":client_dir})
+    setup_manager.execute_tasks()
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
-    # Verify client repos state
+
     verify_partial_update(client_dir, origin_auth_repo, original_commits)
     verify_client_repos_state(client_dir, origin_auth_repo)
 
@@ -243,11 +248,11 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     updated_commit = updated_repo.head_commit_sha()
     assert original_commits[updated_repo.name] != updated_commit
 
-    # Sync the authentication repo
-    origin_auth_repo.pull()
+    setup_manager.add_task(pull_client_repos, kwargs={"client_dir":client_dir})
+    setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
-        OperationType.UPDATE, origin_auth_repo, client_dir, force=True
+        OperationType.UPDATE, origin_auth_repo, client_dir,force=True
     )
 
     verify_client_repos_state(client_dir, origin_auth_repo)
@@ -298,8 +303,8 @@ def test_target_repo_mixed_manual_updates(origin_auth_repo, client_dir):
     updated_commit = updated_repo.head_commit_sha()
     assert original_commits[updated_repo.name] != updated_commit
 
-    # Sync the authentication repo
-    origin_auth_repo.pull()
+    setup_manager.add_task(pull_client_repos, kwargs={"client_dir":client_dir})
+    setup_manager.execute_tasks()
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
 
