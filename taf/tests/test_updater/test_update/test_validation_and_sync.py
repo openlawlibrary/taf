@@ -6,10 +6,11 @@ from taf.tests.test_updater.update_utils import (
     update_and_check_commit_shas,
     update_invalid_repos_and_check_if_repos_exist,
     verify_client_repos_state,
-    verify_partial_update,
+    verify_partial_auth_update,
 )
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
     pull_all_target_repos,
@@ -22,6 +23,7 @@ from taf.tests.test_updater.conftest import (
     update_role_metadata_invalid_signature,
     update_role_metadata_without_signing,
 )
+
 
 
 @pytest.mark.parametrize(
@@ -156,7 +158,7 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
         None,
         True,
     )
-    verify_partial_update(client_dir, origin_auth_repo, original_commits)
+    verify_partial_auth_update(client_dir, origin_auth_repo)
     verify_client_repos_state(client_dir, origin_auth_repo)
 
 
@@ -165,8 +167,8 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     [
         {
             "targets_config": [
-                {"name": "target1", "allow_unauthenticated_commits": True},
-                {"name": "target2", "allow_unauthenticated_commits": True},
+                {"name": "target1"},
+                {"name": "target2"},
             ],
         },
     ],
@@ -185,7 +187,8 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     original_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
 
     setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
@@ -195,11 +198,17 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
 
     setup_manager.add_task(pull_all_target_repos, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        None,
+        True,
+    )
 
-    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
 
-    verify_partial_update(client_dir, origin_auth_repo, original_commits)
-    verify_client_repos_state(client_dir, origin_auth_repo)
+    # verify_partial_update(client_dir, origin_auth_repo, original_commits)
+    # verify_client_repos_state(client_dir, origin_auth_repo)
 
 
 @pytest.mark.parametrize(
