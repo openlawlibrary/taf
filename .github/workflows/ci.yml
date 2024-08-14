@@ -51,6 +51,10 @@ jobs:
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
 
+      - name: Start pcscd
+        run: |
+          sudo pcscd -f -d &
+
       - name: Setup GitHub user
         run: |
           git config --global user.name oll-bot
@@ -103,7 +107,6 @@ jobs:
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-
 
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
