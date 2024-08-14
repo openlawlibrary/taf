@@ -651,7 +651,12 @@ def add_file_without_commit(repo_path: str, filename: str):
         file.write(text_to_add)
 
 
-def remove_commits(repo_path: str, num_commits: int = 1):
+def remove_commits(
+    auth_repo: AuthenticationRepository,
+    target_repos: list,
+    repo_path: str,
+    num_commits: int = 1,
+):
     repo = GitRepository(path=Path(repo_path))
 
     try:
@@ -683,9 +688,12 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         raise ValueError("Failed to retrieve the last valid commit SHA.")
 
 
-def pull_specific_target_repo(client_dir: Path, repo_name: str):
-    client_target_repo = GitRepository(client_dir, repo_name)
+def pull_specific_target_repo(
+    auth_repo: AuthenticationRepository, target_repos: list, repo_path: str
+):
+    client_target_repo = GitRepository(path=repo_path)
     client_target_repo.pull()
+    return
 
 
 def pull_all_target_repos(auth_repo: AuthenticationRepository, client_dir: Path):

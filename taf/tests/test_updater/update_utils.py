@@ -355,7 +355,9 @@ def verify_partial_auth_update(
     assert client_head_sha in origin_auth_repo.all_commits_on_branch()
 
 
-def verify_partial_targets_update(client_dir: Path, origin_auth_repo: AuthenticationRepository):
+def verify_partial_targets_update(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository
+):
 
     client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
 
