@@ -1,5 +1,4 @@
 from taf.auth_repo import AuthenticationRepository
-from taf.git import GitRepository
 import pytest
 from taf.updater.types.update import OperationType, UpdateType
 from taf.tests.test_updater.update_utils import (
@@ -14,7 +13,6 @@ from taf.tests.test_updater.conftest import (
     SetupManager,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
-    add_valid_unauthenticated_commits,
     pull_all_target_repos,
     pull_client_auth_repo,
     pull_specific_target_repo,
