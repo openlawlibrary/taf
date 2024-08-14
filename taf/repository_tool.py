@@ -156,10 +156,11 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
     while True:
         # check if the needed YubiKey is inserted before asking the user to do so
-        print(f"Enter confirmation details for {name} key")
+        input(f"Confirm use of {name} key (Press ENTER)")
         pin, serial = _check_key_and_get_pin(key_id)
         if pin is not None and serial is not None:
             break
+        print(f"The inserted YubiKey is not a valid {name} key")
 
     signature = yk.sign_piv_rsa_pkcs1v15(data, pin, serial=serial)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
