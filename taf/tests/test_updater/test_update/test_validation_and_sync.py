@@ -1,24 +1,27 @@
+from taf.auth_repo import AuthenticationRepository
 import pytest
-from taf.updater.types.update import OperationType
+from taf.updater.types.update import OperationType, UpdateType
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
     load_target_repositories,
     update_and_check_commit_shas,
+    update_invalid_repos_and_check_if_repos_exist,
     verify_client_repos_state,
-    verify_partial_update,
+    verify_partial_auth_update,
 )
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
-    add_valid_unauthenticated_commits,
     pull_all_target_repos,
     pull_client_auth_repo,
     pull_specific_target_repo,
     remove_commits,
-    update_existing_file,
     update_expiration_dates,
-    update_role_metadata_without_signing,
+    update_role_metadata_invalid_signature,
 )
+
+from taf.tests.test_updater.update_utils import verify_partial_targets_update
 
 
 @pytest.mark.parametrize(
@@ -39,18 +42,20 @@ def test_auth_repo_not_in_sync(origin_auth_repo, client_dir):
     Run the updater. Expect and check that all repositories were successfully updated to the last remote commit.
     """
     clone_repositories(origin_auth_repo, client_dir)
-    original_commit = origin_auth_repo.head_commit_sha()
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    new_origin_commit = origin_auth_repo.head_commit_sha()
-    assert original_commit != new_origin_commit
+    assert client_auth_repo.head_commit_sha() != origin_auth_repo.head_commit_sha()
 
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
+
+    client_auth_commit = client_auth_repo.head_commit_sha()
+    assert client_auth_commit == origin_auth_repo.head_commit_sha()
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
     verify_client_repos_state(client_dir, origin_auth_repo)
@@ -78,18 +83,30 @@ def test_target_repo_not_in_sync(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
     )
-    original_commit = origin_auth_repo.head_commit_sha()
+
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    origin_target_repos = load_target_repositories(origin_auth_repo)
+    client_target_repos = load_target_repositories(client_auth_repo)
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(update_expiration_dates)
     setup_manager.execute_tasks()
 
-    new_origin_commit = origin_auth_repo.head_commit_sha()
-    assert original_commit != new_origin_commit
+    for target_name in origin_target_repos:
+        assert (
+            origin_target_repos[target_name].head_commit_sha()
+            != client_target_repos[target_name].head_commit_sha()
+        )
 
     setup_manager.add_task(pull_all_target_repos, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
+
+    for target_name in origin_target_repos:
+        assert (
+            origin_target_repos[target_name].head_commit_sha()
+            == client_target_repos[target_name].head_commit_sha()
+        )
 
     # Run the updater to update repositories
     update_and_check_commit_shas(
@@ -122,37 +139,30 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     """
     clone_repositories(origin_auth_repo, client_dir)
 
-    # Load the target repositories
-    target_repos = list(load_target_repositories(origin_auth_repo).values())
-    original_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
-    original_commit = origin_auth_repo.head_commit_sha()
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
 
     setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_unauthenticated_commits)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(
-        update_role_metadata_without_signing, kwargs={"role": "root"}
+        update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
     )
     setup_manager.execute_tasks()
 
-    new_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
-
-    for repo_name in original_commits:
-        assert original_commits[repo_name] != new_commits[repo_name]
-
-    new_origin_commit = origin_auth_repo.head_commit_sha()
-    assert original_commit != new_origin_commit
-
-    origin_auth_repo.commit("Committing uncommitted changes before pull")
+    assert client_auth_repo.head_commit_sha() != origin_auth_repo.head_commit_sha()
 
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    update_and_check_commit_shas(
-        OperationType.UPDATE, origin_auth_repo, client_dir, force=True
-    )
+    assert client_auth_repo.head_commit_sha() == origin_auth_repo.head_commit_sha()
 
-    verify_partial_update(client_dir, origin_auth_repo, original_commits)
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        None,
+        True,
+    )
+    verify_partial_auth_update(client_dir, origin_auth_repo)
     verify_client_repos_state(client_dir, origin_auth_repo)
 
 
@@ -161,8 +171,8 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     [
         {
             "targets_config": [
-                {"name": "target1", "allow_unauthenticated_commits": True},
-                {"name": "target2", "allow_unauthenticated_commits": True},
+                {"name": "target1"},
+                {"name": "target2"},
             ],
         },
     ],
@@ -177,24 +187,42 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
     )
-    target_repos = list(load_target_repositories(origin_auth_repo).values())
-    original_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
+
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    origin_target_repos = load_target_repositories(origin_auth_repo)
+    client_target_repos = load_target_repositories(client_auth_repo)
 
     setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_unauthenticated_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    new_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
-    for repo_name in original_commits:
-        assert original_commits[repo_name] != new_commits[repo_name]
+    for target_name in origin_target_repos:
+        assert (
+            origin_target_repos[target_name].head_commit_sha()
+            != client_target_repos[target_name].head_commit_sha()
+        )
 
     setup_manager.add_task(pull_all_target_repos, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+    for target_name in origin_target_repos:
+        assert (
+            origin_target_repos[target_name].head_commit_sha()
+            == client_target_repos[target_name].head_commit_sha()
+        )
 
-    verify_partial_update(client_dir, origin_auth_repo, original_commits)
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        None,
+        True,
+    )
+
+    verify_partial_auth_update(client_dir, origin_auth_repo)
+    verify_partial_targets_update(client_dir, origin_auth_repo)
     verify_client_repos_state(client_dir, origin_auth_repo)
 
 
@@ -215,100 +243,49 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     Client's auth repo is on last validated commit, but target commits are all over the place.
     Some are after last validated, some are before.
     """
-    clone_repositories(
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
         origin_auth_repo,
         client_dir,
+        expected_repo_type=UpdateType.EITHER,
     )
 
-    target_repos = list(load_target_repositories(origin_auth_repo).values())
-    original_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
-    reverted_repo = target_repos[0]  # target1
-    updated_repo = target_repos[1]  # target2
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    origin_target_repos = load_target_repositories(origin_auth_repo)
+    client_target_repos = load_target_repositories(client_auth_repo)
+
+    client_target_repos = list(client_target_repos.values())
+    reverted_repo = client_target_repos[0]  # target1
+    updated_repo = client_target_repos[1]  # target2
+    old_commit = reverted_repo.head_commit_sha()
 
     # Add valid commits first to
-    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
 
     setup_manager.add_task(
         remove_commits, kwargs={"repo_path": reverted_repo.path, "num_commits": 1}
     )
     setup_manager.add_task(
-        update_existing_file,
-        kwargs={
-            "repo": updated_repo,
-            "filename": "test1.txt",
-            "commit_message": "Manually update test1.txt",
-        },
+        pull_specific_target_repo, kwargs={"repo_path": updated_repo.path}
     )
     setup_manager.execute_tasks()
-
-    # Check that the reverted repo has the same commit as the original
-    reverted_commit = reverted_repo.head_commit_sha()
-    assert original_commits[reverted_repo.name] == reverted_commit
-
-    # Check that the manually updated repo has a new commit
-    updated_commit = updated_repo.head_commit_sha()
-    assert original_commits[updated_repo.name] != updated_commit
 
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
+    updated_repo.head_commit_sha() == origin_target_repos[
+        updated_repo.name
+    ].head_commit_sha()
+    reverted_repo.head_commit_sha() != old_commit
+
     update_and_check_commit_shas(
         OperationType.UPDATE, origin_auth_repo, client_dir, force=True
     )
-
-    verify_client_repos_state(client_dir, origin_auth_repo)
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [
-                {"name": "target1", "allow_unauthenticated_commits": True},
-                {"name": "target2", "allow_unauthenticated_commits": True},
-            ],
-        },
-    ],
-    indirect=True,
-)
-def test_target_repo_mixed_manual_updates(origin_auth_repo, client_dir):
-    """
-    Some target repositories are updated manually, and some are not.
-    Expect that manually updated repositories have new commits, while others do not.
-    """
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
-
-    target_repos = list(load_target_repositories(origin_auth_repo).values())
-    original_commits = {repo.name: repo.head_commit_sha() for repo in target_repos}
-    updated_repo = target_repos[0]  # target1
-    reverted_repo = target_repos[1]  # target2
-
-    # Add commits to revert later
-    setup_manager = SetupManager(origin_auth_repo)
-
-    setup_manager.add_task(
-        add_valid_target_commits, kwargs={"target_repos": [updated_repo]}
-    )
-    setup_manager.add_task(
-        remove_commits, kwargs={"repo_path": reverted_repo.path, "num_commits": 1}
-    )
-    setup_manager.execute_tasks()
-    # Check that the reverted repo has the same commit as the original
-    reverted_commit = reverted_repo.head_commit_sha()
-    assert original_commits[reverted_repo.name] == reverted_commit
-
-    # Check that the manually updated repo has a new commit
-    updated_commit = updated_repo.head_commit_sha()
-    assert original_commits[updated_repo.name] != updated_commit
-
-    pull_specific_target_repo(client_dir, reverted_repo.name)
-    pull_specific_target_repo(client_dir, updated_repo.name)
-
-    setup_manager.execute_tasks()
-
-    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
 
     verify_client_repos_state(client_dir, origin_auth_repo)

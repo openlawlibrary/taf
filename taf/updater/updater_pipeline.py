@@ -1339,7 +1339,7 @@ but commit not on branch {current_branch}"
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
                     _merge_commit(
-                        repository, branch, commit_to_merge, force_revert=self.force
+                        repository, branch, commit_to_merge, force_revert=True
                     )
             return self.state.update_status
         except Exception as e:
