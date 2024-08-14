@@ -46,14 +46,26 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          sudo apt-get install -y pcscd git python-setuptools swig gcc libpcsclite-dev python-dev
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
 
-      - name: Start pcscd
+      - name: Blacklist conflicting drivers
         run: |
-          sudo pcscd -f -d &
+          echo "install nfc /bin/false" | sudo tee -a /etc/modprobe.d/blacklist.conf
+          echo "install pn533 /bin/false" | sudo tee -a /etc/modprobe.d/blacklist.conf
+
+      - name: Build and install pyscard from source
+        run: |
+          cd ~
+          git clone https://github.com/LudovicRousseau/pyscard.git
+          cd pyscard
+          sudo python setup.py build_ext install
+
+      - name: Restart pcscd service
+        run: |
+          sudo service pcscd restart
 
       - name: Setup GitHub user
         run: |
