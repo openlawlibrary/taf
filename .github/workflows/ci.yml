@@ -67,14 +67,6 @@ jobs:
         run: |
           sudo service pcscd restart
 
-      - name: Fix library paths for pcsc-lite
-        run: |
-          sudo ln -sf /usr/lib/libpcsclite.so.1.0.0 /lib/libpcsclite.so.1.0.0
-
-      - name: Start pcscd service using systemctl
-        run: |
-          sudo systemctl start pcscd
-
       - name: Start pcscd service (manual method)
         run: |
           sudo pcscd -f -d &
@@ -87,7 +79,7 @@ jobs:
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
-          pytest taf/tests
+          pytest taf/tests -s
 
   build_and_upload_wheel:
     runs-on: ubuntu-latest
