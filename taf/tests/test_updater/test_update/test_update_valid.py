@@ -532,7 +532,11 @@ def test_update_valid_remove_commits_from_target_repo(origin_auth_repo, client_d
         / "targets/test_remove_commits_from_target_repo0/target1"
     )
 
-    remove_commits(str(client_target_repo_path))
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        remove_commits, kwargs={"repo_path": client_target_repo_path, "num_commits": 1}
+    )
+    setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,

@@ -204,7 +204,11 @@ def test_remove_commits_from_target_repo(origin_auth_repo, client_dir):
 
     client_target_repo_path = client_dir / origin_auth_repo.name
 
-    remove_commits(str(client_target_repo_path))
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        remove_commits, kwargs={"repo_path": client_target_repo_path, "num_commits": 1}
+    )
+    setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,

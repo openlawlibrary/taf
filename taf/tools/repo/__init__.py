@@ -1,8 +1,11 @@
 import click
 import json
+
+from taf import settings
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
+from taf.log import initialize_logger_handlers
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.updater.types.update import UpdateType
@@ -213,7 +216,11 @@ def update_repo_command():
     @click.option("--force", is_flag=True, default=False, help="Force Update repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, force, no_deps, upstream):
+    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
+        settings.VERBOSITY = verbosity
+        initialize_logger_handlers()
+
         path = find_valid_repository(path)
         if profile:
             start_profiling()
@@ -266,7 +273,10 @@ def validate_repo_command():
                   "if warnings are raised")
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps):
+    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity):
+        settings.VERBOSITY = verbosity
+        initialize_logger_handlers()
         path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
@@ -306,7 +316,6 @@ def status_command():
 
 
 def attach_to_group(group):
-
     group.add_command(create_repo_command(), name='create')
     group.add_command(clone_repo_command(), name='clone')
     group.add_command(update_repo_command(), name='update')
