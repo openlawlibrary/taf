@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pcscd git python-setuptools swig gcc libpcsclite-dev python-dev
+          sudo apt-get install -y pcscd git python-setuptools swig gcc libpcsclite-dev python-dev-is-python3
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
