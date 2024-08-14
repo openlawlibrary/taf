@@ -587,6 +587,7 @@ def list_connected_yubikeys():
             print(f"  Form Factor: {info.form_factor}")
 
 
+@raise_yubikey_err("Yubikey not connected")
 def verify_yubikey_serial() -> int:
     """
     Checks the number of YubiKeys connected to the device.
@@ -596,10 +597,10 @@ def verify_yubikey_serial() -> int:
     - If the inputted serial matches one of the connected YubiKeys, returns that serial number.
 
     Returns:
-        str: The serial number of the selected YubiKey.
+        int: The serial number of the selected YubiKey.
 
     Raises:
-        YubikeyError: If no YubiKeys are connected or if an invalid serial number is provided.
+        YubikeyError: If no YubiKeys are connected.
     """
     # List all connected YubiKeys
     yubikeys = list_all_devices()
@@ -616,11 +617,20 @@ def verify_yubikey_serial() -> int:
     for _, info in yubikeys:
         print(f"Serial: {info.serial}, Version: {info.version}")
 
-    selected_serial = input("Enter the serial number of the YubiKey you want to use: ")
+    while True:
+        selected_serial_str = input(
+            "Enter the serial number of the YubiKey you want to use: "
+        )
 
-    # Validate the inputted serial number
-    for _, info in yubikeys:
-        if info.serial == int(selected_serial):
-            return int(selected_serial)
+        if not selected_serial_str.isdigit():
+            print("Invalid input. Please enter a valid numeric serial number.")
+            continue
 
-    raise YubikeyError("Invalid serial number provided.")
+        selected_serial = int(selected_serial_str)
+
+        # Validate the inputted serial number
+        for _, info in yubikeys:
+            if info.serial == selected_serial:
+                return selected_serial
+
+        print("Invalid serial number provided. Please try again.")

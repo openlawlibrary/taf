@@ -156,7 +156,7 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
     while True:
         # check if the needed YubiKey is inserted before asking the user to do so
-        print(f"Enter confirmation d etails for {name} key")
+        print(f"Enter confirmation details for {name} key")
         pin, serial = _check_key_and_get_pin(key_id)
         if pin is not None and serial is not None:
             break
