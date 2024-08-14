@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Use multiple yubikeys at same time (Key generation, repo generation, target signing) ([503])
 - Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
 - Added new tests to test out of sync repositories and manual updates [488]
 - Added lazy loading to CLI [481]
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[503]: https://github.com/openlawlibrary/taf/pull/503
 [493]: https://github.com/openlawlibrary/taf/pull/493
 [489]: https://github.com/openlawlibrary/taf/pull/489
 [488]: https://github.com/openlawlibrary/taf/pull/488
