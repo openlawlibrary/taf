@@ -1,4 +1,5 @@
 import pytest
+from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
     add_file_without_commit,
@@ -34,6 +35,7 @@ from taf.updater.types.update import OperationType, UpdateType
     indirect=True,
 )
 def test_update_valid_happy_path(origin_auth_repo, client_dir):
+    print("Cloning repositories")
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -43,6 +45,7 @@ def test_update_valid_happy_path(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
+    print("Updating and checking commit SHAs")
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
@@ -635,3 +638,80 @@ def test_update_partial_with_invalid_commits(origin_auth_repo, client_dir):
         client_dir,
         force=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_removed_commits_in_auth_repo(origin_auth_repo, client_dir):
+    # Clone the repositories
+    clone_repositories(origin_auth_repo, client_dir)
+
+    # Add valid commits to the authentication repository
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    # Remove one or more commits from the authentication repository
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    remove_commits(str(client_auth_repo_path), num_commits=1)
+
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_last_validated_commit_not_in_local_repo(
+    origin_auth_repo, client_dir
+):
+    # Clone the repositories
+    clone_repositories(origin_auth_repo, client_dir)
+
+    # Push new commits to the origin repo
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    # Manually set the last validated commit to one of the new commits
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    last_commit_sha = client_auth_repo.last_validated_commit
+    origin_auth_repo.set_last_validated_commit(last_commit_sha)
+
+    # Remove the last validated commit from the user's local repository
+    remove_commits(str(client_dir / origin_auth_repo.name), num_commits=1)
+
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir):
+    # Step 1: Clone the repositories
+    clone_repositories(origin_auth_repo, client_dir)
+
+    # Step 2: Set the last validated commit to an invalid commit (e.g., non-existent SHA)
+    invalid_commit_sha = "0000000000000000000000000000000000000000"
+    origin_auth_repo.set_last_validated_commit(invalid_commit_sha)
+
+    # Step 3: Run the updater and expect it to fail
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)

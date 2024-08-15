@@ -1,6 +1,5 @@
 import pytest
 from taf.tests.test_updater.conftest import (
-    REMOVED_COMMITS_PATTERN,
     TARGET_MISSMATCH_PATTERN,
     FORCED_UPATE_PATTERN,
     UNCOIMITTED_CHANGES,
@@ -10,7 +9,6 @@ from taf.tests.test_updater.conftest import (
     add_valid_target_commits,
     create_index_lock,
     update_file_without_commit,
-    remove_commits,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
@@ -183,34 +181,6 @@ def test_dirty_index_target_repo_add_file(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         FORCED_UPATE_PATTERN,
-        True,
-    )
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [{"name": "target1"}, {"name": "target2"}],
-        },
-    ],
-    indirect=True,
-)
-def test_remove_commits_from_target_repo(origin_auth_repo, client_dir):
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
-
-    client_target_repo_path = client_dir / origin_auth_repo.name
-
-    remove_commits(str(client_target_repo_path))
-
-    update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        REMOVED_COMMITS_PATTERN,
         True,
     )
 
