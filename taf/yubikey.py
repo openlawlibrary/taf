@@ -470,13 +470,10 @@ def yubikey_prompt(
             if prompt_message is None:
                 prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
             getpass(prompt_message)
-        # make sure that YubiKey is inserted
-        try:
+        if check_yubikey_count() < 2:
+            serial = get_serial_num()
+        else:
             serial = verify_yubikey_serial()
-        except Exception:
-            print("YubiKey not inserted")
-            return False, None, None
-
         # check if this key is already loaded as the provided role's key (we can use the same key
         # to sign different metadata)
         if (
