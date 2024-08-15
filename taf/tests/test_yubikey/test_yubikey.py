@@ -44,6 +44,6 @@ def test_sign_piv_rsa_pkcs1v15(targets_yk):
     serial = yk.verify_yubikey_serial()
 
     pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
-    signature = yk.sign_piv_rsa_pkcs1v15(message, yk.DEFAULT_PIN,serial=serial)
+    signature = yk.sign_piv_rsa_pkcs1v15(message, yk.DEFAULT_PIN, serial=serial)
 
     assert verify_rsa_signature(signature, scheme, pub_key_pem, message) is True
