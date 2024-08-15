@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Dict
 
 import securesystemslib
-from taf.yubikey import verify_yubikey_serial
 import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
@@ -139,14 +138,25 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
 
 
 def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W0613
+    """
+    A signatures provider which asks the user to insert a yubikey
+    Useful if several yubikeys need to be used at the same time
+    """
     from binascii import hexlify
 
     def _check_key_and_get_pin(expected_key_id):
         try:
-            serial = verify_yubikey_serial()
-            inserted_key = yk.get_piv_public_key_tuf(serial=serial)
-            if expected_key_id != inserted_key["keyid"]:
-                return None, None
+            yubikey_count = yk.check_yubikey_count()
+            if yubikey_count < 2:
+                inserted_key = yk.get_piv_public_key_tuf()
+                if expected_key_id != inserted_key["keyid"]:
+                    return None, None
+                serial = yk.get_serial_num(inserted_key)
+            else:
+                 serial = yk.verify_yubikey_serial()
+                 inserted_key = yk.get_piv_public_key_tuf(serial=serial)
+                 if expected_key_id != inserted_key["keyid"]:
+                    return None, None
             pin = yk.get_key_pin(serial)
             if pin is None:
                 pin = yk.get_and_validate_pin(name, serial=serial)
@@ -156,13 +166,14 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
     while True:
         # check if the needed YubiKey is inserted before asking the user to do so
-        input(f"Confirm use of {name} key (Press ENTER)")
+        # this allows us to use this signature provider inside an automated process
+        # assuming that all YubiKeys needed for signing are inserted
         pin, serial = _check_key_and_get_pin(key_id)
         if pin is not None and serial is not None:
             break
-        print(f"The inserted YubiKey is not a valid {name} key")
+        input(f"\nInsert {name} and press enter")
 
-    signature = yk.sign_piv_rsa_pkcs1v15(data, pin, serial=serial)
+    signature = yk.sign_piv_rsa_pkcs1v15(data, pin,serial=serial)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
@@ -966,7 +977,7 @@ class Repository:
 
         return key["keyid"] in self.get_role_keys(role)
 
-    def is_valid_metadata_yubikey(self, role, public_key=None, serial=None):
+    def is_valid_metadata_yubikey(self, role, public_key=None):
         """Checks if metadata role contains key id from YubiKey.
 
         Args:
@@ -984,7 +995,7 @@ class Repository:
         securesystemslib.formats.NAME_SCHEMA.check_match(role)
 
         if public_key is None:
-            public_key = yk.get_piv_public_key_tuf(serial=serial)
+            public_key = yk.get_piv_public_key_tuf()
 
         return self.is_valid_metadata_key(role, public_key)
 

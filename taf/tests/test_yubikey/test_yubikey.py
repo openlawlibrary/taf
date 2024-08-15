@@ -24,8 +24,7 @@ def test_export_piv_x509():
 
 
 def test_export_piv_pub_key():
-    serial = yk.verify_yubikey_serial()
-    pub_key_pem = yk.export_piv_pub_key(serial=serial)
+    pub_key_pem = yk.export_piv_pub_key()
     assert isinstance(pub_key_pem, bytes)
 
 
@@ -41,9 +40,7 @@ def test_sign_piv_rsa_pkcs1v15(targets_yk):
     message = b"Message to be signed."
     scheme = "rsa-pkcs1v15-sha256"
 
-    serial = yk.verify_yubikey_serial()
-
-    pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
-    signature = yk.sign_piv_rsa_pkcs1v15(message, yk.DEFAULT_PIN, serial=serial)
+    pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+    signature = yk.sign_piv_rsa_pkcs1v15(message, yk.DEFAULT_PIN)
 
     assert verify_rsa_signature(signature, scheme, pub_key_pem, message) is True

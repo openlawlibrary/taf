@@ -105,10 +105,11 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
         - ykman.piv.PivSession
 
     Raises:
-        - YubikeyError
+        - YubikeyError: If no matching YubiKey is found or connected.
     """
-    # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
-    # public keys.
+    found = False
+
+    # If pub_key_pem is given, iterate all devices, read x509 certs and try to match public keys.
     if pub_key_pem is not None:
         for dev, info in list_all_devices():
             # Connect to a YubiKey over a SmartCardConnection, which is needed for PIV.
@@ -123,21 +124,29 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                     )
                     .decode("utf-8")
                 )
-                # Tries to match without last newline char
+
+                # Tries to match without the last newline character
                 if (
-                    device_pub_key_pem == pub_key_pem
-                    or device_pub_key_pem[:-1] == pub_key_pem
+                    device_pub_key_pem == pub_key_pem["keyval"]["public"]
+                    or device_pub_key_pem[:-1] == pub_key_pem["keyval"]["public"]
                 ):
-                    break
-                yield session, info.serial
+                    yield session, info.serial
+                    found = True
+                    return
+
+    # If no pub_key_pem is given, use the serial number
     else:
         for dev, info in list_all_devices():
             if serial is None or info.serial == serial:
                 with dev.open_connection(SmartCardConnection) as connection:
                     session = PivSession(connection)
                     yield session, info.serial
-            else:
-                pass
+                    found = True
+                    return
+
+    # If no YubiKey was found or matched, raise an exception
+    if not found:
+        raise YubikeyError("No matching YubiKey found or connected.")
 
 
 def is_inserted():
@@ -486,7 +495,7 @@ def yubikey_prompt(
         # check if this yubikey is can be used for signing the provided role's metadata
         # if the key was already registered as that role's key
         if not registering_new_key and role is not None and taf_repo is not None:
-            if not taf_repo.is_valid_metadata_yubikey(role, public_key, serial):
+            if not taf_repo.is_valid_metadata_yubikey(role, public_key,serial):
                 print(f"The inserted YubiKey is not a valid {role} key")
                 return False, None, None
 
@@ -494,7 +503,9 @@ def yubikey_prompt(
             if creating_new_key:
                 pin = get_pin_for(key_name, pin_confirm, pin_repeat)
             else:
-                pin = get_and_validate_pin(key_name, serial, pin_confirm, pin_repeat)
+                pin = get_and_validate_pin(
+                    key_name, serial, pin_confirm, pin_repeat
+                )
             add_key_pin(serial, pin)
 
         if get_key_public_key(serial) is None and public_key is not None:
@@ -542,15 +553,30 @@ def list_connected_yubikeys():
             print(f"  Version: {info.version}")
             print(f"  Form Factor: {info.form_factor}")
 
+@raise_yubikey_err("Yubikey not connected")
+def check_yubikey_count() -> int:
+    # List all connected YubiKeys
+    yubikeys = list_all_devices()
+
+    if not yubikeys:
+        return 0
+    return yubikeys
+
+
+
 
 @raise_yubikey_err("Yubikey not connected")
 def verify_yubikey_serial() -> int:
     """
     Checks the number of YubiKeys connected to the device.
 
+    - If a `pub_key_pem` is provided, returns the serial number using `get_serial_num(pub_key_pem)`.
     - If one YubiKey is connected, returns that device's serial number.
     - If more than one YubiKey is connected, prompts the user to enter the serial number of one of the devices.
     - If the inputted serial matches one of the connected YubiKeys, returns that serial number.
+
+    Args:
+        pub_key_pem (str, optional): The public key in PEM format for matching a specific YubiKey.
 
     Returns:
         int: The serial number of the selected YubiKey.
@@ -558,6 +584,7 @@ def verify_yubikey_serial() -> int:
     Raises:
         YubikeyError: If no YubiKeys are connected.
     """
+
     # List all connected YubiKeys
     yubikeys = list_all_devices()
 
