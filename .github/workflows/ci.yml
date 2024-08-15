@@ -46,10 +46,34 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
+          sudo apt-get install -y pcscd git python-setuptools swig gcc libpcsclite-dev python-dev-is-python3
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
+
+      - name: Blacklist conflicting drivers
+        run: |
+          echo "install nfc /bin/false" | sudo tee -a /etc/modprobe.d/blacklist.conf
+          echo "install pn533 /bin/false" | sudo tee -a /etc/modprobe.d/blacklist.conf
+
+      - name: Build and install pyscard from source
+        run: |
+          cd ~
+          git clone https://github.com/LudovicRousseau/pyscard.git
+          cd pyscard
+          sudo python setup.py build_ext install
+
+      - name: Restart pcscd service
+        run: |
+          sudo service pcscd restart
+
+      - name: Fix library paths for pcsc-lite
+        run: |
+          sudo ln -sf /usr/lib/libpcsclite.so.1.0.0 /lib/libpcsclite.so.1.0.0
+
+      - name: Start pcscd service (manual method)
+        run: |
+          sudo pcscd -f -d &
 
       - name: Setup GitHub user
         run: |
@@ -59,7 +83,7 @@ jobs:
       - name: Run pre-commit and test with pytest
         run: |
           pre-commit run --all-files
-          pytest taf/tests
+          pytest taf/tests -s
 
   build_and_upload_wheel:
     runs-on: ubuntu-latest
@@ -103,7 +127,6 @@ jobs:
         env:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-
 
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
