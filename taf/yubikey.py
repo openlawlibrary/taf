@@ -492,7 +492,7 @@ def yubikey_prompt(
         # check if this yubikey is can be used for signing the provided role's metadata
         # if the key was already registered as that role's key
         if not registering_new_key and role is not None and taf_repo is not None:
-            if not taf_repo.is_valid_metadata_yubikey(role, public_key, serial):
+            if not taf_repo.is_valid_metadata_yubikey(role, public_key):
                 print(f"The inserted YubiKey is not a valid {role} key")
                 return False, None, None
 
