@@ -20,6 +20,7 @@ from taf.tests.test_updater.conftest import (
 from taf.tests.test_updater.update_utils import (
     clone_client_auth_repo_without_updater,
     clone_repositories,
+    load_target_repositories,
     update_and_check_commit_shas,
 )
 from taf.updater.types.update import OperationType, UpdateType
@@ -535,7 +536,11 @@ def test_update_valid_remove_commits_from_target_repo(origin_auth_repo, client_d
         / "targets/test_remove_commits_from_target_repo0/target1"
     )
 
-    remove_commits(str(client_target_repo_path))
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        remove_commits, kwargs={"repo_path": client_target_repo_path, "num_commits": 1}
+    )
+    setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -659,10 +664,20 @@ def test_update_with_removed_commits_in_auth_repo(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
 
     # Remove one or more commits from the authentication repository
-    client_auth_repo_path = client_dir / origin_auth_repo.name
-    remove_commits(str(client_auth_repo_path), num_commits=1)
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_target_repos = load_target_repositories(client_auth_repo)
+    remove_commits(
+        auth_repo=client_auth_repo,
+        target_repos=client_target_repos,
+        repo_path=str(client_auth_repo.path),
+        num_commits=1,
+    )
 
-    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
 
 
 @pytest.mark.parametrize(
@@ -688,10 +703,16 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     # Manually set the last validated commit to one of the new commits
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     last_commit_sha = client_auth_repo.last_validated_commit
+    client_target_repos = load_target_repositories(client_auth_repo)
     origin_auth_repo.set_last_validated_commit(last_commit_sha)
 
     # Remove the last validated commit from the user's local repository
-    remove_commits(str(client_dir / origin_auth_repo.name), num_commits=1)
+    remove_commits(
+        auth_repo=client_auth_repo,
+        target_repos=client_target_repos,
+        repo_path=str(client_auth_repo.path),
+        num_commits=1,
+    )
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
 

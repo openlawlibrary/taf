@@ -59,3 +59,5 @@ LOG_FILENAME = "taf.log"
 ERROR_LOG_FILENAME = "taf.err"
 
 LOG_COMMAND_OUTPUT = False
+
+VERBOSITY = 1
