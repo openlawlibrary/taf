@@ -966,7 +966,7 @@ class Repository:
 
         return key["keyid"] in self.get_role_keys(role)
 
-    def is_valid_metadata_yubikey(self, role, public_key=None):
+    def is_valid_metadata_yubikey(self, role, public_key=None, serial=None):
         """Checks if metadata role contains key id from YubiKey.
 
         Args:
@@ -984,7 +984,7 @@ class Repository:
         securesystemslib.formats.NAME_SCHEMA.check_match(role)
 
         if public_key is None:
-            public_key = yk.get_piv_public_key_tuf()
+            public_key = yk.get_piv_public_key_tuf(serial=serial)
 
         return self.is_valid_metadata_key(role, public_key)
 

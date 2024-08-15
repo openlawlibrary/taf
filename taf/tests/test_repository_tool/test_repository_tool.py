@@ -127,7 +127,6 @@ def test_update_targets_from_keystore_wrong_key(repositories, snapshot_key):
 
 
 def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
-    pytest.skip()
     taf_happy_path = repositories["test-happy-path"]
     if targets_yk.scheme != DEFAULT_RSA_SIGNATURE_SCHEME:
         pytest.skip()
@@ -159,7 +158,6 @@ def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
 
 
 def test_delete_target_file_valid_key_valid_pin(repositories, targets_yk):
-    pytest.skip()
     taf_happy_path = repositories["test-happy-path"]
     if targets_yk.scheme != DEFAULT_RSA_SIGNATURE_SCHEME:
         pytest.skip()
