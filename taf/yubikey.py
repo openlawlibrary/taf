@@ -556,7 +556,7 @@ def check_yubikey_count() -> int:
 
     if not yubikeys:
         return 0
-    return yubikeys
+    return len(yubikeys)
 
 
 @raise_yubikey_err("Yubikey not connected")

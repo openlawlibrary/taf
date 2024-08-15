@@ -153,6 +153,7 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
                     return None, None
                 serial = yk.get_serial_num(inserted_key)
             else:
+                print(f"Final confirmation for {name} key")
                 serial = yk.verify_yubikey_serial()
                 inserted_key = yk.get_piv_public_key_tuf(serial=serial)
                 if expected_key_id != inserted_key["keyid"]:
