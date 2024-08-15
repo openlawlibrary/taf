@@ -495,7 +495,7 @@ def yubikey_prompt(
         # check if this yubikey is can be used for signing the provided role's metadata
         # if the key was already registered as that role's key
         if not registering_new_key and role is not None and taf_repo is not None:
-            if not taf_repo.is_valid_metadata_yubikey(role, public_key,serial):
+            if not taf_repo.is_valid_metadata_yubikey(role, public_key, serial):
                 print(f"The inserted YubiKey is not a valid {role} key")
                 return False, None, None
 
@@ -503,9 +503,7 @@ def yubikey_prompt(
             if creating_new_key:
                 pin = get_pin_for(key_name, pin_confirm, pin_repeat)
             else:
-                pin = get_and_validate_pin(
-                    key_name, serial, pin_confirm, pin_repeat
-                )
+                pin = get_and_validate_pin(key_name, serial, pin_confirm, pin_repeat)
             add_key_pin(serial, pin)
 
         if get_key_public_key(serial) is None and public_key is not None:
@@ -553,6 +551,7 @@ def list_connected_yubikeys():
             print(f"  Version: {info.version}")
             print(f"  Form Factor: {info.form_factor}")
 
+
 @raise_yubikey_err("Yubikey not connected")
 def check_yubikey_count() -> int:
     # List all connected YubiKeys
@@ -561,8 +560,6 @@ def check_yubikey_count() -> int:
     if not yubikeys:
         return 0
     return yubikeys
-
-
 
 
 @raise_yubikey_err("Yubikey not connected")

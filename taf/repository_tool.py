@@ -153,9 +153,9 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
                     return None, None
                 serial = yk.get_serial_num(inserted_key)
             else:
-                 serial = yk.verify_yubikey_serial()
-                 inserted_key = yk.get_piv_public_key_tuf(serial=serial)
-                 if expected_key_id != inserted_key["keyid"]:
+                serial = yk.verify_yubikey_serial()
+                inserted_key = yk.get_piv_public_key_tuf(serial=serial)
+                if expected_key_id != inserted_key["keyid"]:
                     return None, None
             pin = yk.get_key_pin(serial)
             if pin is None:
@@ -173,7 +173,7 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
             break
         input(f"\nInsert {name} and press enter")
 
-    signature = yk.sign_piv_rsa_pkcs1v15(data, pin,serial=serial)
+    signature = yk.sign_piv_rsa_pkcs1v15(data, pin, serial=serial)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 
