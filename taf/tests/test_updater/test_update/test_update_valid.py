@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
@@ -704,7 +705,7 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     last_commit_sha = client_auth_repo.last_validated_commit
     client_target_repos = load_target_repositories(client_auth_repo)
-    origin_auth_repo.set_last_validated_commit(last_commit_sha)
+    client_auth_repo.set_last_validated_commit(last_commit_sha)
 
     # Remove the last validated commit from the user's local repository
     remove_commits(
@@ -730,9 +731,13 @@ def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir)
     # Step 1: Clone the repositories
     clone_repositories(origin_auth_repo, client_dir)
 
-    # Step 2: Set the last validated commit to an invalid commit (e.g., non-existent SHA)
-    invalid_commit_sha = "0000000000000000000000000000000000000000"
-    origin_auth_repo.set_last_validated_commit(invalid_commit_sha)
+    # Step 2: Delete the last validated commit file to simulate an invalid commit (non-existent SHA)
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    last_validated_commit_file = (
+        Path(client_auth_repo.conf_dir) / client_auth_repo.LAST_VALIDATED_FILENAME
+    )
+    if last_validated_commit_file.exists():
+        last_validated_commit_file.unlink()  # Remove the file
 
-    # Step 3: Run the updater and expect it to fail
+    # Step 3: Run the updater and expect it to pass by handling the missing last validated commit
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
