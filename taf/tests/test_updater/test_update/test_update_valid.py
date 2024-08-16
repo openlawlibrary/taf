@@ -727,7 +727,7 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     ],
     indirect=True,
 )
-def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir):
+def test_update_with_no_last_validated_commit(origin_auth_repo, client_dir):
     # Step 1: Clone the repositories
     clone_repositories(origin_auth_repo, client_dir)
 
@@ -741,3 +741,28 @@ def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir)
 
     # Step 3: Run the updater and expect it to pass by handling the missing last validated commit
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+
+
+"""
+Test Fails
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir):
+    # Step 1: Clone the repositories
+    clone_repositories(origin_auth_repo, client_dir)
+
+    # Step 2: Set the last validated commit to an invalid commit (e.g., non-existent SHA)
+    invalid_commit_sha = "1234567890123456789012345678901234567890"
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_auth_repo.set_last_validated_commit(invalid_commit_sha)
+
+    # Step 3: Run the updater and expect it to fail (or comment this test out if necessary)
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+"""
