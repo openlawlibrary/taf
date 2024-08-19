@@ -110,7 +110,7 @@ def _handle_event(
             data = script_data["data"]
             last_commit = script_data["commit"]
             # there is no reason to try executing the scripts if last_commit is None
-            # that means that update was not even starterd
+            # that means that update was not even started
             if last_commit is not None:
                 try:
                     if scripts_rel_path.endswith(".py"):
