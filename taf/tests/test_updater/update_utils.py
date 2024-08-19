@@ -1,4 +1,6 @@
+import os
 import pytest
+from pathlib import Path
 from freezegun import freeze_time
 from collections import defaultdict
 from datetime import datetime
@@ -61,6 +63,52 @@ def check_if_last_validated_commit_exists(client_auth_repo, should_exist):
             client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
             == last_validated_commit
         )
+
+
+def _clone_full_library(
+    library_dict,
+    origin_dir,
+    client_dir,
+    expected_repo_type=UpdateType.EITHER,
+    excluded_target_globs=None,
+):
+    origin_root_repo = library_dict["root/auth"]["auth_repo"]
+
+    git_dir = os.path.join(origin_root_repo.path, ".git")
+    if not os.path.exists(git_dir):
+        # Log a warning and skip cloning this repository
+        print(
+            "Warning: Update of root/auth failed. One or more referenced authentication repositories could not be validated: "
+            "Repository root/auth is missing .git directory."
+        )
+        return
+
+    all_repositories = []
+    for repo_info in library_dict.values():
+        all_repositories.append(repo_info["auth_repo"])
+        all_repositories.extend(repo_info["target_repos"])
+
+    start_head_shas = defaultdict(dict)
+    for repo in all_repositories:
+        for branch in repo.branches():
+            start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
+
+    clone_repositories(
+        origin_root_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+
+    repositories = {}
+    for auth_repo_name, repos in library_dict.items():
+        repositories[auth_repo_name] = repos["auth_repo"]
+        for target_repo in repos["target_repos"]:
+            repositories[target_repo.name] = target_repo
+        check_last_validated_commit(client_dir / repos["auth_repo"].name)
+
+    check_if_commits_match(
+        repositories, origin_dir, start_head_shas, excluded_target_globs
+    )
 
 
 def clone_repositories(
@@ -250,9 +298,154 @@ def update_invalid_repos_and_check_if_repos_exist(
     _update_expect_error()
 
     if not expect_partial_update:
-        # the client repositories should not exits
+        # the client repositories should not exist
         for client_repository in client_repos.values():
             if client_repository.path in repositories_which_existed_paths:
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def verify_client_repos_state(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository
+):
+    """
+    Verify that the client's repositories are in the correct state.
+    This means that the target repositories in the client repo should be in sync with the origin repo,
+    and the client's auth repo should be updated to the last validated commit.
+    """
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        origin_auth_repo, library_dir=client_dir
+    )
+
+    # check if the target repositoies are in sync with the auth repo
+
+    for repo_name, client_repo in client_target_repos.items():
+        client_commit = client_repo.head_commit_sha()
+
+        # Extract commit SHA from the target file in the client repo
+        target_commit_info = client_auth_repo.get_target(repo_name)
+        target_commit_sha = (
+            target_commit_info.get("commit") if target_commit_info else None
+        )
+
+        # Assert that the top commits of target repositories are the same as the commit SHA specified in the corresponding target files
+        assert (
+            client_commit == target_commit_sha
+        ), f"Target repo {repo_name} should have the same top commit as specified in the corresponding target file"
+
+
+def verify_partial_auth_update(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository
+):
+    """
+    Verify that the client's repositories are in the correct state following a partial update.
+    This means that the top commits of the client's local target repositories are different
+    from the top commits of the origin repositories, and they match the most recent valid
+    commit as specified in the client's auth repo.
+    """
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+
+    # Ensure the last validated commit exists in the client's auth repo
+    check_last_validated_commit(client_auth_repo.path)
+
+    client_head_sha = client_auth_repo.head_commit_sha()
+    assert client_head_sha != origin_auth_repo.head_commit_sha()
+    assert client_head_sha in origin_auth_repo.all_commits_on_branch()
+
+
+def verify_partial_targets_update(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository
+):
+
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+
+    client_target_repos = load_target_repositories(
+        origin_auth_repo, library_dir=client_dir
+    )
+    for repo_name, client_repo in client_target_repos.items():
+        client_commit = client_repo.head_commit_sha()
+        origin_commit = origin_auth_repo.head_commit_sha()
+
+        # Ensure the client repository commit is different from the origin repo commit
+        assert (
+            client_commit != origin_commit
+        ), f"Target repo {repo_name} should not have the same top commit as the origin repo after a partial update"
+
+        # Verify that the client's repo commit matches the expected commit SHA in the auth repo
+        target = client_auth_repo.get_target(repo_name)
+
+        # Use the get method to safely access the "commit" key
+        expected_commit_sha = target.get("commit") if target else None
+
+        # Ensure expected_commit_sha is not None before proceeding
+        assert (
+            expected_commit_sha is not None
+        ), f"Commit SHA for {repo_name} is missing in the auth repo"
+
+        assert (
+            client_commit == expected_commit_sha
+        ), f"Target repo {repo_name} should have the same top commit as specified in the client's auth repo"
+
+
+def update_and_validate_repositories(
+    library_with_dependencies,
+    origin_dir,
+    client_dir,
+    invalid_target_names=None,
+    excluded_target_globs=None,
+):
+    if invalid_target_names is None:
+        invalid_target_names = []
+
+    all_repositories = []
+    for repo_info in library_with_dependencies.values():
+        all_repositories.append(repo_info["auth_repo"])
+        all_repositories.extend(repo_info["target_repos"])
+
+    start_head_shas = defaultdict(dict)
+    for repo in all_repositories:
+        for branch in repo.branches():
+            start_head_shas[repo.name][branch] = repo.top_commit_of_branch(branch)
+
+    origin_root_repo = library_with_dependencies["root/auth"]["auth_repo"]
+
+    try:
+        update_and_check_commit_shas(
+            OperationType.UPDATE,
+            origin_root_repo,
+            client_dir,
+            excluded_target_globs=excluded_target_globs,
+        )
+    except UpdateFailedError as e:
+        if any(
+            invalid_target_name in str(e)
+            for invalid_target_name in invalid_target_names
+        ):
+            pass  # Skip the repositories that are invalid
+        else:
+            raise e
+
+    def _check_if_invalid_repo_remain_same(repo_name):
+        repo = next(repo for repo in all_repositories if repo.name == repo_name)
+        for branch in start_head_shas[repo_name]:
+            assert start_head_shas[repo_name][branch] == repo.top_commit_of_branch(
+                branch
+            )
+
+    for auth_repo_name, repo_info in library_with_dependencies.items():
+        auth_repo = repo_info["auth_repo"]
+        for target_repo in repo_info["target_repos"]:
+            if target_repo.name not in invalid_target_names:
+                check_if_commits_match(
+                    {auth_repo_name: auth_repo, target_repo.name: target_repo},
+                    origin_dir,
+                    start_head_shas,
+                )
+            else:
+                _check_if_invalid_repo_remain_same(target_repo.name)
+
+    for auth_repo_name, repo_info in library_with_dependencies.items():
+        if repo_info["auth_repo"].name in invalid_target_names:
+            _check_if_invalid_repo_remain_same(repo_info["auth_repo"].name)

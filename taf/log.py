@@ -93,7 +93,7 @@ def initialize_logger_handlers():
         console_loggers["log"] = taf_logger.add(
             sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]
         )
-        tuf.log.set_console_log_level(settings.CONSOLE_LOGGING_LEVEL)
+        tuf.log.set_console_log_level(logging.ERROR)
     else:
         # if console logging is disable, remove tuf console logger
         disable_tuf_console_logging()

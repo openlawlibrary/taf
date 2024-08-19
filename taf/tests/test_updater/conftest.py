@@ -47,6 +47,7 @@ KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
 
 TARGET_MISSMATCH_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Failure to validate (\w+)\/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-z]{40}) but repo was at ([0-9a-f]{40})"
+TARGET_MISMATCH_PATTERN_DEPENDENCIES = r"Update of (\w+)/(\w+) failed due to error: Update of (\w+)/(\w+) failed. One or more referenced authentication repositories could not be validated:\n Failure to validate (\w+)/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but repo was at ([0-9a-f]{40})"
 TARGET_ADDITIONAL_COMMIT_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Failure to validate (\w+)\/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
 TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN = r"Update of (\w+)\/(\w+) failed due to error: Target repository ([\w\/-]+) does not allow unauthenticated commits, but contains commit\(s\) ([0-9a-f]{40}(?:, [0-9a-f]{40})*) on branch (\w+)"
 TARGET_MISSING_COMMIT_PATTERN = r"Update of (\w+)/(\w+) failed due to error: Failure to validate (\w+)/(\w+) commit ([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository ([\w\/-]+) was supposed to be at commit ([0-9a-f]{40}) but commit not on branch (\w+)"
@@ -62,7 +63,9 @@ UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([\w/-]+)/(\w+) has uncommitted changes. Commit and push or revert the changes and run the command again."
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Top commit of repository (\w+/\w+) ([0-9a-f]{40}) and is not equal to or newer than last successful commit"
-
+INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
+CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
+INVALID_TIMESTAMP_PATTERN_ROOT = r"^Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 
 # Disable console logging for all tests
 disable_console_logging()
@@ -155,6 +158,9 @@ class SetupManager:
                         task.function(**task.params)
                 else:
                     task.function(**task.params)
+        # remove all tasks once they are all executed
+        # allow for the reuse of the setup manager
+        self.tasks = []
         repositoriesdb.clear_repositories_db()
 
 
@@ -215,14 +221,11 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
 
 def cleanup_directory(directory_path: Path):
     """Recursively clean up the directory, removing files and directories."""
-    for path in directory_path.rglob("*"):
-        try:
-            if path.is_dir():
-                shutil.rmtree(path, onerror=on_rm_error)
-            else:
-                path.unlink()
-        except Exception:
-            pass
+    try:
+        if directory_path.is_dir():
+            shutil.rmtree(directory_path, onerror=on_rm_error)
+    except Exception:
+        pass
 
 
 def clone_client_repo(target_name: str, origin_dir: Path, client_dir: Path):
@@ -566,6 +569,19 @@ def update_role_metadata_without_signing(
     )
 
 
+def update_existing_file(repo: GitRepository, filename: str, commit_message: str):
+    text_to_add = _generate_random_text()
+    file_path = repo.path / filename
+    if file_path.exists():
+        with file_path.open("a") as file:
+            file.write(f"\n{text_to_add}")
+        repo.commit(commit_message)
+    else:
+        raise FileNotFoundError(
+            f"The file {filename} does not exist in the repository {repo.path}"
+        )
+
+
 def update_role_metadata_invalid_signature(
     auth_repo: AuthenticationRepository, role: str
 ):
@@ -635,7 +651,12 @@ def add_file_without_commit(repo_path: str, filename: str):
         file.write(text_to_add)
 
 
-def remove_commits(repo_path: str, num_commits: int = 1):
+def remove_commits(
+    auth_repo: AuthenticationRepository,
+    target_repos: list,
+    repo_path: str,
+    num_commits: int = 1,
+):
     repo = GitRepository(path=Path(repo_path))
 
     try:
@@ -665,3 +686,22 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         auth_repo.set_last_validated_commit(last_valid_commit)
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
+
+
+def pull_specific_target_repo(
+    auth_repo: AuthenticationRepository, target_repos: list, repo_path: str
+):
+    client_target_repo = GitRepository(path=repo_path)
+    client_target_repo.pull()
+    return
+
+
+def pull_all_target_repos(auth_repo: AuthenticationRepository, client_dir: Path):
+    client_target_repos = load_target_repositories(auth_repo, library_dir=client_dir)
+    for _, client_repo in client_target_repos.items():
+        client_repo.pull()
+
+
+def pull_client_auth_repo(auth_repo: AuthenticationRepository, client_dir: Path):
+    client_auth_repo = AuthenticationRepository(client_dir, auth_repo.name)
+    client_auth_repo.pull()

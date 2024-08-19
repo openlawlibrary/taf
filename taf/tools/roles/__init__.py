@@ -209,13 +209,10 @@ def list_keys_command():
 
 
 def attach_to_group(group):
-    roles_group = click.Group(name='roles')
 
-    roles_group.add_command(add_role_command(), name='add')
-    roles_group.add_command(add_multiple_roles_command(), name='add-multiple')
-    roles_group.add_command(add_role_paths_command(), name='add-role-paths')
-    roles_group.add_command(remove_role_command(), name='remove')
-    roles_group.add_command(add_signing_key_command(), name='add-signing-key')
-    roles_group.add_command(list_keys_command(), name='list-keys')
-
-    group.add_command(roles_group)
+    group.add_command(add_role_command(), name='add')
+    group.add_command(add_multiple_roles_command(), name='add-multiple')
+    group.add_command(add_role_paths_command(), name='add-role-paths')
+    group.add_command(remove_role_command(), name='remove')
+    group.add_command(add_signing_key_command(), name='add-signing-key')
+    group.add_command(list_keys_command(), name='list-keys')
