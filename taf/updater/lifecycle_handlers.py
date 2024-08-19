@@ -112,9 +112,21 @@ def _handle_event(
             # there is no reason to try executing the scripts if last_commit is None
             # that means that update was not even starterd
             if last_commit is not None:
-                repos_and_data[script_repo]["data"] = execute_scripts(
-                    script_repo, last_commit, scripts_rel_path, data, scripts_root_dir
-                )
+                try:
+                    if scripts_rel_path.endswith(".py"):
+                        result = subprocess.run(
+                            [sys.executable, scripts_rel_path, script_repo, last_commit, data, scripts_root_dir],
+                            check=True, capture_output=True
+                        )
+                    else:
+                        result = subprocess.run(
+                            [scripts_rel_path, script_repo, last_commit, data, scripts_root_dir],
+                            check=True, capture_output=True
+                        )
+                    repos_and_data[script_repo]["data"] = result.stdout.decode('utf-8')
+                except subprocess.CalledProcessError as e:
+                    taf_logger.debug(f"Failed to execute script: {scripts_rel_path} for event {event}: {e}.")
+                    raise ScriptExecutionError(f"Execution failed: {e}") from e
         return repos_and_data
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
