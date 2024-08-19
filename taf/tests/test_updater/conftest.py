@@ -72,6 +72,7 @@ TARGET_COMMIT_MISMATCH_PATTERN = (
     r"([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository (\w+\/\w+) was "
     r"supposed to be at commit ([0-9a-f]{40}) but (repo was at|commit not on branch) (\w+)"
 )
+COMMIT_NOT_FOUND_PATTERN = r"Update of (\w+\/\w+) failed due to error: object not found - no match for id \((\w{40})\)"
 
 
 # Disable console logging for all tests

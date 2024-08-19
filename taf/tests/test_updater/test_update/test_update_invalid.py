@@ -1,8 +1,10 @@
 import pytest
+from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
     TARGET_MISSMATCH_PATTERN,
     FORCED_UPATE_PATTERN,
     UNCOIMITTED_CHANGES,
+    COMMIT_NOT_FOUND_PATTERN,
     SetupManager,
     add_file_without_commit,
     add_unauthenticated_commits_to_all_target_repos,
@@ -208,5 +210,30 @@ def test_update_invalid_when_repos_not_clean(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         FORCED_UPATE_PATTERN,
+        True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    invalid_commit_sha = "66d7f48e972f9fa25196523f469227dfcd85c994"
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_auth_repo.set_last_validated_commit(invalid_commit_sha)
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        COMMIT_NOT_FOUND_PATTERN,
         True,
     )
