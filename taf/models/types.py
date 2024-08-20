@@ -41,6 +41,7 @@ class Role:
     number: int = attrs.field(validator=role_number_validator)
     # TODO remove after reworking add role/storing yubikey ids in the repo
     yubikey: Optional[bool] = attrs.field(default=None)
+    yubikey_present: Optional[bool] = attrs.field(default=None)
 
     @number.default  # type: ignore
     def _number_factory(self):

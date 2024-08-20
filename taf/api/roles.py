@@ -470,6 +470,10 @@ def _enter_role_info(
 
     role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
     if role_info["yubikey"]:
+        # Ask if the Yubikey is present
+        yubikey_present = click.confirm(f"Is {role} key present?")
+        role_info["yubikey_present"] = yubikey_present
+
         # in case of yubikeys, length and scheme have to have specific values
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
