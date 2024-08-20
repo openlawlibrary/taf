@@ -1,7 +1,4 @@
-### Necessary for TAF 1.0
-
-
-#### Different states in TAF could be:
+# Different states in TAF could be:
 
 ```
 args:
