@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-
+- Removed 2048-bit key restriction [494]
 - Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
 - Added new tests to test out of sync repositories and manual updates ([488], [504])
 - Update when auth repo's top commit is behind last validated commit [490]
@@ -40,12 +40,13 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 [504]: https://github.com/openlawlibrary/taf/pull/504
+[494]: https://github.com/openlawlibrary/taf/pull/494
 [493]: https://github.com/openlawlibrary/taf/pull/493
 [490]: https://github.com/openlawlibrary/taf/pull/490
 [489]: https://github.com/openlawlibrary/taf/pull/489
 [488]: https://github.com/openlawlibrary/taf/pull/488
 [487]: https://github.com/openlawlibrary/taf/pull/487
-[487]: https://github.com/openlawlibrary/taf/pull/485
+[485]: https://github.com/openlawlibrary/taf/pull/485
 [481]: https://github.com/openlawlibrary/taf/pull/481
 [479]: https://github.com/openlawlibrary/taf/pull/479
 [473]: https://github.com/openlawlibrary/taf/pull/473
