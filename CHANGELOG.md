@@ -8,9 +8,19 @@ and this project adheres to [Semantic Versioning][semver].
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.30.2] - 08/20/2024
+
+### Added
+
 - New flag --no-deps allowing users to only update the current repository and not update dependent repositories from dependencies.json ([455])
 - New flag --no-targets allowing users to skip target repository validation when validating the authentication repo ([455])
 - New flag --no-upstream allowing users to skip upstream comparisons ([455])
+
 - Addition of logic to tuples (steps) and the run function in updater_pipeline.py to determine which steps, if any, will be skipped based on the usage of 
   the --no-targets flag ([455])
 
@@ -1131,7 +1141,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.2...HEAD
+[0.30.2]: https://github.com/openlawlibrary/taf/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/openlawlibrary/taf/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/openlawlibrary/taf/compare/v0.29.0...v0.29.1
