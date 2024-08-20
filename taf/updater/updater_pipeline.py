@@ -388,7 +388,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.clear_repositories_db()
         return UpdateStatus.SUCCESS
 
-    # return UpdateStatus.SUCCESS if self.state.existing_repo else UpdateStatus.FAILURE
+    def set_last_validated_commit(self, validation_repo):
+        if self.operation == OperationType.CLONE:
+            settings.last_validated_commit = {}
+        elif not settings.overwrite_last_validated_commit:
+            users_auth_repo = AuthenticationRepository(path=self.auth_path)
+            last_validated_commit = users_auth_repo.last_validated_commit
+            settings.last_validated_commit[validation_repo.name] = last_validated_commit
+        elif self.validate_from_commit:
+            settings.last_validated_commit[
+                validation_repo.name
+            ] = self.validate_from_commit
+
     def check_if_local_repositories_clean(self):
         try:
             # check if the auth repo is clean first
@@ -499,14 +510,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             # set last validated commit before running the updater
             # this last validated commit is read from the settings
-            if self.operation == OperationType.CLONE:
-                settings.last_validated_commit = {}
-            elif not settings.overwrite_last_validated_commit:
-                users_auth_repo = AuthenticationRepository(path=self.auth_path)
-                last_validated_commit = users_auth_repo.last_validated_commit
-                settings.last_validated_commit[
-                    validation_repo.name
-                ] = last_validated_commit
+            self.set_last_validated_commit(validation_repo)
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
