@@ -330,6 +330,7 @@ def setup_roles_keys(
     yubikeys: Optional[Dict] = None,
     users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
     skip_prompt: Optional[bool] = False,
+    key_size: int = 2048,
 ):
 
     if role.name is None:
@@ -347,7 +348,7 @@ def setup_roles_keys(
 
     if is_yubikey:
         yubikey_keys = _setup_yubikey_roles_keys(
-            yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir
+            yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir, key_size
         )
     else:
         if keystore is None:
@@ -374,7 +375,7 @@ def setup_roles_keys(
 
 
 def _setup_yubikey_roles_keys(
-    yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir
+    yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir, key_size
 ):
     loaded_keys_num = 0
     yk_with_public_key = {}
@@ -397,7 +398,13 @@ def _setup_yubikey_roles_keys(
                 key_scheme = users_yubikeys_details[key_id].scheme
             key_scheme = key_scheme or role.scheme
             public_key = _setup_yubikey(
-                yubikeys, role.name, key_id, yubikey_keys, key_scheme, certs_dir
+                yubikeys,
+                role.name,
+                key_id,
+                yubikey_keys,
+                key_scheme,
+                certs_dir,
+                key_size,
             )
             loaded_keys_num += 1
         yubikey_keys.append(public_key)
@@ -526,6 +533,7 @@ def _setup_yubikey(
     loaded_keys: List[str],
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     certs_dir: Optional[Union[Path, str]] = None,
+    key_size: int = 2048,
 ) -> Dict:
     print(f"Registering keys for {key_name}")
     while True:
@@ -551,7 +559,7 @@ def _setup_yubikey(
             print("Key already loaded. Please insert a different YubiKey")
         else:
             if not use_existing:
-                key = yk.setup_new_yubikey(serial_num, scheme)
+                key = yk.setup_new_yubikey(serial_num, scheme, key_size=key_size)
 
             if certs_dir is not None:
                 yk.export_yk_certificate(certs_dir, key)
