@@ -672,21 +672,41 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def _validate_last_validated_commit(self, last_validated_commit):
-        branch = self.state.users_auth_repo.default_branch
-        users_head_sha = self.state.users_auth_repo.top_commit_of_branch(branch)
-        if last_validated_commit != users_head_sha:
-            # if a user committed something to the repo or manually pulled the changes
-            # last_validated_commit will no longer match the top commit, but the repository
-            # might still be completely valid
-            # committing without pushing is not valid
-            # user_head_sha should be newer than last validated commit
-            commits_since = self.state.users_auth_repo.all_commits_since_commit(
-                since_commit=last_validated_commit, branch=branch
-            )
-            if users_head_sha not in commits_since:
-                msg = f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} and is not equal to or newer than last successful commit"
-                taf_logger.error(msg)
-                raise UpdateFailedError(msg)
+        branch = self.state.validation_auth_repo.default_branch
+
+        validation_repo = _clone_validation_repo(self.url)
+        users_head_sha = validation_repo.top_commit_of_branch(branch)
+        commits_on_branch = validation_repo.all_commits_on_branch(branch)
+        print(f"Commits on branch '{branch}': {commits_on_branch}")
+
+        def validate_commit_in_remote(repo, commit_sha):
+            try:
+                repo.fetch()
+                remote_commits = repo.all_commits_on_branch(repo.default_branch)
+                return commit_sha in remote_commits
+            except GitError:
+                return False
+
+        if not last_validated_commit:
+            first_commit_sha = validation_repo.get_first_commit_on_branch(branch)
+            last_validated_commit = first_commit_sha
+
+        if last_validated_commit not in validation_repo.all_commits_on_branch(branch):
+            if not validate_commit_in_remote(validation_repo, last_validated_commit):
+                raise UpdateFailedError(
+                    f"Last validated commit {last_validated_commit} is not in the remote repository."
+                )
+            else:
+                # Re-validate from the point of divergence
+                commits_since = validation_repo.all_commits_since_commit(
+                    since_commit=last_validated_commit, branch=branch
+                )
+                if users_head_sha not in commits_since:
+                    raise UpdateFailedError(
+                        f"Top commit of repository {validation_repo.name} {users_head_sha} is not equal to or newer than the last successful commit."
+                    )
+            validation_repo.set_last_validated_commit(users_head_sha)
+            self.state.last_validated_commit = users_head_sha
 
     def clone_or_fetch_users_auth_repo(self):
         # fetch the latest commit or clone the repository without checkout
@@ -699,6 +719,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo.fetch(fetch_all=True)
             else:
                 self.state.users_auth_repo.clone(bare=self.bare)
+            self._validate_last_validated_commit(
+                self.state.users_auth_repo.last_validated_commit
+            )
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED

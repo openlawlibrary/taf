@@ -4,6 +4,7 @@ from taf.tests.test_updater.conftest import (
     INVALID_KEYS_PATTERN,
     NO_INFO_JSON,
     TARGET_COMMIT_AFTER_LAST_VALIDATED_PATTERN,
+    TARGET_COMMIT_MISMATCH_PATTERN,
     TARGET_MISSMATCH_PATTERN,
     UPDATE_ERROR_PATTERN,
     WRONG_UPDATE_TYPE_OFFICIAL_REPO,
@@ -151,7 +152,7 @@ def test_clone_invalid_target_repositories_targets_exist(
         OperationType.CLONE,
         origin_auth_repo,
         client_dir,
-        TARGET_MISSMATCH_PATTERN,
+        TARGET_COMMIT_MISMATCH_PATTERN,
         True,
     )
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)

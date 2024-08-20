@@ -199,6 +199,7 @@ def update_and_check_commit_shas(
     force=False,
     bare=False,
     no_upstream=False,
+    skip_check_last_validated=False,
 ):
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
@@ -238,7 +239,7 @@ def update_and_check_commit_shas(
         start_head_shas,
         excluded_target_globs,
     )
-    if not excluded_target_globs:
+    if not excluded_target_globs and not skip_check_last_validated:
         check_last_validated_commit(clients_auth_repo_path)
 
     if excluded_target_globs:
