@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Removed 2048-bit key restriction [494]
-- Added lazy loading to CLI [481]
+- Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
+- Added new tests to test out of sync repositories and manual updates ([488], [504])
+- Added lazy loading to CLI ([481])
 - Testing repositories with dependencies ([479], [487])
-- Hid plaintext when users are prompted to insert YubiKey and press ENTER [473]
-- Added functionality for parallel execution of child repo during clone and update for performance enhancement [472]
+- Hid plaintext when users are prompted to insert YubiKey and press ENTER ([473])
+- Added functionality for parallel execution of child repo during clone and update for performance enhancement ([472])
 - New flag --force allowing forced updates ([471])
 - Improved usability (TAF finds the repo if current directory has no repo, create a .taf directory to manage keys) ([466])
 - Added git hook check for updater ([460])
@@ -36,10 +38,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[504]: https://github.com/openlawlibrary/taf/pull/504
 [494]: https://github.com/openlawlibrary/taf/pull/494
-[487]: https://github.com/openlawlibrary/taf/pull/489
+[493]: https://github.com/openlawlibrary/taf/pull/493
+[489]: https://github.com/openlawlibrary/taf/pull/489
+[488]: https://github.com/openlawlibrary/taf/pull/488
 [487]: https://github.com/openlawlibrary/taf/pull/487
-[487]: https://github.com/openlawlibrary/taf/pull/485
+[485]: https://github.com/openlawlibrary/taf/pull/485
 [481]: https://github.com/openlawlibrary/taf/pull/481
 [479]: https://github.com/openlawlibrary/taf/pull/479
 [473]: https://github.com/openlawlibrary/taf/pull/473

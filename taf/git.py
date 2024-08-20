@@ -106,12 +106,12 @@ class GitRepository:
 
     @property
     def pygit(self):
-        if not self.is_git_repository:
-            raise GitError(
-                self,
-                message=f"The path '{self.path.as_posix()}' is not a Git repository.",
-            )
         if self._pygit is None:
+            if not self.is_git_repository:
+                raise GitError(
+                    self,
+                    message=f"The path '{self.path.as_posix()}' is not a Git repository.",
+                )
             try:
                 self._pygit = PyGitRepository(self)
                 if not self._pygit:
@@ -824,7 +824,10 @@ class GitRepository:
         if local_branch is None:
             # local branch does not exist
             return False
-        upstream_full_name = local_branch.upstream_name
+        try:
+            upstream_full_name = local_branch.upstream_name
+        except KeyError:
+            return True
         if not upstream_full_name:
             # no upstream branch - not pushed
             return True

@@ -158,6 +158,9 @@ class SetupManager:
                         task.function(**task.params)
                 else:
                     task.function(**task.params)
+        # remove all tasks once they are all executed
+        # allow for the reuse of the setup manager
+        self.tasks = []
         repositoriesdb.clear_repositories_db()
 
 
@@ -566,6 +569,19 @@ def update_role_metadata_without_signing(
     )
 
 
+def update_existing_file(repo: GitRepository, filename: str, commit_message: str):
+    text_to_add = _generate_random_text()
+    file_path = repo.path / filename
+    if file_path.exists():
+        with file_path.open("a") as file:
+            file.write(f"\n{text_to_add}")
+        repo.commit(commit_message)
+    else:
+        raise FileNotFoundError(
+            f"The file {filename} does not exist in the repository {repo.path}"
+        )
+
+
 def update_role_metadata_invalid_signature(
     auth_repo: AuthenticationRepository, role: str
 ):
@@ -635,7 +651,12 @@ def add_file_without_commit(repo_path: str, filename: str):
         file.write(text_to_add)
 
 
-def remove_commits(repo_path: str, num_commits: int = 1):
+def remove_commits(
+    auth_repo: AuthenticationRepository,
+    target_repos: list,
+    repo_path: str,
+    num_commits: int = 1,
+):
     repo = GitRepository(path=Path(repo_path))
 
     try:
@@ -665,3 +686,22 @@ def set_head_commit(auth_repo: AuthenticationRepository):
         auth_repo.set_last_validated_commit(last_valid_commit)
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
+
+
+def pull_specific_target_repo(
+    auth_repo: AuthenticationRepository, target_repos: list, repo_path: str
+):
+    client_target_repo = GitRepository(path=repo_path)
+    client_target_repo.pull()
+    return
+
+
+def pull_all_target_repos(auth_repo: AuthenticationRepository, client_dir: Path):
+    client_target_repos = load_target_repositories(auth_repo, library_dir=client_dir)
+    for _, client_repo in client_target_repos.items():
+        client_repo.pull()
+
+
+def pull_client_auth_repo(auth_repo: AuthenticationRepository, client_dir: Path):
+    client_auth_repo = AuthenticationRepository(client_dir, auth_repo.name)
+    client_auth_repo.pull()
