@@ -676,6 +676,7 @@ def _update_and_check_commit_shas(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
+    no_upstream=False,
 ):
     start_head_shas = _get_head_commit_shas(client_repos)
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -689,6 +690,7 @@ def _update_and_check_commit_shas(
         library_dir=str(client_dir),
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
+        no_upstream=no_upstream,
     )
 
     with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
@@ -712,6 +714,7 @@ def _update_full_library(
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
     excluded_target_globs=None,
+    no_upstream=False,
 ):
 
     all_repositories = []
@@ -738,6 +741,7 @@ def _update_full_library(
         library_dir=str(client_dir),
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
+        no_upstream=no_upstream,
     )
 
     with freeze_time(_get_valid_update_time(origin_root_repo.path)):
@@ -763,6 +767,7 @@ def _update_invalid_repos_and_check_if_remained_same(
     repositories,
     expected_error,
     expected_repo_type=UpdateType.EITHER,
+    no_upstream=False,
 ):
 
     start_head_shas = _get_head_commit_shas(client_repos)
@@ -776,6 +781,7 @@ def _update_invalid_repos_and_check_if_remained_same(
         path=str(clients_auth_repo_path),
         library_dir=str(client_dir),
         expected_repo_type=expected_repo_type,
+        no_upstream=no_upstream,
     )
 
     with freeze_time(_get_valid_update_time(origin_auth_repo_path)):
@@ -800,6 +806,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
     set_time=True,
     auth_repo_name_exists=True,
     strict=False,
+    no_upstream=False,
 ):
 
     clients_auth_repo_path = client_dir / AUTH_REPO_REL_PATH
@@ -818,6 +825,7 @@ def _update_invalid_repos_and_check_if_repos_exist(
         library_dir=str(client_dir),
         expected_repo_type=expected_repo_type,
         strict=strict,
+        no_upstream=no_upstream,
     )
 
     def _update_expect_error():
