@@ -146,7 +146,6 @@ def clone_repo_command():
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps):
-
         if profile:
             start_profiling()
 
@@ -223,7 +222,6 @@ def update_repo_command():
         initialize_logger_handlers()
 
         path = find_valid_repository(path)
-
         if profile:
             start_profiling()
 
@@ -280,14 +278,11 @@ def validate_repo_command():
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
         path = find_valid_repository(path)
-
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
         if from_latest:
             from_commit = auth_repo.last_validated_commit
-
         validate_repository(path, library_dir, from_commit, exclude_target, strict, bare, no_targets, no_deps)
-
     return validate
 
 
