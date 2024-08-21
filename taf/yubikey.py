@@ -331,6 +331,7 @@ def setup(
     pin_retries=10,
     private_key_pem=None,
     mgm_key=generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES),
+    key_size=2048,
     serial=None,
 ):
     """Use to setup inserted Yubikey, with following steps (order is important):
@@ -366,7 +367,7 @@ def setup(
 
         # Generate RSA2048
         if private_key_pem is None:
-            private_key = rsa.generate_private_key(65537, 2048, default_backend())
+            private_key = rsa.generate_private_key(65537, key_size, default_backend())
             pub_key = private_key.public_key()
         else:
             try:
@@ -413,12 +414,12 @@ def setup(
     )
 
 
-def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=2048):
     pin = get_key_pin(serial_num)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = setup(
-        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, serial=serial_num
+    pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size, serial=serial_num
     ).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)

@@ -68,7 +68,7 @@ def setup_signing_key_command():
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default")
     @click.option("--serial", type=int, help="YubiKey serial number to use")
     def setup_signing_key(certs_dir, serial):
-        setup_signing_yubikey(certs_dir, serial)
+        setup_signing_yubikey(certs_dir, key_size=2048, serial)
     return setup_signing_key
 
 
@@ -78,7 +78,7 @@ def setup_test_key_command():
     @click.argument("key-path")
     @click.option("--serial", type=int, help="YubiKey serial number to use")
     def setup_test_key(key_path, serial):
-        setup_test_yubikey(key_path, serial)  # Only pass key_path and serial
+        setup_test_yubikey(key_path, key_size=2048, serial)  # Only pass key_path and serial
     return setup_test_key
 
 
@@ -90,7 +90,6 @@ def list_keys_command():
 
 
 def attach_to_group(group):
-
     group.add_command(check_pin_command(), name='check-pin')
     group.add_command(export_pub_key_command(), name='export-pub-key')
     group.add_command(get_roles_command(), name='get-roles')

@@ -130,7 +130,7 @@ def get_yk_roles(path: str, serial: Optional[int] = None) -> Dict:
     reraise=True,
 )
 def setup_signing_yubikey(
-    certs_dir: Optional[str] = None, serial: Optional[int] = None
+    certs_dir: Optional[str] = None, key_size: int = 2048 , serial: Optional[int] = None
 ) -> None:
     """
     Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
@@ -162,7 +162,7 @@ def setup_signing_yubikey(
         )
 
         # Proceed with setting up the new YubiKey
-        key = yk.setup_new_yubikey(serial_num)
+        key = yk.setup_new_yubikey(serial_num, key_size=key_size)
 
         # Optionally export the certificate
         yk.export_yk_certificate(certs_dir, key, serial=serial)
