@@ -68,7 +68,7 @@ def setup_signing_key_command():
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default")
     @click.option("--serial", type=int, help="YubiKey serial number to use")
     def setup_signing_key(certs_dir, serial):
-        setup_signing_yubikey(certs_dir, key_size=2048, serial)
+        setup_signing_yubikey(certs_dir=certs_dir, key_size=2048, serial=serial)
     return setup_signing_key
 
 
@@ -78,7 +78,7 @@ def setup_test_key_command():
     @click.argument("key-path")
     @click.option("--serial", type=int, help="YubiKey serial number to use")
     def setup_test_key(key_path, serial):
-        setup_test_yubikey(key_path, key_size=2048, serial)  # Only pass key_path and serial
+        setup_test_yubikey(key_path, key_size=2048, serial=serial)  # Only pass key_path and serial
     return setup_test_key
 
 

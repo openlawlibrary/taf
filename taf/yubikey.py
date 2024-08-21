@@ -419,7 +419,11 @@ def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = setup(
-    pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size, serial=serial_num
+        pin,
+        cert_cn,
+        cert_exp_days=EXPIRATION_INTERVAL,
+        key_size=key_size,
+        serial=serial_num,
     ).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)
