@@ -470,10 +470,6 @@ def _enter_role_info(
 
     role_info["yubikey"] = click.confirm(f"Store {role} keys on Yubikeys?")
     if role_info["yubikey"]:
-        # Ask if the Yubikey is present
-        yubikey_present = click.confirm(f"Is {role} key present?")
-        role_info["yubikey_present"] = yubikey_present
-
         # in case of yubikeys, length and scheme have to have specific values
         role_info["length"] = 2048
         role_info["scheme"] = DEFAULT_RSA_SIGNATURE_SCHEME
@@ -502,12 +498,15 @@ def _enter_role_info(
         while click.confirm(
             f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
         ):
-            role_name = _read_val(str, "role name", True)
+            role_name = _read_val(str, "role name", "role_name", True)
             delegated_paths: List[str] = []
             while not len(delegated_paths) or click.confirm("Enter another path?"):
                 delegated_paths.append(
                     _read_val(
-                        str, f"path or glob pattern delegated to {role_name}", True
+                        str,
+                        f"path or glob pattern delegated to {role_name}",
+                        "delegated_paths",
+                        True,
                     )
                 )
             delegated_roles[role_name]["paths"] = delegated_paths
