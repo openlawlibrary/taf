@@ -150,15 +150,28 @@ def setup_signing_yubikey(
         "WARNING - this will delete everything from the inserted key. Proceed?"
     ):
         return
-    _, serial_num = yk.yubikey_prompt(
-        "new Yubikey",
-        creating_new_key=True,
-        pin_confirm=True,
-        pin_repeat=True,
-        prompt_message="Please insert the new Yubikey and press ENTER",
-    )
-    key = yk.setup_new_yubikey(serial_num)
-    yk.export_yk_certificate(certs_dir, key, serial=serial)
+
+    try:
+        # Attempt to prompt for and read the YubiKey
+        _, serial_num = yk.yubikey_prompt(
+            "new Yubikey",
+            creating_new_key=True,
+            pin_confirm=True,
+            pin_repeat=True,
+            prompt_message="Please insert the new Yubikey and press ENTER",
+        )
+
+        # Proceed with setting up the new YubiKey
+        key = yk.setup_new_yubikey(serial_num)
+
+        # Optionally export the certificate
+        yk.export_yk_certificate(certs_dir, key, serial=serial)
+
+    except TAFError as e:
+        raise TAFError(f"Failed to set up YubiKey: {e}")
+
+    except Exception as e:
+        raise RuntimeError(f"An unexpected error occurred during YubiKey setup: {e}")
 
 
 @log_on_start(DEBUG, "Setting up a new test YubiKey", logger=taf_logger)
