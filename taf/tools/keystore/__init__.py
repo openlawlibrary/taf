@@ -1,3 +1,4 @@
+from pathlib import Path
 import click
 from taf.api.keystore import generate_keys
 
@@ -33,13 +34,21 @@ def generate_keys_command():
     @click.option("--keystore", default=None, help="Location of the keystore directory. Can be specified in keys-description dictionary")
     @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores the needed information")
     def generate(keystore, keys_description):
-        generate_keys(keystore, keys_description)
+        auth_repo_path = Path.cwd()
+        generate_keys(auth_repo_path,keystore, keys_description)
     return generate
 
 
 def attach_to_group(group):
-    keystore_group = click.Group(name='keystore')
+    group.add_command(generate_keys_command(), name='generate')
 
-    keystore_group.add_command(generate_keys_command(), name='generate')
 
-    group.add_command(keystore_group)
+@click.group()
+def cli():
+    pass
+
+
+attach_to_group(cli)
+
+if __name__ == '__main__':
+    cli()

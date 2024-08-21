@@ -171,6 +171,10 @@ class TimestampMetadataUpdateError(MetadataUpdateError):
         super().__init__("timestamp", message)
 
 
+class PygitError(TAFError):
+    pass
+
+
 class NoSpeculativeBranchError(TAFError):
     pass
 

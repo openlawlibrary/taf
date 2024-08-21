@@ -310,27 +310,6 @@ def to_tuf_datetime_format(start_date, interval):
     return datetime_object.isoformat() + "Z"
 
 
-def set_executable_permission(file_path: Path) -> bool:
-    """
-    Set executable permission for the given file path on Unix-like systems.
-    """
-    try:
-        if platform.system() != "Windows":
-            # Unix-like systems
-            file_path.chmod(0o755)
-    except Exception as e:
-        print(f"Error setting executable permission: {e}")
-        return False
-
-    # Check if permissions were set correctly on Unix-like systems
-    if platform.system() != "Windows" and not os.access(file_path, os.X_OK):
-        print(
-            f"Failed to set pre-push git hook executable permission. Please set it manually for {file_path}."
-        )
-        return False
-    return True
-
-
 def resolve_keystore_path(
     keystore: Optional[str], roles_key_infos: Optional[str]
 ) -> str:
@@ -388,6 +367,42 @@ def get_file_details(
     return file_length, file_hashes
 
 
+def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
+    hooks_dir = auth_repo_path / ".git" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    pre_push_script = hooks_dir / "pre-push"
+    resources_pre_push_script = (
+        Path(__file__).parent / "resources" / "pre-push"
+    ).resolve()
+
+    if not pre_push_script.exists():
+        if not resources_pre_push_script.exists():
+            taf_logger.error(
+                f"Resources pre-push script not found at {resources_pre_push_script}"
+            )
+            return False
+
+        shutil.copy(resources_pre_push_script, pre_push_script)
+        try:
+            if platform.system() != "Windows":
+                # Unix-like systems
+                pre_push_script.chmod(0o755)
+        except Exception as e:
+            taf_logger.error(f"Error setting executable permission: {e}")
+            return False
+
+        # Check if permissions were set correctly on Unix-like systems
+        if platform.system() != "Windows" and not os.access(pre_push_script, os.X_OK):
+            taf_logger.error(
+                f"Failed to set pre-push git hook executable permission. Please set it manually for {pre_push_script}."
+            )
+            return False
+        taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
+        return True
+
+    return True
+
+
 class timed_run:
     """Decorator to let us capture the elapsed time and optionally print a timer and start/end
     messages around function calls"""
@@ -401,12 +416,13 @@ class timed_run:
     def start(self):
         self.start_time = time.time()
         if self.start_message is not None:
-            print(self.start_message)
+            # This message should be shown regardless of verbosity setting
+            taf_logger.log("NOTICE", self.start_message)
 
     def end(self):
         self.elapsed_time = time.time() - self.start_time
         if self.end_message is not None:
-            print(self.end_message.format(int(self.elapsed_time)))
+            taf_logger.log("NOTICE", self.end_message.format(int(self.elapsed_time)))
 
     def __call__(self, orig_func=None):
         @wraps(orig_func)

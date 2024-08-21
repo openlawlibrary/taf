@@ -101,18 +101,14 @@ To run tests with real Yubikey:
    WARNING: This command will import targets private key to signature slot of your Yubikey, as well as new self-signed x509 certificate!
 3. Run `REAL_YK=True pytest` or `set REAL_YK=True pytest` depending on platform.
 
-## Platform-specific Wheels
 
-1. Open https://dev.azure.com/openlawlibrary/TAF/_build
-2. Click on latest build
-3. Open _Summary_ tab
-4. Under _Build artifacts published_, click on \*wheels to download zip
+## Installing Wheels on Windows and MacOS
 
-More info in [devops document](./docs/devops.md).
+The newer versions of TAF do not require additional setup, and there are no platform-specific wheels needed. However, older versions required certain platform-specific DLLs, which the CI would copy to `taf/libs` before building a wheel. Therefore, it's important to install the appropriate platform-specific wheel if you're using an older version.
 
-## Building Wheels on Ubuntu 16.04 and 18.04
 
-**Binary wheels exists only for macOS, windows-32bit and windows-64bit platforms for python 3.10!**
+## Installing Wheels on Ubuntu
+
 
 - Install dependencies
 

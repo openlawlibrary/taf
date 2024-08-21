@@ -230,11 +230,15 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
         - YubikeyError
     """
     with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
-        x509 = ctrl.get_certificate(SLOT.SIGNATURE)
-        return x509.public_key().public_bytes(
-            encoding=pub_key_format,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
+        try:
+            x509_cert = ctrl.get_certificate(SLOT.SIGNATURE)
+            public_key = x509_cert.public_key()
+            return public_key.public_bytes(
+                encoding=pub_key_format,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+        except Exception as e:
+            raise YubikeyError(f"Failed to export public key: {str(e)}") from e
 
 
 @raise_yubikey_err("Cannot export yk certificate.")
@@ -302,6 +306,7 @@ def setup(
     pin_retries=10,
     private_key_pem=None,
     mgm_key=generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES),
+    key_size=2048,
 ):
     """Use to setup inserted Yubikey, with following steps (order is important):
       - reset to factory settings
@@ -326,6 +331,7 @@ def setup(
     Raises:
         - YubikeyError
     """
+
     with _yk_piv_ctrl() as (ctrl, _):
         # Factory reset and set PINs
         ctrl.reset()
@@ -335,7 +341,7 @@ def setup(
 
         # Generate RSA2048
         if private_key_pem is None:
-            private_key = rsa.generate_private_key(65537, 2048, default_backend())
+            private_key = rsa.generate_private_key(65537, key_size, default_backend())
             pub_key = private_key.public_key()
         else:
             try:
@@ -382,11 +388,13 @@ def setup(
     )
 
 
-def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
+def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=2048):
     pin = get_key_pin(serial_num)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
-    pub_key_pem = setup(pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL).decode("utf-8")
+    pub_key_pem = setup(
+        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
+    ).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)
     return key
@@ -436,7 +444,7 @@ def yubikey_prompt(
         if retrying:
             if prompt_message is None:
                 prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
-            input(prompt_message)
+            getpass(prompt_message)
         # make sure that YubiKey is inserted
         try:
             serial_num = get_serial_num()

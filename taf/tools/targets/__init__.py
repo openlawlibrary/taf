@@ -10,6 +10,7 @@ from taf.api.targets import (
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
 
 
@@ -50,6 +51,7 @@ def add_repo_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.pass_context
     def add_repo(ctx, path, target_path, target_name, role, keystore, prompt_for_keys, no_commit):
+        path = find_valid_repository(path)
         custom = process_custom_command_line_args(ctx)
         add_target_repo(
             path=path,
@@ -80,6 +82,7 @@ def export_history_command():
     @click.option("--output", default=None, help="File to which the resulting json will be written. If not provided, the output will be printed to console")
     @click.option("--repo", multiple=True, help="Target repository whose historical data should be collected")
     def export_history(path, commit, output, repo):
+        path = find_valid_repository(path)
         export_targets_history(path, commit, output, repo)
     return export_history
 
@@ -99,6 +102,7 @@ def list_targets_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If omitted it is calculated based on authentication repository's path. Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     def list(path, library_dir):
+        path = find_valid_repository(path)
         list_targets(path, library_dir)
     return list
 
@@ -111,6 +115,7 @@ def remove_repo_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def remove_repo(path, target_name, keystore, prompt_for_keys):
+        path = find_valid_repository(path)
         remove_target_repo(
             path=path,
             target_name=target_name,
@@ -136,6 +141,7 @@ def sign_targets_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def sign(path, keystore, keys_description, scheme, prompt_for_keys, no_commit):
         try:
+            path = find_valid_repository(path)
             register_target_files(
                 path=path,
                 keystore=keystore,
@@ -183,6 +189,7 @@ def update_and_sign_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme, prompt_for_keys, no_commit):
         try:
+            path = find_valid_repository(path)
             if len(target_type):
                 update_and_sign_targets(
                     path,
@@ -212,13 +219,10 @@ def update_and_sign_command():
 
 
 def attach_to_group(group):
-    targets_group = click.Group(name='targets')
 
-    targets_group.add_command(add_repo_command(), name='add-repo')
-    targets_group.add_command(export_history_command(), name='export-history')
-    targets_group.add_command(list_targets_command(), name='list')
-    targets_group.add_command(remove_repo_command(), name='remove-repo')
-    targets_group.add_command(sign_targets_command(), name='sign')
-    targets_group.add_command(update_and_sign_command(), name='update-and-sign')
-
-    group.add_command(targets_group)
+    group.add_command(add_repo_command(), name='add-repo')
+    group.add_command(export_history_command(), name='export-history')
+    group.add_command(list_targets_command(), name='list')
+    group.add_command(remove_repo_command(), name='remove-repo')
+    group.add_command(sign_targets_command(), name='sign')
+    group.add_command(update_and_sign_command(), name='update-and-sign')

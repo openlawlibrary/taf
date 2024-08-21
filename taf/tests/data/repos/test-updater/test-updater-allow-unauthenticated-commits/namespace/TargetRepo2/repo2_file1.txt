@@ -1,4 +1,0 @@
-This is some example text of file 1 of repo 2
-This a change
-Another change
-And another

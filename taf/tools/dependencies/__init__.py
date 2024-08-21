@@ -1,6 +1,7 @@
 import click
 from taf.api.dependencies import add_dependency, remove_dependency
 from taf.exceptions import TAFError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
 
 
@@ -48,6 +49,7 @@ def add_dependency_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.pass_context
     def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit):
+        path = find_valid_repository(path)
         custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
@@ -81,6 +83,7 @@ def remove_dependency_command():
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def remove(dependency_name, path, keystore, prompt_for_keys, no_commit):
+        path = find_valid_repository(path)
         remove_dependency(
             path=path,
             dependency_name=dependency_name,
@@ -92,9 +95,5 @@ def remove_dependency_command():
 
 
 def attach_to_group(group):
-    dependencies_group = click.Group(name='dependencies')
-
-    dependencies_group.add_command(add_dependency_command(), name='add')
-    dependencies_group.add_command(remove_dependency_command(), name='remove')
-
-    group.add_command(dependencies_group)
+    group.add_command(add_dependency_command(), name='add')
+    group.add_command(remove_dependency_command(), name='remove')

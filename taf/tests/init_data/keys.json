@@ -2,11 +2,11 @@
   "roles": {
     "root": {
       "number": 2,
-      "length": 2048,
+      "length": 3072,
     "threshold": 1
     },
     "targets": {
-      "length": 2048
+      "length": 3072
     },
     "snapshot": {},
     "timestamp": {}

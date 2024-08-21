@@ -2,6 +2,7 @@ import click
 import json
 from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, get_yk_roles, setup_signing_yubikey, setup_test_yubikey
 from taf.exceptions import YubikeyError
+from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 
 
@@ -38,6 +39,7 @@ def get_roles_command():
     @catch_cli_exception(handle=YubikeyError, print_error=True)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def get_roles(path):
+        path = find_valid_repository(path)
         roles_with_paths = get_yk_roles(path)
         for role, paths in roles_with_paths.items():
             print(f"\n{role}")
@@ -60,7 +62,7 @@ def setup_signing_key_command():
         WARNING - this will delete everything from the inserted key.""")
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default")
     def setup_signing_key(certs_dir):
-        setup_signing_yubikey(certs_dir)
+        setup_signing_yubikey(certs_dir,key_size=2048)
     return setup_signing_key
 
 
@@ -69,18 +71,14 @@ def setup_test_key_command():
         WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
     def setup_test_key(key_path):
-        setup_test_yubikey(key_path)
+        setup_test_yubikey(key_path,key_size=2048)
     return setup_test_key
 
 
 def attach_to_group(group):
-    yubikey_group = click.Group(name='yubikey')
-
-    yubikey_group.add_command(check_pin_command(), name='check-pin')
-    yubikey_group.add_command(export_pub_key_command(), name='export-pub-key')
-    yubikey_group.add_command(get_roles_command(), name='get-roles')
-    yubikey_group.add_command(export_certificate_command(), name='export-certificate')
-    yubikey_group.add_command(setup_signing_key_command(), name='setup-signing-key')
-    yubikey_group.add_command(setup_test_key_command(), name='setup-test-key')
-
-    group.add_command(yubikey_group)
+    group.add_command(check_pin_command(), name='check-pin')
+    group.add_command(export_pub_key_command(), name='export-pub-key')
+    group.add_command(get_roles_command(), name='get-roles')
+    group.add_command(export_certificate_command(), name='export-certificate')
+    group.add_command(setup_signing_key_command(), name='setup-signing-key')
+    group.add_command(setup_test_key_command(), name='setup-test-key')
