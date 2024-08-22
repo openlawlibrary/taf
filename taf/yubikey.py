@@ -421,6 +421,65 @@ def get_and_validate_pin(key_name, serial=None, pin_confirm=True, pin_repeat=Tru
     return pin
 
 
+def _process_yubikey(
+    serial_num,
+    key_name,
+    role,
+    taf_repo,
+    registering_new_key,
+    creating_new_key,
+    loaded_yubikeys,
+    pin_confirm,
+    pin_repeat,
+    hide_already_loaded_message,
+    expected_public_key,
+):
+    # Check if this key is already loaded
+    if (
+        loaded_yubikeys is not None
+        and serial_num in loaded_yubikeys
+        and role in loaded_yubikeys[serial_num]
+    ):
+        print(f"YubiKey {serial_num} is already loaded for role {role}")
+        if not hide_already_loaded_message:
+            print("Key already loaded")
+        return False, None, None
+
+    # Read the public key, unless a new key needs to be generated on the YubiKey
+    public_key = (
+        get_piv_public_key_tuf(serial=serial_num) if not creating_new_key else None
+    )
+
+    # Check if the expected public key matches the actual public key
+    if expected_public_key is not None and public_key != expected_public_key:
+        return False, None, None  # Skip this YubiKey as it's not valid
+
+    # Check if this YubiKey can be used for signing the provided role's metadata
+    if not registering_new_key and role is not None and taf_repo is not None:
+        if not taf_repo.is_valid_metadata_yubikey(role, public_key):
+            print(f"The inserted YubiKey {serial_num} is not a valid {role} key")
+            return False, None, None
+
+    if get_key_pin(serial_num) is None:
+        if creating_new_key:
+            pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        else:
+            pin = get_and_validate_pin(key_name, serial_num, pin_confirm, pin_repeat)
+        add_key_pin(serial_num, pin)
+
+    if get_key_public_key(serial_num) is None and public_key is not None:
+        add_key_public_key(serial_num, public_key)
+        add_key_id_mapping(serial_num, key_name)
+
+    if role is not None:
+        if loaded_yubikeys is None:
+            loaded_yubikeys = {serial_num: [role]}
+        else:
+            loaded_yubikeys.setdefault(serial_num, []).append(role)
+
+    return True, public_key, serial_num
+
+
 def _read_and_check_yubikey(
     key_name,
     role,
@@ -444,68 +503,54 @@ def _read_and_check_yubikey(
     # Loop through all connected YubiKeys
     devices = list_all_devices()
 
-    for _, info in devices:
-        try:
-            serial_num = info.serial
+    if len(devices) < 2:
+        serial_num = get_serial_num()
+        success, public_key, serial_num = _process_yubikey(
+            serial_num,
+            key_name,
+            role,
+            taf_repo,
+            registering_new_key,
+            creating_new_key,
+            loaded_yubikeys,
+            pin_confirm,
+            pin_repeat,
+            hide_already_loaded_message,
+            expected_public_key,
+        )
+        if success:
+            return True, public_key, serial_num
+        return False, None, None
+    else:
+        for _, info in devices:
+            try:
+                serial_num = info.serial
 
-            # Check if this key is already loaded
-            if (
-                loaded_yubikeys is not None
-                and serial_num in loaded_yubikeys
-                and role in loaded_yubikeys[serial_num]
-            ):
-                print(f"YubiKey {serial_num} is already loaded for role {role}")
-                if not hide_already_loaded_message:
-                    print("Key already loaded")
+                # Call the helper function to process the YubiKey
+                success, public_key, serial_num = _process_yubikey(
+                    serial_num,
+                    key_name,
+                    role,
+                    taf_repo,
+                    registering_new_key,
+                    creating_new_key,
+                    loaded_yubikeys,
+                    pin_confirm,
+                    pin_repeat,
+                    hide_already_loaded_message,
+                    expected_public_key,
+                )
+
+                if success:
+                    return True, public_key, serial_num
+
+            except Exception as e:
+                print(f"Error with YubiKey {serial_num}: {str(e)}")
                 continue
 
-            # Read the public key, unless a new key needs to be generated on the YubiKey
-            public_key = (
-                get_piv_public_key_tuf(serial=serial_num)
-                if not creating_new_key
-                else None
-            )
-
-            # Check if the expected public key matches the actual public key
-            if expected_public_key is not None and public_key != expected_public_key:
-                continue  # Skip this YubiKey as it's not valid
-
-            # Check if this YubiKey can be used for signing the provided role's metadata
-            if not registering_new_key and role is not None and taf_repo is not None:
-                if not taf_repo.is_valid_metadata_yubikey(role, public_key):
-                    print(
-                        f"The inserted YubiKey {serial_num} is not a valid {role} key"
-                    )
-                    continue
-
-            if get_key_pin(serial_num) is None:
-                if creating_new_key:
-                    pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-                else:
-                    pin = get_and_validate_pin(
-                        key_name, serial_num, pin_confirm, pin_repeat
-                    )
-                add_key_pin(serial_num, pin)
-
-            if get_key_public_key(serial_num) is None and public_key is not None:
-                add_key_public_key(serial_num, public_key)
-                add_key_id_mapping(serial_num, key_name)
-
-            if role is not None:
-                if loaded_yubikeys is None:
-                    loaded_yubikeys = {serial_num: [role]}
-                else:
-                    loaded_yubikeys.setdefault(serial_num, []).append(role)
-
-            return True, public_key, serial_num
-
-        except Exception as e:
-            print(f"Error with YubiKey {serial_num}: {str(e)}")
-            continue
-
-    # If no valid YubiKey was found, return False
-    print("No suitable YubiKey found.")
-    return False, None, None
+        # If no valid YubiKey was found, return False
+        print("No suitable YubiKey found.")
+        return False, None, None
 
 
 def yubikey_prompt(
