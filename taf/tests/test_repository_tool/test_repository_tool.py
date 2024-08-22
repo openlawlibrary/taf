@@ -127,7 +127,6 @@ def test_update_targets_from_keystore_wrong_key(repositories, snapshot_key):
         taf_happy_path.update_targets_keystores([snapshot_key], targets_data)
 
 
-
 def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
     taf_happy_path = repositories["test-happy-path"]
     if targets_yk.scheme != DEFAULT_RSA_SIGNATURE_SCHEME:
