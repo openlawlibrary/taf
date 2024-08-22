@@ -67,7 +67,7 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
             dependency_name=child_repository.name,
             keystore=api_keystore,
             branch_name="main",
-            out_of_band_commit="12345678910",
+            out_of_band_commit="66d7f48e972f9fa25196523f469227dfcd85c994",
             no_prompt=True,
             push=False,
         )
