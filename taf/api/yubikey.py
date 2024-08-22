@@ -23,16 +23,13 @@ import taf.yubikey as yk
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_public_pem(
-    path: Optional[str] = None, serial: Optional[int] = None
-) -> None:
+def export_yk_public_pem(path: Optional[str] = None) -> None:
     """
     Export public key from a YubiKey and save it to a file or print to console.
 
     Arguments:
         path (optional): Path to a file to which the public key should be written.
         The key is printed to console if file path is not provided.
-        serial (optional): The serial number of the YubiKey to use.
 
     Side Effects:
        Write public key to a file if path is specified
@@ -41,7 +38,7 @@ def export_yk_public_pem(
         None
     """
     try:
-        pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
+        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
     except Exception:
         print("Could not export the public key. Check if a YubiKey is inserted")
         return
@@ -65,28 +62,25 @@ def export_yk_public_pem(
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_certificate(
-    path: Optional[str] = None, serial: Optional[int] = None
-) -> None:
+def export_yk_certificate(path: Optional[str] = None) -> None:
     """
     Export certificate from the YubiKey.
 
     Arguments:
         path (optional): Path to a file to which the certificate key should be written.
-        Will be written to the user's home directory by default.
-        serial (optional): The serial number of the YubiKey to use.
+        Will be written to the user's home directory by default
 
     Side Effects:
-       Write certificate to a file.
+       Write certificate to a file
 
     Returns:
         None
     """
     try:
-        pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
+        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
         scheme = DEFAULT_RSA_SIGNATURE_SCHEME
         key = import_rsakey_from_pem(pub_key_pem, scheme)
-        yk.export_yk_certificate(path, key, serial=serial)
+        yk.export_yk_certificate(path, key)
     except Exception:
         print("Could not export certificate. Check if a YubiKey is inserted")
         return
@@ -100,23 +94,21 @@ def export_yk_certificate(
     on_exceptions=TAFError,
     reraise=True,
 )
-def get_yk_roles(path: str, serial: Optional[int] = None) -> Dict:
+def get_yk_roles(path: str) -> Dict:
     """
     List all roles that the inserted YubiKey whose metadata files can be signed by this YubiKey.
     In case of delegated targets roles, include the delegation paths.
 
     Arguments:
         path: Authentication repository's path.
-        serial (optional): The serial number of the YubiKey to use.
-
     Side Effects:
         None
 
     Returns:
-        A dictionary containing roles and delegated paths in case of delegated target roles.
+        A dictionary containing roles and delegated paths in case of delegated target roles
     """
     auth = AuthenticationRepository(path=path)
-    pub_key = yk.get_piv_public_key_tuf(serial=serial)
+    pub_key = yk.get_piv_public_key_tuf()
     return get_roles_and_paths_of_key(pub_key, auth)
 
 
@@ -130,7 +122,7 @@ def get_yk_roles(path: str, serial: Optional[int] = None) -> Dict:
     reraise=True,
 )
 def setup_signing_yubikey(
-    certs_dir: Optional[str] = None, key_size: int = 2048, serial: Optional[int] = None
+    certs_dir: Optional[str] = None, key_size: int = 2048
 ) -> None:
     """
     Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
@@ -138,7 +130,6 @@ def setup_signing_yubikey(
 
     Arguments:
         certs_dir (optional): Path to a directory where the exported certificate should be stored.
-        serial (optional): The serial number of the YubiKey to use.
 
     Side Effects:
        None
@@ -151,27 +142,15 @@ def setup_signing_yubikey(
     ):
         return
 
-    try:
-        # Attempt to prompt for and read the YubiKey
-        _, serial_num = yk.yubikey_prompt(
-            "new Yubikey",
-            creating_new_key=True,
-            pin_confirm=True,
-            pin_repeat=True,
-            prompt_message="Please insert the new Yubikey and press ENTER",
-        )
-
-        # Proceed with setting up the new YubiKey
-        key = yk.setup_new_yubikey(serial_num, key_size=key_size)
-
-        # Optionally export the certificate
-        yk.export_yk_certificate(certs_dir, key, serial=serial)
-
-    except TAFError as e:
-        raise TAFError(f"Failed to set up YubiKey: {e}")
-
-    except Exception as e:
-        raise RuntimeError(f"An unexpected error occurred during YubiKey setup: {e}")
+    _, serial_num = yk.yubikey_prompt(
+        "new Yubikey",
+        creating_new_key=True,
+        pin_confirm=True,
+        pin_repeat=True,
+        prompt_message="Please insert the new Yubikey and press ENTER",
+    )
+    key = yk.setup_new_yubikey(serial_num, key_size=key_size)
+    yk.export_yk_certificate(certs_dir, key)
 
 
 @log_on_start(DEBUG, "Setting up a new test YubiKey", logger=taf_logger)
@@ -183,13 +162,13 @@ def setup_signing_yubikey(
     on_exceptions=TAFError,
     reraise=True,
 )
-def setup_test_yubikey(key_path: str, serial: Optional[int] = None) -> None:
+def setup_test_yubikey(key_path: str) -> None:
     """
-    Reset the inserted YubiKey, set default pin, and copy the specified key to it.
+    Reset the inserted yubikey, set default pin and copy the specified key
+    to it.
 
     Arguments:
         key_path: Path to a key which should be copied to a YubiKey.
-        serial (optional): The serial number of the YubiKey to use.
 
     Side Effects:
        None
@@ -205,7 +184,7 @@ def setup_test_yubikey(key_path: str, serial: Optional[int] = None) -> None:
     print(f"Importing RSA private key from {key_path} to Yubikey...")
     pin = yk.DEFAULT_PIN
 
-    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem, serial=serial)
+    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem)
     print("\nPrivate key successfully imported.\n")
     print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
     print("Pin: {}\n".format(pin))

@@ -10,11 +10,10 @@ from taf.tools.cli import catch_cli_exception
 def check_pin_command():
     @click.command(help="Checks if the specified pin is valid")
     @click.argument("pin")
-    @click.option("--serial", type=int, help="YubiKey serial number to use")
-    def check_pin(pin, serial):
+    def check_pin(pin):
         try:
             from taf.yubikey import is_valid_pin
-            valid, retries = is_valid_pin(pin, serial)
+            valid, retries = is_valid_pin(pin)
             inserted = True
         except YubikeyError:
             valid = False
@@ -29,22 +28,20 @@ def check_pin_command():
 
 
 def export_pub_key_command():
-    @click.command(help="Export the inserted YubiKey's public key and save it to the specified location.")
+    @click.command(help="Export the inserted Yubikey's public key and save it to the specified location.")
     @click.option("--output", help="File to which the exported public key will be written. The result will be written to the console if path is not specified")
-    @click.option("--serial", type=int, help="YubiKey serial number to use")
-    def export_pub_key(output, serial):
-        export_yk_public_pem(output, serial)
+    def export_pub_key(output):
+        export_yk_public_pem(output)
     return export_pub_key
 
 
 def get_roles_command():
-    @click.command(help="Export the inserted YubiKey's public key and save it to the specified location.")
+    @click.command(help="Export the inserted Yubikey's public key and save it to the specified location.")
     @catch_cli_exception(handle=YubikeyError, print_error=True)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--serial", type=int, help="YubiKey serial number to use")
-    def get_roles(path, serial):
+    def get_roles(path):
         path = find_valid_repository(path)
-        roles_with_paths = get_yk_roles(path, serial)
+        roles_with_paths = get_yk_roles(path)
         for role, paths in roles_with_paths.items():
             print(f"\n{role}")
             for path in paths:
@@ -53,22 +50,20 @@ def get_roles_command():
 
 
 def export_certificate_command():
-    @click.command(help="Export the inserted YubiKey's public key and save it to the specified location.")
+    @click.command(help="Export the inserted Yubikey's public key and save it to the specified location.")
     @click.option("--output", help="File to which the exported certificate key will be written. The result will be written to the user's home directory by default")
-    @click.option("--serial", type=int, help="YubiKey serial number to use")
-    def export_certificate(output, serial):
-        export_yk_certificate(output, serial)
+    def export_certificate(output):
+        export_yk_certificate(output)
     return export_certificate
 
 
 def setup_signing_key_command():
-    @click.command(help="""Generate a new key on the YubiKey and set the pin. Export the generated certificate
+    @click.command(help="""Generate a new key on the yubikey and set the pin. Export the generated certificate
         to the specified directory.
         WARNING - this will delete everything from the inserted key.""")
     @click.option("--certs-dir", help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default")
-    @click.option("--serial", type=int, help="YubiKey serial number to use")
-    def setup_signing_key(certs_dir, serial):
-        setup_signing_yubikey(certs_dir=certs_dir, key_size=2048, serial=serial)
+    def setup_signing_key(certs_dir):
+        setup_signing_yubikey(certs_dir,key_size=2048)
     return setup_signing_key
 
 
@@ -76,13 +71,12 @@ def setup_test_key_command():
     @click.command(help="""Copies the specified key onto the inserted YubiKey
         WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
-    @click.option("--serial", type=int, help="YubiKey serial number to use")
-    def setup_test_key(key_path, serial):
-        setup_test_yubikey(key_path, key_size=2048, serial=serial)  # Only pass key_path and serial
+    def setup_test_key(key_path):
+        setup_test_yubikey(key_path)
     return setup_test_key
 
 
-def list_keys_command():
+def list_key_command():
     @click.command(help="List All Connected Keys and their information")
     def list_keys():
         list_connected_yubikeys()
@@ -96,4 +90,4 @@ def attach_to_group(group):
     group.add_command(export_certificate_command(), name='export-certificate')
     group.add_command(setup_signing_key_command(), name='setup-signing-key')
     group.add_command(setup_test_key_command(), name='setup-test-key')
-    group.add_command(list_keys_command(), name='list-keys')
+    group.add_command(list_key_command(), name='list-key')

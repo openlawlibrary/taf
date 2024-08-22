@@ -124,6 +124,8 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                     )
                     .decode("utf-8")
                 )
+                print(device_pub_key_pem)
+                print(pub_key_pem["keyval"]["public"])
 
                 # Tries to match without the last newline character
                 if (
@@ -169,11 +171,10 @@ def is_valid_pin(pin, serial=None):
     """Checks if given pin is valid.
 
     Args:
-        pin (str): Yubikey PIV PIN.
-        serial (optional): Specify the serial number of the YubiKey to use.
+        pin(str): Yubikey piv PIN
 
     Returns:
-        tuple: True if PIN is valid, otherwise False, number of PIN retries.
+        tuple: True if PIN is valid, otherwise False, number of PIN retries
 
     Raises:
         - YubikeyError
@@ -181,7 +182,7 @@ def is_valid_pin(pin, serial=None):
     with _yk_piv_ctrl(serial=serial) as (ctrl, _):
         try:
             ctrl.verify_pin(pin)
-            return True, None
+            return True, None  # ctrl.get_pin_tries() fails if PIN is valid
         except InvalidPinError:
             return False, ctrl.get_pin_attempts()
 
@@ -205,24 +206,21 @@ def get_serial_num(pub_key_pem=None):
 
 
 @raise_yubikey_err("Cannot export x509 certificate.")
-def export_piv_x509(
-    cert_format=serialization.Encoding.PEM, pub_key_pem=None, serial=None
-):
-    """Exports YubiKey's PIV slot x509.
+def export_piv_x509(cert_format=serialization.Encoding.PEM, pub_key_pem=None):
+    """Exports YubiKey's piv slot x509.
 
     Args:
-        - cert_format (str): One of 'serialization.Encoding' formats.
-        - pub_key_pem (optional): Match Yubikey's public key (PEM) if multiple keys
-                                  are inserted.
-        - serial (optional): Specify the serial number of the YubiKey to use.
+        - cert_format(str): One of 'serialization.Encoding' formats.
+        - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                            are inserted
 
     Returns:
-        PIV x509 certificate in a given format (bytes).
+        PIV x509 certificate in a given format (bytes)
 
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(pub_key_pem=pub_key_pem, serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
         x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_bytes(encoding=cert_format)
 
@@ -231,30 +229,33 @@ def export_piv_x509(
 def export_piv_pub_key(
     pub_key_format=serialization.Encoding.PEM, pub_key_pem=None, serial=None
 ):
-    """Exports YubiKey's PIV slot public key.
+    """Exports YubiKey's piv slot public key.
 
     Args:
-        - pub_key_format (str): One of 'serialization.Encoding' formats.
-        - pub_key_pem (optional): Match Yubikey's public key (PEM) if multiple keys
-                                  are inserted.
-        - serial (optional): Specify the serial number of the YubiKey to use.
+        - pub_key_format(str): One of 'serialization.Encoding' formats.
+        - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                            are inserted
 
     Returns:
-        PIV public key in a given format (bytes).
+        PIV public key in a given format (bytes)
 
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(pub_key_pem=pub_key_pem, serial=serial) as (ctrl, _):
-        x509 = ctrl.get_certificate(SLOT.SIGNATURE)
-        return x509.public_key().public_bytes(
-            encoding=pub_key_format,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
+    with _yk_piv_ctrl(serial=serial, pub_key_pem=pub_key_pem) as (ctrl, _):
+        try:
+            x509_cert = ctrl.get_certificate(SLOT.SIGNATURE)
+            public_key = x509_cert.public_key()
+            return public_key.public_bytes(
+                encoding=pub_key_format,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+        except Exception as e:
+            raise YubikeyError(f"Failed to export public key: {str(e)}") from e
 
 
 @raise_yubikey_err("Cannot export yk certificate.")
-def export_yk_certificate(certs_dir, key, serial=None):
+def export_yk_certificate(certs_dir, key):
     if certs_dir is None:
         certs_dir = Path.home()
     else:
@@ -262,15 +263,8 @@ def export_yk_certificate(certs_dir, key, serial=None):
     certs_dir.mkdir(parents=True, exist_ok=True)
     cert_path = certs_dir / f"{key['keyid']}.cert"
     print(f"Exporting certificate to {cert_path}")
-
-    # Use the serial parameter to ensure we are interacting with the correct YubiKey
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
-        with open(cert_path, "wb") as f:
-            f.write(
-                ctrl.get_certificate(SLOT.SIGNATURE).public_bytes(
-                    encoding=serialization.Encoding.PEM
-                )
-            )
+    with open(cert_path, "wb") as f:
+        f.write(export_piv_x509())
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
@@ -280,10 +274,9 @@ def get_piv_public_key_tuf(
     """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
     Args:
-        - scheme (str): RSA signature scheme (default is rsa-pkcs1v15-sha256)
-        - pub_key_pem (optional): Match Yubikey's public key (PEM) if multiple keys
-                                  are inserted.
-        - serial (optional): Specify the serial number of the YubiKey to use.
+        - scheme(str): Rsa signature scheme (default is rsa-pkcs1v15-sha256)
+        - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                            are inserted
 
     Returns:
         A dictionary containing the RSA keys and other identifying information
@@ -301,14 +294,13 @@ def get_piv_public_key_tuf(
 
 @raise_yubikey_err("Cannot sign data.")
 def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None, serial=None):
-    """Sign data with key from YubiKey's PIV slot.
+    """Sign data with key from YubiKey's piv slot.
 
     Args:
-        - data (bytes): Data to be signed
-        - pin (str): Pin for PIV slot login.
-        - pub_key_pem (optional): Match Yubikey's public key (PEM) if multiple keys
-                                  are inserted.
-        - serial (optional): Specify the serial number of the YubiKey to use.
+        - data(bytes): Data to be signed
+        - pin(str): Pin for piv slot login.
+        - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
+                            are inserted
 
     Returns:
         Signature (bytes)
@@ -332,7 +324,6 @@ def setup(
     private_key_pem=None,
     mgm_key=generate_random_management_key(MANAGEMENT_KEY_TYPE.TDES),
     key_size=2048,
-    serial=None,
 ):
     """Use to setup inserted Yubikey, with following steps (order is important):
       - reset to factory settings
@@ -358,7 +349,7 @@ def setup(
         - YubikeyError
     """
 
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl() as (ctrl, _):
         # Factory reset and set PINs
         ctrl.reset()
 
@@ -419,11 +410,7 @@ def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = setup(
-        pin,
-        cert_cn,
-        cert_exp_days=EXPIRATION_INTERVAL,
-        key_size=key_size,
-        serial=serial_num,
+        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
     ).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = import_rsakey_from_pem(pub_key_pem, scheme)
@@ -439,10 +426,97 @@ def get_and_validate_pin(key_name, serial=None, pin_confirm=True, pin_repeat=Tru
             raise InvalidPINError("No retries left. YubiKey locked.")
         if not valid_pin:
             if not click.confirm(
-                f"Incorrect PIN. Do you want to try again? {retries} retries left."
+                f"Incorrect PIN. Do you want to try again? {retries} retires left."
             ):
                 raise InvalidPINError("PIN input cancelled")
     return pin
+
+
+def _read_and_check_yubikey(
+    key_name,
+    role,
+    taf_repo,
+    registering_new_key,
+    creating_new_key,
+    loaded_yubikeys,
+    pin_confirm,
+    pin_repeat,
+    prompt_message,
+    retrying,
+    hide_already_loaded_message=False,
+    expected_public_key=None,
+):
+
+    if retrying:
+        if prompt_message is None:
+            prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
+        getpass(prompt_message)
+
+    # Loop through all connected YubiKeys
+    devices = list_all_devices()
+
+    for _, info in devices:
+        try:
+            serial_num = info.serial
+
+            # Check if this key is already loaded
+            if (
+                loaded_yubikeys is not None
+                and serial_num in loaded_yubikeys
+                and role in loaded_yubikeys[serial_num]
+            ):
+                print(f"YubiKey {serial_num} is already loaded for role {role}")
+                if not hide_already_loaded_message:
+                    print("Key already loaded")
+                continue
+
+            # Read the public key, unless a new key needs to be generated on the YubiKey
+            public_key = (
+                get_piv_public_key_tuf(serial=serial_num)
+                if not creating_new_key
+                else None
+            )
+
+            # Check if the expected public key matches the actual public key
+            if expected_public_key is not None and public_key != expected_public_key:
+                continue  # Skip this YubiKey as it's not valid
+
+            # Check if this YubiKey can be used for signing the provided role's metadata
+            if not registering_new_key and role is not None and taf_repo is not None:
+                if not taf_repo.is_valid_metadata_yubikey(role, public_key):
+                    print(
+                        f"The inserted YubiKey {serial_num} is not a valid {role} key"
+                    )
+                    continue
+
+            if get_key_pin(serial_num) is None:
+                if creating_new_key:
+                    pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+                else:
+                    pin = get_and_validate_pin(
+                        key_name, serial_num, pin_confirm, pin_repeat
+                    )
+                add_key_pin(serial_num, pin)
+
+            if get_key_public_key(serial_num) is None and public_key is not None:
+                add_key_public_key(serial_num, public_key)
+                add_key_id_mapping(serial_num, key_name)
+
+            if role is not None:
+                if loaded_yubikeys is None:
+                    loaded_yubikeys = {serial_num: [role]}
+                else:
+                    loaded_yubikeys.setdefault(serial_num, []).append(role)
+
+            return True, public_key, serial_num
+
+        except Exception as e:
+            print(f"Error with YubiKey {serial_num}: {str(e)}")
+            continue
+
+    # If no valid YubiKey was found, return False
+    print("No suitable YubiKey found.")
+    return False, None, None
 
 
 def yubikey_prompt(
@@ -457,72 +531,12 @@ def yubikey_prompt(
     prompt_message=None,
     retry_on_failure=True,
     hide_already_loaded_message=False,
+    expected_public_key=None,
 ):
-    def _read_and_check_yubikey(
-        key_name,
-        role,
-        taf_repo,
-        registering_new_key,
-        creating_new_key,
-        loaded_yubikeys,
-        pin_confirm,
-        pin_repeat,
-        prompt_message,
-        retrying,
-    ):
-
-        if retrying:
-            if prompt_message is None:
-                prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
-            getpass(prompt_message)
-        if check_yubikey_count() < 2:
-            serial = get_serial_num()
-        else:
-            serial = verify_yubikey_serial()
-        # check if this key is already loaded as the provided role's key (we can use the same key
-        # to sign different metadata)
-        if (
-            loaded_yubikeys is not None
-            and serial in loaded_yubikeys
-            and role in loaded_yubikeys[serial]
-        ):
-            if not hide_already_loaded_message:
-                print("Key already loaded")
-            return False, None, None
-
-        # read the public key, unless a new key needs to be generated on the yubikey
-        public_key = (
-            get_piv_public_key_tuf(serial=serial) if not creating_new_key else None
-        )
-        # check if this yubikey is can be used for signing the provided role's metadata
-        # if the key was already registered as that role's key
-        if not registering_new_key and role is not None and taf_repo is not None:
-            if not taf_repo.is_valid_metadata_yubikey(role, public_key):
-                print(f"The inserted YubiKey is not a valid {role} key")
-                return False, None, None
-
-        if get_key_pin(serial) is None:
-            if creating_new_key:
-                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-            else:
-                pin = get_and_validate_pin(key_name, serial, pin_confirm, pin_repeat)
-            add_key_pin(serial, pin)
-
-        if get_key_public_key(serial) is None and public_key is not None:
-            add_key_public_key(serial, public_key)
-            add_key_id_mapping(serial, key_name)
-
-        if role is not None:
-            if loaded_yubikeys is None:
-                loaded_yubikeys = {serial: [role]}
-            else:
-                loaded_yubikeys.setdefault(serial, []).append(role)
-
-        return True, public_key, serial
 
     retry_counter = 0
     while True:
-        success, key, serial = _read_and_check_yubikey(
+        success, key, serial_num = _read_and_check_yubikey(
             key_name,
             role,
             taf_repo,
@@ -533,12 +547,16 @@ def yubikey_prompt(
             pin_repeat,
             prompt_message,
             retrying=retry_counter > 0,
+            hide_already_loaded_message=hide_already_loaded_message,
+            expected_public_key=expected_public_key,  # Pass the expected public key
         )
         if not success and not retry_on_failure:
+            print("Exiting without retry as retry_on_failure is False")
             return None, None
         if success:
-            return key, serial
+            return key, serial_num
         retry_counter += 1
+        print(f"Retrying... (Retry count: {retry_counter})")
 
 
 def list_connected_yubikeys():
@@ -562,57 +580,3 @@ def check_yubikey_count() -> int:
     if not yubikeys:
         return 0
     return len(yubikeys)
-
-
-@raise_yubikey_err("Yubikey not connected")
-def verify_yubikey_serial() -> int:
-    """
-    Checks the number of YubiKeys connected to the device.
-
-    - If a `pub_key_pem` is provided, returns the serial number using `get_serial_num(pub_key_pem)`.
-    - If one YubiKey is connected, returns that device's serial number.
-    - If more than one YubiKey is connected, prompts the user to enter the serial number of one of the devices.
-    - If the inputted serial matches one of the connected YubiKeys, returns that serial number.
-
-    Args:
-        pub_key_pem (str, optional): The public key in PEM format for matching a specific YubiKey.
-
-    Returns:
-        int: The serial number of the selected YubiKey.
-
-    Raises:
-        YubikeyError: If no YubiKeys are connected.
-    """
-
-    # List all connected YubiKeys
-    yubikeys = list_all_devices()
-
-    if not yubikeys:
-        raise YubikeyError("No YubiKeys connected.")
-
-    if len(yubikeys) == 1:
-        # If only one YubiKey is connected, return its serial number
-        return yubikeys[0][1].serial
-
-    # If more than one YubiKey is connected, prompt the user to select one
-    print("Multiple YubiKeys are connected:")
-    for _, info in yubikeys:
-        print(f"Serial: {info.serial}, Version: {info.version}")
-
-    while True:
-        selected_serial_str = input(
-            "Enter the serial number of the YubiKey you want to use: "
-        )
-
-        if not selected_serial_str.isdigit():
-            print("Invalid input. Please enter a valid numeric serial number.")
-            continue
-
-        selected_serial = int(selected_serial_str)
-
-        # Validate the inputted serial number
-        for _, info in yubikeys:
-            if info.serial == selected_serial:
-                return selected_serial
-
-        print("Invalid serial number provided. Please try again.")

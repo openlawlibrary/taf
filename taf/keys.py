@@ -569,8 +569,7 @@ def _setup_yubikey(
 def _load_and_verify_yubikey(
     yubikeys: Optional[Dict], role_name: str, key_name: str, public_key
 ) -> bool:
-    if not click.confirm(f"Sign using {key_name} Yubikey?"):
-        return False
+    # Attempt to load and verify the YubiKey
     while True:
         yk_public_key, _ = yk.yubikey_prompt(
             key_name,
@@ -581,10 +580,11 @@ def _load_and_verify_yubikey(
             loaded_yubikeys=yubikeys,
             pin_confirm=True,
             pin_repeat=True,
+            expected_public_key=public_key,
         )
 
-        if yk_public_key["keyid"] != public_key["keyid"]:
-            print("Public key of the inserted key is not equal to the specified one.")
-            if not click.confirm("Try again?"):
-                return False
-        return True
+        # Check if the public key matches
+        if yk_public_key["keyid"] == public_key["keyid"]:
+            return True
+
+        print("Public key of the inserted key does not match the specified one.")
