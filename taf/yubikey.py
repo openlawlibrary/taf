@@ -105,11 +105,10 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
         - ykman.piv.PivSession
 
     Raises:
-        - YubikeyError: If no matching YubiKey is found or connected.
+        - YubikeyError
     """
-    found = False
-
-    # If pub_key_pem is given, iterate all devices, read x509 certs and try to match public keys.
+    # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
+    # public keys.
     if pub_key_pem is not None:
         for dev, info in list_all_devices():
             # Connect to a YubiKey over a SmartCardConnection, which is needed for PIV.
@@ -124,31 +123,21 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                     )
                     .decode("utf-8")
                 )
-                print(device_pub_key_pem)
-                print(pub_key_pem["keyval"]["public"])
-
-                # Tries to match without the last newline character
+                # Tries to match without last newline char
                 if (
-                    device_pub_key_pem == pub_key_pem["keyval"]["public"]
-                    or device_pub_key_pem[:-1] == pub_key_pem["keyval"]["public"]
+                    device_pub_key_pem == pub_key_pem
+                    or device_pub_key_pem[:-1] == pub_key_pem
                 ):
-                    yield session, info.serial
-                    found = True
-                    return
-
-    # If no pub_key_pem is given, use the serial number
+                    break
+                yield session, info.serial
     else:
         for dev, info in list_all_devices():
             if serial is None or info.serial == serial:
                 with dev.open_connection(SmartCardConnection) as connection:
                     session = PivSession(connection)
                     yield session, info.serial
-                    found = True
-                    return
-
-    # If no YubiKey was found or matched, raise an exception
-    if not found:
-        raise YubikeyError("No matching YubiKey found or connected.")
+            else:
+                pass
 
 
 def is_inserted():
@@ -570,13 +559,3 @@ def list_connected_yubikeys():
             print(f"  Serial Number: {info.serial}")
             print(f"  Version: {info.version}")
             print(f"  Form Factor: {info.form_factor}")
-
-
-@raise_yubikey_err("Yubikey not connected")
-def check_yubikey_count() -> int:
-    # List all connected YubiKeys
-    yubikeys = list_all_devices()
-
-    if not yubikeys:
-        return 0
-    return len(yubikeys)

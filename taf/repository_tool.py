@@ -147,10 +147,8 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
 
     def _check_key_and_get_pin(expected_key_id):
         devices = list_all_devices()
-
         for _, info in devices:
             serial_num = info.serial
-
             try:
                 # Check if the YubiKey is loaded with the correct key
                 inserted_key = yk.get_piv_public_key_tuf(serial=serial_num)
