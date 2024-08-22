@@ -51,12 +51,12 @@ class PyGitRepository:
         for the given commit object,
         get the blob at the given path
         """
-        taf_logger.debug(
-            f"Get blob at path {path}",
-        )
+        #taf_logger.debug(
+            #f"Get blob at path {path}",
+        #)
         working = self._get_object_at_path(obj, path)
         if working and isinstance(working, pygit2.Blob):
-            taf_logger.debug(f"Found blob at path {'/'.join(path)}")
+            #taf_logger.debug(f"Found blob at path {'/'.join(path)}")
             return working
         taf_logger.debug(f"Blob not found at path {'/'.join(path)}")
         return None

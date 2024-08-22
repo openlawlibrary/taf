@@ -180,7 +180,9 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             path = Path(scripts_root_dir) / auth_repo.name / scripts_rel_path
         else:
             path = Path(auth_repo.path) / scripts_rel_path
-        script_paths = glob.glob(f"{path}/*.py")
+        script_paths = glob.glob(f"{path}/*.py") # FOCUS ON THIS; return list of all files inside directory instead of just .py files
+        # check if suffix is .py --> run using run, code unchanged. if another type -> focus on running .DMG files with python
+        # if .py: run with python. else: try to run with subprocess and see if it works. assume fi it's not .py that it's executable (OS specific?)
     else:
         try:
             script_names = auth_repo.list_files_at_revision(
@@ -202,9 +204,11 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
 
     for script_path in sorted(script_paths):
         taf_logger.info("Executing script {}", script_path)
+        print(f"ABOUT TO EXECUTE SCRIPT: {script_path}")
         json_data = json.dumps(data)
         try:
             output = run(sys.executable, script_path, input=json_data)
+            print("SCRIPT OUTPUT:", output)
         except subprocess.CalledProcessError as e:
             taf_logger.error(
                 "An error occurred while executing {}: {}", script_path, e.output

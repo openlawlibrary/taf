@@ -448,7 +448,6 @@ def _process_repo_update(
         if commits_data["before_pull"] is not None:
             commits = [commits_data["before_pull"]]
         commits.extend(commits_data["new"])
-
     if commits_data["after_pull"] is not None and not update_config.no_deps:
 
         if update_status != Event.FAILED:
@@ -508,23 +507,23 @@ def _process_repo_update(
             if not update_config.excluded_target_globs and not update_config.no_deps:
                 auth_repo.set_last_validated_commit(last_commit)
 
-            # do not call the handlers if only validating the repositories
-            # if a handler fails and we are in the development mode, revert the update
-            # so that it's easy to try again after fixing the handler
-            if (
-                not update_config.only_validate
-                and not update_config.excluded_target_globs
-                and not update_config.no_targets
-            ):
-                _execute_repo_handlers(
-                    update_status,
-                    auth_repo,
-                    update_config.scripts_root_dir,
-                    commits_data,
-                    error,
-                    targets_data,
-                    transient_data,
-                )
+        # do not call the handlers if only validating the repositories
+        # if a handler fails and we are in the development mode, revert the update
+        # so that it's easy to try again after fixing the handler
+        if (
+            not update_config.only_validate
+            and not update_config.excluded_target_globs
+            and not update_config.no_targets
+        ):
+            _execute_repo_handlers(
+                update_status,
+                auth_repo,
+                update_config.scripts_root_dir,
+                commits_data,
+                error,
+                targets_data,
+                transient_data,
+            )
 
     if repos_update_data is not None:
         repos_update_data[auth_repo.name] = {

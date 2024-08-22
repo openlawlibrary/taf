@@ -1400,25 +1400,22 @@ but commit not on branch {current_branch}"
             new_commits = []
             commit_after_pull = None
         else:
-            commit_before_pull = (
-                self.state.validated_auth_commits[0]
-                if self.state.existing_repo and len(self.state.validated_auth_commits)
-                else None
-            )
-
             if len(self.state.validated_auth_commits):
+                commit_before_pull = self.state.validated_auth_commits[0]
                 commit_after_pull = self.state.validated_auth_commits[-1]
             else:
-                commit_after_pull = None
+                top_commit = self.state.users_auth_repo.top_commit_of_branch(self.state.users_auth_repo.default_branch)
+                commit_before_pull = top_commit
+                commit_after_pull = top_commit
 
-            if not self.state.existing_repo:
-                new_commits = self.state.validated_auth_commits
-            else:
-                new_commits = (
-                    self.state.validated_auth_commits[1:]
-                    if len(self.state.validated_auth_commits)
-                    else []
-                )
+        if not self.state.existing_repo:
+            new_commits = self.state.validated_auth_commits
+        else:
+            new_commits = (
+                self.state.validated_auth_commits[1:]
+                if len(self.state.validated_auth_commits)
+                else []
+            )
         commits_data = {
             "before_pull": commit_before_pull,
             "new": new_commits,
