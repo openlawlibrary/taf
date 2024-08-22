@@ -145,8 +145,25 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
     """
     from binascii import hexlify
 
+    def _check_key_and_get_pin_legacy(expected_key_id):
+        try:
+            inserted_key = yk.get_piv_public_key_tuf()
+            if expected_key_id != inserted_key["keyid"]:
+                return None, None
+            serial_num = yk.get_serial_num(inserted_key)
+            pin = yk.get_key_pin(serial_num)
+            if pin is None:
+                pin = yk.get_and_validate_pin(name)
+            return pin, serial_num
+        except Exception:
+            return None, None
+
     def _check_key_and_get_pin(expected_key_id):
         devices = list_all_devices()
+        if len(devices) < 2:
+            # Use the legacy method if there is only one YubiKey connected
+            return _check_key_and_get_pin_legacy(expected_key_id)
+
         for _, info in devices:
             serial_num = info.serial
             try:

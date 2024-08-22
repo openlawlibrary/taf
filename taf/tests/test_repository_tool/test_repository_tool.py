@@ -8,7 +8,7 @@ import json
 import taf.exceptions
 import taf.yubikey as yk
 
-# from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.tests import TEST_WITH_REAL_YK
 from taf.tests.yubikey_utils import VALID_PIN
 from taf.utils import to_tuf_datetime_format
@@ -127,8 +127,7 @@ def test_update_targets_from_keystore_wrong_key(repositories, snapshot_key):
         taf_happy_path.update_targets_keystores([snapshot_key], targets_data)
 
 
-"""
-YUBIKEYS NOT LOADING
+
 def test_update_targets_valid_key_valid_pin(repositories, targets_yk):
     taf_happy_path = repositories["test-happy-path"]
     if targets_yk.scheme != DEFAULT_RSA_SIGNATURE_SCHEME:
@@ -192,7 +191,6 @@ def test_delete_target_file_valid_key_valid_pin(repositories, targets_yk):
     assert not (targets_path / "test_file").is_file()
     targets_obj = taf_happy_path._role_obj("targets")
     assert "test_file" not in targets_obj.target_files
-"""
 
 
 @pytest.mark.skipif(TEST_WITH_REAL_YK, reason="Testing with real Yubikey.")
