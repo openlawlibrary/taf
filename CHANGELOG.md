@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Added yubikey_present parameter to keys description (Can be specified when generating keys) ([508])
+- Added new tests to test out of sync repositories and manual updates ([488], [504])
+- Use multiple yubikeys at same time (Key generation, repo generation, target signing) ([503])
 - Removed 2048-bit key restriction [494]
 - Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
-- Added new tests to test out of sync repositories and manual updates ([488], [504])
 - Update when auth repo's top commit is behind last validated commit [490]
 - Added lazy loading to CLI [481]
 - Testing repositories with dependencies ([479], [487])
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [508]: https://github.com/openlawlibrary/taf/pull/508
 [504]: https://github.com/openlawlibrary/taf/pull/504
+[503]: https://github.com/openlawlibrary/taf/pull/503
 [494]: https://github.com/openlawlibrary/taf/pull/494
 [493]: https://github.com/openlawlibrary/taf/pull/493
 [490]: https://github.com/openlawlibrary/taf/pull/490

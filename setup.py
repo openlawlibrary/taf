@@ -33,7 +33,7 @@ tests_require = [
     "jinja2==3.1.*",
 ]
 
-yubikey_require = ["yubikey-manager==5.1.*"]
+yubikey_require = ["yubikey-manager==5.5.*"]
 
 # Determine the appropriate version of pygit2 based on the Python version
 if sys.version_info >= (3, 11):

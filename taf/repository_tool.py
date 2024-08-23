@@ -7,6 +7,7 @@ from fnmatch import fnmatch
 from functools import partial, reduce
 from pathlib import Path
 from typing import Dict
+from ykman.device import list_all_devices
 
 import securesystemslib
 import tuf.roledb
@@ -139,34 +140,59 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
 
 def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W0613
     """
-    A signatures provider which asks the user to insert a yubikey
-    Useful if several yubikeys need to be used at the same time
+    A signature provider which asks the user to insert a YubiKey.
+    Useful if several YubiKeys need to be used at the same time.
     """
     from binascii import hexlify
 
-    def _check_key_and_get_pin(expected_key_id):
+    def _check_key_and_get_pin_legacy(expected_key_id):
         try:
             inserted_key = yk.get_piv_public_key_tuf()
             if expected_key_id != inserted_key["keyid"]:
-                return None
+                return None, None
             serial_num = yk.get_serial_num(inserted_key)
             pin = yk.get_key_pin(serial_num)
             if pin is None:
                 pin = yk.get_and_validate_pin(name)
-            return pin
+            return pin, serial_num
         except Exception:
-            return None
+            return None, None
+
+    def _check_key_and_get_pin(expected_key_id):
+        devices = list_all_devices()
+        if len(devices) < 2:
+            # Use the legacy method if there is only one YubiKey connected
+            return _check_key_and_get_pin_legacy(expected_key_id)
+
+        for _, info in devices:
+            serial_num = info.serial
+            try:
+                # Check if the YubiKey is loaded with the correct key
+                inserted_key = yk.get_piv_public_key_tuf(serial=serial_num)
+                if inserted_key["keyid"] == expected_key_id:
+                    pin = yk.get_key_pin(serial_num)
+                    if pin is None:
+                        pin = yk.get_and_validate_pin(name, serial=serial_num)
+                    return pin, serial_num
+                else:
+                    # If the key doesn't match, continue to the next device
+                    continue
+
+            except Exception as e:
+                print(f"Error with YubiKey {serial_num}: {str(e)}")
+                return None, None
+
+        # If no suitable YubiKey is found after checking all devices
+        return None, None
 
     while True:
-        # check if the needed YubiKey is inserted before asking the user to do so
-        # this allows us to use this signature provider inside an automated process
-        # assuming that all YubiKeys needed for signing are inserted
-        pin = _check_key_and_get_pin(key_id)
+        # Check if the needed YubiKey is inserted before asking the user to do so.
+        pin, serial = _check_key_and_get_pin(key_id)
         if pin is not None:
             break
-        input(f"\nInsert {name} and press enter")
+        input(f"\nInsert {name} YubiKey and press enter")
 
-    signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
+    signature = yk.sign_piv_rsa_pkcs1v15(data, pin, serial=serial)
     return {"keyid": key_id, "sig": hexlify(signature).decode()}
 
 

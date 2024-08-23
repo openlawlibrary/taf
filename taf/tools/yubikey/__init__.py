@@ -3,6 +3,7 @@ import json
 from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, get_yk_roles, setup_signing_yubikey, setup_test_yubikey
 from taf.exceptions import YubikeyError
 from taf.repository_utils import find_valid_repository
+from taf.yubikey import list_connected_yubikeys
 from taf.tools.cli import catch_cli_exception
 
 
@@ -71,8 +72,15 @@ def setup_test_key_command():
         WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
     def setup_test_key(key_path):
-        setup_test_yubikey(key_path,key_size=2048)
+        setup_test_yubikey(key_path)
     return setup_test_key
+
+
+def list_key_command():
+    @click.command(help="List All Connected Keys and their information")
+    def list_keys():
+        list_connected_yubikeys()
+    return list_keys
 
 
 def attach_to_group(group):
@@ -82,3 +90,4 @@ def attach_to_group(group):
     group.add_command(export_certificate_command(), name='export-certificate')
     group.add_command(setup_signing_key_command(), name='setup-signing-key')
     group.add_command(setup_test_key_command(), name='setup-test-key')
+    group.add_command(list_key_command(), name='list-key')

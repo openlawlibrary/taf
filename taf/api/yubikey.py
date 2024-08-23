@@ -141,6 +141,7 @@ def setup_signing_yubikey(
         "WARNING - this will delete everything from the inserted key. Proceed?"
     ):
         return
+
     _, serial_num = yk.yubikey_prompt(
         "new Yubikey",
         creating_new_key=True,
