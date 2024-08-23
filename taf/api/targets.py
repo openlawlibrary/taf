@@ -368,7 +368,7 @@ def register_target_files(
         prompt_for_keys=prompt_for_keys,
     )
 
-    if write:
+    if updated and write:
         taf_repo.writeall()
         if commit:
             auth_repo = AuthenticationRepository(path=taf_repo.path)

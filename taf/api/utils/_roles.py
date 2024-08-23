@@ -1,3 +1,4 @@
+import tuf
 from logging import DEBUG, INFO
 from typing import Dict, List, Optional, Union
 from functools import partial
@@ -95,7 +96,7 @@ def get_roles_and_paths_of_key(
 @log_on_end(DEBUG, "Finished setting up role {role.name:s}", logger=taf_logger)
 def setup_role(
     role: Role,
-    repository: Repository,
+    repository: TUFRepository,
     verification_keys: Dict,
     signing_keys: Optional[Dict] = None,
     parent: Optional[Targets] = None,
@@ -125,6 +126,14 @@ def setup_role(
                 role_obj.add_external_signature_provider(
                     key, partial(yubikey_signature_provider, key_name, key["keyid"])
                 )
+        # Even though we add all verification keys (public keys directly specified in the keys-description)
+        # and those loaded from YubiKeys, only those directly specified in keys-description are registered
+        # as previous_keys
+        # this means that TUF expects at least one of those signing keys to be present
+        # we are setting up this role, so there should be no previous keys
+        tuf.roledb._roledb_dict[repository._repository_name][role.name][
+            "previous_keyids"
+        ] = []
 
 
 def _role_obj(
