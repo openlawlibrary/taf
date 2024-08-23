@@ -96,7 +96,7 @@ def get_roles_and_paths_of_key(
 @log_on_end(DEBUG, "Finished setting up role {role.name:s}", logger=taf_logger)
 def setup_role(
     role: Role,
-    repository: Repository,
+    repository: TUFRepository,
     verification_keys: Dict,
     signing_keys: Optional[Dict] = None,
     parent: Optional[Targets] = None,
