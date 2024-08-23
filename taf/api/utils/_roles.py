@@ -131,7 +131,9 @@ def setup_role(
         # as previous_keys
         # this means that TUF expects at least one of those signing keys to be present
         # we are setting up this role, so there should be no previous keys
-        tuf.roledb._roledb_dict[repository._repository_name][role.name]["previous_keyids"] = []
+        tuf.roledb._roledb_dict[repository._repository_name][role.name][
+            "previous_keyids"
+        ] = []
 
 
 def _role_obj(
