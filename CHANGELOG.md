@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix setup role when specifying public keys in keys-description ([511])
+
+[511]: https://github.com/openlawlibrary/taf/pull/511
 [508]: https://github.com/openlawlibrary/taf/pull/508
 [504]: https://github.com/openlawlibrary/taf/pull/504
 [494]: https://github.com/openlawlibrary/taf/pull/494

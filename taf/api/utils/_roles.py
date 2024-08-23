@@ -126,7 +126,7 @@ def setup_role(
                 role_obj.add_external_signature_provider(
                     key, partial(yubikey_signature_provider, key_name, key["keyid"])
                 )
-        # Even though we add all verification key (public keys directly specified in the keys-description)
+        # Even though we add all verification keys (public keys directly specified in the keys-description)
         # and those loaded from YubiKeys, only those directly specified in keys-description are registered
         # as previous_keys
         # this means that TUF expects at least one of those signing keys to be present
