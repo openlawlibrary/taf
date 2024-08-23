@@ -105,10 +105,11 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
         - ykman.piv.PivSession
 
     Raises:
-        - YubikeyError
+        - YubikeyError: If no matching YubiKey is found or connected.
     """
-    # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
-    # public keys.
+    found = False
+
+    # If pub_key_pem is given, iterate all devices, read x509 certs and try to match public keys.
     if pub_key_pem is not None:
         for dev, info in list_all_devices():
             # Connect to a YubiKey over a SmartCardConnection, which is needed for PIV.
@@ -123,21 +124,29 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
                     )
                     .decode("utf-8")
                 )
-                # Tries to match without last newline char
+
+                # Tries to match without the last newline character
                 if (
-                    device_pub_key_pem == pub_key_pem
-                    or device_pub_key_pem[:-1] == pub_key_pem
+                    device_pub_key_pem == pub_key_pem["keyval"]["public"]
+                    or device_pub_key_pem[:-1] == pub_key_pem["keyval"]["public"]
                 ):
-                    break
-                yield session, info.serial
+                    yield session, info.serial
+                    found = True
+                    return
+
+    # If no pub_key_pem is given, use the serial number
     else:
         for dev, info in list_all_devices():
             if serial is None or info.serial == serial:
                 with dev.open_connection(SmartCardConnection) as connection:
                     session = PivSession(connection)
                     yield session, info.serial
-            else:
-                pass
+                    found = True
+                    return
+
+    # If no YubiKey was found or matched, raise an exception
+    if not found:
+        raise YubikeyError("No matching YubiKey found or connected.")
 
 
 def is_inserted():
@@ -421,6 +430,9 @@ def get_and_validate_pin(key_name, serial=None, pin_confirm=True, pin_repeat=Tru
     return pin
 
 
+processed_yubikeys = set()
+
+
 def _process_yubikey(
     serial_num,
     key_name,
@@ -477,6 +489,8 @@ def _process_yubikey(
         else:
             loaded_yubikeys.setdefault(serial_num, []).append(role)
 
+    processed_yubikeys.add(serial_num)
+
     return True, public_key, serial_num
 
 
@@ -525,6 +539,11 @@ def _read_and_check_yubikey(
         for _, info in devices:
             try:
                 serial_num = info.serial
+
+                if serial_num in processed_yubikeys:
+                    print(f"YubiKey {serial_num} has already been processed. Skipping.")
+                    continue
+                print(f"Using Yubikey {serial_num}")
 
                 # Call the helper function to process the YubiKey
                 success, public_key, serial_num = _process_yubikey(
