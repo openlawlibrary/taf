@@ -3,7 +3,7 @@ from importlib.util import find_spec
 import sys
 
 PACKAGE_NAME = "taf"
-VERSION = "0.30.1"
+VERSION = "0.30.2"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"

@@ -380,14 +380,19 @@ def _setup_yubikey_roles_keys(
     loaded_keys_num = 0
     yk_with_public_key = {}
     yubikey_keys = []
+
     for key_id in yubikey_ids:
+        # Check the present value from the yubikeys dictionary
+        if not users_yubikeys_details[key_id].present:
+            continue
+
         public_key_text = None
         if key_id in users_yubikeys_details:
             public_key_text = users_yubikeys_details[key_id].public
         if public_key_text:
             scheme = users_yubikeys_details[key_id].scheme
             public_key = keys.import_rsakey_from_public_pem(public_key_text, scheme)
-            # check if signing key already loaded too
+            # Check if the signing key is already loaded
             if not yk.get_key_serial_by_id(key_id):
                 yk_with_public_key[key_id] = public_key
             else:
@@ -408,6 +413,7 @@ def _setup_yubikey_roles_keys(
             )
             loaded_keys_num += 1
         yubikey_keys.append(public_key)
+
     if loaded_keys_num < role.threshold:
         print(f"Threshold of role {role.name} is {role.threshold}")
         while loaded_keys_num < role.threshold:
@@ -421,11 +427,12 @@ def _setup_yubikey_roles_keys(
                     break
             if loaded_keys_num < role.threshold:
                 if not click.confirm(
-                    f"Threshold of sining keys of role {role.name} not reached. Continue?"
+                    f"Threshold of signing keys of role {role.name} not reached. Continue?"
                 ):
                     raise SigningError("Not enough signing keys")
                 for key_id in loaded_keys:
                     yk_with_public_key.pop(key_id)
+
     return yubikey_keys
 
 

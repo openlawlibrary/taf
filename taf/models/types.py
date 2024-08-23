@@ -21,6 +21,7 @@ class UserKeyData:
         validator=optional_type_validator(str),
         default=DEFAULT_ROLE_SETUP_PARAMS["scheme"],
     )
+    present: bool = attrs.field(default=True)
 
 
 @attrs.define
