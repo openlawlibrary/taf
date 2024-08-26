@@ -47,6 +47,7 @@ config_db = {}
 # persistent data should be read from persistent file and updated after every handler call
 # should be one file per library root
 
+
 def _get_script_path(lifecycle_stage, event):
     if settings.development_mode:
         return f"{lifecycle_stage.value}/{event.value}"
@@ -198,7 +199,9 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             else:
                 output = run_subprocess([script_path])
         except subprocess.CalledProcessError as e:
-            taf_logger.error("An error occurred while executing {}: {}", script_path, e.output)
+            taf_logger.error(
+                "An error occurred while executing {}: {}", script_path, e.output
+            )
             raise ScriptExecutionError(script_path, e.output)
         if type(output) is bytes:
             output = output.decode()
@@ -228,7 +231,9 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             safely_save_json_to_disk(persistent_data, persistent_path)
         except Exception as e:
             raise ScriptExecutionError(
-                script_path,f"An error occurred while saving persistent data to disk: {str(e)}",)
+                script_path,
+                f"An error occurred while saving persistent data to disk: {str(e)}",
+            )
     return data
 
 
