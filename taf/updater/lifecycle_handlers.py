@@ -12,6 +12,7 @@ from taf.utils import (
     run,
     safely_save_json_to_disk,
     extract_json_objects_from_trusted_stdout,
+    run_subprocess,
 )
 from taf.exceptions import GitError, ScriptExecutionError
 from taf.log import taf_logger
@@ -45,7 +46,6 @@ config_db = {}
 
 # persistent data should be read from persistent file and updated after every handler call
 # should be one file per library root
-
 
 def _get_script_path(lifecycle_stage, event):
     if settings.development_mode:
@@ -189,17 +189,14 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             script_paths = []
 
     for script_path in sorted(script_paths):
-        taf_logger.debug("Executing script {}", script_path)
-        taf_logger.debug("ABOUT TO EXECUTE SCRIPT: {}", {script_path})
+        taf_logger.info("Executing script {}", script_path)
         json_data = json.dumps(data)
         try:
             if Path(script_path).suffix == ".py":
                 output = run(sys.executable, script_path, input=json_data)
-                taf_logger.info("SCRIPT PATH: {}", {script_path})
-            # assume that all other types of files are executables of some kind
+            # assume that all other types of files are non-OS-specific executables of some kind
             else:
-                output = subprocess.run([script_path], check=True, capture_output=True).stdout
-
+                output = run_subprocess([script_path])
         except subprocess.CalledProcessError as e:
             taf_logger.error("An error occurred while executing {}: {}", script_path, e.output)
             raise ScriptExecutionError(script_path, e.output)
@@ -231,9 +228,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             safely_save_json_to_disk(persistent_data, persistent_path)
         except Exception as e:
             raise ScriptExecutionError(
-                script_path,
-                f"An error occurred while saving persistent data to disk: {str(e)}",
-            )
+                script_path,f"An error occurred while saving persistent data to disk: {str(e)}",)
     return data
 
 

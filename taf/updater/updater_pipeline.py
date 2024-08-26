@@ -80,9 +80,9 @@ class UpdateState:
     validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
-    additional_commits_per_target_repos_branches: Dict[
-        str, Dict[str, List[str]]
-    ] = field(factory=dict)
+    additional_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = (
+        field(factory=dict)
+    )
     validated_auth_commits: List[str] = field(factory=list)
     temp_root: TempPartition = field(default=None)
 
@@ -504,9 +504,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             elif not settings.overwrite_last_validated_commit:
                 users_auth_repo = AuthenticationRepository(path=self.auth_path)
                 last_validated_commit = users_auth_repo.last_validated_commit
-                settings.last_validated_commit[
-                    validation_repo.name
-                ] = last_validated_commit
+                settings.last_validated_commit[validation_repo.name] = (
+                    last_validated_commit
+                )
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
@@ -1373,12 +1373,10 @@ but commit not on branch {current_branch}"
                         ).get(branch)
                         branch_data[branch]["new"] = [commit_info]
                         branch_data[branch]["after_pull"] = [commit_info]
-                        branch_data[branch][
-                            "unauthenticated"
-                        ] = self.state.additional_commits_per_target_repos_branches.get(
-                            repo_name, {}
-                        ).get(
-                            branch, []
+                        branch_data[branch]["unauthenticated"] = (
+                            self.state.additional_commits_per_target_repos_branches.get(
+                                repo_name, {}
+                            ).get(branch, [])
                         )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head
@@ -1404,7 +1402,9 @@ but commit not on branch {current_branch}"
                 commit_before_pull = self.state.validated_auth_commits[0]
                 commit_after_pull = self.state.validated_auth_commits[-1]
             else:
-                top_commit = self.state.users_auth_repo.top_commit_of_branch(self.state.users_auth_repo.default_branch)
+                top_commit = self.state.users_auth_repo.top_commit_of_branch(
+                    self.state.users_auth_repo.default_branch
+                )
                 commit_before_pull = top_commit
                 commit_after_pull = top_commit
 
