@@ -139,5 +139,11 @@ class MetadataRepository(Repository):
                 self.signer_cache[role][key.keyid] = signer
                 root.add_key(key, role)
 
+        # Make sure the targets role gets signed with its new key, even though
+        # it wasn't updated itself.
+        if role == "targets":
+            with self.edit_targets():
+                pass
+
         self.do_snapshot()
         self.do_timestamp()
