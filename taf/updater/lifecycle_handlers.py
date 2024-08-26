@@ -110,23 +110,11 @@ def _handle_event(
             data = script_data["data"]
             last_commit = script_data["commit"]
             # there is no reason to try executing the scripts if last_commit is None
-            # that means that update was not even started
+            # that means that update was not even starterd
             if last_commit is not None:
-                try:
-                    if scripts_rel_path.endswith(".py"):
-                        result = subprocess.run(
-                            [sys.executable, scripts_rel_path, script_repo, last_commit, data, scripts_root_dir],
-                            check=True, capture_output=True
-                        )
-                    else:
-                        result = subprocess.run(
-                            [scripts_rel_path, script_repo, last_commit, data, scripts_root_dir],
-                            check=True, capture_output=True
-                        )
-                    repos_and_data[script_repo]["data"] = result.stdout.decode('utf-8')
-                except subprocess.CalledProcessError as e:
-                    taf_logger.debug(f"Failed to execute script: {scripts_rel_path} for event {event}: {e}.")
-                    raise ScriptExecutionError(f"Execution failed: {e}") from e
+                repos_and_data[script_repo]["data"] = execute_scripts(
+                    script_repo, last_commit, scripts_rel_path, data, scripts_root_dir
+                )
         return repos_and_data
 
     if event in (Event.CHANGED, Event.UNCHANGED, Event.SUCCEEDED):
@@ -180,9 +168,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             path = Path(scripts_root_dir) / auth_repo.name / scripts_rel_path
         else:
             path = Path(auth_repo.path) / scripts_rel_path
-        script_paths = glob.glob(f"{path}/*.py") # FOCUS ON THIS; return list of all files inside directory instead of just .py files
-        # check if suffix is .py --> run using run, code unchanged. if another type -> focus on running .DMG files with python
-        # if .py: run with python. else: try to run with subprocess and see if it works. assume fi it's not .py that it's executable (OS specific?)
+        script_paths = glob.glob(f"{path}/*")
     else:
         try:
             script_names = auth_repo.list_files_at_revision(
@@ -203,17 +189,22 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             script_paths = []
 
     for script_path in sorted(script_paths):
-        taf_logger.info("Executing script {}", script_path)
-        print(f"ABOUT TO EXECUTE SCRIPT: {script_path}")
+        taf_logger.debug("Executing script {}", script_path)
+        taf_logger.debug("ABOUT TO EXECUTE SCRIPT: {}", {script_path})
         json_data = json.dumps(data)
         try:
-            output = run(sys.executable, script_path, input=json_data)
-            print("SCRIPT OUTPUT:", output)
+            if Path(script_path).suffix == ".py":
+                output = run(sys.executable, script_path, input=json_data)
+                taf_logger.info("SCRIPT PATH: {}", {script_path})
+            # assume that all other types of files are executables of some kind
+            else:
+                output = subprocess.run([script_path], check=True, capture_output=True).stdout
+
         except subprocess.CalledProcessError as e:
-            taf_logger.error(
-                "An error occurred while executing {}: {}", script_path, e.output
-            )
+            taf_logger.error("An error occurred while executing {}: {}", script_path, e.output)
             raise ScriptExecutionError(script_path, e.output)
+        if type(output) is bytes:
+            output = output.decode()
         if output is not None and output != "":
             # if the script contains print statements other than the final
             # print which outputs transient and persistent data
@@ -224,6 +215,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
                 persistent_data = json_data.get("persistent")
                 if transient_data is not None or persistent_data is not None:
                     break
+
         else:
             transient_data = persistent_data = {}
         taf_logger.debug("Persistent data: {}", persistent_data)
