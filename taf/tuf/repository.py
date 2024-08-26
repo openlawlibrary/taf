@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 
-from securesystemslib.signer import Signer, Key
+from securesystemslib.signer import Signer
 
 from tuf.api.metadata import (
     Metadata,
@@ -44,7 +44,7 @@ class MetadataRepository(Repository):
     expiry_period = timedelta(days=1)
 
     def __init__(self, path: Path) -> None:
-        self.signer_cache: Dict[str, List[Signer]] = defaultdict(list)
+        self.signer_cache: Dict[str, Dict[str, Signer]] = {}
         self._path = path
 
         self._snapshot_info = MetaFile(1)
@@ -74,7 +74,7 @@ class MetadataRepository(Repository):
         md.signed.expires = datetime.now(timezone.utc) + self.expiry_period
 
         md.signatures.clear()
-        for signer in self.signer_cache[role]:
+        for signer in self.signer_cache[role].values():
             md.sign(signer, append=True)
 
         fname = f"{role}.json"
@@ -91,19 +91,24 @@ class MetadataRepository(Repository):
         if role == "root":
             md.to_file(self.metadata_path / f"{md.signed.version}.{fname}")
 
-    def create(self):
+    def create(self, signers: Dict[str, Dict[str, Signer]]):
         """Create a new metadata repository on disk.
 
         1. Create metadata subdir (fail, if exists)
         2. Create initial versions of top-level metadata
-        3. Perform top-level delegation using keys from signer_cache.
+        3. Perform top-level delegation using keys from passed signers.
 
+        Args:
+            signers: A dictionary, where dict-keys are role names and values
+                are dictionaries, where-dict keys are keyids and values
+                are signers.
         """
         self.metadata_path.mkdir()
+        self.signer_cache = signers
 
         root = Root(consistent_snapshot=False)
         for role in ["root", "timestamp", "snapshot", "targets"]:
-            for signer in self.signer_cache[role]:
+            for signer in self.signer_cache[role].values():
                 root.add_key(signer.public_key, role)
 
         # Snapshot tracks targets and root versions. targets v1 is included by
@@ -126,10 +131,12 @@ class MetadataRepository(Repository):
         self.do_snapshot()
         self.do_timestamp()
 
-    def add_keys(self, keys: List[Key], role: str) -> None:
-        """Add public keys for role to root."""
+    def add_keys(self, signers: List[Signer], role: str) -> None:
+        """Add signer public keys for role to root and update signer cache."""
         with self.edit_root() as root:
-            for key in keys:
+            for signer in signers:
+                key = signer.public_key
+                self.signer_cache[role][key.keyid] = signer
                 root.add_key(key, role)
 
         self.do_snapshot()

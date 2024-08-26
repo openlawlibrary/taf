@@ -27,7 +27,7 @@ def test_signers(test_signer):
     """Dict of signers per role"""
     signers = {}
     for role in ["root", "timestamp", "snapshot", "targets"]:
-        signers[role] = [test_signer]
+        signers[role] = {test_signer.public_key.keyid: test_signer}
     return signers
 
 
@@ -60,8 +60,7 @@ class TestMetadataRepository:
     def test_create(self, tmp_path, test_signer, test_signers):
         # Create new metadata repository
         repo = MetadataRepository(tmp_path)
-        repo.signer_cache = test_signers
-        repo.create()
+        repo.create(test_signers)
 
         # assert metadata files were created
         assert sorted([f.name for f in repo.metadata_path.glob("*")]) == [
@@ -94,7 +93,7 @@ class TestMetadataRepository:
 
         # assert repo cannot be created twice
         with pytest.raises(FileExistsError):
-            repo.create()
+            repo.create(test_signers)
 
     def test_add_target_files(self, tmp_path, test_signers):
         """Edit metadata repository.
@@ -103,8 +102,7 @@ class TestMetadataRepository:
         """
         # Create new metadata repository
         repo = MetadataRepository(tmp_path)
-        repo.signer_cache = test_signers
-        repo.create()
+        repo.create(test_signers)
 
         target_file = TargetFile.from_data("foo.txt", b"foo", ["sha256", "sha512"])
 
@@ -121,15 +119,12 @@ class TestMetadataRepository:
 
     def test_add_keys(self, tmp_path, test_signers, test_signer2):
         repo = MetadataRepository(tmp_path)
-        repo.signer_cache = test_signers
-        repo.create()
-
-        new_key = test_signer2.public_key
+        repo.create(test_signers)
 
         # assert add new root key and version bumps (all but targets)
-        repo.add_keys([new_key], "root")
-        assert new_key.keyid in repo.root().keys
-        assert new_key.keyid in repo.root().roles["root"].keyids
+        repo.add_keys([test_signer2], "root")
+        assert test_signer2.public_key.keyid in repo.root().keys
+        assert test_signer2.public_key.keyid in repo.root().roles["root"].keyids
         assert repo.root().version == 2
         assert repo.timestamp().version == 2
         assert repo.snapshot().version == 2
@@ -139,8 +134,8 @@ class TestMetadataRepository:
         assert repo.snapshot().meta["targets.json"].version == 1
 
         # assert add new timestamp key and version bumps (all but targets)
-        repo.add_keys([new_key], "timestamp")
-        assert new_key.keyid in repo.root().roles["timestamp"].keyids
+        repo.add_keys([test_signer2], "timestamp")
+        assert test_signer2.public_key.keyid in repo.root().roles["timestamp"].keyids
         assert repo.root().version == 3
         assert repo.timestamp().version == 3
         assert repo.snapshot().version == 3
@@ -150,8 +145,8 @@ class TestMetadataRepository:
         assert repo.snapshot().meta["targets.json"].version == 1
 
         # assert add new snapshot key and version bumps (all but targets)
-        repo.add_keys([new_key], "snapshot")
-        assert new_key.keyid in repo.root().roles["snapshot"].keyids
+        repo.add_keys([test_signer2], "snapshot")
+        assert test_signer2.public_key.keyid in repo.root().roles["snapshot"].keyids
         assert repo.root().version == 4
         assert repo.timestamp().version == 4
         assert repo.snapshot().version == 4
@@ -161,8 +156,8 @@ class TestMetadataRepository:
         assert repo.snapshot().meta["targets.json"].version == 1
 
         # assert add new targets key and version bumps (all but targets)
-        repo.add_keys([new_key], "targets")
-        assert new_key.keyid in repo.root().roles["targets"].keyids
+        repo.add_keys([test_signer2], "targets")
+        assert test_signer2.public_key.keyid in repo.root().roles["targets"].keyids
         assert repo.root().version == 5
         assert repo.timestamp().version == 5
         assert repo.snapshot().version == 5
