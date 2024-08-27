@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
-from cryptography.hazmat.primitives.asymmetric.types import PublicKeyTypes
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 
 def _get_legacy_keyid(key: SSlibKey) -> str:
@@ -33,9 +33,13 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hasher.hexdigest()
 
 
-def _from_crypto(pub: PublicKeyTypes) -> SSlibKey:
+def _from_crypto(pub: RSAPublicKey) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with default signing
     scheme and legacy keyid."""
+    # securesystemslib does not (yet) check if keytype and scheme are compatible
+    # https://github.com/secure-systems-lab/securesystemslib/issues/766
+    if not isinstance(pub, RSAPublicKey):
+        raise ValueError(f"keytype '{type(pub)}' not supported")
     key = SSlibKey.from_crypto(pub, scheme="rsa-pkcs1v15-sha256")
     key.keyid = _get_legacy_keyid(key)
     return key
