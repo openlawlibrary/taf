@@ -219,7 +219,7 @@ def run_subprocess(command):
         return result
     except subprocess.CalledProcessError as e:
         taf_logger.error("An error occurred while executing {}: {}", command, e.output)
-        return None
+        raise e
 
 
 def normalize_file_line_endings(file_path):
