@@ -119,7 +119,7 @@ except ModuleNotFoundError:
     tests_exist = False  # type: ignore
 if tests_exist:
     kwargs["entry_points"]["pytest11"] = (
-        ["taf_yubikey_utils = taf.tests.yubikey_utils"],
+        ["taf_yubikey_utils = taf.tools.yubikey.yubikey_utils"],
     )
 
 setup(**kwargs)
