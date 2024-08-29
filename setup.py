@@ -1,8 +1,9 @@
 from setuptools import find_packages, setup
+from importlib.util import find_spec
 import sys
 
 PACKAGE_NAME = "taf"
-VERSION = "0.30.3"
+VERSION = "0.30.2"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -96,5 +97,15 @@ kwargs = {
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }
+
+
+try:
+    tests_exist = find_spec("taf.tests")
+except ModuleNotFoundError:
+    tests_exist = False  # type: ignore
+if tests_exist:
+    kwargs["entry_points"]["pytest11"] = (
+        ["taf_yubikey_utils = taf.tests.yubikey_utils"],
+    )
 
 setup(**kwargs)
