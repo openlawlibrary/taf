@@ -1,5 +1,4 @@
 from setuptools import find_packages, setup
-from importlib.util import find_spec
 import sys
 
 PACKAGE_NAME = "taf"
@@ -111,15 +110,5 @@ kwargs = {
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }
-
-
-try:
-    tests_exist = find_spec("taf.tests")
-except ModuleNotFoundError:
-    tests_exist = False  # type: ignore
-if tests_exist:
-    kwargs["entry_points"]["pytest11"] = (
-        ["taf_yubikey_utils = taf.tools.yubikey.yubikey_utils"],
-    )
 
 setup(**kwargs)
