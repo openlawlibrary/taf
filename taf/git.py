@@ -1633,8 +1633,7 @@ class GitRepository:
                     self._validate_url(url)
             else:
                 # resolve paths and deduplicate
-                # list is sorted to guarantee deterministic order of elements
-                urls = sorted((_find_url(self.path, url) for url in urls), reverse=True)
+                urls = list({_find_url(self.path, url) for url in urls})
         return urls
 
 

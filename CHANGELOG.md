@@ -89,18 +89,6 @@ and this project adheres to [Semantic Versioning][semver].
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
 
-## [0.30.3] - 08/29/2024
-
-### Added
-
-### Changed
-
-### Fixed
-
-- Move `yubikey_utils` module to include it in wheel ([516])
-
-[516]: https://github.com/openlawlibrary/taf/pull/516
-
 ## [0.30.2] - 08/20/2024
 
 ### Added
@@ -1234,8 +1222,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.3...HEAD
-[0.30.3]: https://github.com/openlawlibrary/taf/compare/v0.30.2...v0.30.3
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.2...HEAD
 [0.30.2]: https://github.com/openlawlibrary/taf/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/openlawlibrary/taf/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.30.0
