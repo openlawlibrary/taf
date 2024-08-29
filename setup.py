@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import sys
 
 PACKAGE_NAME = "taf"
-VERSION = "0.30.2"
+VERSION = "0.30.3"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
