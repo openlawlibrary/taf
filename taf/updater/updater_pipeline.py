@@ -402,81 +402,76 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def check_if_local_repositories_clean(self):
         try:
-            # check if the auth repo is clean first
-            if self.state.existing_repo:
-                auth_repo = AuthenticationRepository(
-                    path=self.auth_path, urls=[self.url]
-                )
+            # early exit if the repository does not exist
+            if not self.state.existing_repo:
+                return UpdateStatus.SUCCESS
+
+            auth_repo = AuthenticationRepository(path=self.auth_path, urls=[self.url])
+            taf_logger.info(
+                f"{auth_repo.name}: Checking if local repositories are clean..."
+            )
+            if auth_repo.is_bare_repository:
                 taf_logger.info(
-                    f"{auth_repo.name}: Checking if local repositories are clean..."
+                    f"Skipping clean check for bare repository {auth_repo.name}"
                 )
-                if auth_repo.is_bare_repository:
+                return UpdateStatus.SUCCESS
+            if auth_repo.something_to_commit():
+                if self.force:
                     taf_logger.info(
-                        f"Skipping clean check for bare repository {auth_repo.name}"
+                        f"Resetting repository {auth_repo.name} to clean state for a forced update."
                     )
-                    return UpdateStatus.SUCCESS
+                    auth_repo.clean_and_reset()
                 else:
-                    if auth_repo.something_to_commit():
-                        if self.force:
-                            taf_logger.info(
-                                f"Resetting repository {auth_repo.name} to clean state for a forced update."
-                            )
-                            auth_repo.clean_and_reset()
-                        else:
-                            taf_logger.error(
-                                f"Respository {auth_repo.name} not clean. You can run a forced update with --force."
-                            )
-                            raise RepositoryNotCleanError(auth_repo.name)
-                    if auth_repo.is_branch_with_unpushed_commits(
-                        auth_repo.default_branch
-                    ):
-                        if self.force:
-                            taf_logger.info(
-                                f"Resetting repository {auth_repo.name} to clean state for a forced update."
-                            )
-                            auth_repo.clean_and_reset()
-                            last_remote_commit = auth_repo.get_last_remote_commit(
-                                auth_repo.urls[0]
-                            )
-                            if last_remote_commit:
-                                auth_repo.reset_to_commit(last_remote_commit, hard=True)
-                        else:
-                            raise UnpushedCommitsError(
-                                auth_repo.name, auth_repo.default_branch
-                            )
+                    taf_logger.error(
+                        f"Respository {auth_repo.name} not clean. You can run a forced update with --force."
+                    )
+                    raise RepositoryNotCleanError(auth_repo.name)
+            if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
+                if self.force:
+                    taf_logger.info(
+                        f"Resetting repository {auth_repo.name} to clean state for a forced update."
+                    )
+                    auth_repo.clean_and_reset()
+                    last_remote_commit = auth_repo.get_last_remote_commit(
+                        auth_repo.urls[0]
+                    )
+                    if last_remote_commit:
+                        auth_repo.reset_to_commit(last_remote_commit, hard=True)
+                else:
+                    raise UnpushedCommitsError(auth_repo.name, auth_repo.default_branch)
 
-                # check target repositories which are on disk
-                for repository in self.state.repos_on_disk.values():
-                    if repository.is_bare_repository:
+            # check target repositories which are on disk
+            for repository in self.state.repos_on_disk.values():
+                if repository.is_bare_repository:
+                    taf_logger.info(
+                        f"Skipping clean check for bare repository {repository.name}"
+                    )
+                    continue
+                if repository.something_to_commit():
+                    if self.force:
                         taf_logger.info(
-                            f"Skipping clean check for bare repository {repository.name}"
+                            f"Resetting repository {auth_repo.name} to clean state for a forced update."
                         )
+                        repository.clean_and_reset()
                     else:
-                        if repository.something_to_commit():
-                            if self.force:
-                                taf_logger.info(
-                                    f"Resetting repository {auth_repo.name} to clean state for a forced update."
-                                )
-                                repository.clean_and_reset()
-                            else:
-                                raise RepositoryNotCleanError(repository.name)
+                        raise RepositoryNotCleanError(repository.name)
 
-                        # read the branch from the most recent target files (before the update)
-                        # and check if it contains unpushed commits
-                        # after the update, check if there are unpushed commits on any of the
-                        # other branches
-                        target = auth_repo.get_target(repository.name)
-                        if not target or "branch" not in target:
-                            continue
-                        branch = target["branch"]
-                        if repository.is_branch_with_unpushed_commits(branch):
-                            if self.force:
-                                taf_logger.info(
-                                    f"Resetting repository {auth_repo.name} to clean state for a forced update."
-                                )
-                                repository.clean_and_reset()
-                            else:
-                                raise UnpushedCommitsError(repository.name, branch)
+                # read the branch from the most recent target files (before the update)
+                # and check if it contains unpushed commits
+                # after the update, check if there are unpushed commits on any of the
+                # other branches
+                target = auth_repo.get_target(repository.name)
+                if not target or "branch" not in target:
+                    continue
+                branch = target["branch"]
+                if repository.is_branch_with_unpushed_commits(branch):
+                    if self.force:
+                        taf_logger.info(
+                            f"Resetting repository {auth_repo.name} to clean state for a forced update."
+                        )
+                        repository.clean_and_reset()
+                    else:
+                        raise UnpushedCommitsError(repository.name, branch)
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
