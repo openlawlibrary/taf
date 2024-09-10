@@ -423,7 +423,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     auth_repo.clean_and_reset()
                 else:
                     taf_logger.error(
-                        f"Respository {auth_repo.name} not clean. You can run a forced update with --force."
+                        f"Repository {auth_repo.name} not clean. You can run a forced update with --force."
                     )
                     raise RepositoryNotCleanError(auth_repo.name)
             if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
