@@ -2,8 +2,8 @@ import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
     TARGET_MISSMATCH_PATTERN,
-    FORCED_UPATE_PATTERN,
-    UNCOIMITTED_CHANGES,
+    FORCED_UPDATE_PATTERN,
+    UNCOMMITTED_CHANGES,
     COMMIT_NOT_FOUND_PATTERN,
     SetupManager,
     add_file_without_commit,
@@ -75,7 +75,7 @@ def test_update_invalid_repo_target_in_indeterminate_state(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        UNCOIMITTED_CHANGES,
+        UNCOMMITTED_CHANGES,
         True,
     )
 
@@ -102,7 +102,7 @@ def test_dirty_index_auth_repo_update_file(origin_auth_repo, client_dir):
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        FORCED_UPATE_PATTERN,
+        FORCED_UPDATE_PATTERN,
         True,
     )
 
@@ -128,7 +128,7 @@ def test_dirty_index_auth_repo_add_file(origin_auth_repo, client_dir):
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        FORCED_UPATE_PATTERN,
+        FORCED_UPDATE_PATTERN,
         True,
     )
 
@@ -155,7 +155,7 @@ def test_dirty_index_target_repo_update_file(origin_auth_repo, client_dir):
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        FORCED_UPATE_PATTERN,
+        FORCED_UPDATE_PATTERN,
         True,
     )
 
@@ -182,7 +182,7 @@ def test_dirty_index_target_repo_add_file(origin_auth_repo, client_dir):
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        FORCED_UPATE_PATTERN,
+        FORCED_UPDATE_PATTERN,
         True,
     )
 
@@ -209,7 +209,7 @@ def test_update_invalid_when_repos_not_clean(origin_auth_repo, client_dir):
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        FORCED_UPATE_PATTERN,
+        FORCED_UPDATE_PATTERN,
         True,
     )
 
