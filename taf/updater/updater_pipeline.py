@@ -1098,7 +1098,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         Merge last valid commits at the end of the update
         """
         taf_logger.info(
-            "f{self.state.auth_repo_name}: Validating target repositories..."
+            f"{self.state.auth_repo_name}: Validating target repositories..."
         )
         try:
             # need to be set to old head since that is the last validated target
