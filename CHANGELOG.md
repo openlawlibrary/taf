@@ -29,7 +29,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Added --bare tags for repository cloning and updating ([459])
 - Added workflow to build standalone executable of TAF ([447])
 
-
 ### Changed
 
 - Raise a more descriptive error if `pygit2` repository cannot be instantiated  ([485], [489])
@@ -41,7 +40,9 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Fix setup role when specifying public keys in keys-description ([511])
+- `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
+[525]: https://github.com/openlawlibrary/taf/pull/525
 [511]: https://github.com/openlawlibrary/taf/pull/511
 [508]: https://github.com/openlawlibrary/taf/pull/508
 [504]: https://github.com/openlawlibrary/taf/pull/504
