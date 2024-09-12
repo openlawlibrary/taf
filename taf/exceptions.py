@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Tuple
 
 
 class TAFError(Exception):
@@ -88,15 +88,19 @@ class RepositoryInstantiationError(TAFError):
 
 
 class RepositoryNotCleanError(TAFError):
-    def __init__(self, repo_name: str):
-        message = f"Repository {repo_name} has uncommitted changes. Commit and push or revert the changes and run the command again."
+    def __init__(self, repo_names: List[str]):
+        repo_list = ", ".join(repo_names)
+        message = f"Repositories {repo_list} have uncommitted changes. Commit and push or revert the changes and run the command again."
         super().__init__(message)
         self.message = message
 
 
 class UnpushedCommitsError(TAFError):
-    def __init__(self, repo_name: str, branch: str):
-        message = f"Repository {repo_name} has unpushed commits on branch {branch}. Push or revert the changes and run the command again."
+    def __init__(self, repos_and_branches: List[Tuple[str, str]]):
+        repo_branches = ", ".join(
+            [f"{repo}: ({branch})" for repo, branch in repos_and_branches]
+        )
+        message = f"The following {'repository has' if len(repos_and_branches) == 1 else 'repositories have'} unpushed commits on branches: {repo_branches}. Push the commits and run the command again."
         super().__init__(message)
         self.message = message
 
