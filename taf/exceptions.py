@@ -89,7 +89,7 @@ class RepositoryInstantiationError(TAFError):
 
 class RepositoryNotCleanError(TAFError):
     def __init__(self, repo_names: List[str]):
-        repo_list = ", ".join(repo_names)
+        repo_list = ", ".join([repo for repo in repo_names])
         message = f"Repositories {repo_list} have uncommitted changes. Commit and push or revert the changes and run the command again."
         super().__init__(message)
         self.message = message

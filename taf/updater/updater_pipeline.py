@@ -441,7 +441,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 taf_logger.error(
                     f"Repository {repo.name} not clean. Use --force to force update."
                 )
-                raise RepositoryNotCleanError(repo.name)
+                raise RepositoryNotCleanError([repo.name])
 
         if repo.is_branch_with_unpushed_commits(repo.default_branch):
             if self.force:
@@ -1080,7 +1080,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     # For non-bare repositories, check for uncommitted changes and unpushed commits
                     if repository.something_to_commit():
-                        raise RepositoryNotCleanError(repository.name)
+                        raise RepositoryNotCleanError([repository.name])
                     for branch in self.state.target_branches_data_from_auth_repo[
                         repository.name
                     ]:
