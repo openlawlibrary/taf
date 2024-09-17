@@ -1426,13 +1426,18 @@ but commit not on branch {current_branch}"
             commit_after_pull = None
         else:
             if self.state.event in (Event.UNCHANGED, Event.FAILED):
-                commit_before_pull = self.state.auth_commits_since_last_validated[0] if self.state.existing_repo else None
+                commit_before_pull = (
+                    self.state.auth_commits_since_last_validated[0]
+                    if self.state.existing_repo
+                    else None
+                )
                 new_commits = []
                 commit_after_pull = commit_before_pull
             else:
                 commit_before_pull = (
                     self.state.validated_auth_commits[0]
-                    if self.state.existing_repo and len(self.state.validated_auth_commits)
+                    if self.state.existing_repo
+                    and len(self.state.validated_auth_commits)
                     else None
                 )
                 if len(self.state.validated_auth_commits):
@@ -1477,11 +1482,9 @@ but commit not on branch {current_branch}"
         ) in self.state.additional_commits_per_target_repos_branches.items():
             for branch_name, additional_commits in branches.items():
                 if len(additional_commits):
-                    formatted_commits = [
-                        format_commit(commit) for commit in additional_commits
-                    ]
+                    formatted_commits = _format_commits(additional_commits)
                     taf_logger.info(
-                        f"Repository {repo_name}: found commits succeeding the last authenticated commit on branch {branch_name}: {', '.join(formatted_commits)}.\nThese commits were not merged into {branch_name}"
+                        f"Repository {repo_name}: found commits succeeding the last authenticated commit on branch {branch_name}: {formatted_commits}.\nThese commits were not merged into {branch_name}"
                     )
 
     def check_pre_push_hook(self):
@@ -1666,6 +1669,20 @@ def _find_next_value(value, values_list):
     except ValueError:
         pass  # value not in list
     return None
+
+
+def _format_commits(commits: List[Any]) -> str:
+    """
+    Utility function to format the commits in a readable way.
+    """
+    commits = [format_commit(commit) for commit in commits]
+    if len(commits) > 2:
+        formatted_commits = f"{commits[0]} ... {commits[-1]}"
+    elif len(commits) == 2:
+        formatted_commits = f"{commits[0]} and {commits[1]}"
+    else:
+        formatted_commits = commits[0]
+    return formatted_commits
 
 
 def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
