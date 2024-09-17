@@ -88,11 +88,26 @@ class UpdateState:
 
 
 @attrs
+class UpdateOutputData:
+    """
+    Data class for storing commit data information for update output
+    """
+
+    # Commit hash for the commit of the auth repo before update
+    before_pull: Optional[str] = field(default=None)
+    # Last commit hash of the updated auth repo after update
+    # Note: it could be the same as the before_pull if no new commits were fetched
+    after_pull: Optional[str] = field(default=None)
+    # List of commit hashes for all commits that are newer than the last validated commit after update
+    new: Optional[List[str]] = field(default=list)
+
+
+@attrs
 class UpdateOutput:
     event: str = field()
     users_auth_repo: Optional[Any] = field(default=None)
     auth_repo_name: Optional[str] = field(default=None)
-    commits_data: Optional[Dict[str, Any]] = field(default=None)
+    commits_data: UpdateOutputData = field(factory=UpdateOutputData)
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
 
@@ -1454,11 +1469,11 @@ but commit not on branch {current_branch}"
                         else []
                     )
 
-        commits_data = {
-            "before_pull": commit_before_pull,
-            "new": new_commits,
-            "after_pull": commit_after_pull,
-        }
+        commits_data = UpdateOutputData(
+            before_pull=commit_before_pull,
+            new=new_commits,
+            after_pull=commit_after_pull,
+        )
 
         if len(self.state.errors):
             message = "\n".join(str(error) for error in self.state.errors)
