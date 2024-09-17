@@ -347,7 +347,7 @@ def test_update_valid_when_last_validated_commit_deleted(origin_auth_repo, clien
         client_dir,
     )
 
-    remove_last_validate_commit(origin_auth_repo, client_dir)
+    remove_last_validate_commit(client_dir, origin_auth_repo.name)
 
     update_and_check_commit_shas(
         OperationType.UPDATE,

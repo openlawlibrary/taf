@@ -525,8 +525,8 @@ def _generate_random_text(length=10):
     return "".join(random.choice(letters) for i in range(length))
 
 
-def remove_last_validate_commit(auth_repo: AuthenticationRepository, client_dir: Path):
-    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
+def remove_last_validate_commit(client_dir: Path, auth_repo_name: str):
+    client_repo = AuthenticationRepository(client_dir, auth_repo_name)
     Path(client_repo.conf_dir, client_repo.LAST_VALIDATED_FILENAME).unlink()
     assert client_repo.last_validated_commit is None
 
