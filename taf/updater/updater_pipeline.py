@@ -676,8 +676,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         validation_repo = _clone_validation_repo(self.url)
         users_head_sha = validation_repo.top_commit_of_branch(branch)
-        commits_on_branch = validation_repo.all_commits_on_branch(branch)
-        print(f"Commits on branch '{branch}': {commits_on_branch}")
 
         def validate_commit_in_remote(repo, commit_sha):
             try:
