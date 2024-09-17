@@ -406,7 +406,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if not self.state.existing_repo:
                 return UpdateStatus.SUCCESS
 
-            # Check the main authentication repository
             auth_repo = AuthenticationRepository(path=self.auth_path, urls=[self.url])
             taf_logger.info(
                 f"{auth_repo.name}: Checking if local repositories are clean..."
