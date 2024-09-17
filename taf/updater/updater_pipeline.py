@@ -88,7 +88,7 @@ class UpdateState:
 
 
 @attrs
-class UpdateOutputData:
+class AuthCommitsData:
     """
     Data class for storing commit data information for update output
     """
@@ -107,7 +107,7 @@ class UpdateOutput:
     event: str = field()
     users_auth_repo: Optional[Any] = field(default=None)
     auth_repo_name: Optional[str] = field(default=None)
-    commits_data: UpdateOutputData = field(factory=UpdateOutputData)
+    commits_data: AuthCommitsData = field(factory=AuthCommitsData)
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
 
@@ -1469,7 +1469,7 @@ but commit not on branch {current_branch}"
                         else []
                     )
 
-        commits_data = UpdateOutputData(
+        commits_data = AuthCommitsData(
             before_pull=commit_before_pull,
             new=new_commits,
             after_pull=commit_after_pull,
@@ -1500,6 +1500,9 @@ but commit not on branch {current_branch}"
                     formatted_commits = _format_commits(additional_commits)
                     taf_logger.info(
                         f"Repository {repo_name}: found commits succeeding the last authenticated commit on branch {branch_name}: {formatted_commits}.\nThese commits were not merged into {branch_name}"
+                    )
+                    taf_logger.debug(
+                        f"Repository {repo_name}: all commits: {','.join(additional_commits)}"
                     )
 
     def check_pre_push_hook(self):
