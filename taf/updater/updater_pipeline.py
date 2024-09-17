@@ -453,7 +453,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 if last_remote_commit:
                     repo.reset_to_commit(last_remote_commit, hard=True)
             else:
-                raise UnpushedCommitsError(repo.name, repo.default_branch)
+                raise UnpushedCommitsError([(repo.name, repo.default_branch)])
 
         return True
 
@@ -1085,7 +1085,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         repository.name
                     ]:
                         if repository.is_branch_with_unpushed_commits(branch):
-                            raise UnpushedCommitsError(repository.name, branch)
+                            raise UnpushedCommitsError([(repository.name, branch)])
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
