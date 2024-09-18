@@ -40,8 +40,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix top-level authentication repository update to correctly update child auth repos ([528])
 - Fix setup role when specifying public keys in keys-description ([511])
 
+[528]: https://github.com/openlawlibrary/taf/pull/528
 [511]: https://github.com/openlawlibrary/taf/pull/511
 [508]: https://github.com/openlawlibrary/taf/pull/508
 [504]: https://github.com/openlawlibrary/taf/pull/504
