@@ -498,12 +498,15 @@ def _enter_role_info(
         while click.confirm(
             f"Add {'another' if len(delegated_roles) else 'a'} delegated targets role of role {role}?"
         ):
-            role_name = _read_val(str, "role name", True)
+            role_name = _read_val(str, "role name", "role_name", True)
             delegated_paths: List[str] = []
             while not len(delegated_paths) or click.confirm("Enter another path?"):
                 delegated_paths.append(
                     _read_val(
-                        str, f"path or glob pattern delegated to {role_name}", True
+                        str,
+                        f"path or glob pattern delegated to {role_name}",
+                        "delegated_paths",
+                        True,
                     )
                 )
             delegated_roles[role_name]["paths"] = delegated_paths

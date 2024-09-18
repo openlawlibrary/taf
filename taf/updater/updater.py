@@ -622,7 +622,6 @@ def validate_repository(
         else UpdateType.OFFICIAL
     )
     settings.overwrite_last_validated_commit = True
-    settings.last_validated_commit[auth_path] = validate_from_commit
     auth_repo_name = None
 
     try:
