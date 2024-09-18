@@ -173,9 +173,15 @@ class SetupManager:
 
 
 class RepositoryConfig:
-    def __init__(self, name: str, allow_unauthenticated_commits: bool = False):
+    def __init__(
+        self,
+        name: str,
+        allow_unauthenticated_commits: bool = False,
+        is_empty: bool = False,
+    ):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
+        self.is_empty = is_empty
 
 
 @pytest.fixture
@@ -209,6 +215,7 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
         RepositoryConfig(
             f"{test_name}/{targets_config['name']}",
             targets_config.get("allow_unauthenticated_commits", False),
+            targets_config.get("is_empty", False),
         )
         for targets_config in targets_config_list
     ]
@@ -351,10 +358,11 @@ def initialize_target_repositories(
         else:
             target_repo = GitRepository(library_dir, target_config.name)
         # create some files, content of these repositories is not important
-        for i in range(1, 3):
-            random_text = _generate_random_text()
-            (target_repo.path / f"test{i}.txt").write_text(random_text)
-        target_repo.commit("Initial commit")
+        if not target_config.is_empty:
+            for i in range(1, 3):
+                random_text = _generate_random_text()
+                (target_repo.path / f"test{i}.txt").write_text(random_text)
+            target_repo.commit("Initial commit")
 
 
 def sign_target_repositories(library_dir: Path, repo_name: str, keystore: Path):
@@ -480,8 +488,12 @@ def setup_repository_no_target_repositories(
     return AuthenticationRepository(origin_dir, repo_name)
 
 
-def add_valid_target_commits(auth_repo: AuthenticationRepository, target_repos: list):
+def add_valid_target_commits(
+    auth_repo: AuthenticationRepository, target_repos: list, add_if_empty: bool = True
+):
     for target_repo in target_repos:
+        if not add_if_empty and target_repo.head_commit_sha() is None:
+            continue
         update_target_files(target_repo, "Update target files")
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 

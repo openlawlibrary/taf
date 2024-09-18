@@ -12,6 +12,7 @@ from taf.tests.test_updater.conftest import (
 )
 from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
+    load_target_repositories,
     update_and_check_commit_shas,
 )
 from taf.updater.types.update import OperationType, UpdateType
@@ -316,3 +317,31 @@ def test_clone_valid_when_no_upstream_top_commits_unsigned(
         expected_repo_type=UpdateType.EITHER,
         no_upstream=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "notempty"},
+                {"name": "empty", "is_empty": True},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_when_target_empty(origin_auth_repo, client_dir):
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    client_repos = load_target_repositories(origin_auth_repo, client_dir)
+    for name, repo in client_repos.items():
+        if "notempty" in name:
+            assert repo.path.is_dir()
+        else:
+            assert not repo.path.is_dir()

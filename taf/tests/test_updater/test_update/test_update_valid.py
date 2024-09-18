@@ -729,3 +729,38 @@ def test_update_with_no_last_validated_commit(origin_auth_repo, client_dir):
         last_validated_commit_file.unlink()  # Remove the file
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "notempty"},
+                {"name": "empty", "is_empty": True},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_update_when_target_empty(origin_auth_repo, client_dir):
+
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits, kwargs={"add_if_empty": False})
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        skip_check_last_validated=True,
+    )
+
+    client_repos = load_target_repositories(origin_auth_repo, client_dir)
+    for name, repo in client_repos.items():
+        if "notempty" in name:
+            assert repo.path.is_dir()
+        else:
+            assert not repo.path.is_dir()
