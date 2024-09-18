@@ -817,7 +817,7 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def is_branch_with_unpushed_commits(self, branch_name):
+    def branch_unpushed_commits(self, branch_name):
         repo = self.pygit_repo
 
         local_branch = repo.branches.get(branch_name)
@@ -849,7 +849,7 @@ class GitRepository:
             else:
                 break
 
-        return bool(unpushed_commits)
+        return [commit.id for commit in unpushed_commits]
 
     def commit(self, message: str) -> str:
         self._git("add -A")

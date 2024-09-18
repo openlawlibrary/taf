@@ -1,4 +1,5 @@
 import os
+import shutil
 import pytest
 from pathlib import Path
 from freezegun import freeze_time
@@ -118,6 +119,8 @@ def clone_repositories(
     excluded_target_globs=None,
 ):
 
+    if clients_dir.is_dir():
+        shutil.rmtree(clients_dir)
     config = UpdateConfig(
         operation=OperationType.CLONE,
         url=str(origin_auth_repo.path),
@@ -159,14 +162,18 @@ def _get_valid_update_time(origin_auth_repo_path):
     return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%Y-%m-%d")
 
 
-def _get_head_commit_shas(client_repos):
+def _get_head_commit_shas(client_repos, num_of_commits_to_remove=0):
     start_head_shas = defaultdict(dict)
     if client_repos is not None:
         for repo_rel_path, repo in client_repos.items():
             for branch in repo.branches():
-                start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
-                    branch
-                )
+                if not num_of_commits_to_remove:
+                    start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
+                        branch
+                    )
+                else:
+                    all_commits = repo.all_commits_on_branch(branch)
+                    start_head_shas[repo_rel_path][branch] = all_commits[-num_of_commits_to_remove-1]
     return start_head_shas
 
 
@@ -200,6 +207,7 @@ def update_and_check_commit_shas(
     bare=False,
     no_upstream=False,
     skip_check_last_validated=False,
+    num_of_commits_to_remove=0,
 ):
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
@@ -212,7 +220,7 @@ def update_and_check_commit_shas(
     clients_auth_repo = GitRepository(path=clients_auth_repo_path)
     if clients_auth_repo_path.is_dir():
         client_repos[clients_auth_repo.name] = clients_auth_repo
-    start_head_shas = _get_head_commit_shas(client_repos)
+    start_head_shas = _get_head_commit_shas(client_repos, num_of_commits_to_remove)
 
     config = UpdateConfig(
         operation=operation,

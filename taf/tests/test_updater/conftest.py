@@ -332,6 +332,8 @@ def _init_auth_repo(
 
 def initialize_git_repo(library_dir: Path, repo_name: str) -> GitRepository:
     repo_path = Path(library_dir, repo_name)
+    if repo_path.is_dir():
+        shutil.rmtree(repo_path, onerror=on_rm_error)
     repo_path.mkdir(parents=True, exist_ok=True)
     repo = GitRepository(path=repo_path)
     repo.init_repo()
@@ -491,6 +493,11 @@ def add_valid_unauthenticated_commits(target_repos: list):
 
 
 def add_unauthenticated_commits_to_all_target_repos(target_repos: list):
+    for target_repo in target_repos:
+        update_target_files(target_repo, "Update target files")
+
+
+def add_unauthenticated_commits_to_target_repo(target_repos: list):
     for target_repo in target_repos:
         update_target_files(target_repo, "Update target files")
 
