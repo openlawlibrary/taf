@@ -216,7 +216,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     None,
                 ),
                 (
-                    self.set_existing_repositories,
+                    self.set_users_auth_repo,
+                    RunMode.ALL,
+                    None,
+                ),
+                (
+                    self.set_existing_target_repositories,
                     RunMode.UPDATE,
                     None,
                 ),  # specify extra method here and runner will call to check if we can have it here
@@ -373,27 +378,35 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             "NOTICE", f"{self.state.auth_repo_name}: Finished {update_text}!"
         )
 
-    def set_existing_repositories(self):
+    def set_users_auth_repo(self):
+        settings.update_from_filesystem = self.update_from_filesystem
+        self.state.existing_repo = False
+        if self.auth_path:
+            self.state.users_auth_repo = AuthenticationRepository(
+                path=self.auth_path, urls=[self.url]
+            )
+            self.state.auth_repo_name = self.state.users_auth_repo.name
+            if self.state.users_auth_repo.is_git_repository_root:
+                self.state.existing_repo = True
+
+    def set_existing_target_repositories(self):
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Checking which repositories are already on disk..."
         )
-        self.state.existing_repo = False
         self.state.repos_on_disk = {}
-        if self.auth_path is not None:
-            auth_repo = AuthenticationRepository(path=self.auth_path)
-            if auth_repo.is_git_repository_root:
-                self.state.existing_repo = True
+        if self.state.users_auth_repo is not None:
+            if self.state.users_auth_repo.is_git_repository_root:
                 # load target repositories in order to check if they are clean or synced
                 # after updating the authentication repotiory, we need to load them again
                 # since repositories.json could've changed
                 repositoriesdb.load_repositories(
-                    auth_repo,
+                    self.state.users_auth_repo,
                     library_dir=self.library_dir,
                     only_load_targets=True,
                     excluded_target_globs=self.excluded_target_globs,
                 )
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
-                    auth_repo,
+                    self.state.users_auth_repo,
                 )
                 self.state.repos_on_disk = {
                     target_repo.name: target_repo
@@ -507,7 +520,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
         else:
             taf_logger.info("Cloning repository and running TUF updater...")
-        settings.update_from_filesystem = self.update_from_filesystem
 
         if self.operation == OperationType.CLONE_OR_UPDATE:
             if (
@@ -519,6 +531,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.operation = OperationType.CLONE
 
         try:
+
             self.state.auth_commits_since_last_validated = None
 
             validation_repo = _clone_validation_repo(self.url)
@@ -537,38 +550,41 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
             auth_repo_name = None
             git_updater = None
-            if self.auth_path:
-                auth_repo_name = GitRepository(path=self.auth_path).name
-                self.state.auth_repo_name = auth_repo_name
-            else:
-                auth_repo_name = _get_repository_name_raise_error_if_not_defined(
-                    validation_repo, top_commit_of_validation_repo
+            if not self.auth_path:
+                self.state.auth_repo_name = (
+                    _get_repository_name_raise_error_if_not_defined(
+                        validation_repo, top_commit_of_validation_repo
+                    )
                 )
-                self.auth_path = Path(self.library_dir, auth_repo_name)
+                self.auth_path = Path(self.library_dir, self.state.auth_repo_name)
 
             git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
             last_validated_remote_commit, error = _run_tuf_updater(
-                git_updater, auth_repo_name
+                git_updater, self.state.auth_repo_name
             )
             if last_validated_remote_commit is None and error is not None:
                 raise error
 
             # having validated the repository, read info.json from the last
             # valid commit if it is not the same as the most recent commit
-            if self.state.auth_repo_name is None:
+            if not self.auth_path:
                 if top_commit_of_validation_repo != last_validated_remote_commit:
                     self.state.auth_repo_name = (
                         _get_repository_name_raise_error_if_not_defined(
                             validation_repo, last_validated_remote_commit
                         )
                     )
-                else:
-                    self.state.auth_repo_name = auth_repo_name
-            self.state.users_auth_repo = AuthenticationRepository(
-                path=self.auth_path,
-                urls=[self.url],
-            )
-            self.state.existing_repo = self.state.users_auth_repo.is_git_repository_root
+
+            if (
+                self.state.users_auth_repo is None
+                or self.state.users_auth_repo.name != self.state.auth_repo_name
+            ):
+                self.state.users_auth_repo = AuthenticationRepository(
+                    library_dir=self.library_dir,
+                    name=self.state.auth_repo_name,
+                    urls=[self.url],
+                )
+
             self._validate_operation_type()
             self.state.validation_auth_repo = git_updater.validation_auth_repo
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
@@ -619,18 +635,20 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         except Exception as e:
             self.state.errors.append(e)
-            self.state.users_auth_repo = None
-
-            if self.state.auth_repo_name is not None:
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+        finally:
+            # always clean up repository updater
+            if (
+                self.state.users_auth_repo is None
+                and self.state.auth_repo_name is not None
+            ):
                 self.state.users_auth_repo = AuthenticationRepository(
                     self.library_dir,
                     self.state.auth_repo_name,
                     urls=[self.url],
                 )
-            self.state.event = Event.FAILED
-            return UpdateStatus.FAILED
-        finally:
-            # always clean up repository updater
+
             if git_updater is not None:
                 git_updater.cleanup()
 
@@ -1441,11 +1459,20 @@ but commit not on branch {current_branch}"
             commit_after_pull = None
         else:
             if self.state.event in (Event.UNCHANGED, Event.FAILED):
-                commit_before_pull = (
-                    self.state.auth_commits_since_last_validated[0]
-                    if self.state.existing_repo
-                    else None
-                )
+                if not self.state.existing_repo:
+                    commit_before_pull = None
+                else:
+                    if len(self.state.auth_commits_since_last_validated):
+                        commit_before_pull = (
+                            self.state.auth_commits_since_last_validated[0]
+                        )
+                    else:
+                        # self.state.auth_commits_since_last_validated might be an empty list if the update failed
+                        commit_before_pull = (
+                            self.state.users_auth_repo.top_commit_of_branch(
+                                self.state.users_auth_repo.default_branch
+                            )
+                        )
                 new_commits = []
                 commit_after_pull = commit_before_pull
             else:
