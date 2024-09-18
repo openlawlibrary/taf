@@ -1,3 +1,4 @@
+import attr
 import enum
 import glob
 import json
@@ -321,7 +322,7 @@ def _repo_update_data(auth_repo, update_status, commits_data, targets_data, erro
         "error_msg": str(error) if error else "",
         "auth_repo": {
             "data": auth_repo.to_json_dict(),
-            "commits": commits_data,
+            "commits": attr.asdict(commits_data),
         },
         "target_repos": targets_data,
     }
