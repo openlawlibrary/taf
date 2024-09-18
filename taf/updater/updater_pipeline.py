@@ -467,7 +467,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     taf_logger.info(
                         f"Resetting repository {auth_repo.name} to clean state for a forced update."
                     )
-                    _remove_unpushed_commtis(auth_repo, branch, unpushed_commits)
+                    _remove_unpushed_commtis(
+                        auth_repo, auth_repo.default_branch, unpushed_commits
+                    )
 
                 else:
                     unpushed_commits_repos_and_branches.append(
