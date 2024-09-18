@@ -230,7 +230,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
 
 
 def get_script_repo_and_commit_repo(auth_repo, commits_data, *args):
-    return auth_repo, commits_data["after_pull"]
+    return auth_repo, commits_data.after_pull
 
 
 def get_script_repo_and_commit_update(auth_repo, commits_data, *args):
@@ -264,7 +264,7 @@ def prepare_data_repo(
                 },
                 "config": conf_data,
             },
-            "commit": commits_data["after_pull"],
+            "commit": commits_data.after_pull,
         }
     }
 
@@ -301,9 +301,7 @@ def prepare_data_update(
                 },
                 "config": get_config(library_dir),
             },
-            "commit": repos_update_data[root_auth_repo.name]["commits_data"][
-                "after_pull"
-            ],
+            "commit": repos_update_data[root_auth_repo.name]["commits_data"].after_pull,
         }
     }
 
