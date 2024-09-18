@@ -88,19 +88,30 @@ class RepositoryInstantiationError(TAFError):
 
 
 class RepositoryNotCleanError(TAFError):
-    def __init__(self, repo_names: List[str]):
-        repo_list = ", ".join(repo_names)
-        message = f"Repositories {repo_list} have uncommitted changes. Commit and push or revert the changes and run the command again."
+    def __init__(self, repo_name: str):
+        message = f"Repository {repo_name} has uncommitted changes. Commit and push or revert the changes and run the command again."
         super().__init__(message)
         self.message = message
 
 
-class UnpushedCommitsError(TAFError):
-    def __init__(self, repos_and_branches: List[Tuple[str, str]]):
-        repo_branches = ", ".join(
-            [f"{repo}: ({branch})" for repo, branch in repos_and_branches]
+class MultipleRepositoriesNotCleanError(TAFError):
+    def __init__(
+        self,
+        dirty_index_repos: List[str],
+        unpushed_commits_repos_and_branches: List[Tuple[str, str]],
+    ):
+        message = ""
+        dirty_repo_list = ", ".join(dirty_index_repos)
+        if len(dirty_index_repos) >= 1:
+            message += f"Repositories {dirty_repo_list} have uncommitted changes. Commit and push or revert the changes and run the command again."
+        unpushed_repo_branches = ", ".join(
+            [
+                f"{repo}: ({branch})"
+                for repo, branch in unpushed_commits_repos_and_branches
+            ]
         )
-        message = f"The following {'repository has' if len(repos_and_branches) == 1 else 'repositories have'} unpushed commits on branches: {repo_branches}. Push the commits and run the command again."
+        if len(unpushed_commits_repos_and_branches) >= 1:
+            message += f"\nThe following {'repository has' if len(unpushed_commits_repos_and_branches) == 1 else 'repositories have'} unpushed commits on branches: {unpushed_repo_branches}. Push the commits and run the command again."
         super().__init__(message)
         self.message = message
 

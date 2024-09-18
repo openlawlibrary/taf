@@ -14,7 +14,7 @@ def check_if_clean(func):
             path = args[0]
         repo = GitRepository(path=path)
         if repo.something_to_commit():
-            raise RepositoryNotCleanError([repo.name])
+            raise RepositoryNotCleanError(repo.name)
 
         # Call the original function
         return func(*args, **kwargs)
