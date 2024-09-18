@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
+- Added support for execution of executable files within the scripts directories ([529])
 - Added yubikey_present parameter to keys description (Can be specified when generating keys) ([508])
 - Removed 2048-bit key restriction [494]
 - Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
@@ -43,6 +45,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix setup role when specifying public keys in keys-description ([511])
 - `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
+[529]: https://github.com/openlawlibrary/taf/pull/529
 [528]: https://github.com/openlawlibrary/taf/pull/528
 [525]: https://github.com/openlawlibrary/taf/pull/525
 [511]: https://github.com/openlawlibrary/taf/pull/511
