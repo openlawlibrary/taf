@@ -459,8 +459,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                     dirty_index_repos.append(auth_repo.name)
 
-
-            unpushed_commits = auth_repo.branch_unpushed_commits(auth_repo.default_branch)
+            unpushed_commits = auth_repo.branch_unpushed_commits(
+                auth_repo.default_branch
+            )
             if unpushed_commits:
                 if self.force:
                     taf_logger.info(
@@ -499,7 +500,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             taf_logger.info(
                                 f"Resetting repository {repository.name} to clean state for a forced update."
                             )
-                            _remove_unpushed_commtis(repository, branch, unpushed_commits)
+                            _remove_unpushed_commtis(
+                                repository, branch, unpushed_commits
+                            )
                         else:
                             unpushed_commits_repos_and_branches.append(
                                 (repository.name, branch)
@@ -735,7 +738,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     f"Last validated commit {last_validated_commit} is not in the remote repository."
                 )
             else:
-                import pdb; pdb.set_trace()
+                import pdb
+
+                pdb.set_trace()
                 # Re-validate from the point of divergence
                 commits_since = validation_repo.all_commits_since_commit(
                     since_commit=last_validated_commit, branch=branch
@@ -1026,7 +1031,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             fetched_commits.index(old_head) + 1 :
                         ]
                     else:
-                        import pdb; pdb.set_trace()
+                        import pdb
+
+                        pdb.set_trace()
                         fetched_commits_on_target_repo_branch = (
                             repository.all_commits_since_commit(old_head, branch)
                         )
@@ -1034,7 +1041,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             if commit not in fetched_commits_on_target_repo_branch:
                                 fetched_commits_on_target_repo_branch.append(commit)
                 else:
-                    import pdb; pdb.set_trace()
+                    import pdb
+
+                    pdb.set_trace()
                     fetched_commits_on_target_repo_branch = (
                         repository.all_commits_since_commit(old_head, branch)
                     )
@@ -1816,5 +1825,3 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
-
-

@@ -302,7 +302,9 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_when_unauthenticated_allowed_different_commits_on_remote(origin_auth_repo, client_dir):
+def test_update_when_unauthenticated_allowed_different_commits_on_remote(
+    origin_auth_repo, client_dir
+):
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -323,4 +325,3 @@ def test_update_when_unauthenticated_allowed_different_commits_on_remote(origin_
         force=True,
         num_of_commits_to_remove=1,
     )
-

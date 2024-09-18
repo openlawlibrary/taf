@@ -173,7 +173,9 @@ def _get_head_commit_shas(client_repos, num_of_commits_to_remove=0):
                     )
                 else:
                     all_commits = repo.all_commits_on_branch(branch)
-                    start_head_shas[repo_rel_path][branch] = all_commits[-num_of_commits_to_remove-1]
+                    start_head_shas[repo_rel_path][branch] = all_commits[
+                        -num_of_commits_to_remove - 1
+                    ]
     return start_head_shas
 
 
