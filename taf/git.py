@@ -416,7 +416,7 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
-            if repo.head_commit_sha() is None:
+            if self.head_commit_sha() is None:
                 return []
             latest_commit_id = repo[repo.head.target].id
 
