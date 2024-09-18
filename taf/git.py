@@ -371,6 +371,11 @@ class GitRepository:
                 )
             latest_commit_id = branch_obj.target
         else:
+            if self.head_commit_sha() is None:
+                raise GitError(
+                    self,
+                    message=f"Error occurred while getting commits of branch {branch}. No HEAD reference",
+                )
             latest_commit_id = repo[repo.head.target].id
 
         sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
@@ -392,7 +397,11 @@ class GitRepository:
         """
 
         if since_commit is None:
-            return self.all_commits_on_branch(branch=branch, reverse=reverse)
+            try:
+                return self.all_commits_on_branch(branch=branch, reverse=reverse)
+            except GitError as e:
+                self._log_warning(e)
+                return []
 
         try:
             self.commit_exists(commit_sha=since_commit)
@@ -407,6 +416,8 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
+            if repo.head_commit_sha() is None:
+                return []
             latest_commit_id = repo[repo.head.target].id
 
         if repo.descendant_of(since_commit, latest_commit_id):

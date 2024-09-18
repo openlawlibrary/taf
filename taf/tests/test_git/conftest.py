@@ -41,3 +41,14 @@ def clone_repository():
     yield repo
     repo.cleanup()
     shutil.rmtree(path, onerror=on_rm_error)
+
+
+@fixture
+def empty_repository():
+    path = TEST_DIR / CLONE_REPO_NAME
+    path.mkdir(exist_ok=True, parents=True)
+    repo = GitRepository(path=path)
+    repo.init_repo()
+    yield repo
+    repo.cleanup()
+    shutil.rmtree(path, onerror=on_rm_error)

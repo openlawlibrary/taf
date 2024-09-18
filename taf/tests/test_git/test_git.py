@@ -41,3 +41,9 @@ def test_head_commit_sha():
             match=f"Repo {repo.name}: The path '{repo.path.as_posix()}' is not a Git repository.",
         ):
             repo.head_commit_sha() is not None
+
+
+def test_all_commits_since_commit_when_repo_empty(empty_repository):
+    all_commits_empty = empty_repository.all_commits_since_commit()
+    assert isinstance(all_commits_empty, list)
+    assert len(all_commits_empty) == 0
