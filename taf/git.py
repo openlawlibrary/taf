@@ -400,7 +400,7 @@ class GitRepository:
             try:
                 return self.all_commits_on_branch(branch=branch, reverse=reverse)
             except GitError as e:
-                self._log_warning(e)
+                self._log_warning(str(e))
                 return []
 
         try:
