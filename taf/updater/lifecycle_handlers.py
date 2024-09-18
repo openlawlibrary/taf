@@ -12,6 +12,7 @@ from taf.utils import (
     run,
     safely_save_json_to_disk,
     extract_json_objects_from_trusted_stdout,
+    run_subprocess,
 )
 from taf.exceptions import GitError, ScriptExecutionError
 from taf.log import taf_logger
@@ -168,7 +169,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             path = Path(scripts_root_dir) / auth_repo.name / scripts_rel_path
         else:
             path = Path(auth_repo.path) / scripts_rel_path
-        script_paths = glob.glob(f"{path}/*.py")
+        script_paths = glob.glob(f"{path}/*")
     else:
         try:
             script_names = auth_repo.list_files_at_revision(
@@ -192,12 +193,18 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
         taf_logger.info("Executing script {}", script_path)
         json_data = json.dumps(data)
         try:
-            output = run(sys.executable, script_path, input=json_data)
+            if Path(script_path).suffix == ".py":
+                output = run(sys.executable, script_path, input=json_data)
+            # assume that all other types of files are non-OS-specific executables of some kind
+            else:
+                output = run_subprocess([script_path])
         except subprocess.CalledProcessError as e:
             taf_logger.error(
                 "An error occurred while executing {}: {}", script_path, e.output
             )
             raise ScriptExecutionError(script_path, e.output)
+        if type(output) is bytes:
+            output = output.decode()
         if output is not None and output != "":
             # if the script contains print statements other than the final
             # print which outputs transient and persistent data
