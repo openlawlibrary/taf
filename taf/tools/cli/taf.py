@@ -1,5 +1,5 @@
 import click
-from .lazy_group import LazyGroup
+from taf.tools.cli.lazy_group import LazyGroup
 
 
 @click.group(cls=LazyGroup, lazy_subcommands={
