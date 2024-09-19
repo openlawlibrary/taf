@@ -23,6 +23,7 @@ from taf.tests.test_updater.update_utils import (
     clone_repositories,
     load_target_repositories,
     update_and_check_commit_shas,
+    verify_repos_eixsts,
 )
 from taf.updater.types.update import OperationType, UpdateType
 
@@ -757,10 +758,4 @@ def test_update_when_target_empty(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
-
-    client_repos = load_target_repositories(origin_auth_repo, client_dir)
-    for name, repo in client_repos.items():
-        if "notempty" in name:
-            assert repo.path.is_dir()
-        else:
-            assert not repo.path.is_dir()
+    verify_repos_eixsts(client_dir, origin_auth_repo, exists=["notempty"])

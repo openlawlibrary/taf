@@ -180,7 +180,11 @@ def _get_head_commit_shas(client_repos, num_of_commits_to_remove=0):
 
 
 def load_target_repositories(
-    auth_repo, library_dir=None, excluded_target_globs=None, commits=None
+    auth_repo,
+    library_dir=None,
+    excluded_target_globs=None,
+    commits=None,
+    only_load_targets=False,
 ):
     if library_dir is None:
         library_dir = auth_repo.path.parent.parent
@@ -188,7 +192,7 @@ def load_target_repositories(
     repositoriesdb.load_repositories(
         auth_repo,
         library_dir=library_dir,
-        only_load_targets=True,
+        only_load_targets=only_load_targets,
         excluded_target_globs=excluded_target_globs,
         commits=commits,
     )
@@ -315,6 +319,32 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def verify_repos_eixsts(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, exists: list
+):
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        client_auth_repo, library_dir=client_dir
+    )
+    for repo in client_target_repos.values():
+        if repo.name.split("/")[-1] in exists:
+            assert repo.is_git_repository
+        else:
+            assert not repo.path.is_dir()
+
+
+def verify_repo_empty(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, target_name_part: str
+):
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        client_auth_repo, library_dir=client_dir
+    )
+    for name, repo in client_target_repos.items():
+        if target_name_part in name:
+            assert not len(repo.all_commits_on_branch())
 
 
 def verify_client_repos_state(

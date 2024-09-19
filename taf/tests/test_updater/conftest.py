@@ -509,6 +509,12 @@ def add_unauthenticated_commits_to_all_target_repos(target_repos: list):
         update_target_files(target_repo, "Update target files")
 
 
+def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            update_target_files(target_repo, "Update target files")
+
+
 def add_unauthenticated_commits_to_target_repo(target_repos: list):
     for target_repo in target_repos:
         update_target_files(target_repo, "Update target files")
@@ -650,11 +656,17 @@ def update_and_sign_metadata_without_clean_check(
 def update_target_files(target_repo: GitRepository, commit_message: str):
     text_to_add = _generate_random_text()
     # Iterate over all files in the repository directory
+    is_empty = True
     for file_path in target_repo.path.iterdir():
         if file_path.is_file():
+            is_empty = False
             existing_content = file_path.read_text(encoding="utf-8")
             new_content = existing_content + "\n" + text_to_add
             file_path.write_text(new_content, encoding="utf-8")
+
+    if is_empty:
+        random_text = _generate_random_text()
+        (target_repo.path / "test.txt").write_text(random_text)
     target_repo.commit(commit_message)
 
 

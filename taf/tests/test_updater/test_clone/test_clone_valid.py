@@ -1,6 +1,7 @@
 import pytest
 from taf.tests.test_updater.conftest import (
     SetupManager,
+    add_unauthenticated_commit_to_target_repo,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     add_valid_unauthenticated_commits,
@@ -12,8 +13,8 @@ from taf.tests.test_updater.conftest import (
 )
 from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
-    load_target_repositories,
     update_and_check_commit_shas,
+    verify_repos_eixsts,
 )
 from taf.updater.types.update import OperationType, UpdateType
 
@@ -339,9 +340,33 @@ def test_clone_when_target_empty(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=UpdateType.EITHER,
     )
-    client_repos = load_target_repositories(origin_auth_repo, client_dir)
-    for name, repo in client_repos.items():
-        if "notempty" in name:
-            assert repo.path.is_dir()
-        else:
-            assert not repo.path.is_dir()
+    verify_repos_eixsts(client_dir, origin_auth_repo, exists=["notempty"])
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1"},
+                {"name": "target2", "is_empty": True},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_when_no_target_file_and_commit(origin_auth_repo, client_dir):
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target2"}
+    )
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+    )
+    verify_repos_eixsts(client_dir, origin_auth_repo, exists=["target1"])

@@ -740,9 +740,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     f"Last validated commit {last_validated_commit} is not in the remote repository."
                 )
             else:
-                import pdb
-
-                pdb.set_trace()
                 # Re-validate from the point of divergence
                 commits_since = validation_repo.all_commits_since_commit(
                     since_commit=last_validated_commit, branch=branch
@@ -1033,9 +1030,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             fetched_commits.index(old_head) + 1 :
                         ]
                     else:
-                        import pdb
-
-                        pdb.set_trace()
                         fetched_commits_on_target_repo_branch = (
                             repository.all_commits_since_commit(old_head, branch)
                         )
@@ -1043,9 +1037,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             if commit not in fetched_commits_on_target_repo_branch:
                                 fetched_commits_on_target_repo_branch.append(commit)
                 else:
-                    import pdb
-
-                    pdb.set_trace()
                     fetched_commits_on_target_repo_branch = (
                         repository.all_commits_since_commit(old_head, branch)
                     )
@@ -1433,6 +1424,7 @@ but commit not on branch {current_branch}"
                     _merge_commit(
                         repository, branch, commit_to_merge, force_revert=True
                     )
+
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
