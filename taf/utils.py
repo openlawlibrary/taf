@@ -211,6 +211,17 @@ def run(*command, **kwargs):
     return completed.stdout if raw else completed.stdout.rstrip()
 
 
+def run_subprocess(command):
+    try:
+        result = subprocess.run(
+            command, check=True, capture_output=True, text=True
+        ).stdout
+        return result
+    except subprocess.CalledProcessError as e:
+        taf_logger.error("An error occurred while executing {}: {}", command, e.output)
+        raise e
+
+
 def normalize_file_line_endings(file_path):
     with open(file_path, "rb") as open_file:
         content = open_file.read()
