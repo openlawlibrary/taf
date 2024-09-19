@@ -159,6 +159,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install .[yubikey]
+          pip install .[executable]
           pip install pyinstaller
 
       - name: Build and test standalone executable (Linux)

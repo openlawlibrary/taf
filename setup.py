@@ -24,6 +24,12 @@ ci_require = [
     "freezegun==0.3.15",
 ]
 
+executable_require = [
+    "lxml",
+    "requests",
+    "rdflib"
+]
+
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
@@ -72,6 +78,7 @@ kwargs = {
         "test": tests_require,
         "dev": dev_require,
         "yubikey": yubikey_require,
+        "executable": executable_require,
     },
     "tests_require": tests_require,
     "entry_points": {
