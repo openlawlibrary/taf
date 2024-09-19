@@ -242,9 +242,9 @@ def update_and_check_commit_shas(
     )
 
     if operation == OperationType.CLONE:
-        clone_repository(config)
+        update_ret = clone_repository(config)
     else:
-        update_repository(config)
+        update_ret = update_repository(config)
 
     origin_root_dir = origin_auth_repo.path.parent.parent
     check_if_commits_match(
@@ -266,6 +266,7 @@ def update_and_check_commit_shas(
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
                     assert not target_repo.path.is_dir()
                     break
+    return update_ret
 
 
 def update_invalid_repos_and_check_if_repos_exist(

@@ -691,8 +691,6 @@ def add_file_without_commit(repo_path: str, filename: str):
 
 
 def remove_commits(
-    auth_repo: AuthenticationRepository,
-    target_repos: list,
     repo_path: str,
     num_commits: int = 1,
 ):

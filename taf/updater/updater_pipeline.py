@@ -1794,7 +1794,6 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
     commits_since_to_merge = repository.all_commits_since_commit(
         commit_to_merge, branch=branch
     )
-
     if not len(commits_since_to_merge):
         taf_logger.info(
             "{} Merging commit {} into branch {}",

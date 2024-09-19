@@ -1333,9 +1333,15 @@ class GitRepository:
         commit: str,
         fast_forward_only: Optional[bool] = False,
         check_if_merge_completed: Optional[bool] = False,
+        update_remote_tracking: Optional[bool] = True,
     ) -> bool:
         fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
         self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
+        if update_remote_tracking:
+            current_branch = self.get_current_branch()
+            self._git(
+                f"update-ref refs/remotes/origin/{current_branch} HEAD", log_error=True
+            )  # Update remote tracking
         if check_if_merge_completed:
             try:
                 self._git("rev-parse -q --verify MERGE_HEAD")
