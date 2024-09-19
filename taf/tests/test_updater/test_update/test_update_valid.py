@@ -691,10 +691,7 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     client_auth_repo.set_last_validated_commit(origin_top_commit_sha)
 
-    client_target_repos = load_target_repositories(client_auth_repo)
     remove_commits(
-        auth_repo=client_auth_repo,
-        target_repos=client_target_repos,
         repo_path=str(client_auth_repo.path),
         num_commits=1,
     )
