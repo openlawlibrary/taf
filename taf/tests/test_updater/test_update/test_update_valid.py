@@ -770,9 +770,7 @@ def test_update_when_target_empty(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_valid_when_several_updates(
-    origin_auth_repo, client_dir
-):
+def test_update_valid_when_several_updates(origin_auth_repo, client_dir):
     clone_repositories(origin_auth_repo, client_dir)
 
     setup_manager = SetupManager(origin_auth_repo)
