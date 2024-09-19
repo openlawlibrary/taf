@@ -657,10 +657,7 @@ def test_update_with_removed_commits_in_auth_repo(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
 
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    client_target_repos = load_target_repositories(client_auth_repo)
     remove_commits(
-        auth_repo=client_auth_repo,
-        target_repos=client_target_repos,
         repo_path=str(client_auth_repo.path),
         num_commits=1,
     )
