@@ -467,7 +467,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     taf_logger.info(
                         f"Resetting repository {auth_repo.name} to clean state for a forced update."
                     )
-                    _remove_unpushed_commtis(
+                    _remove_unpushed_commits(
                         auth_repo, auth_repo.default_branch, unpushed_commits
                     )
 
@@ -502,7 +502,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             taf_logger.info(
                                 f"Resetting repository {repository.name} to clean state for a forced update."
                             )
-                            _remove_unpushed_commtis(
+                            _remove_unpushed_commits(
                                 repository, branch, unpushed_commits
                             )
                         else:
@@ -1428,7 +1428,7 @@ but commit not on branch {current_branch}"
                     events_list.append(update_status)
 
             if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
-                # the law repository was not updated, but one of the target repositories was
+                # the auth repository was not updated, but one of the target repositories was
                 self.state.event = Event.CHANGED
             return self.state.update_status
         except Exception as e:
@@ -1616,7 +1616,7 @@ def _is_unauthenticated_allowed(repository):
     return repository.custom.get("allow-unauthenticated-commits", False)
 
 
-def _remove_unpushed_commtis(repository, branch, unpushed_commits):
+def _remove_unpushed_commits(repository, branch, unpushed_commits):
     repository.clean_and_reset()
     repository.checkout_branch(branch)
     repository.reset_num_of_commits(len(unpushed_commits), hard=True)

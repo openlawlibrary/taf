@@ -322,7 +322,7 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert not client_repository.path.exists()
 
 
-def verify_repos_eixsts(
+def verify_repos_eixst(
     client_dir: Path, origin_auth_repo: AuthenticationRepository, exists: list
 ):
     client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
