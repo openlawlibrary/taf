@@ -1406,6 +1406,7 @@ but commit not on branch {current_branch}"
         taf_logger.info(
             f"{self.state.auth_repo_name}: Merging commits into target repositories..."
         )
+        events_list = []
         try:
             if self.only_validate:
                 return self.state.update_status
@@ -1421,10 +1422,14 @@ but commit not on branch {current_branch}"
                 ].items():
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
-                    _merge_commit(
+                    update_status = _merge_commit(
                         repository, branch, commit_to_merge, force_revert=True
                     )
+                    events_list.append(update_status)
 
+            if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
+                # the law repository was not updated, but one of the target repositories was
+                self.state.event = Event.CHANGED
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
@@ -1789,7 +1794,7 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
         )
 
     if repository.top_commit_of_branch(branch) == commit_to_merge:
-        return
+        return Event.UNCHANGED
 
     commits_since_to_merge = repository.all_commits_since_commit(
         commit_to_merge, branch=branch
@@ -1818,3 +1823,4 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
+    return Event.CHANGED
