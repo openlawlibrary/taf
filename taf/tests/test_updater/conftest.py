@@ -623,7 +623,7 @@ def update_role_metadata_invalid_signature(
     content["signatures"][0]["sign"] = "invalid signature"
     version = content["signed"]["version"]
     content["signed"]["version"] = version + 1
-    role_metadata_path.write_text(json.dumps(content))
+    role_metadata_path.write_text(json.dumps(content, indent=4))
     auth_repo.commit("Invalid metadata update")
 
 

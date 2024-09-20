@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix update status when a target repo was updated and the auth repo was not ([532])
 - Fix merge-commit which wasn't updating the remote-tracking branch ([532])
 - Fix removal of additional local commits ([532])
 - Fix top-level authentication repository update to correctly update child auth repos ([528])
