@@ -459,17 +459,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                     dirty_index_repos.append(auth_repo.name)
 
-            if auth_repo.is_branch_with_unpushed_commits(auth_repo.default_branch):
+            unpushed_commits = auth_repo.branch_unpushed_commits(
+                auth_repo.default_branch
+            )
+            if unpushed_commits:
                 if self.force:
                     taf_logger.info(
                         f"Resetting repository {auth_repo.name} to clean state for a forced update."
                     )
-                    auth_repo.clean_and_reset()
-                    last_remote_commit = auth_repo.get_last_remote_commit(
-                        auth_repo.urls[0]
+                    _remove_unpushed_commits(
+                        auth_repo, auth_repo.default_branch, unpushed_commits
                     )
-                    if last_remote_commit:
-                        auth_repo.reset_to_commit(last_remote_commit, hard=True)
+
                 else:
                     unpushed_commits_repos_and_branches.append(
                         (auth_repo.name, auth_repo.default_branch)
@@ -495,12 +496,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 target = auth_repo.get_target(repository.name)
                 if target and "branch" in target:
                     branch = target["branch"]
-                    if repository.is_branch_with_unpushed_commits(branch):
+                    unpushed_commits = repository.branch_unpushed_commits(branch)
+                    if unpushed_commits:
                         if self.force:
                             taf_logger.info(
                                 f"Resetting repository {repository.name} to clean state for a forced update."
                             )
-                            repository.clean_and_reset()
+                            _remove_unpushed_commits(
+                                repository, branch, unpushed_commits
+                            )
                         else:
                             unpushed_commits_repos_and_branches.append(
                                 (repository.name, branch)
@@ -513,7 +517,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 raise MultipleRepositoriesNotCleanError(
                     dirty_index_repos, unpushed_commits_repos_and_branches
                 )
-
             return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
@@ -1111,7 +1114,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     for branch in self.state.target_branches_data_from_auth_repo[
                         repository.name
                     ]:
-                        if repository.is_branch_with_unpushed_commits(branch):
+
+                        if repository.branch_unpushed_commits(branch):
                             unpushed_commits_repos_and_branches_error.append(
                                 (repository.name, branch)
                             )
@@ -1402,6 +1406,7 @@ but commit not on branch {current_branch}"
         taf_logger.info(
             f"{self.state.auth_repo_name}: Merging commits into target repositories..."
         )
+        events_list = []
         try:
             if self.only_validate:
                 return self.state.update_status
@@ -1417,9 +1422,14 @@ but commit not on branch {current_branch}"
                 ].items():
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
-                    _merge_commit(
+                    update_status = _merge_commit(
                         repository, branch, commit_to_merge, force_revert=True
                     )
+                    events_list.append(update_status)
+
+            if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
+                # the auth repository was not updated, but one of the target repositories was
+                self.state.event = Event.CHANGED
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
@@ -1606,6 +1616,12 @@ def _is_unauthenticated_allowed(repository):
     return repository.custom.get("allow-unauthenticated-commits", False)
 
 
+def _remove_unpushed_commits(repository, branch, unpushed_commits):
+    repository.clean_and_reset()
+    repository.checkout_branch(branch)
+    repository.reset_num_of_commits(len(unpushed_commits), hard=True)
+
+
 def _run_tuf_updater(git_fetcher, auth_repo_name):
     auth_repo_name = auth_repo_name or ""
     taf_logger.info(f"{auth_repo_name}: Running TUF validation...")
@@ -1778,12 +1794,11 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
         )
 
     if repository.top_commit_of_branch(branch) == commit_to_merge:
-        return
+        return Event.UNCHANGED
 
     commits_since_to_merge = repository.all_commits_since_commit(
         commit_to_merge, branch=branch
     )
-
     if not len(commits_since_to_merge):
         taf_logger.info(
             "{} Merging commit {} into branch {}",
@@ -1808,3 +1823,4 @@ def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
             format_commit(commit_to_merge),
             branch,
         )
+    return Event.CHANGED

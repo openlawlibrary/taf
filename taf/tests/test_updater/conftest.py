@@ -173,9 +173,15 @@ class SetupManager:
 
 
 class RepositoryConfig:
-    def __init__(self, name: str, allow_unauthenticated_commits: bool = False):
+    def __init__(
+        self,
+        name: str,
+        allow_unauthenticated_commits: bool = False,
+        is_empty: bool = False,
+    ):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
+        self.is_empty = is_empty
 
 
 @pytest.fixture
@@ -209,6 +215,7 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
         RepositoryConfig(
             f"{test_name}/{targets_config['name']}",
             targets_config.get("allow_unauthenticated_commits", False),
+            targets_config.get("is_empty", False),
         )
         for targets_config in targets_config_list
     ]
@@ -332,6 +339,8 @@ def _init_auth_repo(
 
 def initialize_git_repo(library_dir: Path, repo_name: str) -> GitRepository:
     repo_path = Path(library_dir, repo_name)
+    if repo_path.is_dir():
+        shutil.rmtree(repo_path, onerror=on_rm_error)
     repo_path.mkdir(parents=True, exist_ok=True)
     repo = GitRepository(path=repo_path)
     repo.init_repo()
@@ -349,10 +358,11 @@ def initialize_target_repositories(
         else:
             target_repo = GitRepository(library_dir, target_config.name)
         # create some files, content of these repositories is not important
-        for i in range(1, 3):
-            random_text = _generate_random_text()
-            (target_repo.path / f"test{i}.txt").write_text(random_text)
-        target_repo.commit("Initial commit")
+        if not target_config.is_empty:
+            for i in range(1, 3):
+                random_text = _generate_random_text()
+                (target_repo.path / f"test{i}.txt").write_text(random_text)
+            target_repo.commit("Initial commit")
 
 
 def sign_target_repositories(library_dir: Path, repo_name: str, keystore: Path):
@@ -478,8 +488,12 @@ def setup_repository_no_target_repositories(
     return AuthenticationRepository(origin_dir, repo_name)
 
 
-def add_valid_target_commits(auth_repo: AuthenticationRepository, target_repos: list):
+def add_valid_target_commits(
+    auth_repo: AuthenticationRepository, target_repos: list, add_if_empty: bool = True
+):
     for target_repo in target_repos:
+        if not add_if_empty and target_repo.head_commit_sha() is None:
+            continue
         update_target_files(target_repo, "Update target files")
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
@@ -491,6 +505,17 @@ def add_valid_unauthenticated_commits(target_repos: list):
 
 
 def add_unauthenticated_commits_to_all_target_repos(target_repos: list):
+    for target_repo in target_repos:
+        update_target_files(target_repo, "Update target files")
+
+
+def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            update_target_files(target_repo, "Update target files")
+
+
+def add_unauthenticated_commits_to_target_repo(target_repos: list):
     for target_repo in target_repos:
         update_target_files(target_repo, "Update target files")
 
@@ -598,7 +623,7 @@ def update_role_metadata_invalid_signature(
     content["signatures"][0]["sign"] = "invalid signature"
     version = content["signed"]["version"]
     content["signed"]["version"] = version + 1
-    role_metadata_path.write_text(json.dumps(content))
+    role_metadata_path.write_text(json.dumps(content, indent=4))
     auth_repo.commit("Invalid metadata update")
 
 
@@ -631,11 +656,17 @@ def update_and_sign_metadata_without_clean_check(
 def update_target_files(target_repo: GitRepository, commit_message: str):
     text_to_add = _generate_random_text()
     # Iterate over all files in the repository directory
+    is_empty = True
     for file_path in target_repo.path.iterdir():
         if file_path.is_file():
+            is_empty = False
             existing_content = file_path.read_text(encoding="utf-8")
             new_content = existing_content + "\n" + text_to_add
             file_path.write_text(new_content, encoding="utf-8")
+
+    if is_empty:
+        random_text = _generate_random_text()
+        (target_repo.path / "test.txt").write_text(random_text)
     target_repo.commit(commit_message)
 
 
@@ -660,8 +691,6 @@ def add_file_without_commit(repo_path: str, filename: str):
 
 
 def remove_commits(
-    auth_repo: AuthenticationRepository,
-    target_repos: list,
     repo_path: str,
     num_commits: int = 1,
 ):
