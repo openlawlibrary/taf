@@ -37,7 +37,7 @@ def test_update_valid_when_several_updates(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
-    update_output["changed"] = True
+    assert update_output["changed"]
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     client_target_repos = load_target_repositories(client_auth_repo)
     setup_manager = SetupManager(client_auth_repo)
@@ -53,11 +53,11 @@ def test_update_valid_when_several_updates(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
-    update_output["changed"] = True
+    assert update_output["changed"]
     update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         skip_check_last_validated=True,
     )
-    update_output["changed"] = False
+    assert not update_output["changed"]
