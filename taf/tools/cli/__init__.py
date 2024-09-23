@@ -1,11 +1,12 @@
 import click
+
 from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
 from taf.exceptions import TAFError
 from taf.log import taf_logger
-
+from taf.utils import is_run_from_python_executable
 
 def catch_cli_exception(func=None, *, handle, print_error=False):
     if not func:
@@ -18,6 +19,11 @@ def catch_cli_exception(func=None, *, handle, print_error=False):
         except handle as e:
             if print_error:
                 click.echo(e)
+        except Exception as e:
+            if is_run_from_python_executable():
+                click.echo(f"An error occurred: {e}")
+            else:
+                raise e
 
     return wrapper
 
