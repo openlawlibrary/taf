@@ -548,14 +548,6 @@ def _update_dependencies(update_config, child_auth_repos):
     with ThreadPoolExecutor() as executor:
         futures = {}
         for repo in child_auth_repos:
-            if repo.is_git_repository:
-                # this does not work when run in parallel
-                repositoriesdb.load_repositories(
-                    repo,
-                    library_dir=update_config.library_dir,
-                    only_load_targets=True,
-                    excluded_target_globs=update_config.excluded_target_globs,
-                )
             child_config = copy.copy(update_config)
             child_config.operation = (
                 OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE

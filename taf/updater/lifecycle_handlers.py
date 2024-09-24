@@ -257,7 +257,7 @@ def prepare_data_repo(
     conf_data = get_config(auth_repo.library_dir)
     if not conf_data:
         taf_logger.info(
-           f"WARNING: No config data at {Path(library_dir, CONFIG_NAME)}. Scripts might not be executed successfully"
+            f"WARNING: No config data at {Path(library_dir, CONFIG_NAME)}. Scripts might not be executed successfully"
         )
     return {
         auth_repo: {

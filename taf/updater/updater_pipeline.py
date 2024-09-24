@@ -182,6 +182,9 @@ class Pipeline:
         self.set_output()
 
     def handle_error(self, e):
+        import pdb
+
+        pdb.set_trace()
         self.remove_temp_repositories()
         self.state.event = Event.FAILED
         self.state.errors.append(e)
@@ -776,15 +779,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
-            repositoriesdb.load_repositories(
-                self.state.users_auth_repo,
-                repo_classes=self.target_repo_classes,
-                factory=self.target_factory,
-                library_dir=self.library_dir,
-                commits=self.state.auth_commits_since_last_validated,
-                only_load_targets=True,
-                excluded_target_globs=self.excluded_target_globs,
-            )
             self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
