@@ -184,7 +184,6 @@ class Pipeline:
     def handle_error(self, e):
         self.remove_temp_repositories()
         self.state.event = Event.FAILED
-        self.state.errors.append(e)
         if self.state.auth_repo_name is not None:
             taf_logger.error(
                 "An error occurred while updating repository {} while running step {}: {}",
