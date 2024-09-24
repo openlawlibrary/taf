@@ -66,9 +66,8 @@ def get_config(library_root, config_name=CONFIG_NAME):
             config = json.loads(Path(config_path).read_text())
         except Exception:
             config = {}
-            taf_logger.warning(
-                "WARNING: Config file {} not found. Scripts might not be executed successfully",
-                config_path,
+            taf_logger.info(
+                f"WARNING: Config file {config_path} not found. Scripts might not be executed successfully"
             )
         config_db[library_root] = config or {}
     return config_db.get(library_root)
@@ -257,8 +256,8 @@ def prepare_data_repo(
 ):
     conf_data = get_config(auth_repo.library_dir)
     if not conf_data:
-        taf_logger.warning(
-            "WARNING: No config data. Scripts might not be executed successfully"
+        taf_logger.info(
+           f"WARNING: No config data at {Path(library_dir, CONFIG_NAME)}. Scripts might not be executed successfully"
         )
     return {
         auth_repo: {
