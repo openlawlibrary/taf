@@ -407,6 +407,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
+                    excluded_target_globs=self.excluded_target_globs,
                 )
                 self.state.repos_on_disk = {
                     target_repo.name: target_repo
@@ -779,6 +780,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     self.state.auth_commits_since_last_validated[-1::],
+                    excluded_target_globs=self.excluded_target_globs,
                 )
             )
             if self.only_validate:

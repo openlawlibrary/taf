@@ -457,12 +457,18 @@ def get_deduplicated_auth_repositories(
 
 
 def get_deduplicated_repositories(
-    auth_repo: AuthenticationRepository, commits: Optional[List[str]] = None
+    auth_repo: AuthenticationRepository,
+    commits: Optional[List[str]] = None,
+    excluded_target_globs: Optional[List[str]] = None,
 ) -> Dict[str, GitRepository]:
-    return _get_deduplicated_target_or_auth_repositories(auth_repo, commits)
+    return _get_deduplicated_target_or_auth_repositories(
+        auth_repo, commits, False, excluded_target_globs
+    )
 
 
-def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=False):
+def _get_deduplicated_target_or_auth_repositories(
+    auth_repo, commits, load_auth=False, excluded_target_globs=None
+):
     if commits is None:
         commits = [auth_repo.head_commit_sha()]
 
@@ -482,7 +488,11 @@ def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=
             loaded_repositories_dict = _repositories_dict
         else:
             loaded_repositories_dict = {
-                auth_repo.path: _load_repositories(auth_repo=auth_repo, commits=commits)
+                auth_repo.path: _load_repositories(
+                    auth_repo=auth_repo,
+                    commits=commits,
+                    excluded_target_globs=excluded_target_globs,
+                )
             }
 
     auth_msg = "included authentication " if load_auth else ""
