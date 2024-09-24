@@ -182,9 +182,6 @@ class Pipeline:
         self.set_output()
 
     def handle_error(self, e):
-        import pdb
-
-        pdb.set_trace()
         self.remove_temp_repositories()
         self.state.event = Event.FAILED
         self.state.errors.append(e)
