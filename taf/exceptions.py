@@ -1,4 +1,5 @@
 from typing import List, Optional, Any, Tuple
+import subprocess
 
 
 class TAFError(Exception):
@@ -28,14 +29,14 @@ class GitError(TAFError):
         self,
         repo: Any,
         command: Optional[str] = None,
-        error: Optional[Exception] = None,
+        error: Optional[subprocess.CalledProcessError] = None,
         message: Optional[str] = None,
     ):
         if message is None:
             if command is not None:
                 message = f"error occurred while executing {command}"
                 if error is not None:
-                    message = f"{message}:\n{str(error)}"
+                    message = f"{message}:\n{str(error.stdout)}"
             elif error is not None:
                 message = str(error)
             else:

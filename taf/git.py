@@ -872,7 +872,7 @@ class GitRepository:
                 return self._git("rev-parse HEAD")
             except subprocess.CalledProcessError as e:
                 raise GitError(
-                    repo=self, message=f"could not commit changes due to:\n{e}"
+                    repo=self, message=f"could not commit changes due to:\n{e}", error=e
                 )
         else:
             raise NothingToCommitError(repo=self, message="No changes to commit")
