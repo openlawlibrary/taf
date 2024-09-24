@@ -98,7 +98,7 @@ def _load_dependencies(
             taf_logger.info(
                 "Authentication repository does not exist - cannot load included authentication repositories"
             )
-            return
+            return {}
         commits = [auth_repo_head_commit]
 
     taf_logger.debug(
@@ -253,7 +253,7 @@ def _load_repositories(
             taf_logger.info(
                 "Authentication repository does not exist - cannot load target repositories"
             )
-            return
+            return {}
         commits = [auth_repo_head_commit]
 
     taf_logger.debug(

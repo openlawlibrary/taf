@@ -8,6 +8,7 @@ from taf.exceptions import TAFError
 from taf.log import taf_logger
 from taf.utils import is_run_from_python_executable
 
+
 def catch_cli_exception(func=None, *, handle, print_error=False):
     if not func:
         return partial(catch_cli_exception, handle=handle, print_error=print_error)

@@ -140,7 +140,7 @@ def is_run_from_python_executable() -> bool:
     """
     `sys frozen returns True if the Python interpreter is frozen using a tool like pyinstaller.
     """
-    return getattr(sys, 'frozen', False)
+    return getattr(sys, "frozen", False)
 
 
 def read_input_dict(value):
