@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import shutil
 import uuid
+import sys
 from getpass import getpass
 from functools import wraps
 from pathlib import Path
@@ -133,6 +134,13 @@ def is_non_empty_directory(path: Path):
     if path.is_dir():
         return any(path.iterdir())
     return False
+
+
+def is_run_from_python_executable() -> bool:
+    """
+    `sys frozen returns True if the Python interpreter is frozen using a tool like pyinstaller.
+    """
+    return getattr(sys, "frozen", False)
 
 
 def read_input_dict(value):

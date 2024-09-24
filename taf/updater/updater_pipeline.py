@@ -183,6 +183,7 @@ class Pipeline:
 
     def handle_error(self, e):
         self.remove_temp_repositories()
+        self.state.event = Event.FAILED
         if self.state.auth_repo_name is not None:
             taf_logger.error(
                 "An error occurred while updating repository {} while running step {}: {}",
@@ -406,6 +407,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
+                    excluded_target_globs=self.excluded_target_globs,
                 )
                 self.state.repos_on_disk = {
                     target_repo.name: target_repo
@@ -774,19 +776,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
-            repositoriesdb.load_repositories(
-                self.state.users_auth_repo,
-                repo_classes=self.target_repo_classes,
-                factory=self.target_factory,
-                library_dir=self.library_dir,
-                commits=self.state.auth_commits_since_last_validated,
-                only_load_targets=True,
-                excluded_target_globs=self.excluded_target_globs,
-            )
             self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     self.state.auth_commits_since_last_validated[-1::],
+                    excluded_target_globs=self.excluded_target_globs,
                 )
             )
             if self.only_validate:
