@@ -63,6 +63,7 @@ NO_INFO_JSON = "Update of repository failed due to error: Error during info.json
 UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 FORCED_UPDATE_PATTERN = r"Update of (\w+\/\w+) failed due to error: Repositories ([\w/,\s-]+) have uncommitted changes. Commit and push or revert the changes and run the command again."
+UNPUSHED_COMMITS_PATTERN = r"Update of (\w+\/\w+) failed due to error:\s*\nThe following repository has unpushed commits on branches: ([\w\/]+): \(([\w,-]+)\)"
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Last validated commit ([0-9a-f]{40}) is not in the remote repository."
 INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
@@ -596,10 +597,14 @@ def swap_last_two_commits(auth_repo: AuthenticationRepository):
 
 
 def update_expiration_dates(
-    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"]
+    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"], push=True
 ):
     update_metadata_expiration_date(
-        str(auth_repo.path), roles=roles, keystore=KEYSTORE_PATH, interval=None
+        str(auth_repo.path),
+        roles=roles,
+        keystore=KEYSTORE_PATH,
+        interval=None,
+        push=push,
     )
 
 

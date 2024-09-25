@@ -39,7 +39,7 @@ def check_if_commits_match(
         origin_repo = GitRepository(origin_dir, repo_name)
         for branch in origin_repo.branches():
             # ensures that git log will work
-            client_repo.checkout_branch(branch)
+            # client_repo.checkout_branch(branch)
             start_commit = None
             if start_head_shas is not None:
                 start_commit = start_head_shas[repo_name].get(branch)
@@ -119,8 +119,11 @@ def clone_repositories(
     excluded_target_globs=None,
 ):
 
-    if clients_dir.is_dir():
-        shutil.rmtree(clients_dir)
+    # there is a cleanup issue caused by a file being in use
+    # delete before running the tests if exists
+    client_test_root = clients_dir / origin_auth_repo.name.split("/")[0]
+    if (client_test_root).is_dir():
+        shutil.rmtree(client_test_root)
     config = UpdateConfig(
         operation=OperationType.CLONE,
         url=str(origin_auth_repo.path),
@@ -162,20 +165,22 @@ def _get_valid_update_time(origin_auth_repo_path):
     return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%Y-%m-%d")
 
 
-def _get_head_commit_shas(client_repos, num_of_commits_to_remove=0):
+def _get_head_commit_shas(client_repos, num_of_commits_to_remove=None):
+    if num_of_commits_to_remove is None:
+        num_of_commits_to_remove = {}
+
     start_head_shas = defaultdict(dict)
     if client_repos is not None:
-        for repo_rel_path, repo in client_repos.items():
+        for repo_name, repo in client_repos.items():
+            to_revert = num_of_commits_to_remove.get(repo_name, 0)
             for branch in repo.branches():
-                if not num_of_commits_to_remove:
-                    start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
+                if to_revert == 0:
+                    start_head_shas[repo_name][branch] = repo.top_commit_of_branch(
                         branch
                     )
                 else:
                     all_commits = repo.all_commits_on_branch(branch)
-                    start_head_shas[repo_rel_path][branch] = all_commits[
-                        -num_of_commits_to_remove - 1
-                    ]
+                    start_head_shas[repo_name][branch] = all_commits[-to_revert - 1]
     return start_head_shas
 
 
@@ -213,7 +218,7 @@ def update_and_check_commit_shas(
     bare=False,
     no_upstream=False,
     skip_check_last_validated=False,
-    num_of_commits_to_remove=0,
+    num_of_commits_to_remove=None,
 ):
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
