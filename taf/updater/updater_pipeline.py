@@ -85,6 +85,7 @@ class UpdateState:
     ] = field(factory=dict)
     validated_auth_commits: List[str] = field(factory=list)
     temp_root: TempPartition = field(default=None)
+    update_handler: GitUpdater = field(default=None)
 
 
 @attrs
@@ -571,7 +572,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 validation_repo.default_branch
             )
             auth_repo_name = None
-            git_updater = None
+            self.state.update_handler = None
             if not self.auth_path:
                 self.state.auth_repo_name = (
                     _get_repository_name_raise_error_if_not_defined(
@@ -580,9 +581,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 self.auth_path = Path(self.library_dir, self.state.auth_repo_name)
 
-            git_updater = GitUpdater(self.url, self.library_dir, validation_repo.name)
+            self.state.update_handler = GitUpdater(
+                self.url, self.library_dir, validation_repo.name
+            )
             last_validated_remote_commit, error = _run_tuf_updater(
-                git_updater, self.state.auth_repo_name
+                self.state.update_handler, self.state.auth_repo_name
             )
             if last_validated_remote_commit is None and error is not None:
                 raise error
@@ -608,7 +611,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
 
             self._validate_operation_type()
-            self.state.validation_auth_repo = git_updater.validation_auth_repo
+            self.state.validation_auth_repo = (
+                self.state.update_handler.validation_auth_repo
+            )
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(
@@ -626,7 +631,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_auth_repo.last_validated_commit
                 )
             if error is None:
-                self.state.auth_commits_since_last_validated = list(git_updater.commits)
+                self.state.auth_commits_since_last_validated = list(
+                    self.state.update_handler.commits
+                )
                 taf_logger.info(
                     "Successfully validated authentication repository {}",
                     self.state.auth_repo_name,
@@ -643,7 +650,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 return UpdateStatus.SUCCESS
             else:
                 validated_commits_since_last_validated = []
-                for commit in git_updater.commits:
+                for commit in self.state.update_handler.commits:
                     validated_commits_since_last_validated.append(commit)
                     if commit == last_validated_remote_commit:
                         break
@@ -1397,6 +1404,7 @@ but commit not on branch {current_branch}"
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
             self.state.temp_root.cleanup()
+            self.state.update_handler.cleanup()
         except Exception:
             taf_logger.warning(
                 f"WARNING: Could not remove clean up temp folder: {self.state.temp_root}. Please remove it manually."
@@ -1454,9 +1462,16 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
             if self.state.update_status == UpdateStatus.FAILED:
                 return self.state.update_status
+            if self.no_upstream and self.state.event == Event.UNCHANGED:
+                # if no upstream and unchanged, there are no validated auth commits
+                # (which are set when valiating targets)
+                # but the top commit of the auth repo should've been validated
+                # call merge again as that can clean up a messy state of that repository
+                # such as it being in the detached head state
+                last_commit = self.state.auth_commits_since_last_validated[0]
+            else:
+                last_commit = self.state.validated_auth_commits[-1]
 
-            # if there were no errors, merge the last validated authentication repository commit
-            last_commit = self.state.validated_auth_commits[-1]
             self._merge_commit(
                 self.state.users_auth_repo,
                 self.state.users_auth_repo.default_branch,
