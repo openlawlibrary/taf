@@ -1,4 +1,3 @@
-from pathlib import Path
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
