@@ -111,7 +111,7 @@ class UpdateOutput:
     commits_data: AuthCommitsData = field(factory=AuthCommitsData)
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
-    warnings: List[str] = field(factory=list)
+    warnings: Optional[str] = field(default=None)
 
 
 def cleanup_decorator(pipeline_function):
@@ -1651,6 +1651,10 @@ but commit not on branch {current_branch}"
         else:
             error = None
 
+        warnings = ""
+        if len(self.state.warnings):
+            warnings = "\n".join(self.state.warnings)
+
         self._output = UpdateOutput(
             event=self.state.event,
             users_auth_repo=self.state.users_auth_repo,
@@ -1658,6 +1662,7 @@ but commit not on branch {current_branch}"
             commits_data=commits_data,
             error=error,
             targets_data=self.state.targets_data,
+            warnings=warnings,
         )
 
     def print_additional_commits(self):

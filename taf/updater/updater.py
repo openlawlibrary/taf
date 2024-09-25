@@ -88,6 +88,7 @@ def _execute_repo_handlers(
     scripts_root_dir,
     commits_data,
     error,
+    warnings,
     targets_data,
     transient_data,
 ):
@@ -100,6 +101,7 @@ def _execute_repo_handlers(
             auth_repo,
             commits_data,
             error,
+            warnings,
             targets_data,
         )
         if transient_data is not None:
@@ -388,6 +390,9 @@ def _update_or_clone_repository(config: UpdateConfig):
             root_auth_repo,
         )
 
+    if repos_update_data[auth_repo_name].get("warnings"):
+        taf_logger.warning(repos_update_data[auth_repo_name].get("warnings"))
+
     if root_error:
         raise root_error
     return unstructure(update_data)
@@ -420,6 +425,7 @@ def _process_repo_update(
     auth_repo = update_output.users_auth_repo
     commits_data = update_output.commits_data
     error = update_output.error
+    warnings = update_output.warnings
     targets_data = (update_output.targets_data,)
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
@@ -497,6 +503,7 @@ def _process_repo_update(
                 update_config.scripts_root_dir,
                 commits_data,
                 error,
+                warnings,
                 targets_data,
                 transient_data,
             )
@@ -507,6 +514,7 @@ def _process_repo_update(
             "update_status": update_status,
             "commits_data": commits_data,
             "error": error,
+            "warnings": warnings,
             "targets_data": targets_data,
         }
 

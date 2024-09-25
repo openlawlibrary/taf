@@ -138,12 +138,14 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
     setup_manager.add_task(update_expiration_dates)
     setup_manager.execute_tasks()
 
-    update_and_check_commit_shas(
+    update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         force=True,
     )
+
+    assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
 
     all_commits = client_auth_repo.all_commits_on_branch(
         client_auth_repo.default_branch
@@ -157,12 +159,13 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
     )
     client_auth_repo.set_last_validated_commit(all_commits[-2])
 
-    update_and_check_commit_shas(
+    update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         force=False,
     )
+    assert len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
 
     assert client_auth_repo.is_detached_head
     assert (
@@ -170,7 +173,7 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
         == all_commits[-1]
     )
 
-    update_and_check_commit_shas(
+    update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
@@ -181,6 +184,7 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
         client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
         == all_commits[-1]
     )
+    assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
 
 
 @pytest.mark.parametrize(
@@ -207,15 +211,17 @@ def test_update_valid_when_detached_head_target(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    update_and_check_commit_shas(
+    update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         force=True,
     )
 
-    namespace = origin_auth_repo.name.split("/")[0]
-    client_target_repo_path = client_dir / namespace / "target1"
+    assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
+
+    client_auth_repo_path = GitRepository(client_dir, origin_auth_repo.name).path
+    client_target_repo_path = client_auth_repo_path.parent / "target1"
     client_target_repo = GitRepository(path=client_target_repo_path)
     all_commits = client_target_repo.all_commits_on_branch(
         client_auth_repo.default_branch
@@ -228,12 +234,14 @@ def test_update_valid_when_detached_head_target(origin_auth_repo, client_dir):
         == all_commits[-2]
     )
 
-    update_and_check_commit_shas(
+    update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         force=False,
     )
+
+    assert len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
 
     assert client_target_repo.is_detached_head
     assert (
@@ -241,7 +249,7 @@ def test_update_valid_when_detached_head_target(origin_auth_repo, client_dir):
         == all_commits[-1]
     )
 
-    update_and_check_commit_shas(
+    update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
@@ -252,6 +260,7 @@ def test_update_valid_when_detached_head_target(origin_auth_repo, client_dir):
         client_target_repo.top_commit_of_branch(client_target_repo.default_branch)
         == all_commits[-1]
     )
+    assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
 
 
 # @pytest.mark.parametrize(

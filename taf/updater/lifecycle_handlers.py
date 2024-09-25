@@ -252,6 +252,7 @@ def prepare_data_repo(
     auth_repo,
     commits_data,
     error,
+    warnings,
     targets_data,
 ):
     conf_data = get_config(auth_repo.library_dir)
@@ -263,7 +264,7 @@ def prepare_data_repo(
         auth_repo: {
             "data": {
                 "update": _repo_update_data(
-                    auth_repo, event, commits_data, targets_data, error
+                    auth_repo, event, commits_data, targets_data, error, warnings
                 ),
                 "state": {
                     "transient": transient_data,
@@ -313,12 +314,15 @@ def prepare_data_update(
     }
 
 
-def _repo_update_data(auth_repo, update_status, commits_data, targets_data, error):
+def _repo_update_data(
+    auth_repo, update_status, commits_data, targets_data, error, warnings
+):
     return {
         "changed": update_status == Event.CHANGED,
         "event": _format_event(update_status),
         "repo_name": auth_repo.name,
         "error_msg": str(error) if error else "",
+        "warnings": warnings or "",
         "auth_repo": {
             "data": auth_repo.to_json_dict(),
             "commits": attr.asdict(commits_data),
