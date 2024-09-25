@@ -139,7 +139,7 @@ class GitUpdater(FetcherInterface):
             commits_since = self.validation_auth_repo.all_commits_since_commit(
                 last_validated_commit
             )
-        except GitError as e:
+        except GitError:
             taf_logger.error(
                 "Commit {} is not contained by the remote repository {}.",
                 last_validated_commit,

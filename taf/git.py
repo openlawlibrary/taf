@@ -1343,7 +1343,6 @@ class GitRepository:
         target_branch: Optional[str] = None,
         fast_forward_only: Optional[bool] = False,
         check_if_merge_completed: Optional[bool] = False,
-        update_remote_tracking: Optional[bool] = True,
     ) -> bool:
         # Determine the branch to merge into, defaulting to the current branch if not provided
         branch = target_branch or self.get_current_branch()
@@ -1352,10 +1351,7 @@ class GitRepository:
 
         self._git(f"merge {commit} {fast_forward_only_flag}", log_error=True)
 
-        if update_remote_tracking:
-            self._git(
-                f"update-ref refs/remotes/origin/{branch} {commit}", log_error=True
-            )
+        self.reset_to_commit(commit, branch, hard=True)
         if check_if_merge_completed:
             try:
                 self._git("rev-parse -q --verify MERGE_HEAD")
@@ -1440,16 +1436,21 @@ class GitRepository:
         self._git(f"reset {flag} HEAD~{num_of_commits}")
 
     def reset_to_commit(
-        self, commit: str, branch: str, hard: Optional[bool] = False
+        self, commit: str, branch: Optional[str] = None, hard: Optional[bool] = False
     ) -> None:
         flag = "--hard" if hard else "--soft"
 
+        if branch is None:
+            branch = self.get_current_branch()
+        self.update_branch_refs(branch, commit)
+        if hard:
+            self._git(f"reset {flag} HEAD")
+
+    def update_branch_refs(self, branch: str, commit: str) -> None:
         # Update the local branch reference to the specific commit
         self._git(f"update-ref refs/heads/{branch} {commit}")
         # Update the remote-tracking branch
-        self._git(f"update-ref refs/remotes/origin/{branch} {commit}")
-        if hard:
-            self._git(f"reset {flag} {commit}")
+        self._git(f"update-ref refs/remotes/origin/{branch} {commit}", log_error=True)
 
     def update_ref_for_bare_repository(self, branch: str, commit_sha: str) -> None:
         """

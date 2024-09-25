@@ -794,3 +794,72 @@ def test_update_valid_when_several_updates(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
+    # Set up a scenario where repositories are not clean
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates)
+    setup_manager.add_task(update_expiration_dates)
+    setup_manager.add_task(update_expiration_dates)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+    all_commits = client_auth_repo.all_commits_on_branch(
+        client_auth_repo.default_branch
+    )
+    client_auth_repo.reset_to_commit(all_commits[-2], hard=True)
+    client_auth_repo.checkout_commit(all_commits[-3])
+    assert client_auth_repo.is_detached_head
+    assert (
+        client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
+        == all_commits[-2]
+    )
+    client_auth_repo.set_last_validated_commit(all_commits[-2])
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=False,
+    )
+
+    assert client_auth_repo.is_detached_head
+    assert (
+        client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
+        == all_commits[-1]
+    )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+    assert not client_auth_repo.is_detached_head
+    assert (
+        client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
+        == all_commits[-1]
+    )

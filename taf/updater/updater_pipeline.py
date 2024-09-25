@@ -159,6 +159,7 @@ class Pipeline:
 
     def run(self):
         self.state.errors = []
+        self.state.warnings = []
         for step, step_run_mode, should_run_fn in self.steps:
             try:
                 if (
@@ -670,9 +671,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     urls=[self.url],
                 )
 
-            if git_updater is not None:
-                git_updater.cleanup()
-
     def _validate_operation_type(self):
         if self.operation == OperationType.CLONE and self.state.existing_repo:
             raise UpdateFailedError(
@@ -732,7 +730,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         def validate_commit_in_remote(repo, commit_sha):
             try:
-                repo.fetch()
                 remote_commits = repo.all_commits_on_branch(repo.default_branch)
                 return commit_sha in remote_commits
             except GitError:
@@ -749,7 +746,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             not in self.state.users_auth_repo.all_commits_on_branch(branch)
         ):
             if not validate_commit_in_remote(
-                self.state.users_auth_repo, last_validated_commit
+                self.state.validation_auth_repo, last_validated_commit
             ):
                 raise UpdateFailedError(
                     f"Last validated commit {last_validated_commit} is not in the remote repository."
@@ -1526,35 +1523,14 @@ but commit not on branch {current_branch}"
         if repository.top_commit_of_branch(branch) == commit_to_merge:
             return Event.UNCHANGED
 
-        commits_since_to_merge = repository.all_commits_since_commit(
-            commit_to_merge, branch=branch
+        taf_logger.info(
+            "{} Merging commit {} into branch {}",
+            repository.name,
+            format_commit(commit_to_merge),
+            branch,
         )
-        if not len(commits_since_to_merge):
-            taf_logger.info(
-                "{} Merging commit {} into branch {}",
-                repository.name,
-                format_commit(commit_to_merge),
-                branch,
-            )
-            repository.merge_commit(commit_to_merge, target_branch=branch)
+        repository.merge_commit(commit_to_merge, target_branch=branch)
 
-        elif len(commits_since_to_merge) and force_revert:
-            taf_logger.info(
-                "{} Reverting branch {} to {}",
-                repository.name,
-                branch,
-                format_commit(commit_to_merge),
-            )
-            repository.reset_to_commit(
-                commit_to_merge, branch=branch, hard=checkout_branch or self.force
-            )
-        else:
-            taf_logger.info(
-                "{} Commit {} already on branch {}",
-                repository.name,
-                format_commit(commit_to_merge),
-                branch,
-            )
         return Event.CHANGED
 
     def set_target_repositories_data(self):
