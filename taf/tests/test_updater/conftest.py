@@ -1,6 +1,7 @@
 import enum
 import os
 import re
+from typing import Optional
 import pytest
 import inspect
 import random
@@ -488,36 +489,51 @@ def setup_repository_no_target_repositories(
     return AuthenticationRepository(origin_dir, repo_name)
 
 
+def add_file_to_repository(
+    target_repo: GitRepository, filename: str, commit_message: Optional[str] = None
+):
+    content = _generate_random_text()
+    file_path = target_repo.path / filename
+    file_path.write_text(content)
+    if commit_message is not None:
+        target_repo.commit(commit_message)
+
+
 def add_valid_target_commits(
     auth_repo: AuthenticationRepository, target_repos: list, add_if_empty: bool = True
 ):
     for target_repo in target_repos:
         if not add_if_empty and target_repo.head_commit_sha() is None:
             continue
-        update_target_files(target_repo, "Update target files")
+        update_target_repository(target_repo, "Update target files")
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
+
+
+def add_file_to_target_repo_without_committing(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            add_file_to_repository(target_repo, "dirty.txt")
+
+
+def add_file_to_auth_repo_without_committing(auth_repo: AuthenticationRepository):
+    add_file_to_repository(auth_repo, "dirty.txt")
 
 
 def add_valid_unauthenticated_commits(target_repos: list):
     for target_repo in target_repos:
         if target_repo.custom.get("allow-unauthenticated-commits", False):
-            update_target_files(target_repo, "Update target files")
+            update_target_repository(target_repo, "Update target files")
 
 
 def add_unauthenticated_commits_to_all_target_repos(target_repos: list):
     for target_repo in target_repos:
-        update_target_files(target_repo, "Update target files")
+        update_target_repository(target_repo, "Update target files")
 
 
 def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: str):
     for target_repo in target_repos:
         if target_name in target_repo.name:
-            update_target_files(target_repo, "Update target files")
-
-
-def add_unauthenticated_commits_to_target_repo(target_repos: list):
-    for target_repo in target_repos:
-        update_target_files(target_repo, "Update target files")
+            update_target_repository(target_repo, "Update target files")
 
 
 def create_new_target_orphan_branches(
@@ -587,6 +603,18 @@ def update_expiration_dates(
     )
 
 
+def update_auth_repo_without_committing(
+    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"]
+):
+    update_metadata_expiration_date(
+        str(auth_repo.path),
+        roles=roles,
+        keystore=KEYSTORE_PATH,
+        interval=None,
+        commit=False,
+    )
+
+
 def update_role_metadata_without_signing(
     auth_repo: AuthenticationRepository, role: str
 ):
@@ -602,17 +630,10 @@ def update_role_metadata_without_signing(
     )
 
 
-def update_existing_file(repo: GitRepository, filename: str, commit_message: str):
-    text_to_add = _generate_random_text()
-    file_path = repo.path / filename
-    if file_path.exists():
-        with file_path.open("a") as file:
-            file.write(f"\n{text_to_add}")
-        repo.commit(commit_message)
-    else:
-        raise FileNotFoundError(
-            f"The file {filename} does not exist in the repository {repo.path}"
-        )
+def update_target_repo_without_committing(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            update_target_repository(target_repo)
 
 
 def update_role_metadata_invalid_signature(
@@ -653,7 +674,9 @@ def update_and_sign_metadata_without_clean_check(
     commit_and_push(auth_repo, commit_msg=commit_msg, push=False)
 
 
-def update_target_files(target_repo: GitRepository, commit_message: str):
+def update_target_repository(
+    target_repo: GitRepository, commit_message: Optional[str] = None
+):
     text_to_add = _generate_random_text()
     # Iterate over all files in the repository directory
     is_empty = True
@@ -667,27 +690,9 @@ def update_target_files(target_repo: GitRepository, commit_message: str):
     if is_empty:
         random_text = _generate_random_text()
         (target_repo.path / "test.txt").write_text(random_text)
-    target_repo.commit(commit_message)
 
-
-def update_file_without_commit(repo_path: str, filename: str):
-    text_to_add = _generate_random_text()
-    file_path = Path(repo_path) / filename
-    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-    if file_path.exists():
-        with file_path.open("a") as file:
-            file.write(text_to_add)
-    else:
-        with file_path.open("w") as file:
-            file.write(text_to_add)
-
-
-def add_file_without_commit(repo_path: str, filename: str):
-    text_to_add = _generate_random_text()
-    file_path = Path(repo_path) / filename
-    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-    with file_path.open("w") as file:
-        file.write(text_to_add)
+    if commit_message is not None:
+        target_repo.commit(commit_message)
 
 
 def remove_commits(

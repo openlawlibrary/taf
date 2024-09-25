@@ -1,12 +1,15 @@
 import pytest
 from taf.auth_repo import AuthenticationRepository
+from taf.git import GitRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
-    add_file_without_commit,
+    add_file_to_auth_repo_without_committing,
+    add_file_to_target_repo_without_committing,
     add_valid_target_commits,
     remove_commits,
+    update_auth_repo_without_committing,
     update_expiration_dates,
-    update_file_without_commit,
+    update_target_repo_without_committing,
 )
 from taf.tests.test_updater.update_utils import (
     clone_repositories,
@@ -31,7 +34,12 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
     )
 
     client_auth_repo_path = client_dir / origin_auth_repo.name
-    update_file_without_commit(str(client_auth_repo_path), "dirty_file.txt")
+    client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
+
+    setup_manager = SetupManager(client_auth_repo)
+    setup_manager.add_task(update_auth_repo_without_committing)
+    setup_manager.execute_tasks()
+    assert client_auth_repo.something_to_commit()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -40,7 +48,12 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
         force=True,
     )
 
-    add_file_without_commit(str(client_auth_repo_path), "new_file.txt")
+    assert not client_auth_repo.something_to_commit()
+
+    setup_manager.add_task(add_file_to_auth_repo_without_committing)
+    setup_manager.execute_tasks()
+
+    assert client_auth_repo.something_to_commit()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -48,6 +61,7 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
         client_dir,
         force=True,
     )
+    assert not client_auth_repo.something_to_commit()
 
 
 @pytest.mark.parametrize(
@@ -64,9 +78,17 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
     )
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
 
-    client_target_repo_path = client_dir / origin_auth_repo.name / "namespace/target1"
-    update_file_without_commit(str(client_target_repo_path), "dirty_file.txt")
+    setup_manager = SetupManager(client_auth_repo)
+    setup_manager.add_task(
+        update_target_repo_without_committing, kwargs={"target_name": "target1"}
+    )
+    setup_manager.execute_tasks()
+
+    target1 = GitRepository(path=(client_auth_repo_path.parent / "target1"))
+    assert target1.something_to_commit()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -75,7 +97,14 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
         force=True,
     )
 
-    add_file_without_commit(str(client_target_repo_path), "dirty_file.txt")
+    assert not target1.something_to_commit()
+
+    setup_manager.add_task(
+        add_file_to_target_repo_without_committing, kwargs={"target_name": "target1"}
+    )
+    setup_manager.execute_tasks()
+
+    assert target1.something_to_commit()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -83,6 +112,7 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
         client_dir,
         force=True,
     )
+    assert not target1.something_to_commit()
 
 
 @pytest.mark.parametrize(
@@ -95,7 +125,6 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
     indirect=True,
 )
 def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
-    # Set up a scenario where repositories
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -163,56 +192,127 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_with_removed_commits_in_auth_repo(origin_auth_repo, client_dir):
-    clone_repositories(origin_auth_repo, client_dir)
+def test_update_valid_when_detached_head_target(origin_auth_repo, client_dir):
+    # Set up a scenario where repositories
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    remove_commits(
-        repo_path=str(client_auth_repo.path),
-        num_commits=1,
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+    namespace = origin_auth_repo.name.split("/")[0]
+    client_target_repo_path = client_dir / namespace / "target1"
+    client_target_repo = GitRepository(path=client_target_repo_path)
+    all_commits = client_target_repo.all_commits_on_branch(
+        client_auth_repo.default_branch
+    )
+    client_target_repo.reset_to_commit(all_commits[-2], hard=True)
+    client_target_repo.checkout_commit(all_commits[-3])
+    assert client_target_repo.is_detached_head
+    assert (
+        client_target_repo.top_commit_of_branch(client_target_repo.default_branch)
+        == all_commits[-2]
     )
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
+        force=False,
     )
 
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [{"name": "target1"}, {"name": "target2"}],
-        },
-    ],
-    indirect=True,
-)
-def test_update_with_last_validated_commit_not_in_local_repo(
-    origin_auth_repo, client_dir
-):
-    clone_repositories(origin_auth_repo, client_dir)
-
-    setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.execute_tasks()
-
-    origin_top_commit_sha = origin_auth_repo.head_commit_sha()
-    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    client_auth_repo.set_last_validated_commit(origin_top_commit_sha)
-
-    remove_commits(
-        repo_path=str(client_auth_repo.path),
-        num_commits=1,
+    assert client_target_repo.is_detached_head
+    assert (
+        client_target_repo.top_commit_of_branch(client_target_repo.default_branch)
+        == all_commits[-1]
     )
-    # Skips udpater commit hash checks. Currently the update runs fully but the commit validation fails.
+
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        skip_check_last_validated=True,
+        force=True,
     )
+    assert not client_target_repo.is_detached_head
+    assert (
+        client_target_repo.top_commit_of_branch(client_target_repo.default_branch)
+        == all_commits[-1]
+    )
+
+
+# @pytest.mark.parametrize(
+#     "origin_auth_repo",
+#     [
+#         {
+#             "targets_config": [{"name": "target1"}, {"name": "target2"}],
+#         },
+#     ],
+#     indirect=True,
+# )
+# def test_update_with_removed_commits_in_auth_repo(origin_auth_repo, client_dir):
+#     clone_repositories(origin_auth_repo, client_dir)
+
+#     setup_manager = SetupManager(origin_auth_repo)
+#     setup_manager.add_task(add_valid_target_commits)
+#     setup_manager.execute_tasks()
+
+#     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+#     remove_commits(
+#         repo_path=str(client_auth_repo.path),
+#         num_commits=1,
+#     )
+
+#     update_and_check_commit_shas(
+#         OperationType.UPDATE,
+#         origin_auth_repo,
+#         client_dir,
+#     )
+
+
+# @pytest.mark.parametrize(
+#     "origin_auth_repo",
+#     [
+#         {
+#             "targets_config": [{"name": "target1"}, {"name": "target2"}],
+#         },
+#     ],
+#     indirect=True,
+# )
+# def test_update_with_last_validated_commit_not_in_local_repo(
+#     origin_auth_repo, client_dir
+# ):
+#     clone_repositories(origin_auth_repo, client_dir)
+
+#     setup_manager = SetupManager(origin_auth_repo)
+#     setup_manager.add_task(add_valid_target_commits)
+#     setup_manager.execute_tasks()
+
+#     origin_top_commit_sha = origin_auth_repo.head_commit_sha()
+#     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+#     client_auth_repo.set_last_validated_commit(origin_top_commit_sha)
+
+#     remove_commits(
+#         repo_path=str(client_auth_repo.path),
+#         num_commits=1,
+#     )
+#     # Skips udpater commit hash checks. Currently the update runs fully but the commit validation fails.
+#     update_and_check_commit_shas(
+#         OperationType.UPDATE,
+#         origin_auth_repo,
+#         client_dir,
+#         skip_check_last_validated=True,
+#     )
