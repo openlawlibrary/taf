@@ -145,6 +145,7 @@ class GitUpdater(FetcherInterface):
                 last_validated_commit,
                 self.validation_auth_repo.name,
             )
+            taf_logger.debug(e.message)
             raise UpdateFailedError(
                 f"Commit {last_validated_commit} is no longer contained by repository"
                 f" {self.validation_auth_repo.name}. This could "
