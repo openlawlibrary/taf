@@ -140,20 +140,17 @@ class GitUpdater(FetcherInterface):
                 last_validated_commit
             )
         except GitError as e:
-            if "Invalid revision range" in str(e):
-                taf_logger.error(
-                    "Commit {} is not contained by the remote repository {}.",
-                    last_validated_commit,
-                    self.validation_auth_repo.name,
-                )
-                raise UpdateFailedError(
-                    f"Commit {last_validated_commit} is no longer contained by repository"
-                    f" {self.validation_auth_repo.name}. This could "
-                    "either mean that there was an unauthorized push to the remote "
-                    "repository, or that last_validated_commit file was modified."
-                )
-            else:
-                raise e
+            taf_logger.error(
+                "Commit {} is not contained by the remote repository {}.",
+                last_validated_commit,
+                self.validation_auth_repo.name,
+            )
+            raise UpdateFailedError(
+                f"Commit {last_validated_commit} is no longer contained by repository"
+                f" {self.validation_auth_repo.name}. This could "
+                "either mean that there was an unauthorized push to the remote "
+                "repository, or that last_validated_commit file was modified."
+            )
 
         # check if the last validated commit exists in the remote repository
         # last_successful_commit could've been manually update to an invalid value

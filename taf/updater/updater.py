@@ -35,7 +35,6 @@ from taf.git import GitRepository
 from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater_pipeline import (
     AuthenticationRepositoryUpdatePipeline,
-    _merge_commit,
 )
 
 from pathlib import Path
@@ -483,21 +482,6 @@ def _process_repo_update(
                 _process_repo_update(
                     child_config, output, visited, repos_update_data, transient_data
                 )
-
-        if (
-            not update_config.only_validate
-            and len(commits)
-            and (update_status == Event.CHANGED or update_status == Event.PARTIAL)
-        ):
-            # when performing breadth-first update, validation might fail at some point
-            # but we want to update all repositories up to it
-            # so set last validated commit to this last valid commit
-            last_commit = commits[-1]
-            # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
-            # update the last validated commit
-            if not update_config.excluded_target_globs and not update_config.no_deps:
-                auth_repo.set_last_validated_commit(last_commit)
 
         # do not call the handlers if only validating the repositories
         # if a handler fails and we are in the development mode, revert the update

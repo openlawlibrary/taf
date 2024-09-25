@@ -57,6 +57,7 @@ class UpdateState:
     validation_auth_repo: Optional["AuthenticationRepository"] = field(default=None)
     auth_repo_name: Optional[str] = field(default=None)
     errors: Optional[List[Exception]] = field(default=None)
+    warnings: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
     last_validated_commit: str = field(factory=str)
     # repositories inside the temp folder which are created and cleaned up
@@ -109,6 +110,7 @@ class UpdateOutput:
     commits_data: AuthCommitsData = field(factory=AuthCommitsData)
     error: Optional[Exception] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
+    warnings: List[str] = field(factory=list)
 
 
 def cleanup_decorator(pipeline_function):
@@ -297,6 +299,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_validate_target_repos,
                 ),  # fetch commits; END UPDATE TARGET REPOS
                 (self.merge_commits, RunMode.UPDATE, None),  # merge fetched commits
+                (
+                    self.merge_auth_commits,
+                    RunMode.UPDATE,
+                    None,
+                ),  # merge fetched commits
                 (
                     self.remove_temp_repositories,
                     RunMode.UPDATE,
@@ -721,8 +728,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def _validate_last_validated_commit(self, last_validated_commit):
         branch = self.state.validation_auth_repo.default_branch
 
-        validation_repo = _clone_validation_repo(self.url)
-        users_head_sha = validation_repo.top_commit_of_branch(branch)
+        users_head_sha = self.state.users_auth_repo.top_commit_of_branch(branch)
 
         def validate_commit_in_remote(repo, commit_sha):
             try:
@@ -733,24 +739,31 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 return False
 
         if not last_validated_commit:
-            first_commit_sha = validation_repo.get_first_commit_on_branch(branch)
+            first_commit_sha = self.state.users_auth_repo.get_first_commit_on_branch(
+                branch
+            )
             last_validated_commit = first_commit_sha
 
-        if last_validated_commit not in validation_repo.all_commits_on_branch(branch):
-            if not validate_commit_in_remote(validation_repo, last_validated_commit):
+        if (
+            last_validated_commit
+            not in self.state.users_auth_repo.all_commits_on_branch(branch)
+        ):
+            if not validate_commit_in_remote(
+                self.state.users_auth_repo, last_validated_commit
+            ):
                 raise UpdateFailedError(
                     f"Last validated commit {last_validated_commit} is not in the remote repository."
                 )
             else:
                 # Re-validate from the point of divergence
-                commits_since = validation_repo.all_commits_since_commit(
+                commits_since = self.state.users_auth_repo.all_commits_since_commit(
                     since_commit=last_validated_commit, branch=branch
                 )
                 if users_head_sha not in commits_since:
                     raise UpdateFailedError(
-                        f"Top commit of repository {validation_repo.name} {users_head_sha} is not equal to or newer than the last successful commit."
+                        f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit."
                     )
-            validation_repo.set_last_validated_commit(users_head_sha)
+            self.state.users_auth_repo.set_last_validated_commit(users_head_sha)
             self.state.last_validated_commit = users_head_sha
 
     def clone_or_fetch_users_auth_repo(self):
@@ -1416,7 +1429,7 @@ but commit not on branch {current_branch}"
                 ].items():
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
-                    update_status = _merge_commit(
+                    update_status = self._merge_commit(
                         repository, branch, commit_to_merge, force_revert=True
                     )
                     events_list.append(update_status)
@@ -1424,11 +1437,125 @@ but commit not on branch {current_branch}"
             if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
                 # the auth repository was not updated, but one of the target repositories was
                 self.state.event = Event.CHANGED
+
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def merge_auth_commits(self):
+
+        """Determines which commits needs to be merged into the specified branch and
+        merge it.
+        """
+        taf_logger.info(
+            f"{self.state.auth_repo_name}: Merging commit into auth repo..."
+        )
+        try:
+            if self.only_validate or self.excluded_target_globs:
+                return self.state.update_status
+            if self.state.update_status == UpdateStatus.FAILED:
+                return self.state.update_status
+
+            # if there were no errors, merge the last validated authentication repository commit
+            last_commit = self.state.validated_auth_commits[-1]
+            self._merge_commit(
+                self.state.users_auth_repo,
+                self.state.users_auth_repo.default_branch,
+                last_commit,
+                False,
+            )
+            # update the last validated commit
+            self.state.users_auth_repo.set_last_validated_commit(last_commit)
+            return self.state.update_status
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def _merge_commit(self, repository, branch, commit_to_merge, force_revert=True):
+        """Merge the specified commit into the given branch and check out the branch.
+        If the repository cannot contain unauthenticated commits, check out the merged commit.
+        """
+        if repository.is_bare_repository:
+            repository.update_ref_for_bare_repository(branch, commit_to_merge)
+            return
+
+        # if the repo is in a deteched head state or if the updated branch exists,
+        # but is not checked out, update the repo without automatically checking
+        # out the newest branch and print a warning
+        # if run with --force, checkout the newest branch regardless of the repo's state
+
+        checkout_branch = True
+        local_branch_exists = repository.branch_exists(branch, include_remotes=False)
+        if not self.force:
+            if repository.is_detached_head:
+                self.state.warnings.append(
+                    f"Repository {repository.name} in a detached HEAD state. Checkout the newest branch manually or run the updater with --force"
+                )
+                checkout_branch = False
+            else:
+                current_branch = repository.get_current_branch()
+                if local_branch_exists and current_branch != branch:
+                    self.state.warnings.append(
+                        f"Repository {repository.name} on branch {current_branch}. Checkout the newest branch manually or run the updater with --force"
+                    )
+                    checkout_branch = False
+
+        if checkout_branch:
+            try:
+                repository.checkout_branch(branch, raise_anyway=True)
+            except GitError as e:
+                # two scenarios:
+                # current git repository is in an inconsistent state:
+                # - .git/index.lock exists (git partial update got applied)
+                # should get addressed in https://github.com/openlawlibrary/taf/issues/210
+                taf_logger.error(
+                    "Could not checkout branch {} during commit merge. Error {}",
+                    branch,
+                    e,
+                )
+                raise UpdateFailedError(
+                    f"Repository {repository.name} should contain only committed changes. \n"
+                    f"Please update the repository at {repository.path} manually and try again."
+                )
+        elif not local_branch_exists:
+            repository.create_local_branch(branch)
+
+        if repository.top_commit_of_branch(branch) == commit_to_merge:
+            return Event.UNCHANGED
+
+        commits_since_to_merge = repository.all_commits_since_commit(
+            commit_to_merge, branch=branch
+        )
+        if not len(commits_since_to_merge):
+            taf_logger.info(
+                "{} Merging commit {} into branch {}",
+                repository.name,
+                format_commit(commit_to_merge),
+                branch,
+            )
+            repository.merge_commit(commit_to_merge, target_branch=branch)
+
+        elif len(commits_since_to_merge) and force_revert:
+            taf_logger.info(
+                "{} Reverting branch {} to {}",
+                repository.name,
+                branch,
+                format_commit(commit_to_merge),
+            )
+            repository.reset_to_commit(
+                commit_to_merge, branch=branch, hard=checkout_branch or self.force
+            )
+        else:
+            taf_logger.info(
+                "{} Commit {} already on branch {}",
+                repository.name,
+                format_commit(commit_to_merge),
+                branch,
+            )
+        return Event.CHANGED
 
     def set_target_repositories_data(self):
         try:
@@ -1759,62 +1886,3 @@ def _format_commits(commits: List[Any]) -> str:
     else:
         formatted_commits = commits[0]
     return formatted_commits
-
-
-def _merge_commit(repository, branch, commit_to_merge, force_revert=True):
-    """Merge the specified commit into the given branch and check out the branch.
-    If the repository cannot contain unauthenticated commits, check out the merged commit.
-    """
-    if repository.is_bare_repository:
-        repository.update_ref_for_bare_repository(branch, commit_to_merge)
-        return
-
-    try:
-        repository.checkout_branch(branch, raise_anyway=True)
-    except GitError as e:
-        # two scenarios:
-        # current git repository is in an inconsistent state:
-        # - .git/index.lock exists (git partial update got applied)
-        # should get addressed in https://github.com/openlawlibrary/taf/issues/210
-        # current git repository has uncommitted changes:
-        # we do not want taf to lose any repo data, so we do not reset the repository.
-        # for now, raise an update error and let the user manually reset the repository
-        taf_logger.error(
-            "Could not checkout branch {} during commit merge. Error {}", branch, e
-        )
-        raise UpdateFailedError(
-            f"Repository {repository.name} should contain only committed changes. \n"
-            f"Please update the repository at {repository.path} manually and try again."
-        )
-
-    if repository.top_commit_of_branch(branch) == commit_to_merge:
-        return Event.UNCHANGED
-
-    commits_since_to_merge = repository.all_commits_since_commit(
-        commit_to_merge, branch=branch
-    )
-    if not len(commits_since_to_merge):
-        taf_logger.info(
-            "{} Merging commit {} into branch {}",
-            repository.name,
-            format_commit(commit_to_merge),
-            branch,
-        )
-        repository.merge_commit(commit_to_merge)
-
-    elif len(commits_since_to_merge) and force_revert:
-        taf_logger.info(
-            "{} Reverting branch {} to {}",
-            repository.name,
-            branch,
-            format_commit(commit_to_merge),
-        )
-        repository.reset_to_commit(commit_to_merge, hard=True)
-    else:
-        taf_logger.info(
-            "{} Commit {} already on branch {}",
-            repository.name,
-            format_commit(commit_to_merge),
-            branch,
-        )
-    return Event.CHANGED

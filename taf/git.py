@@ -162,6 +162,11 @@ class GitRepository:
         return self._remotes
 
     @property
+    def is_detached_head(self) -> bool:
+        repo = self.pygit_repo
+        return repo.head_is_detached
+
+    @property
     def is_git_repository(self) -> bool:
         """Check if the given path is the root of a Git repository."""
         # This is used when instantiating a PyGitRepository repo, so do not use
@@ -914,6 +919,17 @@ class GitRepository:
                 return hex
         return None
 
+    def create_local_branch_from_remote_tracking(self, branch, remote="origin"):
+        repo = self.pygit_repo
+        remote_branch_name = f"refs/remotes/{remote}/{branch}"
+        remote_branch = repo.lookup_reference(remote_branch_name)
+        if remote_branch is not None:
+            local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
+            if local_branch is None:
+                # Create a new local branch from the remote branch
+                target_commit = repo[remote_branch.target]
+                repo.create_branch(branch, target_commit)
+
     def delete_local_branch(self, branch_name: str) -> None:
         """Deletes local branch."""
         try:
@@ -1061,14 +1077,7 @@ class GitRepository:
         remote.fetch()
 
         for branch in branches:
-            remote_branch_name = f"refs/remotes/{temp_remote_name}/{branch}"
-            remote_branch = repo.lookup_reference(remote_branch_name)
-            if remote_branch is not None:
-                local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
-                if local_branch is None:
-                    # Create a new local branch from the remote branch
-                    target_commit = repo[remote_branch.target]
-                    repo.create_branch(branch, target_commit)
+            self.create_local_branch_from_remote_tracking(branch, temp_remote_name)
 
         repo.remotes.delete(temp_remote_name)
 
@@ -1331,17 +1340,22 @@ class GitRepository:
     def merge_commit(
         self,
         commit: str,
+        target_branch: Optional[str] = None,
         fast_forward_only: Optional[bool] = False,
         check_if_merge_completed: Optional[bool] = False,
         update_remote_tracking: Optional[bool] = True,
     ) -> bool:
+        # Determine the branch to merge into, defaulting to the current branch if not provided
+        branch = target_branch or self.get_current_branch()
+
         fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
-        self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
+
+        self._git(f"merge {commit} {fast_forward_only_flag}", log_error=True)
+
         if update_remote_tracking:
-            current_branch = self.get_current_branch()
             self._git(
-                f"update-ref refs/remotes/origin/{current_branch} HEAD", log_error=True
-            )  # Update remote tracking
+                f"update-ref refs/remotes/origin/{branch} {commit}", log_error=True
+            )
         if check_if_merge_completed:
             try:
                 self._git("rev-parse -q --verify MERGE_HEAD")
@@ -1425,9 +1439,17 @@ class GitRepository:
         flag = "--hard" if hard else "--soft"
         self._git(f"reset {flag} HEAD~{num_of_commits}")
 
-    def reset_to_commit(self, commit: str, hard: Optional[bool] = False) -> None:
+    def reset_to_commit(
+        self, commit: str, branch: str, hard: Optional[bool] = False
+    ) -> None:
         flag = "--hard" if hard else "--soft"
-        self._git(f"reset {flag} {commit}")
+
+        # Update the local branch reference to the specific commit
+        self._git(f"update-ref refs/heads/{branch} {commit}")
+        # Update the remote-tracking branch
+        self._git(f"update-ref refs/remotes/origin/{branch} {commit}")
+        if hard:
+            self._git(f"reset {flag} {commit}")
 
     def update_ref_for_bare_repository(self, branch: str, commit_sha: str) -> None:
         """
