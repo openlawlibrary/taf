@@ -235,6 +235,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     None,
                 ),  # run only when want to updatae; valaidation doesn't change repop sstate; merge will fail without this
                 (
+                    self.clone_auth_to_temp,
+                    RunMode.ALL,
+                    self.should_update_auth_repos,
+                ),  # should be done regardless of flags
+                (
+                    self.prepare_for_auth_update,
+                    RunMode.ALL,
+                    self.should_update_auth_repos,
+                ),
+                (
                     self.clone_remote_and_run_tuf_updater,
                     RunMode.ALL,
                     self.should_update_auth_repos,
@@ -535,54 +545,80 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     @cleanup_decorator
-    def clone_remote_and_run_tuf_updater(self):
-        if self.auth_path:
-            auth_repo_name = GitRepository(path=self.auth_path).name
-            taf_logger.info(
-                f"{auth_repo_name}: Cloning repository and running TUF updater..."
-            )
-        else:
-            taf_logger.info("Cloning repository and running TUF updater...")
-
-        if self.operation == OperationType.CLONE_OR_UPDATE:
-            if (
-                self.auth_path is not None
-                and AuthenticationRepository(path=self.auth_path).is_git_repository_root
-            ):
-                self.operation = OperationType.UPDATE
-            else:
-                self.operation = OperationType.CLONE
-
+    def clone_auth_to_temp(self):
         try:
+            users_path = self.auth_path or self.library_dir
+            self.state.temp_root = TempPartition(Path(users_path))
+
+            if self.auth_path:
+                auth_repo_name = GitRepository(path=self.auth_path).name
+                taf_logger.info(f"{auth_repo_name}: Cloning auth repository to temp...")
+            else:
+                taf_logger.info("Cloning auth repository to temp...")
+
+            path = Path(self.state.temp_root.temp_dir, "auth_repo").absolute()
+            self.state.validation_auth_repo = AuthenticationRepository(
+                path=path, urls=[self.url], alias="Validation repository"
+            )
+            self.state.validation_auth_repo.clone(bare=True)
+            self.state.validation_auth_repo.fetch(fetch_all=True)
+
+            settings.validation_repo_path[
+                self.state.validation_auth_repo.name
+            ] = self.state.validation_auth_repo.path
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def prepare_for_auth_update(self):
+        try:
+            if self.operation == OperationType.CLONE_OR_UPDATE:
+                if (
+                    self.auth_path is not None
+                    and AuthenticationRepository(
+                        path=self.auth_path
+                    ).is_git_repository_root
+                ):
+                    self.operation = OperationType.UPDATE
+                else:
+                    self.operation = OperationType.CLONE
 
             self.state.auth_commits_since_last_validated = None
-
-            validation_repo = _clone_validation_repo(self.url)
-
             # set last validated commit before running the updater
             # this last validated commit is read from the settings
-            self.set_last_validated_commit(validation_repo)
+            self.set_last_validated_commit(self.state.validation_auth_repo)
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
             # at revision determined by the last validated commit
             # but we do not want the user to have to wait for the validation to be over
             # before raising an error because info.json is missing
-            top_commit_of_validation_repo = validation_repo.top_commit_of_branch(
-                validation_repo.default_branch
+            top_commit_of_validation_repo = (
+                self.state.validation_auth_repo.top_commit_of_branch(
+                    self.state.validation_auth_repo.default_branch
+                )
             )
-            auth_repo_name = None
             self.state.update_handler = None
             if not self.auth_path:
                 self.state.auth_repo_name = (
                     _get_repository_name_raise_error_if_not_defined(
-                        validation_repo, top_commit_of_validation_repo
+                        self.state.validation_auth_repo, top_commit_of_validation_repo
                     )
                 )
                 self.auth_path = Path(self.library_dir, self.state.auth_repo_name)
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    @cleanup_decorator
+    def clone_remote_and_run_tuf_updater(self):
+
+        try:
 
             self.state.update_handler = GitUpdater(
-                self.url, self.library_dir, validation_repo.name
+                self.url, self.library_dir, self.state.validation_auth_repo.name
             )
             last_validated_remote_commit, error = _run_tuf_updater(
                 self.state.update_handler, self.state.auth_repo_name
@@ -592,11 +628,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             # having validated the repository, read info.json from the last
             # valid commit if it is not the same as the most recent commit
+            top_commit_of_validation_repo = (
+                self.state.validation_auth_repo.top_commit_of_branch(
+                    self.state.validation_auth_repo.default_branch
+                )
+            )
             if not self.auth_path:
                 if top_commit_of_validation_repo != last_validated_remote_commit:
                     self.state.auth_repo_name = (
                         _get_repository_name_raise_error_if_not_defined(
-                            validation_repo, last_validated_remote_commit
+                            self.state.validation_auth_repo,
+                            last_validated_remote_commit,
                         )
                     )
 
@@ -611,9 +653,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
 
             self._validate_operation_type()
-            self.state.validation_auth_repo = (
-                self.state.update_handler.validation_auth_repo
-            )
+
             self.state.is_test_repo = self.state.validation_auth_repo.is_test_repo
             if self.operation == OperationType.UPDATE:
                 self._validate_last_validated_commit(
@@ -805,7 +845,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_target_repositories
                 )
             else:
-                self.state.temp_root = TempPartition(self.state.users_auth_repo.path)
                 self.state.temp_target_repositories = {
                     repo.name: GitRepository(
                         self.state.temp_root.temp_dir,
@@ -1688,28 +1727,6 @@ but commit not on branch {current_branch}"
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-
-
-def _clone_validation_repo(url):
-    """
-    Clones the authentication repository based on the url specified using the
-    mirrors parameter. The repository is cloned as a bare repository
-    to a the temp directory and will be deleted one the update is done.
-
-    If repository_name isn't provided (default value), extract it from info.json.
-    """
-    temp_dir = tempfile.mkdtemp()
-    path = Path(temp_dir, "auth_repo").absolute()
-    validation_auth_repo = AuthenticationRepository(
-        path=path, urls=[url], alias="Validation repository"
-    )
-    validation_auth_repo.clone(bare=True)
-    validation_auth_repo.fetch(fetch_all=True)
-
-    settings.validation_repo_path[validation_auth_repo.name] = validation_auth_repo.path
-
-    validation_auth_repo.cleanup()
-    return validation_auth_repo
 
 
 def _get_repository_name_raise_error_if_not_defined(validation_repo, commit):
