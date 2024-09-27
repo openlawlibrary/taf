@@ -1,5 +1,5 @@
 import pytest
-from taf.taf.auth_repo import AuthenticationRepository
+from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
     add_valid_target_commits,

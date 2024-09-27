@@ -5,7 +5,6 @@ import functools
 from pathlib import Path
 import re
 import shutil
-import tempfile
 from typing import Any, Dict, List, Optional
 
 from attr import attrs, define, field
@@ -595,6 +594,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 else:
                     self.operation = OperationType.CLONE
 
+            def _clear_lvc():
+                settings.last_validated_commit[
+                    self.state.validation_auth_repo.name
+                ] = None
+                self.state.last_validated_commit = None
+
             self.state.auth_commits_since_last_validated = None
             # set last validated commit before running the updater
             # this last validated commit is read from the settings
@@ -641,10 +646,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         taf_logger.warning(
                             f"{error_msg}. Starting validation from the first commit"
                         )
-                        settings.last_validated_commit[
-                            self.state.validation_auth_repo.name
-                        ] = None
-                        self.state.last_validated_commit = None
+                        _clear_lvc()
                     else:
                         raise UpdateFailedError(
                             f"{error_msg}\nRun the updater with the --force flag to run the validation from the first commit"

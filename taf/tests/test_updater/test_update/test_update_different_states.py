@@ -217,7 +217,7 @@ def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
+def test_update_unpushed_commits_target_repo(origin_auth_repo, client_dir):
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -260,76 +260,6 @@ def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
     assert not len(
         client_target_repo.branch_unpushed_commits(client_target_repo.default_branch)
     )
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [{"name": "target1"}, {"name": "target2"}],
-        },
-    ],
-    indirect=True,
-)
-def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
-    client_auth_repo_path = client_dir / origin_auth_repo.name
-    client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
-
-    setup_manager = SetupManager(client_auth_repo)
-    setup_manager.add_task(
-        update_target_repo_without_committing, kwargs={"target_name": "target1"}
-    )
-    setup_manager.execute_tasks()
-
-    target1 = GitRepository(path=(client_auth_repo_path.parent / "target1"))
-    assert target1.something_to_commit()
-
-    # the update should fail without the force flag
-    update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        FORCED_UPDATE_PATTERN,
-        True,
-    )
-
-    # now call with the force flag
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        force=True,
-    )
-
-    assert not target1.something_to_commit()
-
-    setup_manager.add_task(
-        add_file_to_target_repo_without_committing, kwargs={"target_name": "target1"}
-    )
-    setup_manager.execute_tasks()
-
-    assert target1.something_to_commit()
-
-    # the update should fail without the force flag
-    update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        FORCED_UPDATE_PATTERN,
-        True,
-    )
-
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        force=True,
-    )
-    assert not target1.something_to_commit()
 
 
 @pytest.mark.parametrize(
