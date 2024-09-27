@@ -57,6 +57,7 @@ from taf.updater.lifecycle_handlers import (
 from cattr import unstructure
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+from taf.updater.types.update import Update
 
 disable_tuf_console_logging()
 
@@ -362,7 +363,7 @@ def _update_or_clone_repository(config: UpdateConfig):
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
         )
 
-    update_data = {}
+    update_data = Update()
     if not config.excluded_target_globs:
         # after all repositories have been updated
         # update information is in repos_update_data
@@ -395,7 +396,7 @@ def _update_or_clone_repository(config: UpdateConfig):
             "event": repo_info["event"],
             **({"error": repo_info["error_msg"]} if repo_info["error_msg"] else {}),
         }
-        for repo_name, repo_info in update_data["auth_repos"].items()
+        for repo_name, repo_info in update_data.auth_repos.items()
     }
     _pretty_print_repos(update_output_dict)
     # taf_logger.log("NOTICE", f"Update of {auth_repo_name} completed with status: {update_status.value}")
