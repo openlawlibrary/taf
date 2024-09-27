@@ -543,26 +543,23 @@ def _pretty_print_repos(repo_data):
     changes_or_errors = False
 
     for repo_name, details in repo_data.items():
-        if details["changed"] or "error" in details:
-            changes_or_errors = True
-            taf_logger.log("NOTICE", f"Repository: {repo_name}")
-            taf_logger.log(
-                "NOTICE",
-                f"  Change status: {'Changed' if details['changed'] else 'No changes'}",
-            )
-            taf_logger.log(
-                "NOTICE", f"  Event: Operation {details['event'].split('/')[-1]}"
-            )
+        changed = details.get("changed", False)
+        event_operation = details["event"]
+        error_message = details.get("error")
 
-            if "error" in details:
-                taf_logger.log("NOTICE", f"  Error: {details['error']}\n")
-            else:
-                taf_logger.log("NOTICE", "  No errors reported.\n")
+        if changed or error_message:
+            changes_or_errors = True
+            message = f"Repository: {repo_name}\n"
+            message += f"  Change status: {'changed' if changed else 'no changes'}\n"
+            message += f"  Event: {event_operation}"
+
+            if error_message:
+                message += f"\n  Error: {error_message}\n"
+
+            taf_logger.log("NOTICE", message)
 
     if not changes_or_errors:
-        taf_logger.log(
-            "NOTICE", "All repositories are up-to-date with no changes or errors."
-        )
+        taf_logger.log("NOTICE", "All repositories are up-to-date with no changes or errors.")
 
 
 def _update_dependencies(update_config, child_auth_repos):
