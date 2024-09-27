@@ -318,10 +318,13 @@ def test_update_when_unauthenticated_allowed_different_commits_on_remote(
     setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
     setup_manager.execute_tasks()
 
+    target_repos = load_target_repositories(client_auth_repo)
+    num_of_commits_to_remove = {target_repo: 1 for target_repo in target_repos}
+
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         force=True,
-        num_of_commits_to_remove=1,
+        num_of_commits_to_remove=num_of_commits_to_remove,
     )
