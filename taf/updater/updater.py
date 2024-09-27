@@ -389,16 +389,7 @@ def _update_or_clone_repository(config: UpdateConfig):
             errors,
             root_auth_repo,
         )
-    # from rich import print
-    update_output_dict = {
-        repo_name: {
-            "changed": repo_info["changed"],
-            "event": repo_info["event"],
-            **({"error": repo_info["error_msg"]} if repo_info["error_msg"] else {}),
-        }
-        for repo_name, repo_info in update_data.auth_repos.items()
-    }
-    _pretty_print_repos(update_output_dict)
+    log_repo_updates(update_data)
     if root_error:
         raise root_error
     return unstructure(update_data)
@@ -539,10 +530,21 @@ def _process_repo_update(
     repositoriesdb.clear_repositories_db()
 
 
-def _pretty_print_repos(repo_data):
+def log_repo_updates(update_data: Update):
+    """
+    Log the status of the repositories after updating them.
+    """
+    update_output_dict = {
+        repo_name: {
+            "changed": repo_info["changed"],
+            "event": repo_info["event"],
+            **({"error": repo_info["error_msg"]} if repo_info["error_msg"] else {}),
+        }
+        for repo_name, repo_info in update_data.auth_repos.items()
+    }
     changes_or_errors = False
 
-    for repo_name, details in repo_data.items():
+    for repo_name, details in update_output_dict.items():
         changed = details.get("changed", False)
         event_operation = details["event"]
         error_message = details.get("error")
@@ -559,7 +561,9 @@ def _pretty_print_repos(repo_data):
             taf_logger.log("NOTICE", message)
 
     if not changes_or_errors:
-        taf_logger.log("NOTICE", "All repositories are up-to-date with no changes or errors.")
+        taf_logger.log(
+            "NOTICE", "All repositories are up-to-date with no changes or errors."
+        )
 
 
 def _update_dependencies(update_config, child_auth_repos):
