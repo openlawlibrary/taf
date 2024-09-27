@@ -399,7 +399,6 @@ def _update_or_clone_repository(config: UpdateConfig):
         for repo_name, repo_info in update_data.auth_repos.items()
     }
     _pretty_print_repos(update_output_dict)
-    # taf_logger.log("NOTICE", f"Update of {auth_repo_name} completed with status: {update_status.value}")
     if root_error:
         raise root_error
     return unstructure(update_data)
