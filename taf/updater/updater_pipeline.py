@@ -48,6 +48,7 @@ class RunMode(Enum):
 @define
 class UpdateState:
     auth_commits_since_last_validated: List[Any] = field(factory=list)
+    invalid_auth_commits: List[Any] = field(factory=list)
     existing_repo: bool = field(default=False)
     is_test_repo: bool = field(default=False)
     update_status: UpdateStatus = field(default=None)
@@ -240,12 +241,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_update_auth_repos,
                 ),  # should be done regardless of flags
                 (
-                    self.prepare_for_auth_update,
+                    self.prepare_for_auth_update_and_check_last_validated_commit,
                     RunMode.ALL,
                     self.should_update_auth_repos,
                 ),
                 (
-                    self.clone_remote_and_run_tuf_updater,
+                    self.run_tuf_updater,
                     RunMode.ALL,
                     self.should_update_auth_repos,
                 ),  # should be done regardless of flags
@@ -254,6 +255,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     RunMode.ALL,
                     self.should_update_auth_repos,
                 ),  # auth repo
+                (
+                    self.validate_last_validated_commit,
+                    RunMode.ALL,
+                    self.should_update_auth_repos,
+                ),
                 (
                     self.clone_or_fetch_users_auth_repo,
                     RunMode.UPDATE,
@@ -436,17 +442,22 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.clear_repositories_db()
         return UpdateStatus.SUCCESS
 
-    def set_last_validated_commit(self, validation_repo):
+    def _set_last_validated_commit(self):
         if self.operation == OperationType.CLONE:
-            settings.last_validated_commit = {}
+            settings.last_validated_commit[self.state.validation_auth_repo.name] = None
+            self.state.last_validated_commit = None
         elif not settings.overwrite_last_validated_commit:
             users_auth_repo = AuthenticationRepository(path=self.auth_path)
             last_validated_commit = users_auth_repo.last_validated_commit
-            settings.last_validated_commit[validation_repo.name] = last_validated_commit
+            settings.last_validated_commit[
+                self.state.validation_auth_repo.name
+            ] = last_validated_commit
+            self.state.last_validated_commit = last_validated_commit
         elif self.validate_from_commit:
             settings.last_validated_commit[
-                validation_repo.name
+                self.state.validation_auth_repo.name
             ] = self.validate_from_commit
+            self.state.last_validated_commit = self.validate_from_commit
 
     def check_if_local_repositories_clean(self):
         try:
@@ -571,7 +582,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def prepare_for_auth_update(self):
+    def prepare_for_auth_update_and_check_last_validated_commit(self):
         try:
             if self.operation == OperationType.CLONE_OR_UPDATE:
                 if (
@@ -587,7 +598,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.auth_commits_since_last_validated = None
             # set last validated commit before running the updater
             # this last validated commit is read from the settings
-            self.set_last_validated_commit(self.state.validation_auth_repo)
+            self._set_last_validated_commit(self.state.validation_auth_repo)
 
             # check if auth path is provided and if that is not the case
             # check if info.json exists. info.json will be read after validation
@@ -607,13 +618,85 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                 )
                 self.auth_path = Path(self.library_dir, self.state.auth_repo_name)
+
+            if self.state.users_auth_repo:
+                default_branch = self.state.validation_auth_repo.default_branch
+                # validate before running the updater
+                # if the last validated commit is not contained by the remote repository
+                # either the remote repository was tempered with or the last validated commit
+                # was manually set to an invalid value
+                if self.state.last_validated_commit and not _check_if_commit_on_branch(
+                    self.state.validation_auth_repo,
+                    self.state.last_validated_commit,
+                    default_branch,
+                ):
+
+                    error_msg = (
+                        f"Last validated commit {self.state.last_validated_commit} is no longer on the {default_branch}"
+                        f"of the remote {self.state.validation_auth_repo.name} repository. This could "
+                        "either mean that there was an unauthorized push to the remote "
+                        "repository, or that last_validated_commit file was modified."
+                    )
+                    if self.force:
+                        # if last validated commit is not in the remote and run with --force, start the
+                        # validation from the beginning. This will set the last validated commit
+                        taf_logger.warning(
+                            f"{error_msg}. Starting validation from the first commit"
+                        )
+                        settings.last_validated_commit[
+                            self.state.validation_auth_repo.name
+                        ] = None
+                        self.state.last_validated_commit = None
+                    else:
+                        raise UpdateFailedError(error_msg)
+                # validate the top commit of the user's auth repo
+                # if it's not in the remote repo -> fail early
+                users_head_sha = self.state.users_auth_repo.top_commit_of_branch(
+                    default_branch
+                )
+                if self.state.last_validated_commit and not _check_if_commit_on_branch(
+                    self.state.validation_auth_repo, users_head_sha, default_branch
+                ):
+
+                    error_msg = (
+                        f"The newest commit of repository {self.state.users_auth_repo.name} is not longer "
+                        f"on branch {default_branch} of the remote repository. This could "
+                        "either mean that there was an unauthorized push to the remote "
+                        "or invalid modification of the local repository."
+                    )
+                    # this is always an error, force or no force
+                    raise UpdateFailedError(error_msg)
+                if users_head_sha != self.state.last_validated_commit:
+                    commits_since = self.state.users_auth_repo.all_commits_since_commit(
+                        since_commit=self.state.last_validated_commit,
+                        branch=default_branch,
+                    )
+                if users_head_sha not in commits_since:
+                    if self.force:
+                        if _check_if_commit_on_branch(
+                            self.state.users_auth_repo,
+                            self.state.last_validated_commit,
+                            default_branch,
+                        ):
+                            self.state.users_auth_repo.reset_to_commit(
+                                self.state.last_validated_commit
+                            )
+                            taf_logger.log(
+                                "NOTICE",
+                                f"{self.state.users_auth_repo.name}: Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                "Resetting repository to last validated commit",
+                            )
+                    else:
+                        raise UpdateFailedError(
+                            f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit."
+                        )
+
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    @cleanup_decorator
-    def clone_remote_and_run_tuf_updater(self):
+    def run_tuf_updater(self):
 
         try:
 
@@ -670,6 +753,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.last_validated_commit = (
                     self.state.users_auth_repo.last_validated_commit
                 )
+            self.state.invalid_auth_commits = []
             if error is None:
                 self.state.auth_commits_since_last_validated = list(
                     self.state.update_handler.commits
@@ -689,15 +773,26 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 return UpdateStatus.SUCCESS
             else:
-                validated_commits_since_last_validated = []
-                for commit in self.state.update_handler.commits:
-                    validated_commits_since_last_validated.append(commit)
-                    if commit == last_validated_remote_commit:
-                        break
+                try:
+                    last_validated_index = self.state.update_handler.commits.index(
+                        last_validated_remote_commit
+                    )
+                except ValueError:
+                    last_validated_index = -1
 
-                self.state.auth_commits_since_last_validated = (
-                    validated_commits_since_last_validated
-                )
+                if last_validated_index != -1:
+                    self.state.auth_commits_since_last_validated = (
+                        self.state.update_handler.commits[: last_validated_index + 1]
+                    )
+                    self.state.invalid_auth_commits = self.state.update_handler.commits[
+                        last_validated_index + 1 :
+                    ]
+                else:
+                    self.state.auth_commits_since_last_validated = []
+                    self.state.invalid_auth_commits = self.state.update_handler.commits[
+                        :
+                    ]
+
                 self.state.errors.append(error)
                 self.state.event = Event.PARTIAL
                 return UpdateStatus.PARTIAL
@@ -770,45 +865,23 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _validate_last_validated_commit(self, last_validated_commit):
-        branch = self.state.validation_auth_repo.default_branch
-
-        users_head_sha = self.state.users_auth_repo.top_commit_of_branch(branch)
-
-        def validate_commit_in_remote(repo, commit_sha):
-            try:
-                remote_commits = repo.all_commits_on_branch(repo.default_branch)
-                return commit_sha in remote_commits
-            except GitError:
-                return False
-
-        if not last_validated_commit:
-            first_commit_sha = self.state.users_auth_repo.get_first_commit_on_branch(
-                branch
-            )
-            last_validated_commit = first_commit_sha
-
+    def validate_last_validated_commit(self):
+        # last validated commit was already validated against the remote repo before the update was initiated
+        # so just check if it was manually set to a commit that follows the last valid commit
         if (
-            last_validated_commit
-            not in self.state.users_auth_repo.all_commits_on_branch(branch)
+            self.state.last_validated_commit is not None
+            and self.state.last_validated_commit in self.state.invalid_auth_commits
         ):
-            if not validate_commit_in_remote(
-                self.state.validation_auth_repo, last_validated_commit
-            ):
-                raise UpdateFailedError(
-                    f"Last validated commit {last_validated_commit} is not in the remote repository."
+            error_msg = f"Last validated commit {self.state.last_validated_commit} could not be validated."
+            if self.force:
+                # if last validated commit is not in the remote and run with --force, start the
+                # validation from the beginning. This will set the last validated commit
+                taf_logger.warning(
+                    f"{error_msg}. Starting validation from the first commit"
                 )
+                self.state.last_validated_commit = None
             else:
-                # Re-validate from the point of divergence
-                commits_since = self.state.users_auth_repo.all_commits_since_commit(
-                    since_commit=last_validated_commit, branch=branch
-                )
-                if users_head_sha not in commits_since:
-                    raise UpdateFailedError(
-                        f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit."
-                    )
-            self.state.users_auth_repo.set_last_validated_commit(users_head_sha)
-            self.state.last_validated_commit = users_head_sha
+                raise UpdateFailedError(error_msg)
 
     def clone_or_fetch_users_auth_repo(self):
         # fetch the latest commit or clone the repository without checkout
@@ -821,9 +894,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo.fetch(fetch_all=True)
             else:
                 self.state.users_auth_repo.clone(bare=self.bare)
-            self._validate_last_validated_commit(
-                self.state.users_auth_repo.last_validated_commit
-            )
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -1829,6 +1899,17 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         taf_logger.warning(
             f"WARNING: Could not validate authentication repository {auth_repo_name} at revision {current_commit} due to error: {e}"
         )
+
+
+def _check_if_commit_on_branch(repo, commit, branch):
+    try:
+        repo.commit_exists(commit_sha=commit)
+    except GitError:
+        return False
+
+    branches_containing_last_validated_commit = repo.branches_containing_commit(commit)
+
+    return branch in branches_containing_last_validated_commit
 
 
 def _validate_metadata_on_disk(git_fetcher):
