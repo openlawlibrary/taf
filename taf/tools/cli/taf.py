@@ -1,5 +1,5 @@
 import click
-from .lazy_group import LazyGroup
+from taf.tools.cli.lazy_group import LazyGroup
 
 
 @click.group(cls=LazyGroup, lazy_subcommands={
@@ -11,6 +11,7 @@ from .lazy_group import LazyGroup
     "metadata": "taf.tools.metadata.attach_to_group",
     "roles": "taf.tools.roles.attach_to_group",
     "yubikey": "taf.tools.yubikey.attach_to_group",
+    "scripts": "taf.tools.scripts.attach_to_group",
 })
 @click.version_option()
 def taf():
