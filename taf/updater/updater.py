@@ -595,7 +595,6 @@ def validate_repository(
         if (auth_path / "targets" / "test-auth-repo").exists()
         else UpdateType.OFFICIAL
     )
-    settings.overwrite_last_validated_commit = True
     auth_repo_name = None
 
     try:
@@ -629,5 +628,4 @@ def validate_repository(
         raise ValidationFailedError(
             f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
         )
-    settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = {}

@@ -445,7 +445,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         if self.operation == OperationType.CLONE:
             settings.last_validated_commit[self.state.validation_auth_repo.name] = None
             self.state.last_validated_commit = None
-        elif not settings.overwrite_last_validated_commit:
+        elif not self.validate_from_commit:
             users_auth_repo = AuthenticationRepository(path=self.auth_path)
             last_validated_commit = users_auth_repo.last_validated_commit
             settings.last_validated_commit[
@@ -623,40 +623,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 self.auth_path = Path(self.library_dir, self.state.auth_repo_name)
 
-            if self.state.users_auth_repo:
-                default_branch = self.state.validation_auth_repo.default_branch
-                # validate before running the updater
-                # if the last validated commit is not contained by the remote repository
-                # either the remote repository was tempered with or the last validated commit
-                # was manually set to an invalid value
-                if self.state.last_validated_commit and not _check_if_commit_on_branch(
-                    self.state.validation_auth_repo,
-                    self.state.last_validated_commit,
-                    default_branch,
-                ):
-                    error_msg = (
-                        f"Last validated commit {self.state.last_validated_commit} is no longer on {default_branch} "
-                        f"of the remote {self.state.users_auth_repo.name} repository. This could "
-                        "either mean that there was an unauthorized push to the remote "
-                        "repository, or that last_validated_commit file was modified. "
-                    )
-                    if self.force:
-                        # if last validated commit is not in the remote and run with --force, start the
-                        # validation from the beginning. This will set the last validated commit
-                        taf_logger.warning(
-                            f"{error_msg}. Starting validation from the first commit"
-                        )
-                        _clear_lvc()
-                    else:
-                        raise UpdateFailedError(
-                            f"{error_msg}\nRun the updater with the --force flag to run the validation from the first commit"
-                        )
+            if (
+                self.state.users_auth_repo
+                and self.state.users_auth_repo.is_git_repository_root
+            ):
                 # validate the top commit of the user's auth repo
                 # if it's not in the remote repo -> fail early
+                default_branch = self.state.validation_auth_repo.default_branch
                 users_head_sha = self.state.users_auth_repo.top_commit_of_branch(
                     default_branch
                 )
-                if self.state.last_validated_commit and not _check_if_commit_on_branch(
+                if not _check_if_commit_on_branch(
                     self.state.validation_auth_repo, users_head_sha, default_branch
                 ):
                     error_msg = (
@@ -668,56 +645,84 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     # this is always an error, force or no force
                     raise UpdateFailedError(error_msg)
 
-                if users_head_sha != self.state.last_validated_commit:
-                    if not _check_if_commit_on_branch(
-                        self.state.users_auth_repo,
-                        self.state.last_validated_commit,
-                        default_branch,
-                        include_remotes=True,
+                if self.state.last_validated_commit:
+                    # validate before running the updater
+                    # if the last validated commit is not contained by the remote repository
+                    # either the remote repository was tempered with or the last validated commit
+                    # was manually set to an invalid value
+                    if (
+                        self.state.last_validated_commit
+                        and not _check_if_commit_on_branch(
+                            self.state.validation_auth_repo,
+                            self.state.last_validated_commit,
+                            default_branch,
+                        )
                     ):
+                        error_msg = (
+                            f"Last validated commit {self.state.last_validated_commit} is no longer on {default_branch} "
+                            f"of the remote {self.state.users_auth_repo.name} repository. This could "
+                            "either mean that there was an unauthorized push to the remote "
+                            "repository, or that last_validated_commit file was modified. "
+                        )
                         if self.force:
-                            settings.last_validated_commit[
-                                self.state.validation_auth_repo.name
-                            ] = None
-                            self.state.last_validated_commit = None
+                            # if last validated commit is not in the remote and run with --force, start the
+                            # validation from the beginning. This will set the last validated commit
                             taf_logger.warning(
-                                f"{self.state.users_auth_repo.name}: Last validated commit {users_head_sha} is not in repository {self.state.users_auth_repo.name} "
-                                "Running the validation from the first commit."
+                                f"{error_msg}. Starting validation from the first commit"
                             )
+                            _clear_lvc()
                         else:
                             raise UpdateFailedError(
-                                f"{self.state.users_auth_repo.name}: Last validated commit {users_head_sha} is not in repository {self.state.users_auth_repo.name} "
-                                "\nRun the updater with the --force flag to run the validation from the first commit"
+                                f"{error_msg}\nRun the updater with the --force flag to run the validation from the first commit"
                             )
-                    else:
-                        commits_since = (
-                            self.state.users_auth_repo.all_commits_since_commit(
-                                since_commit=self.state.last_validated_commit,
-                                branch=default_branch,
-                            )
-                        )
-                        # if the user's head sha is newer than last validated commit
-                        # that can mean that the changes were pulled manually
-                        # validation will start from the last validated commit
-                        # and there is no need to do anything else
-                        # if the user's head commit is not newer or equal to the last validated commit
-                        # that could meant that the user manually removed some commits from the local
-                        # repository
-                        if users_head_sha not in commits_since:
+
+                    if (
+                        self.state.last_validated_commit
+                        and users_head_sha != self.state.last_validated_commit
+                    ):
+                        if not _check_if_commit_on_branch(
+                            self.state.users_auth_repo,
+                            self.state.last_validated_commit,
+                            default_branch,
+                            include_remotes=True,
+                        ):
                             if self.force:
-                                settings.last_validated_commit[
-                                    self.state.validation_auth_repo.name
-                                ] = None
-                                self.state.last_validated_commit = None
+                                _clear_lvc()
                                 taf_logger.warning(
-                                    f"{self.state.users_auth_repo.name}: Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                    f"{self.state.users_auth_repo.name}: Last validated commit {users_head_sha} is not in repository {self.state.users_auth_repo.name} "
                                     "Running the validation from the first commit."
                                 )
                             else:
                                 raise UpdateFailedError(
-                                    f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                    f"{self.state.users_auth_repo.name}: Last validated commit {users_head_sha} is not in repository {self.state.users_auth_repo.name} "
                                     "\nRun the updater with the --force flag to run the validation from the first commit"
                                 )
+                        else:
+                            commits_since = (
+                                self.state.users_auth_repo.all_commits_since_commit(
+                                    since_commit=self.state.last_validated_commit,
+                                    branch=default_branch,
+                                )
+                            )
+                            # if the user's head sha is newer than last validated commit
+                            # that can mean that the changes were pulled manually
+                            # validation will start from the last validated commit
+                            # and there is no need to do anything else
+                            # if the user's head commit is not newer or equal to the last validated commit
+                            # that could meant that the user manually removed some commits from the local
+                            # repository
+                            if users_head_sha not in commits_since:
+                                if self.force:
+                                    _clear_lvc()
+                                    taf_logger.warning(
+                                        f"{self.state.users_auth_repo.name}: Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                        "Running the validation from the first commit."
+                                    )
+                                else:
+                                    raise UpdateFailedError(
+                                        f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                        "\nRun the updater with the --force flag to run the validation from the first commit"
+                                    )
 
         except Exception as e:
             self.state.errors.append(e)
