@@ -1,6 +1,7 @@
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
+    INVALID_KEYS_PATTERN,
     LVC_NOT_IN_REMOTE_PATTERN,
     TARGET_MISSMATCH_PATTERN,
     UNCOMMITTED_CHANGES,
@@ -8,8 +9,11 @@ from taf.tests.test_updater.conftest import (
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     create_index_lock,
+    update_expiration_dates,
+    update_role_metadata_invalid_signature,
 )
 from taf.tests.test_updater.update_utils import (
+    check_if_last_validated_commit_exists,
     clone_repositories,
     update_invalid_repos_and_check_if_repos_exist,
 )
