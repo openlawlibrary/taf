@@ -11,14 +11,14 @@ def test_clone_from_local(repository, clone_repository):
     assert len(commits)
 
 
-def test_is_branch_with_unpushed_commits(repository, clone_repository):
+def test_branch_unpushed_commits(repository, clone_repository):
     clone_repository.clone_from_disk(repository.path, keep_remote=True)
     branch = clone_repository.branches()[0]
     clone_repository.reset_num_of_commits(1, True)
-    assert not clone_repository.is_branch_with_unpushed_commits(branch)
+    assert not len(clone_repository.branch_unpushed_commits(branch))
     (clone_repository.path / "test3.txt").write_text("Updated test3")
     clone_repository.commit(message="Update test3.txt")
-    assert clone_repository.is_branch_with_unpushed_commits(branch)
+    assert len(clone_repository.branch_unpushed_commits(branch))
 
 
 def test_is_git_repository_root_bare(repository):
@@ -41,3 +41,9 @@ def test_head_commit_sha():
             match=f"Repo {repo.name}: The path '{repo.path.as_posix()}' is not a Git repository.",
         ):
             repo.head_commit_sha() is not None
+
+
+def test_all_commits_since_commit_when_repo_empty(empty_repository):
+    all_commits_empty = empty_repository.all_commits_since_commit()
+    assert isinstance(all_commits_empty, list)
+    assert len(all_commits_empty) == 0

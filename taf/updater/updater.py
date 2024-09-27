@@ -469,22 +469,20 @@ def _process_repo_update(
                 error = UpdateFailedError(
                     f"Update of {auth_repo.name} failed. One or more referenced authentication repositories could not be validated:\n {errors}"
                 )
-
             for output in outputs:
                 child_update_status = output.event
                 if child_update_status == Event.FAILED:
                     update_status = Event.FAILED
-                else:
-                    repo = output.users_auth_repo
-                    child_config = copy.copy(update_config)
-                    child_config.url = repo.urls[0]
-                    child_config.out_of_band_authentication = (
-                        repo.out_of_band_authentication
-                    )
-                    child_config.path = repo.path
-                    _process_repo_update(
-                        child_config, output, visited, repos_update_data, transient_data
-                    )
+                repo = output.users_auth_repo
+                child_config = copy.copy(update_config)
+                child_config.url = repo.urls[0]
+                child_config.out_of_band_authentication = (
+                    repo.out_of_band_authentication
+                )
+                child_config.path = repo.path
+                _process_repo_update(
+                    child_config, output, visited, repos_update_data, transient_data
+                )
 
         if (
             not update_config.only_validate
@@ -543,8 +541,6 @@ def _update_dependencies(update_config, child_auth_repos):
             updater_pipeline.run()
             output = updater_pipeline.output
             error = output.error
-            if error:
-                raise error
             return output, error
         except Exception as e:
             return None, e
@@ -552,14 +548,6 @@ def _update_dependencies(update_config, child_auth_repos):
     with ThreadPoolExecutor() as executor:
         futures = {}
         for repo in child_auth_repos:
-            if repo.is_git_repository:
-                # this does not work when run in parallel
-                repositoriesdb.load_repositories(
-                    repo,
-                    library_dir=update_config.library_dir,
-                    only_load_targets=True,
-                    excluded_target_globs=update_config.excluded_target_globs,
-                )
             child_config = copy.copy(update_config)
             child_config.operation = (
                 OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE

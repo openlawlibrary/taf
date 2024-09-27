@@ -658,6 +658,11 @@ def _update_target_repos(
         return
     target_repo = GitRepository(path=target_repo_path)
     if target_repo.is_git_repository:
+        if target_repo.head_commit_sha() is None:
+            taf_logger.warning(
+                f"Repository {repo_path} does not have the HEAD reference"
+            )
+            return
         data = {"commit": target_repo.head_commit_sha()}
         if add_branch:
             data["branch"] = target_repo.get_current_branch()

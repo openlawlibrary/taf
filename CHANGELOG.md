@@ -41,10 +41,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix update status when a target repo was updated and the auth repo was not ([532])
+- Fix merge-commit which wasn't updating the remote-tracking branch ([532])
+- Fix removal of additional local commits ([532])
 - Fix top-level authentication repository update to correctly update child auth repos ([528])
 - Fix setup role when specifying public keys in keys-description ([511])
 - `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
+[532]: https://github.com/openlawlibrary/taf/pull/532
 [529]: https://github.com/openlawlibrary/taf/pull/529
 [528]: https://github.com/openlawlibrary/taf/pull/528
 [525]: https://github.com/openlawlibrary/taf/pull/525

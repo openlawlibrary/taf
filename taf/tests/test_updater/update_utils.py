@@ -1,4 +1,5 @@
 import os
+import shutil
 import pytest
 from pathlib import Path
 from freezegun import freeze_time
@@ -118,6 +119,8 @@ def clone_repositories(
     excluded_target_globs=None,
 ):
 
+    if clients_dir.is_dir():
+        shutil.rmtree(clients_dir)
     config = UpdateConfig(
         operation=OperationType.CLONE,
         url=str(origin_auth_repo.path),
@@ -159,19 +162,29 @@ def _get_valid_update_time(origin_auth_repo_path):
     return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%Y-%m-%d")
 
 
-def _get_head_commit_shas(client_repos):
+def _get_head_commit_shas(client_repos, num_of_commits_to_remove=0):
     start_head_shas = defaultdict(dict)
     if client_repos is not None:
         for repo_rel_path, repo in client_repos.items():
             for branch in repo.branches():
-                start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
-                    branch
-                )
+                if not num_of_commits_to_remove:
+                    start_head_shas[repo_rel_path][branch] = repo.top_commit_of_branch(
+                        branch
+                    )
+                else:
+                    all_commits = repo.all_commits_on_branch(branch)
+                    start_head_shas[repo_rel_path][branch] = all_commits[
+                        -num_of_commits_to_remove - 1
+                    ]
     return start_head_shas
 
 
 def load_target_repositories(
-    auth_repo, library_dir=None, excluded_target_globs=None, commits=None
+    auth_repo,
+    library_dir=None,
+    excluded_target_globs=None,
+    commits=None,
+    only_load_targets=False,
 ):
     if library_dir is None:
         library_dir = auth_repo.path.parent.parent
@@ -179,7 +192,7 @@ def load_target_repositories(
     repositoriesdb.load_repositories(
         auth_repo,
         library_dir=library_dir,
-        only_load_targets=True,
+        only_load_targets=only_load_targets,
         excluded_target_globs=excluded_target_globs,
         commits=commits,
     )
@@ -200,6 +213,7 @@ def update_and_check_commit_shas(
     bare=False,
     no_upstream=False,
     skip_check_last_validated=False,
+    num_of_commits_to_remove=0,
 ):
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
@@ -212,7 +226,7 @@ def update_and_check_commit_shas(
     clients_auth_repo = GitRepository(path=clients_auth_repo_path)
     if clients_auth_repo_path.is_dir():
         client_repos[clients_auth_repo.name] = clients_auth_repo
-    start_head_shas = _get_head_commit_shas(client_repos)
+    start_head_shas = _get_head_commit_shas(client_repos, num_of_commits_to_remove)
 
     config = UpdateConfig(
         operation=operation,
@@ -228,9 +242,9 @@ def update_and_check_commit_shas(
     )
 
     if operation == OperationType.CLONE:
-        clone_repository(config)
+        update_ret = clone_repository(config)
     else:
-        update_repository(config)
+        update_ret = update_repository(config)
 
     origin_root_dir = origin_auth_repo.path.parent.parent
     check_if_commits_match(
@@ -252,6 +266,7 @@ def update_and_check_commit_shas(
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
                     assert not target_repo.path.is_dir()
                     break
+    return update_ret
 
 
 def update_invalid_repos_and_check_if_repos_exist(
@@ -305,6 +320,32 @@ def update_invalid_repos_and_check_if_repos_exist(
                 assert client_repository.path.exists()
             else:
                 assert not client_repository.path.exists()
+
+
+def verify_repos_eixst(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, exists: list
+):
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        client_auth_repo, library_dir=client_dir
+    )
+    for repo in client_target_repos.values():
+        if repo.name.split("/")[-1] in exists:
+            assert repo.is_git_repository
+        else:
+            assert not repo.path.is_dir()
+
+
+def verify_repo_empty(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, target_name_part: str
+):
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_target_repos = load_target_repositories(
+        client_auth_repo, library_dir=client_dir
+    )
+    for name, repo in client_target_repos.items():
+        if target_name_part in name:
+            assert not len(repo.all_commits_on_branch())
 
 
 def verify_client_repos_state(

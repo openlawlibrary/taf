@@ -371,6 +371,11 @@ class GitRepository:
                 )
             latest_commit_id = branch_obj.target
         else:
+            if self.head_commit_sha() is None:
+                raise GitError(
+                    self,
+                    message=f"Error occurred while getting commits of branch {branch}. No HEAD reference",
+                )
             latest_commit_id = repo[repo.head.target].id
 
         sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
@@ -392,7 +397,11 @@ class GitRepository:
         """
 
         if since_commit is None:
-            return self.all_commits_on_branch(branch=branch, reverse=reverse)
+            try:
+                return self.all_commits_on_branch(branch=branch, reverse=reverse)
+            except GitError as e:
+                self._log_warning(str(e))
+                return []
 
         try:
             self.commit_exists(commit_sha=since_commit)
@@ -407,6 +416,8 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
+            if self.head_commit_sha() is None:
+                return []
             latest_commit_id = repo[repo.head.target].id
 
         if repo.descendant_of(since_commit, latest_commit_id):
@@ -817,7 +828,7 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def is_branch_with_unpushed_commits(self, branch_name):
+    def branch_unpushed_commits(self, branch_name):
         repo = self.pygit_repo
 
         local_branch = repo.branches.get(branch_name)
@@ -849,7 +860,7 @@ class GitRepository:
             else:
                 break
 
-        return bool(unpushed_commits)
+        return [commit.id for commit in unpushed_commits]
 
     def commit(self, message: str) -> str:
         self._git("add -A")
@@ -861,7 +872,7 @@ class GitRepository:
                 return self._git("rev-parse HEAD")
             except subprocess.CalledProcessError as e:
                 raise GitError(
-                    repo=self, message=f"could not commit changes due to:\n{e}"
+                    repo=self, message=f"could not commit changes due to:\n{e}", error=e
                 )
         else:
             raise NothingToCommitError(repo=self, message="No changes to commit")
@@ -1322,9 +1333,15 @@ class GitRepository:
         commit: str,
         fast_forward_only: Optional[bool] = False,
         check_if_merge_completed: Optional[bool] = False,
+        update_remote_tracking: Optional[bool] = True,
     ) -> bool:
         fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
         self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
+        if update_remote_tracking:
+            current_branch = self.get_current_branch()
+            self._git(
+                f"update-ref refs/remotes/origin/{current_branch} HEAD", log_error=True
+            )  # Update remote tracking
         if check_if_merge_completed:
             try:
                 self._git("rev-parse -q --verify MERGE_HEAD")
