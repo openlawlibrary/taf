@@ -8,4 +8,5 @@ except ImportError:
 @pytest.mark.skipif(not YKMAN_AVAILABLE, reason="ykman module is not available")
 def test_some_function_that_uses_ykman():
     pass
+
 pytest
