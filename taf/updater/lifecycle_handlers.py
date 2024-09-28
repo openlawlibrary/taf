@@ -192,21 +192,38 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             script_paths = []
 
     for script_path in sorted(script_paths):
-        taf_logger.info("Executing script {}", script_path)
+        taf_logger.log("NOTICE", f"Executing script {script_path}")
         json_data = json.dumps(data)
         try:
             if Path(script_path).suffix == ".py":
-                output = run(sys.executable, script_path, input=json_data)
+                if getattr(sys, "frozen", False):
+                    # we are running in a pyinstaller bundle
+                    output = run(
+                        f"{sys.executable}",
+                        "scripts",
+                        "execute",
+                        script_path,
+                        input=json_data,
+                    )
+                else:
+                    output = run(f"{sys.executable}", script_path, input=json_data)
             # assume that all other types of files are non-OS-specific executables of some kind
             else:
                 output = run_subprocess([script_path])
-        except subprocess.CalledProcessError as e:
-            taf_logger.error(
-                "An error occurred while executing {}: {}", script_path, e.output
-            )
-            raise ScriptExecutionError(script_path, e.output)
+        except Exception as e:
+            if type(e) is subprocess.CalledProcessError:
+                taf_logger.error(
+                    f"An error occurred while executing {script_path}: {e.output}"
+                )
+                raise ScriptExecutionError(script_path, e.output)
+            else:
+                taf_logger.error(
+                    f"An error occurred while executing {script_path}: {str(e)}"
+                )
+                raise ScriptExecutionError(script_path, str(e))
         if type(output) is bytes:
             output = output.decode()
+        transient_data = persistent_data = {}
         if output is not None and output != "":
             # if the script contains print statements other than the final
             # print which outputs transient and persistent data
@@ -217,8 +234,6 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
                 persistent_data = json_data.get("persistent")
                 if transient_data is not None or persistent_data is not None:
                     break
-        else:
-            transient_data = persistent_data = {}
         taf_logger.debug("Persistent data: {}", persistent_data)
         taf_logger.debug("Transient data: {}", transient_data)
         # overwrite current persistent and transient data
@@ -259,7 +274,7 @@ def prepare_data_repo(
 ):
     conf_data = get_config(auth_repo.library_dir)
     if not conf_data:
-        taf_logger.info(
+        taf_logger.debug(
             f"WARNING: No config data at {Path(library_dir, CONFIG_NAME)}. Scripts might not be executed successfully"
         )
     return {

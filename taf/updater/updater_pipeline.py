@@ -1918,8 +1918,8 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
                 f"Validation of authentication repository {auth_repo_name or ''}"
                 f" failed at revision {current_commit} due to error: {e}"
             )
-        taf_logger.warning(
-            f"WARNING: Could not validate authentication repository {auth_repo_name} at revision {current_commit} due to error: {e}"
+        taf_logger.debug(
+            f"WARNING: Could not validate {auth_repo_name} at revision {current_commit} due to error: {e}"
         )
 
 
