@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- If in detached head state or an older branch, do not automatically checkout the newest one without force ([543])
+- Move validation of the last validated commit to the pipeline from the update handler ([543])
 - Default verbosity to 0 (NOTICE) level; add notice level update outcome logging ([538])
 - Raise a more descriptive error if `pygit2` repository cannot be instantiated  ([485], [489])
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
@@ -43,6 +45,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Handle invalid last validated commit ([543])
 - Fixes to executing taf handler scripts from a pyinstaller executable ([535])
 - Fix `persisent` and `transient` NoneType error when running taf handlers ([535])
 - Fix update status when a target repo was updated and the auth repo was not ([532])
@@ -52,6 +55,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix setup role when specifying public keys in keys-description ([511])
 - `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
+
+[543]: https://github.com/openlawlibrary/taf/pull/543
 [538]: https://github.com/openlawlibrary/taf/pull/538
 [535]: https://github.com/openlawlibrary/taf/pull/535
 [532]: https://github.com/openlawlibrary/taf/pull/532
