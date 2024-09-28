@@ -135,39 +135,9 @@ class GitUpdater(FetcherInterface):
         """
         last_validated_commit = settings.last_validated_commit.get(self.repository_name)
 
-        try:
-            commits_since = self.validation_auth_repo.all_commits_since_commit(
-                last_validated_commit
-            )
-        except GitError as e:
-            if "Invalid revision range" in str(e):
-                taf_logger.error(
-                    "Commit {} is not contained by the remote repository {}.",
-                    last_validated_commit,
-                    self.validation_auth_repo.name,
-                )
-                raise UpdateFailedError(
-                    f"Commit {last_validated_commit} is no longer contained by repository"
-                    f" {self.validation_auth_repo.name}. This could "
-                    "either mean that there was an unauthorized push to the remote "
-                    "repository, or that last_validated_commit file was modified."
-                )
-            else:
-                raise e
-
-        # check if the last validated commit exists in the remote repository
-        # last_successful_commit could've been manually update to an invalid value
-        # or set to a commit that exists in the local authentication repository
-        # that was not pushed
-        branches_containing_last_validated_commit = (
-            self.validation_auth_repo.branches_containing_commit(last_validated_commit)
+        commits_since = self.validation_auth_repo.all_commits_since_commit(
+            last_validated_commit
         )
-        default_branch = self.validation_auth_repo.default_branch
-        if default_branch not in branches_containing_last_validated_commit:
-            msg = f"""Last validated commit not on the {default_branch} of the authentication repository.
-This could mean that the a commit was removed from the remote repository or that the last_validated_commit file was manually updated."""
-            taf_logger.error(msg)
-            raise UpdateFailedError(msg)
 
         # insert the current one at the beginning of the list
         if last_validated_commit is not None:

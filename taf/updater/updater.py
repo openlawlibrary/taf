@@ -35,7 +35,6 @@ from taf.git import GitRepository
 from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater_pipeline import (
     AuthenticationRepositoryUpdatePipeline,
-    _merge_commit,
 )
 
 from pathlib import Path
@@ -90,6 +89,7 @@ def _execute_repo_handlers(
     scripts_root_dir,
     commits_data,
     error,
+    warnings,
     targets_data,
     transient_data,
 ):
@@ -102,6 +102,7 @@ def _execute_repo_handlers(
             auth_repo,
             commits_data,
             error,
+            warnings,
             targets_data,
         )
         if transient_data is not None:
@@ -389,7 +390,11 @@ def _update_or_clone_repository(config: UpdateConfig):
             errors,
             root_auth_repo,
         )
+    if repos_update_data[auth_repo_name].get("warnings"):
+        taf_logger.warning(repos_update_data[auth_repo_name].get("warnings"))
+
     log_repo_updates(update_data)
+
     if root_error:
         raise root_error
     return unstructure(update_data)
@@ -422,6 +427,7 @@ def _process_repo_update(
     auth_repo = update_output.users_auth_repo
     commits_data = update_output.commits_data
     error = update_output.error
+    warnings = update_output.warnings
     targets_data = (update_output.targets_data,)
 
     # if auth_repo doesn't exist, means that either clients-auth-path isn't provided,
@@ -446,7 +452,6 @@ def _process_repo_update(
     if commits_data.after_pull is not None and not update_config.no_deps:
 
         if update_status != Event.FAILED:
-
             # for now, just take the newest commit and do not worry about updated definitions
             # latest_commit = commits[-1::]
             repositoriesdb.load_dependencies(
@@ -485,21 +490,6 @@ def _process_repo_update(
                     child_config, output, visited, repos_update_data, transient_data
                 )
 
-        if (
-            not update_config.only_validate
-            and len(commits)
-            and (update_status == Event.CHANGED or update_status == Event.PARTIAL)
-        ):
-            # when performing breadth-first update, validation might fail at some point
-            # but we want to update all repositories up to it
-            # so set last validated commit to this last valid commit
-            last_commit = commits[-1]
-            # if there were no errors, merge the last validated authentication repository commit
-            _merge_commit(auth_repo, auth_repo.default_branch, last_commit, True)
-            # update the last validated commit
-            if not update_config.excluded_target_globs and not update_config.no_deps:
-                auth_repo.set_last_validated_commit(last_commit)
-
         # do not call the handlers if only validating the repositories
         # if a handler fails and we are in the development mode, revert the update
         # so that it's easy to try again after fixing the handler
@@ -514,6 +504,7 @@ def _process_repo_update(
                 update_config.scripts_root_dir,
                 commits_data,
                 error,
+                warnings,
                 targets_data,
                 transient_data,
             )
@@ -524,6 +515,7 @@ def _process_repo_update(
             "update_status": update_status,
             "commits_data": commits_data,
             "error": error,
+            "warnings": warnings,
             "targets_data": targets_data,
         }
 
@@ -538,6 +530,7 @@ def log_repo_updates(update_data: Update):
         repo_name: {
             "changed": repo_info["changed"],
             "event": repo_info["event"],
+            **({"warning": repo_info["warnings"]} if "warnings" in repo_info else {}),
             **({"error": repo_info["error_msg"]} if repo_info["error_msg"] else {}),
         }
         for repo_name, repo_info in update_data.auth_repos.items()
@@ -640,7 +633,6 @@ def validate_repository(
         if (auth_path / "targets" / "test-auth-repo").exists()
         else UpdateType.OFFICIAL
     )
-    settings.overwrite_last_validated_commit = True
     auth_repo_name = None
 
     try:
@@ -674,5 +666,4 @@ def validate_repository(
         raise ValidationFailedError(
             f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
         )
-    settings.overwrite_last_validated_commit = False
     settings.last_validated_commit = {}

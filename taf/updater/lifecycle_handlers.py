@@ -74,6 +74,8 @@ def get_config(library_root, config_name=CONFIG_NAME):
 
 
 def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
+    if not Path(library_root).is_dir():
+        return {}
     persistent_file = Path(library_root, PERSISTENT_FILE_NAME)
     if not persistent_file.is_file():
         persistent_file.touch()
@@ -267,6 +269,7 @@ def prepare_data_repo(
     auth_repo,
     commits_data,
     error,
+    warnings,
     targets_data,
 ):
     conf_data = get_config(auth_repo.library_dir)
@@ -278,7 +281,7 @@ def prepare_data_repo(
         auth_repo: {
             "data": {
                 "update": _repo_update_data(
-                    auth_repo, event, commits_data, targets_data, error
+                    auth_repo, event, commits_data, targets_data, error, warnings
                 ),
                 "state": {
                     "transient": transient_data,
@@ -328,12 +331,15 @@ def prepare_data_update(
     }
 
 
-def _repo_update_data(auth_repo, update_status, commits_data, targets_data, error):
+def _repo_update_data(
+    auth_repo, update_status, commits_data, targets_data, error, warnings
+):
     return {
         "changed": update_status == Event.CHANGED,
         "event": _format_event(update_status),
         "repo_name": auth_repo.name,
         "error_msg": str(error) if error else "",
+        "warnings": warnings or "",
         "auth_repo": {
             "data": auth_repo.to_json_dict(),
             "commits": attr.asdict(commits_data),
