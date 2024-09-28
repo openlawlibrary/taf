@@ -104,7 +104,7 @@ class MultipleRepositoriesNotCleanError(TAFError):
         message = ""
         dirty_repo_list = ", ".join(dirty_index_repos)
         if len(dirty_index_repos) >= 1:
-            message += f"Repositories {dirty_repo_list} have uncommitted changes. Commit and push or revert the changes and run the command again."
+            message += f"Repositories {dirty_repo_list} have uncommitted changes. Commit and push or use --force to revert and run the command again."
         unpushed_repo_branches = ", ".join(
             [
                 f"{repo}: ({branch})"

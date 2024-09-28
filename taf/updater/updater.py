@@ -57,6 +57,7 @@ from taf.updater.lifecycle_handlers import (
 from cattr import unstructure
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+from taf.updater.types.update import Update
 
 disable_tuf_console_logging()
 
@@ -362,7 +363,7 @@ def _update_or_clone_repository(config: UpdateConfig):
             f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
         )
 
-    update_data = {}
+    update_data = Update()
     if not config.excluded_target_globs:
         # after all repositories have been updated
         # update information is in repos_update_data
@@ -388,7 +389,7 @@ def _update_or_clone_repository(config: UpdateConfig):
             errors,
             root_auth_repo,
         )
-
+    log_repo_updates(update_data)
     if root_error:
         raise root_error
     return unstructure(update_data)
@@ -527,6 +528,42 @@ def _process_repo_update(
         }
 
     repositoriesdb.clear_repositories_db()
+
+
+def log_repo_updates(update_data: Update):
+    """
+    Log the status of the repositories after updating them.
+    """
+    update_output_dict = {
+        repo_name: {
+            "changed": repo_info["changed"],
+            "event": repo_info["event"],
+            **({"error": repo_info["error_msg"]} if repo_info["error_msg"] else {}),
+        }
+        for repo_name, repo_info in update_data.auth_repos.items()
+    }
+    changes_or_errors = False
+
+    for repo_name, details in update_output_dict.items():
+        changed = details.get("changed", False)
+        event_operation = details["event"]
+        error_message = details.get("error")
+
+        if changed or error_message:
+            changes_or_errors = True
+            message = f"Repository: {repo_name}\n"
+            message += f"  Change status: {'changed' if changed else 'no changes'}\n"
+            message += f"  Event: {event_operation}"
+
+            if error_message:
+                message += f"\n  Error: {error_message}\n"
+
+            taf_logger.log("NOTICE", message)
+
+    if not changes_or_errors:
+        taf_logger.log(
+            "NOTICE", "All repositories are up-to-date with no changes or errors."
+        )
 
 
 def _update_dependencies(update_config, child_auth_repos):

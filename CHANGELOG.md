@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Default verbosity to 0 (NOTICE) level; add notice level update outcome logging ([538])
 - Raise a more descriptive error if `pygit2` repository cannot be instantiated  ([485], [489])
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
 - Generate public key from private key if .pub file is missing ([462])
@@ -51,6 +52,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix setup role when specifying public keys in keys-description ([511])
 - `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
+[538]: https://github.com/openlawlibrary/taf/pull/538
 [535]: https://github.com/openlawlibrary/taf/pull/535
 [532]: https://github.com/openlawlibrary/taf/pull/532
 [529]: https://github.com/openlawlibrary/taf/pull/529
