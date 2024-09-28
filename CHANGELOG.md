@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 
+- Added lxml to taf pyinstaller to execute arbitrary python scripts ([535])
 - Added support for execution of executable files within the scripts directories ([529])
 - Added yubikey_present parameter to keys description (Can be specified when generating keys) ([508])
 - Removed 2048-bit key restriction [494]
@@ -42,6 +43,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fixes to executing taf handler scripts from a pyinstaller executable ([535])
+- Fix `persisent` and `transient` NoneType error when running taf handlers ([535])
 - Fix update status when a target repo was updated and the auth repo was not ([532])
 - Fix merge-commit which wasn't updating the remote-tracking branch ([532])
 - Fix removal of additional local commits ([532])
@@ -50,6 +53,7 @@ and this project adheres to [Semantic Versioning][semver].
 - `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
 [538]: https://github.com/openlawlibrary/taf/pull/538
+[535]: https://github.com/openlawlibrary/taf/pull/535
 [532]: https://github.com/openlawlibrary/taf/pull/532
 [529]: https://github.com/openlawlibrary/taf/pull/529
 [528]: https://github.com/openlawlibrary/taf/pull/528
