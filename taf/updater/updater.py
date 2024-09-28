@@ -450,9 +450,6 @@ def _process_repo_update(
     if commits_data.after_pull is not None and not update_config.no_deps:
 
         if update_status != Event.FAILED:
-            import pdb
-
-            pdb.set_trace()
             # for now, just take the newest commit and do not worry about updated definitions
             # latest_commit = commits[-1::]
             repositoriesdb.load_dependencies(
