@@ -383,7 +383,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         if self.no_upstream:
             # check if self.state.event has changed.
             # if changed, validate the target repos
-            return self.state.event == Event.CHANGED
+            return (
+                self.state.event == Event.CHANGED or self.state.event == Event.PARTIAL
+            )
         return True
 
     def start_update(self):
@@ -811,7 +813,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.invalid_auth_commits = self.state.update_handler.commits[
                         :
                     ]
-
                 self.state.errors.append(error)
                 self.state.event = Event.PARTIAL
                 return UpdateStatus.PARTIAL
@@ -1286,6 +1287,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             last_validated_data_per_repositories = defaultdict(dict)
             self.state.validated_auth_commits = []
+
             for auth_commit in self.state.auth_commits_since_last_validated:
                 for repository in self.state.temp_target_repositories.values():
                     if repository.name not in self.state.targets_data_by_auth_commits:
@@ -1608,6 +1610,7 @@ but commit not on branch {current_branch}"
             )
             # update the last validated commit
             self.state.users_auth_repo.set_last_validated_commit(last_commit)
+
             return self.state.update_status
         except Exception as e:
             self.state.errors.append(e)
