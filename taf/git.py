@@ -716,10 +716,6 @@ class GitRepository:
         is_bare: bool = False,
         keep_remote=False,
     ) -> None:
-        if "target1" in str(local_path):
-            import pdb
-
-            pdb.set_trace()
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
