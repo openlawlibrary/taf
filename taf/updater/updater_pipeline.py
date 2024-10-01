@@ -180,9 +180,6 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
-                import pdb
-
-                pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:
@@ -572,9 +569,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 ) = repository.branch_unpushed_commits(branch)
                 self.state.clean_check_data[repository.name].append(branch)
                 if contains_unpushed:
-                    import pdb
-
-                    pdb.set_trace()
                     if self.force and len(unpushed_commits):
                         taf_logger.info(
                             f"Resetting repository {repository.name} to clean state for a forced update."
@@ -665,9 +659,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 users_head_sha = self.state.users_auth_repo.top_commit_of_branch(
                     default_branch
                 )
-                import pdb
-
-                pdb.set_trace()
                 if not _check_if_commit_on_branch(
                     self.state.validation_auth_repo, users_head_sha, default_branch
                 ):

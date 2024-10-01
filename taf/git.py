@@ -716,6 +716,10 @@ class GitRepository:
         is_bare: bool = False,
         keep_remote=False,
     ) -> None:
+        if "target1" in str(local_path):
+            import pdb
+
+            pdb.set_trace()
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
@@ -1488,6 +1492,12 @@ class GitRepository:
         self._git(f"remote set-url {remote} {new_url}")
 
     def set_upstream(self, branch_name: str) -> None:
+        repo = self.pygit_repo
+        try:
+            repo.resolve_refish(f"origin/{branch_name}")
+        except KeyError:
+            return
+
         self._git("branch -u origin/{}", branch_name)
 
     def something_to_commit(self) -> bool:
