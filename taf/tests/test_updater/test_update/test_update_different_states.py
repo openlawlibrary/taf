@@ -180,9 +180,12 @@ def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
     setup_manager = SetupManager(client_auth_repo)
     setup_manager.add_task(update_expiration_dates, kwargs={"push": False})
     setup_manager.execute_tasks()
-    assert len(
-        client_auth_repo.branch_unpushed_commits(client_auth_repo.default_branch)
+
+    has_unpushed, _ = client_auth_repo.branch_unpushed_commits(
+        client_auth_repo.default_branch
     )
+
+    assert has_unpushed
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -203,9 +206,10 @@ def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
         num_of_commits_to_remove=num_of_commits_to_remove,
     )
 
-    assert not len(
-        client_auth_repo.branch_unpushed_commits(client_auth_repo.default_branch)
+    has_unpushed, _ = client_auth_repo.branch_unpushed_commits(
+        client_auth_repo.default_branch
     )
+    assert not has_unpushed
 
 
 @pytest.mark.parametrize(
@@ -234,9 +238,10 @@ def test_update_unpushed_commits_target_repo(origin_auth_repo, client_dir):
         kwargs={"target_name": client_target_repo.name},
     )
     setup_manager.execute_tasks()
-    assert len(
-        client_target_repo.branch_unpushed_commits(client_target_repo.default_branch)
+    has_unpushed, _ = client_target_repo.branch_unpushed_commits(
+        client_target_repo.default_branch
     )
+    assert has_unpushed
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -257,9 +262,11 @@ def test_update_unpushed_commits_target_repo(origin_auth_repo, client_dir):
         num_of_commits_to_remove=num_of_commits_to_remove,
     )
 
-    assert not len(
-        client_target_repo.branch_unpushed_commits(client_target_repo.default_branch)
+    has_unpushed, _ = client_target_repo.branch_unpushed_commits(
+        client_target_repo.default_branch
     )
+
+    assert not has_unpushed
 
 
 @pytest.mark.parametrize(
