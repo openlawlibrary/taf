@@ -17,7 +17,6 @@ import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import (
-    InvalidRepositoryError,
     MissingInfoJsonError,
     UpdateFailedError,
     MultipleRepositoriesNotCleanError,
