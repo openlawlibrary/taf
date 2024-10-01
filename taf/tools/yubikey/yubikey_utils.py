@@ -1,5 +1,5 @@
 import datetime
-import random
+import secrets
 from contextlib import contextmanager
 
 from cryptography import x509
@@ -19,7 +19,7 @@ class FakeYubiKey:
         self.priv_key_pem = priv_key_path.read_bytes()
         self.pub_key_pem = pub_key_path.read_bytes()
 
-        self._serial = serial if serial else random.randint(100000, 999999)
+        self._serial = serial if serial else secrets.randbelow(900000) + 100000
         self._pin = pin
 
         self.scheme = scheme

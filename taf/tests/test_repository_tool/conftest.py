@@ -5,7 +5,7 @@ from securesystemslib.interface import (
     import_rsa_publickey_from_file,
 )
 from taf.repository_tool import Repository
-from taf.tests.yubikey_utils import (
+from taf.tools.yubikey.yubikey_utils import (
     Root1YubiKey,
     Root2YubiKey,
     Root3YubiKey,
