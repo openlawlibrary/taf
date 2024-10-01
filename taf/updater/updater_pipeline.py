@@ -17,7 +17,6 @@ import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import (
-    InvalidRepositoryError,
     MissingInfoJsonError,
     UpdateFailedError,
     MultipleRepositoriesNotCleanError,
@@ -71,6 +70,7 @@ class UpdateState:
     # a dictionary of repositories which are not present inside a user's local
     # directory when the update is started
     repos_not_on_disk: Dict[str, GitRepository] = field(factory=dict)
+    # a list of repositoires that were added to repositories.json in one of new commits
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
@@ -86,6 +86,7 @@ class UpdateState:
     validated_auth_commits: List[str] = field(factory=list)
     temp_root: TempPartition = field(default=None)
     update_handler: GitUpdater = field(default=None)
+    clean_check_data: Dict[str, str] = field(factory=dict)
 
 
 @attrs
@@ -462,6 +463,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def check_if_local_repositories_clean(self):
         try:
+            self.clean_check_data = {}
             # Early exit if the repository does not exist
             if not self.state.existing_repo:
                 return UpdateStatus.SUCCESS
@@ -492,11 +494,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                     dirty_index_repos.append(auth_repo.name)
 
-            unpushed_commits = auth_repo.branch_unpushed_commits(
+            contains_unpushed, unpushed_commits = auth_repo.branch_unpushed_commits(
                 auth_repo.default_branch
             )
-            if unpushed_commits:
-                if self.force:
+            if contains_unpushed:
+                if self.force and len(unpushed_commits):
                     taf_logger.info(
                         f"Resetting repository {auth_repo.name} to clean state for a forced update."
                     )
@@ -509,39 +511,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         (auth_repo.name, auth_repo.default_branch)
                     )
 
-            # Check the target repositories on disk
-            for repository in self.state.repos_on_disk.values():
-                if repository.is_bare_repository:
-                    taf_logger.info(
-                        f"Skipping clean check for bare repository {repository.name}"
-                    )
-                    continue
-
-                if repository.something_to_commit():
-                    if self.force:
-                        taf_logger.info(
-                            f"Resetting repository {repository.name} to clean state for a forced update."
-                        )
-                        repository.clean_and_reset()
-                    else:
-                        dirty_index_repos.append(repository.name)
-
-                target = auth_repo.get_target(repository.name)
+            branches_per_repos = {}
+            for target_name, target_repo in self.state.repos_on_disk.items():
+                target = auth_repo.get_target(target_name)
                 if target and "branch" in target:
-                    branch = target["branch"]
-                    unpushed_commits = repository.branch_unpushed_commits(branch)
-                    if unpushed_commits:
-                        if self.force:
-                            taf_logger.info(
-                                f"Resetting repository {repository.name} to clean state for a forced update."
-                            )
-                            _remove_unpushed_commits(
-                                repository, branch, unpushed_commits
-                            )
-                        else:
-                            unpushed_commits_repos_and_branches.append(
-                                (repository.name, branch)
-                            )
+                    branches_per_repos.setdefault(target_name, []).append(
+                        target["branch"]
+                    )
+            target_dirty, target_unpushed = self._check_if_target_repos_clean(
+                self.state.repos_on_disk.values(), branches_per_repos
+            )
+            dirty_index_repos.extend(target_dirty)
+            unpushed_commits_repos_and_branches.extend(target_unpushed)
 
             if (
                 len(dirty_index_repos) > 0
@@ -555,6 +536,49 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def _check_if_target_repos_clean(self, target_repos, branches_per_repo):
+        dirty_index_repos = []
+        unpushed_commits_repos_and_branches = []
+        # Check the target repositories on disk
+        for repository in target_repos:
+            if repository.is_bare_repository:
+                taf_logger.info(
+                    f"Skipping clean check for bare repository {repository.name}"
+                )
+                continue
+
+            if (
+                repository.name not in self.state.clean_check_data
+                and repository.something_to_commit()
+            ):
+                if self.force:
+                    taf_logger.info(
+                        f"Resetting repository {repository.name} to clean state for a forced update."
+                    )
+                    repository.clean_and_reset()
+                else:
+                    dirty_index_repos.append(repository.name)
+
+            if repository not in self.state.clean_check_data:
+                self.state.clean_check_data[repository.name] = []
+            for branch in branches_per_repo[repository.name]:
+                (
+                    contains_unpushed,
+                    unpushed_commits,
+                ) = repository.branch_unpushed_commits(branch)
+                self.state.clean_check_data[repository.name].append(branch)
+                if contains_unpushed:
+                    if self.force and len(unpushed_commits):
+                        taf_logger.info(
+                            f"Resetting repository {repository.name} to clean state for a forced update."
+                        )
+                        _remove_unpushed_commits(repository, branch, unpushed_commits)
+                    else:
+                        unpushed_commits_repos_and_branches.append(
+                            (repository.name, branch)
+                        )
+        return dirty_index_repos, unpushed_commits_repos_and_branches
 
     @cleanup_decorator
     def clone_auth_to_temp(self):
@@ -975,7 +999,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             f"{self.state.auth_repo_name}: Cloning target repositories to temp..."
         )
         try:
-            self.state.repos_on_disk = {}
+
+            self.state.repos_not_on_disk = {}
             self.state.repos_not_on_disk = {}
 
             def clone_repo_to_temp(temp_repo, users_repo):
@@ -1232,46 +1257,29 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def check_if_local_target_repositories_clean(self):
         taf_logger.debug(
-            f"{self.state.auth_repo_name}: Checking if target repositories are clean..."
+            f"{self.state.auth_repo_name}: Checking if newly added target repositories are clean..."
         )
         try:
-            for repository in self.state.repos_on_disk.values():
-                if repository.is_bare_repository:
-                    # For bare repositories, ensure they are valid
-                    if not repository.is_git_repository:
-                        raise InvalidRepositoryError(
-                            f"{repository.name} is not a valid git repository."
-                        )
-                    taf_logger.debug(
-                        f"Repo {repository.name} is a bare repository and is valid."
-                    )
-                else:
-                    # For non-bare repositories, check for uncommitted changes and unpushed commits
-                    dirty_index_repos_error = []
-                    unpushed_commits_repos_and_branches_error = []
-                    if repository.something_to_commit():
-                        dirty_index_repos_error.append(repository.name)
-                    for branch in self.state.target_branches_data_from_auth_repo[
-                        repository.name
-                    ]:
+            (
+                dirty_index_repos,
+                unpushed_commits_repos_and_branches,
+            ) = self._check_if_target_repos_clean(
+                self.state.repos_on_disk.values(),
+                self.state.target_branches_data_from_auth_repo,
+            )
 
-                        if repository.branch_unpushed_commits(branch):
-                            unpushed_commits_repos_and_branches_error.append(
-                                (repository.name, branch)
-                            )
-                    if (
-                        dirty_index_repos_error
-                        or unpushed_commits_repos_and_branches_error
-                    ):
-                        raise MultipleRepositoriesNotCleanError(
-                            dirty_index_repos_error,
-                            unpushed_commits_repos_and_branches_error,
-                        )
+            if (
+                len(dirty_index_repos) > 0
+                or len(unpushed_commits_repos_and_branches) > 0
+            ):
+                raise MultipleRepositoriesNotCleanError(
+                    dirty_index_repos, unpushed_commits_repos_and_branches
+                )
+            return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-        return UpdateStatus.SUCCESS
 
     def validate_target_repositories(self):
         """

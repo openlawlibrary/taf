@@ -15,10 +15,14 @@ def test_branch_unpushed_commits(repository, clone_repository):
     clone_repository.clone_from_disk(repository.path, keep_remote=True)
     branch = clone_repository.branches()[0]
     clone_repository.reset_num_of_commits(1, True)
-    assert not len(clone_repository.branch_unpushed_commits(branch))
+    has_unpushed, unpushed_commits = clone_repository.branch_unpushed_commits(branch)
+    assert not has_unpushed
+    assert not len(unpushed_commits)
     (clone_repository.path / "test3.txt").write_text("Updated test3")
     clone_repository.commit(message="Update test3.txt")
-    assert len(clone_repository.branch_unpushed_commits(branch))
+    has_unpushed, unpushed_commits = clone_repository.branch_unpushed_commits(branch)
+    assert has_unpushed
+    assert len(unpushed_commits)
 
 
 def test_is_git_repository_root_bare(repository):
