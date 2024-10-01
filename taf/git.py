@@ -839,14 +839,15 @@ class GitRepository:
         local_branch = repo.branches.get(branch_name)
         if local_branch is None:
             # local branch does not exist
-            return False
+            return False, []
         try:
             upstream_full_name = local_branch.upstream_name
         except KeyError:
-            return True
+            # no local branch => no unpushed local commit
+            return False, []
         if not upstream_full_name:
             # no upstream branch - not pushed
-            return True
+            return True, []
         parts = upstream_full_name.split("/")
         upstream_name = "/".join(parts[2:])
 
@@ -865,7 +866,7 @@ class GitRepository:
             else:
                 break
 
-        return [commit.id for commit in unpushed_commits]
+        return bool(unpushed_commits), [commit.id for commit in unpushed_commits]
 
     def commit(self, message: str) -> str:
         self._git("add -A")
