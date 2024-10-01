@@ -489,3 +489,46 @@ def test_update_with_last_validated_commit_not_in_local_repo(
         client_dir,
         force=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_with_targets_repo_having_a_local_branch_not_on_remote_origin_expect_error(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    origin_top_commit_sha = origin_auth_repo.head_commit_sha()
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_auth_repo.set_last_validated_commit(origin_top_commit_sha)
+    client_target_repo_path = client_auth_repo.path.parent / "target1"
+    client_target_repo = GitRepository(path=client_target_repo_path)
+
+    client_target_repo.checkout_branch("branch-not-synced-with-remote", create=True)
+    client_target_repo.commit_empty("Add new commit that diverges from default branch")
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        LVC_NOT_IN_REPO_PATTERN,
+        True,
+    )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
