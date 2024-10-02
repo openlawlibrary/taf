@@ -231,7 +231,7 @@ def load_repositories(
     if auth_repo.path in _repositories_dict:
         for commit in commits:
             if commit not in _repositories_dict[auth_repo.path]:
-                 _repositories_dict[auth_repo.path][commit] = new_reps[commit]
+                _repositories_dict[auth_repo.path][commit] = new_reps[commit]
     else:
         _repositories_dict[auth_repo.path] = new_reps
 
