@@ -227,7 +227,10 @@ def load_repositories(
         excluded_target_globs=excluded_target_globs,
     )
     if commits is None or len(commits) == 0:
-        commits = [auth_repo.head_commit_sha()]
+        commit = auth_repo.head_commit_sha()
+        if commit is None:
+            return
+        commits = [commit]
     if auth_repo.path in _repositories_dict:
         for commit in commits:
             if commit not in _repositories_dict[auth_repo.path]:
