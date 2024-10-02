@@ -4,11 +4,25 @@
 TAF_CLI="taf"
 
 # Get the last validated commit using the new CLI command
-LAST_VALIDATED_COMMIT=$($TAF_CLI repo latest-commit)
+output=$($TAF_CLI repo latest-commit-and-branch)
+
+# Get the last validated commit using the new CLI command
 if [ $? -ne 0 ]; then
-  echo "Failed to retrieve the last validated commit."
-  # Change here to continue instead of exiting
-  LAST_VALIDATED_COMMIT=""
+    echo "Failed to retrieve the last validated commit."
+    DEFAULT_BRANCH=""
+    LAST_VALIDATED_COMMIT=""
+else
+    # If the command succeeded, parse the output
+    DEFAULT_BRANCH=$(echo "$output" | cut -d ',' -f 1)
+    LAST_VALIDATED_COMMIT=$(echo "$output" | cut -d ',' -f 2)
+fi
+
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]; then
+    echo "Skipping validation, not pushing to the default branch"
+    exit 0
 fi
 
 # Log the commit information before running the validation
@@ -17,6 +31,7 @@ if [ -z "$LAST_VALIDATED_COMMIT" ]; then
 else
   echo "Starting validation from the last validated commit: $LAST_VALIDATED_COMMIT"
 fi
+
 
 # Run the TAF validation command with --from-latest
 $TAF_CLI repo validate --from-latest

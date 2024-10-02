@@ -286,18 +286,16 @@ def validate_repo_command():
     return validate
 
 
-def latest_commit_command():
-    @click.command(help="Fetch and print the last validated commit hash.")
+def latest_commit_and_branch_command():
+    @click.command(help="Fetch and print the last validated commit hash and the default branch.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    def latest_commit(path):
+    def latest_commit_and_branch(path):
         path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
-        last_validated_commit = auth_repo.last_validated_commit
-        if last_validated_commit:
-            print(last_validated_commit)
-        else:
-            print('')
-    return latest_commit
+        last_validated_commit = auth_repo.last_validated_commit or ""
+        default_branch = auth_repo.default_branch
+        print(f"{default_branch},{last_validated_commit}")
+    return latest_commit_and_branch
 
 
 def status_command():
@@ -320,5 +318,5 @@ def attach_to_group(group):
     group.add_command(clone_repo_command(), name='clone')
     group.add_command(update_repo_command(), name='update')
     group.add_command(validate_repo_command(), name='validate')
-    group.add_command(latest_commit_command(), name='latest-commit')
+    group.add_command(latest_commit_and_branch_command(), name='latest-commit-and-branch')
     group.add_command(status_command(), name='status')
