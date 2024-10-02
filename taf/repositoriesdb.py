@@ -226,8 +226,12 @@ def load_repositories(
         roles=roles,
         excluded_target_globs=excluded_target_globs,
     )
+    if commits is None or len(commits) == 0:
+        commits = [auth_repo.head_commit_sha()]
     if auth_repo.path in _repositories_dict:
-        _repositories_dict[auth_repo.path].update(new_reps)
+        for commit in commits:
+            if commit not in _repositories_dict[auth_repo.path]:
+                 _repositories_dict[auth_repo.path][commit] = new_reps[commit]
     else:
         _repositories_dict[auth_repo.path] = new_reps
 
