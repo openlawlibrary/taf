@@ -715,6 +715,7 @@ class GitRepository:
         remote_url: Optional[str] = None,
         is_bare: bool = False,
         keep_remote=False,
+        branches=None,
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
@@ -728,8 +729,12 @@ class GitRepository:
                 self.add_remote("origin", remote_url)
                 self.fetch()
                 if repo is not None:
-                    for branch in repo.branches.local:
-                        self.set_upstream(str(branch))
+                    local_branch_names = [
+                        branch.split("/")[-1] for branch in repo.branches.local
+                    ]
+                    for branch in branches:
+                        if branch in local_branch_names:
+                            self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
@@ -1089,6 +1094,17 @@ class GitRepository:
             if _branch_name == branch_name:
                 return path
         return None
+
+    def first_commit_on_branch(self, branch_name: str) -> Optional[str]:
+        repo = self.pygit_repo
+        branch = repo.lookup_branch(branch_name)
+        if branch is None:
+            return None
+        try:
+            return next(repo.walk(branch.target, pygit2.GIT_SORT_TOPOLOGICAL)).hex
+        except StopIteration:
+            # No commits in this branch
+            return None
 
     def find_first_branch_matching_pattern(
         self,
