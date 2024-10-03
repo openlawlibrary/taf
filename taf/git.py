@@ -1095,17 +1095,6 @@ class GitRepository:
                 return path
         return None
 
-    def first_commit_on_branch(self, branch_name: str) -> Optional[str]:
-        repo = self.pygit_repo
-        branch = repo.lookup_branch(branch_name)
-        if branch is None:
-            return None
-        try:
-            return next(repo.walk(branch.target, pygit2.GIT_SORT_TOPOLOGICAL)).hex
-        except StopIteration:
-            # No commits in this branch
-            return None
-
     def find_first_branch_matching_pattern(
         self,
         traverse_branch_name: str,
