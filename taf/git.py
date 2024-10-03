@@ -728,7 +728,7 @@ class GitRepository:
             if remote_url is not None:
                 self.add_remote("origin", remote_url)
                 self.fetch()
-                if repo is not None:
+                if repo is not None and branches:
                     local_branch_names = [
                         branch.split("/")[-1] for branch in repo.branches.local
                     ]
