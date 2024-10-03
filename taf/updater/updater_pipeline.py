@@ -1508,6 +1508,12 @@ but commit not on branch {current_branch}"
             return self.state.update_status
         try:
             for repository_name in self.state.repos_not_on_disk:
+                branches = [
+                    branch
+                    for branch in self.state.validated_commits_per_target_repos_branches[
+                        repository_name
+                    ]
+                ]
                 users_target_repo = self.state.users_target_repositories[
                     repository_name
                 ]
@@ -1516,12 +1522,15 @@ but commit not on branch {current_branch}"
                     temp_target_repo.path,
                     temp_target_repo.get_remote_url(),
                     is_bare=self.bare,
+                    branches=branches,
                 )
-            for repo_name in self.state.repos_on_disk:
-                users_target_repo = self.state.users_target_repositories[repo_name]
-                temp_target_repo = self.state.temp_target_repositories[repo_name]
+            for repository_name in self.state.repos_on_disk:
+                users_target_repo = self.state.users_target_repositories[
+                    repository_name
+                ]
+                temp_target_repo = self.state.temp_target_repositories[repository_name]
                 branches = self.state.validated_commits_per_target_repos_branches[
-                    repo_name
+                    repository_name
                 ]
                 for branch in branches:
                     temp_target_repo.update_local_branch(branch=branch)
@@ -1641,18 +1650,22 @@ but commit not on branch {current_branch}"
         checkout_branch = True
         local_branch_exists = repository.branch_exists(branch, include_remotes=False)
         if not self.force:
-            if repository.is_detached_head:
-                self.state.warnings.append(
-                    f"Repository {repository.name} in a detached HEAD state. Checkout the newest branch manually or run the updater with --force"
-                )
-                checkout_branch = False
-            else:
-                current_branch = repository.get_current_branch()
-                if local_branch_exists and current_branch != branch:
+            try:
+                if repository.is_detached_head:
                     self.state.warnings.append(
-                        f"Repository {repository.name} on branch {current_branch}. Checkout the newest branch manually or run the updater with --force"
+                        f"Repository {repository.name} in a detached HEAD state. Checkout the newest branch manually or run the updater with --force"
                     )
                     checkout_branch = False
+                else:
+                    current_branch = repository.get_current_branch()
+                    if local_branch_exists and current_branch != branch:
+                        self.state.warnings.append(
+                            f"Repository {repository.name} on branch {current_branch}. Checkout the newest branch manually or run the updater with --force"
+                        )
+                        checkout_branch = False
+            except KeyError:
+                # an error will be raised if the repo is empty
+                pass
 
         if checkout_branch:
             try:

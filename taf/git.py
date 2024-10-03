@@ -715,6 +715,7 @@ class GitRepository:
         remote_url: Optional[str] = None,
         is_bare: bool = False,
         keep_remote=False,
+        branches=None,
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
@@ -727,9 +728,13 @@ class GitRepository:
             if remote_url is not None:
                 self.add_remote("origin", remote_url)
                 self.fetch()
-                if repo is not None:
-                    for branch in repo.branches.local:
-                        self.set_upstream(str(branch))
+                if repo is not None and branches:
+                    local_branch_names = [
+                        branch.split("/")[-1] for branch in repo.branches.local
+                    ]
+                    for branch in branches:
+                        if branch in local_branch_names:
+                            self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
@@ -1680,7 +1685,7 @@ class GitRepository:
                     self._validate_url(url)
             else:
                 # resolve paths and deduplicate
-                urls = list({_find_url(self.path, url) for url in urls})
+                urls = sorted((_find_url(self.path, url) for url in urls), reverse=True)
         return urls
 
 

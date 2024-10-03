@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.31.1] - 10/03/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix `load_repositories` following a rework needed to support parallelization ([547])
+- Fix `clone_from_disk` ([547])
+- Fix pre-push hook ([547])
+
+[547]: https://github.com/openlawlibrary/taf/pull/547
+
 
 ## [0.31.0] - 09/28/2024
 
@@ -1264,7 +1278,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.31.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.31.1...HEAD
+[0.31.1]: https://github.com/openlawlibrary/taf/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/openlawlibrary/taf/compare/v0.30.2...0.31.0
 [0.30.2]: https://github.com/openlawlibrary/taf/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/openlawlibrary/taf/compare/v0.30.0...v0.30.1
