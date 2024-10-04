@@ -15,7 +15,5 @@ def test_another_repository_tool_function_using_yubikey():
     result = yk.some_function_using_ykman()
     assert result is not None
 
-touch tests/test_repository_tool_w_yubikey/test_repository_tool_yubikey.py
 
-^x
 
