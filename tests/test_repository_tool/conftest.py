@@ -5,12 +5,7 @@ from securesystemslib.interface import (
     import_rsa_publickey_from_file,
 )
 from taf.repository_tool import Repository
-from taf.tests.yubikey_utils import (
-    Root1YubiKey,
-    Root2YubiKey,
-    Root3YubiKey,
-    TargetYubiKey,
-)
+
 from taf.tests.conftest import TEST_DATA_PATH, origin_repos_group
 
 KEYSTORES_PATH = TEST_DATA_PATH / "keystores"
@@ -57,31 +52,6 @@ def repositories(request, pytestconfig):
 def delegated_roles_keystore():
     """Path of the keystore with keys of delegated roles"""
     return str(DELEGATED_ROLES_KEYSTORE_PATH)
-
-
-@fixture
-def targets_yk(pytestconfig):
-    """Targets YubiKey."""
-    return TargetYubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def root1_yk(pytestconfig):
-    """Root1 YubiKey."""
-    return Root1YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def root2_yk(pytestconfig):
-    """Root2 YubiKey."""
-    return Root2YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
-
-@fixture
-def root3_yk(pytestconfig):
-    """Root3 YubiKey."""
-    return Root3YubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
-
 
 @fixture
 def snapshot_key(pytestconfig):
