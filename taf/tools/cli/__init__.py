@@ -1,11 +1,14 @@
+import sys
 import click
 
 from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
-from taf.exceptions import TAFError
+from taf.exceptions import InvalidRepositoryError, TAFError
 from taf.log import taf_logger
+from taf.repository_utils import find_valid_repository
+from taf.git import GitRepository
 from taf.utils import is_run_from_python_executable
 
 
@@ -13,10 +16,15 @@ def catch_cli_exception(func=None, *, handle, print_error=False):
     if not func:
         return partial(catch_cli_exception, handle=handle, print_error=print_error)
 
+    handle = tuple(handle) if isinstance(handle, (list, tuple)) else (handle,)
+
     @wraps(func)
     def wrapper(*args, **kwargs):
+        successful = False
         try:
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            successful = True
+            return result
         except handle as e:
             if print_error:
                 click.echo(e)
@@ -25,7 +33,26 @@ def catch_cli_exception(func=None, *, handle, print_error=False):
                 click.echo(f"An error occurred: {e}")
             else:
                 raise e
+        finally:
+            if not successful and path in kwargs:
+                path = kwargs["path"]
+                repo = GitRepository(path=path)
+                if repo.is_git_repository:
+                    repo.clean_and_reset()
 
+
+    return wrapper
+
+def find_repository(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            if "path" in kwargs:
+                kwargs["path"] = find_valid_repository(kwargs["path"])
+            return func(*args, **kwargs)
+        except InvalidRepositoryError as e:
+            click.echo(f"An error occurred: {e}")
+            sys.exit(1)
     return wrapper
 
 

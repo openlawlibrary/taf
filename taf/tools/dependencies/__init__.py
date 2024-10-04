@@ -2,7 +2,7 @@ import click
 from taf.api.dependencies import add_dependency, remove_dependency
 from taf.exceptions import TAFError
 from taf.repository_utils import find_valid_repository
-from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
+from taf.tools.cli import catch_cli_exception, find_repository, process_custom_command_line_args
 
 
 def add_dependency_command():
@@ -38,6 +38,7 @@ def add_dependency_command():
         library root directory as the authentication repository, in a directory whose name corresponds to its name.
         If dependency's parent authentication repository's path is `E:\\examples\\root\\namespace\\auth`, and the dependency's namespace prefixed name is
         `namespace1\\auth`, the target's path will be set to `E:\\examples\\root\\namespace1\\auth`.""")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("dependency_name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -49,7 +50,6 @@ def add_dependency_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.pass_context
     def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit):
-        path = find_valid_repository(path)
         custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
@@ -76,6 +76,7 @@ def remove_dependency_command():
         `taf dependencies remove dependency-name --keystore keystore-path`
 
         if inside an authentication repository""")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("dependency-name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -83,7 +84,6 @@ def remove_dependency_command():
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def remove(dependency_name, path, keystore, prompt_for_keys, no_commit):
-        path = find_valid_repository(path)
         remove_dependency(
             path=path,
             dependency_name=dependency_name,

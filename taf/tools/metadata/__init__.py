@@ -1,9 +1,9 @@
 import click
 from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import SigningError
+from taf.exceptions import TAFError
 from taf.repository_utils import find_valid_repository
-from taf.tools.cli import catch_cli_exception
+from taf.tools.cli import catch_cli_exception, find_repository
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
@@ -25,11 +25,11 @@ def check_expiration_dates_command():
             timestamp will expire on 2022-07-22
             snapshot will expire on 2022-07-28
             root will expire on 2022-08-19""")
+    @find_repository
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--interval", default=30, type=int, help="Number of days added to the start date")
     @click.option("--start-date", default=datetime.datetime.now(), help="Date to which expiration interval is added", type=ISO_DATE)
     def checking_expiration_dates(path, interval, start_date):
-        path = find_valid_repository(path)
         check_expiration_dates(path=path, interval=interval, start_date=start_date)
     return checking_expiration_dates
 
@@ -49,7 +49,8 @@ def update_expiration_dates_command():
         sign the file using a yubikey.
 
         If targets or other delegated role is updated, automatically sign snapshot and timestamp.""")
-    @catch_cli_exception(handle=SigningError)
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles which expiration date should get updated")
     @click.option("--interval", default=None, type=int, help="Number of days added to the start date")
@@ -59,7 +60,6 @@ def update_expiration_dates_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys):
-        path = find_valid_repository(path)
         if not len(role):
             print("Specify at least one role")
             return
