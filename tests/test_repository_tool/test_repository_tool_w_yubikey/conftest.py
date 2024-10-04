@@ -9,6 +9,7 @@ try:
         setup_signing_yubikey,
         setup_test_yubikey
     )
+    
     YKMAN_AVAILABLE = True
 except ImportError:
     YKMAN_AVAILABLE = False
