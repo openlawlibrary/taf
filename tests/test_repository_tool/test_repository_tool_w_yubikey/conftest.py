@@ -15,7 +15,6 @@ except ImportError:
 
 @pytest.fixture
 def targets_yk(pytestconfig):
-    """Targets YubiKey."""
     if YKMAN_AVAILABLE:
         return setup_test_yubikey(pytestconfig.option.signature_scheme)
     else:
