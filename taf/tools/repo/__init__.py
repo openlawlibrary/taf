@@ -7,7 +7,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.log import initialize_logger_handlers
 from taf.repository_utils import find_valid_repository
-from taf.tools.cli import catch_cli_exception
+from taf.tools.cli import catch_cli_exception, find_repository
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
 
@@ -209,6 +209,7 @@ def update_repo_command():
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
         """)
+    @find_repository
     @catch_cli_exception(handle=UpdateFailedError)
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -221,7 +222,6 @@ def update_repo_command():
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
 
-        path = find_valid_repository(path)
         if profile:
             start_profiling()
 
@@ -260,6 +260,8 @@ def validate_repo_command():
         Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during validate if any/all warnings are found. By default, --strict is disabled.
         """)
+    @find_repository
+    @catch_cli_exception(handle=UpdateFailedError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
@@ -277,7 +279,6 @@ def validate_repo_command():
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
-        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
         if from_latest:
@@ -288,9 +289,9 @@ def validate_repo_command():
 
 def latest_commit_and_branch_command():
     @click.command(help="Fetch and print the last validated commit hash and the default branch.")
+    @find_repository
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def latest_commit_and_branch(path):
-        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         last_validated_commit = auth_repo.last_validated_commit or ""
         default_branch = auth_repo.default_branch
@@ -300,10 +301,10 @@ def latest_commit_and_branch_command():
 
 def status_command():
     @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
+    @find_repository
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
     def status(path, library_dir):
-        path = find_valid_repository(path)
         try:
             taf_status(path, library_dir)
         except TAFError as e:

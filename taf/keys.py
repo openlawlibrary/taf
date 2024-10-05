@@ -383,7 +383,7 @@ def _setup_yubikey_roles_keys(
 
     for key_id in yubikey_ids:
         # Check the present value from the yubikeys dictionary
-        if not users_yubikeys_details[key_id].present:
+        if key_id in users_yubikeys_details and not users_yubikeys_details[key_id].present:
             continue
 
         public_key_text = None

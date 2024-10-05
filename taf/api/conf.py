@@ -86,7 +86,7 @@ def init(
             if not roles_key_infos:
                 roles_key_infos = "."
     if roles_key_infos:
-        generate_keys(taf_directory, str(keystore_directory), roles_key_infos)
+        generate_keys(keystore_directory, roles_key_infos)
         taf_logger.info(
             f"Successfully generated keys inside the {keystore_directory} directory"
         )

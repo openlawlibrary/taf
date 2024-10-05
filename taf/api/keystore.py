@@ -15,6 +15,7 @@ from taf.keys import get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
+from taf.exceptions import KeystoreError
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
@@ -40,14 +41,20 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
     Returns:
         None
     """
-    if password:
-        generate_and_write_rsa_keypair(filepath=key_path, bits=bits, password=password)
-    else:
-        generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
+    try:
+        if password:
+            generate_and_write_rsa_keypair(filepath=key_path, bits=bits, password=password)
+        else:
+            generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
+        taf_logger.info(f"Generated key {key_path}")
+    except Exception as e:
+        taf_logger.error(f"An error occurred while generating rsa key {key_path}")
+        raise KeystoreError(f"An error occurred while generating rsa key {key_path}")
+
 
 
 def generate_keys(
-    auth_repo_path: Path, keystore: Optional[str], roles_key_infos: str
+    keystore: Optional[str], roles_key_infos: str
 ) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
@@ -68,13 +75,16 @@ def generate_keys(
 
     Returns:
         None
+
+    Raises:
+        KeystoreError if an error occurs while initializing the keystore directory or generating a key
     """
     if keystore is None:
-        taf_directory = find_taf_directory(auth_repo_path)
+        taf_directory = find_taf_directory(Path())
         if taf_directory:
             keystore = str(taf_directory / "keystore")
-        else:
-            keystore = "./keystore"
+
+    taf_logger.log("NOTICE", f"Generating keys in {Path(keystore).absolute()}")
     roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
@@ -86,7 +96,7 @@ def generate_keys(
                 key_name = get_key_name(role.name, key_num, role.number)
                 if keystore is not None:
                     password = input(
-                        "Enter keystore password and press ENTER (can be left empty)"
+                        f"Enter {key_name} keystore password and press ENTER (can be left empty)"
                     )
                     key_path = str(Path(keystore, key_name))
                     _generate_rsa_key(key_path, password, role.length)
