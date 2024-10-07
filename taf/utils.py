@@ -22,7 +22,10 @@ from cryptography.hazmat.primitives.serialization import (
 from json import JSONDecoder
 import taf.settings
 from taf.exceptions import PINMissmatchError
-from taf.log import taf_logger
+
+# TODO: Remove legacy imports
+# from taf.log import taf_logger
+
 from typing import List, Optional, Tuple, Dict
 from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
