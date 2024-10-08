@@ -172,8 +172,8 @@ class GitRepository:
         # This is used when instantiating a PyGitRepository repo, so do not use
         # it here
         # Check for a .git directory or file (submodule or bare repo)
-        if (self.path / ".git").exists():
-            return True
+        if not (self.path / ".git").exists():
+            return False
 
         # Use 'git rev-parse --is-inside-work-tree' to check if it's a git repository
         try:
@@ -190,18 +190,21 @@ class GitRepository:
 
     @property
     def is_git_repository_root(self) -> bool:
-        if not self.is_git_repository:
+        try:
+            if not self.is_git_repository:
+                return False
+            repo = self.pygit_repo
+            if repo is None:
+                return False
+            if self.is_bare_repository:
+                return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
+            else:
+                git_path = self.path / ".git"
+                return Path(repo.path).resolve() == git_path.resolve() and (
+                    git_path.is_dir() or git_path.is_file()
+                )
+        except PygitError:
             return False
-        repo = self.pygit_repo
-        if repo is None:
-            return False
-        if self.is_bare_repository:
-            return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
-        else:
-            git_path = self.path / ".git"
-            return Path(repo.path).resolve() == git_path.resolve() and (
-                git_path.is_dir() or git_path.is_file()
-            )
 
     @property
     def initial_commit(self) -> str:

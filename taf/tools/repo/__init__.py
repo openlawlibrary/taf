@@ -6,7 +6,6 @@ from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.log import initialize_logger_handlers
-from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
@@ -82,7 +81,7 @@ def create_repo_command():
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """)
-    @catch_cli_exception(handle=TAFError)
+    @catch_cli_exception(handle=TAFError, remove_dir_on_error=True)
     @click.argument("path", type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True))
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
@@ -287,8 +286,10 @@ def validate_repo_command():
     return validate
 
 
+
 def latest_commit_and_branch_command():
-    @click.command(help="Fetch and print the last validated commit hash and the default branch.")
+    @click.command(help="""Fetch and print the last validated commit hash and the default branch.
+        Integrated into the pre-push git hook""")
     @find_repository
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def latest_commit_and_branch(path):
