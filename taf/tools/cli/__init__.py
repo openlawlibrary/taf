@@ -1,4 +1,5 @@
 import click
+import sys
 
 from functools import partial, wraps
 from logging import ERROR
@@ -23,6 +24,7 @@ def catch_cli_exception(func=None, *, handle, print_error=False):
         except Exception as e:
             if is_run_from_python_executable():
                 click.echo(f"An error occurred: {e}")
+                sys.exit(1)
             else:
                 raise e
 
