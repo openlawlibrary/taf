@@ -290,6 +290,7 @@ def latest_commit_and_branch_command():
     @click.command(help="""Fetch and print the last validated commit hash and the default branch.
         Integrated into the pre-push git hook""")
     @find_repository
+    @catch_cli_exception
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def latest_commit_and_branch(path):
         auth_repo = AuthenticationRepository(path=path)
@@ -302,6 +303,7 @@ def latest_commit_and_branch_command():
 def status_command():
     @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
     @find_repository
+    @catch_cli_exception
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
     def status(path, library_dir):

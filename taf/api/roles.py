@@ -28,7 +28,7 @@ from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )
-from taf.auth_repo import AuthenticationRepository
+from taf.auth_repo import METADATA_DIRECTORY_NAME, AuthenticationRepository
 from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
     DEFAULT_RSA_SIGNATURE_SCHEME,

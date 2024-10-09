@@ -12,7 +12,7 @@ from taf.git import GitRepository
 from taf.utils import is_run_from_python_executable, on_rm_error
 
 
-def catch_cli_exception(func=None, *, handle, print_error=False, remove_dir_on_error=False):
+def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove_dir_on_error=False):
     if not func:
         return partial(
             catch_cli_exception,
