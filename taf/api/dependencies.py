@@ -17,7 +17,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.log import taf_logger
-from taf.taf.tools.repo import UpdateConfig
+from taf.tools.repo import UpdateConfig
 from taf.updater.updater import OperationType, clone_repository
 
 

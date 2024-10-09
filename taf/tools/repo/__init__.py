@@ -51,6 +51,7 @@ def _call_updater(config, format_output):
             taf_logger.error(str(e))
             sys.exit(1)
 
+
 def start_profiling():
     import cProfile
     import atexit
