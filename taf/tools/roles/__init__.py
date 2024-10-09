@@ -1,5 +1,5 @@
 import click
-from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key
+from taf.api.roles import add_role, add_roles, list_keys_of_role, add_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, find_repository
