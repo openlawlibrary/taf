@@ -171,11 +171,6 @@ class GitRepository:
         """Check if the given path is the root of a Git repository."""
         # This is used when instantiating a PyGitRepository repo, so do not use
         # it here
-        # Check for a .git directory or file (submodule or bare repo)
-        if not (self.path / ".git").exists():
-            return False
-
-        # Use 'git rev-parse --is-inside-work-tree' to check if it's a git repository
         try:
             result = self._git("rev-parse --is-inside-work-tree", reraise_error=True)
             if result == "true":
