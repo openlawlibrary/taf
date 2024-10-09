@@ -42,18 +42,20 @@ def add_dependency_command():
     @click.argument("dependency_name")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--branch-name", default=None, help="Name of the branch which contains the out-of-band commit")
+    @click.option("--dependency-url", default=None, help="URL from which the dependency should be cloned if not already on disk")
     @click.option("--out-of-band-commit", default=None, help="Out-of-band commit SHA")
     @click.option("--dependency-path", default=None, help="Dependency's filesystem path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.pass_context
-    def add(ctx, dependency_name, path, branch_name, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit):
+    def add(ctx, dependency_name, path, branch_name, dependency_url, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit):
         custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
             dependency_name=dependency_name,
             branch_name=branch_name,
+            dependency_url=dependency_url,
             out_of_band_commit=out_of_band_commit,
             dependency_path=dependency_path,
             keystore=keystore,
