@@ -1,3 +1,4 @@
+import sys
 import click
 import json
 
@@ -5,7 +6,7 @@ from taf import settings
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
-from taf.log import initialize_logger_handlers
+from taf.log import initialize_logger_handlers, taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
@@ -20,6 +21,35 @@ def common_update_options(f):
     f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
     return f
 
+
+def _call_updater(config, format_output):
+    """
+    A helper function which call update or clone repository
+    """
+    try:
+        if config.operation == OperationType.CLONE:
+            updater_output = clone_repository(config)
+        else:
+            updater_output = update_repository(config)
+
+        successful = updater_output["event"] == "event/succeeded"
+        if format_output:
+            if successful:
+                print(json.dumps({'updateSuccessful': successful}, ))
+            else:
+                error = updater_output.get("error_msg", "")
+                print(json.dumps({'updateSuccessful': successful, "error": error}))
+
+        if not successful:
+            sys.exit(1)
+    except Exception as e:
+        if format_output:
+            error_data = {"updateSuccessful": False, "error": str(e)}
+            taf_logger.error(json.dumps(error_data))
+            sys.exit(1)
+        else:
+            taf_logger.error(str(e))
+            sys.exit(1)
 
 def start_profiling():
     import cProfile
@@ -163,16 +193,8 @@ def clone_repo_command():
             no_deps=no_deps,
         )
 
-        try:
-            clone_repository(config)
-            if format_output:
-                print(json.dumps({'updateSuccessful': True}))
-        except Exception as e:
-            if format_output:
-                error_data = {'updateSuccessful': False, 'error': str(e)}
-                print(json.dumps(error_data))
-            else:
-                raise e
+        _call_updater(config, format_output)
+
     return clone
 
 
@@ -237,16 +259,7 @@ def update_repo_command():
             no_deps=no_deps,
         )
 
-        try:
-            update_repository(config)
-            if format_output:
-                print(json.dumps({'updateSuccessful': True}))
-        except Exception as e:
-            if format_output:
-                error_data = {'updateSuccessful': False, 'error': str(e)}
-                print(json.dumps(error_data))
-            else:
-                raise e
+        _call_updater(config, format_output)
     return update
 
 
