@@ -198,8 +198,12 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             if Path(script_path).suffix == ".py":
                 if getattr(sys, "frozen", False):
                     # we are running in a pyinstaller bundle
-                    taf_logger.warning(
-                        "Warning: executing scripts from pyinstaller executable is not supported"
+                    output = run(
+                        f"{sys.executable}",
+                        "scripts",
+                        "execute",
+                        script_path,
+                        input=json_data,
                     )
                 else:
                     output = run(f"{sys.executable}", script_path, input=json_data)
