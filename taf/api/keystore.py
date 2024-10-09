@@ -1,5 +1,5 @@
 from logging import INFO
-from typing import Optional
+from typing import Optional, Union
 from logdecorator import log_on_start, log_on_end
 from pathlib import Path
 from taf.models.types import RolesKeysData
@@ -54,7 +54,7 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         raise KeystoreError(f"An error occurred while generating rsa key {key_path}")
 
 
-def generate_keys(keystore: Optional[str | Path], roles_key_infos: str) -> None:
+def generate_keys(keystore: Optional[Union[str, Path]], roles_key_infos: str) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
     of TUF roles. If more than one key should be generated per role, a counter is appended
@@ -87,7 +87,7 @@ def generate_keys(keystore: Optional[str | Path], roles_key_infos: str) -> None:
 
     taf_logger.log("NOTICE", f"Generating keys in {str(Path(keystore).absolute())}")
     roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
-        roles_key_infos, keystore
+        roles_key_infos, str(keystore)
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
