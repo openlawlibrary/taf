@@ -286,7 +286,6 @@ def validate_repo_command():
     return validate
 
 
-
 def latest_commit_and_branch_command():
     @click.command(help="""Fetch and print the last validated commit hash and the default branch.
         Integrated into the pre-push git hook""")

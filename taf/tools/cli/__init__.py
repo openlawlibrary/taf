@@ -9,8 +9,6 @@ from taf.exceptions import InvalidRepositoryError, TAFError
 from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
-from taf.utils import is_run_from_python_executable
-from taf.git import GitRepository
 from taf.utils import is_run_from_python_executable, on_rm_error
 
 
@@ -22,7 +20,6 @@ def catch_cli_exception(func=None, *, handle, print_error=False, remove_dir_on_e
             print_error=print_error,
             remove_dir_on_error=remove_dir_on_error
         )
-
 
     handle = tuple(handle) if isinstance(handle, (list, tuple)) else (handle,)
 
@@ -51,6 +48,7 @@ def catch_cli_exception(func=None, *, handle, print_error=False, remove_dir_on_e
                     shutil.rmtree(path, onerror=on_rm_error)
 
     return wrapper
+
 
 def find_repository(func):
     @wraps(func)

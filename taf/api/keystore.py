@@ -49,12 +49,12 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         else:
             generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
         taf_logger.info(f"Generated key {key_path}")
-    except Exception as e:
+    except Exception:
         taf_logger.error(f"An error occurred while generating rsa key {key_path}")
         raise KeystoreError(f"An error occurred while generating rsa key {key_path}")
 
 
-def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
+def generate_keys(keystore: Optional[str | Path], roles_key_infos: str) -> None:
     """
     Generate public and private keys and writes them to disk. Names of keys correspond to names
     of TUF roles. If more than one key should be generated per role, a counter is appended
@@ -82,8 +82,10 @@ def generate_keys(keystore: Optional[str], roles_key_infos: str) -> None:
         taf_directory = find_taf_directory(Path())
         if taf_directory:
             keystore = str(taf_directory / "keystore")
+        else:
+            keystore = "./keystore"
 
-    taf_logger.log("NOTICE", f"Generating keys in {Path(keystore).absolute()}")
+    taf_logger.log("NOTICE", f"Generating keys in {str(Path(keystore).absolute())}")
     roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )

@@ -1,4 +1,3 @@
-from pathlib import Path
 import click
 from taf.api.keystore import generate_keys
 from taf.exceptions import KeystoreError
