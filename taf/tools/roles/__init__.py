@@ -1,34 +1,68 @@
+import json
+from pathlib import Path
+import sys
 import click
 from taf.api.roles import add_role, add_roles, list_keys_of_role, add_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
+from taf.log import taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 
 from taf.api.roles import add_role_paths
 
 
 def add_role_command():
-    @click.command(help="""Add a new delegated target role, specifying which paths are delegated to the new role.
-        Its parent role, number of signing keys and signatures threshold can also be defined.
-        Update and sign all metadata files and commit.
-        """)
+    @click.command(help="""
+    Add a new delegated target role. Allows optional specification of the role's properties through a JSON configuration file.
+    If the configuration file is not provided or specific properties are omitted, default values are used.
+    Only a list of one or more delegated paths has to be provided.
+
+    Configuration file (JSON) can specify:
+    - 'parent_role' (string): The parent role under which the new role will be delegated. Default is 'targets'.
+    - 'delegated_path' (array of strings): Paths to be delegated to the new role. Must specify at least one if using a config file.
+    - 'keys_number' (integer): Number of signing keys. Default is 1.
+    - 'threshold' (integer): Number of keys required to sign. Default is 1.
+    - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
+    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Default is 'rsa-pkcs1v15-sha256'.
+
+    Example JSON structure:
+    {
+    "parent_role": "targets",
+    "delegated_path": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+    "keys_number": 1,
+    "threshold": 1,
+    "yubikey": true,
+    "scheme": "rsa-pkcs1v15-sha256"
+    }
+    """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
+    @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--parent-role", default="targets", help="Parent targets role of this role. Defaults to targets")
-    @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-number", default=1, help="Number of signing keys. Defaults to 1")
-    @click.option("--threshold", default=1, help="An integer number of keys of that role whose signatures are required in order to consider a file as being properly signed by that role")
-    @click.option("--yubikey", is_flag=True, default=None, help="A flag determining if the new role should be signed using a Yubikey")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add(role, path, parent_role, delegated_path, keystore, keys_number, threshold, yubikey, scheme, no_commit, prompt_for_keys):
+    def add(role, config_file, path, keystore, no_commit, prompt_for_keys):
+
+        config_data = {}
+        if config_file:
+            try:
+                config_data = json.loads(Path(config_file).read_text())
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON provided. Please check your input.", err=True)
+                sys.exit(1)
+
+        delegated_path = config_data.get("delegated_path", [])
         if not delegated_path:
-            print("Specify at least one delegated path")
+            taf_logger.log("NOTICE", "Specify at least one delegated path through a configuration file.")
             return
+
+        parent_role = config_data.get("parent_role", "targets")
+        keys_number = config_data.get("keys_number", 1)
+        threshold = config_data.get("threshold", 1)
+        yubikey = config_data.get("yubikey", False)
+        scheme = config_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
 
         add_role(
             path=path,
