@@ -767,6 +767,40 @@ class Repository:
         roles.extend(self.find_keys_roles([public_key], check_threshold=False))
         return roles
 
+    def generate_roles_description(self) -> Dict:
+        roles_description = {}
+        self._repository
+
+        def _get_delegations(role_name):
+            delegations_info = {}
+            delegations = self.get_delegations_info(role_name)
+            if len(delegations):
+                for role_info in delegations.get("roles"):
+                    delegations_info[role_info["name"]] = {
+                        "threshold": role_info["threshold"],
+                        "number": len(role_info["keyids"]),
+                        "paths": role_info["paths"],
+                        "terminating": role_info["terminating"],
+                    }
+                    inner_roles_data = _get_delegations(role_info["name"])
+                    if len(inner_roles_data):
+                        delegations_info[role_info["name"]][
+                            "delegations"
+                        ] = inner_roles_data
+            return delegations_info
+
+        for role_name in MAIN_ROLES:
+            role_info = tuf.roledb.get_roleinfo(role_name, self.name)
+            roles_description[role_name] = {
+                "threshold": role_info["threshold"],
+                "number": len(role_info["keyids"]),
+            }
+            if role_name == "targets":
+                delegations_info = _get_delegations(role_name)
+                if len(delegations_info):
+                    roles_description[role_name]["delegations"] = delegations_info
+        return {"roles": roles_description}
+
     def get_all_targets_roles(self):
         """
         Return a list containing names of all target roles
