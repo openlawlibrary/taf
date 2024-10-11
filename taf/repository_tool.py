@@ -3,6 +3,7 @@ import json
 import operator
 import os
 import shutil
+from cryptography.hazmat.primitives import serialization
 from fnmatch import fnmatch
 from functools import partial, reduce
 from pathlib import Path
@@ -37,7 +38,12 @@ from taf.exceptions import (
     KeystoreError,
 )
 from taf.git import GitRepository
-from taf.utils import normalize_file_line_endings, on_rm_error, get_file_details
+from taf.utils import (
+    default_backend,
+    normalize_file_line_endings,
+    on_rm_error,
+    get_file_details,
+)
 
 try:
     import taf.yubikey as yk
@@ -767,9 +773,27 @@ class Repository:
         roles.extend(self.find_keys_roles([public_key], check_threshold=False))
         return roles
 
+    def get_key_length_and_scheme_from_metadata(self, parent_role, keyid):
+        try:
+            metadata = json.loads(
+                Path(
+                    self.path, METADATA_DIRECTORY_NAME, f"{parent_role}.json"
+                ).read_text()
+            )
+            metadata = metadata["signed"]
+            if "delegations" in metadata:
+                metadata = metadata["delegations"]
+            scheme = metadata["keys"][keyid]["scheme"]
+            pub_key_pem = metadata["keys"][keyid]["keyval"]["public"]
+            pub_key = serialization.load_pem_public_key(
+                pub_key_pem.encode(), backend=default_backend()
+            )
+            return pub_key, scheme
+        except Exception:
+            return None, None
+
     def generate_roles_description(self) -> Dict:
         roles_description = {}
-        self._repository
 
         def _get_delegations(role_name):
             delegations_info = {}
@@ -782,6 +806,11 @@ class Repository:
                         "paths": role_info["paths"],
                         "terminating": role_info["terminating"],
                     }
+                    pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+                        role_name, role_info["keyids"][0]
+                    )
+                    delegations_info[role_info["name"]]["scheme"] = scheme
+                    delegations_info[role_info["name"]]["length"] = pub_key.key_size
                     inner_roles_data = _get_delegations(role_info["name"])
                     if len(inner_roles_data):
                         delegations_info[role_info["name"]][
@@ -790,11 +819,16 @@ class Repository:
             return delegations_info
 
         for role_name in MAIN_ROLES:
-            role_info = tuf.roledb.get_roleinfo(role_name, self.name)
+            role_obj = self._role_obj(role_name)
             roles_description[role_name] = {
-                "threshold": role_info["threshold"],
-                "number": len(role_info["keyids"]),
+                "threshold": role_obj.threshold,
+                "number": len(role_obj.keys),
             }
+            pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+                "root", role_obj.keys[0]
+            )
+            roles_description[role_name]["scheme"] = scheme
+            roles_description[role_name]["length"] = pub_key.key_size
             if role_name == "targets":
                 delegations_info = _get_delegations(role_name)
                 if len(delegations_info):
