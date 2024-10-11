@@ -13,12 +13,13 @@ from tuf.repository_tool import Targets
 from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
-from taf.models.types import RolesIterator, TargetsRole
+from taf.models.types import RolesIterator, TargetsRole, compare_roles_data
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
 from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 import tuf.roledb
 import taf.repositoriesdb as repositoriesdb
 from taf.keys import (
+    find_keystore,
     get_key_name,
     get_metadata_key_info,
     load_signing_keys,
@@ -216,7 +217,7 @@ def add_role_paths(
     reraise=True,
 )
 @check_if_clean
-def add_roles(
+def add_multiple_roles(
     path: str,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
@@ -227,7 +228,8 @@ def add_roles(
 ) -> None:
     """
     Add new target roles and sign all metadata files given information stored in roles_key_infos
-    dictionary or .json file
+    dictionary or .json file.
+
 
     Arguments:
         path: Path to the authentication repository.
@@ -246,22 +248,13 @@ def add_roles(
     """
     auth_repo = AuthenticationRepository(path=path)
 
-    roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
-        roles_key_infos, keystore
+    roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
+        path, roles_key_infos, keystore
     )
+    roles_data = auth_repo.generate_roles_description()
+    roles_keys_data_current = from_dict(roles_data, RolesKeysData)
 
-    roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
-
-    new_roles = []
-    existing_roles = auth_repo.get_all_targets_roles()
-    main_roles = ["root", "snapshot", "timestamp"]
-    existing_roles.extend(main_roles)
-
-    new_roles = [
-        role
-        for role in RolesIterator(roles_keys_data.roles.targets, skip_top_role=True)
-        if role.name not in existing_roles
-    ]
+    new_roles, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
 
     parent_roles_names = {role.parent.name for role in new_roles}
 
@@ -270,20 +263,23 @@ def add_roles(
         return
 
     repository = auth_repo._repository
+    existing_roles = [
+        role.name for role in RolesIterator(roles_keys_data_current.roles)
+    ]
     signing_keys, verification_keys = load_sorted_keys_of_new_roles(
         auth_repo=auth_repo,
-        roles=roles_keys_data.roles,
+        roles=roles_keys_data_new.roles,
         keystore=keystore,
-        yubikeys_data=roles_keys_data.yubikeys,
+        yubikeys_data=roles_keys_data_new.yubikeys,
         existing_roles=existing_roles,
     )
 
     create_delegations(
-        roles_keys_data.roles.targets,
+        roles_keys_data_new.roles.targets,
         repository,
         verification_keys,
         signing_keys,
-        existing_roles,
+        existing_roles=existing_roles,
     )
     for parent_role_name in parent_roles_names:
         _update_role(
@@ -541,6 +537,24 @@ def _read_val(input_type, name, param=None, required=False):
             pass
 
 
+def _initialize_roles_and_keystore_for_existing_repo(
+    path: str,
+    roles_key_infos: Optional[str],
+    keystore: Optional[str],
+    enter_info: Optional[bool] = True,
+) -> RolesKeysData:
+    roles_key_infos_dict = read_input_dict(roles_key_infos)
+
+    if not roles_key_infos_dict and enter_info:
+        roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
+    roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
+    keystore = keystore or roles_keys_data.keystore
+    if keystore is None:
+        keystore = find_keystore(path)
+        roles_keys_data.keystore = keystore
+    return roles_keys_data
+
+
 def _initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
@@ -561,6 +575,7 @@ def _initialize_roles_and_keystore(
         keystore: Location of the keystore files.
         enter_info (optional): Indicates if the user should be asked to enter information about the
         roles and keys if not specified. Set to True by default.
+
 
     Side Effects:
         None

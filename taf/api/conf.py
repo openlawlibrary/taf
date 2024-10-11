@@ -1,8 +1,10 @@
 from shutil import Error, copytree
+import shutil
 from typing import Optional
 from pathlib import Path
 from taf.api.keystore import generate_keys
 from taf.log import taf_logger
+from taf.utils import read_input_dict
 
 
 def init(
@@ -32,7 +34,13 @@ def init(
     keystore_directory.mkdir(exist_ok=True)
 
     # If any of these parameters exist you can assume the user wants to generate keys
-    if not keystore and not roles_key_infos:
+
+    # check if keystore already exists
+    roles_key_infos_dict = read_input_dict(roles_key_infos)
+    keystore = keystore or (roles_key_infos and roles_key_infos_dict.get("keystore"))
+    should_generate_keys = False
+    keystore_path = Path(keystore) if keystore else None
+    if not keystore or not keystore_path.is_dir():
         # Prompt the user if they want to run the generate_keys function
         while True:
             use_keystore = (
@@ -43,50 +51,49 @@ def init(
             if use_keystore in ["y", "n"]:
                 should_generate_keys = use_keystore == "y"
                 break
-    if should_generate_keys or (keystore and not roles_key_infos):
-        # First check if the user already specified keystore
-        if not keystore:
-            copy_keystore = (
-                input(
-                    "Do you want to load an existing keystore from another location? [y/N]: "
-                )
-                .strip()
-                .lower()
-            )
-            if copy_keystore == "y":
-                while True:
-                    keystore_input = input(
-                        "Enter the path to the existing keystore:"
-                    ).strip()
-                    keystore_path = Path(keystore_input)
-                    if keystore_path.exists() and keystore_path.is_dir():
-                        keystore = keystore_input  # Assign the string path to the keystore variable
-                        break
-                    else:
-                        taf_logger.error(
-                            f"Provided keystore path {keystore} is invalid."
-                        )
-        # Check if keystore is specified now. If so copy the keys
-        if keystore:
-            try:
-                copytree(keystore, keystore_directory, dirs_exist_ok=True)
-                taf_logger.info(
-                    f"Copied keystore from {keystore} to {keystore_directory}"
-                )
-            except FileNotFoundError:
-                taf_logger.error(f"Provided keystore path {keystore} not found.")
-            except Error as e:
-                taf_logger.error(f"Error occurred while copying keystore: {e}")
 
-        # If there is no keystore path specified, ask for keys description and generate keys
-        elif not roles_key_infos:
-            roles_key_infos = input(
-                "Enter the path to the keys description JSON file (can be left empty): "
-            ).strip()
-            if not roles_key_infos:
-                roles_key_infos = "."
-    if roles_key_infos:
+        if should_generate_keys:
+            # First check if the user already specified keystore
+            if not keystore:
+                copy_keystore = (
+                    input(
+                        "Do you want to load an existing keystore from another location? [y/N]: "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if copy_keystore == "y":
+                    while True:
+                        keystore_input = input(
+                            "Enter the path to the existing keystore:"
+                        ).strip()
+                        keystore_path = Path(keystore_input)
+                        if keystore_path.exists() and keystore_path.is_dir():
+                            keystore = keystore_input  # Assign the string path to the keystore variable
+                            should_generate_keys = (
+                                False  # no need to generate keys, they will be copied
+                            )
+                            break
+                        else:
+                            taf_logger.error(
+                                f"Provided keystore path {keystore} is invalid."
+                            )
+    # Check if keystore is specified now. If so copy the keys
+    if keystore and keystore_path.is_dir():
+        try:
+            copytree(keystore, keystore_directory, dirs_exist_ok=True)
+            taf_logger.info(f"Copied keystore from {keystore} to {keystore_directory}")
+        except FileNotFoundError:
+            taf_logger.error(f"Provided keystore path {keystore} not found.")
+        except Error as e:
+            taf_logger.error(f"Error occurred while copying keystore: {e}")
+
+    if should_generate_keys:
         generate_keys(keystore_directory, roles_key_infos)
         taf_logger.info(
             f"Successfully generated keys inside the {keystore_directory} directory"
         )
+
+    if roles_key_infos is not None and Path(roles_key_infos).is_file():
+        infos_config_path = (taf_directory / Path(roles_key_infos).name).absolute()
+        shutil.copy(str(roles_key_infos), str(infos_config_path))

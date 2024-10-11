@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import sys
 import click
-from taf.api.roles import add_role, add_roles, list_keys_of_role, add_signing_key
+from taf.api.roles import add_multiple_roles, add_role, list_keys_of_role, add_signing_key
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository
@@ -106,13 +106,12 @@ def export_roles_description_command():
     return export_roles_description
 
 
-def update_roles_command():
-    @click.command(help="""Add or update roles based on the provided keys-description file.
-            This file is expected to contain information about all roles this command updates
-            the repository based on the discrepencies between information listed in that file
-            and the current metadata.
+def add_multiple_command():
+    @click.command(help="""Adds new roles based on the provided keys-description file by
+            comparing it with the current state of the repository.
 
-            The current state can be exported using taf roles export_roles_description
+            The current state can be exported using taf roles export_roles_description and then
+            edited manually to add new roles.
 
             For each role, the following can be defined:
             - Total number of keys per role.
@@ -120,10 +119,6 @@ def update_roles_command():
             - Use of Yubikeys or keystore files for storing keys.
             - Signature scheme, with the default being 'rsa-pkcs1v15-sha256'.
             - Keystore path, if not specified via the keystore option.
-
-        This command facilitates the addition of new roles or the updating of existing roles according to the provided specifications.
-        New roles are automatically detected and integrated. Currently, the removal of roles is not supported.
-        It is possible to add new delegated paths and update other properties of the roles.
 
         \b
         Example of a JSON configuration:
@@ -153,8 +148,8 @@ def update_roles_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def update_roles(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        add_roles(
+    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
+        add_multiple_roles(
             path=path,
             keystore=keystore,
             roles_key_infos=keys_description,
@@ -162,7 +157,7 @@ def update_roles_command():
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
         )
-    return update_roles
+    return add_multiple
 
 
 def add_role_paths_command():
@@ -191,56 +186,6 @@ def add_role_paths_command():
         )
     return adding_role_paths
 
-
-def add_multiple_roles_command():
-    @click.command(help="""Add one or more target roles. Information about the roles
-        can be provided through a dictionary - either specified directly or contained
-        by a .json file whose path is specified when calling this command. This allows
-        definition of:
-            - total number of keys per role
-            - threshold of signatures per role
-            - should keys of a role be on Yubikeys or should keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
-            - keystore path, if not specified via keystore option
-
-        \b
-        For example:
-        {
-            "roles": {
-                "root": {
-                    "number": 3,
-                    "length": 2048,
-                    "passwords": ["password1", "password2", "password3"],
-                    "threshold": 2,
-                    "yubikey": true
-                },
-                "targets": {
-                    "length": 2048
-                },
-                "snapshot": {},
-                "timestamp": {}
-            },
-            "keystore": "keystore_path"
-        }
-        """)
-    @find_repository
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.argument("keys-description")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        add_roles(
-            path=path,
-            keystore=keystore,
-            roles_key_infos=keys_description,
-            scheme=scheme,
-            prompt_for_keys=prompt_for_keys,
-            commit=not no_commit,
-        )
-    return add_multiple
 
 
 # commenting out this command since its execution leads to an invalid state
@@ -333,7 +278,7 @@ def list_keys_command():
 def attach_to_group(group):
 
     group.add_command(add_role_command(), name='add')
-    group.add_command(add_multiple_roles_command(), name='add-multiple')
+    group.add_command(add_multiple_command(), name='add-multiple')
     group.add_command(add_role_paths_command(), name='add-role-paths')
     # group.add_command(remove_role_command(), name='remove')
     group.add_command(add_signing_key_command(), name='add-signing-key')
