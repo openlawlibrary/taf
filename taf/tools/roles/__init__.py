@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import sys
 import click
-from taf.api.roles import add_multiple_roles, add_role, list_keys_of_role, add_signing_key
+from taf.api.roles import add_multiple_roles, add_role, list_keys_of_role, add_signing_key, remove_role
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository
@@ -10,7 +10,6 @@ from taf.log import taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 
 from taf.api.roles import add_role_paths
-
 
 
 def add_role_command():
@@ -187,36 +186,35 @@ def add_role_paths_command():
     return adding_role_paths
 
 
-
 # commenting out this command since its execution leads to an invalid state
 # this is a TUF bug (or better said, caused by using a newer version of the updater and old repository_tool)
 # it will be addressed when we transition to metadata API
-# def remove_role_command():
-#     @click.command(help="""Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
-#         If targets should also be deleted, target files are remove and their corresponding entires are removed
-#         from repositoires.json. If targets should not get removed, the target files are signed using the
-#         removed role's parent role
-#         """)
-#     @find_repository
-#     @catch_cli_exception(handle=TAFError)
-#     @click.argument("role")
-#     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-#     @click.option("--keystore", default=None, help="Location of the keystore files")
-#     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-#     @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
-#     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-#     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-#     def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
-#         remove_role(
-#             path=path,
-#             role=role,
-#             keystore=keystore,
-#             scheme=scheme,
-#             remove_targets=remove_targets,
-#             commit=not no_commit,
-#             prompt_for_keys=prompt_for_keys,
-#         )
-#     return remove
+def remove_role_command():
+    @click.command(help="""Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
+        If targets should also be deleted, target files are remove and their corresponding entires are removed
+        from repositoires.json. If targets should not get removed, the target files are signed using the
+        removed role's parent role
+        """)
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("role")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
+        remove_role(
+            path=path,
+            role=role,
+            keystore=keystore,
+            scheme=scheme,
+            remove_targets=remove_targets,
+            commit=not no_commit,
+            prompt_for_keys=prompt_for_keys,
+        )
+    return remove
 
 
 def add_signing_key_command():

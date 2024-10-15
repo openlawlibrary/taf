@@ -67,7 +67,7 @@ def create_repository(
         return
 
     if not keystore:
-        keystore = find_keystore(auth_repo.path)
+        keystore = find_keystore(path)
     roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )

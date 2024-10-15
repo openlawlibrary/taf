@@ -1,6 +1,6 @@
 from taf.log import taf_logger
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 
 def find_taf_directory(auth_repo_path: Path) -> Optional[Path]:
@@ -33,9 +33,9 @@ def find_taf_directory(auth_repo_path: Path) -> Optional[Path]:
     return None
 
 
-def find_keystore(path: Path) -> Optional[Path]:
+def find_keystore(path: Union[str, Path]) -> Optional[Path]:
     """Find keystore starting from the given path and traversing parent directories if needed."""
-    taf_directory = find_taf_directory(path)
+    taf_directory = find_taf_directory(Path(path))
     if taf_directory:
         keystore_path = taf_directory / "keystore"
         if keystore_path.exists() and keystore_path.is_dir():
