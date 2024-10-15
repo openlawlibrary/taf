@@ -151,7 +151,7 @@ def clone_repo_command():
 
         config = UpdateConfig(
             operation=OperationType.CLONE,
-            url=url,
+            remote_url=url,
             path=path,
             library_dir=library_dir,
             update_from_filesystem=from_fs,
