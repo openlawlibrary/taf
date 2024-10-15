@@ -131,7 +131,7 @@ def add_target_repo(
         # delegated role paths are not specified for the top-level targets role
         # the targets role is responsible for signing all paths not
         # delegated to another target role
-        taf_logger.info("Role already exists")
+        taf_logger.log("NOTICE", "Role already exists")
         add_role_paths(
             paths=[target_name],
             delegated_role=role,
@@ -149,8 +149,9 @@ def add_target_repo(
         repositories_json = {"repositories": {}}
     repositories = repositories_json["repositories"]
     if target_repo.name in repositories:
-        taf_logger.info(
-            f"{target_repo.name} already added to repositories.json. Overwriting"
+        taf_logger.log(
+            "NOTICE",
+            f"{target_repo.name} already added to repositories.json. Overwriting",
         )
     repositories[target_repo.name] = {}
     if custom:
@@ -417,13 +418,13 @@ def remove_target_repo(
     removed_targets_data: Dict = {}
     added_targets_data: Dict = {}
     if not auth_repo.is_git_repository_root:
-        taf_logger.info(f"{path} is not a git repository!")
+        taf_logger.error(f"{path} is not a git repository!")
         return
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
     if repositories_json is not None:
         repositories = repositories_json["repositories"]
         if target_name not in repositories:
-            taf_logger.info(f"{target_name} not in repositories.json")
+            taf_logger.log("NOTICE", f"{target_name} not in repositories.json")
         else:
             repositories.pop(target_name)
             # update content of repositories.json before updating targets metadata
@@ -439,7 +440,7 @@ def remove_target_repo(
         os.unlink(str(target_file_path))
         removed_targets_data[target_name] = {}
     else:
-        taf_logger.info(f"{target_file_path} target file does not exist")
+        taf_logger.log("NOTICE", f"{target_file_path} target file does not exist")
 
     changes_committed = False
     if len(added_targets_data) or len(removed_targets_data):
@@ -476,7 +477,7 @@ def remove_target_repo(
         )
         changes_committed = True
     else:
-        taf_logger.info(f"{target_name} not among delegated paths")
+        taf_logger.log("NOTICE", f"{target_name} not among delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
     if changes_committed and push:
         auth_repo.push()
@@ -625,7 +626,7 @@ def update_and_sign_targets(
             nonexistent_target_types.append(target_type)
             continue
     if len(nonexistent_target_types):
-        taf_logger.info(
+        taf_logger.error(
             f"Target types {'.'.join(nonexistent_target_types)} not in repositories.json. Targets not updated"
         )
         return
@@ -635,7 +636,7 @@ def update_and_sign_targets(
         _save_top_commit_of_repo_to_target(
             Path(library_dir), target_name, repo_path, True
         )
-        taf_logger.info(f"Updated {target_name} target file")
+        taf_logger.log("NOTICE", f"Updated {target_name} target file")
     register_target_files(
         repo_path,
         keystore,
@@ -669,4 +670,4 @@ def _update_target_repos(
         target_repo_name = target_repo_path.name
         path = targets_dir / target_repo_name
         path.write_text(json.dumps(data, indent=4))
-        taf_logger.info(f"Updated {path}")
+        taf_logger.log("NOTICE", f"Updated {path}")

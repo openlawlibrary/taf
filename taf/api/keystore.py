@@ -48,7 +48,7 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
             )
         else:
             generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
-        taf_logger.info(f"Generated key {key_path}")
+        taf_logger.log("NOTICE", f"Generated key {key_path}")
     except Exception:
         taf_logger.error(f"An error occurred while generating rsa key {key_path}")
         raise KeystoreError(f"An error occurred while generating rsa key {key_path}")

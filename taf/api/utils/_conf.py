@@ -29,7 +29,7 @@ def find_taf_directory(auth_repo_path: Path) -> Optional[Path]:
             return taf_directory
         current_dir = current_dir.parent
 
-    taf_logger.info(f"No .taf directory found starting from {auth_repo_path.parent}")
+    taf_logger.debug(f"No .taf directory found starting from {auth_repo_path.parent}")
     return None
 
 
@@ -39,7 +39,7 @@ def find_keystore(path: Path) -> Optional[Path]:
     if taf_directory:
         keystore_path = taf_directory / "keystore"
         if keystore_path.exists() and keystore_path.is_dir():
-            taf_logger.info(f"Found keystore at {keystore_path}")
+            taf_logger.debug(f"Found keystore at {keystore_path}")
             return keystore_path
-    taf_logger.info(f"No keystore found starting from {path}")
+    taf_logger.debug(f"No keystore found starting from {path}")
     return None
