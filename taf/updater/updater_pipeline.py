@@ -1632,7 +1632,7 @@ but commit not on branch {current_branch}"
                 self.state.users_auth_repo,
                 self.state.users_auth_repo.default_branch,
                 last_commit,
-                False,
+                True,
             )
             # update the last validated commit
             self.state.users_auth_repo.set_last_validated_commit(last_commit)
