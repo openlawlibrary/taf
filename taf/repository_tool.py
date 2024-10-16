@@ -338,7 +338,10 @@ class Repository:
             return self._repository.timestamp
         elif role == "root":
             return self._repository.root
-        return self._repository.targets(role)
+        try:
+            return self._repository.targets(role)
+        except tuf.exceptions.UnknownRoleError:
+            return
 
     def _try_load_metadata_key(self, role, key):
         """Check if given key can be used to sign given role and load it.
@@ -611,6 +614,10 @@ class Repository:
             return None
 
         return common_role.pop()
+
+    def check_if_role_exists(self, role_name):
+        role = self._role_obj(role_name)
+        return role is not None
 
     def check_roles_expiration_dates(
         self, interval=None, start_date=None, excluded_roles=None

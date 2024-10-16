@@ -186,13 +186,18 @@ def add_role_paths(
     """
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=auth_path)
-    if delegated_role not in auth_repo.get_all_targets_roles():
-        taf_logger.error(f"Role {delegated_role} does not exist")
-        return
+    if not auth_repo.check_if_role_exists(delegated_role):
+        raise TAFError(f"Role {delegated_role} does not exist")
+
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     parent_role_obj = _role_obj(parent_role, auth_repo)
     if isinstance(parent_role_obj, Targets):
-        parent_role_obj.add_paths(paths, delegated_role)
+        try:
+            parent_role_obj.add_paths(paths, delegated_role)
+        except tuf.exceptions.InvalidNameError:
+            raise TAFError(
+                "All delegated paths should be relative to targets directory."
+            )
         _update_role(auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys)
         if commit:
             update_snapshot_and_timestamp(
@@ -349,6 +354,13 @@ def add_signing_key(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
+    non_existant_roles = []
+    for role in roles:
+        if not auth_repo.check_if_role_exists(role):
+            non_existant_roles.append(role)
+    if len(non_existant_roles):
+        raise TAFError(f"Role(s) {', '.join(non_existant_roles)} do not exist")
+
     _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
@@ -699,6 +711,9 @@ def list_keys_of_role(
     """
     auth_repo = AuthenticationRepository(path=path)
     key_ids = auth_repo.get_role_keys(role=role)
+    if key_ids is None:
+        raise TAFError(f"Role {role} does not exist")
+
     return [
         str(get_metadata_key_info(auth_repo.certs_dir, key_id)) for key_id in key_ids
     ]
