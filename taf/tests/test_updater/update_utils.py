@@ -126,7 +126,7 @@ def clone_repositories(
         shutil.rmtree(client_test_root)
     config = UpdateConfig(
         operation=OperationType.CLONE,
-        url=str(origin_auth_repo.path),
+        remote_url=str(origin_auth_repo.path),
         update_from_filesystem=True,
         path=None,
         library_dir=str(clients_dir),
@@ -235,7 +235,7 @@ def update_and_check_commit_shas(
 
     config = UpdateConfig(
         operation=operation,
-        url=str(origin_auth_repo.path),
+        remote_url=str(origin_auth_repo.path),
         update_from_filesystem=True,
         path=str(clients_auth_repo_path) if auth_repo_name_exists else None,
         library_dir=str(clients_dir),
@@ -299,7 +299,7 @@ def update_invalid_repos_and_check_if_repos_exist(
 
     config = UpdateConfig(
         operation=operation,
-        url=str(origin_auth_repo.path),
+        remote_url=str(origin_auth_repo.path),
         update_from_filesystem=True,
         path=str(clients_auth_repo_path) if auth_repo_name_exists else None,
         library_dir=str(clients_dir),

@@ -175,13 +175,16 @@ def clone_repo_command():
     @click.option("--bare", is_flag=True, default=False, help="Clone repositories as bare repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps):
+    @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps, verbosity):
+        settings.VERBOSITY = verbosity
+        initialize_logger_handlers()
         if profile:
             start_profiling()
 
         config = UpdateConfig(
             operation=OperationType.CLONE,
-            url=url,
+            remote_url=url,
             path=path,
             library_dir=library_dir,
             update_from_filesystem=from_fs,

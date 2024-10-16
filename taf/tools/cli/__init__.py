@@ -36,6 +36,7 @@ def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove
         except Exception as e:
             if is_run_from_python_executable():
                 click.echo(f"An error occurred: {e}")
+                sys.exit(1)
             else:
                 raise e
         finally:
