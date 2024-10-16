@@ -182,3 +182,26 @@ class RolesIterator:
 
         for role in roles:
             yield from _dfs_delegations(role, self.skip_top_role)
+
+
+def compare_roles_data(old_data: RolesKeysData, new_data: RolesKeysData):
+    added_roles = []
+    removed_roles = []
+    current_roles = {
+        role.name: role
+        for role in RolesIterator(old_data.roles.targets, skip_top_role=True)
+    }
+    new_roles = {
+        role.name: role
+        for role in RolesIterator(new_data.roles.targets, skip_top_role=True)
+    }
+
+    for role_name, role in current_roles.items():
+        if role_name not in new_roles:
+            removed_roles.append(role)
+
+    for role_name, role in new_roles.items():
+        if role_name not in current_roles:
+            added_roles.append(role)
+
+    return added_roles, removed_roles

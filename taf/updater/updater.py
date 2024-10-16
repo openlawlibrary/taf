@@ -139,8 +139,9 @@ def _reset_to_commits_before_pull(auth_repo, commits_data, targets_data):
 @define
 class UpdateConfig:
     operation: OperationType = field(converter=OperationType)
-    url: str = field(
-        metadata={"docs": "URL of the remote authentication repository"}, default=None
+    remote_url: str = field(
+        metadata={"docs": "Remote URL of the remote authentication repository"},
+        default=None,
     )
     path: Path = field(
         default=None,
@@ -202,6 +203,10 @@ class UpdateConfig:
         metadata={
             "docs": "Whether to checkout last validated commits after update. Optional."
         },
+    )
+    clone_urls: list = field(
+        default=None,
+        metadata={"docs": "List of URLs to clone repositories from. Optional."},
     )
     excluded_target_globs: list = field(
         default=None,
@@ -281,8 +286,10 @@ def clone_repository(config: UpdateConfig):
     """
     settings.strict = config.strict
 
-    if config.url is None:
-        raise UpdateFailedError("URL has to be specified when cloning repositories")
+    if config.remote_url is None:
+        raise UpdateFailedError(
+            "Remote URL has to be specified when cloning repositories"
+        )
 
     if config.path and is_non_empty_directory(config.path):
         raise UpdateFailedError(
@@ -329,9 +336,9 @@ def update_repository(config: UpdateConfig):
 
     taf_logger.info(f"Updating repository {auth_repo.name}")
 
-    if config.url is None:
-        config.url = auth_repo.get_remote_url()
-        if config.url is None:
+    if config.remote_url is None:
+        config.remote_url = auth_repo.get_remote_url()
+        if config.remote_url is None:
             raise UpdateFailedError("URL cannot be determined. Please specify it")
 
     if auth_repo.is_bare_repository:
@@ -419,9 +426,9 @@ def _process_repo_update(
     if visited is None:
         visited = []
     # if there is a recursive dependency
-    if update_config.url in visited:
+    if update_config.remote_url in visited:
         return
-    visited.append(update_config.url)
+    visited.append(update_config.remote_url)
     # at the moment, we assume that the initial commit is valid and that it contains at least root.json
     update_status = update_output.event
     auth_repo = update_output.users_auth_repo
@@ -481,7 +488,8 @@ def _process_repo_update(
                     update_status = Event.FAILED
                 repo = output.users_auth_repo
                 child_config = copy.copy(update_config)
-                child_config.url = repo.urls[0]
+                child_config.remote_url = repo.urls[0]
+                child_config.clone_urls = repo.urls
                 child_config.out_of_band_authentication = (
                     repo.out_of_band_authentication
                 )
@@ -582,7 +590,8 @@ def _update_dependencies(update_config, child_auth_repos):
             child_config.operation = (
                 OperationType.UPDATE if repo.is_git_repository else OperationType.CLONE
             )
-            child_config.url = repo.urls[0]
+            child_config.remote_url = repo.urls[0]
+            child_config.clone_urls = repo.urls
             child_config.out_of_band_authentication = repo.out_of_band_authentication
             child_config.path = repo.path
             pipeline = AuthenticationRepositoryUpdatePipeline(child_config)
@@ -638,7 +647,7 @@ def validate_repository(
     try:
         config = UpdateConfig(
             operation=OperationType.UPDATE,
-            url=str(auth_path),
+            remote_url=str(auth_path),
             path=auth_path,
             library_dir=library_dir,
             validate_from_commit=validate_from_commit,

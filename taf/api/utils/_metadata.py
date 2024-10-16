@@ -108,7 +108,7 @@ def update_target_metadata(
     )
 
     if not roles_targets:
-        taf_logger.info("No target files to sign")
+        taf_logger.log("NOTICE", "No target files to sign")
         return False
 
     # update targets

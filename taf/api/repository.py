@@ -20,6 +20,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
+from taf.api.utils._conf import find_keystore
 from taf.utils import ensure_pre_push_hook
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
@@ -65,6 +66,10 @@ def create_repository(
     if not _check_if_can_create_repository(auth_repo):
         return
 
+    if not keystore and auth_repo.path is not None:
+        keystore_path = find_keystore(auth_repo.path)
+        if keystore_path is not None:
+            keystore = str(keystore_path)
     roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )

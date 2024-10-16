@@ -76,7 +76,7 @@ class GitUpdater(FetcherInterface):
     def targets_dir(self):
         return str(self.validation_auth_repo.path / "targets")
 
-    def __init__(self, auth_url, repository_directory, repository_name):
+    def __init__(self, auth_urls, repository_directory, repository_name):
         """
         Args:
         auth_url: repository url of the git repository which we want to clone.
@@ -91,7 +91,7 @@ class GitUpdater(FetcherInterface):
 
         validation_path = settings.validation_repo_path.get(repository_name)
 
-        self.set_validation_repo(validation_path, auth_url)
+        self.set_validation_repo(validation_path, auth_urls)
 
         self._init_commits()
 
@@ -187,11 +187,11 @@ class GitUpdater(FetcherInterface):
 
         return wrapper
 
-    def set_validation_repo(self, path, url):
+    def set_validation_repo(self, path, urls):
         """
         Used outside of GitUpdater to access validation auth repo.
         """
-        self.validation_auth_repo = AuthenticationRepository(path=path, urls=[url])
+        self.validation_auth_repo = AuthenticationRepository(path=path, urls=urls)
 
     def cleanup(self):
         """

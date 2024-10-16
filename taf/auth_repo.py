@@ -185,6 +185,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         else:
             return self.get_json(head_commit, INFO_JSON_PATH)
 
+    def get_metadata_path(self, role):
+        return self.path / METADATA_DIRECTORY_NAME / f"{role}.json"
+
     def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):

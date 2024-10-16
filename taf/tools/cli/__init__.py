@@ -1,30 +1,66 @@
+import shutil
+import sys
 import click
-
 from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
-from taf.exceptions import TAFError
+from taf.exceptions import InvalidRepositoryError, TAFError
 from taf.log import taf_logger
-from taf.utils import is_run_from_python_executable
+from taf.repository_utils import find_valid_repository
+from taf.git import GitRepository
+from taf.utils import is_run_from_python_executable, on_rm_error
 
 
-def catch_cli_exception(func=None, *, handle, print_error=False):
+def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove_dir_on_error=False):
     if not func:
-        return partial(catch_cli_exception, handle=handle, print_error=print_error)
+        return partial(
+            catch_cli_exception,
+            handle=handle,
+            print_error=print_error,
+            remove_dir_on_error=remove_dir_on_error
+        )
+
+    handle = tuple(handle) if isinstance(handle, (list, tuple)) else (handle,)
 
     @wraps(func)
     def wrapper(*args, **kwargs):
+        successful = False
         try:
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            successful = True
+            return result
         except handle as e:
             if print_error:
                 click.echo(e)
         except Exception as e:
             if is_run_from_python_executable():
                 click.echo(f"An error occurred: {e}")
+                sys.exit(1)
             else:
                 raise e
+        finally:
+            if not successful and "path" in kwargs:
+                path = kwargs["path"]
+                repo = GitRepository(path=path)
+                if repo.is_git_repository:
+                    repo.clean_and_reset()
+                if remove_dir_on_error:
+                    shutil.rmtree(path, onerror=on_rm_error)
+
+    return wrapper
+
+
+def find_repository(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            if "path" in kwargs:
+                kwargs["path"] = find_valid_repository(kwargs["path"])
+            return func(*args, **kwargs)
+        except InvalidRepositoryError as e:
+            click.echo(f"An error occurred: {e}")
+            sys.exit(1)
 
     return wrapper
 
