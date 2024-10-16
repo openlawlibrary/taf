@@ -17,7 +17,8 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.log import taf_logger
-from taf.updater.updater import OperationType, UpdateConfig, clone_repository
+from taf.updater.updater import OperationType, clone_repository
+import taf.updater.updater as updater
 
 
 @log_on_start(
@@ -86,6 +87,11 @@ def add_dependency(
     if not auth_repo.is_git_repository_root:
         taf_logger.error(f"{path} is not a git repository!")
         return
+
+    dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
+    if dependencies_json is not None and dependency_name in dependencies_json:
+        taf_logger.log("NOTICE", f"{dependency_name} already added")
+        return
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
 
@@ -94,15 +100,11 @@ def add_dependency(
     else:
         dependency = GitRepository(library_dir, dependency_name)
 
-    if dependency.is_git_repository:
-        branch_name, out_of_band_commit = _determine_out_of_band_data(
-            dependency, branch_name, out_of_band_commit, no_prompt
-        )
-    elif dependency_url is not None:
+    if not dependency.is_git_repository and dependency_url is not None:
         taf_logger.log(
             "NOTICE", f"{dependency.path} does not exist. Cloning from {dependency_url}"
         )
-        config = UpdateConfig(
+        config = updater.UpdateConfig(
             operation=OperationType.CLONE,
             url=dependency_url,
             path=Path(library_dir, dependency_name),
@@ -113,9 +115,15 @@ def add_dependency(
         )
         try:
             clone_repository(config)
+            dependency.default_branch = dependency._determine_default_branch()
         except Exception as e:
             taf_logger.error(f"Dependency clone failed due to error {e}.")
             return
+
+    if dependency.is_git_repository:
+        branch_name, out_of_band_commit = _determine_out_of_band_data(
+            dependency, branch_name, out_of_band_commit, no_prompt
+        )
     else:
         if branch_name is None or out_of_band_commit is None:
             raise TAFError(
