@@ -347,7 +347,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             ),
         )
         self.operation = update_config.operation
-        self.url = update_config.url
+        self.urls = update_config.clone_urls or [update_config.remote_url]
         self.library_dir = update_config.library_dir
         self.auth_path = update_config.path
         self.update_from_filesystem = update_config.update_from_filesystem
@@ -410,7 +410,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.existing_repo = False
         if self.auth_path:
             self.state.users_auth_repo = AuthenticationRepository(
-                path=self.auth_path, urls=[self.url]
+                path=self.auth_path, urls=self.urls
             )
             self.state.auth_repo_name = self.state.users_auth_repo.name
             if self.state.users_auth_repo.is_git_repository_root:
@@ -468,7 +468,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if not self.state.existing_repo:
                 return UpdateStatus.SUCCESS
 
-            auth_repo = AuthenticationRepository(path=self.auth_path, urls=[self.url])
+            auth_repo = AuthenticationRepository(path=self.auth_path, urls=self.urls)
             taf_logger.info(
                 f"{auth_repo.name}: Checking if local repositories are clean..."
             )
@@ -594,7 +594,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             path = Path(self.state.temp_root.temp_dir, "auth_repo").absolute()
             self.state.validation_auth_repo = AuthenticationRepository(
-                path=path, urls=[self.url], alias="Validation repository"
+                path=path, urls=self.urls, alias="Validation repository"
             )
             self.state.validation_auth_repo.clone(bare=True)
             self.state.validation_auth_repo.fetch(fetch_all=True)
@@ -760,7 +760,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
 
             self.state.update_handler = GitUpdater(
-                self.url, self.library_dir, self.state.validation_auth_repo.name
+                self.urls, self.library_dir, self.state.validation_auth_repo.name
             )
             last_validated_remote_commit, error = _run_tuf_updater(
                 self.state.update_handler, self.state.auth_repo_name
@@ -791,7 +791,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo = AuthenticationRepository(
                     library_dir=self.library_dir,
                     name=self.state.auth_repo_name,
-                    urls=[self.url],
+                    urls=self.urls,
                 )
 
             self._validate_operation_type()
@@ -854,7 +854,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo = AuthenticationRepository(
                     self.library_dir,
                     self.state.auth_repo_name,
-                    urls=[self.url],
+                    urls=self.urls,
                 )
 
     def _validate_operation_type(self):
