@@ -87,6 +87,9 @@ class UpdateState:
     temp_root: TempPartition = field(default=None)
     update_handler: GitUpdater = field(default=None)
     clean_check_data: Dict[str, str] = field(factory=dict)
+    last_validated_data_per_repositories: Dict[str, Dict[str, str]] = field(
+        factory=dict
+    )
 
 
 @attrs
@@ -1294,7 +1297,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # need to be set to old head since that is the last validated target
             self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
 
-            last_validated_data_per_repositories = defaultdict(dict)
+            self.last_validated_data_per_repositories = defaultdict(dict)
             self.state.validated_auth_commits = []
 
             for auth_commit in self.state.auth_commits_since_last_validated:
@@ -1314,7 +1317,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         "branch", repository.default_branch
                     )
                     current_commit = current_targets_data["commit"]
-                    if not len(last_validated_data_per_repositories[repository.name]):
+                    if not len(
+                        self.last_validated_data_per_repositories[repository.name]
+                    ):
                         current_head_commit_and_branch = (
                             self.state.targets_data_by_auth_commits[
                                 repository.name
@@ -1325,10 +1330,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         if previous_commit is not None and previous_branch is None:
                             previous_branch = repository.default_branch
                     else:
-                        previous_branch = last_validated_data_per_repositories[
+                        previous_branch = self.last_validated_data_per_repositories[
                             repository.name
                         ].get("branch")
-                        previous_commit = last_validated_data_per_repositories[
+                        previous_commit = self.last_validated_data_per_repositories[
                             repository.name
                         ]["commit"]
 
@@ -1348,7 +1353,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         auth_commit,
                     )
 
-                    last_validated_data_per_repositories[repository.name] = {
+                    self.last_validated_data_per_repositories[repository.name] = {
                         "commit": validated_commit,
                         "branch": current_branch,
                     }
@@ -1574,16 +1579,20 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
             for repository in self.state.users_target_repositories.values():
                 # this will only include branches that were, at least partially, validated (up until a certain point)
+                last_branch = self.last_validated_data_per_repositories[
+                    repository.name
+                ]["branch"]
                 for (
                     branch,
                     validated_commits,
                 ) in self.state.validated_commits_per_target_repos_branches[
                     repository.name
                 ].items():
+                    is_last_branch = branch == last_branch
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
                     update_status = self._merge_commit(
-                        repository, branch, commit_to_merge, force_revert=True
+                        repository, branch, commit_to_merge, is_last_branch
                     )
                     events_list.append(update_status)
 
@@ -1624,7 +1633,7 @@ but commit not on branch {current_branch}"
                 self.state.users_auth_repo,
                 self.state.users_auth_repo.default_branch,
                 last_commit,
-                False,
+                True,
             )
             # update the last validated commit
             self.state.users_auth_repo.set_last_validated_commit(last_commit)
@@ -1635,7 +1644,7 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _merge_commit(self, repository, branch, commit_to_merge, force_revert=True):
+    def _merge_commit(self, repository, branch, commit_to_merge, is_last_branch):
         """Merge the specified commit into the given branch and check out the branch.
         If the repository cannot contain unauthenticated commits, check out the merged commit.
         """
@@ -1648,9 +1657,9 @@ but commit not on branch {current_branch}"
         # out the newest branch and print a warning
         # if run with --force, checkout the newest branch regardless of the repo's state
 
-        checkout_branch = True
+        checkout_branch = is_last_branch
         local_branch_exists = repository.branch_exists(branch, include_remotes=False)
-        if not self.force:
+        if is_last_branch and not self.force:
             try:
                 if repository.is_detached_head:
                     self.state.warnings.append(
@@ -1686,7 +1695,7 @@ but commit not on branch {current_branch}"
                     f"Please update the repository at {repository.path} manually and try again."
                 )
         elif not local_branch_exists:
-            repository.create_local_branch(branch)
+            repository.create_local_branch_from_remote_tracking(branch)
 
         if repository.top_commit_of_branch(branch) == commit_to_merge:
             return Event.UNCHANGED

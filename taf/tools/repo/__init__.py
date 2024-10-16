@@ -1,3 +1,4 @@
+import sys
 import click
 import json
 
@@ -5,9 +6,8 @@ from taf import settings
 from taf.api.repository import create_repository, taf_status
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
-from taf.log import initialize_logger_handlers
-from taf.repository_utils import find_valid_repository
-from taf.tools.cli import catch_cli_exception
+from taf.log import initialize_logger_handlers, taf_logger
+from taf.tools.cli import catch_cli_exception, find_repository
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
 
@@ -20,6 +20,36 @@ def common_update_options(f):
     f = click.option("--exclude-target", multiple=True, help="Globs defining which target repositories should be ignored during update.")(f)
     f = click.option("--strict", is_flag=True, default=False, help="Enable/disable strict mode - return an error if warnings are raised.")(f)
     return f
+
+
+def _call_updater(config, format_output):
+    """
+    A helper function which call update or clone repository
+    """
+    try:
+        if config.operation == OperationType.CLONE:
+            updater_output = clone_repository(config)
+        else:
+            updater_output = update_repository(config)
+
+        successful = updater_output["event"] == "event/succeeded"
+        if format_output:
+            if successful:
+                print(json.dumps({'updateSuccessful': successful}, ))
+            else:
+                error = updater_output.get("error_msg", "")
+                print(json.dumps({'updateSuccessful': successful, "error": error}))
+
+        if not successful:
+            sys.exit(1)
+    except Exception as e:
+        if format_output:
+            error_data = {"updateSuccessful": False, "error": str(e)}
+            taf_logger.error(json.dumps(error_data))
+            sys.exit(1)
+        else:
+            taf_logger.error(str(e))
+            sys.exit(1)
 
 
 def start_profiling():
@@ -82,7 +112,7 @@ def create_repo_command():
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
         """)
-    @catch_cli_exception(handle=TAFError)
+    @catch_cli_exception(handle=TAFError, remove_dir_on_error=True)
     @click.argument("path", type=click.Path(exists=False, file_okay=False, dir_okay=True, writable=True))
     @click.option("--keys-description", help="A dictionary containing information about the "
                   "keys or a path to a json file which stores the needed information")
@@ -167,16 +197,8 @@ def clone_repo_command():
             no_deps=no_deps,
         )
 
-        try:
-            clone_repository(config)
-            if format_output:
-                print(json.dumps({'updateSuccessful': True}))
-        except Exception as e:
-            if format_output:
-                error_data = {'updateSuccessful': False, 'error': str(e)}
-                print(json.dumps(error_data))
-            else:
-                raise e
+        _call_updater(config, format_output)
+
     return clone
 
 
@@ -212,6 +234,7 @@ def update_repo_command():
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
         """)
+    @find_repository
     @catch_cli_exception(handle=UpdateFailedError)
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -224,7 +247,6 @@ def update_repo_command():
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
 
-        path = find_valid_repository(path)
         if profile:
             start_profiling()
 
@@ -241,16 +263,7 @@ def update_repo_command():
             no_deps=no_deps,
         )
 
-        try:
-            update_repository(config)
-            if format_output:
-                print(json.dumps({'updateSuccessful': True}))
-        except Exception as e:
-            if format_output:
-                error_data = {'updateSuccessful': False, 'error': str(e)}
-                print(json.dumps(error_data))
-            else:
-                raise e
+        _call_updater(config, format_output)
     return update
 
 
@@ -263,6 +276,8 @@ def validate_repo_command():
         Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during validate if any/all warnings are found. By default, --strict is disabled.
         """)
+    @find_repository
+    @catch_cli_exception(handle=UpdateFailedError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, "
                   "optionally, authentication repository are located. If omitted it is "
@@ -280,7 +295,6 @@ def validate_repo_command():
     def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
-        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
         if from_latest:
@@ -290,10 +304,12 @@ def validate_repo_command():
 
 
 def latest_commit_and_branch_command():
-    @click.command(help="Fetch and print the last validated commit hash and the default branch.")
+    @click.command(help="""Fetch and print the last validated commit hash and the default branch.
+        Integrated into the pre-push git hook""")
+    @find_repository
+    @catch_cli_exception
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def latest_commit_and_branch(path):
-        path = find_valid_repository(path)
         auth_repo = AuthenticationRepository(path=path)
         last_validated_commit = auth_repo.last_validated_commit or ""
         default_branch = auth_repo.default_branch
@@ -303,10 +319,11 @@ def latest_commit_and_branch_command():
 
 def status_command():
     @click.command(help="Prints the whole state of the library, including authentication repositories and its dependencies.")
+    @find_repository
+    @catch_cli_exception
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Path to the library's root directory. Determined based on the authentication repository's path if not provided.")
     def status(path, library_dir):
-        path = find_valid_repository(path)
         try:
             taf_status(path, library_dir)
         except TAFError as e:

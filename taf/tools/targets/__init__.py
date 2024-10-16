@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+import sys
 import click
 from taf.api.targets import (
     list_targets,
@@ -10,8 +13,8 @@ from taf.api.targets import (
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.repository_utils import find_valid_repository
-from taf.tools.cli import catch_cli_exception, process_custom_command_line_args
+from taf.tools.cli import catch_cli_exception, find_repository
+from taf.log import taf_logger
 
 
 def add_repo_command():
@@ -21,18 +24,17 @@ def add_repo_command():
     ), help="""Add a new repository by adding it to repositories.json, creating a delegation (if targets is not
         its signing role) and adding and signing initial target files if the repository is found on the filesystem.
         All additional information that should be saved as the repository's custom content in `repositories.json`
-        is specified by providing additional options. If the signing role does not exist, it will be created.
+        is specified by providing a json file containing this data
         E.g.
 
-        `taf targets add-repo --path auth-path --target-name namespace1/repo --serve latest --role role1`
-
-        or
-
-        `taf targets add-repo --target-name namespace1/repo --serve latest --role role1`
+        {
+            "custom-prop1": "custom-val1",
+            "custom-prop2": "custom-val2"
+        }
 
         if directly inside the authentication repository.
 
-        In this case, serve: latest will be added to the custom part of the target repository's entry in
+        In this case, custom-prop1 and custom-prop2 will be added to the custom part of the target repository's entry in
         repositories.json.
 
         If the repository does not exist, it is sufficient to provide its namespace prefixed name
@@ -41,6 +43,7 @@ def add_repo_command():
         in a directory whose name corresponds to its name. If authentication repository's path
         is `E:\\examples\\root\\namespace\\auth`, and the target's namespace prefixed name is
         `namespace1\\repo1`, the target's path will be set to `E:\\examples\\root\\namespace1\\repo1`.""")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("target-name")
@@ -49,10 +52,17 @@ def add_repo_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.pass_context
-    def add_repo(ctx, path, target_path, target_name, role, keystore, prompt_for_keys, no_commit):
-        path = find_valid_repository(path)
-        custom = process_custom_command_line_args(ctx)
+    @click.option("--custom-file", type=click.Path(exists=True), help="Path to the JSON file containing additional, custom targets data.")
+    def add_repo(path, target_path, target_name, role, keystore, prompt_for_keys, no_commit, custom_file):
+
+        custom = {}
+        if custom_file:
+            try:
+                custom = json.loads(Path(custom_file).read_text())
+            except json.JSONDecodeError:
+                taf_logger.error("Invalid custom JSON provided")
+                sys.exit(1)
+
         add_target_repo(
             path=path,
             target_path=target_path,
@@ -77,12 +87,13 @@ def export_history_command():
         data will include all target repositories.
         to a file whose location is specified using the output option, or print it to
         console.""")
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--commit", default=None, help="Starting authentication repository commit")
     @click.option("--output", default=None, help="File to which the resulting json will be written. If not provided, the output will be printed to console")
     @click.option("--repo", multiple=True, help="Target repository whose historical data should be collected")
     def export_history(path, commit, output, repo):
-        path = find_valid_repository(path)
         export_targets_history(path, commit, output, repo)
     return export_history
 
@@ -99,23 +110,24 @@ def list_targets_command():
         - if there are unsigned changes (commits not registered in the authentication repository)
         - if they are up-to-date with remote
         - if there are uncommitted changes""")
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If omitted it is calculated based on authentication repository's path. Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
     def list(path, library_dir):
-        path = find_valid_repository(path)
         list_targets(path, library_dir)
     return list
 
 
 def remove_repo_command():
     @click.command(help="Remove a target repository (from repsoitories.json and target file) and sign")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("target-name")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def remove_repo(path, target_name, keystore, prompt_for_keys):
-        path = find_valid_repository(path)
         remove_target_repo(
             path=path,
             target_name=target_name,
@@ -132,6 +144,7 @@ def sign_targets_command():
         keystore parameter is provided, keys stored in that directory will be used for
         signing. If a needed key is not in that directory, the file can either be signed
         by manually entering the key or by using a Yubikey.""")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keystore", default=None, help="Location of the keystore files")
@@ -141,7 +154,6 @@ def sign_targets_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def sign(path, keystore, keys_description, scheme, prompt_for_keys, no_commit):
         try:
-            path = find_valid_repository(path)
             register_target_files(
                 path=path,
                 keystore=keystore,
@@ -178,6 +190,7 @@ def update_and_sign_command():
         that the namespace of target repositories is equal to the authentication repository's namespace,
         determined based on the repository's path. E.g. Namespace of E:\\root\\namespace2\\auth-repo
         is namespace2.""")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If omitted it is calculated based on authentication repository's path. Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
@@ -189,7 +202,6 @@ def update_and_sign_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme, prompt_for_keys, no_commit):
         try:
-            path = find_valid_repository(path)
             if len(target_type):
                 update_and_sign_targets(
                     path,

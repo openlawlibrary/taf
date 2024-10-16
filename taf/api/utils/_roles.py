@@ -50,33 +50,36 @@ def create_delegations(
     if existing_roles is None:
         existing_roles = []
     skip_top_role = role.name == "targets"
-    for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
-        parent_role_obj = _role_obj(delegated_role.parent.name, repository)
-        if not isinstance(parent_role_obj, Targets):
-            raise TAFError(
-                f"Could not find parent targets role of role {delegated_role}"
+    try:
+        for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
+            parent_role_obj = _role_obj(delegated_role.parent.name, repository)
+            if not isinstance(parent_role_obj, Targets):
+                raise TAFError(
+                    f"Could not find parent targets role of role {delegated_role}"
+                )
+            if delegated_role.name in existing_roles:
+                taf_logger.log("NOTICE", f"Role {delegated_role.name} already set up.")
+                continue
+            paths = delegated_role.paths
+            roles_verification_keys = verification_keys[delegated_role.name]
+            # if yubikeys are used for signing, signing keys are not loaded
+            roles_signing_keys = signing_keys.get(delegated_role.name)
+            parent_role_obj.delegate(
+                delegated_role.name,
+                roles_verification_keys,
+                paths,
+                threshold=delegated_role.threshold,
+                terminating=delegated_role.terminating,
             )
-        if delegated_role.name in existing_roles:
-            taf_logger.info(f"Role {delegated_role.name} already set up.")
-            continue
-        paths = delegated_role.paths
-        roles_verification_keys = verification_keys[delegated_role.name]
-        # if yubikeys are used for signing, signing keys are not loaded
-        roles_signing_keys = signing_keys.get(delegated_role.name)
-        parent_role_obj.delegate(
-            delegated_role.name,
-            roles_verification_keys,
-            paths,
-            threshold=delegated_role.threshold,
-            terminating=delegated_role.terminating,
-        )
-        setup_role(
-            delegated_role,
-            repository,
-            roles_verification_keys,
-            roles_signing_keys,
-            parent=parent_role_obj,
-        )
+            setup_role(
+                delegated_role,
+                repository,
+                roles_verification_keys,
+                roles_signing_keys,
+                parent=parent_role_obj,
+            )
+    except tuf.exceptions.InvalidNameError:
+        raise TAFError("All delegated paths should be relative to targets directory.")
 
 
 @log_on_start(DEBUG, "Finding roles of key", logger=taf_logger)
@@ -131,9 +134,13 @@ def setup_role(
         # as previous_keys
         # this means that TUF expects at least one of those signing keys to be present
         # we are setting up this role, so there should be no previous keys
-        tuf.roledb._roledb_dict[repository._repository_name][role.name][
-            "previous_keyids"
-        ] = []
+
+        try:
+            tuf.roledb._roledb_dict[repository._repository_name][role.name][
+                "previous_keyids"
+            ] = []
+        except Exception:  # temporary quick fix, this will all be reworked
+            tuf.roledb._roledb_dict[repository.name][role.name]["previous_keyids"] = []
 
 
 def _role_obj(

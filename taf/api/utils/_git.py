@@ -34,7 +34,7 @@ def commit_and_push(
     if push and auth_repo.has_remote():
         try:
             auth_repo.push()
-            taf_logger.info("Successfully pushed to remote")
+            taf_logger.log("NOTICE", "Successfully pushed to remote")
 
             new_commit_branch = auth_repo.default_branch
             if new_commit_branch:

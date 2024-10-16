@@ -1,34 +1,69 @@
+import json
+from pathlib import Path
+import sys
 import click
-from taf.api.roles import add_role, add_roles, list_keys_of_role, remove_role, add_signing_key
+from taf.api.roles import add_multiple_roles, add_role, list_keys_of_role, add_signing_key, remove_role
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.repository_utils import find_valid_repository
-from taf.tools.cli import catch_cli_exception
+from taf.auth_repo import AuthenticationRepository
+from taf.log import taf_logger
+from taf.tools.cli import catch_cli_exception, find_repository
 
 from taf.api.roles import add_role_paths
 
 
 def add_role_command():
-    @click.command(help="""Add a new delegated target role, specifying which paths are delegated to the new role.
-        Its parent role, number of signing keys and signatures threshold can also be defined.
-        Update and sign all metadata files and commit.
-        """)
+    @click.command(help="""
+    Add a new delegated target role. Allows optional specification of the role's properties through a JSON configuration file.
+    If the configuration file is not provided or specific properties are omitted, default values are used.
+    Only a list of one or more delegated paths has to be provided.
+
+    Configuration file (JSON) can specify:
+    - 'parent_role' (string): The parent role under which the new role will be delegated. Default is 'targets'.
+    - 'delegated_path' (array of strings): Paths to be delegated to the new role. Must specify at least one if using a config file.
+    - 'keys_number' (integer): Number of signing keys. Default is 1.
+    - 'threshold' (integer): Number of keys required to sign. Default is 1.
+    - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
+    - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Default is 'rsa-pkcs1v15-sha256'.
+
+    Example JSON structure:
+    {
+    "parent_role": "targets",
+    "delegated_path": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+    "keys_number": 1,
+    "threshold": 1,
+    "yubikey": true,
+    "scheme": "rsa-pkcs1v15-sha256"
+    }
+    """)
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
+    @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--parent-role", default="targets", help="Parent targets role of this role. Defaults to targets")
-    @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-number", default=1, help="Number of signing keys. Defaults to 1")
-    @click.option("--threshold", default=1, help="An integer number of keys of that role whose signatures are required in order to consider a file as being properly signed by that role")
-    @click.option("--yubikey", is_flag=True, default=None, help="A flag determining if the new role should be signed using a Yubikey")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add(role, path, parent_role, delegated_path, keystore, keys_number, threshold, yubikey, scheme, no_commit, prompt_for_keys):
-        if not path:
-            print("Specify at least one path")
-        delegated_path = find_valid_repository(delegated_path)
+    def add(role, config_file, path, keystore, no_commit, prompt_for_keys):
+
+        config_data = {}
+        if config_file:
+            try:
+                config_data = json.loads(Path(config_file).read_text())
+            except json.JSONDecodeError:
+                click.echo("Invalid JSON provided. Please check your input.", err=True)
+                sys.exit(1)
+
+        delegated_path = config_data.get("delegated_path", [])
+        if not delegated_path:
+            taf_logger.log("NOTICE", "Specify at least one delegated path through a configuration file.")
+            return
+
+        parent_role = config_data.get("parent_role", "targets")
+        keys_number = config_data.get("keys_number", 1)
+        threshold = config_data.get("threshold", 1)
+        yubikey = config_data.get("yubikey", False)
+        scheme = config_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
 
         add_role(
             path=path,
@@ -46,19 +81,46 @@ def add_role_command():
     return add
 
 
-def add_multiple_roles_command():
-    @click.command(help="""Add one or more target roles. Information about the roles
-        can be provided through a dictionary - either specified directly or contained
-        by a .json file whose path is specified when calling this command. This allows
-        definition of:
-            - total number of keys per role
-            - threshold of signatures per role
-            - should keys of a role be on Yubikeys or should keystore files be used
-            - scheme (the default scheme is rsa-pkcs1v15-sha256)
-            - keystore path, if not specified via keystore option
+def export_roles_description_command():
+    @click.command(help="""
+        Export roles-description.json file based on the
+        """)
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--output", default=None, help="Output file path")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    def export_roles_description(path, output, keystore):
+        auth_repo = AuthenticationRepository(path=path)
+        roles_description = auth_repo.generate_roles_description()
+        if keystore:
+            roles_description["keystore"] = keystore
+        if not output:
+            taf_logger.log("NOTICE", json.dumps(roles_description, indent=True))
+        else:
+            output = Path(output)
+            output.parent.mkdir(exist_ok=True, parents=True)
+            output.write_text(json.dumps(roles_description, indent=True))
+
+    return export_roles_description
+
+
+def add_multiple_command():
+    @click.command(help="""Adds new roles based on the provided keys-description file by
+            comparing it with the current state of the repository.
+
+            The current state can be exported using taf roles export_roles_description and then
+            edited manually to add new roles.
+
+            For each role, the following can be defined:
+            - Total number of keys per role.
+            - Threshold of required signatures per role.
+            - Use of Yubikeys or keystore files for storing keys.
+            - Signature scheme, with the default being 'rsa-pkcs1v15-sha256'.
+            - Keystore path, if not specified via the keystore option.
 
         \b
-        For example:
+        Example of a JSON configuration:
         {
             "roles": {
                 "root": {
@@ -77,6 +139,7 @@ def add_multiple_roles_command():
             "keystore": "keystore_path"
         }
         """)
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("keys-description")
@@ -85,8 +148,7 @@ def add_multiple_roles_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        path = find_valid_repository(path)
-        add_roles(
+        add_multiple_roles(
             path=path,
             keystore=keystore,
             roles_key_infos=keys_description,
@@ -99,6 +161,7 @@ def add_multiple_roles_command():
 
 def add_role_paths_command():
     @click.command(help="Add a new delegated target role, specifying which paths are delegated to the new role. Its parent role, number of signing keys and signatures threshold can also be defined. Update and sign all metadata files and commit.")
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -107,7 +170,6 @@ def add_role_paths_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
-        path = find_valid_repository(path)
         if not delegated_path:
             print("Specify at least one path")
             return
@@ -124,12 +186,16 @@ def add_role_paths_command():
     return adding_role_paths
 
 
+# commenting out this command since its execution leads to an invalid state
+# this is a TUF bug (or better said, caused by using a newer version of the updater and old repository_tool)
+# it will be addressed when we transition to metadata API
 def remove_role_command():
     @click.command(help="""Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
         If targets should also be deleted, target files are remove and their corresponding entires are removed
         from repositoires.json. If targets should not get removed, the target files are signed using the
         removed role's parent role
         """)
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
@@ -139,7 +205,6 @@ def remove_role_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
-        path = find_valid_repository(path)
         remove_role(
             path=path,
             role=role,
@@ -162,6 +227,7 @@ def add_signing_key_command():
         necessary to specify its path as the pub_key parameter's value. If this option
         is not used when calling this command, the key can be directly entered later.
         """)
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys the new key should be added")
@@ -172,7 +238,6 @@ def add_signing_key_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     def adding_signing_key(path, role, pub_key_path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        path = find_valid_repository(path)
         if not role:
             print("Specify at least one role")
             return
@@ -195,11 +260,11 @@ def list_keys_command():
         List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
         include additional information read from these certificates, like name or organization.
         """)
+    @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     def list_keys(role, path):
-        path = find_valid_repository(path)
         key_infos = list_keys_of_role(
             path=path,
             role=role,
@@ -211,8 +276,9 @@ def list_keys_command():
 def attach_to_group(group):
 
     group.add_command(add_role_command(), name='add')
-    group.add_command(add_multiple_roles_command(), name='add-multiple')
+    group.add_command(add_multiple_command(), name='add-multiple')
     group.add_command(add_role_paths_command(), name='add-role-paths')
-    group.add_command(remove_role_command(), name='remove')
+    # group.add_command(remove_role_command(), name='remove')
     group.add_command(add_signing_key_command(), name='add-signing-key')
     group.add_command(list_keys_command(), name='list-keys')
+    group.add_command(export_roles_description_command(), name="export-description")

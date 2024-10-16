@@ -207,5 +207,5 @@ class ValidationFailedError(TAFError):
     pass
 
 
-class YubikeyError(Exception):
+class YubikeyError(TAFError):
     pass
