@@ -139,7 +139,7 @@ def setup_role(
             tuf.roledb._roledb_dict[repository._repository_name][role.name][
                 "previous_keyids"
             ] = []
-        except:  # temporary quick fix, this will all be reworked
+        except Exception:  # temporary quick fix, this will all be reworked
             tuf.roledb._roledb_dict[repository.name][role.name]["previous_keyids"] = []
 
 

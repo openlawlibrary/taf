@@ -555,9 +555,10 @@ def _initialize_roles_and_keystore_for_existing_repo(
         roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     keystore = keystore or roles_keys_data.keystore
-    if keystore is None:
-        keystore = find_keystore(Path(path))
-        roles_keys_data.keystore = keystore
+    if keystore is None and path is not None:
+        keystore_path = find_keystore(Path(path))
+        if keystore_path:
+            roles_keys_data.keystore = str(keystore_path)
     return roles_keys_data
 
 
