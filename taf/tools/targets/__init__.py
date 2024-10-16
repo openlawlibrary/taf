@@ -13,7 +13,6 @@ from taf.api.targets import (
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.log import taf_logger
 
