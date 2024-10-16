@@ -952,6 +952,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_auth_repo,
                     self.state.auth_commits_since_last_validated[-1::],
                     excluded_target_globs=self.excluded_target_globs,
+                    library_dir=self.library_dir,
                 )
             )
             if self.only_validate:
