@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+## [0.31.2] - 10/16/2024
+
+### Added
+
+- Added a function for exporting `keys-description.json` ([550])
+- Added support for cloning a new dependency when adding it to `dependencies.json` if it is not on disk ([550])
+- Clean up authentication repository if an error occurs while running a cli command ([550])
+
+### Changed
+
+- Return a non-zero exit code with `sys.exit` when updater fails ([550])
+- Rework addition of a new role and target repositories. Use `custom.json` files ([550])
+
+
+### Fixed
+
+- Minor `conf init` and detection of the authentication repository fixes ([550])
+- Replace `info` logging calls with `notice` in API functions ([550])
+- Use `mirrors.json` urls when cloning dependencies ([551])
+
+
+[551]: https://github.com/openlawlibrary/taf/pull/551
+[550]: https://github.com/openlawlibrary/taf/pull/550
+
+
 ## [0.31.1] - 10/03/2024
 
 ### Added
@@ -1278,7 +1304,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.31.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.31.2...HEAD
+[0.31.2]: https://github.com/openlawlibrary/taf/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/openlawlibrary/taf/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/openlawlibrary/taf/compare/v0.30.2...0.31.0
 [0.30.2]: https://github.com/openlawlibrary/taf/compare/v0.30.1...v0.30.2
