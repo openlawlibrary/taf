@@ -81,9 +81,7 @@ def add_target_repo(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    if not auth_repo.is_git_repository_root:
-        taf_logger.error(f"{path} is not a git repository!")
-        return
+
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
 
@@ -189,7 +187,7 @@ def add_target_repo(
         commit_msg = git_commit_message("add-target", target_name=target_name)
         commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
     else:
-        print("\nPlease commit manually\n")
+        taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
 
 def export_targets_history(
@@ -223,8 +221,9 @@ def export_targets_history(
             if repositoriesdb.get_repository(auth_repo, target_repo) is None:
                 invalid_targets.append(target_repo)
         if len(invalid_targets):
-            print(
-                f"The following target repositories are not defined: {', '.join(invalid_targets)}"
+            taf_logger.log(
+                "NOTICE",
+                f"The following target repositories are not defined: {', '.join(invalid_targets)}",
             )
             return
     elif target_repos is not None:
@@ -240,9 +239,9 @@ def export_targets_history(
             output_path = output_path.with_suffix(".json")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(commits_json)
-        print(f"Result written to {output_path}")
+        taf_logger.log("NOTICE", f"Result written to {output_path}")
     else:
-        print(commits_json)
+        taf_logger.log("NOTICE", commits_json)
 
 
 def list_targets(
@@ -266,7 +265,7 @@ def list_targets(
     auth_repo = AuthenticationRepository(path=path)
     head_commit = auth_repo.head_commit_sha()
     if head_commit is None:
-        print("Repository is empty")
+        taf_logger.log("NOTICE", "Repository is empty")
         return
     top_commit = [head_commit]
     repositoriesdb.load_repositories(auth_repo)
@@ -307,7 +306,7 @@ def list_targets(
                             )
             repo_output["something-to-commit"] = repo.something_to_commit()
 
-    print(json.dumps(output, indent=4))
+    taf_logger.log("NOTICE", json.dumps(output, indent=4))
 
 
 @log_on_start(INFO, "Signing target files", logger=taf_logger)
@@ -376,7 +375,7 @@ def register_target_files(
             commit_msg = git_commit_message("update-targets")
             commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
         elif not no_commit_warning:
-            print("\nPlease commit manually\n")
+            taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
     return updated
 

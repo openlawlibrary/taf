@@ -27,6 +27,8 @@ def find_valid_repository(path: Path) -> Path:
             return False
 
     path = Path(path).resolve()
+    if not path.is_dir():
+        raise InvalidRepositoryError(f"Directory {path} does not exist")
     # First, try to load the repository from the given path
     if try_load_repository(path):
         # find the git repository's root
