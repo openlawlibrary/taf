@@ -112,7 +112,7 @@ def add_dependency(
             strict=False,
             bare=False,
             no_deps=False,
-        ) # type: ignore
+        )  # type: ignore
         try:
             clone_repository(config)
             dependency.default_branch = dependency._determine_default_branch()
