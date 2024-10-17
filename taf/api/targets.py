@@ -18,7 +18,7 @@ from taf.api.roles import (
 )
 from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import NoRemoteError, TAFError
+from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.messages import git_commit_message
 
@@ -246,7 +246,7 @@ def export_targets_history(
 
 def list_targets(
     path: str,
-) -> None:
+) -> Dict:
     """
     Returns a dictionary containing target repositories of an authentication repository and their states (are the work directories clean, are there
     remove changes that have not yed been pulled, are there commits that have not yet been signed).
