@@ -16,7 +16,7 @@ from taf.api.roles import (
     add_role_paths,
     remove_paths,
 )
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
@@ -185,7 +185,7 @@ def add_target_repo(
     )
     if commit:
         commit_msg = git_commit_message("add-target", target_name=target_name)
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
@@ -265,7 +265,7 @@ def list_targets(
     head_commit = auth_repo.head_commit_sha()
     if head_commit is None:
         taf_logger.log("NOTICE", "Repository is empty")
-        return
+        return {}
     top_commit = [head_commit]
     repositoriesdb.load_repositories(auth_repo)
     target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
@@ -377,7 +377,7 @@ def register_target_files(
         if commit:
             auth_repo = AuthenticationRepository(path=taf_repo.path)
             commit_msg = git_commit_message("update-targets")
-            commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
         elif not no_commit_warning:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 

@@ -6,7 +6,6 @@ from taf.api.utils._roles import setup_role
 from taf.messages import git_commit_message
 from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
-from taf.api.utils._git import commit_and_push
 from taf.models.converter import from_dict
 
 from pathlib import Path
@@ -125,7 +124,7 @@ def create_repository(
     if commit:
         auth_repo.init_repo()
         commit_msg = git_commit_message("create-repo")
-        commit_and_push(auth_repo, push=False, commit_msg=commit_msg)
+        auth_repo.commit_and_push(push=False, commit_msg=commit_msg)
     else:
         print("\nPlease commit manually.\n")
 

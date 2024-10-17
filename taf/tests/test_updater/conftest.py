@@ -41,7 +41,6 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
-from taf.api.utils._git import commit_and_push
 
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -678,7 +677,7 @@ def update_and_sign_metadata_without_clean_check(
         )
 
     commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
-    commit_and_push(auth_repo, commit_msg=commit_msg, push=False)
+    auth_repo.commit_and_push(commit_msg=commit_msg, push=False)
 
 
 def update_target_repository(
