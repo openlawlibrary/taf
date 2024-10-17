@@ -18,7 +18,7 @@ from taf.api.roles import (
 )
 from taf.api.utils._git import check_if_clean, commit_and_push
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import TAFError
+from taf.exceptions import NoRemoteError, TAFError
 from taf.git import GitRepository
 from taf.messages import git_commit_message
 
@@ -246,10 +246,9 @@ def export_targets_history(
 
 def list_targets(
     path: str,
-    library_dir: Optional[str] = None,
 ) -> None:
     """
-    Prints a list of target repositories of an authentication repository and their states (are the work directories clean, are there
+    Returns a dictionary containing target repositories of an authentication repository and their states (are the work directories clean, are there
     remove changes that have not yed been pulled, are there commits that have not yet been signed).
 
     Arguments:
@@ -285,28 +284,33 @@ def list_targets(
         repo_output["cloned"] = local_repo_exists
         if local_repo_exists:
             repo_output["bare"] = repo.is_bare_repository
+            repo_output["unsigned"] = []
             # there will only be one branch since only data corresponding to the top auth commit was loaded
             for branch, branch_data in repo_data.items():
-                repo_output["unsigned"] = False
+                has_remote = repo.has_remote()
+                repo_output["has-remote"] = has_remote
+
                 if not repo.branch_exists(branch, include_remotes=False):
                     repo_output["up-to-date"] = False
                 else:
-                    is_synced_with_remote = repo.synced_with_remote(branch=branch)
-                    repo_output["up-to-date"] = is_synced_with_remote
-                    if not is_synced_with_remote:
-                        last_signed_commit = branch_data[0]["commit"]
-                        if branch in repo.branches_containing_commit(
-                            last_signed_commit
+                    if has_remote:
+                        is_synced_with_remote = repo.synced_with_remote(branch=branch)
+                        repo_output["up-to-date"] = is_synced_with_remote
+
+                    last_signed_commit = branch_data[0]["commit"]
+                    if branch in repo.branches_containing_commit(last_signed_commit):
+                        branch_top_commit = repo.top_commit_of_branch(branch)
+                        unsigned_commits = repo.all_commits_since_commit(
+                            last_signed_commit, branch
+                        )
+                        if (
+                            len(unsigned_commits)
+                            and branch_top_commit in unsigned_commits
                         ):
-                            branch_top_commit = repo.top_commit_of_branch(branch)
-                            repo_output[
-                                "unsigned"
-                            ] = branch_top_commit in repo.all_commits_since_commit(
-                                last_signed_commit, branch
-                            )
+                            repo_output["unsigned"].append(branch)
             repo_output["something-to-commit"] = repo.something_to_commit()
 
-    taf_logger.log("NOTICE", json.dumps(output, indent=4))
+    return output
 
 
 @log_on_start(INFO, "Signing target files", logger=taf_logger)

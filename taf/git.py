@@ -14,6 +14,7 @@ from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    NoRemoteError,
     NothingToCommitError,
     TAFError,
     CloneRepoException,
@@ -1516,6 +1517,8 @@ class GitRepository:
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
 
+        if not self.has_remote():
+            raise NoRemoteError(self)
         if url:
             urls = [url]
         elif self.urls:

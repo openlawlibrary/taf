@@ -61,8 +61,7 @@ def add_repo_command():
                 custom = json.loads(Path(custom_file).read_text())
             except json.JSONDecodeError:
                 taf_logger.error("Invalid custom JSON provided")
-                sys.exit(1)
-
+                sys.exit
         add_target_repo(
             path=path,
             target_path=target_path,
@@ -111,11 +110,11 @@ def list_targets_command():
         - if they are up-to-date with remote
         - if there are uncommitted changes""")
     @find_repository
-    @catch_cli_exception(handle=TAFError)
+    @catch_cli_exception(handle=TAFError, print_error=True)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If omitted it is calculated based on authentication repository's path. Authentication repo is presumed to be at library-dir/namespace/auth-repo-name")
-    def list(path, library_dir):
-        list_targets(path, library_dir)
+    def list(path):
+        targets_status = list_targets(path)
+        taf_logger.log("NOTICE", json.dumps(targets_status, indent=4))
     return list
 
 
