@@ -183,6 +183,7 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
+                import pdb; pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:
@@ -1045,6 +1046,26 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         taf_logger.info(
             f"{self.state.auth_repo_name}: Validating initial state of target repositories..."
         )
+        # if update was run with --exclude-target options, some target repositories might have been
+        # validated up to an older commit, or never validated at all
+        # that means that different repositories need to be validated from different start commits
+
+        last_validated_target_commits = {
+            self.state.users_auth_repo.get_last_validated_for_repo(repo.name) for repo in self.state.users_target_repositories
+        }
+
+        if len(last_validated_target_commits) == 1 and last_validated_target_commits[0] == self.state.last_validated_commit):
+            self.state.targets_data_by_auth_commits = (
+                    self.state.users_auth_repo.targets_data_by_auth_commits(
+                        self.state.auth_commits_since_last_validated
+                    )
+                )
+        else:
+            last_validated_per_target_repo = self.state.users_auth_repo.auth_repo_commits_after_repos_last_validated(elf.state.users_target_repositories)
+
+
+
+
         try:
             self.state.targets_data_by_auth_commits = (
                 self.state.users_auth_repo.targets_data_by_auth_commits(
@@ -1618,7 +1639,7 @@ but commit not on branch {current_branch}"
             f"{self.state.auth_repo_name}: Merging commit into auth repo..."
         )
         try:
-            if self.only_validate or self.excluded_target_globs:
+            if self.only_validate:
                 return self.state.update_status
             if self.state.update_status == UpdateStatus.FAILED:
                 return self.state.update_status
@@ -1638,8 +1659,16 @@ but commit not on branch {current_branch}"
                 last_commit,
                 True,
             )
-            # update the last validated commit
-            self.state.users_auth_repo.set_last_validated_commit(last_commit)
+
+
+            # store information about which target (data) repositories were updated
+            # some might have been omitted if the update was run with --exclude-target
+            last_validated_data = self.state.users_auth_repo.last_validated_data or {}
+            for repo in self.state.users_target_repositories.keys():
+                last_validated_data[repo] = last_commit
+            last_validated_data[self.state.users_auth_repo.name] = last_commit
+            self.state.users_auth_repo.set_last_validated_commit(last_validated_data)
+
 
             return self.state.update_status
         except Exception as e:

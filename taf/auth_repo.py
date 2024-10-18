@@ -3,10 +3,11 @@ import os
 import tempfile
 import fnmatch
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+import pygit2
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.git import GitRepository
 from taf.repository_tool import (
@@ -15,16 +16,19 @@ from taf.repository_tool import (
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
+from taf.taf.utils import is_sha1_hash
 
 
 class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
+    LAST_VALIDATED_DATA = "last_validated_data"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     SCRIPTS_PATH = "scripts"
 
     _conf_dir = None
     _dependencies: Dict = {}
+    _last_validated_data = None
 
     def __init__(
         self,
@@ -135,14 +139,36 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return False
 
     @property
-    def last_validated_commit(self) -> Optional[str]:
+    def last_validated_commit(self) -> Optional[dict]:
         """
         Return the last validated commit of the authentication repository
         """
-        try:
-            return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text().strip()
-        except FileNotFoundError:
+        last_validated_data = self.last_validated_data()
+        if last_validated_data is None:
             return None
+        if isinstance(last_validated_data, str):
+            return last_validated_data
+        return last_validated_data.get(self.name)
+
+
+    @property
+    def last_validated_data(self) -> Optional[dict]:
+        """
+        Return the last validated commit of the authentication repository
+        """
+        if self._last_validated_data is None:
+            try:
+                data = Path(self.conf_dir, self.LAST_VALIDATED_DATA).read_text()
+            except FileNotFoundError:
+                return None
+            try:
+                self._last_validated_data = json.loads(data)
+            except json.decoder.JSONDecodeError:
+                if is_sha1_hash(data): # old last validated format
+                    self._last_validated_data = data
+                return None
+        return self._last_validated_data
+
 
     @property
     def log_prefix(self) -> str:
@@ -177,6 +203,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     self._log_warning(
                         "Default branch is None, skipping last_validated_commit update."
                     )
+
+    def get_last_validated_for_repo(self, repo_name):
+        if self.last_validated_data is None:
+            return None
+        if isinstance(self.last_validated_data, str):
+            return self.last_validated_commit if self.name == repo_name else None
+        return self.last_validated_data.get(repo_name)
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
@@ -254,12 +287,52 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             yield
             self._tuf_repository = tuf_repository
 
-    def set_last_validated_commit(self, commit: str):
+    def set_last_validated_commit(self, last_validated_data: dict):
         """
         Set the last validated commit of the authentication repository
         """
-        self._log_debug(f"setting last validated commit to: {commit}")
-        Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
+        last_data_str = json.dumps(last_validated_data, indent=4)
+        self._log_debug(f"setting last validated data to: {last_data_str}")
+        Path(self.conf_dir, self.LAST_VALIDATED_DATA).write_text(last_data_str)
+
+
+    def auth_repo_commits_after_repos_last_validated(self, target_repos: List) -> Tuple[List[str], Dict[int, List[str]]]:
+        """
+        Traverses the commit history from the most recent commit back to the oldest last validated commit
+        of the target repositories. It then quantifies how many of these commits are related to each target repository.
+
+        Returns:
+            tuple:
+                - List[str]: A list of commit hashes from the oldest last validated commit to the newest commit
+                in the authentication repository. This list provides a sequential history of commits affecting
+                the target repositories.
+                - Dict[str, int]: A dictionary mapping target repositories to a number of commits
+                related to them from the full commits list.
+        """
+        last_validated_target_commits = defaultdict(list)
+        for repo in target_repos:
+            last_validated_commit = self.get_last_validated_for_repo(repo.name)
+            last_validated_target_commits[last_validated_commit].append(repo)
+
+        repo = self.pygit_repo
+
+        walker = repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL | pygit2.GIT_SORT_REVERSE)
+        repos_commits_num = {}
+
+        traversed_commits = []
+        for commit in walker:
+            # For each commit, add it to the histories of all previously encountered specified commits
+            traversed_commits.append(commit.id)
+            if commit.id in last_validated_target_commits:
+                for repo in last_validated_target_commits:
+                    for repo in last_validated_target_commits:
+                        repos_commits_num[repo.name] = len(traversed_commits)
+                last_validated_target_commits.pop(commit.id)
+
+            if not len(last_validated_target_commits):
+                break
+
+        return traversed_commits, repos_commits_num
 
     def targets_data_by_auth_commits(
         self,
@@ -268,6 +341,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
+        repos_commits_num: Optional[Dict[List]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
@@ -288,7 +362,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
         targets = self.targets_at_revisions(
-            *commits, target_repos=target_repos, default_branch=default_branch
+            *commits, target_repos=target_repos, default_branch=default_branch, repos_commits_num=repos_commits_num
         )
         excluded_target_globs = excluded_target_globs or []
         for commit in commits:
@@ -395,13 +469,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None):
+    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None, repos_commits_num=None ):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
         previous_metadata = []
         new_files = []
-        for commit in commits:
+        for index, commit in enumerate(commits):
             # repositories.json might not exit, if the current commit is
             # the initial commit
             repositories_at_revision = self.safely_get_json(
@@ -440,6 +514,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     if target_repos is not None and target_path not in target_repos:
                         # if specific target repositories are specified, skip all other
                         # repositories
+                        continue
+                    if repos_commits_num is not None and target_path in repos_commits_num and index + 1 >= repos_commits_num[target_path]:
+                        # skip commits not relevant to the target repository
+                        # i.e. already validated commits of that repository
                         continue
                     target_content = self.safely_get_json(
                         commit, get_target_path(target_path)
