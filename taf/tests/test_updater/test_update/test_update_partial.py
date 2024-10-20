@@ -51,3 +51,43 @@ def test_update_partial_with_invalid_commits(origin_auth_repo, client_dir):
         client_dir,
         force=True,
     )
+
+
+# @pytest.mark.parametrize(
+#     "origin_auth_repo",
+#     [
+#         {
+#             "targets_config": [{"name": "target_same1"}, {"name": "target_same2"}, {"name": "target_different"}],
+#         },
+#     ],
+#     indirect=True,
+# )
+# def test_update_with_excluded_targets(origin_auth_repo, client_dir):
+#     clone_repositories(
+#         origin_auth_repo,
+#         client_dir,
+#     )
+#     client_auth_repo_path = client_dir / origin_auth_repo.name
+#     client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
+
+#     setup_manager = SetupManager(origin_auth_repo)
+#     setup_manager.add_task(add_valid_target_commits)
+#     setup_manager.execute_tasks()
+
+#     setup_manager.add_task(set_head_commit)
+
+#     setup_manager.add_task(add_valid_target_commits)
+#     setup_manager.execute_tasks()
+
+#     setup_manager = SetupManager(client_auth_repo)
+#     setup_manager.add_task(
+#         update_target_repo_without_committing, kwargs={"target_name": "target1"}
+#     )
+#     setup_manager.execute_tasks()
+
+#     update_and_check_commit_shas(
+#         OperationType.UPDATE,
+#         origin_auth_repo,
+#         client_dir,
+#         force=True,
+#     )

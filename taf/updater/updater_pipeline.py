@@ -183,7 +183,6 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
-                import pdb; pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:
@@ -1050,18 +1049,19 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         # validated up to an older commit, or never validated at all
         # that means that different repositories need to be validated from different start commits
 
-        last_validated_target_commits = {
-            self.state.users_auth_repo.get_last_validated_for_repo(repo.name) for repo in self.state.users_target_repositories
-        }
+        import pdb; pdb.set_trace()
+        last_validated_target_commits = list(set(
+            self.state.users_auth_repo.get_last_validated_for_repo(repo_name) for repo_name in self.state.users_target_repositories
+        ))
 
-        if len(last_validated_target_commits) == 1 and last_validated_target_commits[0] == self.state.last_validated_commit):
+        if len(last_validated_target_commits) == 1 and last_validated_target_commits[0] == self.state.last_validated_commit:
             self.state.targets_data_by_auth_commits = (
                     self.state.users_auth_repo.targets_data_by_auth_commits(
                         self.state.auth_commits_since_last_validated
                     )
                 )
         else:
-            last_validated_per_target_repo = self.state.users_auth_repo.auth_repo_commits_after_repos_last_validated(elf.state.users_target_repositories)
+            last_validated_per_target_repo = self.state.users_auth_repo.auth_repo_commits_after_repos_last_validated(self.state.users_target_repositories)
 
 
 

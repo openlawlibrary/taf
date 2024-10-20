@@ -111,6 +111,23 @@ def _clone_full_library(
         repositories, origin_dir, start_head_shas, excluded_target_globs
     )
 
+def count_subdirectories_in_directory(directory_path):
+    """
+    Counts the number of subdirectories in the given directory.
+
+    Args:
+        directory_path (str or Path): The path to the directory where subdirectories are to be counted.
+
+    Returns:
+        int: The number of subdirectories in the specified directory.
+    """
+    # Convert directory_path to Path object if it's not already one
+    directory = Path(directory_path) if not isinstance(directory_path, Path) else directory_path
+
+    # Count folders using a generator expression
+    folder_count = sum(1 for item in directory.iterdir() if item.is_dir())
+
+    return folder_count
 
 def clone_repositories(
     origin_auth_repo,
@@ -266,11 +283,17 @@ def update_and_check_commit_shas(
         all_target_repositories = load_target_repositories(
             origin_auth_repo, clients_dir
         )
+        total_dirs_count = count_subdirectories_in_directory(clients_auth_repo_path.parent)
+        num_of_excluded = 0
         for target_repo in all_target_repositories.values():
             for excluded_target_glob in excluded_target_globs:
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
+                    num_of_excluded += 1
                     assert not target_repo.path.is_dir()
                     break
+        assert num_of_excluded > 0
+        # all target repositories + auth repo + auth repo conf dir - skipped repos
+        assert total_dirs_count == len(all_target_repositories) + 2 - num_of_excluded
     return update_ret
 
 

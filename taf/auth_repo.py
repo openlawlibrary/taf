@@ -16,7 +16,7 @@ from taf.repository_tool import (
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
-from taf.taf.utils import is_sha1_hash
+from taf.utils import is_sha1_hash
 
 
 class AuthenticationRepository(GitRepository, TAFRepository):
@@ -341,7 +341,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
-        repos_commits_num: Optional[Dict[List]] = None,
+        repos_commits_num: Optional[Dict[str, List]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
@@ -469,7 +469,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None, repos_commits_num=None ):
+    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None, repos_commits_num=None):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
