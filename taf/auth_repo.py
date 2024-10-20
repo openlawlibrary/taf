@@ -22,7 +22,6 @@ from taf.utils import is_sha1_hash
 class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
-    LAST_VALIDATED_DATA = "last_validated_data"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     SCRIPTS_PATH = "scripts"
 
@@ -143,7 +142,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         Return the last validated commit of the authentication repository
         """
-        last_validated_data = self.last_validated_data()
+        last_validated_data = self.last_validated_data
         if last_validated_data is None:
             return None
         if isinstance(last_validated_data, str):
@@ -154,11 +153,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     @property
     def last_validated_data(self) -> Optional[dict]:
         """
-        Return the last validated commit of the authentication repository
+        Return the last validated data of the authentication repository
         """
         if self._last_validated_data is None:
             try:
-                data = Path(self.conf_dir, self.LAST_VALIDATED_DATA).read_text()
+                data = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text()
             except FileNotFoundError:
                 return None
             try:
@@ -293,7 +292,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         last_data_str = json.dumps(last_validated_data, indent=4)
         self._log_debug(f"setting last validated data to: {last_data_str}")
-        Path(self.conf_dir, self.LAST_VALIDATED_DATA).write_text(last_data_str)
+        Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(last_data_str)
 
 
     def auth_repo_commits_after_repos_last_validated(self, target_repos: List) -> Tuple[List[str], Dict[int, List[str]]]:

@@ -1049,7 +1049,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         # validated up to an older commit, or never validated at all
         # that means that different repositories need to be validated from different start commits
 
-        import pdb; pdb.set_trace()
         last_validated_target_commits = list(set(
             self.state.users_auth_repo.get_last_validated_for_repo(repo_name) for repo_name in self.state.users_target_repositories
         ))
