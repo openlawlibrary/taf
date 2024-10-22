@@ -1,14 +1,23 @@
 import pytest
 from taf.tests.test_updater.update_utils import update_and_check_commit_shas
 from taf.updater.updater import OperationType, UpdateType
-from taf.tests.test_updater.conftest import AuthenticationRepository, SetupManager, add_valid_target_commits, set_head_commit
+from taf.tests.test_updater.conftest import (
+    AuthenticationRepository,
+    SetupManager,
+    add_valid_target_commits,
+    set_head_commit,
+)
 
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
     [
         {
-            "targets_config": [{"name": "target_same1"}, {"name": "target_same2"}, {"name": "target_different"}],
+            "targets_config": [
+                {"name": "target_same1"},
+                {"name": "target_same2"},
+                {"name": "target_different"},
+            ],
         },
     ],
     indirect=True,
@@ -26,5 +35,5 @@ def test_clone_with_excluded_targets(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"]
+        excluded_target_globs=["*/target_same*"],
     )

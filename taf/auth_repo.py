@@ -149,7 +149,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return last_validated_data
         return last_validated_data.get(self.name)
 
-
     @property
     def last_validated_data(self) -> Optional[dict]:
         """
@@ -163,11 +162,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             try:
                 self._last_validated_data = json.loads(data)
             except json.decoder.JSONDecodeError:
-                if is_sha1_hash(data): # old last validated format
+                if is_sha1_hash(data):  # old last validated format
                     self._last_validated_data = data
                 return None
         return self._last_validated_data
-
 
     @property
     def log_prefix(self) -> str:
@@ -294,8 +292,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._log_debug(f"setting last validated data to: {last_data_str}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(last_data_str)
 
-
-    def auth_repo_commits_after_repos_last_validated(self, target_repos: List) -> Tuple[List[str], Dict[int, List[str]]]:
+    def auth_repo_commits_after_repos_last_validated(
+        self, target_repos: List
+    ) -> List[str]:
         """
         Traverses the commit history from the most recent commit back to the oldest last validated commit
         of the target repositories. It then quantifies how many of these commits are related to each target repository.
@@ -305,8 +304,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 - List[str]: A list of commit hashes from the oldest last validated commit to the newest commit
                 in the authentication repository. This list provides a sequential history of commits affecting
                 the target repositories.
-                - Dict[str, int]: A dictionary mapping target repositories to a number of commits
-                related to them from the full commits list.
         """
         last_validated_target_commits = defaultdict(list)
         for repo in target_repos:
@@ -316,21 +313,18 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         repo = self.pygit_repo
 
         walker = repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL)
-        last_commit_per_repo = {}
 
         traversed_commits = []
         for commit in walker:
             commit_id = str(commit.id)
             if commit_id in last_validated_target_commits:
-                for repo in last_validated_target_commits[commit_id]:
-                    last_commit_per_repo[repo.name] = commit_id
                 last_validated_target_commits.pop(commit_id)
 
             traversed_commits.append(commit_id)
             if not len(last_validated_target_commits):
                 break
         traversed_commits.reverse()
-        return traversed_commits, last_commit_per_repo
+        return traversed_commits
 
     def targets_data_by_auth_commits(
         self,
@@ -360,7 +354,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
         targets = self.targets_at_revisions(
-            commits, target_repos=target_repos, default_branch=default_branch, last_commits_per_repos=last_commits_per_repos
+            commits,
+            target_repos=target_repos,
+            default_branch=default_branch,
+            last_commits_per_repos=last_commits_per_repos,
         )
         excluded_target_globs = excluded_target_globs or []
         for commit in commits:
@@ -467,7 +464,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, commits, target_repos=None, default_branch=None, last_commits_per_repos=None):
+    def targets_at_revisions(
+        self,
+        commits,
+        target_repos=None,
+        default_branch=None,
+        last_commits_per_repos=None,
+    ):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
@@ -514,7 +517,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     # the repo is addes to the repos_to_skip list
                     if target_path in repos_to_skip:
                         continue
-                    if last_commits_per_repos and last_commits_per_repos.get(target_path) == commit:
+                    if (
+                        last_commits_per_repos
+                        and last_commits_per_repos.get(target_path) == commit
+                    ):
                         repos_to_skip.append(target_path)
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
