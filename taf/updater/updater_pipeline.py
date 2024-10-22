@@ -1050,9 +1050,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         # validated up to an older commit, or never validated at all
         # that means that different repositories need to be validated from different start commits
 
-
         try:
-
 
             last_validated_target_commits = list(set(
                 self.state.users_auth_repo.get_last_validated_for_repo(repo_name) for repo_name in self.state.users_target_repositories
@@ -1068,7 +1066,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 partially_validated_commits, last_commits_per_repos =  self.state.partially_validated_repos_data
                 all_auth_commits = partially_validated_commits
-                for commit in  self.state.auth_commits_since_last_validated:
+                for commit in self.state.auth_commits_since_last_validated:
                     if commit not in all_auth_commits:
                         all_auth_commits.append(commit)
             else:
@@ -1080,7 +1078,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                    all_auth_commits, last_commits_per_repos=last_commits_per_repos
                 )
             )
-
             self.state.old_heads_per_target_repos_branches = defaultdict(dict)
             is_initial_state_in_sync = True
             # if last validated commit was not manually modified (set to a newer commit)
@@ -1103,7 +1100,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
 
                     if last_validated_repository_commits_data:
-                        if repository.name in self.state.repos_not_on_disk:
+                        if repository.name in self.state.repos_not_on_disk and  \
+                            self.state.users_auth_repo.get_last_validated_for_repo(repository.name) is not None:
                             is_initial_state_in_sync = False
                             break
                         if not self._is_repository_in_sync(

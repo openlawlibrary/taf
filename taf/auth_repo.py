@@ -329,8 +329,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             traversed_commits.append(commit_id)
             if not len(last_validated_target_commits):
                 break
-
-        return reversed(traversed_commits), last_commit_per_repo
+        traversed_commits.reverse()
+        return traversed_commits, last_commit_per_repo
 
     def targets_data_by_auth_commits(
         self,
@@ -473,7 +473,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             default_branch = self.default_branch
         previous_metadata = []
         new_files = []
-        for commit in commits:
+        repos_to_skip = []
+        for commit in reversed(commits):
             # repositories.json might not exit, if the current commit is
             # the initial commit
             repositories_at_revision = self.safely_get_json(
@@ -496,7 +497,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 with self.repository_at_revision(commit):
                     roles_at_revision = self.get_all_targets_roles()
 
-            repos_to_skip = []
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
                 targets_at_revision = self.safely_get_json(
@@ -514,6 +514,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     # the repo is addes to the repos_to_skip list
                     if target_path in repos_to_skip:
                         continue
+                    if last_commits_per_repos and last_commits_per_repos.get(target_path) == commit:
+                        repos_to_skip.append(target_path)
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
                         continue
@@ -526,8 +528,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     )
                     if target_content is not None:
                         target_commit = target_content.pop("commit")
-                        if last_commits_per_repos and last_commits_per_repos.get(target_path) == target_commit:
-                            repos_to_skip.append(target_path)
                         target_branch = target_content.pop("branch", default_branch)
                         targets[commit][target_path] = {
                             "branch": target_branch,
