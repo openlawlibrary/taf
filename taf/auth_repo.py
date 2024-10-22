@@ -315,23 +315,22 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
         repo = self.pygit_repo
 
-        walker = repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL | pygit2.GIT_SORT_REVERSE)
-        repos_commits_num = {}
+        walker = repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL)
+        last_commit_per_repo = {}
 
         traversed_commits = []
         for commit in walker:
-            # For each commit, add it to the histories of all previously encountered specified commits
-            traversed_commits.append(commit.id)
-            if commit.id in last_validated_target_commits:
-                for repo in last_validated_target_commits:
-                    for repo in last_validated_target_commits:
-                        repos_commits_num[repo.name] = len(traversed_commits)
-                last_validated_target_commits.pop(commit.id)
+            commit_id = str(commit.id)
+            if commit_id in last_validated_target_commits:
+                for repo in last_validated_target_commits[commit_id]:
+                    last_commit_per_repo[repo.name] = commit_id
+                last_validated_target_commits.pop(commit_id)
 
+            traversed_commits.append(commit_id)
             if not len(last_validated_target_commits):
                 break
 
-        return traversed_commits, repos_commits_num
+        return reversed(traversed_commits), last_commit_per_repo
 
     def targets_data_by_auth_commits(
         self,
@@ -340,7 +339,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
-        repos_commits_num: Optional[Dict[str, List]] = None,
+        last_commits_per_repos: Optional[Dict[str, List]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
@@ -361,7 +360,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
         targets = self.targets_at_revisions(
-            *commits, target_repos=target_repos, default_branch=default_branch, repos_commits_num=repos_commits_num
+            commits, target_repos=target_repos, default_branch=default_branch, last_commits_per_repos=last_commits_per_repos
         )
         excluded_target_globs = excluded_target_globs or []
         for commit in commits:
@@ -425,7 +424,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         repositories_commits: Dict = defaultdict(dict)
         targets = self.targets_at_revisions(
-            *commits, target_repos=target_repos, default_branch=default_branch
+            commits, target_repos=target_repos, default_branch=default_branch
         )
         previous_commits: Dict = {}
         skipped_targets = []
@@ -468,13 +467,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None, repos_commits_num=None):
+    def targets_at_revisions(self, commits, target_repos=None, default_branch=None, last_commits_per_repos=None):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
         previous_metadata = []
         new_files = []
-        for index, commit in enumerate(commits):
+        for commit in commits:
             # repositories.json might not exit, if the current commit is
             # the initial commit
             repositories_at_revision = self.safely_get_json(
@@ -497,6 +496,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 with self.repository_at_revision(commit):
                     roles_at_revision = self.get_all_targets_roles()
 
+            repos_to_skip = []
             for role_name in roles_at_revision:
                 # targets metadata files corresponding to the found roles must exist
                 targets_at_revision = self.safely_get_json(
@@ -507,22 +507,27 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 targets_at_revision = targets_at_revision["signed"]["targets"]
 
                 for target_path in targets_at_revision:
+                    # if there are older auth repo commtis corresponding to repositories
+                    # that were not validated in the one or more previous updates
+                    # skip the ones that were validated more recently
+                    # when the last validated commit of a repo is reached
+                    # the repo is addes to the repos_to_skip list
+                    if target_path in repos_to_skip:
+                        continue
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
                         continue
-                    if target_repos is not None and target_path not in target_repos:
+                    if target_repos and target_path not in target_repos:
                         # if specific target repositories are specified, skip all other
                         # repositories
-                        continue
-                    if repos_commits_num is not None and target_path in repos_commits_num and index + 1 >= repos_commits_num[target_path]:
-                        # skip commits not relevant to the target repository
-                        # i.e. already validated commits of that repository
                         continue
                     target_content = self.safely_get_json(
                         commit, get_target_path(target_path)
                     )
                     if target_content is not None:
                         target_commit = target_content.pop("commit")
+                        if last_commits_per_repos and last_commits_per_repos.get(target_path) == target_commit:
+                            repos_to_skip.append(target_path)
                         target_branch = target_content.pop("branch", default_branch)
                         targets[commit][target_path] = {
                             "branch": target_branch,
