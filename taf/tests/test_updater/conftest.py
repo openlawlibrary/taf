@@ -568,10 +568,14 @@ def _generate_random_text(length=10):
     return "".join(random.choice(letters) for i in range(length))
 
 
-def remove_last_validate_commit(auth_repo: AuthenticationRepository, client_dir: Path):
-    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
-    Path(client_repo.conf_dir, client_repo.LAST_VALIDATED_FILENAME).unlink()
-    assert client_repo.last_validated_commit is None
+def remove_last_validated_commit(auth_repo: AuthenticationRepository):
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).unlink()
+    assert auth_repo.last_validated_commit is None
+
+
+def remove_last_validated_data(auth_repo: AuthenticationRepository):
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_DATA_FILENAME).unlink()
+    assert auth_repo.last_validated_data is None
 
 
 def revert_last_validated_commit(auth_repo: AuthenticationRepository, client_dir: Path):

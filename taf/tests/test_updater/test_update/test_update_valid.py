@@ -8,7 +8,8 @@ from taf.tests.test_updater.conftest import (
     add_valid_unauthenticated_commits,
     create_new_target_orphan_branches,
     remove_commits,
-    remove_last_validate_commit,
+    remove_last_validated_commit,
+    remove_last_validated_data,
     revert_last_validated_commit,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
@@ -344,8 +345,10 @@ def test_update_valid_when_last_validated_commit_deleted(origin_auth_repo, clien
         client_dir,
     )
 
-    remove_last_validate_commit(origin_auth_repo, client_dir)
-
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_setup_manager = SetupManager(client_auth_repo)
+    client_setup_manager.add_task(remove_last_validated_commit)
+    client_setup_manager.execute_tasks()
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
@@ -603,4 +606,55 @@ def test_update_valid_when_several_updates_when_unauthenticated(
         origin_auth_repo,
         client_dir,
         skip_check_last_validated=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target_same1"},
+                {"name": "target_same2"},
+                {"name": "target_different"},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_update_after_update_with_exclude_with_invalid_commits(
+    origin_auth_repo, client_dir
+):
+
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    is_test_repo = origin_auth_repo.is_test_repo
+    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_setup_manager = SetupManager(client_auth_repo)
+    client_setup_manager.add_task(remove_last_validated_data)
+    client_setup_manager.execute_tasks()
+
+    # without the exclusion of the invalid repo, the update should fail
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
     )
