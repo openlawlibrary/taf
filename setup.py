@@ -1,5 +1,4 @@
 from setuptools import find_packages, setup
-import sys
 
 PACKAGE_NAME = "taf"
 VERSION = "0.31.2"
@@ -59,8 +58,8 @@ kwargs = {
         "cryptography==38.0.*",
         "securesystemslib==0.25.*",
         "loguru==0.7.*",
-        "pygit2==1.9.*; python_version < \"3.11\"",
-        "pygit2==1.14.*; python_version >= \"3.11\"",
+        'pygit2==1.9.*; python_version < "3.11"',
+        'pygit2==1.14.*; python_version >= "3.11"',
         "pyOpenSSL==22.1.*",
         "logdecorator==2.*",
     ],
