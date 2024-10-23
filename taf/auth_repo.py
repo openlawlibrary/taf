@@ -171,7 +171,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     if new_commit:
                         self.set_last_validated_commit(new_commit)
                         self._log_notice(
-                            "NOTICE", f"Updated last_validated_commit to {new_commit}"
+                            f"Updated last_validated_commit to {new_commit}"
                         )
                 else:
                     self._log_warning(
