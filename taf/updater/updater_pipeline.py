@@ -1387,11 +1387,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         self.last_validated_data_per_repositories[repository.name]
                     ):
                         last_validated_target_auth_commit = (
-                            self.state.users_auth_repo.last_validated_data.get(
+                            self.state.users_auth_repo.get_last_validated_for_repo(
                                 repository.name
                             )
-                            if self.state.users_auth_repo.last_validated_data
-                            else None
                         )
                         current_head_commit_and_branch = (
                             self.state.targets_data_by_auth_commits[

@@ -109,7 +109,6 @@ def test_update_when_clone_with_excluded_update_all(origin_auth_repo, client_dir
 )
 def test_update_after_update_with_exclude(origin_auth_repo, client_dir):
 
-
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -170,7 +169,10 @@ def test_update_after_update_with_exclude_with_invalid_commits(
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target_same1"})
+    setup_manager.add_task(
+        add_unauthenticated_commit_to_target_repo,
+        kwargs={"target_name": "target_same1"},
+    )
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
@@ -191,4 +193,3 @@ def test_update_after_update_with_exclude_with_invalid_commits(
         TARGET_MISSMATCH_PATTERN,
         True,
     )
-

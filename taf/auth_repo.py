@@ -203,11 +203,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     )
 
     def get_last_validated_for_repo(self, repo_name):
-        if self.last_validated_data is None:
-            return None
-        if isinstance(self.last_validated_data, str):
-            return self.last_validated_commit if self.name == repo_name else None
-        return self.last_validated_data.get(repo_name)
+        if self.last_validated_data is not None:
+            return self.last_validated_data.get(repo_name)
+        if self.last_validated_commit is not None:
+            return self.last_validated_commit
+        return None
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
