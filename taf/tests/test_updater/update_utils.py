@@ -23,6 +23,11 @@ def check_last_validated_commit(
     head_sha = client_auth_repo.head_commit_sha()
     last_validated_data = client_auth_repo.last_validated_data
     assert last_validated_data[client_auth_repo.name] == head_sha
+    if not excluded_targets:
+        assert client_auth_repo.last_validated_commit == head_sha
+    else:
+        assert client_auth_repo.last_validated_commit != head_sha
+
     for target_repo in all_target_repositories:
         if target_repo not in excluded_targets:
             assert last_validated_data[target_repo.name] == head_sha
@@ -256,7 +261,7 @@ def update_and_check_commit_shas(
     }
 
     clients_auth_repo_path = clients_dir / origin_auth_repo.name
-    clients_auth_repo = GitRepository(path=clients_auth_repo_path)
+    clients_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     if clients_auth_repo_path.is_dir():
         client_repos[clients_auth_repo.name] = clients_auth_repo
     start_head_shas = _get_head_commit_shas(client_repos, num_of_commits_to_remove)
@@ -298,13 +303,21 @@ def update_and_check_commit_shas(
             for excluded_target_glob in excluded_target_globs:
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
                     excluded_targets.append(target_repo)
-                    assert not target_repo.path.is_dir()
+                    if (
+                        operation == OperationType.CLONE
+                        or target_repo in clients_auth_repo.last_validated_data
+                    ):
+                        assert not target_repo.path.is_dir()
+                    else:
+                        # already cloned, but excluded in this updated
+                        assert target_repo.path.is_dir()
                     break
         assert len(excluded_targets) > 0
         # all target repositories + auth repo + auth repo conf dir - skipped repos
-        assert total_dirs_count == len(all_target_repositories) + 2 - len(
-            excluded_targets
-        )
+        if operation == OperationType.CLONE:
+            assert total_dirs_count == len(all_target_repositories) + 2 - len(
+                excluded_targets
+            )
 
     if not skip_check_last_validated:
         check_last_validated_commit(
