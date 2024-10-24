@@ -16,7 +16,7 @@ from taf.updater.updater import UpdateConfig, clone_repository, update_repositor
 
 
 def check_last_validated_commit(
-    clients_auth_repo_path, all_target_repositories, excluded_targets
+    clients_auth_repo_path, all_target_repositories=None, excluded_targets=None
 ):
     # check if last validated commit is created and the saved commit is correct
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
@@ -28,11 +28,12 @@ def check_last_validated_commit(
     else:
         assert client_auth_repo.last_validated_commit != head_sha
 
-    for target_repo in all_target_repositories:
-        if target_repo not in excluded_targets:
-            assert last_validated_data[target_repo.name] == head_sha
-        else:
-            assert last_validated_data.get(target_repo.name) != head_sha
+    if all_target_repositories and excluded_targets:
+        for target_repo in all_target_repositories:
+            if target_repo not in excluded_targets:
+                assert last_validated_data[target_repo.name] == head_sha
+            else:
+                assert last_validated_data.get(target_repo.name) != head_sha
 
 
 def check_if_commits_match(

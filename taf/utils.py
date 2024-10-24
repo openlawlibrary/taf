@@ -154,7 +154,7 @@ def is_sha1_hash(s):
     Returns:
     bool: True if the string is a valid SHA-1 hash, False otherwise.
     """
-    return bool(re.fullmatch(r'[0-9a-f]{40}', s.lower()))
+    return bool(re.fullmatch(r"[0-9a-f]{40}", s.lower()))
 
 
 def read_input_dict(value):

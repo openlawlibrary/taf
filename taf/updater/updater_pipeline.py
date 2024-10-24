@@ -5,7 +5,7 @@ import functools
 from pathlib import Path
 import re
 import shutil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from attr import attrs, define, field
 

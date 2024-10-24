@@ -3,7 +3,7 @@ import os
 import tempfile
 import fnmatch
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -195,7 +195,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     if new_commit:
                         self.set_last_validated_commit(new_commit)
                         self._log_notice(
-                            "NOTICE", f"Updated last_validated_commit to {new_commit}"
+                            f"Updated last_validated_commit to {new_commit}"
                         )
                 else:
                     self._log_warning(

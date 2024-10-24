@@ -1,9 +1,6 @@
 import functools
-from typing import Optional
-from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import GitError, RepositoryNotCleanError, TAFError
+from taf.exceptions import RepositoryNotCleanError
 from taf.git import GitRepository
-from taf.log import taf_logger
 
 
 def check_if_clean(func):

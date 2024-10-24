@@ -2,10 +2,8 @@ import pytest
 from taf.tests.test_updater.update_utils import update_and_check_commit_shas
 from taf.updater.updater import OperationType, UpdateType
 from taf.tests.test_updater.conftest import (
-    AuthenticationRepository,
     SetupManager,
     add_valid_target_commits,
-    set_head_commit,
 )
 
 

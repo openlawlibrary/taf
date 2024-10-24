@@ -345,10 +345,10 @@ def test_update_valid_when_last_validated_commit_deleted(origin_auth_repo, clien
         client_dir,
     )
 
-client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-client_setup_manager = SetupManager(client_auth_repo)
-client_setup_manager.add_task(remove_last_validated_commit)
-client_setup_manager.execute_tasks()
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_setup_manager = SetupManager(client_auth_repo)
+    client_setup_manager.add_task(remove_last_validated_commit)
+    client_setup_manager.execute_tasks()
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
