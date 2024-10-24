@@ -434,10 +434,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     library_dir=self.library_dir,
                     only_load_targets=True,
                     excluded_target_globs=self.excluded_target_globs,
+                    raise_error_if_no_urls=True,
                 )
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     excluded_target_globs=self.excluded_target_globs,
+                    raise_error_if_no_urls=True,
                 )
                 self.state.repos_on_disk = {
                     target_repo.name: target_repo
@@ -956,6 +958,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.auth_commits_since_last_validated[-1::],
                     excluded_target_globs=self.excluded_target_globs,
                     library_dir=self.library_dir,
+                    raise_error_if_no_urls=not self.only_validate,
                 )
             )
             if self.only_validate:

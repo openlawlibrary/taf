@@ -1,8 +1,7 @@
 from setuptools import find_packages, setup
-import sys
 
 PACKAGE_NAME = "taf"
-VERSION = "0.31.2"
+VERSION = "0.32.0"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -36,11 +35,6 @@ tests_require = [
 
 yubikey_require = ["yubikey-manager==5.1.*"]
 
-# Determine the appropriate version of pygit2 based on the Python version
-if sys.version_info >= (3, 11):
-    pygit2_version = "pygit2==1.14.1"
-elif sys.version_info >= (3, 7) and sys.version_info < (3, 11):
-    pygit2_version = "pygit2==1.9.*"
 
 kwargs = {
     "name": PACKAGE_NAME,
@@ -64,7 +58,8 @@ kwargs = {
         "cryptography==38.0.*",
         "securesystemslib==0.25.*",
         "loguru==0.7.*",
-        pygit2_version,
+        'pygit2==1.9.*; python_version < "3.11"',
+        'pygit2==1.14.*; python_version >= "3.11"',
         "pyOpenSSL==22.1.*",
         "logdecorator==2.*",
     ],
