@@ -2,6 +2,7 @@ import enum
 import os
 import re
 from typing import Optional
+import uuid
 import pytest
 import inspect
 import random
@@ -552,6 +553,17 @@ def create_new_target_orphan_branches(
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 
+def create_new_target_repo_branch(
+    auth_repo: AuthenticationRepository, target_repos: list, target_name: str
+):
+    for repo in target_repos:
+        if target_name in repo.name:
+            branch_name = str(uuid.uuid4())
+            repo.checkout_branch(branch_name, create=True)
+            repo.commit_empty("Add new branch commit")
+            break
+
+
 def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     # Create an `index.lock` file, indicating that an incomplete git operation took place
     # index.lock is created by git when a git operation is interrupted.
@@ -568,6 +580,16 @@ def _generate_random_text(length=10):
     return "".join(random.choice(letters) for i in range(length))
 
 
+def remove_commits_from_auth_repo(
+    auth_repo: AuthenticationRepository, num_of_commits: int = 1
+):
+    auth_repo.reset_num_of_commits(num_of_commits, hard=True)
+
+
+def reset_to_commit(auth_repo: AuthenticationRepository, commit: str):
+    auth_repo.reset_to_commit(commit, hard=True)
+
+
 def remove_last_validated_commit(auth_repo: AuthenticationRepository):
     Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).unlink()
     assert auth_repo.last_validated_commit is None
@@ -578,15 +600,14 @@ def remove_last_validated_data(auth_repo: AuthenticationRepository):
     assert auth_repo.last_validated_data is None
 
 
-def revert_last_validated_commit(auth_repo: AuthenticationRepository, client_dir: Path):
-    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
-    older_commit = client_repo.all_commits_on_branch(client_repo.default_branch)[-2]
-    client_repo.set_last_validated_commit(older_commit)
-    assert client_repo.last_validated_commit == older_commit
+def revert_last_validated_commit(auth_repo: AuthenticationRepository):
+    older_commit = auth_repo.all_commits_on_branch(auth_repo.default_branch)[-2]
+    auth_repo.set_last_validated_commit(older_commit)
+    auth_repo.set_last_validated_of_repo(auth_repo.name, older_commit)
+    assert auth_repo.last_validated_commit == older_commit
 
 
 def set_last_commit_of_auth_repo(auth_repo: AuthenticationRepository, commit: str):
-    auth_repo.reset_to_commit(commit, hard=True)
     auth_repo.set_last_validated_commit(commit)
     auth_repo.set_last_validated_of_repo(auth_repo.name, commit)
 

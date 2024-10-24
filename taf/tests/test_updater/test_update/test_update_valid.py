@@ -371,7 +371,10 @@ def test_update_valid_when_last_validated_commit_reverted(origin_auth_repo, clie
         client_dir,
     )
 
-    revert_last_validated_commit(origin_auth_repo, client_dir)
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_setup_manager = SetupManager(client_auth_repo)
+    client_setup_manager.add_task(revert_last_validated_commit)
+    client_setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
