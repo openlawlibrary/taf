@@ -90,6 +90,7 @@ class UpdateState:
     last_validated_data_per_repositories: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
+    all_targets_auth_commits: List[str] = field(factory=list)
 
 
 @attrs
@@ -275,6 +276,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_validate_target_repos,
                 ),
                 (
+                    self.set_auth_commit_for_target_repos,
+                    RunMode.ALL,
+                    self.should_validate_target_repos,
+                ),
+                (
                     self.check_if_repositories_on_disk,
                     RunMode.LOCAL_VALIDATION,
                     self.should_validate_target_repos,
@@ -434,10 +440,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     library_dir=self.library_dir,
                     only_load_targets=True,
                     excluded_target_globs=self.excluded_target_globs,
+                    raise_error_if_no_urls=True,
                 )
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     excluded_target_globs=self.excluded_target_globs,
+                    raise_error_if_no_urls=True,
                 )
                 self.state.repos_on_disk = {
                     target_repo.name: target_repo
@@ -453,7 +461,17 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.last_validated_commit = None
         elif not self.validate_from_commit:
             users_auth_repo = AuthenticationRepository(path=self.auth_path)
-            last_validated_commit = users_auth_repo.last_validated_commit
+            # last_validated_commit is not updated after a partial update
+            # however, last_validated_data file is
+            # even thought we cannot claim that the system as a whole is valid
+            # after a partial update, there is not need to validate the auth repo
+            # from an older commit, just because one of more targets were skipped
+            last_validated_data = users_auth_repo.last_validated_data
+            if last_validated_data:
+                last_validated_commit = last_validated_data[users_auth_repo.name]
+            else:
+                last_validated_commit = users_auth_repo.last_validated_commit
+
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
             ] = last_validated_commit
@@ -947,6 +965,41 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
         return UpdateStatus.SUCCESS
 
+    def set_auth_commit_for_target_repos(self):
+
+        last_commits_per_repos = {
+            repo_name: self.state.users_auth_repo.get_last_validated_auth_for_repo(
+                repo_name
+            )
+            for repo_name in self.state.users_target_repositories
+        }
+
+        last_validated_target_commits = list(set(last_commits_per_repos.values()))
+
+        if len(last_validated_target_commits) > 1:
+            # not all target repositories were updated at the same time
+            # updater was run with --exclude-targets
+            # check if the repositories are in sync according to that data
+            partially_validated_commits = (
+                self.state.users_auth_repo.auth_repo_commits_after_repos_last_validated(
+                    self.state.users_target_repositories.values()
+                )
+            )
+            all_auth_commits = partially_validated_commits
+            for commit in self.state.auth_commits_since_last_validated:
+                if commit not in all_auth_commits:
+                    all_auth_commits.append(commit)
+        else:
+            all_auth_commits = self.state.auth_commits_since_last_validated
+
+        self.state.all_targets_auth_commits = all_auth_commits
+
+        self.state.targets_data_by_auth_commits = (
+            self.state.users_auth_repo.targets_data_by_auth_commits(
+                all_auth_commits, last_commits_per_repos=last_commits_per_repos
+            )
+        )
+
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
@@ -956,6 +1009,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.auth_commits_since_last_validated[-1::],
                     excluded_target_globs=self.excluded_target_globs,
                     library_dir=self.library_dir,
+                    raise_error_if_no_urls=not self.only_validate,
                 )
             )
             if self.only_validate:
@@ -1042,12 +1096,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         taf_logger.info(
             f"{self.state.auth_repo_name}: Validating initial state of target repositories..."
         )
+        # if update was run with --exclude-target options, some target repositories might have been
+        # validated up to an older commit, or never validated at all
+        # that means that different repositories need to be validated from different start commits
+
         try:
-            self.state.targets_data_by_auth_commits = (
-                self.state.users_auth_repo.targets_data_by_auth_commits(
-                    self.state.auth_commits_since_last_validated
-                )
-            )
+
             self.state.old_heads_per_target_repos_branches = defaultdict(dict)
             is_initial_state_in_sync = True
             # if last validated commit was not manually modified (set to a newer commit)
@@ -1061,15 +1115,27 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 for repository in self.state.temp_target_repositories.values():
                     if repository.name not in self.state.targets_data_by_auth_commits:
                         continue
+
                     self.state.old_heads_per_target_repos_branches[repository.name] = {}
+                    repo_last_validated_commit = (
+                        self.state.users_auth_repo.get_last_validated_auth_for_repo(
+                            repository.name
+                        )
+                    )
                     last_validated_repository_commits_data = (
                         self.state.targets_data_by_auth_commits[repository.name].get(
-                            self.state.last_validated_commit, {}
+                            repo_last_validated_commit, {}
                         )
                     )
 
                     if last_validated_repository_commits_data:
-                        if repository.name in self.state.repos_not_on_disk:
+                        if (
+                            repository.name in self.state.repos_not_on_disk
+                            and self.state.users_auth_repo.get_last_validated_auth_for_repo(
+                                repository.name
+                            )
+                            is not None
+                        ):
                             is_initial_state_in_sync = False
                             break
                         if not self._is_repository_in_sync(
@@ -1149,9 +1215,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo.default_branch
             )
         )
+        self.state.all_targets_auth_commits = (
+            self.state.auth_commits_since_last_validated
+        )
         self.state.targets_data_by_auth_commits = (
             self.state.users_auth_repo.targets_data_by_auth_commits(
-                self.state.auth_commits_since_last_validated
+                self.state.all_targets_auth_commits
             )
         )
 
@@ -1299,8 +1368,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             self.last_validated_data_per_repositories = defaultdict(dict)
             self.state.validated_auth_commits = []
-
-            for auth_commit in self.state.auth_commits_since_last_validated:
+            for auth_commit in self.state.all_targets_auth_commits:
                 for repository in self.state.temp_target_repositories.values():
                     if repository.name not in self.state.targets_data_by_auth_commits:
                         continue
@@ -1320,10 +1388,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if not len(
                         self.last_validated_data_per_repositories[repository.name]
                     ):
+                        last_validated_target_auth_commit = (
+                            self.state.users_auth_repo.get_last_validated_auth_for_repo(
+                                repository.name
+                            )
+                        )
                         current_head_commit_and_branch = (
                             self.state.targets_data_by_auth_commits[
                                 repository.name
-                            ].get(self.state.last_validated_commit, {})
+                            ].get(last_validated_target_auth_commit, {})
                         )
                         previous_branch = current_head_commit_and_branch.get("branch")
                         previous_commit = current_head_commit_and_branch.get("commit")
@@ -1615,7 +1688,7 @@ but commit not on branch {current_branch}"
             f"{self.state.auth_repo_name}: Merging commit into auth repo..."
         )
         try:
-            if self.only_validate or self.excluded_target_globs:
+            if self.only_validate:
                 return self.state.update_status
             if self.state.update_status == UpdateStatus.FAILED:
                 return self.state.update_status
@@ -1635,8 +1708,17 @@ but commit not on branch {current_branch}"
                 last_commit,
                 True,
             )
-            # update the last validated commit
-            self.state.users_auth_repo.set_last_validated_commit(last_commit)
+
+            # store information about which target (data) repositories were updated
+            # some might have been omitted if the update was run with --exclude-target
+            last_validated_data = self.state.users_auth_repo.last_validated_data or {}
+            for repo in self.state.users_target_repositories.keys():
+                last_validated_data[repo] = last_commit
+            last_validated_data[self.state.users_auth_repo.name] = last_commit
+            self.state.users_auth_repo.set_last_validated_data(last_validated_data)
+
+            if not self.excluded_target_globs:
+                self.state.users_auth_repo.set_last_validated_commit(last_commit)
 
             return self.state.update_status
         except Exception as e:

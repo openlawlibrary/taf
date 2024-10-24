@@ -9,11 +9,12 @@ import pygit2
 import subprocess
 import logging
 from collections import OrderedDict
-from functools import reduce
+from functools import partial, reduce
 from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    NoRemoteError,
     NothingToCommitError,
     TAFError,
     CloneRepoException,
@@ -23,7 +24,7 @@ from taf.exceptions import (
     UpdateFailedError,
     PygitError,
 )
-from taf.log import taf_logger
+from taf.log import NOTICE, taf_logger
 from taf.utils import run
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
@@ -143,6 +144,7 @@ class GitRepository:
     logging_functions = {
         logging.DEBUG: taf_logger.debug,
         logging.INFO: taf_logger.info,
+        NOTICE: partial(taf_logger.log, "NOTICE"),
         logging.WARNING: taf_logger.warning,
         logging.ERROR: taf_logger.error,
         logging.CRITICAL: taf_logger.critical,
@@ -347,6 +349,9 @@ class GitRepository:
 
     def _log_info(self, message: str) -> None:
         self._log(self.logging_functions[logging.INFO], message)
+
+    def _log_notice(self, message: str) -> None:
+        self._log(self.logging_functions[NOTICE], message)
 
     def _log_warning(self, message: str) -> None:
         self._log(self.logging_functions[logging.WARNING], message)
@@ -1392,26 +1397,37 @@ class GitRepository:
         branch: Optional[str] = None,
         set_upstream: Optional[bool] = False,
         force: Optional[bool] = False,
-    ) -> None:
-        """Push all changes"""
-        if branch is None:
-            branch = self.get_current_branch()
+    ) -> bool:
 
-        hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
-        if hook_path.exists():
-            self._log_info("Validating and pushing...")
+        if not self.has_remote():
+            self._log_warning("Could not push changes. No remotes configured")
+            return False
 
-        upstream_flag = "-u" if set_upstream else ""
-        force_flag = "-f" if force else ""
-        self._git(
-            "push {} {} origin {}",
-            upstream_flag,
-            force_flag,
-            branch,
-            log_error=True,
-            reraise_error=True,
-            log_success_msg="Successfully pushed commit(s)",
-        )
+        try:
+            """Push all changes"""
+            if branch is None:
+                branch = self.get_current_branch()
+
+            hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
+            if hook_path.exists():
+                self._log_notice("Validating and pushing...")
+
+            upstream_flag = "-u" if set_upstream else ""
+            force_flag = "-f" if force else ""
+            self._git(
+                "push {} {} origin {}",
+                upstream_flag,
+                force_flag,
+                branch,
+                reraise_error=True,
+            )
+            self._log_notice("Successfully pushed to remote")
+            return True
+        except GitError as e:
+            self._log_error(
+                f"Push failed: {str(e)}. Please check if there are upstream changes."
+            )
+            raise TAFError("Push operation failed") from e
 
     def remove_remote(self, remote_name: str) -> None:
         try:
@@ -1516,6 +1532,8 @@ class GitRepository:
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
 
+        if not self.has_remote():
+            raise NoRemoteError(self)
         if url:
             urls = [url]
         elif self.urls:

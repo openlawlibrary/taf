@@ -15,12 +15,25 @@ from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater import UpdateConfig, clone_repository, update_repository
 
 
-def check_last_validated_commit(clients_auth_repo_path):
+def check_last_validated_commit(
+    clients_auth_repo_path, all_target_repositories=None, excluded_targets=None
+):
     # check if last validated commit is created and the saved commit is correct
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     head_sha = client_auth_repo.head_commit_sha()
-    last_validated_commit = client_auth_repo.last_validated_commit
-    assert head_sha == last_validated_commit
+    last_validated_data = client_auth_repo.last_validated_data
+    assert last_validated_data[client_auth_repo.name] == head_sha
+    if not excluded_targets:
+        assert client_auth_repo.last_validated_commit == head_sha
+    else:
+        assert client_auth_repo.last_validated_commit != head_sha
+
+    if all_target_repositories and excluded_targets:
+        for target_repo in all_target_repositories:
+            if target_repo not in excluded_targets:
+                assert last_validated_data[target_repo.name] == head_sha
+            else:
+                assert last_validated_data.get(target_repo.name) != head_sha
 
 
 def check_if_commits_match(
@@ -110,6 +123,27 @@ def _clone_full_library(
     check_if_commits_match(
         repositories, origin_dir, start_head_shas, excluded_target_globs
     )
+
+
+def count_subdirectories_in_directory(directory_path):
+    """
+    Counts the number of subdirectories in the given directory.
+
+    Args:
+        directory_path (str or Path): The path to the directory where subdirectories are to be counted.
+
+    Returns:
+        int: The number of subdirectories in the specified directory.
+    """
+    # Convert directory_path to Path object if it's not already one
+    directory = (
+        Path(directory_path) if not isinstance(directory_path, Path) else directory_path
+    )
+
+    # Count folders using a generator expression
+    folder_count = sum(1 for item in directory.iterdir() if item.is_dir())
+
+    return folder_count
 
 
 def clone_repositories(
@@ -228,7 +262,7 @@ def update_and_check_commit_shas(
     }
 
     clients_auth_repo_path = clients_dir / origin_auth_repo.name
-    clients_auth_repo = GitRepository(path=clients_auth_repo_path)
+    clients_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     if clients_auth_repo_path.is_dir():
         client_repos[clients_auth_repo.name] = clients_auth_repo
     start_head_shas = _get_head_commit_shas(client_repos, num_of_commits_to_remove)
@@ -258,19 +292,39 @@ def update_and_check_commit_shas(
         start_head_shas,
         excluded_target_globs,
     )
-    if not excluded_target_globs and not skip_check_last_validated:
-        check_last_validated_commit(clients_auth_repo_path)
 
+    excluded_targets = []
+    repositoriesdb.clear_repositories_db()
+    all_target_repositories = load_target_repositories(origin_auth_repo, clients_dir)
     if excluded_target_globs:
-        repositoriesdb.clear_repositories_db()
-        all_target_repositories = load_target_repositories(
-            origin_auth_repo, clients_dir
+        total_dirs_count = count_subdirectories_in_directory(
+            clients_auth_repo_path.parent
         )
         for target_repo in all_target_repositories.values():
             for excluded_target_glob in excluded_target_globs:
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
-                    assert not target_repo.path.is_dir()
+                    excluded_targets.append(target_repo)
+                    if (
+                        operation == OperationType.CLONE
+                        or target_repo in clients_auth_repo.last_validated_data
+                    ):
+                        assert not target_repo.path.is_dir()
+                    else:
+                        # already cloned, but excluded in this updated
+                        assert target_repo.path.is_dir()
                     break
+        assert len(excluded_targets) > 0
+        # all target repositories + auth repo + auth repo conf dir - skipped repos
+        if operation == OperationType.CLONE:
+            assert total_dirs_count == len(all_target_repositories) + 2 - len(
+                excluded_targets
+            )
+
+    if not skip_check_last_validated:
+        check_last_validated_commit(
+            clients_auth_repo_path, all_target_repositories.values(), excluded_targets
+        )
+
     return update_ret
 
 

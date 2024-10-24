@@ -2,7 +2,7 @@ from datetime import datetime
 from logging import INFO, ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean
 from taf.exceptions import TAFError
 from taf.keys import load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -156,7 +156,7 @@ def update_metadata_expiration_date(
         commit_msg = git_commit_message(
             "update-expiration-dates", roles=",".join(roles)
         )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
 
 
 @log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)

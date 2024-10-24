@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+import pygit2
 from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.git import GitRepository
 from taf.repository_tool import (
@@ -15,16 +16,19 @@ from taf.repository_tool import (
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
+from taf.utils import is_sha1_hash
 
 
 class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
+    LAST_VALIDATED_DATA_FILENAME = "last_validated_data"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     SCRIPTS_PATH = "scripts"
 
     _conf_dir = None
     _dependencies: Dict = {}
+    _last_validated_data = None
 
     def __init__(
         self,
@@ -145,10 +149,65 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return None
 
     @property
+    def last_validated_data(self) -> Optional[dict]:
+        """
+        Return the last validated data of the authentication repository
+        """
+        if self._last_validated_data is None:
+            try:
+                data = Path(
+                    self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME
+                ).read_text()
+            except FileNotFoundError:
+                return None
+            try:
+                self._last_validated_data = json.loads(data)
+            except json.decoder.JSONDecodeError:
+                if is_sha1_hash(data):  # old last validated format
+                    self._last_validated_data = data
+                return None
+        return self._last_validated_data
+
+    @property
     def log_prefix(self) -> str:
         if self.alias:
             return f"{self.alias}: "
         return f"Auth repo {self.name}: "
+
+    def commit_and_push(
+        self,
+        commit_msg: Optional[str] = None,
+        push: Optional[bool] = True,
+        commit: Optional[bool] = True,
+    ) -> None:
+
+        if commit:
+            if commit_msg is None:
+                commit_msg = input("\nEnter commit message and press ENTER\n\n")
+            self.commit(commit_msg)
+
+        if push:
+            push_successful = self.push()
+            if push_successful:
+                new_commit_branch = self.default_branch
+                if new_commit_branch:
+                    new_commit = self.top_commit_of_branch(new_commit_branch)
+                    if new_commit:
+                        self.set_last_validated_commit(new_commit)
+                        self._log_notice(
+                            f"Updated last_validated_commit to {new_commit}"
+                        )
+                else:
+                    self._log_warning(
+                        "Default branch is None, skipping last_validated_commit update."
+                    )
+
+    def get_last_validated_auth_for_repo(self, repo_name):
+        if self.last_validated_data is not None:
+            return self.last_validated_data.get(repo_name)
+        if self.last_validated_commit is not None:
+            return self.last_validated_commit
+        return None
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
@@ -230,8 +289,58 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         Set the last validated commit of the authentication repository
         """
-        self._log_debug(f"setting last validated commit to: {commit}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
+
+    def set_last_validated_data(self, last_validated_data: dict):
+        """
+        Set the last validated data of the authentication repository.
+        In case of a partial update (update run with the --exclude-target option),
+        update last validated commits of target repositories that were updated
+        """
+        last_data_str = json.dumps(last_validated_data, indent=4)
+        self._log_debug(f"setting last validated data to: {last_data_str}")
+        Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
+
+    def set_last_validated_of_repo(self, repo_name: str, commit: str):
+        last_validated_data = self.last_validated_data or {}
+        last_validated_data[repo_name] = commit
+        last_data_str = json.dumps(last_validated_data, indent=4)
+        self._log_debug(f"setting last validated data to: {last_data_str}")
+        Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
+
+    def auth_repo_commits_after_repos_last_validated(
+        self, target_repos: List
+    ) -> List[str]:
+        """
+        Traverses the commit history from the most recent commit back to the oldest last validated commit
+        of the target repositories. It then quantifies how many of these commits are related to each target repository.
+
+        Returns:
+            tuple:
+                - List[str]: A list of commit hashes from the oldest last validated commit to the newest commit
+                in the authentication repository. This list provides a sequential history of commits affecting
+                the target repositories.
+        """
+        last_validated_target_commits = defaultdict(list)
+        for repo in target_repos:
+            last_validated_commit = self.get_last_validated_auth_for_repo(repo.name)
+            last_validated_target_commits[last_validated_commit].append(repo)
+
+        repo = self.pygit_repo
+
+        walker = repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL)
+
+        traversed_commits = []
+        for commit in walker:
+            commit_id = str(commit.id)
+            if commit_id in last_validated_target_commits:
+                last_validated_target_commits.pop(commit_id)
+
+            traversed_commits.append(commit_id)
+            if not len(last_validated_target_commits):
+                break
+        traversed_commits.reverse()
+        return traversed_commits
 
     def targets_data_by_auth_commits(
         self,
@@ -240,6 +349,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
+        last_commits_per_repos: Optional[Dict[str, List]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
@@ -260,7 +370,10 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
         targets = self.targets_at_revisions(
-            *commits, target_repos=target_repos, default_branch=default_branch
+            commits,
+            target_repos=target_repos,
+            default_branch=default_branch,
+            last_commits_per_repos=last_commits_per_repos,
         )
         excluded_target_globs = excluded_target_globs or []
         for commit in commits:
@@ -324,7 +437,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         repositories_commits: Dict = defaultdict(dict)
         targets = self.targets_at_revisions(
-            *commits, target_repos=target_repos, default_branch=default_branch
+            commits, target_repos=target_repos, default_branch=default_branch
         )
         previous_commits: Dict = {}
         skipped_targets = []
@@ -367,13 +480,20 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         )
         return repositories_commits
 
-    def targets_at_revisions(self, *commits, target_repos=None, default_branch=None):
+    def targets_at_revisions(
+        self,
+        commits,
+        target_repos=None,
+        default_branch=None,
+        last_commits_per_repos=None,
+    ):
         targets = defaultdict(dict)
         if default_branch is None:
             default_branch = self.default_branch
         previous_metadata = []
         new_files = []
-        for commit in commits:
+        repos_to_skip = []
+        for commit in reversed(commits):
             # repositories.json might not exit, if the current commit is
             # the initial commit
             repositories_at_revision = self.safely_get_json(
@@ -406,10 +526,22 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 targets_at_revision = targets_at_revision["signed"]["targets"]
 
                 for target_path in targets_at_revision:
+                    # if there are older auth repo commtis corresponding to repositories
+                    # that were not validated in the one or more previous updates
+                    # skip the ones that were validated more recently
+                    # when the last validated commit of a repo is reached
+                    # the repo is addes to the repos_to_skip list
+                    if target_path in repos_to_skip:
+                        continue
+                    if (
+                        last_commits_per_repos
+                        and last_commits_per_repos.get(target_path) == commit
+                    ):
+                        repos_to_skip.append(target_path)
                     if target_path not in repositories_at_revision:
                         # we only care about repositories
                         continue
-                    if target_repos is not None and target_path not in target_repos:
+                    if target_repos and target_path not in target_repos:
                         # if specific target repositories are specified, skip all other
                         # repositories
                         continue

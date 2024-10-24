@@ -184,6 +184,7 @@ def load_repositories(
     commits: Optional[List[str]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
+    raise_error_if_no_urls: bool = False,
 ) -> None:
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -225,6 +226,7 @@ def load_repositories(
         commits=commits,
         roles=roles,
         excluded_target_globs=excluded_target_globs,
+        raise_error_if_no_urls=raise_error_if_no_urls,
     )
     if commits is None or len(commits) == 0:
         commit = auth_repo.head_commit_sha()
@@ -248,6 +250,7 @@ def _load_repositories(
     commits: Optional[List[str]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
+    raise_error_if_no_urls: bool = False,
 ) -> Dict:
 
     repositories = {}
@@ -304,7 +307,7 @@ def _load_repositories(
                 skipped_targets.append(name)
                 continue
             custom = _get_custom_data(repo_data, targets.get(name))
-            urls = _get_urls(mirrors, name, repo_data)
+            urls = _get_urls(mirrors, name, repo_data, raise_error_if_no_urls)
             default_branch = _get_target_default_branch(auth_repo, name, commit)
             git_repo = _initialize_repository(
                 factory,
@@ -367,14 +370,18 @@ def _get_json_file(auth_repo, name, commit):
         )
 
 
-def _get_urls(mirrors, repo_name, repo_data=None) -> List[str]:
+def _get_urls(
+    mirrors, repo_name, repo_data=None, raise_error_if_no_mirrors=False
+) -> List[str]:
     if repo_data is not None and "urls" in repo_data:
         return repo_data["urls"]
     elif mirrors is None:
-        raise RepositoryInstantiationError(
-            repo_name,
-            f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}",
-        )
+        if raise_error_if_no_mirrors:
+            raise RepositoryInstantiationError(
+                repo_name,
+                f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}",
+            )
+        return []
 
     try:
         org_name, repo_name = repo_name.split("/")
@@ -458,7 +465,8 @@ def get_repositories_paths_by_custom_data(
 
 
 def get_deduplicated_auth_repositories(
-    auth_repo: AuthenticationRepository, commits: List[str]
+    auth_repo: AuthenticationRepository,
+    commits: List[str],
 ) -> Dict[str, AuthenticationRepository]:
     return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
@@ -468,14 +476,25 @@ def get_deduplicated_repositories(
     commits: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
     library_dir: Optional[str] = None,
+    raise_error_if_no_urls=False,
 ) -> Dict[str, GitRepository]:
     return _get_deduplicated_target_or_auth_repositories(
-        auth_repo, commits, False, excluded_target_globs, library_dir
+        auth_repo,
+        commits,
+        False,
+        excluded_target_globs,
+        library_dir,
+        raise_error_if_no_urls,
     )
 
 
 def _get_deduplicated_target_or_auth_repositories(
-    auth_repo, commits, load_auth=False, excluded_target_globs=None, library_dir=None
+    auth_repo,
+    commits,
+    load_auth=False,
+    excluded_target_globs=None,
+    library_dir=None,
+    raise_error_if_no_urls=False,
 ):
     if commits is None:
         commits = [auth_repo.head_commit_sha()]
@@ -501,6 +520,7 @@ def _get_deduplicated_target_or_auth_repositories(
                     commits=commits,
                     excluded_target_globs=excluded_target_globs,
                     library_dir=library_dir,
+                    raise_error_if_no_urls=raise_error_if_no_urls,
                 )
             }
 
