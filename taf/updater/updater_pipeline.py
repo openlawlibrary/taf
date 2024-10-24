@@ -968,7 +968,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def set_auth_commit_for_target_repos(self):
 
         last_commits_per_repos = {
-            repo_name: self.state.users_auth_repo.get_last_validated_auth_for_repo(repo_name)
+            repo_name: self.state.users_auth_repo.get_last_validated_auth_for_repo(
+                repo_name
+            )
             for repo_name in self.state.users_target_repositories
         }
 

@@ -14,6 +14,7 @@ from taf.tests.test_updater.conftest import (
     create_new_target_repo_branch,
     remove_commits,
     remove_commits_from_auth_repo,
+    reset_to_commit,
     set_last_commit_of_auth_repo,
     update_auth_repo_without_committing,
     update_expiration_dates,
@@ -302,7 +303,6 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
         force=True,
     )
 
-
     assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
 
     all_commits = client_auth_repo.all_commits_on_branch(
@@ -311,7 +311,9 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
 
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(reset_to_commit, kwargs={"commit": all_commits[-2]})
-    clients_setup_manager.add_task(set_last_commit_of_auth_repo, kwargs={"commit": all_commits[-2]})
+    clients_setup_manager.add_task(
+        set_last_commit_of_auth_repo, kwargs={"commit": all_commits[-2]}
+    )
     clients_setup_manager.execute_tasks()
 
     client_auth_repo.checkout_commit(all_commits[-3])
@@ -320,7 +322,6 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
         client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
         == all_commits[-2]
     )
-
 
     update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -485,7 +486,9 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     origin_top_commit_sha = origin_auth_repo.head_commit_sha()
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)
-    clients_setup_manager.add_task(set_last_commit_of_auth_repo, kwargs={"commit": origin_top_commit_sha})
+    clients_setup_manager.add_task(
+        set_last_commit_of_auth_repo, kwargs={"commit": origin_top_commit_sha}
+    )
     clients_setup_manager.add_task(remove_commits_from_auth_repo)
     clients_setup_manager.execute_tasks()
 
