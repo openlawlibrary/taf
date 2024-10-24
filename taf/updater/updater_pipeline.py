@@ -968,7 +968,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def set_auth_commit_for_target_repos(self):
 
         last_commits_per_repos = {
-            repo_name: self.state.users_auth_repo.get_last_validated_for_repo(repo_name)
+            repo_name: self.state.users_auth_repo.get_last_validated_auth_for_repo(repo_name)
             for repo_name in self.state.users_target_repositories
         }
 
@@ -1116,7 +1116,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                     self.state.old_heads_per_target_repos_branches[repository.name] = {}
                     repo_last_validated_commit = (
-                        self.state.users_auth_repo.get_last_validated_for_repo(
+                        self.state.users_auth_repo.get_last_validated_auth_for_repo(
                             repository.name
                         )
                     )
@@ -1129,7 +1129,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if last_validated_repository_commits_data:
                         if (
                             repository.name in self.state.repos_not_on_disk
-                            and self.state.users_auth_repo.get_last_validated_for_repo(
+                            and self.state.users_auth_repo.get_last_validated_auth_for_repo(
                                 repository.name
                             )
                             is not None
@@ -1387,7 +1387,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         self.last_validated_data_per_repositories[repository.name]
                     ):
                         last_validated_target_auth_commit = (
-                            self.state.users_auth_repo.get_last_validated_for_repo(
+                            self.state.users_auth_repo.get_last_validated_auth_for_repo(
                                 repository.name
                             )
                         )

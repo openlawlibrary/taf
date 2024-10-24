@@ -202,7 +202,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                         "Default branch is None, skipping last_validated_commit update."
                     )
 
-    def get_last_validated_for_repo(self, repo_name):
+    def get_last_validated_auth_for_repo(self, repo_name):
         if self.last_validated_data is not None:
             return self.last_validated_data.get(repo_name)
         if self.last_validated_commit is not None:
@@ -301,6 +301,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._log_debug(f"setting last validated data to: {last_data_str}")
         Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
 
+    def set_last_validated_of_repo(self, repo_name: str, commit: str):
+        last_validated_data = self.last_validated_data or {}
+        last_validated_data[repo_name] = commit
+        last_data_str = json.dumps(last_validated_data, indent=4)
+        self._log_debug(f"setting last validated data to: {last_data_str}")
+        Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
+
     def auth_repo_commits_after_repos_last_validated(
         self, target_repos: List
     ) -> List[str]:
@@ -316,7 +323,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         last_validated_target_commits = defaultdict(list)
         for repo in target_repos:
-            last_validated_commit = self.get_last_validated_for_repo(repo.name)
+            last_validated_commit = self.get_last_validated_auth_for_repo(repo.name)
             last_validated_target_commits[last_validated_commit].append(repo)
 
         repo = self.pygit_repo

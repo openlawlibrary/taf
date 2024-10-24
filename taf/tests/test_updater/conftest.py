@@ -585,6 +585,12 @@ def revert_last_validated_commit(auth_repo: AuthenticationRepository, client_dir
     assert client_repo.last_validated_commit == older_commit
 
 
+def set_last_commit_of_auth_repo(auth_repo: AuthenticationRepository, commit: str):
+    auth_repo.reset_to_commit(commit, hard=True)
+    auth_repo.set_last_validated_commit(commit)
+    auth_repo.set_last_validated_of_repo(auth_repo.name, commit)
+
+
 def swap_last_two_commits(auth_repo: AuthenticationRepository):
     """
     Swap the top two commits of the currently checked out branch of the provided repo.
