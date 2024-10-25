@@ -443,7 +443,7 @@ def remove_target_repo(
         os.unlink(str(target_file_path))
         removed_targets_data[target_name] = {}
     else:
-        taf_logger.log("NOTICE", f"{target_file_path} target file does not exist")
+        taf_logger.info(f"{target_file_path} target file does not exist")
 
     changes_committed = False
     if len(added_targets_data) or len(removed_targets_data):
@@ -480,7 +480,7 @@ def remove_target_repo(
         )
         changes_committed = True
     else:
-        taf_logger.log("NOTICE", f"{target_name} not among delegated paths")
+        taf_logger.info(f"{target_name} not among delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
     if changes_committed and push:
         auth_repo.push()
