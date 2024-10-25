@@ -191,6 +191,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     new_commit = self.top_commit_of_branch(new_commit_branch)
                     if new_commit:
                         self.set_last_validated_commit(new_commit)
+                        self.set_last_validated_of_repo(self.name, new_commit)
                         self._log_notice(
                             f"Updated last_validated_commit to {new_commit}"
                         )
