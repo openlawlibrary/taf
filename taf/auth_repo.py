@@ -158,14 +158,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 data = Path(
                     self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME
                 ).read_text()
-            except FileNotFoundError:
-                return None
-            try:
                 self._last_validated_data = json.loads(data)
+            except FileNotFoundError:
+                self._last_validated_data = {}
             except json.decoder.JSONDecodeError:
-                if is_sha1_hash(data):  # old last validated format
-                    self._last_validated_data = data
-                return None
+                self._last_validated_data = {}
         return self._last_validated_data
 
     @property
@@ -201,13 +198,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                     self._log_warning(
                         "Default branch is None, skipping last_validated_commit update."
                     )
-
-    def get_last_validated_auth_for_repo(self, repo_name):
-        if self.last_validated_data is not None:
-            return self.last_validated_data.get(repo_name)
-        if self.last_validated_commit is not None:
-            return self.last_validated_commit
-        return None
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
@@ -309,7 +299,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
 
     def auth_repo_commits_after_repos_last_validated(
-        self, target_repos: List
+        self, target_repos: List, last_validated_data
     ) -> List[str]:
         """
         Traverses the commit history from the most recent commit back to the oldest last validated commit
@@ -323,7 +313,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         last_validated_target_commits = defaultdict(list)
         for repo in target_repos:
-            last_validated_commit = self.get_last_validated_auth_for_repo(repo.name)
+            last_validated_commit = last_validated_data[repo.name]
             last_validated_target_commits[last_validated_commit].append(repo)
 
         repo = self.pygit_repo
