@@ -597,7 +597,7 @@ def remove_last_validated_commit(auth_repo: AuthenticationRepository):
 
 def remove_last_validated_data(auth_repo: AuthenticationRepository):
     Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_DATA_FILENAME).unlink()
-    assert auth_repo.last_validated_data is None
+    assert not auth_repo.last_validated_data
 
 
 def revert_last_validated_commit(auth_repo: AuthenticationRepository):
