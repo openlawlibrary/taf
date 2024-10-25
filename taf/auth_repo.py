@@ -16,7 +16,6 @@ from taf.repository_tool import (
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
-from taf.utils import is_sha1_hash
 
 
 class AuthenticationRepository(GitRepository, TAFRepository):

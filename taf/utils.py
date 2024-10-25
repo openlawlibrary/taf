@@ -1,5 +1,4 @@
 import platform
-import re
 import click
 import errno
 import datetime
@@ -142,19 +141,6 @@ def is_run_from_python_executable() -> bool:
     `sys frozen returns True if the Python interpreter is frozen using a tool like pyinstaller.
     """
     return getattr(sys, "frozen", False)
-
-
-def is_sha1_hash(s):
-    """
-    Check if the input string is a valid SHA-1 hash.
-
-    Args:
-    s (str): The string to check.
-
-    Returns:
-    bool: True if the string is a valid SHA-1 hash, False otherwise.
-    """
-    return bool(re.fullmatch(r"[0-9a-f]{40}", s.lower()))
 
 
 def read_input_dict(value):
