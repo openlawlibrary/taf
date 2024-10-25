@@ -16,7 +16,7 @@ from taf.api.roles import (
     add_role_paths,
     remove_paths,
 )
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
@@ -185,7 +185,7 @@ def add_target_repo(
     )
     if commit:
         commit_msg = git_commit_message("add-target", target_name=target_name)
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
@@ -246,10 +246,9 @@ def export_targets_history(
 
 def list_targets(
     path: str,
-    library_dir: Optional[str] = None,
-) -> None:
+) -> Dict:
     """
-    Prints a list of target repositories of an authentication repository and their states (are the work directories clean, are there
+    Returns a dictionary containing target repositories of an authentication repository and their states (are the work directories clean, are there
     remove changes that have not yed been pulled, are there commits that have not yet been signed).
 
     Arguments:
@@ -266,7 +265,7 @@ def list_targets(
     head_commit = auth_repo.head_commit_sha()
     if head_commit is None:
         taf_logger.log("NOTICE", "Repository is empty")
-        return
+        return {}
     top_commit = [head_commit]
     repositoriesdb.load_repositories(auth_repo)
     target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
@@ -285,28 +284,33 @@ def list_targets(
         repo_output["cloned"] = local_repo_exists
         if local_repo_exists:
             repo_output["bare"] = repo.is_bare_repository
+            repo_output["unsigned"] = []
             # there will only be one branch since only data corresponding to the top auth commit was loaded
             for branch, branch_data in repo_data.items():
-                repo_output["unsigned"] = False
+                has_remote = repo.has_remote()
+                repo_output["has-remote"] = has_remote
+
                 if not repo.branch_exists(branch, include_remotes=False):
                     repo_output["up-to-date"] = False
                 else:
-                    is_synced_with_remote = repo.synced_with_remote(branch=branch)
-                    repo_output["up-to-date"] = is_synced_with_remote
-                    if not is_synced_with_remote:
-                        last_signed_commit = branch_data[0]["commit"]
-                        if branch in repo.branches_containing_commit(
-                            last_signed_commit
+                    if has_remote:
+                        is_synced_with_remote = repo.synced_with_remote(branch=branch)
+                        repo_output["up-to-date"] = is_synced_with_remote
+
+                    last_signed_commit = branch_data[0]["commit"]
+                    if branch in repo.branches_containing_commit(last_signed_commit):
+                        branch_top_commit = repo.top_commit_of_branch(branch)
+                        unsigned_commits = repo.all_commits_since_commit(
+                            last_signed_commit, branch
+                        )
+                        if (
+                            len(unsigned_commits)
+                            and branch_top_commit in unsigned_commits
                         ):
-                            branch_top_commit = repo.top_commit_of_branch(branch)
-                            repo_output[
-                                "unsigned"
-                            ] = branch_top_commit in repo.all_commits_since_commit(
-                                last_signed_commit, branch
-                            )
+                            repo_output["unsigned"].append(branch)
             repo_output["something-to-commit"] = repo.something_to_commit()
 
-    taf_logger.log("NOTICE", json.dumps(output, indent=4))
+    return output
 
 
 @log_on_start(INFO, "Signing target files", logger=taf_logger)
@@ -373,7 +377,7 @@ def register_target_files(
         if commit:
             auth_repo = AuthenticationRepository(path=taf_repo.path)
             commit_msg = git_commit_message("update-targets")
-            commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
         elif not no_commit_warning:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
@@ -439,7 +443,7 @@ def remove_target_repo(
         os.unlink(str(target_file_path))
         removed_targets_data[target_name] = {}
     else:
-        taf_logger.log("NOTICE", f"{target_file_path} target file does not exist")
+        taf_logger.info(f"{target_file_path} target file does not exist")
 
     changes_committed = False
     if len(added_targets_data) or len(removed_targets_data):
@@ -476,7 +480,7 @@ def remove_target_repo(
         )
         changes_committed = True
     else:
-        taf_logger.log("NOTICE", f"{target_name} not among delegated paths")
+        taf_logger.info(f"{target_name} not among delegated paths")
     # update snapshot and timestamp calls write_all, so targets updates will be saved too
     if changes_committed and push:
         auth_repo.push()

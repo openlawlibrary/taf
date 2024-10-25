@@ -10,7 +10,7 @@ from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._roles import _role_obj, create_delegations
 from taf.messages import git_commit_message
 from tuf.repository_tool import Targets
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import RolesIterator, TargetsRole, compare_roles_data
@@ -140,7 +140,7 @@ def add_role(
             auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
         )
         commit_msg = git_commit_message("add-role", role=role)
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
@@ -206,7 +206,7 @@ def add_role_paths(
             commit_msg = git_commit_message(
                 "add-role-paths", paths=", ".join(paths), role=delegated_role
             )
-            commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
         else:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
     else:
@@ -303,7 +303,7 @@ def add_multiple_roles(
     if commit:
         roles_names = [role.name for role in new_roles]
         commit_msg = git_commit_message("add-roles", roles=", ".join(roles_names))
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
@@ -414,7 +414,7 @@ def add_signing_key(
         # commit_msg = git_commit_message(
         #     "add-signing-key", role={role}
         # )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
@@ -842,7 +842,7 @@ def remove_role(
     )
     if commit:
         commit_msg = git_commit_message("remove-role", role=role)
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         taf_logger.log("NOTICE", "Please commit manually")
 
@@ -903,7 +903,7 @@ def remove_paths(
         commit_msg = git_commit_message(
             "remove-role-paths", paths=", ".join(paths), role=delegated_role
         )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     elif delegation_existed:
         taf_logger.log("NOTICE", "\nPlease commit manually\n")
     return delegation_existed

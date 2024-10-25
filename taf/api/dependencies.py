@@ -8,7 +8,7 @@ from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean
 from taf.messages import git_commit_message
 from pathlib import Path
 
@@ -176,7 +176,7 @@ def add_dependency(
         commit_msg = git_commit_message(
             "add-dependency", dependency_name=dependency_name
         )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually.\n")
 
@@ -266,7 +266,7 @@ def remove_dependency(
         commit_msg = git_commit_message(
             "remove-dependency", dependency_name=dependency_name
         )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually.\n")
 
