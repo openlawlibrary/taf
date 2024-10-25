@@ -61,7 +61,8 @@ def add_repo_command():
                 custom = json.loads(Path(custom_file).read_text())
             except json.JSONDecodeError:
                 taf_logger.error("Invalid custom JSON provided")
-                sys.exit
+                sys.exit(1)
+
         add_target_repo(
             path=path,
             target_path=target_path,
