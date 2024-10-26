@@ -9,9 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Implement full partial update. Store last validated commit per repo ([559)])
+
 ### Changed
 
 ### Fixed
+
+
+[559]: https://github.com/openlawlibrary/taf/pull/558
+
 
 ## [0.32.0] - 10/23/2024
 
@@ -23,8 +29,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix specification of pygit2 version depending on the Python version [(558)]
-- Fix validation and listing targets of an auth repo that does not contain `mirrors.json` [(558)]
+- Fix specification of pygit2 version depending on the Python version ([558])
+- Fix validation and listing targets of an auth repo that does not contain `mirrors.json` ([558])
 
 [558]: https://github.com/openlawlibrary/taf/pull/558
 
