@@ -301,6 +301,7 @@ def update_and_check_commit_shas(
             clients_auth_repo_path.parent
         )
         for target_repo in all_target_repositories.values():
+            target_skipped = False
             for excluded_target_glob in excluded_target_globs:
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
                     excluded_targets.append(target_repo)
@@ -312,13 +313,21 @@ def update_and_check_commit_shas(
                     else:
                         # already cloned, but excluded in this updated
                         assert target_repo.path.is_dir()
+                    target_skipped = True
                     break
+            if not target_skipped:
+                assert target_repo.path.is_dir()
+
         assert len(excluded_targets) > 0
         # all target repositories + auth repo + auth repo conf dir - skipped repos
         if operation == OperationType.CLONE:
             assert total_dirs_count == len(all_target_repositories) + 2 - len(
                 excluded_targets
             )
+    else:
+        # all repos should exist
+        for target_repo in all_target_repositories.values():
+            assert target_repo.path.is_dir()
 
     if not skip_check_last_validated:
         check_last_validated_commit(
