@@ -397,9 +397,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         if self.no_upstream:
             # check if self.state.event has changed.
             # if changed, validate the target repos
-            return (
-                self.state.event == Event.CHANGED or self.state.event == Event.PARTIAL
-            )
+            if self.state.event == Event.CHANGED or self.state.event == Event.PARTIAL:
+                return True
+            return self._check_if_partial_update()
         return True
 
     def start_update(self):
@@ -569,6 +569,40 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def _check_if_partial_update(self):
+        """
+        Check if the previous update was a partial update
+        """
+        if not self.state.users_auth_repo.last_validated_commit:
+            return True
+        if not self.state.users_auth_repo.last_validated_data:
+            return True
+        if (
+            self.state.users_auth_repo.last_validated_commit
+            != self.state.users_auth_repo.last_validated_data.get(
+                self.state.users_auth_repo.name
+            )
+        ):
+            return True
+        if not all(
+            commit
+            == next(iter(self.state.users_auth_repo.last_validated_data.values()))
+            for commit in self.state.users_auth_repo.last_validated_data.values()
+        ):
+            return True
+
+        repos = repositoriesdb.get_deduplicated_repositories(
+            self.state.users_auth_repo,
+            self.state.auth_commits_since_last_validated[-1::],
+            library_dir=self.library_dir,
+            raise_error_if_no_urls=not self.only_validate,
+        )
+        for repo_name in repos:
+            if self.state.users_auth_repo.last_validated_data:
+                if repo_name not in self.state.users_auth_repo.last_validated_data:
+                    return True
+        return False
 
     def _check_if_target_repos_clean(self, target_repos, branches_per_repo):
         dirty_index_repos = []

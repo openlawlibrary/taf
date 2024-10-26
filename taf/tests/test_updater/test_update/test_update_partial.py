@@ -194,6 +194,7 @@ def test_update_after_update_with_exclude_with_invalid_commits(
         True,
     )
 
+
 @pytest.mark.parametrize(
     "origin_auth_repo",
     [
@@ -207,9 +208,7 @@ def test_update_after_update_with_exclude_with_invalid_commits(
     ],
     indirect=True,
 )
-def test_full_update_after_partial_clone(
-    origin_auth_repo, client_dir
-):
+def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(add_valid_target_commits)
@@ -230,6 +229,6 @@ def test_full_update_after_partial_clone(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        no_upstream=True,
+        no_upstream=False,
         expected_repo_type=expected_repo_type,
     )
