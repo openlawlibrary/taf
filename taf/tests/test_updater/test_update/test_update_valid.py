@@ -496,7 +496,7 @@ def test_update_when_target_empty(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo, exists=["notempty"])
+    verify_repos_eixst(client_dir, origin_auth_repo, excluded=["empty"])
 
 
 @pytest.mark.parametrize(

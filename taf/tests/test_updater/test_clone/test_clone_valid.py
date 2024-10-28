@@ -340,7 +340,7 @@ def test_clone_when_target_empty(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=UpdateType.EITHER,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo, exists=["notempty"])
+    verify_repos_eixst(client_dir, origin_auth_repo, excluded=["empty"])
 
 
 @pytest.mark.parametrize(
@@ -369,4 +369,4 @@ def test_clone_when_no_target_file_and_commit(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=UpdateType.EITHER,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo, exists=["target1"])
+    verify_repos_eixst(client_dir, origin_auth_repo, excluded=["target2"])

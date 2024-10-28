@@ -1,5 +1,8 @@
 import pytest
-from taf.tests.test_updater.update_utils import update_and_check_commit_shas
+from taf.tests.test_updater.update_utils import (
+    update_and_check_commit_shas,
+    verify_repos_eixst,
+)
 from taf.updater.updater import OperationType, UpdateType
 from taf.tests.test_updater.conftest import (
     SetupManager,
@@ -34,4 +37,7 @@ def test_clone_with_excluded_targets(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=expected_repo_type,
         excluded_target_globs=["*/target_same*"],
+    )
+    verify_repos_eixst(
+        client_dir, origin_auth_repo, excluded=["target_same1", "target_same2"]
     )

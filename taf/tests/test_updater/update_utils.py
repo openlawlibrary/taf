@@ -8,7 +8,7 @@ from datetime import datetime
 import fnmatch
 import json
 from taf import repositoriesdb
-from taf.auth_repo import AuthenticationRepository
+from taf.auth_repo import AuthenticationRepository, Optional
 from taf.git import GitRepository
 from taf.exceptions import UpdateFailedError
 from taf.updater.types.update import OperationType, UpdateType
@@ -324,10 +324,6 @@ def update_and_check_commit_shas(
             assert total_dirs_count == len(all_target_repositories) + 2 - len(
                 excluded_targets
             )
-    else:
-        # all repos should exist
-        for target_repo in all_target_repositories.values():
-            assert target_repo.path.is_dir()
 
     if not skip_check_last_validated:
         check_last_validated_commit(
@@ -391,17 +387,21 @@ def update_invalid_repos_and_check_if_repos_exist(
 
 
 def verify_repos_eixst(
-    client_dir: Path, origin_auth_repo: AuthenticationRepository, exists: list
+    client_dir: Path,
+    origin_auth_repo: AuthenticationRepository,
+    excluded: Optional[list] = None,
 ):
+    if excluded is None:
+        excluded = []
     client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
     client_target_repos = load_target_repositories(
         client_auth_repo, library_dir=client_dir
     )
     for repo in client_target_repos.values():
-        if repo.name.split("/")[-1] in exists:
-            assert repo.is_git_repository
+        if repo.name.split("/")[-1] in excluded:
+            assert not repo.is_git_repository
         else:
-            assert not repo.path.is_dir()
+            assert repo.path.is_dir()
 
 
 def verify_repo_empty(
