@@ -338,7 +338,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.merge_commits,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_validate_target_repos,
                 ),  # merge fetched commits
                 (
                     self.merge_auth_commits,
@@ -1420,7 +1420,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # need to be set to old head since that is the last validated target
             self.state.validated_commits_per_target_repos_branches = defaultdict(dict)
 
-            self.last_validated_data_per_repositories = defaultdict(dict)
+            self.state.last_validated_data_per_repositories = defaultdict(dict)
             self.state.validated_auth_commits = []
             for auth_commit in self.state.all_targets_auth_commits:
                 for repository in self.state.temp_target_repositories.values():
@@ -1440,7 +1440,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                     current_commit = current_targets_data["commit"]
                     if not len(
-                        self.last_validated_data_per_repositories[repository.name]
+                        self.state.last_validated_data_per_repositories[repository.name]
                     ):
                         last_validated_target_auth_commit = (
                             self._get_last_validated_commit(repository.name)
@@ -1455,12 +1455,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         if previous_commit is not None and previous_branch is None:
                             previous_branch = repository.default_branch
                     else:
-                        previous_branch = self.last_validated_data_per_repositories[
-                            repository.name
-                        ].get("branch")
-                        previous_commit = self.last_validated_data_per_repositories[
-                            repository.name
-                        ]["commit"]
+                        previous_branch = (
+                            self.state.last_validated_data_per_repositories[
+                                repository.name
+                            ].get("branch")
+                        )
+                        previous_commit = (
+                            self.state.last_validated_data_per_repositories[
+                                repository.name
+                            ]["commit"]
+                        )
 
                     target_commits_from_target_repo = (
                         self.state.fetched_commits_per_target_repos_branches[
@@ -1478,7 +1482,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         auth_commit,
                     )
 
-                    self.last_validated_data_per_repositories[repository.name] = {
+                    self.state.last_validated_data_per_repositories[repository.name] = {
                         "commit": validated_commit,
                         "branch": current_branch,
                     }
@@ -1704,7 +1708,7 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
             for repository in self.state.users_target_repositories.values():
                 # this will only include branches that were, at least partially, validated (up until a certain point)
-                last_branch = self.last_validated_data_per_repositories[
+                last_branch = self.state.last_validated_data_per_repositories[
                     repository.name
                 ]["branch"]
                 for (
