@@ -962,30 +962,6 @@ class Repository:
         self._repository
         return tuf.roledb.get_roleinfo(role_name, self.name).get("delegations")
 
-    def get_role_threshold(self, role, parent_role=None):
-        """Get threshold of the given role
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - parent_role(str): Name of the parent role of the delegated role. If not specified,
-                            it will be set automatically, but this might be slow if there
-                            are many delegations.
-
-        Returns:
-        Role's signatures threshold
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-        """
-        role_obj = self._role_obj(role)
-        if role_obj is None:
-            return None
-        try:
-            return role_obj.threshold
-        except KeyError:
-            pass
-        return self.get_delegated_role_property("threshold", role, parent_role)
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
@@ -1139,42 +1115,6 @@ class Repository:
             "targets": self.update_targets_yubikeys,
         }.get(role_name, self.update_targets_yubikeys)
 
-    def set_metadata_expiration_date(self, role, start_date=None, interval=None):
-        """Set expiration date of the provided role.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - start_date(datetime): Date to which the specified interval is added when calculating
-                                expiration date. If a value is not provided, it is set to the
-                                current time.
-        - interval(int): A number of days added to the start date.
-                        If not provided, the default value is set based on the role:
-
-                            root - 365 days
-                            targets - 90 days
-                            snapshot - 7 days
-                            timestamp - 1 day
-                            all other roles (delegations) - same as targets
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by
-                                                        this targets object.
-        """
-        role_obj = self._role_obj(role)
-        if start_date is None:
-            start_date = datetime.datetime.now()
-        if interval is None:
-            try:
-                interval = expiration_intervals[role]
-            except KeyError:
-                interval = expiration_intervals["targets"]
-
-        expiration_date = start_date + datetime.timedelta(interval)
-        role_obj.expiration = expiration_date
 
     def set_delegated_role_property(self, property_name, role, value, parent_role=None):
         """
