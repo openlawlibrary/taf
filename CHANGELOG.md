@@ -9,6 +9,73 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.32.0] - 10/23/2024
+
+### Added
+
+
+### Changed
+
+
+### Fixed
+
+- Fix specification of pygit2 version depending on the Python version [(558)]
+- Fix validation and listing targets of an auth repo that does not contain `mirrors.json` [(558)]
+
+[558]: https://github.com/openlawlibrary/taf/pull/558
+
+
+## [0.31.2] - 10/16/2024
+
+### Added
+
+- Added a function for exporting `keys-description.json` ([550])
+- Added support for cloning a new dependency when adding it to `dependencies.json` if it is not on disk ([550])
+- Clean up authentication repository if an error occurs while running a cli command ([550])
+
+### Changed
+
+- Return a non-zero exit code with `sys.exit` when updater fails ([550])
+- Rework addition of a new role and target repositories. Use `custom.json` files ([550])
+
+
+### Fixed
+
+- Minor `conf init` and detection of the authentication repository fixes ([550])
+- Replace `info` logging calls with `notice` in API functions ([550])
+- Use `mirrors.json` urls when cloning dependencies ([551])
+
+
+[551]: https://github.com/openlawlibrary/taf/pull/551
+[550]: https://github.com/openlawlibrary/taf/pull/550
+
+
+## [0.31.1] - 10/03/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix `load_repositories` following a rework needed to support parallelization ([547])
+- Fix `clone_from_disk` ([547])
+- Fix pre-push hook ([547])
+
+[547]: https://github.com/openlawlibrary/taf/pull/547
+
+
+## [0.31.0] - 09/28/2024
+
+### Added
+
+
+- Added lxml to taf pyinstaller to execute arbitrary python scripts ([535])
+- Added support for execution of executable files within the scripts directories ([529])
 - Added yubikey_present parameter to keys description (Can be specified when generating keys) ([508])
 - Removed 2048-bit key restriction [494]
 - Allow for the displaying of varied levels of log and debug information based on the verbosity level ([493])
@@ -29,9 +96,11 @@ and this project adheres to [Semantic Versioning][semver].
 - Added --bare tags for repository cloning and updating ([459])
 - Added workflow to build standalone executable of TAF ([447])
 
-
 ### Changed
 
+- If in detached head state or an older branch, do not automatically checkout the newest one without force ([543])
+- Move validation of the last validated commit to the pipeline from the update handler ([543])
+- Default verbosity to 0 (NOTICE) level; add notice level update outcome logging ([538])
 - Raise a more descriptive error if `pygit2` repository cannot be instantiated  ([485], [489])
 - Enhanced commit_and_push for better error logging and update the last validated commit ([469])
 - Generate public key from private key if .pub file is missing ([462])
@@ -40,8 +109,24 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Handle invalid last validated commit ([543])
+- Fixes to executing taf handler scripts from a pyinstaller executable ([535])
+- Fix `persisent` and `transient` NoneType error when running taf handlers ([535])
+- Fix update status when a target repo was updated and the auth repo was not ([532])
+- Fix merge-commit which wasn't updating the remote-tracking branch ([532])
+- Fix removal of additional local commits ([532])
+- Fix top-level authentication repository update to correctly update child auth repos ([528])
 - Fix setup role when specifying public keys in keys-description ([511])
+- `check_if_repositories_clean` error now returns a list of repositories which aren't clean, instead of a single repository ([525])
 
+
+[543]: https://github.com/openlawlibrary/taf/pull/543
+[538]: https://github.com/openlawlibrary/taf/pull/538
+[535]: https://github.com/openlawlibrary/taf/pull/535
+[532]: https://github.com/openlawlibrary/taf/pull/532
+[529]: https://github.com/openlawlibrary/taf/pull/529
+[528]: https://github.com/openlawlibrary/taf/pull/528
+[525]: https://github.com/openlawlibrary/taf/pull/525
 [511]: https://github.com/openlawlibrary/taf/pull/511
 [508]: https://github.com/openlawlibrary/taf/pull/508
 [504]: https://github.com/openlawlibrary/taf/pull/504
@@ -88,6 +173,18 @@ and this project adheres to [Semantic Versioning][semver].
 [402]: https://github.com/openlawlibrary/taf/pull/402
 [391]: https://github.com/openlawlibrary/taf/pull/391
 [389]: https://github.com/openlawlibrary/taf/pull/389
+
+## [0.30.3] - 08/29/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Move `yubikey_utils` module to include it in wheel ([516])
+
+[516]: https://github.com/openlawlibrary/taf/pull/516
 
 ## [0.30.2] - 08/20/2024
 
@@ -1222,7 +1319,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.30.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.31.2...HEAD
+[0.32.0]: https://github.com/openlawlibrary/taf/compare/v0.31.2...v0.32.0
+[0.31.2]: https://github.com/openlawlibrary/taf/compare/v0.31.1...v0.31.2
+[0.31.1]: https://github.com/openlawlibrary/taf/compare/v0.31.0...v0.31.1
+[0.31.0]: https://github.com/openlawlibrary/taf/compare/v0.30.2...0.31.0
 [0.30.2]: https://github.com/openlawlibrary/taf/compare/v0.30.1...v0.30.2
 [0.30.1]: https://github.com/openlawlibrary/taf/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/openlawlibrary/taf/compare/v0.29.1...v0.30.0

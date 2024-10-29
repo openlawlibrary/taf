@@ -71,16 +71,34 @@ def load_dependencies(
     commits: Optional[List[str]] = None,
 ) -> None:
     global _dependencies_dict
-    if auth_repo.path not in _dependencies_dict:
-        _dependencies_dict[auth_repo.path] = {}
 
+    new_deps = _load_dependencies(
+        auth_repo=auth_repo,
+        auth_class=auth_class,
+        library_dir=library_dir,
+        commits=commits,
+    )
+    if auth_repo.path in _dependencies_dict:
+        _dependencies_dict[auth_repo.path].update(new_deps)
+    else:
+        _dependencies_dict[auth_repo.path] = new_deps
+
+
+def _load_dependencies(
+    auth_repo: AuthenticationRepository,
+    auth_class: Type = AuthenticationRepository,
+    library_dir: Optional[str] = None,
+    commits: Optional[List[str]] = None,
+) -> Dict:
+
+    dependencies = {}
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
         if auth_repo_head_commit is None:
             taf_logger.info(
                 "Authentication repository does not exist - cannot load included authentication repositories"
             )
-            return
+            return {}
         commits = [auth_repo_head_commit]
 
     taf_logger.debug(
@@ -94,29 +112,26 @@ def load_dependencies(
 
     mirrors = load_mirrors_json(auth_repo, commits[-1])
     for commit in commits:
-        dependencies_dict: Dict = {}
-        # check if already loaded
-        if commit in _dependencies_dict[auth_repo.path]:
+        commit_dependencies: Dict = {}
+
+        dependencies[commit] = commit_dependencies
+
+        dependencies_json = load_dependencies_json(auth_repo, commit)
+        if dependencies_json is None:
             continue
 
-        _dependencies_dict[auth_repo.path][commit] = dependencies_dict
-
-        dependencies = load_dependencies_json(auth_repo, commit)
-        if dependencies is None:
+        dependencies_json = dependencies_json["dependencies"]
+        if dependencies_json is None:
             continue
 
-        dependencies = dependencies["dependencies"]
-        if dependencies is None:
-            continue
-
-        for name, repo_data in dependencies.items():
+        for name, repo_data in dependencies_json.items():
             try:
                 if mirrors:
                     urls = _get_urls(mirrors, name, repo_data)
                 else:
                     urls = [name]
             except RepositoryInstantiationError:
-                dependencies_dict.clear()
+                commit_dependencies.clear()
                 break
 
             out_of_band_authentication = repo_data.get("out-of-band-authentication")
@@ -150,21 +165,14 @@ def load_dependencies(
                     str(e),
                 )
                 raise RepositoryInstantiationError(str(Path(library_dir, name)), str(e))
-            dependencies_dict[name] = contained_auth_repo
+            commit_dependencies[name] = contained_auth_repo
 
         taf_logger.debug(
             "Loaded the following contained authentication repositories at revision {}: {}",
             commit,
-            ", ".join(dependencies_dict.keys()),
+            ", ".join(commit_dependencies.keys()),
         )
-
-    # we don't need to set auth_repo dependencies for each commit,
-    # just the latest version
-    latest_commit = commits[-1]
-    dependencies = load_dependencies_json(auth_repo, latest_commit)
-    auth_repo.dependencies = (
-        dependencies["dependencies"] if dependencies is not None else {}
-    )
+    return dependencies
 
 
 def load_repositories(
@@ -176,6 +184,7 @@ def load_repositories(
     commits: Optional[List[str]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
+    raise_error_if_no_urls: bool = False,
 ) -> None:
     """
     Creates target repositories by reading repositories.json and targets.json files
@@ -208,8 +217,43 @@ def load_repositories(
         If only_load_targets is True and roles is not set, all roles will be taken into consideration.
     """
     global _repositories_dict
-    if auth_repo.path not in _repositories_dict:
-        _repositories_dict[auth_repo.path] = {}
+    new_reps = _load_repositories(
+        auth_repo=auth_repo,
+        repo_classes=repo_classes,
+        factory=factory,
+        library_dir=library_dir,
+        only_load_targets=only_load_targets,
+        commits=commits,
+        roles=roles,
+        excluded_target_globs=excluded_target_globs,
+        raise_error_if_no_urls=raise_error_if_no_urls,
+    )
+    if commits is None or len(commits) == 0:
+        commit = auth_repo.head_commit_sha()
+        if commit is None:
+            return
+        commits = [commit]
+    if auth_repo.path in _repositories_dict:
+        for commit in commits:
+            if commit not in _repositories_dict[auth_repo.path]:
+                _repositories_dict[auth_repo.path][commit] = new_reps[commit]
+    else:
+        _repositories_dict[auth_repo.path] = new_reps
+
+
+def _load_repositories(
+    auth_repo: AuthenticationRepository,
+    repo_classes: Optional[Type] = None,
+    factory: Optional[Callable] = None,
+    library_dir: Optional[str] = None,
+    only_load_targets: bool = True,
+    commits: Optional[List[str]] = None,
+    roles: Optional[List[str]] = None,
+    excluded_target_globs: Optional[List[str]] = None,
+    raise_error_if_no_urls: bool = False,
+) -> Dict:
+
+    repositories = {}
     if excluded_target_globs is None:
         excluded_target_globs = []
 
@@ -219,7 +263,7 @@ def load_repositories(
             taf_logger.info(
                 "Authentication repository does not exist - cannot load target repositories"
             )
-            return
+            return {}
         commits = [auth_repo_head_commit]
 
     taf_logger.debug(
@@ -237,24 +281,21 @@ def load_repositories(
     skipped_targets = []
     mirrors = load_mirrors_json(auth_repo, commits[-1])
     for commit in commits:
-        repositories_dict: Dict = {}
-        # check if already loaded
-        if commit in _repositories_dict[auth_repo.path]:
-            continue
+        commit_repositories: Dict = {}
 
-        _repositories_dict[auth_repo.path][commit] = repositories_dict
+        repositories[commit] = commit_repositories
 
-        repositories = load_repositories_json(auth_repo, commit)
-        if repositories is None:
+        repositories_json = load_repositories_json(auth_repo, commit)
+        if repositories_json is None:
             continue
 
         # target repositories are defined in both repositories.json and targets.json
-        repositories = repositories["repositories"]
-        if repositories is None:
+        repositories_json = repositories_json["repositories"]
+        if repositories_json is None:
             continue
         targets = _targets_of_roles(auth_repo, commit, roles)
 
-        for name, repo_data in repositories.items():
+        for name, repo_data in repositories_json.items():
             if name in skipped_targets:
                 continue
             if name not in targets and only_load_targets:
@@ -266,7 +307,7 @@ def load_repositories(
                 skipped_targets.append(name)
                 continue
             custom = _get_custom_data(repo_data, targets.get(name))
-            urls = _get_urls(mirrors, name, repo_data)
+            urls = _get_urls(mirrors, name, repo_data, raise_error_if_no_urls)
             default_branch = _get_target_default_branch(auth_repo, name, commit)
             git_repo = _initialize_repository(
                 factory,
@@ -279,13 +320,14 @@ def load_repositories(
                 auth_repo,
             )
             if git_repo:
-                repositories_dict[name] = git_repo
+                commit_repositories[name] = git_repo
 
         taf_logger.debug(
             "Loaded the following repositories at revision {}: {}",
             commit,
-            ", ".join(repositories_dict.keys()),
+            ", ".join(commit_repositories.keys()),
         )
+    return repositories
 
 
 def _determine_repo_class(repo_classes, name):
@@ -328,14 +370,18 @@ def _get_json_file(auth_repo, name, commit):
         )
 
 
-def _get_urls(mirrors, repo_name, repo_data=None) -> List[str]:
+def _get_urls(
+    mirrors, repo_name, repo_data=None, raise_error_if_no_mirrors=False
+) -> List[str]:
     if repo_data is not None and "urls" in repo_data:
         return repo_data["urls"]
     elif mirrors is None:
-        raise RepositoryInstantiationError(
-            repo_name,
-            f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}",
-        )
+        if raise_error_if_no_mirrors:
+            raise RepositoryInstantiationError(
+                repo_name,
+                f"{MIRRORS_JSON_PATH} does not exists or is not valid and no urls of {repo_name} specified in {REPOSITORIES_JSON_PATH}",
+            )
+        return []
 
     try:
         org_name, repo_name = repo_name.split("/")
@@ -419,22 +465,65 @@ def get_repositories_paths_by_custom_data(
 
 
 def get_deduplicated_auth_repositories(
-    auth_repo: AuthenticationRepository, commits: List[str]
+    auth_repo: AuthenticationRepository,
+    commits: List[str],
 ) -> Dict[str, AuthenticationRepository]:
     return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
 
 def get_deduplicated_repositories(
-    auth_repo: AuthenticationRepository, commits: Optional[List[str]] = None
+    auth_repo: AuthenticationRepository,
+    commits: Optional[List[str]] = None,
+    excluded_target_globs: Optional[List[str]] = None,
+    library_dir: Optional[str] = None,
+    raise_error_if_no_urls=False,
 ) -> Dict[str, GitRepository]:
-    return _get_deduplicated_target_or_auth_repositories(auth_repo, commits)
+    return _get_deduplicated_target_or_auth_repositories(
+        auth_repo,
+        commits,
+        False,
+        excluded_target_globs,
+        library_dir,
+        raise_error_if_no_urls,
+    )
 
 
-def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=False):
+def _get_deduplicated_target_or_auth_repositories(
+    auth_repo,
+    commits,
+    load_auth=False,
+    excluded_target_globs=None,
+    library_dir=None,
+    raise_error_if_no_urls=False,
+):
     if commits is None:
         commits = [auth_repo.head_commit_sha()]
 
-    loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
+    if load_auth:
+        if auth_repo.path in _dependencies_dict and all(
+            commit in _dependencies_dict[auth_repo.path] for commit in commits
+        ):
+            loaded_repositories_dict = _dependencies_dict
+        else:
+            loaded_repositories_dict = {
+                auth_repo.path: _load_dependencies(auth_repo=auth_repo, commits=commits)
+            }
+    else:
+        if auth_repo.path in _repositories_dict and all(
+            commit in _repositories_dict[auth_repo.path] for commit in commits
+        ):
+            loaded_repositories_dict = _repositories_dict
+        else:
+            loaded_repositories_dict = {
+                auth_repo.path: _load_repositories(
+                    auth_repo=auth_repo,
+                    commits=commits,
+                    excluded_target_globs=excluded_target_globs,
+                    library_dir=library_dir,
+                    raise_error_if_no_urls=raise_error_if_no_urls,
+                )
+            }
+
     auth_msg = "included authentication " if load_auth else ""
     repositories_msg = (
         "Included authentication repositories" if load_auth else "Repositories"
@@ -475,7 +564,7 @@ def _get_deduplicated_target_or_auth_repositories(auth_repo, commits, load_auth=
             repositories[name] = repo
 
     taf_logger.debug(
-        "Auth repo {}: deduplicated list of {}repositories {}",
+        "Auth repo {}: deduplicated list of {} repositories {}",
         auth_repo.path,
         auth_msg,
         ", ".join(repositories.keys()),

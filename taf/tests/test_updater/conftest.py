@@ -1,6 +1,7 @@
 import enum
 import os
 import re
+from typing import Optional
 import pytest
 import inspect
 import random
@@ -40,7 +41,6 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
-from taf.api.utils._git import commit_and_push
 
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -59,9 +59,13 @@ WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Reposi
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
-UNCOIMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
+UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
-FORCED_UPATE_PATTERN = r"Update of repository failed due to error: Repository ([\w/-]+)/(\w+) has uncommitted changes. Commit and push or revert the changes and run the command again."
+FORCED_UPDATE_PATTERN = r"Update of (\w+\/\w+) failed due to error: Repositories ([\w/,\s-]+) have uncommitted changes. Commit and push or use --force to revert and run the command again."
+BEHIND_LVC_PATTERN = r"Update of (\w+\/\w+) failed due to error: Top commit of repository \1 ([0-9a-f]{40}) is not equal to or newer than the last successful commit."
+LVC_NOT_IN_REPO_PATTERN = r"Update of (\w+\/\w+) failed due to error: \1: Last validated commit (\w{40}) is not in repository \1\s*Run the updater with the --force flag to run the validation from the first commit"
+LVC_NOT_IN_REMOTE_PATTERN = r"Update of ([\w_\/]+) failed due to error: Last validated commit ([\da-f]{40}) is no longer on (\w+) of the remote ([\w_\/]+) repository.*"
+UNPUSHED_COMMITS_PATTERN = r"Update of (\w+\/\w+) failed due to error:\s*\nThe following repository has unpushed commits on branches: ([\w\/]+): \(([\w,-]+)\)"
 REMOVED_COMMITS_PATTERN = r"Update of (\w+/\w+) failed due to error: Last validated commit ([0-9a-f]{40}) is not in the remote repository."
 INVALID_TIMESTAMP_PATTERN = r"^Update of (\w+\/\w+) failed due to error: Update of (\w+\/\w+) failed. One or more referenced authentication repositories could not be validated:\n Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]{40}) due to error: timestamp was signed by (\d+)\/(\d+) keys$"
 CANNOT_CLONE_TARGET_PATTERN = r"^Update of (\w+/\w+) failed due to error: Update of (\w+/\w+) failed. One or more referenced authentication repositories could not be validated:\n Cannot clone (\w+/\w+) from any of the following URLs: \['.*'\]$"
@@ -72,7 +76,6 @@ TARGET_COMMIT_MISMATCH_PATTERN = (
     r"([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository (\w+\/\w+) was "
     r"supposed to be at commit ([0-9a-f]{40}) but (repo was at|commit not on branch) (\w+)"
 )
-COMMIT_NOT_FOUND_PATTERN = r"Update of (\w+\/\w+) failed due to error: object not found - no match for id \((\w{40})\)"
 
 
 # Disable console logging for all tests
@@ -173,9 +176,15 @@ class SetupManager:
 
 
 class RepositoryConfig:
-    def __init__(self, name: str, allow_unauthenticated_commits: bool = False):
+    def __init__(
+        self,
+        name: str,
+        allow_unauthenticated_commits: bool = False,
+        is_empty: bool = False,
+    ):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
+        self.is_empty = is_empty
 
 
 @pytest.fixture
@@ -209,6 +218,7 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
         RepositoryConfig(
             f"{test_name}/{targets_config['name']}",
             targets_config.get("allow_unauthenticated_commits", False),
+            targets_config.get("is_empty", False),
         )
         for targets_config in targets_config_list
     ]
@@ -332,6 +342,8 @@ def _init_auth_repo(
 
 def initialize_git_repo(library_dir: Path, repo_name: str) -> GitRepository:
     repo_path = Path(library_dir, repo_name)
+    if repo_path.is_dir():
+        shutil.rmtree(repo_path, onerror=on_rm_error)
     repo_path.mkdir(parents=True, exist_ok=True)
     repo = GitRepository(path=repo_path)
     repo.init_repo()
@@ -349,10 +361,11 @@ def initialize_target_repositories(
         else:
             target_repo = GitRepository(library_dir, target_config.name)
         # create some files, content of these repositories is not important
-        for i in range(1, 3):
-            random_text = _generate_random_text()
-            (target_repo.path / f"test{i}.txt").write_text(random_text)
-        target_repo.commit("Initial commit")
+        if not target_config.is_empty:
+            for i in range(1, 3):
+                random_text = _generate_random_text()
+                (target_repo.path / f"test{i}.txt").write_text(random_text)
+            target_repo.commit("Initial commit")
 
 
 def sign_target_repositories(library_dir: Path, repo_name: str, keystore: Path):
@@ -478,21 +491,51 @@ def setup_repository_no_target_repositories(
     return AuthenticationRepository(origin_dir, repo_name)
 
 
-def add_valid_target_commits(auth_repo: AuthenticationRepository, target_repos: list):
+def add_file_to_repository(
+    target_repo: GitRepository, filename: str, commit_message: Optional[str] = None
+):
+    content = _generate_random_text()
+    file_path = target_repo.path / filename
+    file_path.write_text(content)
+    if commit_message is not None:
+        target_repo.commit(commit_message)
+
+
+def add_valid_target_commits(
+    auth_repo: AuthenticationRepository, target_repos: list, add_if_empty: bool = True
+):
     for target_repo in target_repos:
-        update_target_files(target_repo, "Update target files")
+        if not add_if_empty and target_repo.head_commit_sha() is None:
+            continue
+        update_target_repository(target_repo, "Update target files")
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
+
+
+def add_file_to_target_repo_without_committing(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            add_file_to_repository(target_repo, "dirty.txt")
+
+
+def add_file_to_auth_repo_without_committing(auth_repo: AuthenticationRepository):
+    add_file_to_repository(auth_repo, "dirty.txt")
 
 
 def add_valid_unauthenticated_commits(target_repos: list):
     for target_repo in target_repos:
         if target_repo.custom.get("allow-unauthenticated-commits", False):
-            update_target_files(target_repo, "Update target files")
+            update_target_repository(target_repo, "Update target files")
 
 
 def add_unauthenticated_commits_to_all_target_repos(target_repos: list):
     for target_repo in target_repos:
-        update_target_files(target_repo, "Update target files")
+        update_target_repository(target_repo, "Update target files")
+
+
+def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            update_target_repository(target_repo, "Update target files")
 
 
 def create_new_target_orphan_branches(
@@ -555,10 +598,26 @@ def swap_last_two_commits(auth_repo: AuthenticationRepository):
 
 
 def update_expiration_dates(
+    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"], push=True
+):
+    update_metadata_expiration_date(
+        str(auth_repo.path),
+        roles=roles,
+        keystore=KEYSTORE_PATH,
+        interval=None,
+        push=push,
+    )
+
+
+def update_auth_repo_without_committing(
     auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"]
 ):
     update_metadata_expiration_date(
-        str(auth_repo.path), roles=roles, keystore=KEYSTORE_PATH, interval=None
+        str(auth_repo.path),
+        roles=roles,
+        keystore=KEYSTORE_PATH,
+        interval=None,
+        commit=False,
     )
 
 
@@ -577,17 +636,10 @@ def update_role_metadata_without_signing(
     )
 
 
-def update_existing_file(repo: GitRepository, filename: str, commit_message: str):
-    text_to_add = _generate_random_text()
-    file_path = repo.path / filename
-    if file_path.exists():
-        with file_path.open("a") as file:
-            file.write(f"\n{text_to_add}")
-        repo.commit(commit_message)
-    else:
-        raise FileNotFoundError(
-            f"The file {filename} does not exist in the repository {repo.path}"
-        )
+def update_target_repo_without_committing(target_repos: list, target_name: str):
+    for target_repo in target_repos:
+        if target_name in target_repo.name:
+            update_target_repository(target_repo)
 
 
 def update_role_metadata_invalid_signature(
@@ -598,7 +650,7 @@ def update_role_metadata_invalid_signature(
     content["signatures"][0]["sign"] = "invalid signature"
     version = content["signed"]["version"]
     content["signed"]["version"] = version + 1
-    role_metadata_path.write_text(json.dumps(content))
+    role_metadata_path.write_text(json.dumps(content, indent=4))
     auth_repo.commit("Invalid metadata update")
 
 
@@ -625,43 +677,31 @@ def update_and_sign_metadata_without_clean_check(
         )
 
     commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
-    commit_and_push(auth_repo, commit_msg=commit_msg, push=False)
+    auth_repo.commit_and_push(commit_msg=commit_msg, push=False)
 
 
-def update_target_files(target_repo: GitRepository, commit_message: str):
+def update_target_repository(
+    target_repo: GitRepository, commit_message: Optional[str] = None
+):
     text_to_add = _generate_random_text()
     # Iterate over all files in the repository directory
+    is_empty = True
     for file_path in target_repo.path.iterdir():
         if file_path.is_file():
+            is_empty = False
             existing_content = file_path.read_text(encoding="utf-8")
             new_content = existing_content + "\n" + text_to_add
             file_path.write_text(new_content, encoding="utf-8")
-    target_repo.commit(commit_message)
 
+    if is_empty:
+        random_text = _generate_random_text()
+        (target_repo.path / "test.txt").write_text(random_text)
 
-def update_file_without_commit(repo_path: str, filename: str):
-    text_to_add = _generate_random_text()
-    file_path = Path(repo_path) / filename
-    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-    if file_path.exists():
-        with file_path.open("a") as file:
-            file.write(text_to_add)
-    else:
-        with file_path.open("w") as file:
-            file.write(text_to_add)
-
-
-def add_file_without_commit(repo_path: str, filename: str):
-    text_to_add = _generate_random_text()
-    file_path = Path(repo_path) / filename
-    file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-    with file_path.open("w") as file:
-        file.write(text_to_add)
+    if commit_message is not None:
+        target_repo.commit(commit_message)
 
 
 def remove_commits(
-    auth_repo: AuthenticationRepository,
-    target_repos: list,
     repo_path: str,
     num_commits: int = 1,
 ):

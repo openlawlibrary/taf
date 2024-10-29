@@ -1,4 +1,5 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Tuple
+import subprocess
 
 
 class TAFError(Exception):
@@ -28,14 +29,14 @@ class GitError(TAFError):
         self,
         repo: Any,
         command: Optional[str] = None,
-        error: Optional[Exception] = None,
+        error: Optional[subprocess.CalledProcessError] = None,
         message: Optional[str] = None,
     ):
         if message is None:
             if command is not None:
                 message = f"error occurred while executing {command}"
                 if error is not None:
-                    message = f"{message}:\n{str(error)}"
+                    message = f"{message}:\n{str(error.stdout)}"
             elif error is not None:
                 message = str(error)
             else:
@@ -94,11 +95,32 @@ class RepositoryNotCleanError(TAFError):
         self.message = message
 
 
-class UnpushedCommitsError(TAFError):
-    def __init__(self, repo_name: str, branch: str):
-        message = f"Repository {repo_name} has unpushed commits on branch {branch}. Push or revert the changes and run the command again."
+class MultipleRepositoriesNotCleanError(TAFError):
+    def __init__(
+        self,
+        dirty_index_repos: List[str],
+        unpushed_commits_repos_and_branches: List[Tuple[str, str]],
+    ):
+        message = ""
+        dirty_repo_list = ", ".join(dirty_index_repos)
+        if len(dirty_index_repos) >= 1:
+            message += f"Repositories {dirty_repo_list} have uncommitted changes. Commit and push or use --force to revert and run the command again."
+        unpushed_repo_branches = ", ".join(
+            [
+                f"{repo}: ({branch})"
+                for repo, branch in unpushed_commits_repos_and_branches
+            ]
+        )
+        if len(unpushed_commits_repos_and_branches) >= 1:
+            message += f"\nThe following {'repository has' if len(unpushed_commits_repos_and_branches) == 1 else 'repositories have'} unpushed commits on branches: {unpushed_repo_branches}. Push the commits and run the command again."
         super().__init__(message)
         self.message = message
+
+
+class NoRemoteError(GitError):
+    def __init__(self, repo):
+        message = f"No remotes configured for repository {repo.name}"
+        super().__init__(message)
 
 
 class ScriptExecutionError(TAFError):
@@ -191,5 +213,5 @@ class ValidationFailedError(TAFError):
     pass
 
 
-class YubikeyError(Exception):
+class YubikeyError(TAFError):
     pass

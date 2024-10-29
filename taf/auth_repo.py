@@ -150,6 +150,34 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return f"{self.alias}: "
         return f"Auth repo {self.name}: "
 
+    def commit_and_push(
+        self,
+        commit_msg: Optional[str] = None,
+        push: Optional[bool] = True,
+        commit: Optional[bool] = True,
+    ) -> None:
+
+        if commit:
+            if commit_msg is None:
+                commit_msg = input("\nEnter commit message and press ENTER\n\n")
+            self.commit(commit_msg)
+
+        if push:
+            push_successful = self.push()
+            if push_successful:
+                new_commit_branch = self.default_branch
+                if new_commit_branch:
+                    new_commit = self.top_commit_of_branch(new_commit_branch)
+                    if new_commit:
+                        self.set_last_validated_commit(new_commit)
+                        self._log_notice(
+                            f"Updated last_validated_commit to {new_commit}"
+                        )
+                else:
+                    self._log_warning(
+                        "Default branch is None, skipping last_validated_commit update."
+                    )
+
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
             commit = self.head_commit_sha()
@@ -184,6 +212,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             return self.safely_get_json(head_commit, INFO_JSON_PATH)
         else:
             return self.get_json(head_commit, INFO_JSON_PATH)
+
+    def get_metadata_path(self, role):
+        return self.path / METADATA_DIRECTORY_NAME / f"{role}.json"
 
     def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""

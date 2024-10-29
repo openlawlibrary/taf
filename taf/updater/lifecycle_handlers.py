@@ -1,3 +1,4 @@
+import attr
 import enum
 import glob
 import json
@@ -12,6 +13,7 @@ from taf.utils import (
     run,
     safely_save_json_to_disk,
     extract_json_objects_from_trusted_stdout,
+    run_subprocess,
 )
 from taf.exceptions import GitError, ScriptExecutionError
 from taf.log import taf_logger
@@ -64,15 +66,16 @@ def get_config(library_root, config_name=CONFIG_NAME):
             config = json.loads(Path(config_path).read_text())
         except Exception:
             config = {}
-            taf_logger.warning(
-                "WARNING: Config file {} not found. Scripts might not be executed successfully",
-                config_path,
+            taf_logger.info(
+                f"WARNING: Config file {config_path} not found. Scripts might not be executed successfully"
             )
         config_db[library_root] = config or {}
     return config_db.get(library_root)
 
 
 def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
+    if not Path(library_root).is_dir():
+        return {}
     persistent_file = Path(library_root, PERSISTENT_FILE_NAME)
     if not persistent_file.is_file():
         persistent_file.touch()
@@ -168,7 +171,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             path = Path(scripts_root_dir) / auth_repo.name / scripts_rel_path
         else:
             path = Path(auth_repo.path) / scripts_rel_path
-        script_paths = glob.glob(f"{path}/*.py")
+        script_paths = glob.glob(f"{path}/*")
     else:
         try:
             script_names = auth_repo.list_files_at_revision(
@@ -189,15 +192,34 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
             script_paths = []
 
     for script_path in sorted(script_paths):
-        taf_logger.info("Executing script {}", script_path)
+        taf_logger.log("NOTICE", f"Executing script {script_path}")
         json_data = json.dumps(data)
         try:
-            output = run(sys.executable, script_path, input=json_data)
-        except subprocess.CalledProcessError as e:
-            taf_logger.error(
-                "An error occurred while executing {}: {}", script_path, e.output
-            )
-            raise ScriptExecutionError(script_path, e.output)
+            if Path(script_path).suffix == ".py":
+                if getattr(sys, "frozen", False):
+                    # we are running in a pyinstaller bundle
+                    taf_logger.warning(
+                        "Warning: executing scripts from pyinstaller executable is not supported"
+                    )
+                else:
+                    output = run(f"{sys.executable}", script_path, input=json_data)
+            # assume that all other types of files are non-OS-specific executables of some kind
+            else:
+                output = run_subprocess([script_path])
+        except Exception as e:
+            if type(e) is subprocess.CalledProcessError:
+                taf_logger.error(
+                    f"An error occurred while executing {script_path}: {e.output}"
+                )
+                raise ScriptExecutionError(script_path, e.output)
+            else:
+                taf_logger.error(
+                    f"An error occurred while executing {script_path}: {str(e)}"
+                )
+                raise ScriptExecutionError(script_path, str(e))
+        if type(output) is bytes:
+            output = output.decode()
+        transient_data = persistent_data = {}
         if output is not None and output != "":
             # if the script contains print statements other than the final
             # print which outputs transient and persistent data
@@ -208,8 +230,6 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
                 persistent_data = json_data.get("persistent")
                 if transient_data is not None or persistent_data is not None:
                     break
-        else:
-            transient_data = persistent_data = {}
         taf_logger.debug("Persistent data: {}", persistent_data)
         taf_logger.debug("Transient data: {}", transient_data)
         # overwrite current persistent and transient data
@@ -230,7 +250,7 @@ def execute_scripts(auth_repo, last_commit, scripts_rel_path, data, scripts_root
 
 
 def get_script_repo_and_commit_repo(auth_repo, commits_data, *args):
-    return auth_repo, commits_data["after_pull"]
+    return auth_repo, commits_data.after_pull
 
 
 def get_script_repo_and_commit_update(auth_repo, commits_data, *args):
@@ -245,18 +265,19 @@ def prepare_data_repo(
     auth_repo,
     commits_data,
     error,
+    warnings,
     targets_data,
 ):
     conf_data = get_config(auth_repo.library_dir)
     if not conf_data:
-        taf_logger.warning(
-            "WARNING: No config data. Scripts might not be executed successfully"
+        taf_logger.debug(
+            f"WARNING: No config data at {Path(library_dir, CONFIG_NAME)}. Scripts might not be executed successfully"
         )
     return {
         auth_repo: {
             "data": {
                 "update": _repo_update_data(
-                    auth_repo, event, commits_data, targets_data, error
+                    auth_repo, event, commits_data, targets_data, error, warnings
                 ),
                 "state": {
                     "transient": transient_data,
@@ -264,7 +285,7 @@ def prepare_data_repo(
                 },
                 "config": conf_data,
             },
-            "commit": commits_data["after_pull"],
+            "commit": commits_data.after_pull,
         }
     }
 
@@ -301,22 +322,23 @@ def prepare_data_update(
                 },
                 "config": get_config(library_dir),
             },
-            "commit": repos_update_data[root_auth_repo.name]["commits_data"][
-                "after_pull"
-            ],
+            "commit": repos_update_data[root_auth_repo.name]["commits_data"].after_pull,
         }
     }
 
 
-def _repo_update_data(auth_repo, update_status, commits_data, targets_data, error):
+def _repo_update_data(
+    auth_repo, update_status, commits_data, targets_data, error, warnings
+):
     return {
         "changed": update_status == Event.CHANGED,
         "event": _format_event(update_status),
         "repo_name": auth_repo.name,
         "error_msg": str(error) if error else "",
+        "warnings": warnings or "",
         "auth_repo": {
             "data": auth_repo.to_json_dict(),
-            "commits": commits_data,
+            "commits": attr.asdict(commits_data),
         },
         "target_repos": targets_data,
     }

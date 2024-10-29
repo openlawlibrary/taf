@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import shutil
 import uuid
+import sys
 from getpass import getpass
 from functools import wraps
 from pathlib import Path
@@ -138,6 +139,13 @@ def is_non_empty_directory(path: Path):
     return False
 
 
+def is_run_from_python_executable() -> bool:
+    """
+    `sys frozen returns True if the Python interpreter is frozen using a tool like pyinstaller.
+    """
+    return getattr(sys, "frozen", False)
+
+
 def read_input_dict(value):
     if value is None:
         return {}
@@ -212,6 +220,17 @@ def run(*command, **kwargs):
         return None
 
     return completed.stdout if raw else completed.stdout.rstrip()
+
+
+def run_subprocess(command):
+    try:
+        result = subprocess.run(
+            command, check=True, capture_output=True, text=True
+        ).stdout
+        return result
+    except subprocess.CalledProcessError as e:
+        taf_logger.error("An error occurred while executing {}: {}", command, e.output)
+        raise e
 
 
 def normalize_file_line_endings(file_path):

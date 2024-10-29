@@ -265,7 +265,6 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     updated_repo = client_target_repos[1]  # target2
     old_commit = reverted_repo.head_commit_sha()
 
-    # Add valid commits first to
     setup_manager.add_task(add_valid_target_commits)
 
     setup_manager.add_task(
@@ -289,3 +288,43 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     )
 
     verify_client_repos_state(client_dir, origin_auth_repo)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target1", "allow_unauthenticated_commits": True},
+                {"name": "target2", "allow_unauthenticated_commits": True},
+            ],
+        }
+    ],
+    indirect=True,
+)
+def test_update_when_unauthenticated_allowed_different_commits_on_remote(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.execute_tasks()
+
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    setup_manager = SetupManager(client_auth_repo)
+    setup_manager.add_task(add_unauthenticated_commits_to_all_target_repos)
+    setup_manager.execute_tasks()
+
+    target_repos = load_target_repositories(client_auth_repo)
+    num_of_commits_to_remove = {target_repo: 1 for target_repo in target_repos}
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+        num_of_commits_to_remove=num_of_commits_to_remove,
+    )

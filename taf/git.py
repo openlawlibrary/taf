@@ -9,11 +9,12 @@ import pygit2
 import subprocess
 import logging
 from collections import OrderedDict
-from functools import reduce
+from functools import partial, reduce
 from pathlib import Path
 
 import taf.settings as settings
 from taf.exceptions import (
+    NoRemoteError,
     NothingToCommitError,
     TAFError,
     CloneRepoException,
@@ -23,7 +24,7 @@ from taf.exceptions import (
     UpdateFailedError,
     PygitError,
 )
-from taf.log import taf_logger
+from taf.log import NOTICE, taf_logger
 from taf.utils import run
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
@@ -143,6 +144,7 @@ class GitRepository:
     logging_functions = {
         logging.DEBUG: taf_logger.debug,
         logging.INFO: taf_logger.info,
+        NOTICE: partial(taf_logger.log, "NOTICE"),
         logging.WARNING: taf_logger.warning,
         logging.ERROR: taf_logger.error,
         logging.CRITICAL: taf_logger.critical,
@@ -162,15 +164,15 @@ class GitRepository:
         return self._remotes
 
     @property
+    def is_detached_head(self) -> bool:
+        repo = self.pygit_repo
+        return repo.head_is_detached
+
+    @property
     def is_git_repository(self) -> bool:
         """Check if the given path is the root of a Git repository."""
         # This is used when instantiating a PyGitRepository repo, so do not use
         # it here
-        # Check for a .git directory or file (submodule or bare repo)
-        if (self.path / ".git").exists():
-            return True
-
-        # Use 'git rev-parse --is-inside-work-tree' to check if it's a git repository
         try:
             result = self._git("rev-parse --is-inside-work-tree", reraise_error=True)
             if result == "true":
@@ -185,18 +187,21 @@ class GitRepository:
 
     @property
     def is_git_repository_root(self) -> bool:
-        if not self.is_git_repository:
+        try:
+            if not self.is_git_repository:
+                return False
+            repo = self.pygit_repo
+            if repo is None:
+                return False
+            if self.is_bare_repository:
+                return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
+            else:
+                git_path = self.path / ".git"
+                return Path(repo.path).resolve() == git_path.resolve() and (
+                    git_path.is_dir() or git_path.is_file()
+                )
+        except PygitError:
             return False
-        repo = self.pygit_repo
-        if repo is None:
-            return False
-        if self.is_bare_repository:
-            return repo.is_bare and Path(repo.path).resolve() == self.path.resolve()
-        else:
-            git_path = self.path / ".git"
-            return Path(repo.path).resolve() == git_path.resolve() and (
-                git_path.is_dir() or git_path.is_file()
-            )
 
     @property
     def initial_commit(self) -> str:
@@ -345,6 +350,9 @@ class GitRepository:
     def _log_info(self, message: str) -> None:
         self._log(self.logging_functions[logging.INFO], message)
 
+    def _log_notice(self, message: str) -> None:
+        self._log(self.logging_functions[NOTICE], message)
+
     def _log_warning(self, message: str) -> None:
         self._log(self.logging_functions[logging.WARNING], message)
 
@@ -371,6 +379,11 @@ class GitRepository:
                 )
             latest_commit_id = branch_obj.target
         else:
+            if self.head_commit_sha() is None:
+                raise GitError(
+                    self,
+                    message=f"Error occurred while getting commits of branch {branch}. No HEAD reference",
+                )
             latest_commit_id = repo[repo.head.target].id
 
         sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
@@ -392,7 +405,11 @@ class GitRepository:
         """
 
         if since_commit is None:
-            return self.all_commits_on_branch(branch=branch, reverse=reverse)
+            try:
+                return self.all_commits_on_branch(branch=branch, reverse=reverse)
+            except GitError as e:
+                self._log_warning(str(e))
+                return []
 
         try:
             self.commit_exists(commit_sha=since_commit)
@@ -407,6 +424,8 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
+            if self.head_commit_sha() is None:
+                return []
             latest_commit_id = repo[repo.head.target].id
 
         if repo.descendant_of(since_commit, latest_commit_id):
@@ -699,6 +718,7 @@ class GitRepository:
         remote_url: Optional[str] = None,
         is_bare: bool = False,
         keep_remote=False,
+        branches=None,
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
@@ -711,9 +731,13 @@ class GitRepository:
             if remote_url is not None:
                 self.add_remote("origin", remote_url)
                 self.fetch()
-                if repo is not None:
-                    for branch in repo.branches.local:
-                        self.set_upstream(str(branch))
+                if repo is not None and branches:
+                    local_branch_names = [
+                        branch.split("/")[-1] for branch in repo.branches.local
+                    ]
+                    for branch in branches:
+                        if branch in local_branch_names:
+                            self.set_upstream(str(branch))
 
     def clone_or_pull(
         self,
@@ -817,20 +841,21 @@ class GitRepository:
             reraise_error=True,
         )
 
-    def is_branch_with_unpushed_commits(self, branch_name):
+    def branch_unpushed_commits(self, branch_name):
         repo = self.pygit_repo
 
         local_branch = repo.branches.get(branch_name)
         if local_branch is None:
             # local branch does not exist
-            return False
+            return False, []
         try:
             upstream_full_name = local_branch.upstream_name
         except KeyError:
-            return True
+            # no local branch => no unpushed local commit
+            return False, []
         if not upstream_full_name:
             # no upstream branch - not pushed
-            return True
+            return True, []
         parts = upstream_full_name.split("/")
         upstream_name = "/".join(parts[2:])
 
@@ -849,7 +874,7 @@ class GitRepository:
             else:
                 break
 
-        return bool(unpushed_commits)
+        return bool(unpushed_commits), [commit.id for commit in unpushed_commits]
 
     def commit(self, message: str) -> str:
         self._git("add -A")
@@ -861,7 +886,7 @@ class GitRepository:
                 return self._git("rev-parse HEAD")
             except subprocess.CalledProcessError as e:
                 raise GitError(
-                    repo=self, message=f"could not commit changes due to:\n{e}"
+                    repo=self, message=f"could not commit changes due to:\n{e}", error=e
                 )
         else:
             raise NothingToCommitError(repo=self, message="No changes to commit")
@@ -902,6 +927,17 @@ class GitRepository:
             if hex != commit:
                 return hex
         return None
+
+    def create_local_branch_from_remote_tracking(self, branch, remote="origin"):
+        repo = self.pygit_repo
+        remote_branch_name = f"refs/remotes/{remote}/{branch}"
+        remote_branch = repo.lookup_reference(remote_branch_name)
+        if remote_branch is not None:
+            local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
+            if local_branch is None:
+                # Create a new local branch from the remote branch
+                target_commit = repo[remote_branch.target]
+                repo.create_branch(branch, target_commit)
 
     def delete_local_branch(self, branch_name: str) -> None:
         """Deletes local branch."""
@@ -1050,14 +1086,7 @@ class GitRepository:
         remote.fetch()
 
         for branch in branches:
-            remote_branch_name = f"refs/remotes/{temp_remote_name}/{branch}"
-            remote_branch = repo.lookup_reference(remote_branch_name)
-            if remote_branch is not None:
-                local_branch = repo.lookup_branch(branch, pygit2.GIT_BRANCH_LOCAL)
-                if local_branch is None:
-                    # Create a new local branch from the remote branch
-                    target_commit = repo[remote_branch.target]
-                    repo.create_branch(branch, target_commit)
+            self.create_local_branch_from_remote_tracking(branch, temp_remote_name)
 
         repo.remotes.delete(temp_remote_name)
 
@@ -1320,11 +1349,18 @@ class GitRepository:
     def merge_commit(
         self,
         commit: str,
+        target_branch: Optional[str] = None,
         fast_forward_only: Optional[bool] = False,
         check_if_merge_completed: Optional[bool] = False,
     ) -> bool:
+        # Determine the branch to merge into, defaulting to the current branch if not provided
+        branch = target_branch or self.get_current_branch()
+
         fast_forward_only_flag = "--ff-only" if fast_forward_only else ""
-        self._git("merge {} {}", commit, fast_forward_only_flag, log_error=True)
+
+        self._git(f"merge {commit} {fast_forward_only_flag}", log_error=True)
+
+        self.reset_to_commit(commit, branch, hard=True)
         if check_if_merge_completed:
             try:
                 self._git("rev-parse -q --verify MERGE_HEAD")
@@ -1361,26 +1397,37 @@ class GitRepository:
         branch: Optional[str] = None,
         set_upstream: Optional[bool] = False,
         force: Optional[bool] = False,
-    ) -> None:
-        """Push all changes"""
-        if branch is None:
-            branch = self.get_current_branch()
+    ) -> bool:
 
-        hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
-        if hook_path.exists():
-            self._log_info("Validating and pushing...")
+        if not self.has_remote():
+            self._log_warning("Could not push changes. No remotes configured")
+            return False
 
-        upstream_flag = "-u" if set_upstream else ""
-        force_flag = "-f" if force else ""
-        self._git(
-            "push {} {} origin {}",
-            upstream_flag,
-            force_flag,
-            branch,
-            log_error=True,
-            reraise_error=True,
-            log_success_msg="Successfully pushed commit(s)",
-        )
+        try:
+            """Push all changes"""
+            if branch is None:
+                branch = self.get_current_branch()
+
+            hook_path = Path(self.path) / ".git" / "hooks" / "pre-push"
+            if hook_path.exists():
+                self._log_notice("Validating and pushing...")
+
+            upstream_flag = "-u" if set_upstream else ""
+            force_flag = "-f" if force else ""
+            self._git(
+                "push {} {} origin {}",
+                upstream_flag,
+                force_flag,
+                branch,
+                reraise_error=True,
+            )
+            self._log_notice("Successfully pushed to remote")
+            return True
+        except GitError as e:
+            self._log_error(
+                f"Push failed: {str(e)}. Please check if there are upstream changes."
+            )
+            raise TAFError("Push operation failed") from e
 
     def remove_remote(self, remote_name: str) -> None:
         try:
@@ -1408,9 +1455,22 @@ class GitRepository:
         flag = "--hard" if hard else "--soft"
         self._git(f"reset {flag} HEAD~{num_of_commits}")
 
-    def reset_to_commit(self, commit: str, hard: Optional[bool] = False) -> None:
+    def reset_to_commit(
+        self, commit: str, branch: Optional[str] = None, hard: Optional[bool] = False
+    ) -> None:
         flag = "--hard" if hard else "--soft"
-        self._git(f"reset {flag} {commit}")
+
+        if branch is None:
+            branch = self.get_current_branch()
+        self.update_branch_refs(branch, commit)
+        if hard:
+            self._git(f"reset {flag} HEAD")
+
+    def update_branch_refs(self, branch: str, commit: str) -> None:
+        # Update the local branch reference to the specific commit
+        self._git(f"update-ref refs/heads/{branch} {commit}")
+        # Update the remote-tracking branch
+        self._git(f"update-ref refs/remotes/origin/{branch} {commit}", log_error=True)
 
     def update_ref_for_bare_repository(self, branch: str, commit_sha: str) -> None:
         """
@@ -1447,6 +1507,12 @@ class GitRepository:
         self._git(f"remote set-url {remote} {new_url}")
 
     def set_upstream(self, branch_name: str) -> None:
+        repo = self.pygit_repo
+        try:
+            repo.resolve_refish(f"origin/{branch_name}")
+        except KeyError:
+            return
+
         self._git("branch -u origin/{}", branch_name)
 
     def something_to_commit(self) -> bool:
@@ -1466,6 +1532,8 @@ class GitRepository:
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
 
+        if not self.has_remote():
+            raise NoRemoteError(self)
         if url:
             urls = [url]
         elif self.urls:
@@ -1633,7 +1701,7 @@ class GitRepository:
                     self._validate_url(url)
             else:
                 # resolve paths and deduplicate
-                urls = list({_find_url(self.path, url) for url in urls})
+                urls = sorted((_find_url(self.path, url) for url in urls), reverse=True)
         return urls
 
 

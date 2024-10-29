@@ -8,7 +8,7 @@ from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
 )
-from taf.api.utils._git import check_if_clean, commit_and_push
+from taf.api.utils._git import check_if_clean
 from taf.messages import git_commit_message
 from pathlib import Path
 
@@ -17,6 +17,8 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.log import taf_logger
+from taf.updater.updater import OperationType, clone_repository
+import taf.updater.updater as updater
 
 
 @log_on_start(
@@ -38,6 +40,7 @@ def add_dependency(
     out_of_band_commit: str,
     keystore: str,
     dependency_path: Optional[str] = None,
+    dependency_url: Optional[str] = None,
     library_dir: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom: Optional[Dict] = None,
@@ -82,7 +85,12 @@ def add_dependency(
 
     auth_repo = AuthenticationRepository(path=path)
     if not auth_repo.is_git_repository_root:
-        print(f"{path} is not a git repository!")
+        taf_logger.error(f"{path} is not a git repository!")
+        return
+
+    dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
+    if dependencies_json is not None and dependency_name in dependencies_json:
+        taf_logger.log("NOTICE", f"{dependency_name} already added")
         return
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
@@ -91,6 +99,26 @@ def add_dependency(
         dependency = GitRepository(path=dependency_path)
     else:
         dependency = GitRepository(library_dir, dependency_name)
+
+    if not dependency.is_git_repository and dependency_url is not None:
+        taf_logger.log(
+            "NOTICE", f"{dependency.path} does not exist. Cloning from {dependency_url}"
+        )
+        config = updater.UpdateConfig(
+            operation=OperationType.CLONE,
+            url=dependency_url,
+            path=Path(library_dir, dependency_name),
+            library_dir=library_dir,
+            strict=False,
+            bare=False,
+            no_deps=False,
+        )  # type: ignore
+        try:
+            clone_repository(config)
+            dependency.default_branch = dependency._determine_default_branch()
+        except Exception as e:
+            taf_logger.error(f"Dependency clone failed due to error {e}.")
+            return
 
     if dependency.is_git_repository:
         branch_name, out_of_band_commit = _determine_out_of_band_data(
@@ -124,9 +152,9 @@ def add_dependency(
         dependencies[dependency_name]["custom"] = custom
 
     # update content of repositories.json before updating targets metadata
-    Path(auth_repo.path, repositoriesdb.DEPENDENCIES_JSON_PATH).write_text(
-        json.dumps(dependencies_json, indent=4)
-    )
+    dependencies_path = Path(auth_repo.path, repositoriesdb.DEPENDENCIES_JSON_PATH)
+    dependencies_path.parent.mkdir(exist_ok=True)
+    Path(dependencies_path).write_text(json.dumps(dependencies_json, indent=4))
 
     removed_targets_data: Dict = {}
     added_targets_data: Dict = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
@@ -148,7 +176,7 @@ def add_dependency(
         commit_msg = git_commit_message(
             "add-dependency", dependency_name=dependency_name
         )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually.\n")
 
@@ -238,7 +266,7 @@ def remove_dependency(
         commit_msg = git_commit_message(
             "remove-dependency", dependency_name=dependency_name
         )
-        commit_and_push(auth_repo, commit_msg=commit_msg, push=push)
+        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
     else:
         print("\nPlease commit manually.\n")
 

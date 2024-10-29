@@ -45,7 +45,8 @@ _yks_data_dict: Dict = defaultdict(dict)
 def add_key_id_mapping(serial_num: str, keyid: str) -> None:
     if "ids" not in _yks_data_dict:
         _yks_data_dict["ids"] = defaultdict(dict)
-    _yks_data_dict["ids"][keyid] = serial_num
+    if keyid not in _yks_data_dict["ids"]:
+        _yks_data_dict["ids"][keyid] = serial_num
 
 
 def add_key_pin(serial_num: str, pin: str) -> None:
@@ -483,7 +484,10 @@ def yubikey_prompt(
 
         if get_key_public_key(serial_num) is None and public_key is not None:
             add_key_public_key(serial_num, public_key)
-            add_key_id_mapping(serial_num, key_name)
+
+        # when reusing the same yubikey, public key will already be in the public keys dictionary
+        # but the key name still needs to be added to the key id mapping dictionary
+        add_key_id_mapping(serial_num, key_name)
 
         if role is not None:
             if loaded_yubikeys is None:

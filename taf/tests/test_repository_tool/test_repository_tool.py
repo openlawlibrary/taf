@@ -9,7 +9,7 @@ import taf.exceptions
 import taf.yubikey as yk
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.tests import TEST_WITH_REAL_YK
-from taf.tests.yubikey_utils import VALID_PIN
+from taf.tools.yubikey.yubikey_utils import VALID_PIN
 from taf.utils import to_tuf_datetime_format
 
 

@@ -6,7 +6,6 @@ from taf.api.utils._roles import setup_role
 from taf.messages import git_commit_message
 from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
-from taf.api.utils._git import commit_and_push
 from taf.models.converter import from_dict
 
 from pathlib import Path
@@ -20,6 +19,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
+from taf.api.utils._conf import find_keystore
 from taf.utils import ensure_pre_push_hook
 from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
@@ -65,6 +65,10 @@ def create_repository(
     if not _check_if_can_create_repository(auth_repo):
         return
 
+    if not keystore and auth_repo.path is not None:
+        keystore_path = find_keystore(auth_repo.path)
+        if keystore_path is not None:
+            keystore = str(keystore_path)
     roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
@@ -120,7 +124,7 @@ def create_repository(
     if commit:
         auth_repo.init_repo()
         commit_msg = git_commit_message("create-repo")
-        commit_and_push(auth_repo, push=False, commit_msg=commit_msg)
+        auth_repo.commit_and_push(push=False, commit_msg=commit_msg)
     else:
         print("\nPlease commit manually.\n")
 
@@ -189,7 +193,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
     print(f"{indent_str}Target Repositories Status:")
     # Call the list_targets function
-    list_targets(path=path, library_dir=library_dir)
+    list_targets(path=path)
 
     # Load dependencies using repositoriesdb.get_auth_repositories
     repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)

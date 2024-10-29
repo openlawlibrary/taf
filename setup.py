@@ -1,9 +1,7 @@
 from setuptools import find_packages, setup
-from importlib.util import find_spec
-import sys
 
 PACKAGE_NAME = "taf"
-VERSION = "0.30.2"
+VERSION = "0.32.0"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -24,6 +22,8 @@ ci_require = [
     "freezegun==0.3.15",
 ]
 
+executable_require = ["lxml"]
+
 dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
 
 tests_require = [
@@ -35,11 +35,6 @@ tests_require = [
 
 yubikey_require = ["yubikey-manager==5.1.*"]
 
-# Determine the appropriate version of pygit2 based on the Python version
-if sys.version_info >= (3, 11):
-    pygit2_version = "pygit2==1.14.1"
-elif sys.version_info >= (3, 7) and sys.version_info < (3, 11):
-    pygit2_version = "pygit2==1.9.*"
 
 kwargs = {
     "name": PACKAGE_NAME,
@@ -63,7 +58,9 @@ kwargs = {
         "cryptography>=40.0.0",
         "securesystemslib==1.*",
         "loguru==0.7.*",
-        pygit2_version,
+        'pygit2==1.9.*; python_version < "3.11"',
+        'pygit2==1.14.*; python_version >= "3.11"',
+        "pyOpenSSL==22.1.*",
         "logdecorator==2.*",
     ],
     "extras_require": {
@@ -71,6 +68,7 @@ kwargs = {
         "test": tests_require,
         "dev": dev_require,
         "yubikey": yubikey_require,
+        "executable": executable_require,
     },
     "tests_require": tests_require,
     "entry_points": {
@@ -96,15 +94,5 @@ kwargs = {
         "Programming Language :: Python :: Implementation :: CPython",
     ],
 }
-
-
-try:
-    tests_exist = find_spec("taf.tests")
-except ModuleNotFoundError:
-    tests_exist = False  # type: ignore
-if tests_exist:
-    kwargs["entry_points"]["pytest11"] = (
-        ["taf_yubikey_utils = taf.tests.yubikey_utils"],
-    )
 
 setup(**kwargs)
