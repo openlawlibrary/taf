@@ -19,6 +19,7 @@ from tuf.api.metadata import (
     Targets,
     TargetFile,
     Timestamp,
+    DelegatedRole,
 )
 from taf.exceptions import TAFError
 from tuf.repository import Repository
@@ -26,6 +27,7 @@ from tuf.repository import Repository
 logger = logging.getLogger(__name__)
 
 METADATA_DIRECTORY_NAME = "metadata"
+TARGETS_DIRECTORY_NAME = "targets"
 
 MAIN_ROLES = ["root", "targets", "snapshot", "timestamp"]
 
@@ -60,6 +62,10 @@ class MetadataRepository(Repository):
         return self._path / METADATA_DIRECTORY_NAME
 
     @property
+    def targets_path(self):
+        return self._path / TARGETS_DIRECTORY_NAME
+
+    @property
     def targets_infos(self) -> Dict[str, MetaFile]:
         # tracks targets and root metadata changes, needed in `do_snapshot`
         return self._targets_infos
@@ -68,6 +74,24 @@ class MetadataRepository(Repository):
     def snapshot_info(self) -> MetaFile:
         # tracks snapshot metadata changes, needed in `do_timestamp`
         return self._snapshot_info
+
+
+    def all_target_files(self):
+        """
+        Return a set of relative paths of all files inside the targets
+        directory
+        """
+        targets = []
+        # Assume self.targets_path is a Path object, or convert it if necessary
+        base_path = Path(self.targets_path)
+
+        for filepath in base_path.rglob('*'):
+            if filepath.is_file():
+                # Get the relative path to the base directory and convert it to a POSIX path
+                relative_path = filepath.relative_to(base_path).as_posix()
+                targets.append(relative_path)
+
+        return set(targets)
 
     def add_target_files(self, target_files: List[TargetFile]) -> None:
         """Add target files to top-level targets metadata."""
@@ -206,6 +230,7 @@ class MetadataRepository(Repository):
             signed.version = 0  # `close` will bump to initial valid verison 1
             self.close(signed.type, Metadata(signed))
 
+
     def find_delegated_roles_parent(self, delegated_role, parent=None):
         if parent is None:
             parent = "targets"
@@ -254,10 +279,19 @@ class MetadataRepository(Repository):
             for delegation in delegations_data:
                 if delegation["name"] == role:
                     try:
-                        return Role.from_dict(delegation)
+                        return DelegatedRole.from_dict(delegation)
                     except (KeyError, ValueError):
                         raise TAFError(f"{delegation}.json is invalid")
             return None
+
+
+    def get_all_roles(self):
+        """
+        Return a list of all defined roles, main roles combined with delegated targets roles
+        """
+        all_target_roles = self.get_all_targets_roles()
+        all_roles = ["root", "snapshot", "timestamp"] + all_target_roles
+        return all_roles
 
     def get_all_targets_roles(self):
         """
@@ -301,7 +335,28 @@ class MetadataRepository(Repository):
             raise TAFError(f"Role {role} does not exist")
         return role_obj.threshold
 
+    def get_role_paths(self, role, parent_role=None):
+        """Get paths of the given role
 
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Defined delegated paths of delegate target role or * in case of targets
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        if role == "targets":
+            return "*"
+        role = self._role_obj(role)
+        if role is None:
+            raise TAFError(f"Role {role} does not exist")
+        return role.paths
 
     def set_metadata_expiration_date(self, role, start_date=None, interval=None):
         """Set expiration date of the provided role.

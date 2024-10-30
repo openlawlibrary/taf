@@ -183,13 +183,6 @@ class Repository:
 
     _framework_files = ["repositories.json", "test-auth-repo"]
 
-    @property
-    def targets_path(self):
-        return self.path / TARGETS_DIRECTORY_NAME
-
-    @property
-    def metadata_path(self):
-        return self.path / METADATA_DIRECTORY_NAME
 
     _tuf_repository = None
 
@@ -384,13 +377,6 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
-    def get_all_roles(self):
-        """
-        Return a list of all defined roles, main roles combined with delegated targets roles
-        """
-        all_target_roles = self.get_all_targets_roles()
-        all_roles = ["root", "targets", "snapshot", "timestamp"] + all_target_roles
-        return all_roles
 
     def get_all_target_files_state(self):
         """Create dictionaries of added/modified and removed files by comparing current
@@ -548,24 +534,6 @@ class Repository:
 
         return targets_role
 
-    def all_target_files(self):
-        """
-        Return a set of relative paths of all files inside the targets
-        directory
-        """
-        targets = []
-        for root, _, filenames in os.walk(str(self.targets_path)):
-            for filename in filenames:
-                filepath = Path(root) / filename
-                if filepath.is_file():
-                    targets.append(
-                        str(
-                            Path(
-                                os.path.relpath(str(filepath), str(self.targets_path))
-                            ).as_posix()
-                        )
-                    )
-        return set(targets)
 
     def get_target_file_custom_data(self, target_path):
         """
@@ -821,25 +789,6 @@ class Repository:
             pass
         return self.get_delegated_role_property("keyids", role, parent_role)
 
-    def get_role_paths(self, role, parent_role=None):
-        """Get paths of the given role
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - parent_role(str): Name of the parent role of the delegated role. If not specified,
-                            it will be set automatically, but this might be slow if there
-                            are many delegations.
-
-        Returns:
-        Defined delegated paths of delegate target role or * in case of targets
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-        """
-        if role == "targets":
-            return "*"
-        return self.get_delegated_role_property("paths", role, parent_role)
 
     def get_role_repositories(self, role, parent_role=None):
         """Get repositories of the given role
