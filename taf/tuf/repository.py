@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 from securesystemslib.exceptions import StorageError
 
 from securesystemslib.signer import Signer
@@ -102,6 +102,55 @@ class MetadataRepository(Repository):
         except StorageError:
             raise TAFError(f"Metadata file {self.metadata_path} does not exist")
 
+    def check_if_role_exists(self, role_name):
+        role = self._role_obj(role_name)
+        return role is not None
+
+    def check_roles_expiration_dates(
+        self, interval=None, start_date=None, excluded_roles=None
+    ):
+        """Determines which metadata roles have expired, or will expire within a time frame.
+        Args:
+        - interval(int): Number of days to look ahead for expiration.
+        - start_date(datetime): Start date to look for expiration.
+        - excluded_roles(list): List of roles to exclude from the search.
+
+        Returns:
+        - A dictionary of roles that have expired, or will expire within the given time frame.
+        Results are sorted by expiration date.
+        """
+        if start_date is None:
+            start_date = datetime.now(timezone.utc)
+        if interval is None:
+            interval = 30
+        expiration_threshold = start_date + timedelta(days=interval)
+
+        if excluded_roles is None:
+            excluded_roles = []
+
+        target_roles = self.get_all_targets_roles()
+        main_roles = ["root", "targets", "snapshot", "timestamp"]
+        existing_roles = list(set(target_roles + main_roles) - set(excluded_roles))
+
+        expired_dict = {}
+        will_expire_dict = {}
+        for role in existing_roles:
+            expiry_date = self.get_expiration_date(role)
+            if start_date > expiry_date:
+                expired_dict[role] = expiry_date
+            elif expiration_threshold >= expiry_date:
+                will_expire_dict[role] = expiry_date
+        # sort by expiry date
+        expired_dict = {
+            k: v for k, v in sorted(expired_dict.items(), key=lambda item: item[1])
+        }
+        will_expire_dict = {
+            k: v for k, v in sorted(will_expire_dict.items(), key=lambda item: item[1])
+        }
+
+        return expired_dict, will_expire_dict
+
+
     def close(self, role: str, md: Metadata) -> None:
         """Bump version and expiry, re-sign, and write role metadata to disk."""
 
@@ -157,7 +206,7 @@ class MetadataRepository(Repository):
             signed.version = 0  # `close` will bump to initial valid verison 1
             self.close(signed.type, Metadata(signed))
 
-    def _find_delegated_role_parent(self, delegated_role, parent=None):
+    def find_delegated_roles_parent(self, delegated_role, parent=None):
         if parent is None:
             parent = "targets"
 
@@ -197,7 +246,7 @@ class MetadataRepository(Repository):
             except (KeyError, ValueError):
                 raise TAFError("root.json is invalid")
         else:
-            parent_name = self._find_delegated_role_parent(role, parent)
+            parent_name = self.find_delegated_roles_parent(role, parent)
             if parent_name is None:
                 return None
             md = self.open(parent_name)
@@ -210,8 +259,29 @@ class MetadataRepository(Repository):
                         raise TAFError(f"{delegation}.json is invalid")
             return None
 
+    def get_all_targets_roles(self):
+        """
+        Return a list containing names of all target roles
+        """
+        target_roles = ["targets"]
+        all_roles = []
 
-    def get_role_threshold(self, role, parent=None):
+        while target_roles:
+            role = target_roles.pop()
+            all_roles.append(role)
+            role_metadata = self._signed_obj(role)
+            for delegation in role_metadata.delegations.roles:
+                target_roles.append(delegation)
+
+        return all_roles
+
+    def get_expiration_date(self, role: str) -> datetime:
+        meta_file = self._signed_obj(role)
+        if meta_file is None:
+            raise TAFError(f"Role {role} does not exist")
+        return meta_file.expires
+
+    def get_role_threshold(self, role: str, parent: Optional[str]=None ) -> int:
         """Get threshold of the given role
 
         Args:
@@ -230,6 +300,7 @@ class MetadataRepository(Repository):
         if role_obj is None:
             raise TAFError(f"Role {role} does not exist")
         return role_obj.threshold
+
 
 
     def set_metadata_expiration_date(self, role, start_date=None, interval=None):

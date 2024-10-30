@@ -615,53 +615,6 @@ class Repository:
 
         return common_role.pop()
 
-    def check_if_role_exists(self, role_name):
-        role = self._role_obj(role_name)
-        return role is not None
-
-    def check_roles_expiration_dates(
-        self, interval=None, start_date=None, excluded_roles=None
-    ):
-        """Determines which metadata roles have expired, or will expire within a time frame.
-        Args:
-        - interval(int): Number of days to look ahead for expiration.
-        - start_date(datetime): Start date to look for expiration.
-        - excluded_roles(list): List of roles to exclude from the search.
-
-        Returns:
-        - A dictionary of roles that have expired, or will expire within the given time frame.
-        Results are sorted by expiration date.
-        """
-        if start_date is None:
-            start_date = datetime.datetime.now()
-        if interval is None:
-            interval = 30
-        expiration_threshold = start_date + datetime.timedelta(days=interval)
-
-        if excluded_roles is None:
-            excluded_roles = []
-
-        target_roles = self.get_all_targets_roles()
-        main_roles = ["root", "targets", "snapshot", "timestamp"]
-        existing_roles = list(set(target_roles + main_roles) - set(excluded_roles))
-
-        expired_dict = {}
-        will_expire_dict = {}
-        for role in existing_roles:
-            expiry_date = self.get_expiration_date(role)
-            if start_date > expiry_date:
-                expired_dict[role] = expiry_date
-            elif expiration_threshold >= expiry_date:
-                will_expire_dict[role] = expiry_date
-        # sort by expiry date
-        expired_dict = {
-            k: v for k, v in sorted(expired_dict.items(), key=lambda item: item[1])
-        }
-        will_expire_dict = {
-            k: v for k, v in sorted(will_expire_dict.items(), key=lambda item: item[1])
-        }
-
-        return expired_dict, will_expire_dict
 
     def _collect_target_paths_of_role(self, target_roles_paths):
         all_target_relpaths = []
@@ -709,32 +662,6 @@ class Repository:
                 if file_rel_path not in targets_obj.target_files:
                     (self.targets_path / file_rel_path).unlink()
 
-    def find_delegated_roles_parent(self, role_name):
-        """
-        A simple implementation of finding a delegated targets role's parent
-        assuming that every delegated role is delegated by just one role
-        and that there won't be many delegations.
-        Args:
-            - role_name: Role
-
-        Returns:
-            Parent role's name
-        """
-
-        def _find_delegated_role(parent_role_name, role_name):
-            delegations = self.get_delegations_info(parent_role_name)
-            if len(delegations):
-                for role_info in delegations.get("roles"):
-                    # check if this role can sign target_path
-                    delegated_role_name = role_info["name"]
-                    if delegated_role_name == role_name:
-                        return parent_role_name
-                    parent = _find_delegated_role(delegated_role_name, role_name)
-                    if parent is not None:
-                        return parent
-            return None
-
-        return _find_delegated_role("targets", role_name)
 
     def find_keys_roles(self, public_keys, check_threshold=True):
         """Find all roles that can be signed by the provided keys.
@@ -842,22 +769,7 @@ class Repository:
                     roles_description[role_name]["delegations"] = delegations_info
         return {"roles": roles_description}
 
-    def get_all_targets_roles(self):
-        """
-        Return a list containing names of all target roles
-        """
 
-        def _traverse_targets_roles(role_name):
-            roles = [role_name]
-            delegations = self.get_delegations_info(role_name)
-            if len(delegations):
-                for role_info in delegations.get("roles"):
-                    # check if this role can sign target_path
-                    delegated_role_name = role_info["name"]
-                    roles.extend(_traverse_targets_roles(delegated_role_name))
-            return roles
-
-        return _traverse_targets_roles("targets")
 
     def get_delegated_role_property(self, property_name, role_name, parent_role=None):
         """
@@ -882,9 +794,6 @@ class Repository:
             if delegated_role["name"] == role_name:
                 return delegated_role[property_name]
         return None
-
-    def get_expiration_date(self, role: str) -> datetime.datetime:
-        return self._role_obj(role).expiration
 
     def get_role_keys(self, role, parent_role=None):
         """Get keyids of the given role
