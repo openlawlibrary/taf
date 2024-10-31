@@ -1,34 +1,10 @@
 import pytest
 from securesystemslib.exceptions import StorageError
 from taf.tuf.repository import MetadataRepository
-from taf.tuf.keys import load_signer_from_file
 
 from tuf.api.metadata import TargetFile
 
 from taf.tests.tuf import TEST_DATA_PATH
-
-
-@pytest.fixture
-def test_signer():
-    """Create signer from some rsa test key."""
-    key_path = TEST_DATA_PATH / "keystores" / "keystore" / "root1"
-    return load_signer_from_file(key_path, None)
-
-
-@pytest.fixture
-def test_signer2():
-    """Create signer from some other rsa test key."""
-    key_path = TEST_DATA_PATH / "keystores" / "keystore" / "root2"
-    return load_signer_from_file(key_path, None)
-
-
-@pytest.fixture
-def test_signers(test_signer):
-    """Dict of signers per role"""
-    signers = {}
-    for role in ["root", "timestamp", "snapshot", "targets"]:
-        signers[role] = {test_signer.public_key.keyid: test_signer}
-    return signers
 
 
 class TestMetadataRepository:

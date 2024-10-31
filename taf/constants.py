@@ -3,8 +3,6 @@
 import datetime
 from typing import List, Optional
 
-# TODO: Remove legacy imports
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 TARGETS_DIRECTORY_NAME = "targets"
 

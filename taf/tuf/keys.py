@@ -21,8 +21,29 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from taf import YubikeyMissingLibrary
 
-from taf.yubikey import export_piv_pub_key, sign_piv_rsa_pkcs1v15
+
+try:
+    import taf.yubikey as yk
+except ImportError:
+    yk = YubikeyMissingLibrary()  # type: ignore
+
+
+def create_signer(priv, pub):
+    return CryptoSigner(priv, _from_crypto(pub))
+
+def _get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
+    """
+    Return a keystore key's name based on the role's name and total number of signing keys,
+    as well as the specified counter. If number of signing keys is one, return the role's name.
+    If the number of signing keys is greater that one, return role's name + counter (root1, root2...)
+    """
+    if num_of_keys == 1:
+        return role_name
+    else:
+        return role_name + str(key_num + 1)
+
 
 
 def _get_legacy_keyid(key: SSlibKey) -> str:
@@ -53,6 +74,7 @@ def _from_crypto(pub: RSAPublicKey) -> SSlibKey:
     return key
 
 
+
 def load_public_key_from_file(path: Path) -> SSlibKey:
     """Load SSlibKey from RSA public key file.
 
@@ -68,7 +90,7 @@ def load_public_key_from_file(path: Path) -> SSlibKey:
     return _from_crypto(pub)
 
 
-def load_signer_from_file(path: Path, password: Optional[str]) -> CryptoSigner:
+def load_signer_from_file(path: Path, password: Optional[str]=None) -> CryptoSigner:
     """Load CryptoSigner from RSA private key file.
 
     * Expected key file format is PKCS8/PEM
@@ -121,7 +143,7 @@ class YkSigner(Signer):
         securesystemslib signers, e.g. `HSMSigner.import_`.
         """
         # TODO: export pyca/cryptography key to avoid duplicate deserialization
-        pem = export_piv_pub_key()
+        pem = yk.export_piv_pub_key()
         pub = load_pem_public_key(pem)
         return _from_crypto(pub)
 
@@ -129,7 +151,7 @@ class YkSigner(Signer):
         pin = self._pin_handler(self._SECRET_PROMPT)
         # TODO: openlawlibrary/taf#515
         # sig = sign_piv_rsa_pkcs1v15(payload, pin, self.public_key.keyval["public"])
-        sig = sign_piv_rsa_pkcs1v15(payload, pin)
+        sig = yk.sign_piv_rsa_pkcs1v15(payload, pin)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

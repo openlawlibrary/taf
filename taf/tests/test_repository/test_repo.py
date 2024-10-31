@@ -92,3 +92,26 @@ def test_get_role_paths():
     actual = tuf_repo.get_role_paths("inner_delegated_role")
     assert actual == ["dir2/inner_delegated_role.txt"]
 
+
+def test_signing_roles():
+    test_group_dir = TEST_DATA_REPOS_PATH / "test-repository-tool/test-delegated-roles-pkcs1v15" / "taf"
+    tuf_repo = MetadataRepository(test_group_dir)
+    test_target_paths = [
+        "dir1/file1.txt", "dir2/file2.txt", "dir2/inner_delegated_role.txt", "other"
+    ]
+    actual = tuf_repo.map_signing_roles(test_target_paths)
+    assert actual["dir1/file1.txt"] == "delegated_role1"
+    assert actual["dir2/file2.txt"] == "delegated_role2"
+    assert actual["dir2/inner_delegated_role.txt"] == "inner_delegated_role"
+    assert actual["other"] == "targets"
+
+
+def test_get_role_from_target_paths():
+    test_group_dir = TEST_DATA_REPOS_PATH / "test-repository-tool/test-delegated-roles-pkcs1v15" / "taf"
+    tuf_repo = MetadataRepository(test_group_dir)
+    assert tuf_repo.get_role_from_target_paths(["dir1/file1.txt", "dir1/file2.txt"]) == "delegated_role1"
+
+def test_find_keys_roles(targets_key):
+    test_group_dir = TEST_DATA_REPOS_PATH / "test-repository-tool/test-delegated-roles-pkcs1v15" / "taf"
+    tuf_repo = MetadataRepository(test_group_dir)
+    tuf_repo.find_keys_roles([targets_key])

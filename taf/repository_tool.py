@@ -44,7 +44,7 @@ from taf.utils import (
     on_rm_error,
     get_file_details,
 )
-
+from taf import YubikeyMissingLibrary
 try:
     import taf.yubikey as yk
 except ImportError:
@@ -560,28 +560,7 @@ class Repository:
 
         return hashes.get(hash_func, hashes)
 
-    def get_role_from_target_paths(self, target_paths):
-        """
-        Find a common role that can be used to sign given target paths.
 
-        NOTE: Currently each target has only one mapped role.
-        """
-        targets_roles = self.map_signing_roles(target_paths)
-        roles = list(targets_roles.values())
-
-        try:
-            # all target files should have at least one common role
-            common_role = reduce(
-                set.intersection,
-                [set([r]) if isinstance(r, str) else set(r) for r in roles],
-            )
-        except TypeError:
-            return None
-
-        if not common_role:
-            return None
-
-        return common_role.pop()
 
 
     def _collect_target_paths_of_role(self, target_roles_paths):
@@ -631,49 +610,7 @@ class Repository:
                     (self.targets_path / file_rel_path).unlink()
 
 
-    def find_keys_roles(self, public_keys, check_threshold=True):
-        """Find all roles that can be signed by the provided keys.
-        A role can be signed by the list of keys if at least the number
-        of keys that can sign that file is equal to or greater than the role's
-        threshold
-        """
 
-        def _map_keys_to_roles(role_name, key_ids):
-            keys_roles = []
-            delegations = self.get_delegations_info(role_name)
-            if len(delegations):
-                for role_info in delegations.get("roles"):
-                    # check if this role can sign target_path
-                    delegated_role_name = role_info["name"]
-                    delegated_roles_keyids = role_info["keyids"]
-                    delegated_roles_threshold = role_info["threshold"]
-                    num_of_signing_keys = len(
-                        set(delegated_roles_keyids).intersection(key_ids)
-                    )
-                    if (
-                        not check_threshold
-                        or num_of_signing_keys >= delegated_roles_threshold
-                    ):
-                        keys_roles.append(delegated_role_name)
-                    keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
-            return keys_roles
-
-        keyids = [key["keyid"] for key in public_keys]
-        return _map_keys_to_roles("targets", keyids)
-
-    def find_associated_roles_of_key(self, public_key):
-        """
-        Find all roles whose metadata files can be signed by this key
-        Threshold is not important, as long as the key is one of the signing keys
-        """
-        roles = []
-        key_id = public_key["keyid"]
-        for role in MAIN_ROLES:
-            key_ids = self.get_role_keys(role)
-            if key_id in key_ids:
-                roles.append(role)
-        roles.extend(self.find_keys_roles([public_key], check_threshold=False))
-        return roles
 
     def get_key_length_and_scheme_from_metadata(self, parent_role, keyid):
         try:
@@ -901,41 +838,6 @@ class Repository:
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def map_signing_roles(self, target_filenames):
-        """
-        For each target file, find delegated role responsible for that target file based
-        on the delegated paths. The most specific role (meaning most deeply nested) whose
-        delegation path matches the target's path is returned as that file's matching role.
-        If there are no delegated roles with a path that matches the target file's path,
-        'targets' role will be returned as that file's matching role. Delegation path
-        is expected to be relative to the targets directory. It can be defined as a glob
-        pattern.
-        """
-
-        def _map_targets_to_roles(role_name, target_filenames):
-            roles_targets = {}
-            delegations = self.get_delegations_info(role_name)
-            if len(delegations):
-                for role_info in delegations.get("roles"):
-                    # check if this role can sign target_path
-                    delegated_role_name = role_info["name"]
-                    for path_pattern in role_info["paths"]:
-                        for target_filename in target_filenames:
-                            if fnmatch(
-                                target_filename.lstrip(os.sep),
-                                path_pattern.lstrip(os.sep),
-                            ):
-                                roles_targets[target_filename] = delegated_role_name
-                    roles_targets.update(
-                        _map_targets_to_roles(delegated_role_name, target_filenames)
-                    )
-            return roles_targets
-
-        roles_targets = {
-            target_filename: "targets" for target_filename in target_filenames
-        }
-        roles_targets.update(_map_targets_to_roles("targets", target_filenames))
-        return roles_targets
 
     def remove_metadata_key(self, role, key_id):
         """Remove metadata key of the provided role.

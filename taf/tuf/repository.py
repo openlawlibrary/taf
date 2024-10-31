@@ -1,6 +1,9 @@
 """TUF metadata repository"""
 
 
+from fnmatch import fnmatch
+from functools import reduce
+import os
 from pathlib import Path
 import logging
 from collections import defaultdict
@@ -22,7 +25,10 @@ from tuf.api.metadata import (
     DelegatedRole,
 )
 from taf.exceptions import TAFError
+from taf.models.types import RolesIterator, RolesKeysData
+from taf.tuf.keys import _get_legacy_keyid
 from tuf.repository import Repository
+
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +205,8 @@ class MetadataRepository(Repository):
         if role == "root":
             md.to_file(self.metadata_path / f"{md.signed.version}.{fname}")
 
-    def create(self, signers: Dict[str, Dict[str, Signer]]):
+
+    def create(self, roles_keys_data: RolesKeysData, signers: dict, verification_keys: dict):
         """Create a new metadata repository on disk.
 
         1. Create metadata subdir (fail, if exists)
@@ -212,17 +219,32 @@ class MetadataRepository(Repository):
                 are signers.
         """
         self.metadata_path.mkdir()
-        self.signer_cache = signers
+        self.signer_cache  = defaultdict(dict)
+
 
         root = Root(consistent_snapshot=False)
-        for role in ["root", "timestamp", "snapshot", "targets"]:
-            for signer in self.signer_cache[role].values():
-                root.add_key(signer.public_key, role)
 
         # Snapshot tracks targets and root versions. targets v1 is included by
         # default in snapshot v1. root must be added explicitly.
         sn = Snapshot()
         sn.meta["root.json"] = MetaFile(1)
+
+
+        for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
+            if not role.is_yubikey:
+                if verification_keys is None or signers is None:
+                    raise TAFError(f"Cannot setup role {role.name}. Keys not specified")
+                for public_key, signer in zip(verification_keys[role.name], signers[role.name]):
+                    key_id = _get_legacy_keyid(public_key)
+                    self.signer_cache[role.name][key_id] = signer
+                    root.add_key(public_key, role.name)
+            root.roles[role.name].threshold = role.threshold
+
+
+            # create_delegations(
+            #     roles_keys_data.roles.targets, repository, verification_keys, signing_keys
+            # )
+
 
         for signed in [root, Timestamp(), sn, Targets()]:
             # Setting the version to 0 here is a trick, so that `close` can
@@ -246,44 +268,51 @@ class MetadataRepository(Repository):
                 parents.append(delegation)
         return None
 
+    def find_keys_roles(self, public_keys, check_threshold=True):
+        """Find all roles that can be signed by the provided keys.
+        A role can be signed by the list of keys if at least the number
+        of keys that can sign that file is equal to or greater than the role's
+        threshold
+        """
 
-    def _signed_obj(self, role):
-        md = self.open(role)
-        try:
-            singed_data = md.to_dict()["signed"]
-            role_to_role_class = {
-                "root": Root,
-                "targets": Targets,
-                "snapshot": Snapshot,
-                "timestamp": Timestamp
-            }
-            role_class =  role_to_role_class.get(role, Targets)
-            return role_class.from_dict(singed_data)
-        except (KeyError, ValueError):
-            raise TAFError(f"Invalid metadata file {role}.json")
+        role = self._role_obj("targets")
+        import pdb; pdb.set_trace()
+        # def _map_keys_to_roles(role_name, key_ids):
+        #     keys_roles = []
+        #     delegations = self.get_delegations_info(role_name)
+        #     if len(delegations):
+        #         for role_info in delegations.get("roles"):
+        #             # check if this role can sign target_path
+        #             delegated_role_name = role_info["name"]
+        #             delegated_roles_keyids = role_info["keyids"]
+        #             delegated_roles_threshold = role_info["threshold"]
+        #             num_of_signing_keys = len(
+        #                 set(delegated_roles_keyids).intersection(key_ids)
+        #             )
+        #             if (
+        #                 not check_threshold
+        #                 or num_of_signing_keys >= delegated_roles_threshold
+        #             ):
+        #                 keys_roles.append(delegated_role_name)
+        #             keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
+        #     return keys_roles
 
-    def _role_obj(self, role, parent=None):
-        if role in MAIN_ROLES:
-            md = self.open("root")
-            try:
-                data = md.to_dict()["signed"]["roles"][role]
-                return Role.from_dict(data)
-            except (KeyError, ValueError):
-                raise TAFError("root.json is invalid")
-        else:
-            parent_name = self.find_delegated_roles_parent(role, parent)
-            if parent_name is None:
-                return None
-            md = self.open(parent_name)
-            delegations_data = md.to_dict()["signed"]["delegations"]["roles"]
-            for delegation in delegations_data:
-                if delegation["name"] == role:
-                    try:
-                        return DelegatedRole.from_dict(delegation)
-                    except (KeyError, ValueError):
-                        raise TAFError(f"{delegation}.json is invalid")
-            return None
+        # keyids = [key["keyid"] for key in public_keys]
+        # return _map_keys_to_roles("targets", keyids)
 
+    def find_associated_roles_of_key(self, public_key):
+        """
+        Find all roles whose metadata files can be signed by this key
+        Threshold is not important, as long as the key is one of the signing keys
+        """
+        roles = []
+        key_id = public_key["keyid"]
+        for role in MAIN_ROLES:
+            key_ids = self.get_role_keys(role)
+            if key_id in key_ids:
+                roles.append(role)
+        roles.extend(self.find_keys_roles([public_key], check_threshold=False))
+        return roles
 
     def get_all_roles(self):
         """
@@ -358,6 +387,79 @@ class MetadataRepository(Repository):
             raise TAFError(f"Role {role} does not exist")
         return role.paths
 
+    def get_role_from_target_paths(self, target_paths):
+        """
+        Find a common role that can be used to sign given target paths.
+
+        NOTE: Currently each target has only one mapped role.
+        """
+        targets_roles = self.map_signing_roles(target_paths)
+        roles = list(targets_roles.values())
+
+        try:
+            # all target files should have at least one common role
+            common_role = reduce(
+                set.intersection,
+                [set([r]) if isinstance(r, str) else set(r) for r in roles],
+            )
+        except TypeError:
+            return None
+
+        if not common_role:
+            return None
+
+        return common_role.pop()
+
+
+    def map_signing_roles(self, target_filenames):
+        """
+        For each target file, find delegated role responsible for that target file based
+        on the delegated paths. The most specific role (meaning most deeply nested) whose
+        delegation path matches the target's path is returned as that file's matching role.
+        If there are no delegated roles with a path that matches the target file's path,
+        'targets' role will be returned as that file's matching role. Delegation path
+        is expected to be relative to the targets directory. It can be defined as a glob
+        pattern.
+        """
+
+        roles = ["targets"]
+        roles_targets = {
+            target_filename: "targets" for target_filename in target_filenames
+        }
+        while roles:
+            role = roles.pop()
+            path_patterns = self.get_role_paths(role)
+            for path_pattern in path_patterns:
+                for target_filename in target_filenames:
+                    if fnmatch(
+                        target_filename.lstrip(os.sep),
+                        path_pattern.lstrip(os.sep),
+                    ):
+                        roles_targets[target_filename] = role
+
+            role_obj = self._signed_obj(role)
+            for delegation in role_obj.delegations.roles:
+                roles.append(delegation)
+
+        return roles_targets
+
+
+    def _signed_obj(self, role):
+        md = self.open(role)
+        try:
+            singed_data = md.to_dict()["signed"]
+            role_to_role_class = {
+                "root": Root,
+                "targets": Targets,
+                "snapshot": Snapshot,
+                "timestamp": Timestamp
+            }
+            role_class =  role_to_role_class.get(role, Targets)
+            return role_class.from_dict(singed_data)
+        except (KeyError, ValueError):
+            raise TAFError(f"Invalid metadata file {role}.json")
+
+
     def set_metadata_expiration_date(self, role, start_date=None, interval=None):
         """Set expiration date of the provided role.
 
@@ -394,3 +496,25 @@ class MetadataRepository(Repository):
         md.signed.expires = expiration_date
 
         self.close(role, md)
+
+    def _role_obj(self, role, parent=None):
+        if role in MAIN_ROLES:
+            md = self.open("root")
+            try:
+                data = md.to_dict()["signed"]["roles"][role]
+                return Role.from_dict(data)
+            except (KeyError, ValueError):
+                raise TAFError("root.json is invalid")
+        else:
+            parent_name = self.find_delegated_roles_parent(role, parent)
+            if parent_name is None:
+                return None
+            md = self.open(parent_name)
+            delegations_data = md.to_dict()["signed"]["delegations"]["roles"]
+            for delegation in delegations_data:
+                if delegation["name"] == role:
+                    try:
+                        return DelegatedRole.from_dict(delegation)
+                    except (KeyError, ValueError):
+                        raise TAFError(f"{delegation}.json is invalid")
+            return None
