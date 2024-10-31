@@ -23,7 +23,9 @@ from tuf.api.metadata import (
     TargetFile,
     Timestamp,
     DelegatedRole,
+    Delegations,
 )
+from tuf.api.serialization.json import JSONSerializer
 from taf.exceptions import TAFError
 from taf.models.types import RolesIterator, RolesKeysData
 from taf.tuf.keys import _get_legacy_keyid
@@ -55,6 +57,8 @@ class MetadataRepository(Repository):
     """
 
     expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
+
+    serializer = JSONSerializer(compact=False)
 
     def __init__(self, path: Path) -> None:
         self.signer_cache: Dict[str, Dict[str, Signer]] = {}
@@ -105,8 +109,6 @@ class MetadataRepository(Repository):
             for target_file in target_files:
                 targets.targets[target_file.path] = target_file
 
-        self.do_snapshot()
-        self.do_timestamp()
 
     def add_keys(self, signers: List[Signer], role: str) -> None:
         """Add signer public keys for role to root and update signer cache."""
@@ -201,12 +203,13 @@ class MetadataRepository(Repository):
             self._targets_infos[fname].version = md.signed.version
 
         # Write role metadata to disk (root gets a version-prefixed copy)
-        md.to_file(self.metadata_path / fname)
+        md.to_file(self.metadata_path / fname, serializer=self.serializer)
+
         if role == "root":
             md.to_file(self.metadata_path / f"{md.signed.version}.{fname}")
 
 
-    def create(self, roles_keys_data: RolesKeysData, signers: dict, verification_keys: dict):
+    def create(self, roles_keys_data: RolesKeysData, signers: dict):
         """Create a new metadata repository on disk.
 
         1. Create metadata subdir (fail, if exists)
@@ -221,7 +224,6 @@ class MetadataRepository(Repository):
         self.metadata_path.mkdir()
         self.signer_cache  = defaultdict(dict)
 
-
         root = Root(consistent_snapshot=False)
 
         # Snapshot tracks targets and root versions. targets v1 is included by
@@ -229,29 +231,65 @@ class MetadataRepository(Repository):
         sn = Snapshot()
         sn.meta["root.json"] = MetaFile(1)
 
-
         for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
             if not role.is_yubikey:
-                if verification_keys is None or signers is None:
+                if signers is None:
                     raise TAFError(f"Cannot setup role {role.name}. Keys not specified")
-                for public_key, signer in zip(verification_keys[role.name], signers[role.name]):
-                    key_id = _get_legacy_keyid(public_key)
+                for signer in signers[role.name]:
+                    key_id = _get_legacy_keyid(signer.public_key)
                     self.signer_cache[role.name][key_id] = signer
-                    root.add_key(public_key, role.name)
+                    root.add_key(signer.public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
+        targets = Targets()
+        target_roles = {"targets": targets}
+        delegations_per_parent = defaultdict(dict)
+        for role in RolesIterator(roles_keys_data.roles.targets):
+            if role.parent is None:
+                continue
+            parent = role.parent.name
+            parent_obj = target_roles.get(parent)
+            keyids = []
+            for signer in signers[role.name]:
+                key_id = _get_legacy_keyid(signer.public_key)
+                self.signer_cache[role.name][key_id] = signer
+                keyids.append(key_id)
+            delegated_role = DelegatedRole(
+                name=role.name,
+                threshold=role.threshold,
+                paths=role.paths,
+                terminating=role.terminating,
+                keyids=keyids,
+            )
+            delegated_metadata = Targets()
+            target_roles[role.name] = delegated_metadata
+            delegations_per_parent[parent][role.name] = delegated_role
+            sn.meta[f"{role.name}.json"] = MetaFile(1)
 
-            # create_delegations(
-            #     roles_keys_data.roles.targets, repository, verification_keys, signing_keys
-            # )
+        for parent, role_data in delegations_per_parent.items():
+            parent_obj = target_roles[parent]
+            keys = {}
+            for role_name in role_data:
+                for key_id, signer in  self.signer_cache[role_name].items():
+                    keys[key_id] = signer.public_key
 
+            delegations = Delegations(roles=role_data, keys=keys)
+            parent_obj.delegations = delegations
 
-        for signed in [root, Timestamp(), sn, Targets()]:
+        for signed in [root, Timestamp(), sn, targets]:
             # Setting the version to 0 here is a trick, so that `close` can
             # always bump by the version 1, even for the first time
             signed.version = 0  # `close` will bump to initial valid verison 1
             self.close(signed.type, Metadata(signed))
 
+        for name, signed in target_roles.items():
+            if name != "targets":
+                signed.version = 0  # `close` will bump to initial valid verison 1
+                self.close(name, Metadata(signed))
+
+
+    def add_delegation(self, role_data):
+        pass
 
     def find_delegated_roles_parent(self, delegated_role, parent=None):
         if parent is None:
@@ -262,10 +300,11 @@ class MetadataRepository(Repository):
         while parents:
             parent = parents.pop()
             parent_obj = self._signed_obj(parent)
-            for delegation in parent_obj.delegations.roles:
-                if delegation == delegated_role:
-                    return parent
-                parents.append(delegation)
+            if parent_obj.delegations:
+                for delegation in parent_obj.delegations.roles:
+                    if delegation == delegated_role:
+                        return parent
+                    parents.append(delegation)
         return None
 
     def find_keys_roles(self, public_keys, check_threshold=True):
