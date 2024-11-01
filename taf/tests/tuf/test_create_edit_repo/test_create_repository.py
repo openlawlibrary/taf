@@ -3,7 +3,6 @@ from taf.models.types import RolesKeysData
 from taf.tests.test_repository.test_repo import MetadataRepository
 from taf.models.converter import from_dict
 from taf.tuf.keys import _get_legacy_keyid
-from tuf.api.metadata import Targets
 
 
 def test_create_without_delegations(tmp_path, signers, no_yubikeys_input):
@@ -96,3 +95,4 @@ def test_create_with_delegations(tmp_path, signers_with_delegations, with_delega
     # assert repo cannot be created twice
     with pytest.raises(FileExistsError):
         tuf_repo.create(roles_keys_data, signers_with_delegations)
+

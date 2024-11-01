@@ -102,10 +102,21 @@ def test_signing_roles(tuf_repo_with_delegations):
 def test_get_role_from_target_paths(tuf_repo_with_delegations):
     assert tuf_repo_with_delegations.get_role_from_target_paths(["dir1/file1.txt", "dir1/file2.txt"]) == "delegated_role"
 
-# def test_find_keys_roles(targets_key):
-#     test_group_dir = TEST_DATA_REPOS_PATH / "test-repository-tool/test-delegated-roles-pkcs1v15" / "taf"
-#     tuf_repo = MetadataRepository(test_group_dir)
-#     tuf_repo.find_keys_roles([targets_key])
+def test_find_keys_roles(tuf_repo_with_delegations, public_keys_with_delegations):
+    target_keys = public_keys_with_delegations["targets"]
+    delegated_role_keys = public_keys_with_delegations["delegated_role"]
+    actual = tuf_repo_with_delegations.find_keys_roles(target_keys + delegated_role_keys)
+    assert actual == ["targets", "delegated_role"]
+    actual = tuf_repo_with_delegations.find_keys_roles(target_keys[2:] + delegated_role_keys)
+    assert actual == ["delegated_role"]
+    root_keys = public_keys_with_delegations["root"]
+    actual = tuf_repo_with_delegations.find_keys_roles(root_keys)
+    assert actual == ["root"]
+
+def test_find_associated_roles_of_key(tuf_repo_with_delegations, public_keys_with_delegations):
+    for role in ("root", "targets", "snapshot", "timestamp", "delegated_role", "inner_role"):
+        key = public_keys_with_delegations[role][0]
+        assert tuf_repo_with_delegations.find_associated_roles_of_key(key) == [role]
 
 
 # def test_all_target_files():

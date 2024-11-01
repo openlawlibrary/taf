@@ -416,56 +416,6 @@ class Repository:
 
         return added_target_files, removed_target_files
 
-    def get_signed_target_files(self):
-        """Return all target files signed by all roles.
-
-        Args:
-        - None
-
-        Returns:
-        - Set of all target paths relative to targets directory
-        """
-        all_roles = self.get_all_targets_roles()
-        return self.get_singed_target_files_of_roles(all_roles)
-
-    def get_singed_target_files_of_roles(self, roles):
-        """Return all target files signed by the specified roles
-
-        Args:
-        - roles whose target files will be returned
-
-        Returns:
-        - Set of paths of target files of a role relative to targets directory
-        """
-        if roles is None:
-            roles = self.get_all_targets_roles()
-        return set(
-            reduce(
-                operator.iconcat,
-                [self._role_obj(role).target_files for role in roles],
-                [],
-            )
-        )
-
-    def get_signed_targets_with_custom_data(self, roles):
-        """Return all target files signed by the specified roles and and their custom data
-        as specified in the metadata files
-
-        Args:
-        - roles whose target files will be returned
-
-        Returns:
-        - A dictionary whose keys are parts of target files relative to the targets directory
-        and values are custom data dictionaries.
-        """
-        if roles is None:
-            roles = self.get_all_targets_roles()
-        target_files = {}
-        for role in roles:
-            roles_targets = self._role_obj(role).target_files
-            for target_file, custom_data in roles_targets.items():
-                target_files.setdefault(target_file, {}).update(custom_data)
-        return target_files
 
     def modify_targets(self, added_data=None, removed_data=None):
         """Creates a target.json file containing a repository's commit for each repository.

@@ -309,51 +309,54 @@ class MetadataRepository(Repository):
                     parents.append(delegation)
         return None
 
+
+    def get_keyids_of_role(self, role_name):
+        role_obj = self._role_obj(role_name)
+        return role_obj.keyids
+
+    def get_delegations_of_role(self, role_name):
+        signed_obj = self._signed_obj(role_name)
+        return signed_obj.delegations.roles
+
     def find_keys_roles(self, public_keys, check_threshold=True):
         """Find all roles that can be signed by the provided keys.
         A role can be signed by the list of keys if at least the number
         of keys that can sign that file is equal to or greater than the role's
         threshold
         """
+        roles = []
+        for role in MAIN_ROLES:
+            roles.append((role, None))
+        keys_roles = []
+        key_ids = [_get_legacy_keyid(public_key) for public_key in public_keys]
+        while roles:
+            role_name, parent = roles.pop()
+            role_obj = self._role_obj(role_name, parent)
+            signed_obj = self._signed_obj(role_name)
+            target_roles_key_ids = role_obj.keyids
+            threshold = role_obj.threshold
+            num_of_signing_keys = len(
+                set(target_roles_key_ids).intersection(key_ids)
+            )
+            if (
+                (not check_threshold and num_of_signing_keys >= 1)
+                or num_of_signing_keys >= threshold
+            ):
+                keys_roles.append(role_name)
 
-        role = self._role_obj("targets")
-        import pdb; pdb.set_trace()
-        # def _map_keys_to_roles(role_name, key_ids):
-        #     keys_roles = []
-        #     delegations = self.get_delegations_info(role_name)
-        #     if len(delegations):
-        #         for role_info in delegations.get("roles"):
-        #             # check if this role can sign target_path
-        #             delegated_role_name = role_info["name"]
-        #             delegated_roles_keyids = role_info["keyids"]
-        #             delegated_roles_threshold = role_info["threshold"]
-        #             num_of_signing_keys = len(
-        #                 set(delegated_roles_keyids).intersection(key_ids)
-        #             )
-        #             if (
-        #                 not check_threshold
-        #                 or num_of_signing_keys >= delegated_roles_threshold
-        #             ):
-        #                 keys_roles.append(delegated_role_name)
-        #             keys_roles.extend(_map_keys_to_roles(delegated_role_name, key_ids))
-        #     return keys_roles
+            if role_name not in MAIN_ROLES or role_name == "targets":
+                if signed_obj.delegations:
+                    for delegation in signed_obj.delegations.roles:
+                        roles.append((delegation, role_name))
 
-        # keyids = [key["keyid"] for key in public_keys]
-        # return _map_keys_to_roles("targets", keyids)
+        return keys_roles
 
     def find_associated_roles_of_key(self, public_key):
         """
         Find all roles whose metadata files can be signed by this key
         Threshold is not important, as long as the key is one of the signing keys
         """
-        roles = []
-        key_id = public_key["keyid"]
-        for role in MAIN_ROLES:
-            key_ids = self.get_role_keys(role)
-            if key_id in key_ids:
-                roles.append(role)
-        roles.extend(self.find_keys_roles([public_key], check_threshold=False))
-        return roles
+        return self.find_keys_roles([public_key], check_threshold=False)
 
     def get_all_roles(self):
         """
@@ -452,6 +455,62 @@ class MetadataRepository(Repository):
 
         return common_role.pop()
 
+
+    # TODO
+    def get_signed_target_files(self):
+        """Return all target files signed by all roles.
+
+        Args:
+        - None
+
+        Returns:
+        - Set of all target paths relative to targets directory
+        """
+        all_roles = self.get_all_targets_roles()
+        return self.get_singed_target_files_of_roles(all_roles)
+
+    # TODO
+    def get_singed_target_files_of_roles(self, roles):
+        """Return all target files signed by the specified roles
+
+        Args:
+        - roles whose target files will be returned
+
+        Returns:
+        - Set of paths of target files of a role relative to targets directory
+        """
+        if roles is None:
+            roles = self.get_all_targets_roles()
+        role_obj = self._role_obj("targets")
+        import pdb; pdb.set_trace()
+        # return set(
+        #     reduce(
+        #         operator.iconcat,
+        #         [self._role_obj(role).target_files for role in roles],
+        #         [],
+        #     )
+        # )
+
+    # TODO
+    def get_signed_targets_with_custom_data(self, roles):
+        """Return all target files signed by the specified roles and and their custom data
+        as specified in the metadata files
+
+        Args:
+        - roles whose target files will be returned
+
+        Returns:
+        - A dictionary whose keys are parts of target files relative to the targets directory
+        and values are custom data dictionaries.
+        """
+        if roles is None:
+            roles = self.get_all_targets_roles()
+        target_files = {}
+        for role in roles:
+            roles_targets = self._role_obj(role).target_files
+            for target_file, custom_data in roles_targets.items():
+                target_files.setdefault(target_file, {}).update(custom_data)
+        return target_files
 
     def map_signing_roles(self, target_filenames):
         """

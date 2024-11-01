@@ -21,6 +21,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 from json import JSONDecoder
+from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
 
