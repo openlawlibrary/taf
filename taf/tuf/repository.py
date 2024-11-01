@@ -279,11 +279,13 @@ class MetadataRepository(Repository):
         for signed in [root, Timestamp(), sn, targets]:
             # Setting the version to 0 here is a trick, so that `close` can
             # always bump by the version 1, even for the first time
+            self._set_default_expiration_date(signed)
             signed.version = 0  # `close` will bump to initial valid verison 1
             self.close(signed.type, Metadata(signed))
 
         for name, signed in target_roles.items():
             if name != "targets":
+                self._set_default_expiration_date(signed)
                 signed.version = 0  # `close` will bump to initial valid verison 1
                 self.close(name, Metadata(signed))
 
@@ -372,8 +374,9 @@ class MetadataRepository(Repository):
             role = target_roles.pop()
             all_roles.append(role)
             role_metadata = self._signed_obj(role)
-            for delegation in role_metadata.delegations.roles:
-                target_roles.append(delegation)
+            if role_metadata.delegations:
+                for delegation in role_metadata.delegations.roles:
+                    target_roles.append(delegation)
 
         return all_roles
 
@@ -477,8 +480,9 @@ class MetadataRepository(Repository):
                         roles_targets[target_filename] = role
 
             role_obj = self._signed_obj(role)
-            for delegation in role_obj.delegations.roles:
-                roles.append(delegation)
+            if role_obj.delegations:
+                for delegation in role_obj.delegations.roles:
+                    roles.append(delegation)
 
         return roles_targets
 
@@ -486,7 +490,7 @@ class MetadataRepository(Repository):
     def _signed_obj(self, role):
         md = self.open(role)
         try:
-            singed_data = md.to_dict()["signed"]
+            signed_data = md.to_dict()["signed"]
             role_to_role_class = {
                 "root": Root,
                 "targets": Targets,
@@ -494,10 +498,15 @@ class MetadataRepository(Repository):
                 "timestamp": Timestamp
             }
             role_class =  role_to_role_class.get(role, Targets)
-            return role_class.from_dict(singed_data)
+            return role_class.from_dict(signed_data)
         except (KeyError, ValueError):
             raise TAFError(f"Invalid metadata file {role}.json")
 
+    def _set_default_expiration_date(self, signed):
+        interval = self.expiration_intervals[signed.type]
+        start_date = datetime.now(timezone.utc)
+        expiration_date = start_date + timedelta(interval)
+        signed.expires = expiration_date
 
     def set_metadata_expiration_date(self, role, start_date=None, interval=None):
         """Set expiration date of the provided role.
@@ -525,13 +534,13 @@ class MetadataRepository(Repository):
                                                         this targets object.
         """
         md = self.open(role)
-        start_date = datetime.datetime.now()
+        start_date = datetime.now(datetime.timezone.utc)
         if interval is None:
             try:
                 interval = self.expiration_intervals[role]
             except KeyError:
                 interval = self.expiration_intervals["targets"]
-        expiration_date = start_date + datetime.timedelta(interval)
+        expiration_date = start_date + timedelta(interval)
         md.signed.expires = expiration_date
 
         self.close(role, md)

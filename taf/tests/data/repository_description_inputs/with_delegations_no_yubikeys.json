@@ -13,7 +13,8 @@
               "dir1/*",
               "dir2/path1"
               ],
-            "threshold": 1,
+            "number": 2,
+            "threshold": 2,
             "delegations": {
               "inner_role": {
                 "paths": ["dir2/path2"]

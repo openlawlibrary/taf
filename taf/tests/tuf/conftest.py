@@ -21,7 +21,7 @@ def keystore():
 @pytest.fixture
 def keystore_delegations():
     """Create signer from some rsa test key."""
-    return TEST_DATA_PATH / "keystores" / "api_keystore"
+    return TEST_DATA_PATH / "keystores" / "keystore_no_delegations"
 
 
 @pytest.fixture
