@@ -1168,9 +1168,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
         )
         # append fetched commits
-        self.state.auth_commits_since_last_validated.extend(
-            self.state.update_handler.commits[1:]
-        )
+        if self.state.update_handler is not None and self.state.update_handler.commits:
+            self.state.auth_commits_since_last_validated.extend(
+                self.state.update_handler.commits[1:]
+            )
         self.state.targets_data_by_auth_commits = (
             self.state.users_auth_repo.targets_data_by_auth_commits(
                 self.state.auth_commits_since_last_validated
