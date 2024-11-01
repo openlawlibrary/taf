@@ -33,25 +33,32 @@ def no_yubikeys_input():
 def with_delegations_no_yubikeys_input():
     return json.loads(WITH_DELEGATIONS.read_text())
 
+
 @pytest.fixture
-def tuf_repo(tmp_path, keystore, no_yubikeys_input ):
+def signers(keystore):
+    return _load_signers_from_keystore(keystore)
+
+
+@pytest.fixture
+def signers_with_delegations(keystore_delegations):
+    return _load_signers_from_keystore(keystore_delegations)
+
+
+@pytest.fixture
+def tuf_repo(tmp_path, signers, no_yubikeys_input):
     # Create new metadata repository
     tuf_repo = MetadataRepository(tmp_path)
     roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
-    roles_keys_data.keystore = keystore
-    signers = _load_signers_from_keystore(keystore)
     tuf_repo.create(roles_keys_data, signers)
     yield tuf_repo
 
 
 @pytest.fixture
-def tuf_repo_with_delegations(tmp_path, keystore_delegations, with_delegations_no_yubikeys_input):
+def tuf_repo_with_delegations(tmp_path, signers_with_delegations, with_delegations_no_yubikeys_input):
     # Create new metadata repository
     tuf_repo = MetadataRepository(tmp_path)
     roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
-    roles_keys_data.keystore = keystore_delegations
-    signers = _load_signers_from_keystore(keystore_delegations)
-    tuf_repo.create(roles_keys_data, signers)
+    tuf_repo.create(roles_keys_data, signers_with_delegations)
     yield tuf_repo
 
 
