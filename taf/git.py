@@ -723,7 +723,9 @@ class GitRepository:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
-            raise GitError(f"Could not clone repository from local path {local_path}")
+            raise GitError(
+                self, message=f"Could not clone repository from local path {local_path}"
+            )
         repo = self.pygit_repo
 
         if not keep_remote:
@@ -1627,7 +1629,7 @@ class GitRepository:
         remote_branch = f"{remote}/{branch}"
         if not self.branch_exists(remote_branch, include_remotes=True):
             raise GitError(
-                f"Branch {remote_branch} does not exist in the remote repository."
+                self, message=f"Remote branch {remote_branch} does not exist"
             )
         return self.top_commit_of_branch(remote_branch)
 
