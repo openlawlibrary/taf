@@ -5,9 +5,9 @@ from taf.models.converter import from_dict
 from taf.tuf.keys import _get_legacy_keyid
 
 
-def test_create_without_delegations(tmp_path, signers, no_yubikeys_input):
+def test_create_without_delegations(repo_path, signers, no_yubikeys_input):
     # Create new metadata repository
-    tuf_repo = MetadataRepository(tmp_path)
+    tuf_repo = MetadataRepository(repo_path)
     roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
     tuf_repo.create(roles_keys_data, signers)
 
@@ -44,9 +44,9 @@ def test_create_without_delegations(tmp_path, signers, no_yubikeys_input):
     with pytest.raises(FileExistsError):
         tuf_repo.create(roles_keys_data, signers)
 
-def test_create_with_delegations(tmp_path, signers_with_delegations, with_delegations_no_yubikeys_input):
+def test_create_with_delegations(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
     # Create new metadata repository
-    tuf_repo = MetadataRepository(tmp_path)
+    tuf_repo = MetadataRepository(repo_path)
     roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
     tuf_repo.create(roles_keys_data, signers_with_delegations)
 

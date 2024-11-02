@@ -103,11 +103,14 @@ class MetadataRepository(Repository):
 
         return set(targets)
 
-    def add_target_files(self, target_files: List[TargetFile]) -> None:
+    def add_target_files_to_role(self, target_files: List[TargetFile]) -> None:
         """Add target files to top-level targets metadata."""
         with self.edit_targets() as targets:
             for target_file in target_files:
                 targets.targets[target_file.path] = target_file
+
+        self.do_snapshot()
+        self.do_timestamp()
 
 
     def add_keys(self, signers: List[Signer], role: str) -> None:
