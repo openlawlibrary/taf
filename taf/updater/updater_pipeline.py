@@ -1060,31 +1060,46 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # we still expect the last validated target commit to exist
             # and the remaining commits will be validated afterwards
             # if the last validated target commit does not exist, start the validation from scratch
-            if self.state.last_validated_commit is not None:
-                for repository in self.state.temp_target_repositories.values():
-                    if repository.name not in self.state.targets_data_by_auth_commits:
-                        continue
-                    self.state.old_heads_per_target_repos_branches[repository.name] = {}
-                    last_validated_repository_commits_data = (
-                        self.state.targets_data_by_auth_commits[repository.name].get(
-                            self.state.last_validated_commit, {}
-                        )
-                    )
-
-                    if last_validated_repository_commits_data:
-                        if repository.name in self.state.repos_not_on_disk:
-                            is_initial_state_in_sync = False
-                            break
-                        if not self._is_repository_in_sync(
-                            repository, last_validated_repository_commits_data
+            try:
+                if self.state.last_validated_commit is not None:
+                    for repository in self.state.temp_target_repositories.values():
+                        if (
+                            repository.name
+                            not in self.state.targets_data_by_auth_commits
                         ):
-                            is_initial_state_in_sync = False
-                            break
+                            continue
+                        self.state.old_heads_per_target_repos_branches[
+                            repository.name
+                        ] = {}
+                        last_validated_repository_commits_data = (
+                            self.state.targets_data_by_auth_commits[
+                                repository.name
+                            ].get(self.state.last_validated_commit, {})
+                        )
+
+                        if last_validated_repository_commits_data:
+                            if repository.name in self.state.repos_not_on_disk:
+                                is_initial_state_in_sync = False
+                                break
+                            if not self._is_repository_in_sync(
+                                repository, last_validated_repository_commits_data
+                            ):
+                                is_initial_state_in_sync = False
+                                break
+
+                if not is_initial_state_in_sync:
+                    taf_logger.log(
+                        "NOTICE",
+                        f"{self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the validation from the beginning",
+                    )
+            except Exception as e:
+                taf_logger.log(
+                    "NOTICE",
+                    f"{self.state.users_auth_repo.name}: could not determine if repos are in sync due to error. Starting the validation from the beginning. Error: {e}",
+                )
+                is_initial_state_in_sync = False
 
             if not is_initial_state_in_sync:
-                taf_logger.info(
-                    f"{self.state.users_auth_repo.name}: states of target repositories are not in sync with last validated commit. Starting the update from the beginning"
-                )
                 self._update_state_for_initial_sync()
                 self.reset_target_repositories()
 
@@ -1152,6 +1167,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.users_auth_repo.default_branch
             )
         )
+        # append fetched commits
+        if self.state.update_handler is not None and self.state.update_handler.commits:
+            self.state.auth_commits_since_last_validated.extend(
+                self.state.update_handler.commits[1:]
+            )
         self.state.targets_data_by_auth_commits = (
             self.state.users_auth_repo.targets_data_by_auth_commits(
                 self.state.auth_commits_since_last_validated
