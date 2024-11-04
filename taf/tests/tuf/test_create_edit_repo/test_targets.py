@@ -12,11 +12,14 @@ def test_add_target_files(repo_path, signers, no_yubikeys_input):
     roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
     tuf_repo.create(roles_keys_data, signers)
 
-    target_file = TargetFile.from_data("foo.txt", b"foo", ["sha256", "sha512"])
 
     # assert add target file and correct version bumps
-    tuf_repo.add_target_files_to_role([target_file])
-    assert tuf_repo.targets().targets[target_file.path] == target_file
+    path1 = "foo.txt"
+    tuf_repo.add_target_files_to_role({path1: {"target": "foo"}})
+    assert (tuf_repo._path / "targets" / path1).is_file()
+    assert tuf_repo.targets().targets[path1]
+    assert tuf_repo.targets().targets[path1].length > 0
+    assert len(tuf_repo.targets().targets[path1].hashes) == 2
     assert tuf_repo.root().version == 1
     assert tuf_repo.timestamp().version == 2
     assert tuf_repo.snapshot().version == 2
@@ -24,6 +27,14 @@ def test_add_target_files(repo_path, signers, no_yubikeys_input):
     assert tuf_repo.timestamp().snapshot_meta.version == 2
     assert tuf_repo.snapshot().meta["root.json"].version == 1
     assert tuf_repo.snapshot().meta["targets.json"].version == 2
+
+    # now add with custom
+    path2 = "test.txt"
+    custom =  {"custom_attr": "custom_val"}
+    tuf_repo.add_target_files_to_role({path2: {"target": "test", "custom": custom}})
+    assert (tuf_repo._path / "targets" / path2).is_file()
+    assert tuf_repo.targets().targets[path2].length > 0
+    assert tuf_repo.targets().targets[path2].custom ==  custom
 
 # def test_add_keys(self, tmp_path, test_signers, test_signer2):
 #     repo = MetadataRepository(tmp_path)

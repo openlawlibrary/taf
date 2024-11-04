@@ -58,31 +58,6 @@ expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 
 role_keys_cache: Dict = {}
 
 
-DISABLE_KEYS_CACHING = False
-HASH_FUNCTION = "sha256"
-MAIN_ROLES = ("root", "targets", "snapshot", "timestamp")
-
-
-def get_role_metadata_path(role: str) -> str:
-    return f"{METADATA_DIRECTORY_NAME}/{role}.json"
-
-
-def get_target_path(target_name: str) -> str:
-    return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
-
-
-def is_delegated_role(role: str) -> bool:
-    return role not in ("root", "targets", "snapshot", "timestamp")
-
-
-def is_auth_repo(repo_path: str) -> bool:
-    """Check if the given path contains a valid TUF repository"""
-    try:
-        Repository(repo_path)._repository
-        return True
-    except Exception:
-        return False
-
 
 def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Loads the specified role's key from a keystore file.
@@ -417,74 +392,6 @@ class Repository:
         return added_target_files, removed_target_files
 
 
-    def modify_targets(self, added_data=None, removed_data=None):
-        """Creates a target.json file containing a repository's commit for each repository.
-        Adds those files to the tuf repository.
-
-        Args:
-        - added_data(dict): Dictionary of new data whose keys are target paths of repositories
-                            (as specified in targets.json, relative to the targets dictionary).
-                            The values are of form:
-                            {
-                                target: content of the target file
-                                custom: {
-                                    custom_field1: custom_value1,
-                                    custom_field2: custom_value2
-                                }
-                            }
-        - removed_data(dict): Dictionary of the old data whose keys are target paths of
-                              repositories
-                              (as specified in targets.json, relative to the targets dictionary).
-                              The values are not needed. This is just for consistency.
-
-        Content of the target file can be a dictionary, in which case a json file will be created.
-        If that is not the case, an ordinary textual file will be created.
-        If content is not specified and the file already exists, it will not be modified.
-        If it does not exist, an empty file will be created. To replace an existing file with an
-        empty file, specify empty content (target: '')
-
-        Custom is an optional property which, if present, will be used to specify a TUF target's
-
-        Returns:
-        - Role name used to update given targets
-        """
-        added_data = {} if added_data is None else added_data
-        removed_data = {} if removed_data is None else removed_data
-        data = dict(added_data, **removed_data)
-        if not data:
-            raise TargetsError("Nothing to be modified!")
-
-        target_paths = list(data.keys())
-        targets_role = self.get_role_from_target_paths(data)
-        if targets_role is None:
-            raise TargetsError(
-                f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
-            )
-        targets_obj = self._role_obj(targets_role)
-        # add new target files
-        for path, target_data in added_data.items():
-            target_path = (self.targets_path / path).absolute()
-            self._create_target_file(target_path, target_data)
-            custom = target_data.get("custom", None)
-            self._add_target(targets_obj, str(target_path), custom)
-
-        # remove existing target files
-        for path in removed_data.keys():
-            target_path = (self.targets_path / path).absolute()
-            if target_path.exists():
-                if target_path.is_file():
-                    target_path.unlink()
-                elif target_path.is_dir():
-                    shutil.rmtree(target_path, onerror=on_rm_error)
-
-            try:
-                targets_obj.remove_target(path)
-            except Exception:
-                continue
-
-        return targets_role
-
-
     def get_target_file_custom_data(self, target_path):
         """
         Return a custom data of a given target.
@@ -530,23 +437,6 @@ class Repository:
                     all_target_relpaths.append(file_rel_path)
         return all_target_relpaths
 
-    def _create_target_file(self, target_path, target_data):
-        # if the target's parent directory should not be "targets", create
-        # its parent directories if they do not exist
-        target_dir = target_path.parents[0]
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        # create the target file
-        content = target_data.get("target", None)
-        if content is None:
-            if not target_path.is_file():
-                target_path.touch()
-        else:
-            with open(str(target_path), "w") as f:
-                if isinstance(content, dict):
-                    json.dump(content, f, indent=4)
-                else:
-                    f.write(content)
 
     def delete_unregistered_target_files(self, targets_role="targets"):
         """

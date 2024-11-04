@@ -3,16 +3,19 @@
 
 from fnmatch import fnmatch
 from functools import reduce
+import json
 import os
 from pathlib import Path
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import shutil
 from typing import Dict, List, Optional
 from securesystemslib.exceptions import StorageError
 
 from securesystemslib.signer import Signer
 
+from taf.utils import on_rm_error
 from tuf.api.metadata import (
     Metadata,
     MetaFile,
@@ -26,7 +29,7 @@ from tuf.api.metadata import (
     Delegations,
 )
 from tuf.api.serialization.json import JSONSerializer
-from taf.exceptions import TAFError
+from taf.exceptions import TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData
 from taf.tuf.keys import _get_legacy_keyid
 from tuf.repository import Repository
@@ -39,6 +42,29 @@ TARGETS_DIRECTORY_NAME = "targets"
 
 MAIN_ROLES = ["root", "targets", "snapshot", "timestamp"]
 
+DISABLE_KEYS_CACHING = False
+HASH_FUNCTION = "sha256"
+
+
+def get_role_metadata_path(role: str) -> str:
+    return f"{METADATA_DIRECTORY_NAME}/{role}.json"
+
+
+def get_target_path(target_name: str) -> str:
+    return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
+
+
+def is_delegated_role(role: str) -> bool:
+    return role not in ("root", "targets", "snapshot", "timestamp")
+
+
+def is_auth_repo(repo_path: str) -> bool:
+    """Check if the given path contains a valid TUF repository"""
+    try:
+        Repository(repo_path)._repository
+        return True
+    except Exception:
+        return False
 
 class MetadataRepository(Repository):
     """TUF metadata repository implementation for on-disk top-level roles.
@@ -103,16 +129,6 @@ class MetadataRepository(Repository):
 
         return set(targets)
 
-    def add_target_files_to_role(self, target_files: List[TargetFile]) -> None:
-        """Add target files to top-level targets metadata."""
-        with self.edit_targets() as targets:
-            for target_file in target_files:
-                targets.targets[target_file.path] = target_file
-
-        self.do_snapshot()
-        self.do_timestamp()
-
-
     def add_keys(self, signers: List[Signer], role: str) -> None:
         """Add signer public keys for role to root and update signer cache."""
         with self.edit_root() as root:
@@ -126,6 +142,25 @@ class MetadataRepository(Repository):
         if role == "targets":
             with self.edit_targets():
                 pass
+
+        self.do_snapshot()
+        self.do_timestamp()
+
+    def add_target_files_to_role(self, added_data: Dict[str, Dict]) -> None:
+        """Add target files to top-level targets metadata.
+        Args:
+            - added_data(dict): Dictionary of new data whose keys are target paths of repositories
+                    (as specified in targets.json, relative to the targets dictionary).
+                    The values are of form:
+                    {
+                        target: content of the target file
+                        custom: {
+                            custom_field1: custom_value1,
+                            custom_field2: custom_value2
+                        }
+                    }
+        """
+        self.modify_targets(added_data=added_data)
 
         self.do_snapshot()
         self.do_timestamp()
@@ -185,6 +220,23 @@ class MetadataRepository(Repository):
 
         return expired_dict, will_expire_dict
 
+    def _create_target_file(self, target_path, target_data):
+        # if the target's parent directory should not be "targets", create
+        # its parent directories if they do not exist
+        target_dir = target_path.parents[0]
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # create the target file
+        content = target_data.get("target", None)
+        if content is None:
+            if not target_path.is_file():
+                target_path.touch()
+        else:
+            with open(str(target_path), "w") as f:
+                if isinstance(content, dict):
+                    json.dump(content, f, indent=4)
+                else:
+                    f.write(content)
 
     def close(self, role: str, md: Metadata) -> None:
         """Bump version and expiry, re-sign, and write role metadata to disk."""
@@ -458,7 +510,6 @@ class MetadataRepository(Repository):
 
         return common_role.pop()
 
-
     # TODO
     def get_signed_target_files(self):
         """Return all target files signed by all roles.
@@ -548,6 +599,94 @@ class MetadataRepository(Repository):
 
         return roles_targets
 
+    def modify_targets(self, added_data=None, removed_data=None):
+        """Creates a target.json file containing a repository's commit for each repository.
+        Adds those files to the tuf repository.
+
+        Args:
+        - added_data(dict): Dictionary of new data whose keys are target paths of repositories
+                            (as specified in targets.json, relative to the targets dictionary).
+                            The values are of form:
+                            {
+                                target: content of the target file
+                                custom: {
+                                    custom_field1: custom_value1,
+                                    custom_field2: custom_value2
+                                }
+                            }
+        - removed_data(dict): Dictionary of the old data whose keys are target paths of
+                              repositories
+                              (as specified in targets.json, relative to the targets dictionary).
+                              The values are not needed. This is just for consistency.
+
+        Content of the target file can be a dictionary, in which case a json file will be created.
+        If that is not the case, an ordinary textual file will be created.
+        If content is not specified and the file already exists, it will not be modified.
+        If it does not exist, an empty file will be created. To replace an existing file with an
+        empty file, specify empty content (target: '')
+
+        Custom is an optional property which, if present, will be used to specify a TUF target's
+
+        Returns:
+        - Role name used to update given targets
+        """
+        added_data = {} if added_data is None else added_data
+        removed_data = {} if removed_data is None else removed_data
+        data = dict(added_data, **removed_data)
+        if not data:
+            raise TargetsError("Nothing to be modified!")
+
+        target_paths = list(data.keys())
+        targets_role = self.get_role_from_target_paths(data)
+        if targets_role is None:
+            raise TargetsError(
+                f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
+            )
+        # add new target files
+        target_files = []
+        for path, target_data in added_data.items():
+            target_path = (self.targets_path / path).absolute()
+            self._create_target_file(target_path, target_data)
+            target_file = TargetFile.from_file(
+                target_file_path=path,
+                local_path=str(target_path),
+                hash_algorithms=["sha256", "sha512"],
+            )
+            custom = target_data.get("custom", None)
+            if custom:
+                unrecognized_fields = {
+                    "custom": custom
+                }
+                target_file.unrecognized_fields=unrecognized_fields
+            target_files.append(target_file)
+
+        # remove existing target files
+        removed_paths = []
+        for path in removed_data.keys():
+            target_path = (self.targets_path / path).absolute()
+            if target_path.exists():
+                if target_path.is_file():
+                    target_path.unlink()
+                elif target_path.is_dir():
+                    shutil.rmtree(target_path, onerror=on_rm_error)
+            removed_paths.append(str(path))
+
+
+        targets_role = self._modify_tarets_role(target_files, removed_paths, targets_role)
+        return targets_role
+
+    def _modify_tarets_role(
+            self,
+            added_target_files: List[TargetFile],
+            removed_paths: List[str],
+            role_name: Optional[str]=Targets.type) -> None:
+        """Add target files to top-level targets metadata."""
+        with self.edit_targets(rolename=role_name) as targets:
+            for target_file in added_target_files:
+                targets.targets[target_file.path] = target_file
+            for path in removed_paths:
+                targets.targets.pop(path, None)
+        return targets
 
     def _signed_obj(self, role):
         md = self.open(role)
