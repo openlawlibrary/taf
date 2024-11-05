@@ -163,4 +163,46 @@ def test_get_target_file_hashes(tuf_repo_with_delegations):
     with pytest.raises(TAFError):
         tuf_repo_with_delegations.get_target_file_hashes("doesntexist")
 
+def test_get_key_length_and_scheme_from_metadata(tuf_repo_with_delegations):
+    keyid = tuf_repo_with_delegations._role_obj("targets").keyids[0]
+    actual = tuf_repo_with_delegations.get_key_length_and_scheme_from_metadata("root", keyid)
+    key, scheme = actual
+    assert key is not None
+    assert scheme == "rsa-pkcs1v15-sha256"
+
+def test_generate_roles_description(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.generate_roles_description()
+    roles_data = actual["roles"]
+    root_data = roles_data["root"]
+    assert root_data["threshold"] == 2
+    assert root_data["number"] == 3
+    assert root_data["scheme"] == "rsa-pkcs1v15-sha256"
+    assert root_data["length"] == 3072
+    targets_data = roles_data["targets"]
+    assert targets_data["threshold"] == 1
+    assert targets_data["number"] == 2
+    assert targets_data["scheme"] == "rsa-pkcs1v15-sha256"
+    assert targets_data["length"] == 3072
+    snapshot_data = roles_data["snapshot"]
+    assert snapshot_data["threshold"] == 1
+    assert snapshot_data["number"] == 1
+    assert snapshot_data["scheme"] == "rsa-pkcs1v15-sha256"
+    assert snapshot_data["length"] == 3072
+    timestamp_data = roles_data["timestamp"]
+    assert timestamp_data["threshold"] == 1
+    assert timestamp_data["number"] == 1
+    assert timestamp_data["scheme"] == "rsa-pkcs1v15-sha256"
+    assert timestamp_data["length"] == 3072
+    assert targets_data["delegations"]
+    delegated_role_data = targets_data["delegations"]["delegated_role"]
+    assert delegated_role_data["threshold"] == 2
+    assert delegated_role_data["number"] == 2
+    assert delegated_role_data["scheme"] == "rsa-pkcs1v15-sha256"
+    assert delegated_role_data["length"] == 3072
+    assert delegated_role_data["delegations"]
+    inner_role_data = delegated_role_data["delegations"]["inner_role"]
+    assert inner_role_data["threshold"] == 1
+    assert inner_role_data["number"] == 1
+    assert inner_role_data["scheme"] == "rsa-pkcs1v15-sha256"
+    assert inner_role_data["length"] == 3072
 

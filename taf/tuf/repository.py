@@ -13,10 +13,11 @@ from datetime import datetime, timedelta, timezone
 import shutil
 from typing import Dict, List, Optional, Set, Tuple
 from securesystemslib.exceptions import StorageError
+from cryptography.hazmat.primitives import serialization
 
 from securesystemslib.signer import Signer
 
-from taf.utils import get_file_details, on_rm_error
+from taf.utils import default_backend, get_file_details, on_rm_error
 from tuf.api.metadata import (
     Metadata,
     MetaFile,
@@ -624,6 +625,99 @@ class MetadataRepository(Repository):
         except KeyError:
             raise TAFError(f"Target {target_path} does not exist")
 
+    def get_key_length_and_scheme_from_metadata(self, parent_role, keyid):
+        try:
+            metadata = json.loads(
+                Path(
+                    self._path, METADATA_DIRECTORY_NAME, f"{parent_role}.json"
+                ).read_text()
+            )
+            metadata = metadata["signed"]
+            if "delegations" in metadata:
+                metadata = metadata["delegations"]
+            scheme = metadata["keys"][keyid]["scheme"]
+            pub_key_pem = metadata["keys"][keyid]["keyval"]["public"]
+            pub_key = serialization.load_pem_public_key(
+                pub_key_pem.encode(), backend=default_backend()
+            )
+            return pub_key, scheme
+        except Exception:
+            return None, None
+
+    # TODO
+    def generate_roles_description(self) -> Dict:
+        roles_description = {}
+
+        def _get_delegations(role_name):
+            delegations_info = {}
+            targets_signed = self._signed_obj(role_name)
+            for delegation in targets_signed.delegations.roles:
+                delegated_role = self._role_obj(delegation)
+                delegations_info[delegation] = {
+                    "threshold": delegated_role.threshold,
+                    "number": len(delegated_role.keyids),
+                    "paths": delegated_role.paths,
+                    "terminating": delegated_role.terminating,
+                }
+                pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+                    role_name, delegated_role.keyids[0]
+                )
+
+                delegations_info[delegation]["scheme"] = scheme
+                delegations_info[delegation]["length"] = pub_key.key_size
+                delegated_signed = self._signed_obj(delegation)
+                if delegated_signed.delegations:
+                    inner_roles_data = _get_delegations(delegation)
+                    if len(inner_roles_data):
+                        delegations_info[delegation][
+                            "delegations"
+                        ] = inner_roles_data
+            return delegations_info
+
+        for role_name in MAIN_ROLES:
+            role_obj = self._role_obj(role_name)
+            roles_description[role_name] = {
+                "threshold": role_obj.threshold,
+                "number": len(role_obj.keyids),
+            }
+            pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+                "root", role_obj.keyids[0]
+            )
+            roles_description[role_name]["scheme"] = scheme
+            roles_description[role_name]["length"] = pub_key.key_size
+            if role_name == "targets":
+                targets_signed = self._signed_obj(role_name)
+                if targets_signed.delegations:
+                    delegations_info = _get_delegations(role_name)
+                    if len(delegations_info):
+                        roles_description[role_name]["delegations"] = delegations_info
+        return {"roles": roles_description}
+
+    def get_role_keys(self, role, parent_role=None):
+        """Get keyids of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        List of the role's keyids (i.e., keyids of the keys).
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+                                                        targets object.
+        """
+        role_obj = self._role_obj(role)
+        if role_obj is None:
+            return None
+        try:
+            return role_obj.keys
+        except KeyError:
+            pass
+        return self.get_delegated_role_property("keyids", role, parent_role)
 
     def map_signing_roles(self, target_filenames):
         """
