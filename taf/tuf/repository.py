@@ -439,7 +439,6 @@ class MetadataRepository(Repository):
 
         return all_roles
 
-    # TODO
     def get_all_target_files_state(self):
         """Create dictionaries of added/modified and removed files by comparing current
         file-system state with current signed targets (and delegations) metadata state.
@@ -602,7 +601,6 @@ class MetadataRepository(Repository):
                 target_files.setdefault(target_path, {}).update(target_file.custom or {})
         return target_files
 
-    # TODO
     def get_target_file_custom_data(self, target_path: str) -> Optional[Dict]:
         """
         Return a custom data of a given target.
@@ -610,23 +608,22 @@ class MetadataRepository(Repository):
         try:
             role = self.get_role_from_target_paths([target_path])
             return self._signed_obj(role).targets[target_path].custom
-        except Exception:
-            return None
+        except KeyError:
+            raise TAFError(f"Target {target_path} does not exist")
 
-    # TODO
     def get_target_file_hashes(self, target_path, hash_func=HASH_FUNCTION):
         """
         Return hashes of a given target path.
         """
-        hashes = {"sha256": None, "sha512": None}
         try:
             role = self.get_role_from_target_paths([target_path])
-            role_dict = json.loads((self.metadata_path / f"{role}.json").read_text())
-            hashes.update(role_dict["signed"]["targets"][target_path]["hashes"])
-        except Exception:
-            pass
+            hashes = self._signed_obj(role).targets[target_path].hashes
+            if hash_func not in hashes:
+                raise TAFError(f"Invalid hashing algorithm {hash_func}")
+            return hashes[hash_func]
+        except KeyError:
+            raise TAFError(f"Target {target_path} does not exist")
 
-        return hashes.get(hash_func, hashes)
 
     def map_signing_roles(self, target_filenames):
         """

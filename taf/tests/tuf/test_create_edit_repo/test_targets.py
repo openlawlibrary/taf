@@ -101,6 +101,38 @@ def test_repo_target_files_with_delegations(repo_path, signers_with_delegations,
     assert tuf_repo._signed_obj("inner_role").targets[path_delegated].length > 0
 
 
+def test_get_all_target_files_state(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
+
+    tuf_repo = MetadataRepository(repo_path)
+    roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
+    tuf_repo.create(roles_keys_data, signers_with_delegations)
+
+    # assert add target file and correct version bumps
+
+    target_path1 = "test1"
+    target_path2 = "test2"
+
+    tuf_repo.add_target_files_to_role({
+        target_path1: {"target": "test1"},
+        target_path2: {"target": "test2"}
+        }
+    )
+
+    (tuf_repo._path / "targets" / target_path1).unlink()
+
+    delegated_path1 = "dir1/path1"
+    delegated_path2 = "dir2/path1"
+
+    tuf_repo.add_target_files_to_role({
+        delegated_path1: {"target": "test1"},
+        delegated_path2: {"target": "test2"}
+        }
+    )
+    path = tuf_repo._path / "targets" / delegated_path1
+    path.write_text("Updated content")
+
+    actual = tuf_repo.get_all_target_files_state()
+    assert actual == ({delegated_path1: {'target': 'Updated content', 'custom': None}}, {target_path1: {}})
 
 # def test_add_keys(self, tmp_path, test_signers, test_signer2):
 #     repo = MetadataRepository(tmp_path)

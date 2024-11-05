@@ -138,9 +138,11 @@ def test_get_signed_target_files(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_signed_target_files()
     assert actual == {'test2', 'test1', 'dir2/path2', 'dir1/path1', 'dir2/path1'}
 
+
 def test_get_signed_targets_with_custom_data(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_signed_targets_with_custom_data()
     assert actual == {'test1': {}, 'test2': {}, 'dir1/path1': {'custom_attr1': 'custom_val1'}, 'dir2/path1': {'custom_attr2': 'custom_val2'}, 'dir2/path2': {}}
+
 
 def test_get_target_file_custom_data(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_target_file_custom_data("dir1/path1")
@@ -148,7 +150,17 @@ def test_get_target_file_custom_data(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_target_file_custom_data("dir2/path1")
     assert actual == {'custom_attr2': 'custom_val2'}
 
-def test_get_target_file_custom_data_when_no_target(tuf_repo_with_delegations):
-    tuf_repo_with_delegations.get_target_file_custom_data("doesntexist")
+    with pytest.raises(TAFError):
+        tuf_repo_with_delegations.get_target_file_custom_data("doesntexist")
+
+
+def test_get_target_file_hashes(tuf_repo_with_delegations):
+    hash_value = tuf_repo_with_delegations.get_target_file_hashes("dir1/path1", "sha256")
+    assert len(hash_value) == 64
+    hash_value = tuf_repo_with_delegations.get_target_file_hashes("dir1/path1", "sha512")
+    assert len(hash_value) == 128
+
+    with pytest.raises(TAFError):
+        tuf_repo_with_delegations.get_target_file_hashes("doesntexist")
 
 

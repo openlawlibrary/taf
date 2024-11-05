@@ -325,7 +325,6 @@ class Repository:
         self._add_target(targets_obj, file_path, custom)
 
 
-
     def _collect_target_paths_of_role(self, target_roles_paths):
         all_target_relpaths = []
         for target_role_path in target_roles_paths:
