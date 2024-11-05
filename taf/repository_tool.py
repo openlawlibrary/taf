@@ -283,34 +283,6 @@ class Repository:
         tuf.roledb.remove_roledb(self.name)
         self._load_tuf_repository(self.path)
 
-    def _role_obj(self, role):
-        """Helper function for getting TUF's role object, given the role's name
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-
-        Returns:
-        One of metadata objects:
-            Root, Snapshot, Timestamp, Targets or delegated metadata
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
-        """
-        if role == "targets":
-            return self._repository.targets
-        elif role == "snapshot":
-            return self._repository.snapshot
-        elif role == "timestamp":
-            return self._repository.timestamp
-        elif role == "root":
-            return self._repository.root
-        try:
-            return self._repository.targets(role)
-        except tuf.exceptions.UnknownRoleError:
-            return
-
     def _try_load_metadata_key(self, role, key):
         """Check if given key can be used to sign given role and load it.
 
@@ -351,72 +323,6 @@ class Repository:
         """
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
-
-
-    def get_all_target_files_state(self):
-        """Create dictionaries of added/modified and removed files by comparing current
-        file-system state with current signed targets (and delegations) metadata state.
-
-        Args:
-        - None
-        Returns:
-        - Dict of added/modified files and dict of removed target files (inputs for
-          `modify_targets` method.)
-
-        Raises:
-        - None
-        """
-        added_target_files = {}
-        removed_target_files = {}
-
-        # current fs state
-        fs_target_files = self.all_target_files()
-        # current signed state
-        signed_target_files = self.get_signed_target_files()
-
-        # existing files with custom data and (modified) content
-        for file_name in fs_target_files:
-            target_file = self.targets_path / file_name
-            _, hashes = get_file_details(str(target_file))
-            # register only new or changed files
-            if hashes.get(HASH_FUNCTION) != self.get_target_file_hashes(file_name):
-                added_target_files[file_name] = {
-                    "target": target_file.read_text(),
-                    "custom": self.get_target_file_custom_data(file_name),
-                }
-
-        # removed files
-        for file_name in signed_target_files - fs_target_files:
-            removed_target_files[file_name] = {}
-
-        return added_target_files, removed_target_files
-
-
-    def get_target_file_custom_data(self, target_path):
-        """
-        Return a custom data of a given target.
-        """
-        try:
-            role = self.get_role_from_target_paths([target_path])
-            roleinfo = get_roleinfo(role)
-            return roleinfo["paths"][target_path]
-        except Exception:
-            return None
-
-    def get_target_file_hashes(self, target_path, hash_func=HASH_FUNCTION):
-        """
-        Return hashes of a given target path.
-        """
-        hashes = {"sha256": None, "sha512": None}
-        try:
-            role = self.get_role_from_target_paths([target_path])
-            role_dict = json.loads((self.metadata_path / f"{role}.json").read_text())
-            hashes.update(role_dict["signed"]["targets"][target_path]["hashes"])
-        except Exception:
-            pass
-
-        return hashes.get(hash_func, hashes)
-
 
 
 

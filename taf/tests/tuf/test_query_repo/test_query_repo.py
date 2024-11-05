@@ -1,8 +1,6 @@
 import datetime
 import pytest
 from taf.exceptions import TAFError
-from taf.tests.conftest import TEST_DATA_REPOS_PATH
-from taf.tuf.repository import MetadataRepository
 
 
 def test_open(tuf_repo_with_delegations):
@@ -119,9 +117,38 @@ def test_find_associated_roles_of_key(tuf_repo_with_delegations, public_keys_wit
         assert tuf_repo_with_delegations.find_associated_roles_of_key(key) == [role]
 
 
-# def test_all_target_files():
-#     test_group_dir = TEST_DATA_REPOS_PATH / "test-repository-tool/test-happy-path-pkcs1v15" / "taf"
-#     tuf_repo = MetadataRepository(test_group_dir)
-#     actual = tuf_repo.all_target_files()
-#     assert len(actual) == 3
-#     assert actual == {'branch', 'dummy/target_dummy_repo', 'repositories.json'}
+def test_all_target_files(tuf_repo_with_delegations):
+    # this method is expected to list all target files inside the targets directory
+    actual = tuf_repo_with_delegations.all_target_files()
+    assert actual == {'test2', 'test1', 'dir2/path2', 'dir1/path1', 'dir2/path1'}
+
+
+def test_get_singed_target_files_of_roles(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles()
+    assert actual == {'test2', 'test1', 'dir2/path2', 'dir1/path1', 'dir2/path1'}
+    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles(["targets"])
+    assert actual == {'test2', 'test1'}
+    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles(["targets"])
+    assert actual == {'test2', 'test1'}
+    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles(["targets", "delegated_role"])
+    assert actual == {'test2', 'test1', 'dir1/path1', 'dir2/path1'}
+
+
+def test_get_signed_target_files(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.get_signed_target_files()
+    assert actual == {'test2', 'test1', 'dir2/path2', 'dir1/path1', 'dir2/path1'}
+
+def test_get_signed_targets_with_custom_data(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.get_signed_targets_with_custom_data()
+    assert actual == {'test1': {}, 'test2': {}, 'dir1/path1': {'custom_attr1': 'custom_val1'}, 'dir2/path1': {'custom_attr2': 'custom_val2'}, 'dir2/path2': {}}
+
+def test_get_target_file_custom_data(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.get_target_file_custom_data("dir1/path1")
+    assert actual == {'custom_attr1': 'custom_val1'}
+    actual = tuf_repo_with_delegations.get_target_file_custom_data("dir2/path1")
+    assert actual == {'custom_attr2': 'custom_val2'}
+
+def test_get_target_file_custom_data_when_no_target(tuf_repo_with_delegations):
+    tuf_repo_with_delegations.get_target_file_custom_data("doesntexist")
+
+

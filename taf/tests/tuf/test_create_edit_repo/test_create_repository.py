@@ -33,7 +33,6 @@ def test_create_without_delegations(repo_path, signers, no_yubikeys_input):
     for role in ("root", "timestamp", "snapshot", "targets"):
         assert tuf_repo.root().roles[role].keyids == _get_pub_key_ids(role)
 
-
     # assert correct snapshot and timestamp meta
     assert tuf_repo.timestamp().snapshot_meta.version == 1
     assert tuf_repo.snapshot().meta["root.json"].version == 1

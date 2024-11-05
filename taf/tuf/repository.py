@@ -4,18 +4,19 @@
 from fnmatch import fnmatch
 from functools import reduce
 import json
+import operator
 import os
 from pathlib import Path
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import shutil
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 from securesystemslib.exceptions import StorageError
 
 from securesystemslib.signer import Signer
 
-from taf.utils import on_rm_error
+from taf.utils import get_file_details, on_rm_error
 from tuf.api.metadata import (
     Metadata,
     MetaFile,
@@ -172,13 +173,13 @@ class MetadataRepository(Repository):
         except StorageError:
             raise TAFError(f"Metadata file {self.metadata_path} does not exist")
 
-    def check_if_role_exists(self, role_name):
+    def check_if_role_exists(self, role_name: str) -> bool:
         role = self._role_obj(role_name)
         return role is not None
 
     def check_roles_expiration_dates(
-        self, interval=None, start_date=None, excluded_roles=None
-    ):
+        self, interval:Optional[int]=None, start_date:Optional[datetime]=None, excluded_roles:Optional[List[str]]=None
+    ) -> Tuple[Dict, Dict]:
         """Determines which metadata roles have expired, or will expire within a time frame.
         Args:
         - interval(int): Number of days to look ahead for expiration.
@@ -438,6 +439,45 @@ class MetadataRepository(Repository):
 
         return all_roles
 
+    # TODO
+    def get_all_target_files_state(self):
+        """Create dictionaries of added/modified and removed files by comparing current
+        file-system state with current signed targets (and delegations) metadata state.
+
+        Args:
+        - None
+        Returns:
+        - Dict of added/modified files and dict of removed target files (inputs for
+          `modify_targets` method.)
+
+        Raises:
+        - None
+        """
+        added_target_files = {}
+        removed_target_files = {}
+
+        # current fs state
+        fs_target_files = self.all_target_files()
+        # current signed state
+        signed_target_files = self.get_signed_target_files()
+
+        # existing files with custom data and (modified) content
+        for file_name in fs_target_files:
+            target_file = self.targets_path / file_name
+            _, hashes = get_file_details(str(target_file))
+            # register only new or changed files
+            if hashes.get(HASH_FUNCTION) != self.get_target_file_hashes(file_name):
+                added_target_files[file_name] = {
+                    "target": target_file.read_text(),
+                    "custom": self.get_target_file_custom_data(file_name),
+                }
+
+        # removed files
+        for file_name in signed_target_files - fs_target_files:
+            removed_target_files[file_name] = {}
+
+        return added_target_files, removed_target_files
+
     def get_expiration_date(self, role: str) -> datetime:
         meta_file = self._signed_obj(role)
         if meta_file is None:
@@ -510,8 +550,7 @@ class MetadataRepository(Repository):
 
         return common_role.pop()
 
-    # TODO
-    def get_signed_target_files(self):
+    def get_signed_target_files(self) -> Set[str]:
         """Return all target files signed by all roles.
 
         Args:
@@ -523,8 +562,7 @@ class MetadataRepository(Repository):
         all_roles = self.get_all_targets_roles()
         return self.get_singed_target_files_of_roles(all_roles)
 
-    # TODO
-    def get_singed_target_files_of_roles(self, roles):
+    def get_singed_target_files_of_roles(self, roles: Optional[List]=None) -> Set[str]:
         """Return all target files signed by the specified roles
 
         Args:
@@ -535,18 +573,16 @@ class MetadataRepository(Repository):
         """
         if roles is None:
             roles = self.get_all_targets_roles()
-        role_obj = self._role_obj("targets")
-        import pdb; pdb.set_trace()
-        # return set(
-        #     reduce(
-        #         operator.iconcat,
-        #         [self._role_obj(role).target_files for role in roles],
-        #         [],
-        #     )
-        # )
 
-    # TODO
-    def get_signed_targets_with_custom_data(self, roles):
+        return set(
+            reduce(
+                operator.iconcat,
+                [self._signed_obj(role).targets.keys()  for role in roles],
+                [],
+            )
+        )
+
+    def get_signed_targets_with_custom_data(self, roles: Optional[List[str]]=None) -> Dict[str, Dict]:
         """Return all target files signed by the specified roles and and their custom data
         as specified in the metadata files
 
@@ -554,17 +590,43 @@ class MetadataRepository(Repository):
         - roles whose target files will be returned
 
         Returns:
-        - A dictionary whose keys are parts of target files relative to the targets directory
+        - A dictionary whose keys are paths target files relative to the targets directory
         and values are custom data dictionaries.
         """
         if roles is None:
             roles = self.get_all_targets_roles()
         target_files = {}
         for role in roles:
-            roles_targets = self._role_obj(role).target_files
-            for target_file, custom_data in roles_targets.items():
-                target_files.setdefault(target_file, {}).update(custom_data)
+            roles_targets = self._signed_obj(role).targets
+            for target_path, target_file in roles_targets.items():
+                target_files.setdefault(target_path, {}).update(target_file.custom or {})
         return target_files
+
+    # TODO
+    def get_target_file_custom_data(self, target_path: str) -> Optional[Dict]:
+        """
+        Return a custom data of a given target.
+        """
+        try:
+            role = self.get_role_from_target_paths([target_path])
+            return self._signed_obj(role).targets[target_path].custom
+        except Exception:
+            return None
+
+    # TODO
+    def get_target_file_hashes(self, target_path, hash_func=HASH_FUNCTION):
+        """
+        Return hashes of a given target path.
+        """
+        hashes = {"sha256": None, "sha512": None}
+        try:
+            role = self.get_role_from_target_paths([target_path])
+            role_dict = json.loads((self.metadata_path / f"{role}.json").read_text())
+            hashes.update(role_dict["signed"]["targets"][target_path]["hashes"])
+        except Exception:
+            pass
+
+        return hashes.get(hash_func, hashes)
 
     def map_signing_roles(self, target_filenames):
         """

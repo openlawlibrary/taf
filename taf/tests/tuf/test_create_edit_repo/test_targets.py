@@ -12,10 +12,9 @@ def test_add_target_files(repo_path, signers, no_yubikeys_input):
     roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
     tuf_repo.create(roles_keys_data, signers)
 
-
     # assert add target file and correct version bumps
-    path1 = "foo.txt"
-    tuf_repo.add_target_files_to_role({path1: {"target": "foo"}})
+    path1 = "test1.txt"
+    tuf_repo.add_target_files_to_role({path1: {"target": "test1"}})
     assert (tuf_repo._path / "targets" / path1).is_file()
     assert tuf_repo.targets().targets[path1]
     assert tuf_repo.targets().targets[path1].length > 0
@@ -29,12 +28,79 @@ def test_add_target_files(repo_path, signers, no_yubikeys_input):
     assert tuf_repo.snapshot().meta["targets.json"].version == 2
 
     # now add with custom
-    path2 = "test.txt"
+    path2 = "test2.txt"
     custom =  {"custom_attr": "custom_val"}
-    tuf_repo.add_target_files_to_role({path2: {"target": "test", "custom": custom}})
+    tuf_repo.add_target_files_to_role({path2: {"target": "test2", "custom": custom}})
     assert (tuf_repo._path / "targets" / path2).is_file()
     assert tuf_repo.targets().targets[path2].length > 0
     assert tuf_repo.targets().targets[path2].custom ==  custom
+
+
+def test_repo_target_files(repo_path, signers, no_yubikeys_input):
+    # Create new metadata repository
+    tuf_repo = MetadataRepository(repo_path)
+    roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
+    tuf_repo.create(roles_keys_data, signers)
+
+    # assert add target file and correct version bumps
+    path1 = "test1.txt"
+    path2 = "test2.txt"
+    tuf_repo.add_target_files_to_role({
+        path1: {"target": "test1"},
+        path2: {"target": "test2"}
+        }
+    )
+    for path in (path1, path2):
+        assert (tuf_repo._path / "targets" / path).is_file()
+        assert tuf_repo.targets().targets[path].length > 0
+
+    tuf_repo.modify_targets(added_data=None, removed_data={path1: None})
+    assert not (tuf_repo._path / "targets" / path1).is_file()
+    assert (tuf_repo._path / "targets" / path2).is_file()
+    assert path1 not in tuf_repo.targets().targets
+    assert path2 in tuf_repo.targets().targets
+
+
+def test_repo_target_files_with_delegations(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
+    # Create new metadata repository
+    tuf_repo = MetadataRepository(repo_path)
+    roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
+    tuf_repo.create(roles_keys_data, signers_with_delegations)
+
+    # assert add target file and correct version bumps
+
+    target_path1 = "test1"
+    target_path2 = "test2"
+
+    tuf_repo.add_target_files_to_role({
+        target_path1: {"target": "test1"},
+        target_path2: {"target": "test2"}
+        }
+    )
+    for path in (target_path1, target_path2):
+        assert (tuf_repo._path / "targets" / path).is_file()
+        assert tuf_repo.targets().targets[path].length > 0
+
+    delegated_path1 = "dir1/path1"
+    delegated_path2 = "dir2/path1"
+
+    tuf_repo.add_target_files_to_role({
+        delegated_path1: {"target": "test1"},
+        delegated_path2: {"target": "test2"}
+        }
+    )
+    for path in (delegated_path1, delegated_path2):
+        assert (tuf_repo._path / "targets" / path).is_file()
+        assert tuf_repo._signed_obj("delegated_role").targets[path].length > 0
+
+    path_delegated = "dir2/path2"
+    tuf_repo.add_target_files_to_role({
+        path_delegated: {"target": "test3"},
+        }
+    )
+    assert tuf_repo._signed_obj("inner_role").targets[path_delegated].length > 0
+
+
 
 # def test_add_keys(self, tmp_path, test_signers, test_signer2):
 #     repo = MetadataRepository(tmp_path)
