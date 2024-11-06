@@ -143,22 +143,65 @@ class MetadataRepository(Repository):
 
         return set(targets)
 
-    def add_keys(self, signers: List[Signer], role: str) -> None:
+    def add_metadata_keys(self, roles_signers: Dict[str, Signer], roles_keys: Dict[str, List]) -> None:
         """Add signer public keys for role to root and update signer cache."""
+        already_added_keys = defaultdict(list)
+        invalid_keys = defaultdict(list)
+        added_keys = defaultdict(list)
         with self.edit_root() as root:
+            for role, keys in roles_keys.items():
+                if role in MAIN_ROLES:
+                    for key in keys:
+                        try:
+                            if self.is_valid_metadata_key(role, key):
+                                already_added_keys[role].append(key)
+                                continue
+                        except TAFError:
+                            invalid_keys[role].append(key)
+                            continue
+                        # key is valid and not already registered
+                        added_keys[role].append(key)
+                        root.add_key(key, role)
+
+        # groups other roles by parents
+        roles_by_parents = defaultdict(list)
+        for role, keys in roles_keys.items():
+            if role not in MAIN_ROLES:
+                parent = self.find_delegated_roles_parent(role)
+                roles_by_parents[parent].append(role)
+
+        for parent, roles in roles_by_parents.items():
+            with self.edit(parent) as parent_role:
+                for role in roles:
+                    keys = roles_keys[role]
+                    for key in keys:
+                        try:
+                            if self.is_valid_metadata_key(role, key):
+                                already_added_keys[role].append(key)
+                                continue
+                        except TAFError:
+                            invalid_keys[role].append(key)
+                            continue
+                        # key is valid and not already registered
+                        parent_role.add_key(key, role)
+                        added_keys[role].append(key)
+
+        for role, signers in roles_signers.items():
             for signer in signers:
                 key = signer.public_key
                 self.signer_cache[role][key.keyid] = signer
-                root.add_key(key, role)
 
         # Make sure the targets role gets signed with its new key, even though
         # it wasn't updated itself.
-        if role == "targets":
+        if "targets" in added_keys and "targets" not in roles_by_parents:
             with self.edit_targets():
                 pass
+        # TODO should this be done, what about other roles? Do we want that?
+
 
         self.do_snapshot()
         self.do_timestamp()
+        return added_keys, already_added_keys, invalid_keys
 
 
 
@@ -763,6 +806,7 @@ class MetadataRepository(Repository):
                 ssl_lib_key = key
             key_id = _get_legacy_keyid(ssl_lib_key)
         except Exception as e:
+            # TODO log
             raise TAFError("Invalid public key specified")
         else:
             return key_id in self.get_keyids_of_role(role)

@@ -354,6 +354,7 @@ def add_signing_key(
         None
     """
     # TODO this needs to be fulyl rewritten
+    # use add_keys and handle everything there
     # this functionality should be moved to repository
 
     auth_repo = AuthenticationRepository(path=path)
