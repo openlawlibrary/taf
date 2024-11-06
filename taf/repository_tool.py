@@ -1,9 +1,4 @@
-import datetime
 import json
-import operator
-import os
-import shutil
-from cryptography.hazmat.primitives import serialization
 from fnmatch import fnmatch
 from functools import partial, reduce
 from pathlib import Path
@@ -13,12 +8,9 @@ import securesystemslib
 import tuf.roledb
 from securesystemslib.exceptions import Error as SSLibError
 from securesystemslib.interface import import_rsa_privatekey_from_file
-from tuf.exceptions import Error as TUFError, RepositoryError
+from tuf.exceptions import Error as TUFError
 from tuf.repository_tool import (
-    METADATA_DIRECTORY_NAME,
-    TARGETS_DIRECTORY_NAME,
     import_rsakey_from_pem,
-    load_repository,
 )
 from tuf.roledb import get_roleinfo
 
@@ -30,19 +22,14 @@ from taf.exceptions import (
     RootMetadataUpdateError,
     SigningError,
     SnapshotMetadataUpdateError,
-    TargetsError,
     TargetsMetadataUpdateError,
     TimestampMetadataUpdateError,
     YubikeyError,
-    InvalidRepositoryError,
     KeystoreError,
 )
 from taf.git import GitRepository
 from taf.utils import (
-    default_backend,
     normalize_file_line_endings,
-    on_rm_error,
-    get_file_details,
 )
 from taf import YubikeyMissingLibrary
 try:
@@ -51,8 +38,6 @@ except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
 
-# Default expiration intervals per role
-expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
 
 # Loaded keys cache
 role_keys_cache: Dict = {}
@@ -159,23 +144,6 @@ class Repository:
     _framework_files = ["repositories.json", "test-auth-repo"]
 
 
-    _tuf_repository = None
-
-    @property
-    def _repository(self):
-        if self._tuf_repository is None:
-            self._load_tuf_repository(self.path)
-        return self._tuf_repository
-
-    @property
-    def repo_id(self):
-        return GitRepository(path=self.path).initial_commit
-
-    @property
-    def certs_dir(self):
-        certs_dir = self.path / "certs"
-        certs_dir.mkdir(parents=True, exist_ok=True)
-        return str(certs_dir)
 
     def _add_delegated_key(
         self, role, keyid, pub_key, keytype="rsa", scheme=DEFAULT_RSA_SIGNATURE_SCHEME
@@ -218,71 +186,6 @@ class Repository:
 
         targets_obj.add_target(relative_path, custom)
 
-    def add_metadata_key(self, role, pub_key_pem, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-        """Add metadata key of the provided role.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - pub_key_pem(str|bytes): Public key in PEM format
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
-        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
-
-        """
-        if isinstance(pub_key_pem, bytes):
-            pub_key_pem = pub_key_pem.decode("utf-8")
-
-        if is_delegated_role(role):
-            parent_role = self.find_delegated_roles_parent(role)
-            tuf.roledb._roledb_dict[self.name][role]["keyids"] = self.get_role_keys(
-                role, parent_role
-            )
-
-        key = import_rsakey_from_pem(pub_key_pem, scheme)
-        self._role_obj(role).add_verification_key(key)
-
-        if is_delegated_role(role):
-            keyids = tuf.roledb.get_roleinfo(role, self.name)["keyids"]
-            self.set_delegated_role_property("keyids", role, keyids, parent_role)
-            self._add_delegated_key(parent_role, keyids[-1], pub_key_pem, scheme=scheme)
-
-    def _load_tuf_repository(self, path):
-        """
-        Load tuf repository. Should only be called directly if a different set of metadata files
-        should be loaded (and not the one located at repo path/metadata)
-        """
-        # before attempting to load tuf repository, create empty targets directory if it does not
-        # exist to avoid errors raised by tuf
-        targets_existed = True
-        if not self.targets_path.is_dir():
-            targets_existed = False
-            self.targets_path.mkdir(parents=True, exist_ok=True)
-        current_dir = self.metadata_path / "current"
-        previous_dir = self.metadata_path / "previous"
-        if current_dir.is_dir():
-            shutil.rmtree(current_dir)
-        if previous_dir.is_dir():
-            shutil.rmtree(previous_dir)
-        try:
-            self._tuf_repository = load_repository(str(path), self.name)
-        except RepositoryError:
-            if not targets_existed:
-                self.targets_path.rmdir()
-            raise InvalidRepositoryError(f"{self.name} is not a valid TUF repository!")
-
-    def reload_tuf_repository(self):
-        """
-        Reload tuf repository. Should be called after content on the disk is called.
-        """
-        tuf.roledb.remove_roledb(self.name)
-        self._load_tuf_repository(self.path)
-
     def _try_load_metadata_key(self, role, key):
         """Check if given key can be used to sign given role and load it.
 
@@ -324,37 +227,6 @@ class Repository:
         targets_obj = self._role_obj(targets_role)
         self._add_target(targets_obj, file_path, custom)
 
-
-    def _collect_target_paths_of_role(self, target_roles_paths):
-        all_target_relpaths = []
-        for target_role_path in target_roles_paths:
-            try:
-                if (self.targets_path / target_role_path).is_file():
-                    all_target_relpaths.append(target_role_path)
-                    continue
-            except OSError:
-                pass
-            for filepath in self.targets_path.rglob(target_role_path):
-                if filepath.is_file():
-                    file_rel_path = str(
-                        Path(filepath).relative_to(self.targets_path).as_posix()
-                    )
-                    all_target_relpaths.append(file_rel_path)
-        return all_target_relpaths
-
-
-    def delete_unregistered_target_files(self, targets_role="targets"):
-        """
-        Delete all target files not specified in targets.json
-        """
-        targets_obj = self._role_obj(targets_role)
-        target_files_by_roles = self.sort_roles_targets_for_filenames()
-        if targets_role in target_files_by_roles:
-            for file_rel_path in target_files_by_roles[targets_role]:
-                if file_rel_path not in targets_obj.target_files:
-                    (self.targets_path / file_rel_path).unlink()
-
-
     def get_role_repositories(self, role, parent_role=None):
         """Get repositories of the given role
 
@@ -379,12 +251,6 @@ class Repository:
             for repo in target_repositories
             if any([fnmatch(repo, path) for path in role_paths])
         ]
-
-    def get_delegations_info(self, role_name):
-        # load repository is not already loaded
-        self._repository
-        return tuf.roledb.get_roleinfo(role_name, self.name).get("delegations")
-
 
     def get_signable_metadata(self, role):
         """Return signable portion of newly generate metadata for given role.
@@ -422,27 +288,6 @@ class Repository:
             repositories = json.loads(repositories)["repositories"]
             return [str(Path(target_path).as_posix()) for target_path in repositories]
 
-    def is_valid_metadata_key(self, role, key, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-        """Checks if metadata role contains key id of provided key.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - key(securesystemslib.formats.RSAKEY_SCHEMA): Role's key.
-
-        Returns:
-        Boolean. True if key id is in metadata role key ids, False otherwise.
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If key does not match RSAKEY_SCHEMA
-        - securesystemslib.exceptions.UnknownRoleError: If role does not exist
-        """
-
-        if isinstance(key, str):
-            key = import_rsakey_from_pem(key, scheme)
-
-        securesystemslib.formats.RSAKEY_SCHEMA.check_match(key)
-
-        return key["keyid"] in self.get_role_keys(role)
 
     def is_valid_metadata_yubikey(self, role, public_key=None):
         """Checks if metadata role contains key id from YubiKey.
@@ -504,42 +349,6 @@ class Repository:
         }.get(role_name, self.update_targets_yubikeys)
 
 
-    def set_delegated_role_property(self, property_name, role, value, parent_role=None):
-        """
-        Set property of a delegated role by modifying its parent's "delegations" property
-        Args:
-            - property_name: Name of the property (like threshold)
-            - role_name: Role
-            - value: New value of the property
-            - parent_role: Parent role
-        """
-        if parent_role is None:
-            parent_role = self.find_delegated_roles_parent(role)
-
-        roleinfo = tuf.roledb.get_roleinfo(parent_role, self.name)
-        delegated_roles_info = roleinfo["delegations"]["roles"]
-        for delegated_role_info in delegated_roles_info:
-            if delegated_role_info["name"] == role:
-                delegated_role_info[property_name] = value
-                tuf.roledb.update_roleinfo(
-                    parent_role, roleinfo, repository_name=self.name
-                )
-                break
-
-    def sort_roles_targets_for_filenames(self):
-        rel_paths = []
-        for filepath in self.targets_path.rglob("*"):
-            if filepath.is_file():
-                file_rel_path = str(
-                    Path(filepath).relative_to(self.targets_path).as_posix()
-                )
-                rel_paths.append(file_rel_path)
-
-        files_to_roles = self.map_signing_roles(rel_paths)
-        roles_targets = {}
-        for target_file, role in files_to_roles.items():
-            roles_targets.setdefault(role, []).append(target_file)
-        return roles_targets
 
     def update_root(self, signature_dict):
         """Update root metadata.
@@ -665,24 +474,6 @@ class Repository:
         for target_filename, role_name in targets_roles_mapping.items():
             roles_targets_mapping.setdefault(role_name, []).append(target_filename)
         return roles_targets_mapping
-
-    def unmark_dirty_role(self, role):
-        """
-        Unmakes one dirty role. This means that the corresponding metadata file
-        will not be updated.
-        Args:
-        - role which should be unmaked
-        """
-        self.unmark_dirty_roles([role])
-
-    def unmark_dirty_roles(self, roles):
-        """
-        Unmakes dirty roles. This means that the corresponding metadata files
-        will not be updated.
-        Args:
-        - roles which should be unmaked
-        """
-        self._repository.unmark_dirty(roles)
 
     def update_role_keystores(
         self, role_name, signing_keys, start_date=None, interval=None, write=True

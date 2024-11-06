@@ -1,5 +1,8 @@
 import shutil
 
+from taf.models.converter import from_dict
+from taf.models.types import RolesKeysData
+from taf.tuf.repository import MetadataRepository
 from taf.utils import on_rm_error
 import pytest
 from taf.tests.conftest import CLIENT_DIR_PATH
@@ -25,4 +28,13 @@ def repo_path(request, repo_dir):
     full_path.mkdir()
 
     # Convert to string if necessary, or use it as a Path object
-    return full_path
+    yield full_path
+    shutil.rmtree(full_path, onerror=on_rm_error)
+
+
+@pytest.fixture(autouse=True)
+def tuf_repo(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
+    repo = MetadataRepository(repo_path)
+    roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
+    repo.create(roles_keys_data, signers_with_delegations)
+    yield repo

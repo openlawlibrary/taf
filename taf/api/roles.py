@@ -353,6 +353,9 @@ def add_signing_key(
     Returns:
         None
     """
+    # TODO this needs to be fulyl rewritten
+    # this functionality should be moved to repository
+
     auth_repo = AuthenticationRepository(path=path)
     non_existant_roles = []
     for role in roles:

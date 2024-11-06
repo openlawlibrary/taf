@@ -1,16 +1,5 @@
 
-
-
-from taf.models.converter import from_dict
-from taf.models.types import RolesKeysData
-from taf.tuf.repository import MetadataRepository, TargetFile
-
-
-def test_add_target_files(repo_path, signers, no_yubikeys_input):
-    # Create new metadata repository
-    tuf_repo = MetadataRepository(repo_path)
-    roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
-    tuf_repo.create(roles_keys_data, signers)
+def test_add_target_files(tuf_repo):
 
     # assert add target file and correct version bumps
     path1 = "test1.txt"
@@ -36,12 +25,7 @@ def test_add_target_files(repo_path, signers, no_yubikeys_input):
     assert tuf_repo.targets().targets[path2].custom ==  custom
 
 
-def test_repo_target_files(repo_path, signers, no_yubikeys_input):
-    # Create new metadata repository
-    tuf_repo = MetadataRepository(repo_path)
-    roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
-    tuf_repo.create(roles_keys_data, signers)
-
+def test_repo_target_files(tuf_repo):
     # assert add target file and correct version bumps
     path1 = "test1.txt"
     path2 = "test2.txt"
@@ -61,13 +45,7 @@ def test_repo_target_files(repo_path, signers, no_yubikeys_input):
     assert path2 in tuf_repo.targets().targets
 
 
-def test_repo_target_files_with_delegations(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
-    # Create new metadata repository
-    tuf_repo = MetadataRepository(repo_path)
-    roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
-    tuf_repo.create(roles_keys_data, signers_with_delegations)
-
-    # assert add target file and correct version bumps
+def test_repo_target_files_with_delegations(tuf_repo):
 
     target_path1 = "test1"
     target_path2 = "test2"
@@ -101,11 +79,7 @@ def test_repo_target_files_with_delegations(repo_path, signers_with_delegations,
     assert tuf_repo._signed_obj("inner_role").targets[path_delegated].length > 0
 
 
-def test_get_all_target_files_state(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
-
-    tuf_repo = MetadataRepository(repo_path)
-    roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
-    tuf_repo.create(roles_keys_data, signers_with_delegations)
+def test_get_all_target_files_state(tuf_repo):
 
     # assert add target file and correct version bumps
 
@@ -133,6 +107,33 @@ def test_get_all_target_files_state(repo_path, signers_with_delegations, with_de
 
     actual = tuf_repo.get_all_target_files_state()
     assert actual == ({delegated_path1: {'target': 'Updated content', 'custom': None}}, {target_path1: {}})
+
+
+def test_delete_unregistered_target_files(tuf_repo):
+
+    # assert add target file and correct version bumps
+    tuf_repo.add_target_files_to_role({
+        "test1": {"target": "test1"},
+        "test2": {"target": "test2"}
+        }
+    )
+
+    tuf_repo.add_target_files_to_role({
+        "dir1/path1": {"target": "test1"},
+        "dir2/path1": {"target": "test2"}
+        }
+    )
+    new_target1 = tuf_repo._path / "targets" / "new"
+    new_target1.touch()
+    new_target2 = tuf_repo._path / "targets" / "dir1" / "new"
+    new_target2.touch()
+    assert new_target1.is_file()
+    assert new_target2.is_file()
+    tuf_repo.delete_unregistered_target_files()
+    assert not new_target1.is_file()
+    tuf_repo.delete_unregistered_target_files("delegated_role")
+    assert not new_target2.is_file()
+
 
 # def test_add_keys(self, tmp_path, test_signers, test_signer2):
 #     repo = MetadataRepository(tmp_path)

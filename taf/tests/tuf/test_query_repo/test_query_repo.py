@@ -206,3 +206,19 @@ def test_generate_roles_description(tuf_repo_with_delegations):
     assert inner_role_data["scheme"] == "rsa-pkcs1v15-sha256"
     assert inner_role_data["length"] == 3072
 
+def test_sort_roles_targets_for_filenames(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.sort_roles_targets_for_filenames()
+    assert actual["targets"] == ["test1", "test2"]
+    assert actual["delegated_role"] ==  ['dir1/path1', 'dir2/path1']
+    assert actual["inner_role"] ==  ['dir2/path2']
+
+def test_is_valid_metadata_key(tuf_repo_with_delegations, public_keys_with_delegations):
+    for role in ("root", "targets", "snapshot", "timestamp", "delegated_role", "inner_role"):
+        key = public_keys_with_delegations[role][0]
+        assert tuf_repo_with_delegations.is_valid_metadata_key(role, key)
+        assert tuf_repo_with_delegations.is_valid_metadata_key(role, key.keyval["public"])
+
+    assert not tuf_repo_with_delegations.is_valid_metadata_key("root", public_keys_with_delegations["targets"][0])
+
+    with pytest.raises(TAFError):
+       tuf_repo_with_delegations.is_valid_metadata_key("root", "123456")

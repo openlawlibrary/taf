@@ -15,13 +15,14 @@ from securesystemslib.signer import (
 )
 from securesystemslib.formats import encode_canonical
 from securesystemslib.hash import digest
-
 from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from taf import YubikeyMissingLibrary
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.utils import default_backend
 
 
 try:
@@ -44,6 +45,11 @@ def _get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
     else:
         return role_name + str(key_num + 1)
 
+
+def get_sslib_key_from_value(key: str, scheme:str=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
+    key_val = key.encode()
+    crypto_key = load_pem_public_key(key_val, backend=default_backend())
+    return SSlibKey.from_crypto(crypto_key, scheme=scheme)
 
 
 def _get_legacy_keyid(key: SSlibKey) -> str:
