@@ -153,33 +153,10 @@ class MetadataRepository(Repository):
         invalid_keys = defaultdict(list)
         added_keys = defaultdict(list)
 
-        if any(role in MAIN_ROLES for role in roles_keys):
-            with self.edit_root() as root:
-                for role, keys in roles_keys.items():
-                    if role in MAIN_ROLES:
-                        for key in keys:
-                            try:
-                                if self.is_valid_metadata_key(role, key):
-                                    already_added_keys[role].append(key)
-                                    continue
-                            except TAFError:
-                                invalid_keys[role].append(key)
-                                continue
-                            # key is valid and not already registered
-                            added_keys[role].append(key)
-                            root.add_key(key, role)
-
-        # group other roles by parents
-        roles_by_parents = defaultdict(list)
-        for role, keys in roles_keys.items():
-            if role not in MAIN_ROLES:
-                parent = self.find_delegated_roles_parent(role)
-                roles_by_parents[parent].append(role)
-
-        for parent, roles in roles_by_parents.items():
-            with self.edit(parent) as parent_role:
-                for role in roles:
-                    keys = roles_keys[role]
+        def _filter_if_can_be_added(roles):
+            keys_to_be_added = defaultdict(list)
+            for role, keys in roles_keys.items():
+                if role in roles:
                     for key in keys:
                         try:
                             if self.is_valid_metadata_key(role, key):
@@ -188,24 +165,52 @@ class MetadataRepository(Repository):
                         except TAFError:
                             invalid_keys[role].append(key)
                             continue
-                        # key is valid and not already registered
-                        parent_role.add_key(key, role)
+                        keys_to_be_added[role].append(key)
+            return keys_to_be_added
+
+        # when a key is added to one of the main roles
+        # root is modified
+        keys_to_be_added_to_root = _filter_if_can_be_added(MAIN_ROLES)
+        if keys_to_be_added_to_root:
+            with self.edit_root() as root:
+                for role, keys in keys_to_be_added_to_root.items():
+                    for key in keys:
+                        root.add_key(key, role)
                         added_keys[role].append(key)
 
-        for role, signers in roles_signers.items():
-            for signer in signers:
-                key = signer.public_key
-                self.signer_cache[role][key.keyid] = signer
+        other_roles = [role for role in roles_keys if role not in MAIN_ROLES]
+        keys_to_be_added_to_targets = _filter_if_can_be_added(other_roles)
 
-        # Make sure the targets role gets signed with its new key, even though
-        # it wasn't updated itself.
-        if "targets" in added_keys and "targets" not in roles_by_parents:
-            with self.edit_targets():
-                pass
-        # TODO should this be done, what about other roles? Do we want that?
+        roles_by_parents = defaultdict(list)
+        if keys_to_be_added_to_targets:
+            # group other roles by parents
+            for role, keys in keys_to_be_added_to_targets.items():
+                parent = self.find_delegated_roles_parent(role)
+                roles_by_parents[parent].append(role)
 
-        self.do_snapshot()
-        self.do_timestamp()
+            for parent, roles in roles_by_parents.items():
+                with self.edit(parent) as parent_role:
+                    for role in roles:
+                        keys = roles_keys[role]
+                        for key in keys:
+                            parent_role.add_key(key, role)
+                            added_keys[role].append(key)
+
+        if keys_to_be_added_to_root or keys_to_be_added_to_targets:
+            for role, signers in roles_signers.items():
+                for signer in signers:
+                    key = signer.public_key
+                    self.signer_cache[role][key.keyid] = signer
+
+            # Make sure the targets role gets signed with its new key, even though
+            # it wasn't updated itself.
+            if "targets" in added_keys and "targets" not in roles_by_parents:
+                with self.edit_targets():
+                    pass
+            # TODO should this be done, what about other roles? Do we want that?
+
+            self.do_snapshot()
+            self.do_timestamp()
         return added_keys, already_added_keys, invalid_keys
 
 
@@ -995,20 +1000,21 @@ class MetadataRepository(Repository):
                         parent_role.revoke_key(keyid=key_id, role=role)
                         removed_from_roles.append(role)
 
-        for role, signers in roles_signers.items():
-            for signer in signers:
-                key = signer.public_key
-                self.signer_cache[role][key.keyid] = signer
+        if removed_from_roles:
+            for role, signers in roles_signers.items():
+                for signer in signers:
+                    key = signer.public_key
+                    self.signer_cache[role][key.keyid] = signer
 
-        # Make sure the targets role gets signed with its new key, even though
-        # it wasn't updated itself.
-        if "targets" in removed_from_roles and "targets" not in roles_by_parents:
-            with self.edit_targets():
-                pass
-        # TODO should this be done, what about other roles? Do we want that?
+            # Make sure the targets role gets signed with its new key, even though
+            # it wasn't updated itself.
+            if "targets" in removed_from_roles and "targets" not in roles_by_parents:
+                with self.edit_targets():
+                    pass
+            # TODO should this be done, what about other roles? Do we want that?
 
-        self.do_snapshot()
-        self.do_timestamp()
+            self.do_snapshot()
+            self.do_timestamp()
 
         return removed_from_roles, not_added_roles, less_than_threshold_roles
 
