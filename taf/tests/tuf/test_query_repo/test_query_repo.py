@@ -222,3 +222,9 @@ def test_is_valid_metadata_key(tuf_repo_with_delegations, public_keys_with_deleg
 
     with pytest.raises(TAFError):
        tuf_repo_with_delegations.is_valid_metadata_key("root", "123456")
+
+def test_get_signable_metadata(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.get_signable_metadata("root")
+    assert len(actual) == 7
+    for key in ('_type', 'version', 'spec_version', 'expires', 'consistent_snapshot', 'keys', 'roles'):
+        assert key in actual

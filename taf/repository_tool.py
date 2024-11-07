@@ -141,50 +141,6 @@ class Repository:
         self.path = Path(path)
         self.name = name
 
-    _framework_files = ["repositories.json", "test-auth-repo"]
-
-
-
-    def _add_delegated_key(
-        self, role, keyid, pub_key, keytype="rsa", scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-    ):
-        """
-        Adds public key of a new delegated role to the list of all keys of
-        delegated roles.
-        Args:
-        - role (str): parent target role's name
-        - keyid (str): keyid of the new signing key
-        - pub_key(str): public component of the new signing key
-        - keytype (str): key's type
-        - sheme (str): signature scheme
-        """
-        roleinfo = tuf.roledb.get_roleinfo(role, self.name)
-        keysinfo = roleinfo["delegations"]["keys"]
-        if keyid in keysinfo:
-            return
-        key = {"public": pub_key.strip()}
-        key_metadata_format = securesystemslib.keys.format_keyval_to_metadata(
-            keytype, scheme, key
-        )
-        keysinfo[keyid] = key_metadata_format
-        tuf.roledb.update_roleinfo(role, roleinfo, repository_name=self.name)
-
-    def _add_target(self, targets_obj, file_path, custom=None):
-        """
-        <Purpose>
-        Normalizes line endings (converts all line endings to unix style endings) and
-        registers the target file as a TUF target
-        <Arguments>
-        targets_obj: TUF targets objects (instance of TUF's targets role class)
-        file_path: full path of the target file
-        custom: custom target data
-        """
-        file_path = str(Path(file_path).absolute())
-        targets_directory_length = len(targets_obj._targets_directory) + 1
-        relative_path = file_path[targets_directory_length:].replace("\\", "/")
-        normalize_file_line_endings(file_path)
-
-        targets_obj.add_target(relative_path, custom)
 
     def _try_load_metadata_key(self, role, key):
         """Check if given key can be used to sign given role and load it.
@@ -205,89 +161,6 @@ class Repository:
         if not self.is_valid_metadata_key(role, key):
             raise InvalidKeyError(role)
         self._role_obj(role).load_signing_key(key)
-
-    def add_existing_target(self, file_path, targets_role="targets", custom=None):
-        """Registers new target files with TUF.
-        The files are expected to be inside the targets directory.
-
-        Args:
-        - file_path(str): Path to target file
-        - targets_role(str): Targets or delegated role: a targets role (the root targets role
-                            or one of the delegated ones)
-        - custom(dict): Custom information for given file
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If 'filepath' is improperly formatted.
-        - securesystemslib.exceptions.Error: If 'filepath' is not located in the repository's targets
-                                            directory.
-        """
-        targets_obj = self._role_obj(targets_role)
-        self._add_target(targets_obj, file_path, custom)
-
-    def get_role_repositories(self, role, parent_role=None):
-        """Get repositories of the given role
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - parent_role(str): Name of the parent role of the delegated role. If not specified,
-                            it will be set automatically, but this might be slow if there
-                            are many delegations.
-
-        Returns:
-        Repositories' path from repositories.json that matches given role paths
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-        """
-        role_paths = self.get_role_paths(role, parent_role=parent_role)
-
-        target_repositories = self._get_target_repositories()
-        return [
-            repo
-            for repo in target_repositories
-            if any([fnmatch(repo, path) for path in role_paths])
-        ]
-
-    def get_signable_metadata(self, role):
-        """Return signable portion of newly generate metadata for given role.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-
-        Returns:
-        A string representing the 'object' encoded in canonical JSON form or None
-
-        Raises:
-        None
-        """
-        try:
-            from tuf.keydb import get_key
-
-            signable = None
-
-            role_obj = self._role_obj(role)
-            key = get_key(role_obj.keys[0])
-
-            def _provider(key, data):
-                nonlocal signable
-                signable = securesystemslib.formats.encode_canonical(data)
-
-            role_obj.add_external_signature_provider(key, _provider)
-            self.writeall()
-        except (IndexError, TUFError, SSLibError):
-            return signable
-
-    def _get_target_repositories(self):
-        repositories_path = self.targets_path / "repositories.json"
-        if repositories_path.exists():
-            repositories = repositories_path.read_text()
-            repositories = json.loads(repositories)["repositories"]
-            return [str(Path(target_path).as_posix()) for target_path in repositories]
-
 
     def is_valid_metadata_yubikey(self, role, public_key=None):
         """Checks if metadata role contains key id from YubiKey.
@@ -310,29 +183,6 @@ class Repository:
             public_key = yk.get_piv_public_key_tuf()
 
         return self.is_valid_metadata_key(role, public_key)
-
-
-    def remove_metadata_key(self, role, key_id):
-        """Remove metadata key of the provided role.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - key_id(str): An object conformant to 'securesystemslib.formats.KEYID_SCHEMA'.
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
-        - securesystemslib.exceptions.UnknownKeyError: If 'key_id' is not found in the keydb database.
-
-        """
-        from tuf.keydb import get_key
-
-        key = get_key(key_id)
-        self._role_obj(role).remove_verification_key(key)
 
     def roles_keystore_update_method(self, role_name):
         return {

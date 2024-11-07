@@ -16,12 +16,16 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
         "snapshot": [new_snapshot_key]
     }
 
-    tuf_repo.add_metadata_keys(signers_with_delegations, roles_keys)
+    added_keys, already_added_keys, invalid_keys = tuf_repo.add_metadata_keys(signers_with_delegations, roles_keys)
+    assert len(added_keys) == 3
+    assert len(already_added_keys) == 0
+    assert len(invalid_keys) == 0
 
     assert _get_legacy_keyid(new_targets_key) in tuf_repo.root().roles["targets"].keyids
     assert _get_legacy_keyid(new_snapshot_key) in tuf_repo.root().roles["snapshot"].keyids
     assert _get_legacy_keyid(new_targets_key) in tuf_repo.root().keys
     assert _get_legacy_keyid(new_snapshot_key) in tuf_repo.root().keys
+    assert _get_legacy_keyid(new_delegated_key) in tuf_repo._role_obj("delegated_role").keyids
     assert tuf_repo.root().version == 2
     assert tuf_repo.timestamp().version == 2
     assert tuf_repo.snapshot().version == 2
@@ -100,3 +104,81 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
     assert tuf_repo.targets().version == 3
     assert tuf_repo.snapshot().meta["root.json"].version == 6
     assert tuf_repo.snapshot().meta["targets.json"].version == 3
+
+
+def test_revoke_metadata_key(tuf_repo, signers_with_delegations, public_keys_with_delegations, public_keys):
+    targets_key1 = public_keys_with_delegations["targets"][0]
+    targets_key2 = public_keys_with_delegations["targets"][1]
+    targets_key1_id = _get_legacy_keyid(targets_key1)
+    targets_key2_id = _get_legacy_keyid(targets_key2)
+
+    assert targets_key1_id in tuf_repo.root().roles["targets"].keyids
+    assert targets_key1_id in tuf_repo.root().keys
+
+    removed_from_roles, not_added_roles, less_than_threshold_roles = tuf_repo.revoke_metadata_key(signers_with_delegations, ["targets"], targets_key1_id)
+    assert len(removed_from_roles) == 1
+    assert len(not_added_roles) == 0
+    assert len(less_than_threshold_roles) == 0
+
+    assert targets_key1_id not in tuf_repo.root().roles["targets"].keyids
+    assert targets_key1_id not in tuf_repo.root().keys
+    assert len(tuf_repo._role_obj("targets").keyids) == 1
+
+    assert tuf_repo.root().version == 2
+    assert tuf_repo.timestamp().version == 2
+    assert tuf_repo.snapshot().version == 2
+    assert tuf_repo.targets().version == 2
+
+    # the second key cannot be removed because there is only one key left now
+    removed_from_roles, not_added_roles, less_than_threshold_roles = tuf_repo.revoke_metadata_key(signers_with_delegations, ["targets"], targets_key2_id)
+
+    assert targets_key2_id in tuf_repo.root().roles["targets"].keyids
+    assert targets_key2_id in tuf_repo.root().keys
+    assert len(removed_from_roles) == 0
+    assert len(not_added_roles) == 0
+    assert len(less_than_threshold_roles) == 1
+
+    # try to remove key
+    # will not be possible, number == threshold
+    delegated_key1 = public_keys_with_delegations["delegated_role"][0]
+    delegated_key1_id = _get_legacy_keyid(delegated_key1)
+
+    assert tuf_repo.root().version == 2
+    assert tuf_repo.timestamp().version == 2
+    assert tuf_repo.snapshot().version == 2
+    assert tuf_repo.targets().version == 2
+
+    assert delegated_key1_id in tuf_repo._role_obj("delegated_role").keyids
+    removed_from_roles, not_added_roles, less_than_threshold_roles = tuf_repo.revoke_metadata_key(signers_with_delegations, ["delegated_role"], delegated_key1_id)
+    assert len(removed_from_roles) == 0
+    assert len(not_added_roles) == 0
+    assert len(less_than_threshold_roles) == 1
+    assert delegated_key1_id in tuf_repo._role_obj("delegated_role").keyids
+
+    # add a key
+    new_delegated_key = public_keys["targets"][0]
+
+    roles_keys = {
+        "delegated_role": [new_delegated_key],
+    }
+    new_delegated_key_id = _get_legacy_keyid(new_delegated_key)
+
+    tuf_repo.add_metadata_keys(signers_with_delegations, roles_keys)
+    assert new_delegated_key_id in tuf_repo._role_obj("delegated_role").keyids
+
+    assert tuf_repo.root().version == 2
+    assert tuf_repo.timestamp().version == 3
+    assert tuf_repo.snapshot().version == 3
+    assert tuf_repo.targets().version == 3
+
+    # now try removing one of delegated key again
+    removed_from_roles, not_added_roles, less_than_threshold_roles = tuf_repo.revoke_metadata_key(signers_with_delegations, ["delegated_role"], delegated_key1_id)
+    assert len(removed_from_roles) == 1
+    assert len(not_added_roles) == 0
+    assert len(less_than_threshold_roles) == 0
+    assert delegated_key1_id not in tuf_repo._role_obj("delegated_role").keyids
+
+    assert tuf_repo.root().version == 2
+    assert tuf_repo.timestamp().version == 4
+    assert tuf_repo.snapshot().version == 4
+    assert tuf_repo.targets().version == 4

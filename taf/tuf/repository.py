@@ -143,27 +143,33 @@ class MetadataRepository(Repository):
 
         return set(targets)
 
-    def add_metadata_keys(self, roles_signers: Dict[str, Signer], roles_keys: Dict[str, List]) -> None:
-        """Add signer public keys for role to root and update signer cache."""
+    def add_metadata_keys(self, roles_signers: Dict[str, Signer], roles_keys: Dict[str, List]) -> Tuple[Dict, Dict, Dict]:
+        """Add signer public keys for role to root and update signer cache.
+
+        Return:
+            added_keys, already_added_keys, invalid_keys
+        """
         already_added_keys = defaultdict(list)
         invalid_keys = defaultdict(list)
         added_keys = defaultdict(list)
-        with self.edit_root() as root:
-            for role, keys in roles_keys.items():
-                if role in MAIN_ROLES:
-                    for key in keys:
-                        try:
-                            if self.is_valid_metadata_key(role, key):
-                                already_added_keys[role].append(key)
-                                continue
-                        except TAFError:
-                            invalid_keys[role].append(key)
-                            continue
-                        # key is valid and not already registered
-                        added_keys[role].append(key)
-                        root.add_key(key, role)
 
-        # groups other roles by parents
+        if any(role in MAIN_ROLES for role in roles_keys):
+            with self.edit_root() as root:
+                for role, keys in roles_keys.items():
+                    if role in MAIN_ROLES:
+                        for key in keys:
+                            try:
+                                if self.is_valid_metadata_key(role, key):
+                                    already_added_keys[role].append(key)
+                                    continue
+                            except TAFError:
+                                invalid_keys[role].append(key)
+                                continue
+                            # key is valid and not already registered
+                            added_keys[role].append(key)
+                            root.add_key(key, role)
+
+        # group other roles by parents
         roles_by_parents = defaultdict(list)
         for role, keys in roles_keys.items():
             if role not in MAIN_ROLES:
@@ -198,11 +204,9 @@ class MetadataRepository(Repository):
                 pass
         # TODO should this be done, what about other roles? Do we want that?
 
-
         self.do_snapshot()
         self.do_timestamp()
         return added_keys, already_added_keys, invalid_keys
-
 
 
     def add_target_files_to_role(self, added_data: Dict[str, Dict]) -> None:
@@ -616,6 +620,21 @@ class MetadataRepository(Repository):
 
         return common_role.pop()
 
+    def get_signable_metadata(self, role):
+        """Return signable portion of newly generate metadata for given role.
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+
+        Returns:
+        A string representing the 'object' encoded in canonical JSON form or None
+
+        Raises:
+        None
+        """
+        signed = self._signed_obj(role)
+        return signed.to_dict()
+
     def get_signed_target_files(self) -> Set[str]:
         """Return all target files signed by all roles.
 
@@ -710,7 +729,6 @@ class MetadataRepository(Repository):
         except Exception:
             return None, None
 
-    # TODO
     def generate_roles_description(self) -> Dict:
         roles_description = {}
 
@@ -930,6 +948,69 @@ class MetadataRepository(Repository):
             for path in removed_paths:
                 targets.targets.pop(path, None)
         return targets
+
+    # TODO
+    def revoke_metadata_key(self, roles_signers: Dict[str, Signer], roles: List[str], key_id: str):
+        """Remove metadata key of the provided role.
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - key_id(str): An object conformant to 'securesystemslib.formats.KEYID_SCHEMA'.
+
+        Returns:
+            removed_from_roles, not_added_roles, less_than_threshold_roles
+        """
+
+        removed_from_roles = []
+        not_added_roles = []
+        less_than_threshold_roles = []
+
+        def _check_if_can_remove(key_id, role):
+            role_obj = self._role_obj(role)
+            if len(role_obj.keyids) - 1 < role_obj.threshold:
+                less_than_threshold_roles.append(role)
+                return False
+            if key_id not in self.get_keyids_of_role(role):
+                not_added_roles.append(role)
+                return False
+            return True
+
+        main_roles = [role for role in roles if role in MAIN_ROLES and _check_if_can_remove(key_id, role)]
+        if len(main_roles):
+            with self.edit_root() as root:
+                for role in main_roles:
+                    root.revoke_key(keyid=key_id, role=role)
+                    removed_from_roles.append(role)
+
+        roles_by_parents = defaultdict(list)
+        delegated_roles = [role for role in roles if role not in MAIN_ROLES and _check_if_can_remove(key_id, role)]
+        if len(delegated_roles):
+            for role in delegated_roles:
+                parent = self.find_delegated_roles_parent(role)
+                roles_by_parents[parent].append(role)
+
+            for parent, roles_of_parent in roles_by_parents.items():
+                with self.edit(parent) as parent_role:
+                    for role in roles_of_parent:
+                        parent_role.revoke_key(keyid=key_id, role=role)
+                        removed_from_roles.append(role)
+
+        for role, signers in roles_signers.items():
+            for signer in signers:
+                key = signer.public_key
+                self.signer_cache[role][key.keyid] = signer
+
+        # Make sure the targets role gets signed with its new key, even though
+        # it wasn't updated itself.
+        if "targets" in removed_from_roles and "targets" not in roles_by_parents:
+            with self.edit_targets():
+                pass
+        # TODO should this be done, what about other roles? Do we want that?
+
+        self.do_snapshot()
+        self.do_timestamp()
+
+        return removed_from_roles, not_added_roles, less_than_threshold_roles
 
     def _role_obj(self, role, parent=None):
         if role in MAIN_ROLES:
