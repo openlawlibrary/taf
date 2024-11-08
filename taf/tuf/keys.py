@@ -187,3 +187,56 @@ class YkSigner(Signer):
         # (e.g. tuf delegation) and signer configuration from signing. See
         # https://python-securesystemslib.readthedocs.io/en/latest/signer.html
         raise NotImplementedError
+
+
+def root_signature_provider(signature_dict, key_id, _key, _data):
+    """Root signature provider used to return signatures created remotely.
+
+    Args:
+        - signature_dict(dict): Dict where key is key_id and value is signature
+        - key_id(str): Key id from targets metadata file
+        - _key(securesystemslib.formats.RSAKEY_SCHEMA): Key info
+        - _data(dict): Data to sign (already signed remotely)
+
+    Returns:
+        Dictionary that comforms to `securesystemslib.formats.SIGNATURE_SCHEMA`
+
+    Raises:
+        - KeyError: If signature for key_id is not present in signature_dict
+    """
+    from binascii import hexlify
+
+    return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
+
+
+def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W0613
+    """
+    A signatures provider which asks the user to insert a yubikey
+    Useful if several yubikeys need to be used at the same time
+    """
+    from binascii import hexlify
+
+    def _check_key_and_get_pin(expected_key_id):
+        try:
+            inserted_key = yk.get_piv_public_key_tuf()
+            if expected_key_id != inserted_key["keyid"]:
+                return None
+            serial_num = yk.get_serial_num(inserted_key)
+            pin = yk.get_key_pin(serial_num)
+            if pin is None:
+                pin = yk.get_and_validate_pin(name)
+            return pin
+        except Exception:
+            return None
+
+    while True:
+        # check if the needed YubiKey is inserted before asking the user to do so
+        # this allows us to use this signature provider inside an automated process
+        # assuming that all YubiKeys needed for signing are inserted
+        pin = _check_key_and_get_pin(key_id)
+        if pin is not None:
+            break
+        input(f"\nInsert {name} and press enter")
+
+    signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
+    return {"keyid": key_id, "sig": hexlify(signature).decode()}

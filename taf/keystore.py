@@ -6,17 +6,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import click
 import securesystemslib
-from securesystemslib.interface import (
-    import_rsa_publickey_from_file,
-)
-from taf.repository_tool import Repository
 from taf.tuf.keys import load_signer_from_file
-from tuf.repository_tool import import_rsakey_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
 
-from securesystemslib.securesystemslib.signer._crypto_signer import CryptoSigner
+from taf.tuf.repository import Repository as TUFRepository
+
+from securesystemslib.signer._crypto_signer import CryptoSigner
 
 
 def default_keystore_path() -> str:
@@ -49,7 +46,7 @@ def _from_public_pem(pem: str) -> str:
 def key_cmd_prompt(
     key_name: str,
     role: str,
-    taf_repo: Repository,
+    taf_repo: TUFRepository,
     loaded_keys: Optional[List] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
 ) -> Optional[Dict]:

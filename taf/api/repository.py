@@ -21,7 +21,6 @@ from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
 from taf.api.utils._conf import find_keystore
 from taf.utils import ensure_pre_push_hook
-from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
 
@@ -74,6 +73,7 @@ def create_repository(
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
+    # TODO
     repository = create_new_repository(
         str(auth_repo.path), repository_name=auth_repo.name
     )

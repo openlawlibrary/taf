@@ -4,11 +4,7 @@ from logdecorator import log_on_start, log_on_end
 from pathlib import Path
 from taf.models.types import RolesKeysData
 from taf.api.utils._conf import find_taf_directory
-from tuf.repository_tool import (
-    generate_and_write_rsa_keypair,
-    generate_and_write_unencrypted_rsa_keypair,
-)
-from securesystemslib import keys
+
 
 from taf.api.roles import _initialize_roles_and_keystore
 from taf.keys import get_key_name

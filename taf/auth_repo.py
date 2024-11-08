@@ -7,17 +7,12 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from tuf.repository_tool import METADATA_DIRECTORY_NAME
 from taf.git import GitRepository
-from taf.repository_tool import (
-    Repository as TAFRepository,
-    get_role_metadata_path,
-    get_target_path,
-)
+from taf.tuf.repository import METADATA_DIRECTORY_NAME, Repository as TUFRepository, get_role_metadata_path, get_target_path
 from taf.constants import INFO_JSON_PATH
 
 
-class AuthenticationRepository(GitRepository, TAFRepository):
+class AuthenticationRepository(GitRepository, TUFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"

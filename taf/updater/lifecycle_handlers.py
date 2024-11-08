@@ -8,7 +8,7 @@ from functools import partial
 from pathlib import Path
 
 import taf.settings as settings
-from taf.repository_tool import get_target_path
+from taf.tuf.repository import get_target_path
 from taf.utils import (
     run,
     safely_save_json_to_disk,

@@ -4,10 +4,10 @@ from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import TAFError
-from taf.keys import load_signers, load_signing_keys
+from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
-from taf.repository_tool import Repository, is_delegated_role
+from taf.tuf.repository import Repository as TUFRepository, is_delegated_role
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
 
@@ -42,7 +42,7 @@ def check_expiration_dates(
     Returns:
         None
     """
-    taf_repo = Repository(path)
+    taf_repo = TUFRepository(path)
 
     if start_date is None:
         start_date = datetime.now()
@@ -122,7 +122,7 @@ def update_metadata_expiration_date(
     if start_date is None:
         start_date = datetime.now()
 
-    taf_repo = Repository(path)
+    taf_repo = TUFRepository(path)
     loaded_yubikeys: Dict = {}
     roles_to_update = []
 
@@ -169,7 +169,7 @@ def update_metadata_expiration_date(
     reraise=True,
 )
 def _update_expiration_date_of_role(
-    auth_repo: Repository,
+    auth_repo: TUFRepository,
     role: str,
     loaded_yubikeys: Dict,
     keystore: str,

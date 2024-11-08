@@ -25,8 +25,7 @@ from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
-from taf.repository_tool import Repository
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
+from taf.tuf.repository import Repository as TUFRepository
 
 
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
@@ -327,7 +326,7 @@ def register_target_files(
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = True,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
-    taf_repo: Optional[Repository] = None,
+    taf_repo: Optional[TUFRepository] = None,
     write: Optional[bool] = False,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
@@ -358,7 +357,7 @@ def register_target_files(
     )
     if taf_repo is None:
         path = Path(path).resolve()
-        taf_repo = Repository(str(path))
+        taf_repo = TUFRepository(str(path))
 
     # find files that should be added/modified/removed
     added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()

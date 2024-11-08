@@ -7,22 +7,20 @@ from collections import defaultdict
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._roles import _role_obj, create_delegations
+from tuf.api._payload import Targets
+from taf.api.utils._roles import create_delegations
 from taf.messages import git_commit_message
-from tuf.repository_tool import Targets
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import RolesIterator, TargetsRole, compare_roles_data
 from taf.repositoriesdb import REPOSITORIES_JSON_PATH
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-import tuf.roledb
 import taf.repositoriesdb as repositoriesdb
 from taf.keys import (
     find_keystore,
     get_key_name,
     get_metadata_key_info,
-    load_signing_keys,
+    load_signers,
     load_sorted_keys_of_new_roles,
 )
 from taf.api.utils._metadata import (
@@ -33,15 +31,13 @@ from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
     DEFAULT_RSA_SIGNATURE_SCHEME,
+    TARGETS_DIRECTORY_NAME,
 )
 from taf.keystore import new_public_key_cmd_prompt
-from taf.repository_tool import is_delegated_role
+from taf.tuf.repository import MAIN_ROLES, is_delegated_role
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
-
-
-MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
 
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
@@ -779,7 +775,7 @@ def remove_role(
     if parent_role is None:
         taf_logger.error("Role is not among delegated roles")
         return
-    parent_role_obj = _role_obj(parent_role, auth_repo)
+    parent_role_obj = auth_repo._role_obj(parent_role, auth_repo)
     if not isinstance(parent_role_obj, Targets):
         taf_logger.error(f"Could not find parent targets role of role {role}.")
         return
@@ -973,7 +969,7 @@ def _update_role(
     snapshot and timestamp and writing changes to disk
     """
     loaded_yubikeys: Dict = {}
-    keystore_keys, yubikeys = load_signing_keys(
+    keystore_signers, yubikeys = load_signers(
         auth_repo,
         role,
         loaded_yubikeys,
@@ -981,8 +977,8 @@ def _update_role(
         scheme=scheme,
         prompt_for_keys=prompt_for_keys,
     )
-    if len(keystore_keys):
-        auth_repo.update_role_keystores(role, keystore_keys, write=False)
+    if len(keystore_signers):
+        auth_repo.update_role_keystores(role, keystore_signers, write=False)
     if len(yubikeys):
         auth_repo.update_role_yubikeys(role, yubikeys, write=False)
 

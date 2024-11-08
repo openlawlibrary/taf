@@ -1,19 +1,21 @@
+from taf.tuf.keys import yubikey_signature_provider
+from taf.tuf.repository import MAIN_ROLES
 import tuf
 from logging import DEBUG, INFO
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from functools import partial
 from logdecorator import log_on_end, log_on_start
-from tuf.repository_tool import Repository as TUFRepository, Targets
 from taf.exceptions import TAFError
 from taf.models.types import RolesIterator
-from tuf.repository_tool import Metadata
 from taf import YubikeyMissingLibrary
 from taf.keys import get_key_name
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE
-from taf.repository_tool import MAIN_ROLES, Repository, yubikey_signature_provider
+from taf.tuf.repository import Repository as TUFRepository
 from taf.models.types import Role
 from taf.log import taf_logger
+from tuf.api._payload import Targets
+
 
 ykman_installed = True
 try:
@@ -52,7 +54,7 @@ def create_delegations(
     skip_top_role = role.name == "targets"
     try:
         for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
-            parent_role_obj = _role_obj(delegated_role.parent.name, repository)
+            parent_role_obj = repository._role_obj(delegated_role.parent.name, repository)
             if not isinstance(parent_role_obj, Targets):
                 raise TAFError(
                     f"Could not find parent targets role of role {delegated_role}"
@@ -107,7 +109,7 @@ def setup_role(
     """
     Initialize a new role, add signing and verification keys.
     """
-    role_obj = _role_obj(role.name, repository, parent)
+    role_obj = repository._role_obj(role.name, repository, parent)
     role_obj.threshold = role.threshold
     if not role.is_yubikey:
         if verification_keys is None or signing_keys is None:
@@ -142,32 +144,6 @@ def setup_role(
         except Exception:  # temporary quick fix, this will all be reworked
             tuf.roledb._roledb_dict[repository.name][role.name]["previous_keyids"] = []
 
-
-def _role_obj(
-    role: str,
-    repository: Union[Repository, TUFRepository],
-    parent: Optional[Targets] = None,
-) -> Metadata:
-    """
-    Return role TUF object based on its name
-    """
-    if isinstance(repository, Repository):
-        tuf_repository = repository._repository
-    else:
-        tuf_repository = repository
-    if role == "targets":
-        return tuf_repository.targets
-    elif role == "snapshot":
-        return tuf_repository.snapshot
-    elif role == "timestamp":
-        return tuf_repository.timestamp
-    elif role == "root":
-        return tuf_repository.root
-    else:
-        # return delegated role
-        if parent is None:
-            return tuf_repository.targets(role)
-        return parent(role)
 
 
 def list_roles(repository: AuthenticationRepository) -> List[str]:

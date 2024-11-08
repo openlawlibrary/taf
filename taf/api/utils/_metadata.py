@@ -2,9 +2,9 @@ from logging import DEBUG, ERROR, INFO
 from typing import Dict, Optional
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.exceptions import TAFError
-from taf.keys import load_signing_keys
+from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.repository_tool import Repository
+from taf.tuf.repository import Repository as TUFRepository
 from taf.log import taf_logger
 
 
@@ -17,7 +17,7 @@ from taf.log import taf_logger
     reraise=True,
 )
 def update_snapshot_and_timestamp(
-    taf_repo: Repository,
+    taf_repo: TUFRepository,
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     write_all: Optional[bool] = True,
@@ -44,7 +44,7 @@ def update_snapshot_and_timestamp(
     loaded_yubikeys: Dict = {}
 
     for role in ("snapshot", "timestamp"):
-        keystore_keys, yubikeys = load_signing_keys(
+        keystore_signers, yubikeys = load_signers(
             taf_repo,
             role,
             loaded_yubikeys,
@@ -55,9 +55,9 @@ def update_snapshot_and_timestamp(
         if len(yubikeys):
             update_method = taf_repo.roles_yubikeys_update_method(role)
             update_method(yubikeys, write=False)
-        if len(keystore_keys):
+        if len(keystore_signers):
             update_method = taf_repo.roles_keystore_update_method(role)
-            update_method(keystore_keys, write=False)
+            update_method(keystore_signers, write=False)
 
     if write_all:
         taf_repo.writeall()
@@ -73,7 +73,7 @@ def update_snapshot_and_timestamp(
     reraise=True,
 )
 def update_target_metadata(
-    taf_repo: Repository,
+    taf_repo: TUFRepository,
     added_targets_data: Dict,
     removed_targets_data: Dict,
     keystore: str,

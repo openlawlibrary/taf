@@ -7,7 +7,6 @@ from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._roles import get_roles_and_paths_of_key
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError
-from tuf.repository_tool import import_rsakey_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.log import taf_logger

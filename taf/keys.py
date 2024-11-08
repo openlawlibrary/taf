@@ -9,13 +9,10 @@ from taf.log import taf_logger
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
-from taf.repository_tool import Repository
+from taf.tuf.repository import Repository as TUFRepository
 from taf.api.utils._conf import find_keystore
 from taf.tuf.keys import load_signer_from_pem
-from tuf.repository_tool import (
-    generate_and_write_unencrypted_rsa_keypair,
-    generate_and_write_rsa_keypair,
-)
+
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
 from taf.exceptions import (
     KeystoreError,
@@ -29,11 +26,7 @@ from taf.keystore import (
     read_public_key_from_keystore,
 )
 from taf import YubikeyMissingLibrary
-from securesystemslib import keys
-from securesystemslib.interface import (
-    import_rsa_privatekey_from_file,
-    import_rsa_publickey_from_file,
-)
+
 
 from securesystemslib.signer._crypto_signer import CryptoSigner
 
@@ -222,7 +215,7 @@ def _load_signer_from_keystore(
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
 def load_signers(
-    taf_repo: Repository,
+    taf_repo: TUFRepository,
     role: str,
     loaded_yubikeys: Optional[Dict],
     keystore: Optional[str] = None,
