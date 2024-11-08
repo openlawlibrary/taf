@@ -212,6 +212,7 @@ def test_sort_roles_targets_for_filenames(tuf_repo_with_delegations):
     assert actual["delegated_role"] ==  ['dir1/path1', 'dir2/path1']
     assert actual["inner_role"] ==  ['dir2/path2']
 
+
 def test_is_valid_metadata_key(tuf_repo_with_delegations, public_keys_with_delegations):
     for role in ("root", "targets", "snapshot", "timestamp", "delegated_role", "inner_role"):
         key = public_keys_with_delegations[role][0]
@@ -223,8 +224,16 @@ def test_is_valid_metadata_key(tuf_repo_with_delegations, public_keys_with_deleg
     with pytest.raises(TAFError):
        tuf_repo_with_delegations.is_valid_metadata_key("root", "123456")
 
+
 def test_get_signable_metadata(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_signable_metadata("root")
     assert len(actual) == 7
     for key in ('_type', 'version', 'spec_version', 'expires', 'consistent_snapshot', 'keys', 'roles'):
         assert key in actual
+
+
+def test_roles_targets_for_filenames(tuf_repo_with_delegations):
+    target_filenames = ["dir2/path1", "dir2/path2", "test"]
+    actual = tuf_repo_with_delegations.roles_targets_for_filenames(target_filenames)
+    assert actual == {'delegated_role': ['dir2/path1'], 'inner_role': ['dir2/path2'], 'targets': ['test']}
+

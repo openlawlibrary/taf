@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import TAFError
-from taf.keys import load_signing_keys
+from taf.keys import load_signers, load_signing_keys
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.repository_tool import Repository, is_delegated_role
@@ -118,6 +118,7 @@ def update_metadata_expiration_date(
     Returns:
         None
     """
+    # TODO move tis to the auth repo class
     if start_date is None:
         start_date = datetime.now()
 
@@ -177,7 +178,7 @@ def _update_expiration_date_of_role(
     scheme: str,
     prompt_for_keys: bool,
 ) -> None:
-    keys, yubikeys = load_signing_keys(
+    keystore_signers, yubikeys = load_signers(
         auth_repo,
         role,
         loaded_yubikeys=loaded_yubikeys,
@@ -186,9 +187,9 @@ def _update_expiration_date_of_role(
         prompt_for_keys=prompt_for_keys,
     )
     # sign with keystore
-    if len(keys):
-        auth_repo.update_role_keystores(
-            role, keys, start_date=start_date, interval=interval
+    if len(keystore_signers):
+        auth_repo.set_metadata_expiration_date(
+            role, keystore_signers, start_date=start_date, interval=interval
         )
     if len(yubikeys):  # sign with yubikey
         auth_repo.update_role_yubikeys(

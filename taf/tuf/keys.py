@@ -96,7 +96,7 @@ def load_public_key_from_file(path: Path) -> SSlibKey:
     return _from_crypto(pub)
 
 
-def load_signer_from_file(path: Path, password: Optional[str]=None) -> CryptoSigner:
+def load_signer_from_file(path: Path, password: Optional[str]=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> CryptoSigner:
     """Load CryptoSigner from RSA private key file.
 
     * Expected key file format is PKCS8/PEM
@@ -108,6 +108,22 @@ def load_signer_from_file(path: Path, password: Optional[str]=None) -> CryptoSig
     with open(path, "rb") as f:
         pem = f.read()
 
+    # TODO scheme
+
+    priv = load_pem_private_key(pem, password)
+    pub = priv.public_key()
+    return CryptoSigner(priv, _from_crypto(pub))
+
+
+def load_signer_from_pem(pem: bytes, password: Optional[bytes]=None) -> CryptoSigner:
+    """Load CryptoSigner from RSA private key file.
+
+    * Expected key file format is PKCS8/PEM
+    * Signing scheme defaults to 'rsa-pkcs1v15-sha256'
+    * Keyid is computed from legacy canonical representation of public key
+    * If password is None, the key is expected to be unencrypted
+
+    """
     priv = load_pem_private_key(pem, password)
     pub = priv.public_key()
     return CryptoSigner(priv, _from_crypto(pub))

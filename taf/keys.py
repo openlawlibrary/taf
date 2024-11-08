@@ -11,6 +11,7 @@ from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.repository_tool import Repository
 from taf.api.utils._conf import find_keystore
+from taf.tuf.keys import load_signer_from_pem
 from tuf.repository_tool import (
     generate_and_write_unencrypted_rsa_keypair,
     generate_and_write_rsa_keypair,
@@ -24,7 +25,7 @@ from taf.exceptions import (
 from taf.keystore import (
     get_keystore_keys_of_role,
     key_cmd_prompt,
-    read_private_key_from_keystore,
+    load_signer_from_private_keystore,
     read_public_key_from_keystore,
 )
 from taf import YubikeyMissingLibrary
@@ -33,6 +34,9 @@ from securesystemslib.interface import (
     import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
+
+from securesystemslib.signer._crypto_signer import CryptoSigner
+
 
 try:
     import taf.yubikey as yk
@@ -193,23 +197,23 @@ def _generate_public_key_from_private(keystore_path, key_name, scheme):
         return None
 
 
-def _load_from_keystore(
+def _load_signer_from_keystore(
     taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
-):
+) -> CryptoSigner:
     if keystore_path is None:
         return None
     if (keystore_path / key_name).is_file():
         try:
-            key = read_private_key_from_keystore(
-                keystore_path, key_name, num_of_signatures, scheme
+            signer = load_signer_from_private_keystore(
+                keystore=keystore_path, key_name=key_name, scheme=scheme
             )
             # load only valid keys
-            if taf_repo.is_valid_metadata_key(role, key, scheme=scheme):
+            if taf_repo.is_valid_metadata_key(role, signer._private_key, scheme=scheme):
                 # Check if the public key is missing and generate it if necessary
                 public_key_path = keystore_path / f"{key_name}.pub"
                 if not public_key_path.exists():
                     _generate_public_key_from_private(keystore_path, key_name, scheme)
-                return key
+                return signer
         except KeystoreError:
             pass
 
@@ -217,7 +221,7 @@ def _load_from_keystore(
 
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
-def load_signing_keys(
+def load_signers(
     taf_repo: Repository,
     role: str,
     loaded_yubikeys: Optional[Dict],
@@ -234,7 +238,7 @@ def load_signing_keys(
     signing_keys_num = len(taf_repo.get_role_keys(role))
     all_loaded = False
     num_of_signatures = 0
-    keys = []
+    signers_keystore = []
     yubikeys = []
 
     # first try to sign using yubikey
@@ -279,11 +283,11 @@ def load_signing_keys(
         # there is no need to ask the user if they want to load more key, try to load from keystore
         if num_of_signatures < len(keystore_files):
             key_name = keystore_files[num_of_signatures]
-            key = _load_from_keystore(
+            signer = _load_signer_from_keystore(
                 taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
             )
-            if key is not None:
-                keys.append(key)
+            if signer is not None:
+                signers_keystore.append(key)
                 num_of_signatures += 1
                 continue
         if num_of_signatures >= threshold:
@@ -313,13 +317,15 @@ def load_signing_keys(
             continue
 
         if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
+            keys = [signer.public_key for signer in signers_keystore]
             key = key_cmd_prompt(key_name, role, taf_repo, keys, scheme)
-            keys.append(key)
+            signer = load_signer_from_pem(key)
+            signers_keystore.append(key)
             num_of_signatures += 1
         else:
             raise SigningError(f"Cannot load keys of role {role}")
 
-    return keys, yubikeys
+    return signers_keystore, yubikeys
 
 
 def setup_roles_keys(

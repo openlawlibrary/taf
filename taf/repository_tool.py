@@ -43,46 +43,6 @@ except ImportError:
 role_keys_cache: Dict = {}
 
 
-
-def load_role_key(keystore, role, password=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
-    """Loads the specified role's key from a keystore file.
-    The keystore file can, but doesn't have to be password protected.
-
-    NOTE: Keys inside keystore should match a role name!
-
-    Args:
-        - keystore(str): Path to the keystore directory
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - password(str): (Optional) password used for PEM decryption
-        - scheme(str): A signature scheme used for signing.
-
-    Returns:
-        - An RSA key object, conformant to 'securesystemslib.RSAKEY_SCHEMA'.
-
-    Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.CryptoError: If path is not a valid encrypted key file.
-    """
-    if not password:
-        password = None
-    key = role_keys_cache.get(role)
-    if key is None:
-        try:
-            if password is not None:
-                key = import_rsa_privatekey_from_file(
-                    str(Path(keystore, role)), password, scheme=scheme
-                )
-            else:
-                key = import_rsa_privatekey_from_file(
-                    str(Path(keystore, role)), scheme=scheme
-                )
-        except FileNotFoundError:
-            raise KeystoreError(f"Cannot find {role} key in {keystore}")
-    if not DISABLE_KEYS_CACHING:
-        role_keys_cache[role] = key
-    return key
-
-
 def root_signature_provider(signature_dict, key_id, _key, _data):
     """Root signature provider used to return signatures created remotely.
 
@@ -142,48 +102,6 @@ class Repository:
         self.name = name
 
 
-    def _try_load_metadata_key(self, role, key):
-        """Check if given key can be used to sign given role and load it.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - key(securesystemslib.formats.RSAKEY_SCHEMA): Private key used to sign metadata
-
-        Returns:
-        None
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-                                                        targets object.
-        - InvalidKeyError: If metadata cannot be signed with given key.
-        """
-        if not self.is_valid_metadata_key(role, key):
-            raise InvalidKeyError(role)
-        self._role_obj(role).load_signing_key(key)
-
-    def is_valid_metadata_yubikey(self, role, public_key=None):
-        """Checks if metadata role contains key id from YubiKey.
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
-        - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
-
-        Returns:
-        Boolean. True if smart card key id belongs to metadata role key ids
-
-        Raises:
-        - YubikeyError
-        - securesystemslib.exceptions.FormatError: If 'PEM' is improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If role does not exist
-        """
-        securesystemslib.formats.NAME_SCHEMA.check_match(role)
-
-        if public_key is None:
-            public_key = yk.get_piv_public_key_tuf()
-
-        return self.is_valid_metadata_key(role, public_key)
-
     def roles_keystore_update_method(self, role_name):
         return {
             "timestamp": self.update_timestamp_keystores,
@@ -225,32 +143,7 @@ class Repository:
         except (TUFError, SSLibError) as e:
             raise RootMetadataUpdateError(str(e))
 
-    def sign_role_keystores(self, role_name, signing_keys, write=True):
-        """Load signing keys of the specified role and sign the metadata file
-        if write is True. Should be used when the keys are not stored on Yubikeys.
-        Args:
-        - role_name(str): Name of the role which is to be updated
-        - signing_keys(list[securesystemslib.formats.RSAKEY_SCHEMA]): A list of signing keys
-        - write(bool): If True timestmap metadata will be signed and written
 
-        Returns:
-        None
-
-        Raises:
-        - InvalidKeyError: If at least one of the provided keys cannot be used to sign the
-                          role's metadata
-        - SigningError: If the number of signing keys is insufficient
-        """
-        threshold = self.get_role_threshold(role_name)
-        if len(signing_keys) < threshold:
-            raise SigningError(
-                role_name,
-                f"Insufficient number of signing keys. Signing threshold is {threshold}.",
-            )
-        for key in signing_keys:
-            self._try_load_metadata_key(role_name, key)
-        if write:
-            self._repository.write(role_name)
 
     def sign_role_yubikeys(
         self,
@@ -311,51 +204,9 @@ class Repository:
         if write:
             self._repository.write(role_name)
 
-    def roles_targets_for_filenames(self, target_filenames):
-        """Sort target files by roles
-        Args:
-        - target_filenames: List of relative paths of target files
-        Returns:
-        - A dictionary mapping roles to a list of target files belonging
-          to the provided target_filenames list delegated to the role
-        """
-        targets_roles_mapping = self.map_signing_roles(target_filenames)
-        roles_targets_mapping = {}
-        for target_filename, role_name in targets_roles_mapping.items():
-            roles_targets_mapping.setdefault(role_name, []).append(target_filename)
-        return roles_targets_mapping
 
-    def update_role_keystores(
-        self, role_name, signing_keys, start_date=None, interval=None, write=True
-    ):
-        """Update the specified role's metadata's expiration date by setting it to a date calculated by
-        adding the specified interval to start date. Load the signing keys and sign the file if
-        write is set to True.
-        Should be used when the keys are not stored on Yubikeys.
 
-        Args:
-        - role_name: Name of the role whose metadata is to be updated
-        - signing_keys: list of signing keys of the specified role
-        - start_date(datetime): Date to which the specified interval is added when
-                                calculating expiration date. If no value is provided,
-                                it is set to the current time
-        - interval(int): Number of days added to the start date. If not provided,
-                         the default expiration interval of the specified role is used
-        - write(bool): If True metadata will be signed and written
 
-        Returns:
-        None
-
-        Raises:
-        - InvalidKeyError: If a wrong key is used to sign metadata
-        - MetadataUpdateError: If any other error happened while updating and signing
-                               the metadata file
-        """
-        try:
-            self.set_metadata_expiration_date(role_name, start_date, interval)
-            self.sign_role_keystores(role_name, signing_keys, write)
-        except (YubikeyError, TUFError, SSLibError, SigningError) as e:
-            raise MetadataUpdateError(role_name, str(e))
 
     def update_role_yubikeys(
         self,
@@ -405,7 +256,7 @@ class Repository:
         except (YubikeyError, TUFError, SSLibError, SigningError) as e:
             raise MetadataUpdateError(role_name, str(e))
 
-    def update_timestamp_keystores(
+    def update_role_keystores(
         self, timestamp_signing_keys, start_date=None, interval=None, write=True
     ):
         """Update timestamp metadata's expiration date by setting it to a date calculated by

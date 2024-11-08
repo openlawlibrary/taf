@@ -17,6 +17,12 @@ from cryptography.hazmat.primitives import serialization
 
 from securesystemslib.signer import Signer
 
+from taf import YubikeyMissingLibrary
+try:
+    import taf.yubikey as yk
+except ImportError:
+    yk = YubikeyMissingLibrary()  # type: ignore
+
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.utils import default_backend, get_file_details, on_rm_error
 from tuf.api.metadata import (
@@ -32,10 +38,12 @@ from tuf.api.metadata import (
     Delegations,
 )
 from tuf.api.serialization.json import JSONSerializer
-from taf.exceptions import TAFError, TargetsError
+from taf.exceptions import InvalidKeyError, SigningError, TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData
 from taf.tuf.keys import SSlibKey, _get_legacy_keyid, get_sslib_key_from_value
 from tuf.repository import Repository
+
+from securesystemslib.signer import CryptoSigner
 
 
 logger = logging.getLogger(__name__)
@@ -209,6 +217,7 @@ class MetadataRepository(Repository):
                     pass
             # TODO should this be done, what about other roles? Do we want that?
 
+            # TODO move this to a function that calls this function
             self.do_snapshot()
             self.do_timestamp()
         return added_keys, already_added_keys, invalid_keys
@@ -834,6 +843,47 @@ class MetadataRepository(Repository):
         else:
             return key_id in self.get_keyids_of_role(role)
 
+
+    def is_valid_metadata_yubikey(self, role, public_key=None):
+        """Checks if metadata role contains key id from YubiKey.
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one
+        - public_key(securesystemslib.formats.RSAKEY_SCHEMA): RSA public key dict
+
+        Returns:
+        Boolean. True if smart card key id belongs to metadata role key ids
+
+        Raises:
+        - YubikeyError
+        """
+
+        if public_key is None:
+            public_key = yk.get_piv_public_key_tuf()
+
+        return self.is_valid_metadata_key(role, public_key)
+
+    def _load_signers(self, role: str, signers: List):
+        """Verify that the signers can be used to sign the specified role and
+        add them to the signer cache
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - signers: A list of signers
+
+        Returns:
+        None
+
+        Raises:
+        - InvalidKeyError: If metadata cannot be signed with given key.
+        """
+
+        for signer in signers:
+            key = signer.public_key
+            if not self.is_valid_metadata_key(role, key):
+                raise InvalidKeyError(role)
+            self.signer_cache[role][key.keyid] = signer
+
     def map_signing_roles(self, target_filenames):
         """
         For each target file, find delegated role responsible for that target file based
@@ -954,7 +1004,6 @@ class MetadataRepository(Repository):
                 targets.targets.pop(path, None)
         return targets
 
-    # TODO
     def revoke_metadata_key(self, roles_signers: Dict[str, Signer], roles: List[str], key_id: str):
         """Remove metadata key of the provided role.
 
@@ -1018,6 +1067,20 @@ class MetadataRepository(Repository):
 
         return removed_from_roles, not_added_roles, less_than_threshold_roles
 
+    def roles_targets_for_filenames(self, target_filenames):
+        """Sort target files by roles
+        Args:
+        - target_filenames: List of relative paths of target files
+        Returns:
+        - A dictionary mapping roles to a list of target files belonging
+          to the provided target_filenames list delegated to the role
+        """
+        targets_roles_mapping = self.map_signing_roles(target_filenames)
+        roles_targets_mapping = {}
+        for target_filename, role_name in targets_roles_mapping.items():
+            roles_targets_mapping.setdefault(role_name, []).append(target_filename)
+        return roles_targets_mapping
+
     def _role_obj(self, role, parent=None):
         if role in MAIN_ROLES:
             md = self.open("root")
@@ -1061,7 +1124,7 @@ class MetadataRepository(Repository):
         expiration_date = start_date + timedelta(interval)
         signed.expires = expiration_date
 
-    def set_metadata_expiration_date(self, role, start_date=None, interval=None):
+    def set_metadata_expiration_date(self, role_name: str, signers=List[CryptoSigner], start_date: datetime=None, interval: int=None) -> None:
         """Set expiration date of the provided role.
 
         Args:
@@ -1069,6 +1132,7 @@ class MetadataRepository(Repository):
         - start_date(datetime): Date to which the specified interval is added when calculating
                                 expiration date. If a value is not provided, it is set to the
                                 current time.
+        - signers(List[CryptoSigner]): a list of signers
         - interval(int): A number of days added to the start date.
                         If not provided, the default value is set based on the role:
 
@@ -1086,17 +1150,17 @@ class MetadataRepository(Repository):
         - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by
                                                         this targets object.
         """
-        md = self.open(role)
-        start_date = datetime.now(datetime.timezone.utc)
-        if interval is None:
-            try:
-                interval = self.expiration_intervals[role]
-            except KeyError:
-                interval = self.expiration_intervals["targets"]
-        expiration_date = start_date + timedelta(interval)
-        md.signed.expires = expiration_date
+        self._load_signers(role_name, signers)
+        with self.edit(role_name) as role:
+            start_date = datetime.now(timezone.utc)
+            if interval is None:
+                try:
+                    interval = self.expiration_intervals[role]
+                except KeyError:
+                    interval = self.expiration_intervals["targets"]
+            expiration_date = start_date + timedelta(interval)
+            role.expires = expiration_date
 
-        self.close(role, md)
 
     def sort_roles_targets_for_filenames(self):
         rel_paths = []
@@ -1112,4 +1176,13 @@ class MetadataRepository(Repository):
         for target_file, role in files_to_roles.items():
             roles_targets.setdefault(role, []).append(target_file)
         return roles_targets
+
+    def update_role(self, role_name: str, signers: List[CryptoSigner]):
+        self._load_signers(role_name, signers)
+        with self.eidt(role_name) as role:
+            pass
+
+    def update_snapshot_and_tiemstamp(self, signers_dict: Dict[str, List[CryptoSigner]]):
+        self.update_role(Snapshot.type, signers_dict[Snapshot.type])
+        self.update_role(Timestamp.type, signers_dict[Timestamp.type])
 

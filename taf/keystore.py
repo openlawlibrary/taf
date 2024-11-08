@@ -7,14 +7,16 @@ from typing import Dict, List, Optional
 import click
 import securesystemslib
 from securesystemslib.interface import (
-    import_rsa_privatekey_from_file,
     import_rsa_publickey_from_file,
 )
 from taf.repository_tool import Repository
+from taf.tuf.keys import load_signer_from_file
 from tuf.repository_tool import import_rsakey_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
+
+from securesystemslib.securesystemslib.signer._crypto_signer import CryptoSigner
 
 
 def default_keystore_path() -> str:
@@ -63,15 +65,15 @@ def key_cmd_prompt(
         if not taf_repo.is_valid_metadata_yubikey(role, public_key):
             print(f"The entered key is not a valid {role} key")
             return None
-        if loaded_keys is not None and key in loaded_keys:
+        if loaded_keys is not None and public_key in loaded_keys:
             print("Key already entered")
             return None
-        return key
+        return pem
 
     while True:
-        key = _enter_and_check_key(key_name, role, loaded_keys, scheme)
-        if key is not None:
-            return key
+        pem = _enter_and_check_key(key_name, role, loaded_keys, scheme)
+        if pem is not None:
+            return pem
 
 
 def load_tuf_private_key(
@@ -103,13 +105,12 @@ def new_public_key_cmd_prompt(scheme: Optional[str]) -> Dict:
             return key
 
 
-def read_private_key_from_keystore(
+def load_signer_from_private_keystore(
     keystore: str,
     key_name: str,
-    key_num: Optional[int] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     password: Optional[str] = None,
-) -> Dict:
+) -> CryptoSigner:
     key_path = Path(keystore, key_name).expanduser().resolve()
     if not key_path.is_file():
         raise KeystoreError(f"{str(key_path)} does not exist")
@@ -117,15 +118,10 @@ def read_private_key_from_keystore(
     def _read_key(path, password, scheme):
         def _read_key_or_keystore_error(path, password, scheme):
             try:
-                return import_rsa_privatekey_from_file(
-                    str(Path(keystore, key_name)), password or None, scheme=scheme
+                return load_signer_from_file(
+                    path, password or None, scheme=scheme
                 )
-            except (
-                securesystemslib.exceptions.FormatError,
-                securesystemslib.exceptions.Error,
-            ) as e:
-                if "password" in str(e).lower():
-                    return None
+            except Exception as e:
                 raise KeystoreError(e)
 
         try:
