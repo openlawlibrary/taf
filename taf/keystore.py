@@ -3,10 +3,10 @@ import re
 from getpass import getpass
 from os import getcwd
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 import click
 import securesystemslib
-from taf.tuf.keys import load_signer_from_file
+from taf.tuf.keys import load_public_key_from_file, load_signer_from_file, load_signer_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
@@ -14,6 +14,8 @@ from taf.exceptions import KeystoreError
 from taf.tuf.repository import MetadataRepository as TUFRepository
 
 from securesystemslib.signer._crypto_signer import CryptoSigner
+
+from securesystemslib.signer._key import SSlibKey
 
 
 def default_keystore_path() -> str:
@@ -49,23 +51,23 @@ def key_cmd_prompt(
     taf_repo: TUFRepository,
     loaded_keys: Optional[List] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
-) -> Optional[Dict]:
+) -> CryptoSigner:
     def _enter_and_check_key(key_name, role, loaded_keys, scheme):
         pem = getpass(f"Enter {key_name} private key without its header and footer\n")
         pem = _form_private_pem(pem)
         try:
-            key = import_rsakey_from_pem(pem, scheme)
+            signer = load_signer_from_pem(pem, scheme)
         except Exception:
             print("Invalid key")
             return None
-        public_key = import_rsakey_from_pem(key["keyval"]["public"], scheme)
+        public_key = signer.public_key
         if not taf_repo.is_valid_metadata_yubikey(role, public_key):
             print(f"The entered key is not a valid {role} key")
             return None
         if loaded_keys is not None and public_key in loaded_keys:
             print("Key already entered")
             return None
-        return pem
+        return signer
 
     while True:
         pem = _enter_and_check_key(key_name, role, loaded_keys, scheme)
@@ -73,28 +75,16 @@ def key_cmd_prompt(
             return pem
 
 
-def load_tuf_private_key(
-    key_str: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
-) -> Dict:
-    if not key_str:
-        key_str = getpass(
-            f"Enter {key_name} private key without its header and footer\n"
-        )
-    key_pem = _form_private_pem(key_str)
 
-    return import_rsakey_from_pem(key_pem, scheme)
-
-
-def new_public_key_cmd_prompt(scheme: Optional[str]) -> Dict:
+def new_public_key_cmd_prompt(scheme: Optional[str]) -> SSlibKey:
     def _enter_and_check_key(scheme):
         pem = getpass("Enter public key without its header and footer\n")
         pem = _from_public_pem(pem)
         try:
-            key = import_rsakey_from_pem(pem, scheme)
+            return load_public_key_from_file(pem, scheme)
         except Exception:
             print("Invalid key")
             return None
-        return import_rsakey_from_pem(key["keyval"]["public"], scheme)
 
     while True:
         key = _enter_and_check_key(scheme)
@@ -142,12 +132,12 @@ def load_signer_from_private_keystore(
 
 def read_public_key_from_keystore(
     keystore: str, key_name: str, scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME
-) -> Dict:
+) -> SSlibKey:
     pub_key_path = Path(keystore, f"{key_name}.pub").expanduser().resolve()
     if not pub_key_path.is_file():
         raise KeystoreError(f"{str(pub_key_path)} does not exist")
     try:
-        return import_rsa_publickey_from_file(str(pub_key_path), scheme)
+        return load_public_key_from_file(str(pub_key_path), scheme)
     except (
         securesystemslib.exceptions.FormatError,
         securesystemslib.exceptions.Error,

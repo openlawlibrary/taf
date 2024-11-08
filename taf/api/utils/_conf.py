@@ -13,7 +13,7 @@ def find_taf_directory(auth_repo_path: Path) -> Optional[Path]:
         Optional[Path]: The path to the .taf directory if found, otherwise None.
     """
     # Check the parent directory of the authentication repository
-    current_dir = auth_repo_path.parent
+    current_dir = auth_repo_path.absolute().parent
     while current_dir != current_dir.root:
         taf_directory = current_dir / ".taf"
         if taf_directory.exists() and taf_directory.is_dir():

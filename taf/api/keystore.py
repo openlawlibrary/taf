@@ -12,6 +12,7 @@ from taf.log import taf_logger
 from taf.models.types import RolesIterator
 from taf.models.converter import from_dict
 from taf.exceptions import KeystoreError
+from taf.tuf.keys import generate_and_write_rsa_keypair, generate_rsa_keypair
 
 
 @log_on_start(INFO, "Generating '{key_path:s}'", logger=taf_logger)
@@ -38,12 +39,7 @@ def _generate_rsa_key(key_path: str, password: str, bits: Optional[int] = None) 
         None
     """
     try:
-        if password:
-            generate_and_write_rsa_keypair(
-                filepath=key_path, bits=bits, password=password
-            )
-        else:
-            generate_and_write_unencrypted_rsa_keypair(filepath=key_path, bits=bits)
+        generate_and_write_rsa_keypair(path=key_path, key_size=bits, password=password)
         taf_logger.log("NOTICE", f"Generated key {key_path}")
     except Exception:
         taf_logger.error(f"An error occurred while generating rsa key {key_path}")
@@ -76,6 +72,7 @@ def generate_keys(
     Raises:
         KeystoreError if an error occurs while initializing the keystore directory or generating a key
     """
+    # TODO handle scheme
     if keystore is None:
         taf_directory = find_taf_directory(Path())
         if taf_directory:
@@ -88,6 +85,7 @@ def generate_keys(
         roles_key_infos, str(keystore)
     )
 
+    keystore = None
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
         if not role.is_yubikey:
@@ -100,6 +98,5 @@ def generate_keys(
                     key_path = str(Path(keystore, key_name))
                     _generate_rsa_key(key_path, password, role.length)
                 else:
-                    rsa_key = keys.generate_rsa_key(role.length)
-                    private_key_val = rsa_key["keyval"]["private"]
-                    print(f"{role.name} key:\n\n{private_key_val}\n\n")
+                    rsa_key, _ = generate_rsa_keypair(role.length)
+                    print(f"{role.name} key:\n\n{rsa_key.decode()}\n\n")

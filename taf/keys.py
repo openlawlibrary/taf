@@ -11,7 +11,7 @@ from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.api.utils._conf import find_keystore
-from taf.tuf.keys import load_signer_from_pem
+from taf.tuf.keys import generate_and_write_rsa_keypair, generate_rsa_keypair, load_signer_from_pem
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
 from taf.exceptions import (
@@ -23,7 +23,6 @@ from taf.keystore import (
     get_keystore_keys_of_role,
     key_cmd_prompt,
     load_signer_from_private_keystore,
-    read_public_key_from_keystore,
 )
 from taf import YubikeyMissingLibrary
 
@@ -170,26 +169,6 @@ def load_sorted_keys_of_new_roles(
         raise SigningError("Could not load keys of new roles")
 
 
-@log_on_start(
-    INFO,
-    "Public key {key_name}.pub not found. Generating from private key.",
-    logger=taf_logger,
-)
-def _generate_public_key_from_private(keystore_path, key_name, scheme):
-    """Generate public key from the private key and return the key object"""
-    try:
-        priv_key = import_rsa_privatekey_from_file(
-            str(keystore_path / key_name), scheme=scheme
-        )
-        public_key_pem = priv_key["keyval"]["public"]
-        public_key_path = keystore_path / f"{key_name}.pub"
-        public_key_path.write_text(public_key_pem)
-        return import_rsa_publickey_from_file(str(public_key_path), scheme=scheme)
-    except Exception as e:
-        taf_logger.error(f"Error generating public key for {key_name}: {e}")
-        return None
-
-
 def _load_signer_from_keystore(
     taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
 ) -> CryptoSigner:
@@ -202,10 +181,6 @@ def _load_signer_from_keystore(
             )
             # load only valid keys
             if taf_repo.is_valid_metadata_key(role, signer.public_key, scheme=scheme):
-                # Check if the public key is missing and generate it if necessary
-                public_key_path = keystore_path / f"{key_name}.pub"
-                if not public_key_path.exists():
-                    _generate_public_key_from_private(keystore_path, key_name, scheme)
                 return signer
         except KeystoreError:
             pass
@@ -447,10 +422,10 @@ def _setup_keystore_key(
     length: int,
     password: Optional[str],
     skip_prompt: Optional[bool],
-) -> Tuple[Optional[Dict], Optional[Dict]]:
+) -> CryptoSigner:
     # if keystore exists, load the keys
     generate_new_keys = keystore is None
-    public_key = private_key = None
+    signer = None
 
     def _invalid_key_message(key_name, keystore, is_public):
         extension = ".pub" if is_public else ""
@@ -465,25 +440,18 @@ def _setup_keystore_key(
 
     if keystore is not None:
         keystore_path = str(Path(keystore).expanduser().resolve())
-        while public_key is None and private_key is None:
+        while signer is None:
             try:
-                public_key = read_public_key_from_keystore(
-                    keystore_path, key_name, scheme
-                )
-            except KeystoreError:
-                _invalid_key_message(key_name, keystore, True)
-            try:
-                private_key = read_private_key_from_keystore(
+                signer = load_signer_from_private_keystore(
                     keystore_path,
                     key_name,
-                    key_num=key_num,
                     scheme=scheme,
                     password=password,
                 )
             except KeystoreError:
                 _invalid_key_message(key_name, keystore, False)
 
-            if public_key is None or private_key is None:
+            if signer is None:
                 generate_new_keys = skip_prompt is True or click.confirm(
                     "Generate new keys?"
                 )
@@ -511,28 +479,18 @@ def _setup_keystore_key(
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
                 )
-            if not password:
-                generate_and_write_unencrypted_rsa_keypair(
-                    filepath=str(Path(keystore) / key_name), bits=length
-                )
-            else:
-                generate_and_write_rsa_keypair(
-                    password=password,
-                    filepath=str(Path(keystore) / key_name),
-                    bits=length,
-                )
-            public_key = read_public_key_from_keystore(keystore, key_name, scheme)
-            private_key = read_private_key_from_keystore(
-                keystore, key_name, key_num=key_num, scheme=scheme, password=password
+            private_pem = generate_and_write_rsa_keypair(
+                filepath = Path(keystore, key_name),
+                key_size=length,
+                password=password
             )
+            signer = load_signer_from_pem(private_pem)
         else:
-            rsa_key = keys.generate_rsa_key(bits=length)
-            private_key_val = rsa_key["keyval"]["private"]
-            print(f"{role_name} key:\n\n{private_key_val}\n\n")
-            public_key = rsa_key
-            private_key = rsa_key
+            _, private_pem = generate_rsa_keypair(bits=length)
+            print(f"{role_name} key:\n\n{private_pem}\n\n")
+            signer = load_signer_from_pem(private_pem)
 
-    return public_key, private_key
+    return signer
 
 
 def _setup_yubikey(

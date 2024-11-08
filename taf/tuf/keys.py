@@ -20,9 +20,12 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_public_key,
 )
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
 from taf import YubikeyMissingLibrary
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.utils import default_backend
 
 
 try:
@@ -33,6 +36,53 @@ except ImportError:
 
 def create_signer(priv, pub):
     return CryptoSigner(priv, _from_crypto(pub))
+
+
+def generate_rsa_keypair(key_size=3072, password=None):
+    # Generate private key
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size,
+        backend=default_backend()
+    )
+
+    # Encrypt the private key if a password is provided
+    if password:
+        encryption_algorithm = serialization.BestAvailableEncryption(password.encode())
+    else:
+        encryption_algorithm = serialization.NoEncryption()
+
+    # Serialize private key
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=encryption_algorithm
+    )
+
+    # Get the public key from the private key
+    public_key = private_key.public_key()
+    # Serialize public key
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    return private_pem, public_pem
+
+def generate_and_write_rsa_keypair(path, key_size, password):
+
+    if not password:
+        password = None
+    private_pem, public_pem = generate_rsa_keypair(key_size, password)
+
+    with open(path, "wb") as f:
+        f.write(private_pem)
+
+    with open(f"{path}.pub", 'wb') as f:
+        f.write(public_pem)
+
+    return private_pem
+
 
 def _get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
     """
@@ -68,6 +118,7 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hasher.hexdigest()
 
 
+
 def _from_crypto(pub: RSAPublicKey) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with default signing
     scheme and legacy keyid."""
@@ -81,7 +132,7 @@ def _from_crypto(pub: RSAPublicKey) -> SSlibKey:
 
 
 
-def load_public_key_from_file(path: Path) -> SSlibKey:
+def load_public_key_from_file(path: Path, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
     """Load SSlibKey from RSA public key file.
 
     * Expected key file format is SubjectPublicKeyInfo/PEM
@@ -89,6 +140,7 @@ def load_public_key_from_file(path: Path) -> SSlibKey:
     * Keyid is computed from legacy canonical representation of public key
 
     """
+    # TODO handle scheme
     with open(path, "rb") as f:
         pem = f.read()
 
