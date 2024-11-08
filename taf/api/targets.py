@@ -25,7 +25,7 @@ from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
-from taf.tuf.repository import Repository as TUFRepository
+from taf.tuf.repository import MetadataRepository as TUFRepository
 
 
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)

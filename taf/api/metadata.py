@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from logging import INFO, ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
@@ -7,7 +7,7 @@ from taf.exceptions import TAFError
 from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
-from taf.tuf.repository import Repository as TUFRepository, is_delegated_role
+from taf.tuf.repository import MetadataRepository as TUFRepository, is_delegated_role
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
 
@@ -45,7 +45,9 @@ def check_expiration_dates(
     taf_repo = TUFRepository(path)
 
     if start_date is None:
-        start_date = datetime.now()
+        start_date = datetime.now(timezone.utc)
+    elif start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
 
     expired_dict, will_expire_dict = taf_repo.check_roles_expiration_dates(
         interval, start_date, excluded_roles
@@ -118,7 +120,6 @@ def update_metadata_expiration_date(
     Returns:
         None
     """
-    # TODO move tis to the auth repo class
     if start_date is None:
         start_date = datetime.now()
 

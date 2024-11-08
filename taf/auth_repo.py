@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+from tuf.api.metadata import Metadata
 from taf.git import GitRepository
 from taf.tuf.repository import METADATA_DIRECTORY_NAME, Repository as TUFRepository, get_role_metadata_path, get_target_path
 from taf.constants import INFO_JSON_PATH
@@ -145,6 +146,9 @@ class AuthenticationRepository(GitRepository, TUFRepository):
             return f"{self.alias}: "
         return f"Auth repo {self.name}: "
 
+    def close(self, role: str, md: Metadata) -> None:
+        super(role, md)
+
     def commit_and_push(
         self,
         commit_msg: Optional[str] = None,
@@ -255,6 +259,10 @@ class AuthenticationRepository(GitRepository, TUFRepository):
             except TypeError:
                 continue
         return False
+
+
+    def open(self, role: str) -> Metadata:
+        return super().open(role)
 
     @contextmanager
     def repository_at_revision(self, commit: str):

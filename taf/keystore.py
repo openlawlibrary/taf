@@ -11,7 +11,7 @@ from taf.tuf.keys import load_signer_from_file
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
 
-from taf.tuf.repository import Repository as TUFRepository
+from taf.tuf.repository import MetadataRepository as TUFRepository
 
 from securesystemslib.signer._crypto_signer import CryptoSigner
 

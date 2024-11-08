@@ -4,7 +4,7 @@ from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.exceptions import TAFError
 from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.tuf.repository import Repository as TUFRepository
+from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.log import taf_logger
 
 

@@ -48,6 +48,7 @@ from securesystemslib.signer import CryptoSigner
 
 logger = logging.getLogger(__name__)
 
+# TODO remove this, use from constants or remove from constants
 METADATA_DIRECTORY_NAME = "metadata"
 TARGETS_DIRECTORY_NAME = "targets"
 
@@ -109,7 +110,7 @@ class MetadataRepository(Repository):
         return str(certs_dir)
 
     def __init__(self, path: Path) -> None:
-        self.signer_cache: Dict[str, Dict[str, Signer]] = {}
+        self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
         self._path = path
 
         self._snapshot_info = MetaFile(1)
@@ -566,7 +567,9 @@ class MetadataRepository(Repository):
         meta_file = self._signed_obj(role)
         if meta_file is None:
             raise TAFError(f"Role {role} does not exist")
-        return meta_file.expires
+
+        date = meta_file.expires
+        return date.replace(tzinfo=timezone.utc)
 
     def get_role_threshold(self, role: str, parent: Optional[str]=None ) -> int:
         """Get threshold of the given role
@@ -811,7 +814,7 @@ class MetadataRepository(Repository):
         if role_obj is None:
             return None
         try:
-            return role_obj.keys
+            return role_obj.keyids
         except KeyError:
             pass
         return self.get_delegated_role_property("keyids", role, parent_role)
@@ -1155,7 +1158,7 @@ class MetadataRepository(Repository):
             start_date = datetime.now(timezone.utc)
             if interval is None:
                 try:
-                    interval = self.expiration_intervals[role]
+                    interval = self.expiration_intervals[role_name]
                 except KeyError:
                     interval = self.expiration_intervals["targets"]
             expiration_date = start_date + timedelta(interval)

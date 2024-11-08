@@ -9,7 +9,7 @@ from taf.log import taf_logger
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
-from taf.tuf.repository import Repository as TUFRepository
+from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.api.utils._conf import find_keystore
 from taf.tuf.keys import load_signer_from_pem
 
@@ -201,7 +201,7 @@ def _load_signer_from_keystore(
                 keystore=keystore_path, key_name=key_name, scheme=scheme
             )
             # load only valid keys
-            if taf_repo.is_valid_metadata_key(role, signer._private_key, scheme=scheme):
+            if taf_repo.is_valid_metadata_key(role, signer.public_key, scheme=scheme):
                 # Check if the public key is missing and generate it if necessary
                 public_key_path = keystore_path / f"{key_name}.pub"
                 if not public_key_path.exists():
@@ -280,7 +280,7 @@ def load_signers(
                 taf_repo, keystore_path, key_name, num_of_signatures, scheme, role
             )
             if signer is not None:
-                signers_keystore.append(key)
+                signers_keystore.append(signer)
                 num_of_signatures += 1
                 continue
         if num_of_signatures >= threshold:

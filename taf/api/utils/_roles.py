@@ -11,7 +11,7 @@ from taf import YubikeyMissingLibrary
 from taf.keys import get_key_name
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import YUBIKEY_EXPIRATION_DATE
-from taf.tuf.repository import Repository as TUFRepository
+from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.models.types import Role
 from taf.log import taf_logger
 from tuf.api._payload import Targets
