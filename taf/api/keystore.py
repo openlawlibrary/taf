@@ -85,7 +85,6 @@ def generate_keys(
         roles_key_infos, str(keystore)
     )
 
-    keystore = None
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     for role in RolesIterator(roles_keys_data.roles, include_delegations=True):
         if not role.is_yubikey:

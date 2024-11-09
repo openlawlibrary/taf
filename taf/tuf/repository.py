@@ -109,9 +109,9 @@ class MetadataRepository(Repository):
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Union[Path, str]) -> None:
         self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
-        self.path = path
+        self.path = Path(path)
 
         self._snapshot_info = MetaFile(1)
         self._targets_infos: Dict[str, MetaFile] = defaultdict(lambda: MetaFile(1))
@@ -342,7 +342,7 @@ class MetadataRepository(Repository):
             md.to_file(self.metadata_path / f"{md.signed.version}.{fname}")
 
 
-    def create(self, roles_keys_data: RolesKeysData, signers: dict):
+    def create(self, roles_keys_data: RolesKeysData, signers: dict, verification_keys: dict):
         """Create a new metadata repository on disk.
 
         1. Create metadata subdir (fail, if exists)
@@ -354,7 +354,9 @@ class MetadataRepository(Repository):
                 are dictionaries, where-dict keys are keyids and values
                 are signers.
         """
-        self.metadata_path.mkdir()
+        # TODO add verification keys
+        # support yubikeys
+        self.metadata_path.mkdir(parents=True)
         self.signer_cache  = defaultdict(dict)
 
         root = Root(consistent_snapshot=False)

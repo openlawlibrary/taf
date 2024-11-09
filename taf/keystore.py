@@ -108,24 +108,29 @@ def load_signer_from_private_keystore(
                 return load_signer_from_file(
                     path, password or None, scheme=scheme
                 )
+            except TypeError:
+                raise
             except Exception as e:
                 raise KeystoreError(e)
 
         try:
             # try to load with a given password or None
             return _read_key_or_keystore_error(path, password, scheme)
-        except securesystemslib.exceptions.CryptoError:
+        except TypeError:
             password = getpass(
                 f"Enter {key_name} keystore file password and press ENTER"
             )
-            return _read_key_or_keystore_error(path, password, scheme)
+            try:
+                return _read_key_or_keystore_error(path, password, scheme)
+            except Exception:
+                return None
         except Exception:
             return None
 
     while True:
-        key = _read_key(key_path, password, scheme)
-        if key is not None:
-            return key
+        signer = _read_key(key_path, password, scheme)
+        if signer is not None:
+            return signer
         if not click.confirm(f"Could not open keystore file {key_path}. Try again?"):
             raise KeystoreError(f"Could not open keystore file {key_path}")
 

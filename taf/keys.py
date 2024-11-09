@@ -86,13 +86,13 @@ def _extract_x509(cert_pem: bytes) -> Dict:
 
 
 def load_sorted_keys_of_new_roles(
-    auth_repo: AuthenticationRepository,
     roles: Union[MainRoles, TargetsRole],
     yubikeys_data: Optional[Dict[str, UserKeyData]],
     keystore: Optional[str],
     yubikeys: Optional[Dict[str, Dict]] = None,
     existing_roles: Optional[List[str]] = None,
     skip_prompt: Optional[bool] = False,
+    certs_dir: Optional[Path] = None,
 ):
     """
     Load signing keys of roles - first those stored on YubiKeys to avoid entering pins
@@ -135,36 +135,33 @@ def load_sorted_keys_of_new_roles(
         existing_roles = []
     try:
         keystore_roles, yubikey_roles = _sort_roles(roles)
-        signing_keys: Dict = {}
+        signers: Dict = {}
         verification_keys: Dict = {}
 
         for role in keystore_roles:
             if role.name in existing_roles:
                 continue
-            keystore_keys, _ = setup_roles_keys(
+            keystore_signers, _ = setup_roles_keys(
                 role,
-                auth_repo,
-                auth_repo.path,
                 keystore=keystore,
                 skip_prompt=skip_prompt,
             )
-            for public_key, private_key in keystore_keys:
-                signing_keys.setdefault(role.name, []).append(private_key)
-                verification_keys.setdefault(role.name, []).append(public_key)
+            for signer in keystore_signers:
+                signers.setdefault(role.name, []).append(signer)
+                verification_keys.setdefault(role.name, []).append(signer.public_key)
 
         for role in yubikey_roles:
             if role.name in existing_roles:
                 continue
             _, yubikey_keys = setup_roles_keys(
                 role,
-                auth_repo=auth_repo,
-                certs_dir=auth_repo.certs_dir,
+                certs_dir=certs_dir,
                 yubikeys=yubikeys,
                 users_yubikeys_details=yubikeys_data,
                 skip_prompt=skip_prompt,
             )
             verification_keys[role.name] = yubikey_keys
-        return signing_keys, verification_keys
+        return signers, verification_keys
     except KeystoreError:
         raise SigningError("Could not load keys of new roles")
 
@@ -298,7 +295,6 @@ def load_signers(
 
 def setup_roles_keys(
     role: Role,
-    auth_repo: AuthenticationRepository,
     certs_dir: Optional[Union[Path, str]] = None,
     keystore: Optional[str] = None,
     yubikeys: Optional[Dict] = None,
@@ -310,7 +306,7 @@ def setup_roles_keys(
     if role.name is None:
         raise SigningError("Cannot set up roles keys. Role name not specified")
     yubikey_keys = []
-    keystore_keys = []
+    keystore_signers = []
 
     yubikey_ids = role.yubikey_ids
     if yubikey_ids is None:
@@ -326,26 +322,22 @@ def setup_roles_keys(
         )
     else:
         if keystore is None:
-            keystore_path = find_keystore(auth_repo.path)
-            if keystore_path is None:
-                taf_logger.warning("No keystore provided and no default keystore found")
-            else:
-                keystore = str(keystore_path)
+            taf_logger.error("No keystore provided and no default keystore found")
+            raise KeyError("No keystore provided and no default keystore found")
         default_params = RoleSetupParams()
         for key_num in range(role.number):
             key_name = get_key_name(role.name, key_num, role.number)
-            public_key, private_key = _setup_keystore_key(
+            signer = _setup_keystore_key(
                 keystore,
                 role.name,
                 key_name,
-                key_num,
                 role.scheme or default_params["scheme"],
                 role.length or default_params["length"],
                 None,
                 skip_prompt=skip_prompt,
             )
-            keystore_keys.append((public_key, private_key))
-    return keystore_keys, yubikey_keys
+            keystore_signers.append(signer)
+    return keystore_signers, yubikey_keys
 
 
 def _setup_yubikey_roles_keys(
@@ -417,7 +409,6 @@ def _setup_keystore_key(
     keystore: Optional[str],
     role_name: str,
     key_name: str,
-    key_num: int,
     scheme: str,
     length: int,
     password: Optional[str],
@@ -427,14 +418,10 @@ def _setup_keystore_key(
     generate_new_keys = keystore is None
     signer = None
 
-    def _invalid_key_message(key_name, keystore, is_public):
-        extension = ".pub" if is_public else ""
-        key_path = Path(keystore, f"{key_name}{extension}")
+    def _invalid_key_message(key_name, keystore):
+        key_path = Path(keystore, key_name)
         if key_path.is_file():
-            if is_public:
-                print(f"Could not load public key {key_path}")
-            else:
-                print(f"Could not load private key {key_path}")
+            print(f"Could not load private key {key_path}")
         else:
             print(f"{key_path} is not a file!")
 
@@ -449,7 +436,7 @@ def _setup_keystore_key(
                     password=password,
                 )
             except KeystoreError:
-                _invalid_key_message(key_name, keystore, False)
+                _invalid_key_message(key_name, keystore)
 
             if signer is None:
                 generate_new_keys = skip_prompt is True or click.confirm(

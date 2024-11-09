@@ -162,7 +162,8 @@ def load_signer_from_file(path: Path, password: Optional[str]=None, scheme=DEFAU
 
     # TODO scheme
 
-    priv = load_pem_private_key(pem, password)
+    password_encoded = password.encode() if password is not None else None
+    priv = load_pem_private_key(pem, password_encoded)
     pub = priv.public_key()
     return CryptoSigner(priv, _from_crypto(pub))
 
