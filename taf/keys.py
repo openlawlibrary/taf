@@ -57,7 +57,7 @@ def get_metadata_key_info(certs_dir: str, key_id: str) -> TAFKey:
     file whose name matches that key's id.
     """
     cert_path = Path(certs_dir, key_id + ".cert")
-    if cert_path.exists():
+    if cert_path.is_file():
         cert_pem = cert_path.read_bytes()
         return TAFKey(key_id, **_extract_x509(cert_pem))
 

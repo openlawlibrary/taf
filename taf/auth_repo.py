@@ -74,7 +74,8 @@ class AuthenticationRepository(GitRepository, TUFRepository):
 
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
-        self._current_commit = None
+        self.head_commit = self.head_commit_sha() if self.is_bare_repository else None
+        self._current_commit = self.head_commit
 
     # TODO rework conf_dir
 
@@ -272,8 +273,8 @@ class AuthenticationRepository(GitRepository, TUFRepository):
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
         try:
-            role_path = self.metadata_path / f"{role}.json"
             if self._current_commit is None:
+                role_path = self.metadata_path / f"{role}.json"
                 return Metadata.from_file(role_path)
             try:
                 file_content = self.get_file(self._current_commit, Path(METADATA_DIRECTORY_NAME, f"{role}.json"))
@@ -294,7 +295,7 @@ class AuthenticationRepository(GitRepository, TUFRepository):
         """
         self._current_commit = commit
         yield
-        self._current_commit = None
+        self._current_commit = self.head_commit
 
     def set_last_validated_commit(self, commit: str):
         """
