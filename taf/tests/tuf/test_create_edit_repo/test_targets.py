@@ -4,7 +4,7 @@ def test_add_target_files(tuf_repo):
     # assert add target file and correct version bumps
     path1 = "test1.txt"
     tuf_repo.add_target_files_to_role({path1: {"target": "test1"}})
-    assert (tuf_repo._path / "targets" / path1).is_file()
+    assert (tuf_repo.path / "targets" / path1).is_file()
     assert tuf_repo.targets().targets[path1]
     assert tuf_repo.targets().targets[path1].length > 0
     assert len(tuf_repo.targets().targets[path1].hashes) == 2
@@ -20,7 +20,7 @@ def test_add_target_files(tuf_repo):
     path2 = "test2.txt"
     custom =  {"custom_attr": "custom_val"}
     tuf_repo.add_target_files_to_role({path2: {"target": "test2", "custom": custom}})
-    assert (tuf_repo._path / "targets" / path2).is_file()
+    assert (tuf_repo.path / "targets" / path2).is_file()
     assert tuf_repo.targets().targets[path2].length > 0
     assert tuf_repo.targets().targets[path2].custom ==  custom
 
@@ -35,12 +35,12 @@ def test_repo_target_files(tuf_repo):
         }
     )
     for path in (path1, path2):
-        assert (tuf_repo._path / "targets" / path).is_file()
+        assert (tuf_repo.path / "targets" / path).is_file()
         assert tuf_repo.targets().targets[path].length > 0
 
     tuf_repo.modify_targets(added_data=None, removed_data={path1: None})
-    assert not (tuf_repo._path / "targets" / path1).is_file()
-    assert (tuf_repo._path / "targets" / path2).is_file()
+    assert not (tuf_repo.path / "targets" / path1).is_file()
+    assert (tuf_repo.path / "targets" / path2).is_file()
     assert path1 not in tuf_repo.targets().targets
     assert path2 in tuf_repo.targets().targets
 
@@ -56,7 +56,7 @@ def test_repo_target_files_with_delegations(tuf_repo):
         }
     )
     for path in (target_path1, target_path2):
-        assert (tuf_repo._path / "targets" / path).is_file()
+        assert (tuf_repo.path / "targets" / path).is_file()
         assert tuf_repo.targets().targets[path].length > 0
 
     delegated_path1 = "dir1/path1"
@@ -68,7 +68,7 @@ def test_repo_target_files_with_delegations(tuf_repo):
         }
     )
     for path in (delegated_path1, delegated_path2):
-        assert (tuf_repo._path / "targets" / path).is_file()
+        assert (tuf_repo.path / "targets" / path).is_file()
         assert tuf_repo._signed_obj("delegated_role").targets[path].length > 0
 
     path_delegated = "dir2/path2"
@@ -92,7 +92,7 @@ def test_get_all_target_files_state(tuf_repo):
         }
     )
 
-    (tuf_repo._path / "targets" / target_path1).unlink()
+    (tuf_repo.path / "targets" / target_path1).unlink()
 
     delegated_path1 = "dir1/path1"
     delegated_path2 = "dir2/path1"
@@ -102,7 +102,7 @@ def test_get_all_target_files_state(tuf_repo):
         delegated_path2: {"target": "test2"}
         }
     )
-    path = tuf_repo._path / "targets" / delegated_path1
+    path = tuf_repo.path / "targets" / delegated_path1
     path.write_text("Updated content")
 
     actual = tuf_repo.get_all_target_files_state()
@@ -123,9 +123,9 @@ def test_delete_unregistered_target_files(tuf_repo):
         "dir2/path1": {"target": "test2"}
         }
     )
-    new_target1 = tuf_repo._path / "targets" / "new"
+    new_target1 = tuf_repo.path / "targets" / "new"
     new_target1.touch()
-    new_target2 = tuf_repo._path / "targets" / "dir1" / "new"
+    new_target2 = tuf_repo.path / "targets" / "dir1" / "new"
     new_target2.touch()
     assert new_target1.is_file()
     assert new_target2.is_file()

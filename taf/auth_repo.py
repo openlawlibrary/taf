@@ -7,10 +7,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+from taf.exceptions import GitError, TAFError
 from tuf.api.metadata import Metadata
 from taf.git import GitRepository
-from taf.tuf.repository import METADATA_DIRECTORY_NAME, Repository as TUFRepository, get_role_metadata_path, get_target_path
+from taf.tuf.repository import METADATA_DIRECTORY_NAME, MetadataRepository as TUFRepository, get_role_metadata_path, get_target_path
 from taf.constants import INFO_JSON_PATH
+
+from securesystemslib.exceptions import StorageError
 
 
 class AuthenticationRepository(GitRepository, TUFRepository):
@@ -71,6 +74,7 @@ class AuthenticationRepository(GitRepository, TUFRepository):
 
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
+        self._current_commit = None
 
     # TODO rework conf_dir
 
@@ -147,7 +151,11 @@ class AuthenticationRepository(GitRepository, TUFRepository):
         return f"Auth repo {self.name}: "
 
     def close(self, role: str, md: Metadata) -> None:
-        super(role, md)
+        if self._current_commit is None:
+            super(role, md)
+        else:
+            raise TAFError("Cannot update metadata file. File read from git")
+
 
     def commit_and_push(
         self,
@@ -262,7 +270,19 @@ class AuthenticationRepository(GitRepository, TUFRepository):
 
 
     def open(self, role: str) -> Metadata:
-        return super().open(role)
+        """Read role metadata from disk."""
+        try:
+            role_path = self.metadata_path / f"{role}.json"
+            if self._current_commit is None:
+                return Metadata.from_file(role_path)
+            try:
+                file_content = self.get_file(self._current_commit, Path(METADATA_DIRECTORY_NAME, f"{role}.json"))
+                file_bytes = file_content.encode()
+                return Metadata.from_bytes(file_bytes)
+            except GitError as e:
+               raise StorageError(e)
+        except StorageError:
+            raise TAFError(f"Metadata file {self.metadata_path} does not exist")
 
     @contextmanager
     def repository_at_revision(self, commit: str):
@@ -272,22 +292,9 @@ class AuthenticationRepository(GitRepository, TUFRepository):
         and metadata files inside it. Deleted the temp directory when no longer
         needed.
         """
-        tuf_repository = self._tuf_repository
-        with tempfile.TemporaryDirectory() as temp_dir:
-            metadata_files = self.list_files_at_revision(
-                commit, METADATA_DIRECTORY_NAME
-            )
-            Path(temp_dir, METADATA_DIRECTORY_NAME).mkdir(parents=True)
-            for file_name in metadata_files:
-                path = Path(temp_dir, METADATA_DIRECTORY_NAME, file_name)
-                with open(path, "w") as f:
-                    data = self.get_json(
-                        commit, f"{METADATA_DIRECTORY_NAME}/{file_name}"
-                    )
-                    json.dump(data, f)
-            self._load_tuf_repository(temp_dir)
-            yield
-            self._tuf_repository = tuf_repository
+        self._current_commit = commit
+        yield
+        self._current_commit = None
 
     def set_last_validated_commit(self, commit: str):
         """

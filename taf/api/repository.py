@@ -1,3 +1,4 @@
+import json
 from logging import ERROR, INFO
 from typing import Optional
 import click
@@ -193,7 +194,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
     print(f"{indent_str}Target Repositories Status:")
     # Call the list_targets function
-    list_targets(path=path)
+    print(json.dumps(list_targets(path=path), indent=1))
 
     # Load dependencies using repositoriesdb.get_auth_repositories
     repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)

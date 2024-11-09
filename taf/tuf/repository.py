@@ -111,18 +111,18 @@ class MetadataRepository(Repository):
 
     def __init__(self, path: Path) -> None:
         self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
-        self._path = path
+        self.path = path
 
         self._snapshot_info = MetaFile(1)
         self._targets_infos: Dict[str, MetaFile] = defaultdict(lambda: MetaFile(1))
 
     @property
     def metadata_path(self) -> Path:
-        return self._path / METADATA_DIRECTORY_NAME
+        return self.path / METADATA_DIRECTORY_NAME
 
     @property
     def targets_path(self):
-        return self._path / TARGETS_DIRECTORY_NAME
+        return self.path / TARGETS_DIRECTORY_NAME
 
     @property
     def targets_infos(self) -> Dict[str, MetaFile]:
@@ -698,10 +698,13 @@ class MetadataRepository(Repository):
         if roles is None:
             roles = self.get_all_targets_roles()
         target_files = {}
-        for role in roles:
-            roles_targets = self.get_targets_of_role(role)
-            for target_path, target_file in roles_targets.items():
-                target_files.setdefault(target_path, {}).update(target_file.custom or {})
+        try:
+            for role in roles:
+                roles_targets = self.get_targets_of_role(role)
+                for target_path, target_file in roles_targets.items():
+                    target_files.setdefault(target_path, {}).update(target_file.custom or {})
+        except StorageError:
+            pass
         return target_files
 
     def get_target_file_custom_data(self, target_path: str) -> Optional[Dict]:
@@ -731,7 +734,7 @@ class MetadataRepository(Repository):
         try:
             metadata = json.loads(
                 Path(
-                    self._path, METADATA_DIRECTORY_NAME, f"{parent_role}.json"
+                    self.path, METADATA_DIRECTORY_NAME, f"{parent_role}.json"
                 ).read_text()
             )
             metadata = metadata["signed"]

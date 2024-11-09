@@ -65,7 +65,7 @@ def print_expiration_dates(
     expired: Dict, will_expire: Dict, start_date: datetime, interval: Optional[int] = 30
 ) -> None:
     if expired or will_expire:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         print(
             f"Given a {interval} day interval from ({start_date.strftime('%Y-%m-%d')}):"
         )
@@ -170,7 +170,7 @@ def update_metadata_expiration_date(
     reraise=True,
 )
 def _update_expiration_date_of_role(
-    auth_repo: TUFRepository,
+    taf_repo: TUFRepository,
     role: str,
     loaded_yubikeys: Dict,
     keystore: str,
@@ -180,7 +180,7 @@ def _update_expiration_date_of_role(
     prompt_for_keys: bool,
 ) -> None:
     keystore_signers, yubikeys = load_signers(
-        auth_repo,
+        taf_repo,
         role,
         loaded_yubikeys=loaded_yubikeys,
         keystore=keystore,
@@ -189,7 +189,7 @@ def _update_expiration_date_of_role(
     )
     # sign with keystore
     if len(keystore_signers):
-        auth_repo.set_metadata_expiration_date(
+        taf_repo.set_metadata_expiration_date(
             role, keystore_signers, start_date=start_date, interval=interval
         )
     if len(yubikeys):  # sign with yubikey
