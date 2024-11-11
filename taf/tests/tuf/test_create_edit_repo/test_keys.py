@@ -183,7 +183,8 @@ def test_revoke_metadata_key(tuf_repo, signers_with_delegations, public_keys_wit
     assert tuf_repo.snapshot().version == 3
     assert tuf_repo.targets().version == 3
 
-    # now try removing one of delegated key again
+    assert delegated_key1_id in tuf_repo._role_obj("delegated_role").keyids
+    # now try removing one of delegated keys again
     removed_from_roles, not_added_roles, less_than_threshold_roles = tuf_repo.revoke_metadata_key(signers_with_delegations, ["delegated_role"], delegated_key1_id)
     assert len(removed_from_roles) == 1
     assert len(not_added_roles) == 0

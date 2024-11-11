@@ -404,7 +404,6 @@ class MetadataRepository(Repository):
                 continue
             parent = role.parent.name
             parent_obj = target_roles.get(parent)
-            keyids = []
             for signer in signers[role.name]:
                 self.signer_cache[role.name][key_id] = signer
             delegated_role = DelegatedRole(
@@ -421,7 +420,10 @@ class MetadataRepository(Repository):
 
         for parent, role_data in delegations_per_parent.items():
             parent_obj = target_roles[parent]
-            delegations = Delegations(roles=role_data, keys=public_keys[role.name])
+            delegated_keys = {}
+            for delegated_role_name in role_data:
+                delegated_keys.update(public_keys[delegated_role_name])
+            delegations = Delegations(roles=role_data, keys=delegated_keys)
             parent_obj.delegations = delegations
 
         for signed in [root, Timestamp(), sn, targets]:
