@@ -342,7 +342,7 @@ class MetadataRepository(Repository):
             md.to_file(self.metadata_path / f"{md.signed.version}.{fname}")
 
 
-    def create(self, roles_keys_data: RolesKeysData, signers: dict, verification_keys: dict):
+    def create(self, roles_keys_data: RolesKeysData, signers: dict, additional_verification_keys: Optional[dict]=None):
         """Create a new metadata repository on disk.
 
         1. Create metadata subdir (fail, if exists)
@@ -350,9 +350,14 @@ class MetadataRepository(Repository):
         3. Perform top-level delegation using keys from passed signers.
 
         Args:
+            roles_keys_data: an object containing information about roles, their threshold, delegations etc.
             signers: A dictionary, where dict-keys are role names and values
                 are dictionaries, where-dict keys are keyids and values
                 are signers.
+            additional_verification_keys: A dictionary where keys are names of roles and values are lists
+                of public keys that should be registered as the corresponding role's keys, but the private
+                keys are not available. E.g. keys exporeted from YubiKeys of maintainers who are not
+                present at the time of the repository's creation
         """
         # TODO add verification keys
         # support yubikeys
@@ -366,6 +371,20 @@ class MetadataRepository(Repository):
         sn = Snapshot()
         sn.meta["root.json"] = MetaFile(1)
 
+        public_keys = {
+            role_name: {
+                 _get_legacy_keyid(signer.public_key): signer.public_key
+              for signer in role_signers
+             } for role_name, role_signers in signers.items()
+        }
+        if additional_verification_keys:
+            for role_name, roles_public_keys in additional_verification_keys.items():
+                for public_key in roles_public_keys:
+                    key_id = _get_legacy_keyid(public_key)
+                    if key_id not in public_keys[role_name]:
+                        public_keys[role_name][key_id] = public_key
+
+
         for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
             if not role.is_yubikey:
                 if signers is None:
@@ -373,7 +392,8 @@ class MetadataRepository(Repository):
                 for signer in signers[role.name]:
                     key_id = _get_legacy_keyid(signer.public_key)
                     self.signer_cache[role.name][key_id] = signer
-                    root.add_key(signer.public_key, role.name)
+                for public_key in public_keys[role.name].values():
+                    root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
         targets = Targets()
@@ -386,15 +406,13 @@ class MetadataRepository(Repository):
             parent_obj = target_roles.get(parent)
             keyids = []
             for signer in signers[role.name]:
-                key_id = _get_legacy_keyid(signer.public_key)
                 self.signer_cache[role.name][key_id] = signer
-                keyids.append(key_id)
             delegated_role = DelegatedRole(
                 name=role.name,
                 threshold=role.threshold,
                 paths=role.paths,
                 terminating=role.terminating,
-                keyids=keyids,
+                keyids=list(public_keys[role.name].keys()),
             )
             delegated_metadata = Targets()
             target_roles[role.name] = delegated_metadata
@@ -403,12 +421,7 @@ class MetadataRepository(Repository):
 
         for parent, role_data in delegations_per_parent.items():
             parent_obj = target_roles[parent]
-            keys = {}
-            for role_name in role_data:
-                for key_id, signer in  self.signer_cache[role_name].items():
-                    keys[key_id] = signer.public_key
-
-            delegations = Delegations(roles=role_data, keys=keys)
+            delegations = Delegations(roles=role_data, keys=public_keys[role.name])
             parent_obj.delegations = delegations
 
         for signed in [root, Timestamp(), sn, targets]:

@@ -95,3 +95,24 @@ def test_create_with_delegations(repo_path, signers_with_delegations, with_deleg
     with pytest.raises(FileExistsError):
         tuf_repo.create(roles_keys_data, signers_with_delegations)
 
+
+def test_create_with_additional_public_keys(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input, public_keys):
+    # Create new metadata repository
+    tuf_repo = MetadataRepository(repo_path)
+    roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
+
+    additional_verification_keys = {
+        "targets": public_keys["targets"],
+        "delegated_role": public_keys["snapshot"]
+    }
+
+    targets_signing_keys_num = len(signers_with_delegations["targets"])
+    delegated_role_signing_keys_num = len(signers_with_delegations["delegated_role"])
+
+    tuf_repo.create(roles_keys_data, signers_with_delegations, additional_verification_keys)
+
+    # assert correct initial version
+    assert len(tuf_repo._role_obj("targets").keyids) == targets_signing_keys_num + len(additional_verification_keys["targets"])
+    assert len(tuf_repo._role_obj("delegated_role").keyids) == delegated_role_signing_keys_num + len(additional_verification_keys["delegated_role"])
+
+

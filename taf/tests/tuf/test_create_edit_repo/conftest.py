@@ -32,7 +32,7 @@ def repo_path(request, repo_dir):
     shutil.rmtree(full_path, onerror=on_rm_error)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def tuf_repo(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
     repo = MetadataRepository(repo_path)
     roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)
