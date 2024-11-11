@@ -153,7 +153,7 @@ class MetadataRepository(Repository):
         return set(targets)
 
     def add_metadata_keys(self, roles_signers: Dict[str, Signer], roles_keys: Dict[str, List]) -> Tuple[Dict, Dict, Dict]:
-        """Add signer public keys for role to root and update signer cache.
+        """Add signer public keys for role to root and update signer cache without updating snapshot and timestamp.
 
         Return:
             added_keys, already_added_keys, invalid_keys
@@ -218,9 +218,6 @@ class MetadataRepository(Repository):
                     pass
             # TODO should this be done, what about other roles? Do we want that?
 
-            # TODO move this to a function that calls this function
-            self.do_snapshot()
-            self.do_timestamp()
         return added_keys, already_added_keys, invalid_keys
 
 
@@ -1028,7 +1025,7 @@ class MetadataRepository(Repository):
         return targets
 
     def revoke_metadata_key(self, roles_signers: Dict[str, Signer], roles: List[str], key_id: str):
-        """Remove metadata key of the provided role.
+        """Remove metadata key of the provided role without updating timestamp and snapshot.
 
         Args:
         - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
@@ -1084,9 +1081,6 @@ class MetadataRepository(Repository):
                 with self.edit_targets():
                     pass
             # TODO should this be done, what about other roles? Do we want that?
-
-            self.do_snapshot()
-            self.do_timestamp()
 
         return removed_from_roles, not_added_roles, less_than_threshold_roles
 
