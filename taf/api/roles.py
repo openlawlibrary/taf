@@ -7,6 +7,8 @@ from collections import defaultdict
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.utils._repo import manage_repo_and_signers
+from taf.tuf.keys import get_sslib_key_from_value
 from tuf.api._payload import Targets
 from taf.api.utils._roles import create_delegations
 from taf.messages import git_commit_message
@@ -349,21 +351,6 @@ def add_signing_key(
     Returns:
         None
     """
-    # TODO this needs to be fulyl rewritten
-    # use add_keys and handle everything there
-    # this functionality should be moved to repository
-
-    auth_repo = AuthenticationRepository(path=path)
-    non_existant_roles = []
-    for role in roles:
-        if not auth_repo.check_if_role_exists(role):
-            non_existant_roles.append(role)
-    if len(non_existant_roles):
-        raise TAFError(f"Role(s) {', '.join(non_existant_roles)} do not exist")
-
-    _, keystore, _ = _initialize_roles_and_keystore(
-        roles_key_infos, keystore, enter_info=False
-    )
 
     pub_key_pem = None
     if pub_key_path is not None:
@@ -374,49 +361,29 @@ def add_signing_key(
     if pub_key_pem is None:
         pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
 
-    parent_roles = set()
-    for role in roles:
-        if auth_repo.is_valid_metadata_key(role, pub_key_pem):
-            taf_logger.log(
-                "NOTICE", f"Key already registered as signing key of role {role}"
-            )
-            continue
-
-        auth_repo.add_metadata_key(role, pub_key_pem, scheme)
-
-        if is_delegated_role(role):
-            parent_role = auth_repo.find_delegated_roles_parent(role)
-        else:
-            parent_role = "root"
-
-        parent_roles.add(parent_role)
-
-    if not len(parent_roles):
+    if pub_key_pem is None:
+        taf_logger.error("Public key not provided or invalid")
         return
 
-    auth_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
-    for parent_role in parent_roles:
-        _update_role(
-            auth_repo,
-            parent_role,
-            keystore,
-            scheme=scheme,
-            prompt_for_keys=prompt_for_keys,
-        )
+    pub_key = get_sslib_key_from_value(pub_key_pem)
 
-    update_snapshot_and_timestamp(
-        auth_repo, keystore=keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
+    roles_keys = {
+        role: [pub_key] for role in roles
+    }
 
-    if commit:
-        # TODO after saving custom key ids is implemented, remove customization of the commit message
-        # for now, it might be helpful to be able to specify which key was added
-        # commit_msg = git_commit_message(
-        #     "add-signing-key", role={role}
-        # )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
+    with manage_repo_and_signers(path, roles, keystore, scheme, prompt_for_keys, load_snapshot_and_timestamp=True, load_parents=True, load_roles=False) as auth_repo:
+        auth_repo.add_metadata_keys(roles_keys)
+        auth_repo.update_snapshot_and_timestamp()
+
+        if commit:
+            # TODO after saving custom key ids is implemented, remove customization of the commit message
+            # for now, it might be helpful to be able to specify which key was added
+            # commit_msg = git_commit_message(
+            #     "add-signing-key", role={role}
+            # )
+            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+        else:
+            taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
 
 # TODO this is probably outdated, the format of the outputted roles_key_infos

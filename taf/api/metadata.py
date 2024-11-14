@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from logging import INFO, ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
+from taf.api.utils._conf import find_keystore
 from taf.api.utils._git import check_if_clean
+from taf.api.utils._repo import manage_repo_and_signers
 from taf.exceptions import TAFError
 from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -120,79 +122,27 @@ def update_metadata_expiration_date(
     Returns:
         None
     """
+
     if start_date is None:
         start_date = datetime.now()
 
-    taf_repo = TUFRepository(path)
-    loaded_yubikeys: Dict = {}
-    roles_to_update = []
+    roles_to_update = set(roles)
+    update_snapshot_and_timestamp = "timestamp" not in roles_to_update or len(roles_to_update) > 1
+    if update_snapshot_and_timestamp:
+        roles_to_update.add("snapshot")
+        roles_to_update.add("timestamp")
 
-    if "root" in roles:
-        roles_to_update.append("root")
-    if "targets" in roles:
-        roles_to_update.append("targets")
-    for role in roles:
-        if is_delegated_role(role):
-            roles_to_update.append(role)
+    with manage_repo_and_signers(path, roles_to_update, keystore, scheme, prompt_for_keys, load_snapshot_and_timestamp=update_snapshot_and_timestamp) as auth_repo:
+        for role in roles_to_update:
+            auth_repo.set_metadata_expiration_date(
+                role, start_date=start_date, interval=interval
+            )
 
-    if len(roles_to_update) or "snapshot" in roles:
-        roles_to_update.append("snapshot")
-    roles_to_update.append("timestamp")
+        if not commit:
+            print("\nPlease commit manually.\n")
+        else:
+            commit_msg = git_commit_message(
+                "update-expiration-dates", roles=",".join(roles)
+            )
+            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
 
-    for role in roles_to_update:
-        _update_expiration_date_of_role(
-            taf_repo,
-            role,
-            loaded_yubikeys,
-            keystore,
-            start_date,
-            interval,
-            scheme,
-            prompt_for_keys,
-        )
-
-    if not commit:
-        print("\nPlease commit manually.\n")
-    else:
-        auth_repo = AuthenticationRepository(path=path)
-        commit_msg = git_commit_message(
-            "update-expiration-dates", roles=",".join(roles)
-        )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-
-
-@log_on_end(INFO, "Updated expiration date of {role:s}", logger=taf_logger)
-@log_on_error(
-    ERROR,
-    "Error: could not update expiration date: {e}",
-    logger=taf_logger,
-    on_exceptions=TAFError,
-    reraise=True,
-)
-def _update_expiration_date_of_role(
-    taf_repo: TUFRepository,
-    role: str,
-    loaded_yubikeys: Dict,
-    keystore: str,
-    start_date: datetime,
-    interval: int,
-    scheme: str,
-    prompt_for_keys: bool,
-) -> None:
-    keystore_signers, yubikeys = load_signers(
-        taf_repo,
-        role,
-        loaded_yubikeys=loaded_yubikeys,
-        keystore=keystore,
-        scheme=scheme,
-        prompt_for_keys=prompt_for_keys,
-    )
-    # sign with keystore
-    if len(keystore_signers):
-        taf_repo.set_metadata_expiration_date(
-            role, keystore_signers, start_date=start_date, interval=interval
-        )
-    if len(yubikeys):  # sign with yubikey
-        auth_repo.update_role_yubikeys(
-            role, yubikeys, start_date=start_date, interval=interval
-        )

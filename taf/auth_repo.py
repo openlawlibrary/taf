@@ -16,7 +16,7 @@ from taf.constants import INFO_JSON_PATH
 from securesystemslib.exceptions import StorageError
 
 
-class AuthenticationRepository(GitRepository, TUFRepository):
+class AuthenticationRepository(GitRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
@@ -76,6 +76,16 @@ class AuthenticationRepository(GitRepository, TUFRepository):
         self.out_of_band_authentication = out_of_band_authentication
         self.head_commit = self.head_commit_sha() if self.is_bare_repository else None
         self._current_commit = self.head_commit
+        self._tuf_repository = TUFRepository(self.path)
+
+    def __getattr__(self, item):
+        """ Delegate attribute lookup to TUFRepository instance """
+        try:
+            # First try to get attribute from super class (GitRepository)
+            return super().__getattribute__(item)
+        except AttributeError:
+            # If not found, delegate to TUFRepository
+            return getattr(self._tuf_repository, item)
 
     # TODO rework conf_dir
 

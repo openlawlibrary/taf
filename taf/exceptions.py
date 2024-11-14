@@ -133,6 +133,12 @@ class ScriptExecutionError(TAFError):
         self.script = script
 
 
+class SignersNotLoaded(TAFError):
+    def __init__(self, roles):
+        message = f"Signers of roles {', '.join(roles)} not loaded."
+        super().__init__(message)
+
+
 class MetadataUpdateError(TAFError):
     def __init__(self, metadata_role: str, message: str):
         super().__init__(

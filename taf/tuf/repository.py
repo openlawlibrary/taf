@@ -38,7 +38,7 @@ from tuf.api.metadata import (
     Delegations,
 )
 from tuf.api.serialization.json import JSONSerializer
-from taf.exceptions import InvalidKeyError, SigningError, TAFError, TargetsError
+from taf.exceptions import InvalidKeyError, SignersNotLoaded, SigningError, TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData
 from taf.tuf.keys import SSlibKey, _get_legacy_keyid, get_sslib_key_from_value
 from tuf.repository import Repository
@@ -109,7 +109,8 @@ class MetadataRepository(Repository):
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
-    def __init__(self, path: Union[Path, str]) -> None:
+    def __init__(self, path: Union[Path, str], *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
         self.path = Path(path)
 
@@ -152,7 +153,7 @@ class MetadataRepository(Repository):
 
         return set(targets)
 
-    def add_metadata_keys(self, roles_signers: Dict[str, Signer], roles_keys: Dict[str, List]) -> Tuple[Dict, Dict, Dict]:
+    def add_metadata_keys(self, roles_keys: Dict[str, List]) -> Tuple[Dict, Dict, Dict]:
         """Add signer public keys for role to root and update signer cache without updating snapshot and timestamp.
 
         Return:
@@ -176,6 +177,9 @@ class MetadataRepository(Repository):
                             continue
                         keys_to_be_added[role].append(key)
             return keys_to_be_added
+
+        parents = self.find_parents_of_roles(roles_keys.keys())
+        self.verify_signers_loaded(parents)
 
         # when a key is added to one of the main roles
         # root is modified
@@ -204,12 +208,6 @@ class MetadataRepository(Repository):
                         for key in keys:
                             parent_role.add_key(key, role)
                             added_keys[role].append(key)
-
-        if keys_to_be_added_to_root or keys_to_be_added_to_targets:
-            for role, signers in roles_signers.items():
-                for signer in signers:
-                    key = signer.public_key
-                    self.signer_cache[role][key.keyid] = signer
 
             # Make sure the targets role gets signed with its new key, even though
             # it wasn't updated itself.
@@ -336,7 +334,7 @@ class MetadataRepository(Repository):
         md.to_file(self.metadata_path / fname, serializer=self.serializer)
 
         if role == "root":
-            md.to_file(self.metadata_path / f"{md.signed.version}.{fname}")
+            md.to_file(self.metadata_path / f"{md.signed.version}.{fname}",  serializer=self.serializer)
 
 
     def create(self, roles_keys_data: RolesKeysData, signers: dict, additional_verification_keys: Optional[dict]=None):
@@ -463,6 +461,20 @@ class MetadataRepository(Repository):
                     return parent
                 parents.append(delegation)
         return None
+
+    def find_parents_of_roles(self, roles: List[str]):
+        # this could be optimized, but not that important
+        # if we only have a
+        parents = set()
+        for role in roles:
+            if role in MAIN_ROLES:
+                parents.add("root")
+            else:
+                parent = self.find_delegated_roles_parent(role)
+                if parent is None:
+                    raise TAFError(f"Could not determine parent of role {role}")
+                parents.add(parent)
+        return parents
 
     def get_delegations_of_role(self, role_name):
         signed_obj = self._signed_obj(role_name)
@@ -883,7 +895,11 @@ class MetadataRepository(Repository):
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def _load_signers(self, role: str, signers: List):
+    def load_signers(self, roles_signers: Dict):
+        for role, signers in roles_signers.items():
+            self._load_role_signers(role, signers)
+
+    def _load_role_signers(self, role: str, signers: List):
         """Verify that the signers can be used to sign the specified role and
         add them to the signer cache
 
@@ -1141,7 +1157,7 @@ class MetadataRepository(Repository):
         expiration_date = start_date + timedelta(interval)
         signed.expires = expiration_date
 
-    def set_metadata_expiration_date(self, role_name: str, signers=List[CryptoSigner], start_date: datetime=None, interval: int=None) -> None:
+    def set_metadata_expiration_date(self, role_name: str, start_date: datetime=None, interval: int=None) -> None:
         """Set expiration date of the provided role.
 
         Args:
@@ -1167,7 +1183,7 @@ class MetadataRepository(Repository):
         - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by
                                                         this targets object.
         """
-        self._load_signers(role_name, signers)
+        self.verify_signers_loaded([role_name])
         with self.edit(role_name) as role:
             start_date = datetime.now(timezone.utc)
             if interval is None:
@@ -1199,7 +1215,20 @@ class MetadataRepository(Repository):
         with self.eidt(role_name) as role:
             pass
 
-    def update_snapshot_and_tiemstamp(self, signers_dict: Dict[str, List[CryptoSigner]]):
-        self.update_role(Snapshot.type, signers_dict[Snapshot.type])
-        self.update_role(Timestamp.type, signers_dict[Timestamp.type])
+    def update_snapshot_and_timestamp(self):
+        self.verify_signers_loaded(["snapshot", "timestamp"])
+        self.do_snapshot()
+        self.do_timestamp()
 
+    def verify_roles_exist(self, roles: List[str]):
+        non_existant_roles = []
+        for role in roles:
+            if not self.check_if_role_exists(role):
+                non_existant_roles.append(role)
+        if len(non_existant_roles):
+            raise TAFError(f"Role(s) {', '.join(non_existant_roles)} do not exist")
+
+    def verify_signers_loaded(self, roles: List[str]):
+        not_loaded = [role for role in roles if role not in self.signer_cache]
+        if len(not_loaded):
+            raise SignersNotLoaded(roles=not_loaded)
