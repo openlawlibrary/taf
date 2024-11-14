@@ -183,35 +183,20 @@ def add_role_paths(
     Returns:
         None
     """
-    if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=auth_path)
-    if not auth_repo.check_if_role_exists(delegated_role):
-        raise TAFError(f"Role {delegated_role} does not exist")
 
-    parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
-    parent_role_obj = _role_obj(parent_role, auth_repo)
-    if isinstance(parent_role_obj, Targets):
-        try:
-            parent_role_obj.add_paths(paths, delegated_role)
-        except tuf.exceptions.InvalidNameError:
-            raise TAFError(
-                "All delegated paths should be relative to targets directory."
-            )
-        _update_role(auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys)
-        if commit:
-            update_snapshot_and_timestamp(
-                auth_repo, keystore, prompt_for_keys=prompt_for_keys
-            )
-            commit_msg = git_commit_message(
-                "add-role-paths", paths=", ".join(paths), role=delegated_role
-            )
-            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+    with manage_repo_and_signers(auth_path, [delegated_role], keystore=keystore, prompt_for_keys=prompt_for_keys, load_roles=False, load_parents=True, load_snapshot_and_timestamp=True) as repo:
+        updated = repo.add_path_to_delegated_role(role=delegated_role, paths=paths)
+        if updated:
+            repo.update_snapshot_and_timestamp()
+            if commit:
+                commit_msg = git_commit_message(
+                    "add-role-paths", paths=", ".join(paths), role=delegated_role
+                )
+                repo.commit_and_push(commit_msg=commit_msg, push=push)
+            else:
+                taf_logger.log("NOTICE", "\nPlease commit manually\n")
         else:
-            taf_logger.log("NOTICE", "\nPlease commit manually\n")
-    else:
-        taf_logger.error(
-            f"Could not find parent role of role {delegated_role}. Check if its name was misspelled"
-        )
+            taf_logger.log("NOTICE", "Paths already added")
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -236,7 +221,6 @@ def add_multiple_roles(
     """
     Add new target roles and sign all metadata files given information stored in roles_key_infos
     dictionary or .json file.
-
 
     Arguments:
         path: Path to the authentication repository.

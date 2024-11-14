@@ -231,6 +231,22 @@ class MetadataRepository(Repository):
         self.do_snapshot()
         self.do_timestamp()
 
+    def add_path_to_delegated_role(self, role: str, paths: List[str]) -> bool:
+        """
+        Add delegated paths to delegated role and return True if successful
+        """
+        if not self.check_if_role_exists(role):
+            raise TAFError(f"Role {role} does not exist")
+
+        parent_role = self.find_delegated_roles_parent(role)
+        if all(path in self.get_delegations_of_role(parent_role)[role].paths for path in paths):
+            return False
+        self.verify_signers_loaded([parent_role])
+        with self.edit(parent_role) as parent:
+            parent.delegations.roles[role].paths.extend(paths)
+        return True
+
+
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
         try:
@@ -1056,7 +1072,6 @@ class MetadataRepository(Repository):
             raise TAFError("Keyid to revoke not specified")
         if not roles:
             roles = self.find_keysid_roles([key_id])
-        print(roles)
         parents = self.find_parents_of_roles(roles)
         self.verify_signers_loaded(parents)
 
