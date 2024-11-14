@@ -99,7 +99,7 @@ def _get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
 def get_sslib_key_from_value(key: str, scheme:str=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
     key_val = key.encode()
     crypto_key = load_pem_public_key(key_val, backend=default_backend())
-    return SSlibKey.from_crypto(crypto_key, scheme=scheme)
+    return _from_crypto(crypto_key, scheme=scheme)
 
 
 def _get_legacy_keyid(key: SSlibKey) -> str:
@@ -119,14 +119,14 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
 
 
 
-def _from_crypto(pub: RSAPublicKey) -> SSlibKey:
+def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with default signing
     scheme and legacy keyid."""
     # securesystemslib does not (yet) check if keytype and scheme are compatible
     # https://github.com/secure-systems-lab/securesystemslib/issues/766
     if not isinstance(pub, RSAPublicKey):
         raise ValueError(f"keytype '{type(pub)}' not supported")
-    key = SSlibKey.from_crypto(pub, scheme="rsa-pkcs1v15-sha256")
+    key = SSlibKey.from_crypto(pub, scheme=scheme)
     key.keyid = _get_legacy_keyid(key)
     return key
 

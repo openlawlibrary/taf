@@ -1,3 +1,4 @@
+from functools import partial
 import glob
 from logging import DEBUG, ERROR
 import os
@@ -36,7 +37,7 @@ from taf.constants import (
     TARGETS_DIRECTORY_NAME,
 )
 from taf.keystore import new_public_key_cmd_prompt
-from taf.tuf.repository import MAIN_ROLES, is_delegated_role
+from taf.tuf.repository import MAIN_ROLES
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
@@ -321,7 +322,6 @@ def add_signing_key(
     roles: List[str],
     pub_key_path: Optional[str] = None,
     keystore: Optional[str] = None,
-    roles_key_infos: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
@@ -338,7 +338,6 @@ def add_signing_key(
         pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
             it will be necessary to ender the key when prompted.
         keystore (optional): Location of the keystore files.
-        roles_key_infos (optional): Path to a json file which contains information about repository's roles and keys.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -358,7 +357,7 @@ def add_signing_key(
         if pub_key_pem_path.is_file():
             pub_key_pem = Path(pub_key_path).read_text()
 
-    if pub_key_pem is None:
+    if pub_key_pem is None and prompt_for_keys:
         pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
 
     if pub_key_pem is None:
@@ -372,19 +371,95 @@ def add_signing_key(
     }
 
     with manage_repo_and_signers(path, roles, keystore, scheme, prompt_for_keys, load_snapshot_and_timestamp=True, load_parents=True, load_roles=False) as auth_repo:
-        auth_repo.add_metadata_keys(roles_keys)
-        auth_repo.update_snapshot_and_timestamp()
+        added_keys, already_added_keys, invalid_keys = auth_repo.add_metadata_keys(roles_keys)
+        if already_added_keys:
+            taf_logger.log("NOTICE", f"Key(s) {', '.join(already_added_keys)} already added")
+        if invalid_keys:
+            taf_logger.warning(f"Key(s) {', '.join(invalid_keys)} invalid")
 
-        if commit:
-            # TODO after saving custom key ids is implemented, remove customization of the commit message
-            # for now, it might be helpful to be able to specify which key was added
-            # commit_msg = git_commit_message(
-            #     "add-signing-key", role={role}
-            # )
-            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-        else:
-            taf_logger.log("NOTICE", "\nPlease commit manually\n")
+        if len(added_keys):
+            auth_repo.update_snapshot_and_timestamp()
 
+            if commit:
+                # TODO after saving custom key ids is implemented, remove customization of the commit message
+                # for now, it might be helpful to be able to specify which key was added
+                # commit_msg = git_commit_message(
+                #     "add-signing-key", role={role}
+                # )
+                auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+            else:
+                taf_logger.warn("NOTICE", "\nPlease commit manually\n")
+
+
+
+
+@log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
+@log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while adding new signing key to roles: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
+@check_if_clean
+def revoke_signing_key(
+    path: str,
+    key_id: str,
+    roles: Optional[List[str]]=None,
+    keystore: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+) -> None:
+    """
+    Revoke signing key. Update root metadata if one or more roles is one of the main TUF roles,
+    parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
+
+    Arguments:
+        path: Path to the authentication repository.
+        roles: A list of roles whose signing keys need to be extended.
+        key_id: id of the key to be removed
+        keystore (optional): Location of the keystore files.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        push (optional): Flag specifying whether to push to remote.
+        commit_msg(optional): Commit message. Will be necessary to enter it if not provided.
+    Side Effects:
+        Updates metadata files (parents of the affected roles, snapshot and timestamp).
+        Writes changes to disk.
+
+    Returns:
+        None
+    """
+
+    def _find_roles_fn(auth_repo, key_id):
+        return auth_repo.find_keysid_roles([key_id])
+
+    find_roles_fn = partial(_find_roles_fn, key_id=key_id)
+
+    with manage_repo_and_signers(path, roles, keystore, scheme, prompt_for_keys, roles_fn=find_roles_fn, load_snapshot_and_timestamp=True, load_parents=True, load_roles=False) as auth_repo:
+        removed_from_roles, not_added_roles, less_than_threshold_roless = auth_repo.revoke_metadata_key(key_id=key_id, roles=roles)
+        if not_added_roles:
+            taf_logger.log("NOTICE", f"Key is not a signing key of role(s) {', '.join(not_added_roles)}")
+        if less_than_threshold_roless:
+            taf_logger.warning(f"Cannot remove key from {', '.join(less_than_threshold_roless)}. Number of keys must be greater or equal to thresholds")
+
+        if len(removed_from_roles):
+            auth_repo.update_snapshot_and_timestamp()
+
+            if commit:
+                # TODO after saving custom key ids is implemented, remove customization of the commit message
+                # for now, it might be helpful to be able to specify which key was added
+                # commit_msg = git_commit_message(
+                #     "add-signing-key", role={role}
+                # )
+                auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+            else:
+                taf_logger.warn("NOTICE", "\nPlease commit manually\n")
 
 # TODO this is probably outdated, the format of the outputted roles_key_infos
 def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) -> Dict:

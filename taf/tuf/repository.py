@@ -209,13 +209,6 @@ class MetadataRepository(Repository):
                             parent_role.add_key(key, role)
                             added_keys[role].append(key)
 
-            # Make sure the targets role gets signed with its new key, even though
-            # it wasn't updated itself.
-            if "targets" in added_keys and "targets" not in roles_by_parents:
-                with self.edit_targets():
-                    pass
-            # TODO should this be done, what about other roles? Do we want that?
-
         return added_keys, already_added_keys, invalid_keys
 
 
@@ -496,11 +489,20 @@ class MetadataRepository(Repository):
         of keys that can sign that file is equal to or greater than the role's
         threshold
         """
+        key_ids = [_get_legacy_keyid(public_key) for public_key in public_keys]
+        return self.find_keysid_roles(key_ids=key_ids, check_threshold=check_threshold)
+
+
+    def find_keysid_roles(self, key_ids, check_threshold=True):
+        """Find all roles that can be signed by the provided keys.
+        A role can be signed by the list of keys if at least the number
+        of keys that can sign that file is equal to or greater than the role's
+        threshold
+        """
         roles = []
         for role in MAIN_ROLES:
             roles.append((role, None))
         keys_roles = []
-        key_ids = [_get_legacy_keyid(public_key) for public_key in public_keys]
         while roles:
             role_name, parent = roles.pop()
             role_obj = self._role_obj(role_name, parent)
@@ -1040,7 +1042,7 @@ class MetadataRepository(Repository):
                 targets.targets.pop(path, None)
         return targets
 
-    def revoke_metadata_key(self, roles_signers: Dict[str, Signer], roles: List[str], key_id: str):
+    def revoke_metadata_key(self, key_id: str, roles: Optional[List[str]]=None):
         """Remove metadata key of the provided role without updating timestamp and snapshot.
 
         Args:
@@ -1050,6 +1052,13 @@ class MetadataRepository(Repository):
         Returns:
             removed_from_roles, not_added_roles, less_than_threshold_roles
         """
+        if key_id is None:
+            raise TAFError("Keyid to revoke not specified")
+        if not roles:
+            roles = self.find_keysid_roles([key_id])
+        print(roles)
+        parents = self.find_parents_of_roles(roles)
+        self.verify_signers_loaded(parents)
 
         removed_from_roles = []
         not_added_roles = []
@@ -1064,6 +1073,7 @@ class MetadataRepository(Repository):
                 not_added_roles.append(role)
                 return False
             return True
+
 
         main_roles = [role for role in roles if role in MAIN_ROLES and _check_if_can_remove(key_id, role)]
         if len(main_roles):
@@ -1085,18 +1095,6 @@ class MetadataRepository(Repository):
                         parent_role.revoke_key(keyid=key_id, role=role)
                         removed_from_roles.append(role)
 
-        if removed_from_roles:
-            for role, signers in roles_signers.items():
-                for signer in signers:
-                    key = signer.public_key
-                    self.signer_cache[role][key.keyid] = signer
-
-            # Make sure the targets role gets signed with its new key, even though
-            # it wasn't updated itself.
-            if "targets" in removed_from_roles and "targets" not in roles_by_parents:
-                with self.edit_targets():
-                    pass
-            # TODO should this be done, what about other roles? Do we want that?
 
         return removed_from_roles, not_added_roles, less_than_threshold_roles
 
