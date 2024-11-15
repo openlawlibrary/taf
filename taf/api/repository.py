@@ -84,14 +84,13 @@ def create_repository(
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
         skip_prompt=skip_prompt,
-        certs_dir=auth_repo.certs_dir
+        certs_dir=auth_repo.certs_dir,
     )
     if signers is None:
         return
 
     repository = MetadataRepository(path)
     repository.create(roles_keys_data, signers, verification_keys)
-
 
     if test:
         test_auth_file = (
@@ -110,7 +109,6 @@ def create_repository(
     )
 
     ensure_pre_push_hook(auth_repo.path)
-
 
     if commit:
         auth_repo.init_repo()

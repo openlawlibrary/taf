@@ -8,11 +8,10 @@ from collections import defaultdict
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._repo import manage_repo_and_signers
+from taf.api.api_workflow import manage_repo_and_signers
 from taf.tuf.keys import get_sslib_key_from_value
 from tuf.api._payload import Targets
 from taf.api.utils._roles import create_delegations
-from taf.messages import git_commit_message
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
@@ -41,6 +40,7 @@ from taf.tuf.repository import MAIN_ROLES
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
+from taf.messages import git_commit_message
 
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
@@ -97,44 +97,56 @@ def add_role(
         None
     """
 
+    auth_repo = AuthenticationRepository(path=path)
+
     if not parent_role:
         parent_role = "targets"
 
-    def _validation_fn(auth_repo, role):
-        existing_roles = auth_repo.get_all_targets_roles()
-        existing_roles.extend(MAIN_ROLES)
-        if role in existing_roles:
-            taf_logger.log("NOTICE", "All roles already set up")
-            return False
-        return True
+    existing_roles = auth_repo.get_all_targets_roles()
+    existing_roles.extend(MAIN_ROLES)
+    if role in existing_roles:
+        taf_logger.log("NOTICE", "All roles already set up")
+        return
 
-    validation_fn = partial(_validation_fn, role=role)
+    keystore_path = Path(keystore) if keystore else find_keystore(Path(path))
+    commit_msg = git_commit_message("add-role", role=role)
 
-    keystore_path = find_keystore(path) if not keystore else keystore
-    with manage_repo_and_signers(path, roles=[parent_role], validation_fn=validation_fn, keystore=keystore_path, scheme=scheme, prompt_for_keys=prompt_for_keys, load_roles=True, load_snapshot_and_timestamp=True) as auth_repo:
+    with manage_repo_and_signers(
+        auth_repo,
+        roles=[parent_role],
+        keystore=keystore_path,
+        scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
+        load_roles=True,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg
+    ):
         targets_parent_role = TargetsRole()
         if parent_role != "targets":
             targets_parent_role.name = parent_role
             targets_parent_role.paths = []
 
-        new_role = TargetsRole(name=role,parent=targets_parent_role,paths=paths,number=keys_number,threshold=threshold, yubikey=yubikey )
+        new_role = TargetsRole(
+            name=role,
+            parent=targets_parent_role,
+            paths=paths,
+            number=keys_number,
+            threshold=threshold,
+            yubikey=yubikey,
+        )
 
         signers, _ = load_sorted_keys_of_new_roles(
             roles=new_role,
             yubikeys_data=None,
             keystore=keystore_path,
             skip_prompt=skip_prompt,
-            certs_dir=auth_repo.certs_dir
+            certs_dir=auth_repo.certs_dir,
         )
         auth_repo.create_delegated_role([new_role], signers)
-        auth_repo.add_new_role_to_snapshot(new_role.name)
+        auth_repo.add_new_roles_to_snapshot([new_role.name])
         auth_repo.do_timestamp()
-
-        if commit:
-            commit_msg = git_commit_message("add-role", role=role)
-            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-        else:
-            taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
@@ -177,19 +189,28 @@ def add_role_paths(
         None
     """
 
-    with manage_repo_and_signers(auth_path, [delegated_role], keystore=keystore, prompt_for_keys=prompt_for_keys, load_roles=False, load_parents=True, load_snapshot_and_timestamp=True) as repo:
-        updated = repo.add_path_to_delegated_role(role=delegated_role, paths=paths)
-        if updated:
-            repo.update_snapshot_and_timestamp()
-            if commit:
-                commit_msg = git_commit_message(
-                    "add-role-paths", paths=", ".join(paths), role=delegated_role
-                )
-                repo.commit_and_push(commit_msg=commit_msg, push=push)
-            else:
-                taf_logger.log("NOTICE", "\nPlease commit manually\n")
-        else:
-            taf_logger.log("NOTICE", "Paths already added")
+    auth_repo = AuthenticationRepository(path=auth_path)
+    parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
+    if all(path in auth_repo.get_delegations_of_role(parent_role)[delegated_role].paths for path in paths):
+        taf_logger.log("NOTICE", "Paths already added")
+        return
+
+    commit_msg = git_commit_message("add-role-paths", role=delegated_role, paths=", ".join(paths))
+
+    with manage_repo_and_signers(
+        auth_repo,
+        [delegated_role],
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
+        load_roles=False,
+        load_parents=True,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        commit_msg=commit_msg
+    ):
+        auth_repo.add_path_to_delegated_role(role=delegated_role, paths=paths)
+        auth_repo.update_snapshot_and_timestamp()
+
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -230,58 +251,52 @@ def add_multiple_roles(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path=path)
 
     roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
         path, roles_key_infos, keystore
     )
+
+    auth_repo = AuthenticationRepository(path=path)
     roles_data = auth_repo.generate_roles_description()
     roles_keys_data_current = from_dict(roles_data, RolesKeysData)
-
-    new_roles, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
-
-    parent_roles_names = {role.parent.name for role in new_roles}
-
-    if not len(new_roles):
+    new_roles_data, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
+    existing_roles = auth_repo.get_all_targets_roles()
+    existing_roles.extend(MAIN_ROLES)
+    roles_to_add_data = [role_data for role_data in new_roles_data if role_data.name not in existing_roles]
+    if not len(roles_to_add_data):
         taf_logger.log("NOTICE", "All roles already set up")
         return
 
-    repository = auth_repo._repository
-    existing_roles = [
-        role.name for role in RolesIterator(roles_keys_data_current.roles)
-    ]
-    signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo=auth_repo,
-        roles=roles_keys_data_new.roles,
-        keystore=keystore,
-        yubikeys_data=roles_keys_data_new.yubikeys,
-        existing_roles=existing_roles,
-    )
+    roles_to_add = [role_data.name for role_data in new_roles_data]
+    commit_msg = git_commit_message("add-roles", roles=", ".join(roles_to_add))
+    roles_to_load = [role_data.parent.name for role_data in new_roles_data]
+    keystore_path = roles_keys_data_new.keystore
 
-    create_delegations(
-        roles_keys_data_new.roles.targets,
-        repository,
-        verification_keys,
-        signing_keys,
-        existing_roles=existing_roles,
-    )
-    for parent_role_name in parent_roles_names:
-        _update_role(
-            auth_repo,
-            parent_role_name,
-            keystore,
-            scheme=scheme,
-            prompt_for_keys=prompt_for_keys,
-        )
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        roles_names = [role.name for role in new_roles]
-        commit_msg = git_commit_message("add-roles", roles=", ".join(roles_names))
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
+    with manage_repo_and_signers(
+        auth_repo,
+        roles=roles_to_load,
+        keystore=keystore_path,
+        scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        commit_msg=commit_msg
+    ):
+
+        all_signers = {}
+        for role_to_add_data in roles_to_add_data:
+            signers, _ = load_sorted_keys_of_new_roles(
+                roles=role_to_add_data,
+                yubikeys_data=None,
+                keystore=keystore_path,
+                skip_prompt=not prompt_for_keys,
+                certs_dir=auth_repo.certs_dir,
+            )
+            all_signers.update(signers)
+
+        auth_repo.create_delegated_role(roles_to_add_data, all_signers)
+        auth_repo.add_new_roles_to_snapshot(roles_to_add)
+        auth_repo.do_timestamp()
+
 
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
@@ -343,31 +358,32 @@ def add_signing_key(
 
     pub_key = get_sslib_key_from_value(pub_key_pem)
 
-    roles_keys = {
-        role: [pub_key] for role in roles
-    }
+    roles_keys = {role: [pub_key] for role in roles}
 
-    with manage_repo_and_signers(path, roles, keystore, scheme, prompt_for_keys, load_snapshot_and_timestamp=True, load_parents=True, load_roles=False) as auth_repo:
-        added_keys, already_added_keys, invalid_keys = auth_repo.add_metadata_keys(roles_keys)
+    with manage_repo_and_signers(
+        path,
+        roles,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        load_parents=True,
+        load_roles=False,
+        commit=commit,
+        commit_msg=commit_msg,
+    ):
+        added_keys, already_added_keys, invalid_keys = auth_repo.add_metadata_keys(
+            roles_keys
+        )
         if already_added_keys:
-            taf_logger.log("NOTICE", f"Key(s) {', '.join(already_added_keys)} already added")
+            taf_logger.log(
+                "NOTICE", f"Key(s) {', '.join(already_added_keys)} already added"
+            )
         if invalid_keys:
             taf_logger.warning(f"Key(s) {', '.join(invalid_keys)} invalid")
 
         if len(added_keys):
             auth_repo.update_snapshot_and_timestamp()
-
-            if commit:
-                # TODO after saving custom key ids is implemented, remove customization of the commit message
-                # for now, it might be helpful to be able to specify which key was added
-                # commit_msg = git_commit_message(
-                #     "add-signing-key", role={role}
-                # )
-                auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-            else:
-                taf_logger.warn("NOTICE", "\nPlease commit manually\n")
-
-
 
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
@@ -383,7 +399,7 @@ def add_signing_key(
 def revoke_signing_key(
     path: str,
     key_id: str,
-    roles: Optional[List[str]]=None,
+    roles: Optional[List[str]] = None,
     keystore: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
@@ -418,25 +434,37 @@ def revoke_signing_key(
 
     find_roles_fn = partial(_find_roles_fn, key_id=key_id)
 
-    with manage_repo_and_signers(path, roles, keystore, scheme, prompt_for_keys, roles_fn=find_roles_fn, load_snapshot_and_timestamp=True, load_parents=True, load_roles=False) as auth_repo:
-        removed_from_roles, not_added_roles, less_than_threshold_roless = auth_repo.revoke_metadata_key(key_id=key_id, roles=roles)
+    with manage_repo_and_signers(
+        path,
+        roles,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        roles_fn=find_roles_fn,
+        load_snapshot_and_timestamp=True,
+        load_parents=True,
+        load_roles=False,
+        commit=commit,
+        commit_msg=commit_msg,
+    ):
+        (
+            removed_from_roles,
+            not_added_roles,
+            less_than_threshold_roless,
+        ) = auth_repo.revoke_metadata_key(key_id=key_id, roles=roles)
         if not_added_roles:
-            taf_logger.log("NOTICE", f"Key is not a signing key of role(s) {', '.join(not_added_roles)}")
+            taf_logger.log(
+                "NOTICE",
+                f"Key is not a signing key of role(s) {', '.join(not_added_roles)}",
+            )
         if less_than_threshold_roless:
-            taf_logger.warning(f"Cannot remove key from {', '.join(less_than_threshold_roless)}. Number of keys must be greater or equal to thresholds")
+            taf_logger.warning(
+                f"Cannot remove key from {', '.join(less_than_threshold_roless)}. Number of keys must be greater or equal to thresholds"
+            )
 
         if len(removed_from_roles):
             auth_repo.update_snapshot_and_timestamp()
 
-            if commit:
-                # TODO after saving custom key ids is implemented, remove customization of the commit message
-                # for now, it might be helpful to be able to specify which key was added
-                # commit_msg = git_commit_message(
-                #     "add-signing-key", role={role}
-                # )
-                auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-            else:
-                taf_logger.warn("NOTICE", "\nPlease commit manually\n")
 
 # TODO this is probably outdated, the format of the outputted roles_key_infos
 def _enter_roles_infos(keystore: Optional[str], roles_key_infos: Optional[str]) -> Dict:
@@ -590,6 +618,8 @@ def _initialize_roles_and_keystore_for_existing_repo(
         keystore_path = find_keystore(Path(path))
         if keystore_path:
             roles_keys_data.keystore = str(keystore_path)
+    else:
+        roles_keys_data.keystore = keystore
     return roles_keys_data
 
 

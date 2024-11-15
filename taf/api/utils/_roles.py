@@ -54,7 +54,9 @@ def create_delegations(
     skip_top_role = role.name == "targets"
     try:
         for delegated_role in RolesIterator(role, skip_top_role=skip_top_role):
-            parent_role_obj = repository._role_obj(delegated_role.parent.name, repository)
+            parent_role_obj = repository._role_obj(
+                delegated_role.parent.name, repository
+            )
             if not isinstance(parent_role_obj, Targets):
                 raise TAFError(
                     f"Could not find parent targets role of role {delegated_role}"
@@ -143,7 +145,6 @@ def setup_role(
             ] = []
         except Exception:  # temporary quick fix, this will all be reworked
             tuf.roledb._roledb_dict[repository.name][role.name]["previous_keyids"] = []
-
 
 
 def list_roles(repository: AuthenticationRepository) -> List[str]:

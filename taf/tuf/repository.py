@@ -16,6 +16,8 @@ from securesystemslib.exceptions import StorageError
 from cryptography.hazmat.primitives import serialization
 
 from securesystemslib.signer import Signer
+from securesystemslib import exceptions as sslib_exceptions
+from securesystemslib import hash as sslib_hash
 
 from taf import YubikeyMissingLibrary
 try:
@@ -56,6 +58,7 @@ MAIN_ROLES = ["root", "targets", "snapshot", "timestamp"]
 
 DISABLE_KEYS_CACHING = False
 HASH_FUNCTION = "sha256"
+HASH_ALGS = ["sha256", "sha512"]
 
 
 def get_role_metadata_path(role: str) -> str:
@@ -134,6 +137,40 @@ class MetadataRepository(Repository):
     def snapshot_info(self) -> MetaFile:
         # tracks snapshot metadata changes, needed in `do_timestamp`
         return self._snapshot_info
+
+    @staticmethod
+    def calculate_hashes(
+       md: Metadata, algorithms: List[str]
+    ) -> None:
+        # TODO see comment below
+        hashes = {}
+        data = md.to_bytes()
+        for algo in algorithms:
+            try:
+                digest_object = sslib_hash.digest(algo)
+                digest_object.update(data)
+            except (
+                sslib_exceptions.UnsupportedAlgorithmError,
+                sslib_exceptions.FormatError,
+            ) as e:
+                raise LengthOrHashMismatchError(
+                    f"Unsupported algorithm '{algo}'"
+                ) from e
+
+            hashes[algo] = digest_object.hexdigest()
+        return hashes
+
+    @staticmethod
+    def calculate_length(
+        md: Metadata,
+    ) -> None:
+        # TODO this doesn't look correct
+        # how was it being calculated before?
+        # this is fine, but maybe md.to_bytes() is not
+        # added to snapshot and length is < old length
+        # something is weird
+        data = md.to_bytes()
+        return len(data)
 
 
     def all_target_files(self):
@@ -246,9 +283,10 @@ class MetadataRepository(Repository):
             parent.delegations.roles[role].paths.extend(paths)
         return True
 
-    def add_new_role_to_snapshot(self, role):
+    def add_new_roles_to_snapshot(self, roles: List[str]):
         with self.edit(Snapshot.type) as sn:
-            sn.meta[f"{role}.json"] = MetaFile(1)
+            for role in roles:
+                sn.meta[f"{role}.json"] = MetaFile(1)
 
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
@@ -339,6 +377,8 @@ class MetadataRepository(Repository):
         # `do_snapshot` and `do_timestamp`
         if role == "snapshot":
             self._snapshot_info.version = md.signed.version
+            self._snapshot_info.hashes = self.calculate_hashes(md, HASH_ALGS)
+            self._snapshot_info.length = self.calculate_length(md)
         elif role != "timestamp":  # role in [root, targets, <delegated targets>]
             self._targets_infos[fname].version = md.signed.version
 
@@ -476,7 +516,10 @@ class MetadataRepository(Repository):
                         terminating=role_data.terminating,
                         keyids=list(keys_data.keys()),
                     )
-                    parent_obj.delegations.roles[role_data.name] = delegated_role
+                    if parent_obj.delegations is None:
+                        parent_obj.delegations = Delegations(roles={role_data.name: delegated_role}, keys=keys_data)
+                    else:
+                        parent_obj.delegations.roles[role_data.name] = delegated_role
                 parent_obj.delegations.keys.update(keys_data)
 
             for role_data in parents_roles_data:

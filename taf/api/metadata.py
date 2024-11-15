@@ -127,12 +127,21 @@ def update_metadata_expiration_date(
         start_date = datetime.now()
 
     roles_to_update = set(roles)
-    update_snapshot_and_timestamp = "timestamp" not in roles_to_update or len(roles_to_update) > 1
+    update_snapshot_and_timestamp = (
+        "timestamp" not in roles_to_update or len(roles_to_update) > 1
+    )
     if update_snapshot_and_timestamp:
         roles_to_update.add("snapshot")
         roles_to_update.add("timestamp")
 
-    with manage_repo_and_signers(path, roles_to_update, keystore, scheme, prompt_for_keys, load_snapshot_and_timestamp=update_snapshot_and_timestamp) as auth_repo:
+    with manage_repo_and_signers(
+        path,
+        roles_to_update,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=update_snapshot_and_timestamp,
+    ) as auth_repo:
         for role in roles_to_update:
             auth_repo.set_metadata_expiration_date(
                 role, start_date=start_date, interval=interval
@@ -145,4 +154,3 @@ def update_metadata_expiration_date(
                 "update-expiration-dates", roles=",".join(roles)
             )
             auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-

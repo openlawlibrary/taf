@@ -47,6 +47,6 @@ def test_add_new_role(tuf_repo, signers):
     assert new_role_obj
     assert tuf_repo._role_obj(role_name).threshold == threshold
 
-    tuf_repo.add_new_role_to_snapshot(role_name)
+    tuf_repo.add_new_roles_to_snapshot([role_name])
     assert tuf_repo.snapshot().version == 2
     assert f"{role_name}.json" in tuf_repo.snapshot().meta
