@@ -38,9 +38,9 @@ def test_add_new_role(tuf_repo, signers):
     threshold = 2
     keys_number = 2
 
-    role_signers = [signers["targets"][0], signers["snapshot"][0]]
+    role_signers = {role_name: [signers["targets"][0], signers["snapshot"][0]]}
     new_role = TargetsRole(name=role_name,parent=targets_parent_role,paths=paths,number=keys_number,threshold=threshold, yubikey=False )
-    tuf_repo.create_delegated_role(new_role, role_signers)
+    tuf_repo.create_delegated_role([new_role], role_signers)
     assert tuf_repo.targets().version == 2
     assert role_name in tuf_repo.targets().delegations.roles
     new_role_obj = tuf_repo.open(role_name)

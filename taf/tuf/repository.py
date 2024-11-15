@@ -447,34 +447,45 @@ class MetadataRepository(Repository):
                 self.close(name, Metadata(signed))
 
 
-    def create_delegated_role(self, role_data: TargetsRole, signers: List[CryptoSigner]):
+    def create_delegated_role(self, roles_data: List[TargetsRole], signers: Dict[str, List[CryptoSigner]]):
         existing_roles = self.get_all_targets_roles()
         existing_roles.extend(MAIN_ROLES)
-        if role_data.name in existing_roles:
-            raise TAFError(f"Role {role_data.name} already exists")
-        parent = role_data.parent.name
+        existing_roles = []
+        added_roles = []
+        roles_parents_dict = defaultdict(list)
+        for role_data in roles_data:
+            if role_data.name in existing_roles:
+                existing_roles.append(roles_data.name)
+                continue
+            parent = role_data.parent.name
+            roles_parents_dict[parent].append(role_data)
 
-        with self.edit(parent) as parent_obj:
-            keys_data = {}
-            for signer in signers:
-                public_key = signer.public_key
-                key_id = _get_legacy_keyid(public_key)
-                keys_data[key_id] = public_key
-                self.signer_cache[role_data.name][key_id] = signer
-            delegated_role = DelegatedRole(
-                name=role_data.name,
-                threshold=role_data.threshold,
-                paths=role_data.paths,
-                terminating=role_data.terminating,
-                keyids=list(keys_data.keys()),
-            )
-            parent_obj.delegations.roles[role_data.name] = delegated_role
-            parent_obj.delegations.keys.update(keys_data)
+        for parent, parents_roles_data in roles_parents_dict.items():
+            with self.edit(parent) as parent_obj:
+                keys_data = {}
+                for role_data in parents_roles_data:
+                    for signer in signers[role_data.name]:
+                        public_key = signer.public_key
+                        key_id = _get_legacy_keyid(public_key)
+                        keys_data[key_id] = public_key
+                        self.signer_cache[role_data.name][key_id] = signer
+                    delegated_role = DelegatedRole(
+                        name=role_data.name,
+                        threshold=role_data.threshold,
+                        paths=role_data.paths,
+                        terminating=role_data.terminating,
+                        keyids=list(keys_data.keys()),
+                    )
+                    parent_obj.delegations.roles[role_data.name] = delegated_role
+                parent_obj.delegations.keys.update(keys_data)
 
-        new_role_signed = Targets()
-        self._set_default_expiration_date(new_role_signed)
-        new_role_signed.version = 0  # `close` will bump to initial valid verison 1
-        self.close(role_data.name, Metadata(new_role_signed))
+            for role_data in parents_roles_data:
+                new_role_signed = Targets()
+                self._set_default_expiration_date(new_role_signed)
+                new_role_signed.version = 0  # `close` will bump to initial valid verison 1
+                self.close(role_data.name, Metadata(new_role_signed))
+                added_roles.append(role_data.name)
+        return added_roles, existing_roles
 
 
     def delete_unregistered_target_files(self, targets_role="targets"):
