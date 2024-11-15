@@ -466,11 +466,7 @@ def _setup_keystore_key(
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
                 )
-            private_pem = generate_and_write_rsa_keypair(
-                filepath = Path(keystore, key_name),
-                key_size=length,
-                password=password
-            )
+            private_pem = generate_and_write_rsa_keypair(path=Path(keystore, key_name), key_size=length, password=password)
             signer = load_signer_from_pem(private_pem)
         else:
             _, private_pem = generate_rsa_keypair(bits=length)

@@ -96,52 +96,45 @@ def add_role(
     Returns:
         None
     """
-    if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=path)
-    existing_roles = auth_repo.get_all_targets_roles()
-    existing_roles.extend(MAIN_ROLES)
-    if role in existing_roles:
-        taf_logger.log("NOTICE", "All roles already set up")
-        return
 
-    targets_parent_role = TargetsRole()
-    if parent_role != "targets":
-        targets_parent_role.name = parent_role
-        targets_parent_role.paths = []
+    if not parent_role:
+        parent_role = "targets"
 
-    new_role = TargetsRole()
-    new_role.parent = targets_parent_role
-    new_role.name = role
-    new_role.paths = paths
-    new_role.number = keys_number
-    new_role.threshold = threshold
-    new_role.yubikey = yubikey
+    def _validation_fn(auth_repo, role):
+        existing_roles = auth_repo.get_all_targets_roles()
+        existing_roles.extend(MAIN_ROLES)
+        if role in existing_roles:
+            taf_logger.log("NOTICE", "All roles already set up")
+            return False
+        return True
 
-    signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo=auth_repo,
-        roles=new_role,
-        yubikeys_data=None,
-        keystore=keystore,
-        skip_prompt=skip_prompt,
-    )
-    create_delegations(
-        new_role, auth_repo, verification_keys, signing_keys, existing_roles
-    )
-    _update_role(
-        auth_repo,
-        targets_parent_role.name,
-        keystore,
-        scheme=scheme,
-        prompt_for_keys=prompt_for_keys,
-    )
-    if commit:
-        update_snapshot_and_timestamp(
-            auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    validation_fn = partial(_validation_fn, role=role)
+
+    keystore_path = find_keystore(path) if not keystore else keystore
+    with manage_repo_and_signers(path, roles=[parent_role], validation_fn=validation_fn, keystore=keystore_path, scheme=scheme, prompt_for_keys=prompt_for_keys, load_roles=True, load_snapshot_and_timestamp=True) as auth_repo:
+        targets_parent_role = TargetsRole()
+        if parent_role != "targets":
+            targets_parent_role.name = parent_role
+            targets_parent_role.paths = []
+
+        new_role = TargetsRole(name=role,parent=targets_parent_role,paths=paths,number=keys_number,threshold=threshold, yubikey=yubikey )
+
+        signers, _ = load_sorted_keys_of_new_roles(
+            roles=new_role,
+            yubikeys_data=None,
+            keystore=keystore_path,
+            skip_prompt=skip_prompt,
+            certs_dir=auth_repo.certs_dir
         )
-        commit_msg = git_commit_message("add-role", role=role)
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
+        auth_repo.create_delegated_role(new_role, signers[role])
+        auth_repo.add_new_role_to_snapshot(new_role.name)
+        auth_repo.do_timestamp()
+
+        if commit:
+            commit_msg = git_commit_message("add-role", role=role)
+            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+        else:
+            taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
 
 @log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)

@@ -1,6 +1,8 @@
 
 import datetime
 
+from taf.models.types import TargetsRole
+
 
 def test_update_expiration_date(tuf_repo, signers_with_delegations):
 
@@ -15,7 +17,6 @@ def test_update_expiration_date(tuf_repo, signers_with_delegations):
     assert tuf_repo.snapshot().version == 1
 
 
-
 def test_add_delegated_paths(tuf_repo):
 
     new_paths = ["new", "paths"]
@@ -28,3 +29,24 @@ def test_add_delegated_paths(tuf_repo):
 
     for path in new_paths:
         assert path in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths
+
+
+def test_add_new_role(tuf_repo, signers):
+    role_name = "test"
+    targets_parent_role = TargetsRole()
+    paths = ["test1", "test2"]
+    threshold = 2
+    keys_number = 2
+
+    role_signers = [signers["targets"][0], signers["snapshot"][0]]
+    new_role = TargetsRole(name=role_name,parent=targets_parent_role,paths=paths,number=keys_number,threshold=threshold, yubikey=False )
+    tuf_repo.create_delegated_role(new_role, role_signers)
+    assert tuf_repo.targets().version == 2
+    assert role_name in tuf_repo.targets().delegations.roles
+    new_role_obj = tuf_repo.open(role_name)
+    assert new_role_obj
+    assert tuf_repo._role_obj(role_name).threshold == threshold
+
+    tuf_repo.add_new_role_to_snapshot(role_name)
+    assert tuf_repo.snapshot().version == 2
+    assert f"{role_name}.json" in tuf_repo.snapshot().meta

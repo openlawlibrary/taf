@@ -1,12 +1,11 @@
 from contextlib import contextmanager
-from functools import wraps
 from pathlib import Path
 from typing import List, Optional, Set
 
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import InvalidRepositoryError
+from taf.exceptions import CommandValidationError, InvalidRepositoryError, TAFError
 from taf.git import GitRepository
 from taf.keys import load_signers
 from taf.log import taf_logger
@@ -20,12 +19,16 @@ def manage_repo_and_signers(
     scheme: Optional[str]=DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool]=False,
     roles_fn=None,
+    validation_fn=None,
     load_roles=True,
     load_parents=False,
     load_snapshot_and_timestamp=True,
 ):
     try:
         repo = AuthenticationRepository(path=path)
+        if not validation_fn(repo):
+            raise CommandValidationError()
+
         if not roles and roles_fn:
             roles = roles_fn(repo)
         if roles:
@@ -57,8 +60,12 @@ def manage_repo_and_signers(
     except InvalidRepositoryError:
         taf_logger.error("Cannot instantiate repository. This is mostly likely a bug")
         raise
-    except Exception:
+    except CommandValidationError:
+        pass
+    except Exception as e:
+        taf_logger.error(f"An error occurred: {e}")
         repo = GitRepository(path=path)
         if repo.is_git_repository:
             repo.clean_and_reset()
-        raise
+        raise TAFError from e
+
