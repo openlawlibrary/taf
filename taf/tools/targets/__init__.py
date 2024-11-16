@@ -159,7 +159,7 @@ def sign_targets_command():
                 keystore=keystore,
                 roles_key_infos=keys_description,
                 scheme=scheme,
-                write=True,
+                update_snapshot_and_timestamp=True,
                 prompt_for_keys=prompt_for_keys,
                 commit=not no_commit
             )

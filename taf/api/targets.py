@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
+from taf.api.api_workflow import manage_repo_and_signers
 from taf.api.utils._metadata import (
     update_snapshot_and_timestamp,
     update_target_metadata,
@@ -326,8 +327,8 @@ def register_target_files(
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = True,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
-    taf_repo: Optional[TUFRepository] = None,
-    write: Optional[bool] = False,
+    auth_repo: Optional[AuthenticationRepository] = None,
+    update_snapshot_and_timestamp: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     no_commit_warning: Optional[bool] = True,
@@ -340,7 +341,7 @@ def register_target_files(
         path: Authentication repository's path.
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
-        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+    scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         taf_repo (optional): If taf repository is already initialized, it can be passed and used.
         write (optional): Write metadata updates to disk if set to True
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -352,34 +353,47 @@ def register_target_files(
     Returns:
         True if there were targets that were updated, False otherwise
     """
+
+    # find files that should be added/modified/removed
+
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=path)
+
+    added_targets_data, removed_targets_data = auth_repo.get_all_target_files_state()
+    if not added_targets_data and not removed_targets_data:
+        taf_logger.log("NOTICE", "No updated targets")
+        return False
+
+    all_updated_targets = list(added_targets_data.keys()) if added_targets_data else []
+    if removed_targets_data:
+        all_updated_targets.extend(list(removed_targets_data.keys()))
+
+    roles_and_targets = defaultdict(list)
+    for path in all_updated_targets:
+        roles_and_targets[auth_repo.get_role_from_target_paths([path])].append(path)
+
     _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
-    if taf_repo is None:
-        path = Path(path).resolve()
-        taf_repo = TUFRepository(str(path))
 
-    # find files that should be added/modified/removed
-    added_targets_data, removed_targets_data = taf_repo.get_all_target_files_state()
-    updated = update_target_metadata(
-        taf_repo,
-        added_targets_data,
-        removed_targets_data,
+    with manage_repo_and_signers(
+        auth_repo,
+        set(roles_and_targets.keys()),
         keystore,
-        scheme=scheme,
-        write=write,
-        prompt_for_keys=prompt_for_keys,
-    )
-
-    if updated and write:
-        if commit:
-            auth_repo = AuthenticationRepository(path=taf_repo.path)
-            commit_msg = git_commit_message("update-targets")
-            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-        elif not no_commit_warning:
-            taf_logger.log("NOTICE", "\nPlease commit manually\n")
-
-    return updated
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=update_snapshot_and_timestamp,
+        load_parents=False,
+        load_roles=True,
+        commit=commit,
+        push=push,
+        commit_key="update-targets",
+        no_commit_warning=no_commit_warning,
+    ):
+        for role, targets in roles_and_targets.items():
+            auth_repo.update_target_role(role, targets)
+        if update_snapshot_and_timestamp:
+            auth_repo.update_snapshot_and_timestamp()
 
 
 @log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)

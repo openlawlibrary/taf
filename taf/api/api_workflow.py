@@ -5,7 +5,7 @@ from typing import List, Optional, Set
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import CommandValidationError, InvalidRepositoryError, TAFError
+from taf.exceptions import CommandValidationError, InvalidRepositoryError, SigningError, TAFError
 from taf.git import GitRepository
 from taf.keys import load_signers
 from taf.log import taf_logger
@@ -26,6 +26,7 @@ def manage_repo_and_signers(
     push=True,
     commit_key=None,
     commit_msg=None,
+    no_commit_warning=True,
 ):
     try:
         if roles:
@@ -43,28 +44,29 @@ def manage_repo_and_signers(
                 roles_to_load.add("snapshot")
                 roles_to_load.add("timestamp")
 
-            for role in roles_to_load:
-                keystore_signers, yubikeys = load_signers(
-                    auth_repo,
-                    role,
-                    loaded_yubikeys=loaded_yubikeys,
-                    keystore=keystore_path,
-                    scheme=scheme,
-                    prompt_for_keys=prompt_for_keys,
-                )
-                auth_repo.load_signers({role: keystore_signers})
+                for role in roles_to_load:
+                    keystore_signers, yubikeys = load_signers(
+                        auth_repo,
+                        role,
+                        loaded_yubikeys=loaded_yubikeys,
+                        keystore=keystore_path,
+                        scheme=scheme,
+                        prompt_for_keys=prompt_for_keys,
+                    )
+                    auth_repo.load_signers({role: keystore_signers})
         yield
         if auth_repo.something_to_commit() and commit:
             if not commit_msg and commit_key:
                 commit_msg = git_commit_message(commit_key)
             auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-        else:
+        elif not no_commit_warning:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
-    except CommandValidationError:
-        pass
     except Exception as e:
         taf_logger.error(f"An error occurred: {e}")
         if auth_repo.is_git_repository:
-            auth_repo.clean_and_reset()
+            # restore metadata, leave targets as they might have been modified by the user
+            # TODO flag for also resetting targets?
+            # also update the CLI error handling
+            auth_repo.restore(["metadata"])
         raise TAFError from e

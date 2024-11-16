@@ -265,8 +265,7 @@ class MetadataRepository(Repository):
         """
         self.modify_targets(added_data=added_data)
 
-        self.do_snapshot()
-        self.do_timestamp()
+
 
     def add_path_to_delegated_role(self, role: str, paths: List[str]) -> bool:
         """
@@ -530,6 +529,18 @@ class MetadataRepository(Repository):
                 added_roles.append(role_data.name)
         return added_roles, existing_roles
 
+    def _create_target_object(self, filesystem_path: str, target_path: str, custom: Optional[Dict]):
+        target_file = TargetFile.from_file(
+            target_file_path=target_path,
+            local_path=filesystem_path,
+            hash_algorithms=["sha256", "sha512"],
+        )
+        if custom:
+            unrecognized_fields = {
+                "custom": custom
+            }
+            target_file.unrecognized_fields=unrecognized_fields
+        return target_file
 
     def delete_unregistered_target_files(self, targets_role="targets"):
         """
@@ -680,10 +691,12 @@ class MetadataRepository(Repository):
             _, hashes = get_file_details(str(target_file))
             # register only new or changed files
             if hashes.get(HASH_FUNCTION) != self.get_target_file_hashes(file_name):
+                custom = self.get_target_file_custom_data(file_name)
                 added_target_files[file_name] = {
                     "target": target_file.read_text(),
-                    "custom": self.get_target_file_custom_data(file_name),
                 }
+                if custom:
+                     added_target_files[file_name]["custom"] = custom
 
         # removed files
         for file_name in signed_target_files - fs_target_files:
@@ -841,7 +854,10 @@ class MetadataRepository(Repository):
         """
         try:
             role = self.get_role_from_target_paths([target_path])
-            return self.get_targets_of_role(role)[target_path].custom
+            target_obj = self.get_targets_of_role(role).get(target_path)
+            if target_obj:
+                return target_obj.custom
+            return None
         except KeyError:
             raise TAFError(f"Target {target_path} does not exist")
 
@@ -851,7 +867,10 @@ class MetadataRepository(Repository):
         """
         try:
             role = self.get_role_from_target_paths([target_path])
-            hashes = self.get_targets_of_role(role)[target_path].hashes
+            targets_of_role = self.get_targets_of_role(role)
+            if target_path not in targets_of_role:
+                return None, None
+            hashes = targets_of_role[target_path].hashes
             if hash_func not in hashes:
                 raise TAFError(f"Invalid hashing algorithm {hash_func}")
             return hashes[hash_func]
@@ -1329,6 +1348,24 @@ class MetadataRepository(Repository):
         for target_file, role in files_to_roles.items():
             roles_targets.setdefault(role, []).append(target_file)
         return roles_targets
+
+    def update_target_role(self, role: str, target_paths: Dict):
+        if not self.check_if_role_exists(role):
+            raise TAFError(f"Role {role} does not exist")
+        self.verify_signers_loaded([role])
+        removed_paths = []
+        target_files = []
+        for target_path in target_paths:
+            full_path = self.path / TARGETS_DIRECTORY_NAME / target_path
+            # file removed, removed from te role
+            if not full_path.is_file():
+                removed_paths.append(target_path)
+            else:
+                custom_data = self.get_target_file_custom_data(target_path)
+                target_file = self._create_target_object(full_path, target_path, custom_data)
+                target_files.append(target_file)
+
+        self._modify_tarets_role(target_files, removed_paths, role)
 
     def update_role(self, role_name: str, signers: List[CryptoSigner]):
         self._load_signers(role_name, signers)

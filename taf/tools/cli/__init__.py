@@ -46,7 +46,8 @@ def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove
                 path = kwargs["path"]
                 repo = GitRepository(path=path)
                 if repo.is_git_repository:
-                    repo.clean_and_reset()
+                    repo.restore(["metadata"])
+                    # repo.clean_and_reset()
                 if remove_dir_on_error:
                     shutil.rmtree(path, onerror=on_rm_error)
 

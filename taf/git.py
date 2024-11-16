@@ -1466,6 +1466,11 @@ class GitRepository:
         if hard:
             self._git(f"reset {flag} HEAD")
 
+    def restore(
+        self, subdirectories: str
+    ) -> None:
+        self._git(f"restore {' '.join(subdirectories)}")
+
     def update_branch_refs(self, branch: str, commit: str) -> None:
         # Update the local branch reference to the specific commit
         self._git(f"update-ref refs/heads/{branch} {commit}")
