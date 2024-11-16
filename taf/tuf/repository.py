@@ -1197,6 +1197,25 @@ class MetadataRepository(Repository):
 
         return removed_from_roles, not_added_roles, less_than_threshold_roles
 
+    def remove_delegated_paths(self, roles_paths: Dict[str, List[str]]):
+        """
+        Remove delegated paths to delegated role and return True if at least one removed
+        """
+
+        updated = False
+        for role, paths in roles_paths.items():
+
+            if not self.check_if_role_exists(role):
+                raise TAFError(f"Role {role} does not exist")
+            parent_role = self.find_delegated_roles_parent(role)
+            self.verify_signers_loaded([parent_role])
+            with self.edit(parent_role) as parent:
+                for path in paths:
+                    if path in parent.delegations.roles[role].paths:
+                        parent.delegations.roles[role].paths.remove(path)
+                        updated = True
+        return updated
+
     def roles_targets_for_filenames(self, target_filenames):
         """Sort target files by roles
         Args:

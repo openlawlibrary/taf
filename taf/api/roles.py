@@ -189,7 +189,9 @@ def add_role_paths(
         None
     """
 
-    auth_repo = AuthenticationRepository(path=auth_path)
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=auth_path)
+
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     if all(path in auth_repo.get_delegations_of_role(parent_role)[delegated_role].paths for path in paths):
         taf_logger.log("NOTICE", "Paths already added")
@@ -206,11 +208,11 @@ def add_role_paths(
         load_parents=True,
         load_snapshot_and_timestamp=True,
         commit=commit,
+        push=push,
         commit_msg=commit_msg
     ):
         auth_repo.add_path_to_delegated_role(role=delegated_role, paths=paths)
         auth_repo.update_snapshot_and_timestamp()
-
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -279,7 +281,9 @@ def add_multiple_roles(
         scheme=scheme,
         prompt_for_keys=prompt_for_keys,
         load_snapshot_and_timestamp=True,
-        commit_msg=commit_msg
+        commit_msg=commit_msg,
+        commit=commit,
+        push=push,
     ):
 
         all_signers = {}
@@ -296,7 +300,6 @@ def add_multiple_roles(
         auth_repo.create_delegated_role(roles_to_add_data, all_signers)
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
-
 
 
 @log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
@@ -360,8 +363,11 @@ def add_signing_key(
 
     roles_keys = {role: [pub_key] for role in roles}
 
+
+    auth_repo = AuthenticationRepository(path=path)
+
     with manage_repo_and_signers(
-        path,
+        auth_repo,
         roles,
         keystore,
         scheme,
@@ -370,6 +376,7 @@ def add_signing_key(
         load_parents=True,
         load_roles=False,
         commit=commit,
+        push=push,
         commit_msg=commit_msg,
     ):
         added_keys, already_added_keys, invalid_keys = auth_repo.add_metadata_keys(
@@ -429,22 +436,21 @@ def revoke_signing_key(
         None
     """
 
-    def _find_roles_fn(auth_repo, key_id):
-        return auth_repo.find_keysid_roles([key_id])
+    auth_repo = AuthenticationRepository(path=path)
 
-    find_roles_fn = partial(_find_roles_fn, key_id=key_id)
+    roles_to_update = auth_repo.find_keysid_roles([key_id])
 
     with manage_repo_and_signers(
-        path,
-        roles,
+        auth_repo,
+        roles_to_update,
         keystore,
         scheme,
         prompt_for_keys,
-        roles_fn=find_roles_fn,
         load_snapshot_and_timestamp=True,
         load_parents=True,
         load_roles=False,
         commit=commit,
+        push=push,
         commit_msg=commit_msg,
     ):
         (
@@ -811,89 +817,93 @@ def remove_role(
     Returns:
         None
     """
-    if role in MAIN_ROLES:
-        taf_logger.error(
-            f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
-        )
-        return
 
-    if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=path)
+    # TODO This didn't fully work and was not being used
+    # can be done later
 
-    parent_role = auth_repo.find_delegated_roles_parent(role)
-    if parent_role is None:
-        taf_logger.error("Role is not among delegated roles")
-        return
-    parent_role_obj = auth_repo._role_obj(parent_role, auth_repo)
-    if not isinstance(parent_role_obj, Targets):
-        taf_logger.error(f"Could not find parent targets role of role {role}.")
-        return
+    # if role in MAIN_ROLES:
+    #     taf_logger.error(
+    #         f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
+    #     )
+    #     return
 
-    roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
-    added_targets_data: Dict = {}
-    removed_targets = []
-    for delegations_data in roleinfo["delegations"]["roles"]:
-        if delegations_data["name"] == role:
-            paths = delegations_data["paths"]
-            for target_path in paths:
-                target_file_path = Path(path, TARGETS_DIRECTORY_NAME, target_path)
-                if target_file_path.is_file():
-                    if remove_targets:
-                        os.unlink(str(target_file_path))
-                        removed_targets.append(str(target_file_path))
-                    else:
-                        added_targets_data[target_file_path] = {}
-                else:
-                    # try glob pattern traversal
-                    full_pattern = str(Path(path, TARGETS_DIRECTORY_NAME, target_path))
-                    matching_files = glob.glob(full_pattern)
-                    for file_path in matching_files:
-                        if remove_targets:
-                            os.unlink(str(file_path))
-                            removed_targets.append(file_path)
-                        else:
-                            added_targets_data[file_path] = {}
-            break
+    # if auth_repo is None:
+    #     auth_repo = AuthenticationRepository(path=path)
 
-    parent_role_obj.revoke(role)
+    # parent_role = auth_repo.find_delegated_roles_parent(role)
+    # if parent_role is None:
+    #     taf_logger.error("Role is not among delegated roles")
+    #     return
+    # parent_role_obj = auth_repo._role_obj(parent_role, auth_repo)
+    # if not isinstance(parent_role_obj, Targets):
+    #     taf_logger.error(f"Could not find parent targets role of role {role}.")
+    #     return
 
-    _update_role(
-        auth_repo, role=parent_role, keystore=keystore, prompt_for_keys=prompt_for_keys
-    )
-    if len(added_targets_data):
-        removed_targets_data: Dict = {}
-        update_target_metadata(
-            auth_repo,
-            added_targets_data,
-            removed_targets_data,
-            keystore,
-            write=False,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            prompt_for_keys=prompt_for_keys,
-        )
+    # roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
+    # added_targets_data: Dict = {}
+    # removed_targets = []
+    # for delegations_data in roleinfo["delegations"]["roles"]:
+    #     if delegations_data["name"] == role:
+    #         paths = delegations_data["paths"]
+    #         for target_path in paths:
+    #             target_file_path = Path(path, TARGETS_DIRECTORY_NAME, target_path)
+    #             if target_file_path.is_file():
+    #                 if remove_targets:
+    #                     os.unlink(str(target_file_path))
+    #                     removed_targets.append(str(target_file_path))
+    #                 else:
+    #                     added_targets_data[target_file_path] = {}
+    #             else:
+    #                 # try glob pattern traversal
+    #                 full_pattern = str(Path(path, TARGETS_DIRECTORY_NAME, target_path))
+    #                 matching_files = glob.glob(full_pattern)
+    #                 for file_path in matching_files:
+    #                     if remove_targets:
+    #                         os.unlink(str(file_path))
+    #                         removed_targets.append(file_path)
+    #                     else:
+    #                         added_targets_data[file_path] = {}
+    #         break
 
-    # if targets should be deleted, also removed them from repositories.json
-    if len(removed_targets):
-        repositories_json = repositoriesdb.load_repositories_json(auth_repo)
-        if repositories_json is not None:
-            repositories = repositories_json["repositories"]
-            for removed_target in removed_targets:
-                if removed_target in repositories:
-                    repositories.pop(removed_target)
+    # parent_role_obj.revoke(role)
 
-                # update content of repositories.json before updating targets metadata
-                Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
-                    json.dumps(repositories_json, indent=4)
-                )
+    # _update_role(
+    #     auth_repo, role=parent_role, keystore=keystore, prompt_for_keys=prompt_for_keys
+    # )
+    # if len(added_targets_data):
+    #     removed_targets_data: Dict = {}
+    #     update_target_metadata(
+    #         auth_repo,
+    #         added_targets_data,
+    #         removed_targets_data,
+    #         keystore,
+    #         write=False,
+    #         scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    #         prompt_for_keys=prompt_for_keys,
+    #     )
 
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        commit_msg = git_commit_message("remove-role", role=role)
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "Please commit manually")
+    # # if targets should be deleted, also removed them from repositories.json
+    # if len(removed_targets):
+    #     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    #     if repositories_json is not None:
+    #         repositories = repositories_json["repositories"]
+    #         for removed_target in removed_targets:
+    #             if removed_target in repositories:
+    #                 repositories.pop(removed_target)
+
+    #             # update content of repositories.json before updating targets metadata
+    #             Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+    #                 json.dumps(repositories_json, indent=4)
+    #             )
+
+    # update_snapshot_and_timestamp(
+    #     auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    # )
+    # if commit:
+    #     commit_msg = git_commit_message("remove-role", role=role)
+    #     auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+    # else:
+    #     taf_logger.log("NOTICE", "Please commit manually")
 
 
 @log_on_start(DEBUG, "Removing delegated paths", logger=taf_logger)
@@ -909,6 +919,7 @@ def remove_paths(
     path: str,
     paths: List[str],
     keystore: str,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
@@ -931,32 +942,40 @@ def remove_paths(
         True if the delegation existed, False otherwise
     """
     auth_repo = AuthenticationRepository(path=path)
-    delegation_existed = False
+    paths_to_remove_from_roles = defaultdict(list)
     for path_to_remove in paths:
         delegated_role = auth_repo.get_role_from_target_paths([path_to_remove])
-        if delegated_role != "targets":
-            parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
-            # parent_role_obj = _role_obj(parent_role, auth_repo)
-            current_delegation_existed = _remove_path_from_role_info(
-                path_to_remove, parent_role, delegated_role, auth_repo
-            )
-            delegation_existed = delegation_existed or current_delegation_existed
-            if current_delegation_existed:
-                _update_role(
-                    auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys
-                )
-    if delegation_existed and commit:
-        update_snapshot_and_timestamp(
-            auth_repo, keystore, prompt_for_keys=prompt_for_keys
-        )
-        commit_msg = git_commit_message(
-            "remove-role-paths", paths=", ".join(paths), role=delegated_role
-        )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    elif delegation_existed:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
-    return delegation_existed
 
+        if delegated_role:
+            paths_to_remove_from_roles[delegated_role].append(path_to_remove)
+        else:
+            taf_logger.log("NOTICE", f"Path {path_to_remove} not delegated to any role")
+
+    if not len(paths_to_remove_from_roles):
+        taf_logger.log("NOTICE", "No paths delegated")
+        return False
+
+    commit_msg = git_commit_message(
+        "remove-role-paths", paths=", ".join(paths), role=delegated_role
+    )
+    with manage_repo_and_signers(
+        auth_repo,
+        roles=list(paths_to_remove_from_roles.keys()),
+        keystore=keystore,
+        scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
+        load_roles=False,
+        load_parents=True,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg
+    ):
+        auth_repo.remove_delegated_paths(paths_to_remove_from_roles)
+        auth_repo.update_snapshot_and_timestamp()
+
+
+    return True
 
 def _remove_path_from_role_info(
     path_to_remove: str,
