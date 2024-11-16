@@ -946,11 +946,10 @@ def remove_paths(
     for path_to_remove in paths:
         delegated_role = auth_repo.get_role_from_target_paths([path_to_remove])
 
-        if delegated_role:
+        if delegated_role != "targets":
             paths_to_remove_from_roles[delegated_role].append(path_to_remove)
         else:
             taf_logger.log("NOTICE", f"Path {path_to_remove} not delegated to any role")
-
     if not len(paths_to_remove_from_roles):
         taf_logger.log("NOTICE", "No paths delegated")
         return False

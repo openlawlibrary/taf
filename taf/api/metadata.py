@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_end, log_on_error
 from taf.api.utils._conf import find_keystore
 from taf.api.utils._git import check_if_clean
-from taf.api.utils._repo import manage_repo_and_signers
+from taf.api.api_workflow import manage_repo_and_signers
 from taf.exceptions import TAFError
 from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -123,6 +123,7 @@ def update_metadata_expiration_date(
         None
     """
 
+    auth_repo = AuthenticationRepository(path=path)
     if start_date is None:
         start_date = datetime.now()
 
@@ -134,23 +135,22 @@ def update_metadata_expiration_date(
         roles_to_update.add("snapshot")
         roles_to_update.add("timestamp")
 
+    commit_msg = git_commit_message(
+        "update-expiration-dates", roles=",".join(roles)
+    )
+
     with manage_repo_and_signers(
-        path,
+        auth_repo,
         roles_to_update,
         keystore,
         scheme,
         prompt_for_keys,
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
-    ) as auth_repo:
+        commit=commit,
+        commit_msg=commit_msg,
+        push=push
+    ):
         for role in roles_to_update:
             auth_repo.set_metadata_expiration_date(
                 role, start_date=start_date, interval=interval
             )
-
-        if not commit:
-            print("\nPlease commit manually.\n")
-        else:
-            commit_msg = git_commit_message(
-                "update-expiration-dates", roles=",".join(roles)
-            )
-            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)

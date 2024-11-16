@@ -1207,7 +1207,11 @@ class MetadataRepository(Repository):
 
             if not self.check_if_role_exists(role):
                 raise TAFError(f"Role {role} does not exist")
+
             parent_role = self.find_delegated_roles_parent(role)
+            if parent_role is None:
+                raise TAFError(f"Role {role} is not a delegated role")
+
             self.verify_signers_loaded([parent_role])
             with self.edit(parent_role) as parent:
                 for path in paths:
