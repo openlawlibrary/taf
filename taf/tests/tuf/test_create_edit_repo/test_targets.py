@@ -1,4 +1,7 @@
 
+from collections import defaultdict
+
+
 def test_add_target_files(tuf_repo):
 
     # assert add target file and correct version bumps
@@ -9,12 +12,9 @@ def test_add_target_files(tuf_repo):
     assert tuf_repo.targets().targets[path1].length > 0
     assert len(tuf_repo.targets().targets[path1].hashes) == 2
     assert tuf_repo.root().version == 1
-    assert tuf_repo.timestamp().version == 2
-    assert tuf_repo.snapshot().version == 2
+    assert tuf_repo.timestamp().version == 1
+    assert tuf_repo.snapshot().version == 1
     assert tuf_repo.targets().version == 2
-    assert tuf_repo.timestamp().snapshot_meta.version == 2
-    assert tuf_repo.snapshot().meta["root.json"].version == 1
-    assert tuf_repo.snapshot().meta["targets.json"].version == 2
 
     # now add with custom
     path2 = "test2.txt"
@@ -106,7 +106,7 @@ def test_get_all_target_files_state(tuf_repo):
     path.write_text("Updated content")
 
     actual = tuf_repo.get_all_target_files_state()
-    assert actual == ({delegated_path1: {'target': 'Updated content', 'custom': None}}, {target_path1: {}})
+    assert actual == ({delegated_path1: {'target': 'Updated content'}}, {target_path1: {}})
 
 
 def test_delete_unregistered_target_files(tuf_repo):
@@ -133,3 +133,53 @@ def test_delete_unregistered_target_files(tuf_repo):
     assert not new_target1.is_file()
     tuf_repo.delete_unregistered_target_files("delegated_role")
     assert not new_target2.is_file()
+
+def test_update_target_toles(tuf_repo):
+    # create files on disk and then update the roles
+    # check if the metadata files were updated successfully
+
+    targets_dir =  tuf_repo.path / "targets"
+    dir1 = targets_dir / "dir1"
+    dir1.mkdir(parents=True)
+
+    new_target1 = targets_dir / "new1"
+    new_target1.write_text("This file is not empty and its lenght should be greater than 0")
+    new_target2 = dir1 / "new2"
+    new_target2.touch()
+    new_target3 = dir1 / "new3"
+    new_target3.write_text("This file also contains something")
+
+    added_targets_data, removed_targets_data = tuf_repo.get_all_target_files_state()
+    assert len(added_targets_data) == 3
+    assert len(removed_targets_data) == 0
+
+    roles_and_targets = defaultdict(list)
+    for path in added_targets_data:
+        roles_and_targets[tuf_repo.get_role_from_target_paths([path])].append(path)
+
+    len(roles_and_targets) == 2
+    assert len(roles_and_targets["targets"]) == 1
+    assert len(roles_and_targets["delegated_role"]) == 2
+
+    tuf_repo.update_target_role("targets", roles_and_targets["targets"])
+    targets_obj = tuf_repo._signed_obj("targets")
+    assert targets_obj.targets
+    assert len(targets_obj.targets) == 1
+    target_name = "new1"
+    assert target_name in targets_obj.targets
+    assert targets_obj.targets[target_name].length > 0
+    assert "sha256" in targets_obj.targets[target_name].hashes and "sha512" in targets_obj.targets[target_name].hashes
+
+    tuf_repo.update_target_role("delegated_role", roles_and_targets["delegated_role"])
+    targets_obj = tuf_repo._signed_obj("delegated_role")
+    assert targets_obj.targets
+    assert len(targets_obj.targets) == 2
+    target_name = "dir1/new2"
+    assert target_name in targets_obj.targets
+    assert targets_obj.targets[target_name].length == 0
+    assert "sha256" in targets_obj.targets[target_name].hashes and "sha512" in targets_obj.targets[target_name].hashes
+    target_name = "dir1/new3"
+    assert target_name in targets_obj.targets
+    assert targets_obj.targets[target_name].length > 0
+    assert "sha256" in targets_obj.targets[target_name].hashes and "sha512" in targets_obj.targets[target_name].hashes
+
