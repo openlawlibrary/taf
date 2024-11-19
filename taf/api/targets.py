@@ -560,15 +560,17 @@ def update_target_repos_from_repositories_json(
         _save_top_commit_of_repo_to_target(
             Path(library_dir), repo_name, repo_path, add_branch
         )
+
     register_target_files(
         repo_path,
         keystore,
         None,
         commit,
         scheme,
-        write=True,
         prompt_for_keys=prompt_for_keys,
         push=push,
+        update_snapshot_and_timestamp=True,
+        reset_updated_targets_on_error=True,
     )
 
 
@@ -643,14 +645,17 @@ def update_and_sign_targets(
             Path(library_dir), target_name, repo_path, True
         )
         taf_logger.log("NOTICE", f"Updated {target_name} target file")
+
     register_target_files(
         repo_path,
         keystore,
         roles_key_infos,
         commit,
+        push,
         scheme,
-        write=True,
         prompt_for_keys=prompt_for_keys,
+        reset_updated_targets_on_error=True,
+        update_snapshot_and_timestamp=True,
     )
 
 

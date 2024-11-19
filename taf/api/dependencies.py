@@ -2,6 +2,7 @@ import json
 from logging import DEBUG, ERROR
 from typing import Dict, Optional
 import click
+from taf.api.targets import register_target_files
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._metadata import (
@@ -19,6 +20,31 @@ from taf.git import GitRepository
 from taf.log import taf_logger
 from taf.updater.updater import OperationType, clone_repository
 import taf.updater.updater as updater
+
+
+def _add_to_dependencies(auth_repo, branch_name, dependency_name, out_of_band_commit, custom):
+
+    # add to dependencies.json or update the entry
+    dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
+
+    # if dependencies.json does not exist, initialize it
+    if not dependencies_json:
+        dependencies_json = {"dependencies": {}}
+
+    dependencies = dependencies_json["dependencies"]
+    if dependency_name in dependencies:
+        print(f"{dependency_name} already added to dependencies.json. Overwriting")
+    dependencies[dependency_name] = {
+        "out-of-band-authentication": out_of_band_commit,
+        "branch": branch_name,
+    }
+    if custom:
+        dependencies[dependency_name]["custom"] = custom
+
+    # update content of repositories.json before updating targets metadata
+    dependencies_path = Path(auth_repo.path, repositoriesdb.DEPENDENCIES_JSON_PATH)
+    dependencies_path.parent.mkdir(exist_ok=True)
+    Path(dependencies_path).write_text(json.dumps(dependencies_json, indent=4))
 
 
 @log_on_start(
@@ -125,61 +151,33 @@ def add_dependency(
             dependency, branch_name, out_of_band_commit, no_prompt
         )
     else:
-        if branch_name is None or out_of_band_commit is None:
-            raise TAFError(
-                "Branch name and out-of-band commit must be specified if repository does not exist on disk"
-            )
         if not no_prompt and not click.confirm(
             "Dependency not on disk. Proceed without validating branch and commit?"
         ):
             return
 
-    # add to dependencies.json or update the entry
-    dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
-
-    # if dependencies.json does not exist, initialize it
-    if not dependencies_json:
-        dependencies_json = {"dependencies": {}}
-
-    dependencies = dependencies_json["dependencies"]
-    if dependency_name in dependencies:
-        print(f"{dependency_name} already added to dependencies.json. Overwriting")
-    dependencies[dependency_name] = {
-        "out-of-band-authentication": out_of_band_commit,
-        "branch": branch_name,
-    }
-    if custom:
-        dependencies[dependency_name]["custom"] = custom
-
-    # update content of repositories.json before updating targets metadata
-    dependencies_path = Path(auth_repo.path, repositoriesdb.DEPENDENCIES_JSON_PATH)
-    dependencies_path.parent.mkdir(exist_ok=True)
-    Path(dependencies_path).write_text(json.dumps(dependencies_json, indent=4))
-
-    removed_targets_data: Dict = {}
-    added_targets_data: Dict = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
-    update_target_metadata(
-        auth_repo,
-        added_targets_data,
-        removed_targets_data,
-        keystore,
-        write=False,
-        scheme=scheme,
-        prompt_for_keys=prompt_for_keys,
-    )
-
-    # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        commit_msg = git_commit_message(
-            "add-dependency", dependency_name=dependency_name
+    if branch_name is None or out_of_band_commit is None:
+        raise TAFError(
+            "Branch name and out-of-band commit must be specified if repository does not exist on disk"
         )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        print("\nPlease commit manually.\n")
 
+    _add_to_dependencies(auth_repo, branch_name, dependency_name, out_of_band_commit, custom)
+    commit_msg = git_commit_message(
+        "add-dependency", dependency_name=dependency_name
+    )
+    register_target_files(
+        path=path,
+        keystore=keystore,
+        commit=commit,
+        scheme=scheme,
+        auth_repo=auth_repo,
+        update_snapshot_and_timestamp=True,
+        prompt_for_keys=prompt_for_keys,
+        push=push,
+        no_commit_warning=True,
+        reset_updated_targets_on_error=True,
+        commit_msg=commit_msg
+    )
 
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
@@ -246,30 +244,23 @@ def remove_dependency(
         json.dumps(dependencies_json, indent=4)
     )
 
-    removed_targets_data: Dict = {}
-    added_targets_data: Dict = {repositoriesdb.DEPENDENCIES_JSON_NAME: {}}
-    update_target_metadata(
-        auth_repo,
-        added_targets_data,
-        removed_targets_data,
-        keystore,
-        write=False,
+    commit_msg = git_commit_message(
+        "remove-dependency", dependency_name=dependency_name
+    )
+
+    register_target_files(
+        path=path,
+        keystore=keystore,
+        commit=commit,
         scheme=scheme,
+        auth_repo=auth_repo,
+        update_snapshot_and_timestamp=True,
         prompt_for_keys=prompt_for_keys,
+        push=push,
+        no_commit_warning=True,
+        reset_updated_targets_on_error=True,
+        commit_msg=commit_msg,
     )
-
-    # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        commit_msg = git_commit_message(
-            "remove-dependency", dependency_name=dependency_name
-        )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        print("\nPlease commit manually.\n")
-
 
 def _determine_out_of_band_data(
     dependency: GitRepository,
@@ -304,9 +295,14 @@ def _determine_out_of_band_data(
             raise TAFError(f"Commit {out_of_band_commit} not on branch {branch_name}")
 
     if not no_prompt and (not is_branch_specified or not is_commit_specified):
-        if not click.confirm(
-            f"Branch and out-of-band authentication commit will be set to {branch_name} and {out_of_band_commit}. Proceed?"
-        ):
-            return
+        message = f"""
+Setting:
+
+    Branch:                             {branch_name}
+    out-of-band authentication commit:  {out_of_band_commit}.
+
+Proceed?"""
+        if not click.confirm(message):
+            return None, None
 
     return branch_name, out_of_band_commit
