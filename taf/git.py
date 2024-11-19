@@ -155,6 +155,8 @@ class GitRepository:
 
     _remotes = None
 
+    _is_bare_repo = None
+
     @property
     def remotes(self) -> List[str]:
         if self._remotes is None:
@@ -228,12 +230,14 @@ class GitRepository:
 
     @property
     def is_bare_repository(self) -> bool:
-        if self.pygit_repo is None:
-            self._log_debug(
-                "pygit repository could not be instantiated, assuming not bare"
-            )
-            return False
-        return self.pygit_repo.is_bare
+        if self._is_bare_repo is None:
+            if self.pygit_repo is None:
+                self._log_debug(
+                    "pygit repository could not be instantiated, assuming not bare"
+                )
+                self._is_bare_repo = False
+            self._is_bare_repo  = self.pygit_repo.is_bare
+        return self._is_bare_repo
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess

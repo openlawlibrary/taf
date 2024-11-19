@@ -32,38 +32,26 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("repositories", schemes, indirect=True)
 
 
-@contextmanager
-def origin_repos_group(test_group_dir, scheme_suffix=None):
-    all_paths = {}
-    test_group_dir = str(TEST_DATA_REPOS_PATH / test_group_dir)
-    for test_dir in os.scandir(test_group_dir):
-        if test_dir.is_dir():
-            if (
-                scheme_suffix is not None and test_dir.name.endswith(scheme_suffix)
-            ) or scheme_suffix is None:
-                all_paths[test_dir.name] = _copy_repos(test_dir.path, test_dir.name)
-
-    yield all_paths
-
-    for test_name in all_paths:
-        test_dst_path = str(TEST_DATA_ORIGIN_PATH / test_name)
-        shutil.rmtree(test_dst_path, onerror=on_rm_error)
+@fixture(scope="module", autouse=True)
+def repo_dir():
+    path = CLIENT_DIR_PATH / "tuf"
+    path.mkdir()
+    yield path
+    shutil.rmtree(path, onerror=on_rm_error)
 
 
-def _copy_repos(test_dir_path, test_name):
-    paths = {}
-    for root, dirs, _ in os.walk(test_dir_path):
-        for dir_name in dirs:
-            if dir_name == "git":
-                repo_rel_path = Path(root).relative_to(test_dir_path)
-                dst_path = TEST_DATA_ORIGIN_PATH / test_name / repo_rel_path
-                # convert dst_path to string in order to support python 3.5
-                shutil.rmtree(dst_path, ignore_errors=True)
-                shutil.copytree(root, str(dst_path))
-                (dst_path / "git").rename(dst_path / ".git")
-                repo_rel_path = Path(repo_rel_path).as_posix()
-                paths[repo_rel_path] = str(dst_path)
-    return paths
+@fixture(autouse=True)
+def repo_path(request, repo_dir):
+    # Get the base directory path
+
+    # Append the test name
+    test_name = request.node.name
+    full_path = repo_dir / test_name
+    full_path.mkdir()
+
+    # Convert to string if necessary, or use it as a Path object
+    yield full_path
+    shutil.rmtree(full_path, onerror=on_rm_error)
 
 
 @fixture(scope="session", autouse=True)

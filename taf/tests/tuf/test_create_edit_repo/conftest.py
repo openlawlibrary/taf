@@ -18,20 +18,6 @@ def repo_dir():
     shutil.rmtree(path, onerror=on_rm_error)
 
 
-@pytest.fixture(autouse=True)
-def repo_path(request, repo_dir):
-    # Get the base directory path
-
-    # Append the test name
-    test_name = request.node.name
-    full_path = repo_dir / test_name
-    full_path.mkdir()
-
-    # Convert to string if necessary, or use it as a Path object
-    yield full_path
-    shutil.rmtree(full_path, onerror=on_rm_error)
-
-
 @pytest.fixture(autouse=False)
 def tuf_repo(repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
     repo = MetadataRepository(repo_path)

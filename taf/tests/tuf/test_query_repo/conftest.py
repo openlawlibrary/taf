@@ -1,20 +1,9 @@
 
-import shutil
-from taf.tests.conftest import CLIENT_DIR_PATH
-from taf.tuf.repository import TargetFile
-from taf.utils import on_rm_error
 import pytest
 from taf.models.types import RolesKeysData
 from taf.tests.test_repository.test_repo import MetadataRepository
 from taf.models.converter import from_dict
 
-
-@pytest.fixture(scope="module", autouse=True)
-def repo_dir():
-    path = CLIENT_DIR_PATH / "tuf"
-    path.mkdir()
-    yield path
-    shutil.rmtree(path, onerror=on_rm_error)
 
 @pytest.fixture(scope="module")
 def tuf_repo(repo_dir, signers, no_yubikeys_input):

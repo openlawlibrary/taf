@@ -24,6 +24,7 @@ class AuthenticationRepository(GitRepository):
     _conf_dir = None
     _dependencies: Dict = {}
 
+
     def __init__(
         self,
         library_dir: Optional[Union[str, Path]] = None,
@@ -73,8 +74,6 @@ class AuthenticationRepository(GitRepository):
 
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
-        self.head_commit = self.head_commit_sha() if self.is_bare_repository else None
-        self._current_commit = self.head_commit
         self._tuf_repository = TUFRepository(self.path)
 
     def __getattr__(self, item):
@@ -304,7 +303,8 @@ class AuthenticationRepository(GitRepository):
         """
         self._current_commit = commit
         yield
-        self._current_commit = self.head_commit
+        head_commit = self.head_commit_sha() if not self.is_bare_repository else None
+        self._current_commit = head_commit
 
     def set_last_validated_commit(self, commit: str):
         """
