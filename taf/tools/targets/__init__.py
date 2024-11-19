@@ -24,13 +24,28 @@ def add_repo_command():
     ), help="""Add a new repository by adding it to repositories.json, creating a delegation (if targets is not
         its signing role) and adding and signing initial target files if the repository is found on the filesystem.
         All additional information that should be saved as the repository's custom content in `repositories.json`
-        is specified by providing a json file containing this data
+        is specified by providing a json file containing this data. If a new role should be added, this configuration
+        file should also contain informatoin about that role.
         E.g.
 
         {
             "custom-prop1": "custom-val1",
-            "custom-prop2": "custom-val2"
+            "custom-prop2": "custom-val2",
+            "role": {
+                "parent_role": "targets",
+                "delegated_path": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+                "keys_number": 1,
+                "threshold": 1,
+                "yubikey": true,
+                "scheme": "rsa-pkcs1v15-sha256"
+            }
         }
+
+        parent_role = config_data.get("parent_role", "targets")
+        keys_number = config_data.get("keys_number", 1)
+        threshold = config_data.get("threshold", 1)
+        yubikey = config_data.get("yubikey", False)
+        scheme = config_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
 
         if directly inside the authentication repository.
 
@@ -48,32 +63,64 @@ def add_repo_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("target-name")
     @click.option("--target-path", default=None, help="Target repository's filesystem path")
-    @click.option("--role", default="targets", help="Signing role of the corresponding target file. Can be a new role, in which case it will be necessary to enter its information when prompted")
+    @click.option("--role", default="targets", help="Signing role of the corresponding target file. Can be a new role, in which case it will be necessary to provide additional information")
+    @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file containing information about the new role and/or targets custom data.")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--custom-file", type=click.Path(exists=True), help="Path to the JSON file containing additional, custom targets data.")
-    def add_repo(path, target_path, target_name, role, keystore, prompt_for_keys, no_commit, custom_file):
+    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit):
 
-        custom = {}
-        if custom_file:
+
+        config_data = {}
+        if config_file:
             try:
-                custom = json.loads(Path(custom_file).read_text())
+                config_data = json.loads(Path(config_file).read_text())
             except json.JSONDecodeError:
-                taf_logger.error("Invalid custom JSON provided")
+                click.echo("Invalid JSON provided. Please check your input.", err=True)
                 sys.exit(1)
 
-        add_target_repo(
-            path=path,
-            target_path=target_path,
-            target_name=target_name,
-            library_dir=None,
-            role=role,
-            keystore=keystore,
-            custom=custom,
-            prompt_for_keys=prompt_for_keys,
-            commit=not no_commit
-        )
+
+        if "role" in config_data:
+            role_data = config_data.pop("role")
+            delegated_path = role_data.get("delegated_path", [target_name])
+            parent_role = role_data.get("parent_role", "targets")
+            keys_number = role_data.get("keys_number", 1)
+            threshold = role_data.get("threshold", 1)
+            yubikey = role_data.get("yubikey", False)
+
+            add_target_repo(
+                path=path,
+                target_path=target_path,
+                target_name=target_name,
+                library_dir=None,
+                role=role,
+                parent_role=parent_role,
+                paths=delegated_path,
+                keys_number=keys_number,
+                threshold=threshold,
+                yubikey=yubikey,
+                keystore=keystore,
+                custom=config_data,
+                scheme=scheme,
+                prompt_for_keys=prompt_for_keys,
+                commit=not no_commit,
+                should_create_new_role=True,
+            )
+        else:
+            add_target_repo(
+                path=path,
+                target_path=target_path,
+                target_name=target_name,
+                library_dir=None,
+                role=role,
+                keystore=keystore,
+                custom=config_data,
+                scheme=scheme,
+                prompt_for_keys=prompt_for_keys,
+                commit=not no_commit,
+                should_create_new_role=False,
+            )
     return add_repo
 
 

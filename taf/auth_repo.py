@@ -1,6 +1,5 @@
 import json
 import os
-import tempfile
 import fnmatch
 
 from typing import Any, Callable, Dict, List, Optional, Union

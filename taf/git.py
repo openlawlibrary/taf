@@ -4,6 +4,7 @@ import json
 import itertools
 import os
 import re
+import shutil
 import uuid
 import pygit2
 import subprocess
@@ -638,6 +639,30 @@ class GitRepository:
             self._git("rm -rf .")
         except GitError:  # If repository is empty
             pass
+
+    def check_files_exist(self, file_paths: str, commit_sha: Optional[str]=None):
+        """
+        Check if file paths are known to git
+        """
+        repo = self.pygit_repo
+        if commit_sha is None:
+            commit_sha = self.head_commit_sha()
+
+        commit = repo[commit_sha]
+        tree = commit.tree  # Get the tree of that commit
+
+        existing_files = []
+        non_existing = []
+
+        for file_path in file_paths:
+            try:
+                # Check if the file exists in the tree
+                tree[file_path]
+                existing_files.append(file_path)
+            except KeyError:
+                non_existing.append(file_path)
+
+        return existing_files, non_existing
 
     def clean(self):
         self._git("clean -fd")
@@ -1467,9 +1492,16 @@ class GitRepository:
             self._git(f"reset {flag} HEAD")
 
     def restore(
-        self, subdirectories: str
+        self, file_paths: List[str]
     ) -> None:
-        self._git(f"restore {' '.join(subdirectories)}")
+        existing, non_existing = self.check_files_exist(file_paths)
+        self._git(f"restore {' '.join(existing)}")
+        for path in non_existing:
+            file_path = Path(path)
+            if file_path.is_file():
+                file_path.unlink()
+            elif file_path.is_dir():
+                shutil.rmtree(file_path)
 
     def update_branch_refs(self, branch: str, commit: str) -> None:
         # Update the local branch reference to the specific commit

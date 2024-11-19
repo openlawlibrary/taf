@@ -20,6 +20,7 @@ from securesystemslib import exceptions as sslib_exceptions
 from securesystemslib import hash as sslib_hash
 
 from taf import YubikeyMissingLibrary
+
 try:
     import taf.yubikey as yk
 except ImportError:
@@ -172,6 +173,9 @@ class MetadataRepository(Repository):
         data = md.to_bytes()
         return len(data)
 
+    def add_signers_to_cache(self, roles_signers: Dict):
+        for role, signers in roles_signers.items():
+            self._load_role_signers(role, signers)
 
     def all_target_files(self):
         """
@@ -284,8 +288,13 @@ class MetadataRepository(Repository):
 
     def add_new_roles_to_snapshot(self, roles: List[str]):
         with self.edit(Snapshot.type) as sn:
+            parents_of_roles = set()
             for role in roles:
                 sn.meta[f"{role}.json"] = MetaFile(1)
+                parent_role = self.find_delegated_roles_parent(role)
+                parents_of_roles.add(parent_role)
+            for parent_role in parents_of_roles:
+                sn.meta[f"{parent_role}.json"].version =  sn.meta[f"{parent_role}.json"].version + 1
 
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
@@ -293,6 +302,10 @@ class MetadataRepository(Repository):
             return Metadata.from_file(self.metadata_path / f"{role}.json")
         except StorageError:
             raise TAFError(f"Metadata file {self.metadata_path} does not exist")
+
+    def check_if_keys_loaded(self, role_name: str) -> bool:
+        threshold = self.get_role_threshold(role_name)
+        return role_name in self.signer_cache and len(self.signer_cache[role_name]) >= threshold
 
     def check_if_role_exists(self, role_name: str) -> bool:
         role = self._role_obj(role_name)
@@ -589,7 +602,6 @@ class MetadataRepository(Repository):
     def get_keyids_of_role(self, role_name):
         role_obj = self._role_obj(role_name)
         return role_obj.keyids
-
 
     def get_targets_of_role(self, role_name):
         return self._signed_obj(role_name).targets
@@ -1016,10 +1028,6 @@ class MetadataRepository(Repository):
 
         return self.is_valid_metadata_key(role, public_key)
 
-    def load_signers(self, roles_signers: Dict):
-        for role, signers in roles_signers.items():
-            self._load_role_signers(role, signers)
-
     def _load_role_signers(self, role: str, signers: List):
         """Verify that the signers can be used to sign the specified role and
         add them to the signer cache
@@ -1366,11 +1374,6 @@ class MetadataRepository(Repository):
                 target_files.append(target_file)
 
         self._modify_tarets_role(target_files, removed_paths, role)
-
-    def update_role(self, role_name: str, signers: List[CryptoSigner]):
-        self._load_signers(role_name, signers)
-        with self.eidt(role_name) as role:
-            pass
 
     def update_snapshot_and_timestamp(self):
         self.verify_signers_loaded(["snapshot", "timestamp"])

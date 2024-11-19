@@ -18,7 +18,7 @@ from taf.api.roles import (
     remove_paths,
 )
 from taf.api.utils._git import check_if_clean
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.messages import git_commit_message
@@ -26,7 +26,6 @@ from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
-from taf.tuf.repository import MetadataRepository as TUFRepository
 
 
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
@@ -46,6 +45,12 @@ def add_target_repo(
     role: str,
     library_dir: str,
     keystore: str,
+    should_create_new_role: bool,
+    parent_role: Optional[str]=None,
+    paths: Optional[List]=None,
+    keys_number: Optional[int]=None,
+    threshold: Optional[int]=None,
+    yubikey: Optional[bool]=None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom: Optional[Dict] = None,
     commit: Optional[bool] = True,
@@ -87,58 +92,70 @@ def add_target_repo(
 
     if target_path is not None:
         target_repo = GitRepository(path=target_path)
-    elif target_name is not None:
-        target_repo = GitRepository(library_dir, target_name)
-    else:
+        target_name = target_repo.name
+    elif target_name is None:
         raise TAFError(
-            "Cannot add new target repository. Specify either target name (and library dir) or target path"
+            "Cannot add new target repository. Specify either target name or target path"
         )
 
     existing_roles = auth_repo.get_all_targets_roles()
     if role not in existing_roles:
-        parent_role = input("Enter new role's parent role (targets): ")
-        paths_input = input(
-            "Enter a comma separated list of path delegated to the new role: "
-        )
-        paths = [path.strip() for path in paths_input.split(",") if len(path.strip())]
-        keys_number_input = input(
-            "Enter the number of signing keys of the new role (1): "
-        )
-        keys_number = int(keys_number_input or 1)
-        threshold_input = input("Enter signatures threshold of the new role (1): ")
-        threshold = int(threshold_input or 1)
-        yubikey = click.confirm("Sign the new role's metadata using yubikeys? ")
-        if target_name not in paths:
-            paths.append(target_name)
+        if not should_create_new_role:
+            taf_logger.error( f"Role {role} does not exist")
+            return
+        else:
+            taf_logger.log("NOTICE", f"Role {role} does not exist. Creating a new role")
 
-        add_role(
-            path=path,
-            role=role,
-            parent_role=parent_role or "targets",
-            paths=paths,
-            keys_number=keys_number,
-            threshold=threshold,
-            yubikey=yubikey,
-            keystore=keystore,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            commit=False,
-            auth_repo=auth_repo,
-            prompt_for_keys=prompt_for_keys,
-        )
+            add_role(
+                path=path,
+                role=role,
+                parent_role=parent_role or "targets",
+                paths=paths,
+                keys_number=keys_number,
+                threshold=threshold,
+                yubikey=yubikey,
+                keystore=keystore,
+                scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+                commit=True,
+                push=False,
+                auth_repo=auth_repo,
+                prompt_for_keys=prompt_for_keys,
+            )
     elif role != "targets":
         # delegated role paths are not specified for the top-level targets role
         # the targets role is responsible for signing all paths not
         # delegated to another target role
-        taf_logger.log("NOTICE", "Role already exists")
+        taf_logger.info("Role already exists")
         add_role_paths(
             paths=[target_name],
             delegated_role=role,
             keystore=keystore,
-            commit=False,
+            commit=True,
+            push=False,
             auth_repo=auth_repo,
             prompt_for_keys=prompt_for_keys,
         )
 
+    _add_target_repository_to_repositories_json(auth_repo, target_name, custom)
+    register_target_files(
+        path=path,
+        keystore=keystore,
+        commit=commit,
+        scheme=scheme,
+        auth_repo=auth_repo,
+        update_snapshot_and_timestamp=True,
+        prompt_for_keys=prompt_for_keys,
+        push=push,
+        no_commit_warning=True,
+        reset_updated_targets_on_error=True,
+        commit_msg=f"Added target repo {target_name}"
+    )
+
+# TODO Move this to auth repo when repositoriesdb is removed and there are no circular imports
+def _add_target_repository_to_repositories_json(auth_repo, target_repo_name: str, custom: Dict) -> None:
+    """
+    Add repository to repositories.json
+    """
     # target repo should be added to repositories.json
     # delegation paths should be extended if role != targets
     # if the repository already exists, create a target file
@@ -146,48 +163,21 @@ def add_target_repo(
     if repositories_json is None:
         repositories_json = {"repositories": {}}
     repositories = repositories_json["repositories"]
-    if target_repo.name in repositories:
-        taf_logger.log(
-            "NOTICE",
-            f"{target_repo.name} already added to repositories.json. Overwriting",
-        )
-    repositories[target_repo.name] = {}
+    if target_repo_name in repositories:
+        auth_repo._log_notice(f"{target_repo_name} already added to repositories.json. Overwriting")
+
+    repositories[target_repo_name] = {}
     if custom:
-        repositories[target_name]["custom"] = custom
+        repositories[target_repo_name]["custom"] = custom
 
     # update content of repositories.json before updating targets metadata
+    full_repositories_json_path  = Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH)
+    if not full_repositories_json_path.parent.is_dir():
+        full_repositories_json_path.parent.mkdir()
+
     Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH).write_text(
         json.dumps(repositories_json, indent=4)
     )
-
-    added_targets_data: Dict = {}
-    if target_repo.is_git_repository_root:
-        _save_top_commit_of_repo_to_target(
-            Path(library_dir), target_repo.name, auth_repo.path
-        )
-        added_targets_data[target_repo.name] = {}
-
-    removed_targets_data: Dict = {}
-    added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
-    update_target_metadata(
-        auth_repo,
-        added_targets_data,
-        removed_targets_data,
-        keystore,
-        write=False,
-        scheme=scheme,
-        prompt_for_keys=prompt_for_keys,
-    )
-
-    # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        commit_msg = git_commit_message("add-target", target_name=target_name)
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
 
 def export_targets_history(
@@ -332,6 +322,8 @@ def register_target_files(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     no_commit_warning: Optional[bool] = True,
+    reset_updated_targets_on_error: Optional[bool] = False,
+    commit_msg: Optional[str] = None,
 ):
     """
     Register all files found in the target directory as targets - update the targets
@@ -369,8 +361,11 @@ def register_target_files(
         all_updated_targets.extend(list(removed_targets_data.keys()))
 
     roles_and_targets = defaultdict(list)
+    paths_to_reset = []
     for path in all_updated_targets:
         roles_and_targets[auth_repo.get_role_from_target_paths([path])].append(path)
+        if reset_updated_targets_on_error:
+            paths_to_reset.append(str(Path(TARGETS_DIRECTORY_NAME, path)))
 
     _, keystore, _ = _initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
@@ -387,8 +382,10 @@ def register_target_files(
         load_roles=True,
         commit=commit,
         push=push,
+        commit_msg=commit_msg,
         commit_key="update-targets",
         no_commit_warning=no_commit_warning,
+        paths_to_reset_on_error=paths_to_reset,
     ):
         for role, targets in roles_and_targets.items():
             auth_repo.update_target_role(role, targets)

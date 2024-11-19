@@ -36,7 +36,7 @@ from taf.constants import (
     TARGETS_DIRECTORY_NAME,
 )
 from taf.keystore import new_public_key_cmd_prompt
-from taf.tuf.repository import MAIN_ROLES
+from taf.tuf.repository import MAIN_ROLES, METADATA_DIRECTORY_NAME
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
 from taf.log import taf_logger
 from taf.models.types import RolesKeysData
@@ -97,7 +97,8 @@ def add_role(
         None
     """
 
-    auth_repo = AuthenticationRepository(path=path)
+    if auth_repo is None:
+        auth_repo = AuthenticationRepository(path=path)
 
     if not parent_role:
         parent_role = "targets"
@@ -110,6 +111,7 @@ def add_role(
 
     keystore_path = Path(keystore) if keystore else find_keystore(Path(path))
     commit_msg = git_commit_message("add-role", role=role)
+    metadata_path = Path(METADATA_DIRECTORY_NAME, f"{role}.json")
 
     with manage_repo_and_signers(
         auth_repo,
@@ -121,7 +123,8 @@ def add_role(
         load_snapshot_and_timestamp=True,
         commit=commit,
         push=push,
-        commit_msg=commit_msg
+        commit_msg=commit_msg,
+        paths_to_reset_on_error=[metadata_path]
     ):
         targets_parent_role = TargetsRole()
         if parent_role != "targets":
