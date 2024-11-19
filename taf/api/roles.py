@@ -924,6 +924,7 @@ def remove_paths(
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
 ) -> bool:
@@ -975,7 +976,6 @@ def remove_paths(
     ):
         auth_repo.remove_delegated_paths(paths_to_remove_from_roles)
         auth_repo.update_snapshot_and_timestamp()
-
 
     return True
 

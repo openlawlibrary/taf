@@ -409,6 +409,7 @@ def remove_target_repo(
     keystore: str,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
 ) -> None:
     """
     Remove target repository from repositories.json, remove delegation, and target files and
@@ -427,73 +428,66 @@ def remove_target_repo(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    removed_targets_data: Dict = {}
-    added_targets_data: Dict = {}
-    if not auth_repo.is_git_repository_root:
-        taf_logger.error(f"{path} is not a git repository!")
-        return
+
+    tarets_updated = _remove_from_repositories_json(auth_repo, target_name)
+
+    auth_repo_targets_dir = auth_repo.path / TARGETS_DIRECTORY_NAME
+    target_file_path = auth_repo_targets_dir / target_name
+
+    if target_file_path.is_file():
+        os.unlink(str(target_file_path))
+        tarets_updated = True
+    else:
+        taf_logger.log("NOTICE", f"{target_file_path} target file does not exist")
+
+    changes_committed = False
+    if tarets_updated:
+        commit_msg = git_commit_message("remove-target", target_name=target_name)
+        register_target_files(
+            path=path,
+            keystore=keystore,
+            commit=True,
+            scheme=scheme,
+            auth_repo=auth_repo,
+            update_snapshot_and_timestamp=True,
+            prompt_for_keys=prompt_for_keys,
+            push=push,
+            no_commit_warning=True,
+            reset_updated_targets_on_error=True,
+            commit_msg=commit_msg,
+        )
+
+        changes_committed = True
+
+    commit_msg = git_commit_message("remove-from-delegated-paths", target_name=target_name)
+    delegation_existed = remove_paths(
+        path, [target_name], keystore=keystore, commit=True, prompt_for_keys=prompt_for_keys,  push=False
+    )
+    if delegation_existed:
+        changes_committed = True
+
+    # update snapshot and timestamp calls write_all, so targets updates will be saved too
+    if changes_committed and push:
+        auth_repo.push()
+
+
+def _remove_from_repositories_json(auth_repo, target_name):
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
     if repositories_json is not None:
         repositories = repositories_json["repositories"]
         if target_name not in repositories:
             taf_logger.log("NOTICE", f"{target_name} not in repositories.json")
+            return False
         else:
             repositories.pop(target_name)
             # update content of repositories.json before updating targets metadata
             Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH).write_text(
                 json.dumps(repositories_json, indent=4)
             )
-            added_targets_data[repositoriesdb.REPOSITORIES_JSON_NAME] = {}
-
-    auth_repo_targets_dir = Path(auth_repo.path, TARGETS_DIRECTORY_NAME)
-    target_file_path = auth_repo_targets_dir / target_name
-
-    if target_file_path.is_file():
-        os.unlink(str(target_file_path))
-        removed_targets_data[target_name] = {}
+            return True
     else:
-        taf_logger.info(f"{target_file_path} target file does not exist")
-
-    changes_committed = False
-    if len(added_targets_data) or len(removed_targets_data):
-        update_target_metadata(
-            auth_repo,
-            added_targets_data,
-            removed_targets_data,
-            keystore,
-            write=False,
-            prompt_for_keys=prompt_for_keys,
-        )
-
-        update_snapshot_and_timestamp(
-            auth_repo,
-            keystore,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            prompt_for_keys=prompt_for_keys,
-        )
-        auth_repo.commit(git_commit_message("remove-target", target_name=target_name))
-        changes_committed = True
-
-    delegation_existed = remove_paths(
-        path, [target_name], keystore, commit=False, prompt_for_keys=prompt_for_keys
-    )
-    if delegation_existed:
-        update_snapshot_and_timestamp(
-            auth_repo,
-            keystore,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            prompt_for_keys=prompt_for_keys,
-        )
-        auth_repo.commit(
-            git_commit_message("remove-from-delegated-paths", target_name=target_name)
-        )
-        changes_committed = True
-    else:
-        taf_logger.info(f"{target_name} not among delegated paths")
-    # update snapshot and timestamp calls write_all, so targets updates will be saved too
-    if changes_committed and push:
-        auth_repo.push()
-
+        taf_logger.log("NOTICE", f"{target_name} not in repositories.json")
+        return False
 
 def _save_top_commit_of_repo_to_target(
     library_dir: Path,
