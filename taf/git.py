@@ -1167,15 +1167,17 @@ class GitRepository:
         return branch.shorthand
 
     def get_last_remote_commit(
-        self, url: str, branch: Optional[str] = None
+        self, url: Optional[str], branch: Optional[str] = None
     ) -> Optional[str]:
         """
         Fetch the last remote commit of the specified branch
         """
         branch = branch or self.default_branch
         if url is None:
+            url = self.get_remote_url()
+        if url is None:
             raise FetchException(
-                "Could not fetch the last remote commit. URL not specified"
+                "Could not fetch the last remote commit. URL not found"
             )
         last_commit = self._git(f"--no-pager ls-remote {url} {branch}", log_error=True)
         if last_commit:
