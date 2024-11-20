@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.32.2]
+
+### Added
+
+### Changed
+
+- Make url optional for `get_last_remote_commit` ([564])
+
+### Fixed
+
+
+[564]: https://github.com/openlawlibrary/taf/pull/564
+
 ## [0.32.1] - 11/01/2024
 
 ### Added
@@ -1332,7 +1345,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.2...HEAD
+[0.32.2]: https://github.com/openlawlibrary/taf/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/openlawlibrary/taf/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/openlawlibrary/taf/compare/v0.31.2...v0.32.0
 [0.31.2]: https://github.com/openlawlibrary/taf/compare/v0.31.1...v0.31.2
