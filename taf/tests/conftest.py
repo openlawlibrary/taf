@@ -1,7 +1,9 @@
-import os
+import json
+import re
 import shutil
-from contextlib import contextmanager
 from pathlib import Path
+
+from taf.tuf.keys import load_signer_from_file
 
 
 from pytest import fixture
@@ -19,6 +21,9 @@ DELEGATED_ROLES_KEYSTORE_PATH = KEYSTORES_PATH / "delegated_roles_keystore"
 CLIENT_DIR_PATH = TEST_DATA_REPOS_PATH / "client"
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
 TEST_INIT_DATA_PATH = Path(__file__).parent / "init_data"
+REPOSITORY_DESCRIPTION_INPUT_DIR = TEST_DATA_PATH / "repository_description_inputs"
+NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
+WITH_DELEGATIONS = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
 
 
 def pytest_generate_tests(metafunc):
@@ -34,64 +39,52 @@ def pytest_generate_tests(metafunc):
 
 @fixture(scope="module", autouse=True)
 def repo_dir():
-    path = CLIENT_DIR_PATH / "tuf"
+    path = CLIENT_DIR_PATH / "repos"
     path.mkdir()
     yield path
     shutil.rmtree(path, onerror=on_rm_error)
 
-import json
-import re
 
-import pytest
-from taf.tests.test_api.conftest import REPOSITORY_DESCRIPTION_INPUT_DIR
-from taf.tuf.keys import load_signer_from_file
-
-from taf.tests.tuf import TEST_DATA_PATH
-NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
-WITH_DELEGATIONS = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
-
-
-
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def keystore():
     """Create signer from some rsa test key."""
     return TEST_DATA_PATH / "keystores" / "keystore"
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def keystore_delegations():
     """Create signer from some rsa test key."""
     return TEST_DATA_PATH / "keystores" / "keystore_no_delegations"
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def no_yubikeys_input():
     return json.loads(NO_YUBIKEYS_INPUT.read_text())
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def with_delegations_no_yubikeys_input():
     return json.loads(WITH_DELEGATIONS.read_text())
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def signers(keystore):
     return _load_signers_from_keystore(keystore)
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def signers_with_delegations(keystore_delegations):
     return _load_signers_from_keystore(keystore_delegations)
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def public_keys(signers):
     return {
         role_name: [signer.public_key for signer in signers] for role_name, signers in signers.items()
     }
 
 
-@pytest.fixture(scope="module")
+@fixture(scope="module")
 def public_keys_with_delegations(signers_with_delegations):
     return {
         role_name: [signer.public_key for signer in signers] for role_name, signers in signers_with_delegations.items()
@@ -145,12 +138,6 @@ def client_dir():
 @fixture
 def origin_dir():
     return TEST_DATA_ORIGIN_PATH
-
-
-@fixture
-def keystore():
-    """Keystore path."""
-    return str(KEYSTORE_PATH)
 
 
 @fixture

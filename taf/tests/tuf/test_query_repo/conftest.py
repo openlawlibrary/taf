@@ -1,14 +1,14 @@
 
+from taf.tuf.repository import MetadataRepository
 import pytest
 from taf.models.types import RolesKeysData
-from taf.tests.test_repository.test_repo import MetadataRepository
 from taf.models.converter import from_dict
 
 
 @pytest.fixture(scope="module")
-def tuf_repo(repo_dir, signers, no_yubikeys_input):
+def tuf_repo_no_delegations(tuf_repo_path, signers, no_yubikeys_input):
     # Create new metadata repository
-    path = repo_dir / "repository_without_delegations"
+    path = tuf_repo_path / "repository_without_delegations"
     path.mkdir()
     tuf_repo = MetadataRepository(path)
     roles_keys_data = from_dict(no_yubikeys_input, RolesKeysData)
@@ -23,9 +23,9 @@ def tuf_repo(repo_dir, signers, no_yubikeys_input):
 
 
 @pytest.fixture(scope="module")
-def tuf_repo_with_delegations(repo_dir, signers_with_delegations, with_delegations_no_yubikeys_input):
+def tuf_repo_with_delegations(tuf_repo_path, signers_with_delegations, with_delegations_no_yubikeys_input):
     # Create new metadata repository
-    path = repo_dir / "repository_with_delegations"
+    path = tuf_repo_path / "repository_with_delegations"
     path.mkdir()
     tuf_repo = MetadataRepository(path)
     roles_keys_data = from_dict(with_delegations_no_yubikeys_input, RolesKeysData)

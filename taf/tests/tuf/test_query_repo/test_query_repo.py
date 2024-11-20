@@ -20,13 +20,13 @@ def test_open(tuf_repo_with_delegations):
         tuf_repo_with_delegations.open("foo")
 
 
-def test_get_threshold_no_delegations(tuf_repo):
-    assert tuf_repo.get_role_threshold("root") == 2
-    assert tuf_repo.get_role_threshold("targets") == 1
-    assert tuf_repo.get_role_threshold("snapshot") == 1
-    assert tuf_repo.get_role_threshold("timestamp") == 1
+def test_get_threshold_no_delegations(tuf_repo_no_delegations):
+    assert tuf_repo_no_delegations.get_role_threshold("root") == 2
+    assert tuf_repo_no_delegations.get_role_threshold("targets") == 1
+    assert tuf_repo_no_delegations.get_role_threshold("snapshot") == 1
+    assert tuf_repo_no_delegations.get_role_threshold("timestamp") == 1
     with pytest.raises(TAFError):
-        tuf_repo.get_role_threshold("doestexist")
+        tuf_repo_no_delegations.get_role_threshold("doestexist")
 
 
 def test_get_threshold_delegations(tuf_repo_with_delegations):
@@ -45,8 +45,8 @@ def test_get_expiration_date(tuf_repo_with_delegations):
     assert tuf_repo_with_delegations.get_expiration_date("delegated_role").date() == today + datetime.timedelta(days=90)
 
 
-def test_get_all_target_roles_no_delegations(tuf_repo):
-    assert tuf_repo.get_all_targets_roles() == ["targets"]
+def test_get_all_target_roles_no_delegations(tuf_repo_no_delegations):
+    assert tuf_repo_no_delegations.get_all_targets_roles() == ["targets"]
 
 
 def test_get_all_target_roles_with_delegations(tuf_repo_with_delegations):
@@ -72,8 +72,8 @@ def test_check_if_role_exists(tuf_repo_with_delegations):
     assert not tuf_repo_with_delegations.check_if_role_exists("doesntexist")
 
 
-def test_check_roles_expiration_dates(tuf_repo):
-    expired_dict, will_expire_dict = tuf_repo.check_roles_expiration_dates()
+def test_check_roles_expiration_dates(tuf_repo_no_delegations):
+    expired_dict, will_expire_dict = tuf_repo_no_delegations.check_roles_expiration_dates()
     assert not len(expired_dict)
     assert "root" not in will_expire_dict
     assert "targets" not in will_expire_dict
@@ -150,8 +150,8 @@ def test_get_target_file_custom_data(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_target_file_custom_data("dir2/path1")
     assert actual == {'custom_attr2': 'custom_val2'}
 
-    with pytest.raises(TAFError):
-        tuf_repo_with_delegations.get_target_file_custom_data("doesntexist")
+
+    tuf_repo_with_delegations.get_target_file_custom_data("doesntexist") is None
 
 
 def test_get_target_file_hashes(tuf_repo_with_delegations):
@@ -160,8 +160,7 @@ def test_get_target_file_hashes(tuf_repo_with_delegations):
     hash_value = tuf_repo_with_delegations.get_target_file_hashes("dir1/path1", "sha512")
     assert len(hash_value) == 128
 
-    with pytest.raises(TAFError):
-        tuf_repo_with_delegations.get_target_file_hashes("doesntexist")
+    tuf_repo_with_delegations.get_target_file_hashes("doesntexist") is None
 
 def test_get_key_length_and_scheme_from_metadata(tuf_repo_with_delegations):
     keyid = tuf_repo_with_delegations._role_obj("targets").keyids[0]

@@ -11,7 +11,6 @@ from taf.models.converter import from_dict
 
 from pathlib import Path
 from taf.api.roles import (
-    create_delegations,
     _initialize_roles_and_keystore,
 )
 from taf.api.targets import list_targets, register_target_files
@@ -91,8 +90,9 @@ def create_repository(
     repository.create(roles_keys_data, signers, verification_keys)
 
     if test:
+        auth_repo.targets_path.mkdir(exist_ok=True)
         test_auth_file = (
-            Path(auth_repo.path, auth_repo.targets_path) / auth_repo.TEST_REPO_FLAG_FILE
+            auth_repo.targets_path / auth_repo.TEST_REPO_FLAG_FILE
         )
         test_auth_file.touch()
 

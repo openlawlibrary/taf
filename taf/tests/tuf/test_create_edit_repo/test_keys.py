@@ -16,7 +16,7 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
         "snapshot": [new_snapshot_key]
     }
 
-    tuf_repo.load_signers(signers_with_delegations)
+    tuf_repo.add_signers_to_cache(signers_with_delegations)
     added_keys, already_added_keys, invalid_keys = tuf_repo.add_metadata_keys(roles_keys)
     assert len(added_keys) == 3
     assert len(already_added_keys) == 0
@@ -139,7 +139,7 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
 
 
 def test_revoke_metadata_key(tuf_repo, signers_with_delegations, public_keys_with_delegations, public_keys):
-    tuf_repo.load_signers(signers_with_delegations)
+    tuf_repo.add_signers_to_cache(signers_with_delegations)
     targets_key1 = public_keys_with_delegations["targets"][0]
     targets_key2 = public_keys_with_delegations["targets"][1]
     targets_key1_id = _get_legacy_keyid(targets_key1)

@@ -1,6 +1,6 @@
+from taf.tuf.repository import MetadataRepository
 import pytest
 from taf.models.types import RolesKeysData
-from taf.tests.test_repository.test_repo import MetadataRepository
 from taf.models.converter import from_dict
 from taf.tuf.keys import _get_legacy_keyid
 
