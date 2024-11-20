@@ -12,18 +12,6 @@ WITH_DELEGATIONS = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubik
 
 
 @pytest.fixture(scope="module")
-def keystore():
-    """Create signer from some rsa test key."""
-    return TEST_DATA_PATH / "keystores" / "keystore"
-
-
-@pytest.fixture(scope="module")
-def keystore_delegations():
-    """Create signer from some rsa test key."""
-    return TEST_DATA_PATH / "keystores" / "keystore_no_delegations"
-
-
-@pytest.fixture(scope="module")
 def no_yubikeys_input():
     return json.loads(NO_YUBIKEYS_INPUT.read_text())
 

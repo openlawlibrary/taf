@@ -4,10 +4,8 @@ import shutil
 from typing import Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._roles import setup_role
 from taf.git import GitRepository
 from taf.messages import git_commit_message
-from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
 from taf.models.converter import from_dict
 
@@ -103,8 +101,8 @@ def create_repository(
         keystore,
         roles_key_infos,
         commit=False,
-        taf_repo=auth_repo,
-        write=True,
+        auth_repo=auth_repo,
+        update_snapshot_and_timestamp=True,
         no_commit_warning=True,
     )
 

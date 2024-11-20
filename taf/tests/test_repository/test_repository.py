@@ -1,6 +1,5 @@
-from pygit2 import Signature, init_repository
+from pygit2 import init_repository
 import pytest
-import tempfile
 from pathlib import Path
 
 from taf.exceptions import InvalidRepositoryError

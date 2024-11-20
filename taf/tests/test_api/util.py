@@ -4,7 +4,7 @@ import shutil
 from typing import Dict, Optional
 from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
+from taf.constants import TARGETS_DIRECTORY_NAME
 
 
 def copy_repositories_json(
