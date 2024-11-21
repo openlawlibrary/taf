@@ -1,16 +1,67 @@
-from contextlib import contextmanager
-from taf.tests.conftest import origin_repos_group
-
-import taf.repositoriesdb as repositoriesdb
+from pathlib import Path
+import shutil
+from typing import Dict
+from taf import repositoriesdb
+from taf.api.repository import create_repository
+from taf.api.targets import update_target_repos_from_repositories_json
+from taf.auth_repo import AuthenticationRepository
+from taf.git import GitRepository
+from taf.tests.utils import copy_mirrors_json, copy_repositories_json
+from taf.utils import on_rm_error
 from pytest import fixture
+from contextlib import contextmanager
+
+AUTH_REPO_NAME = "auth"
 
 
-@fixture(scope="session", autouse=True)
-def repositoriesdb_test_repositories():
-    test_dir = "test-repositoriesdb"
-    with origin_repos_group(test_dir) as origins:
-        yield origins
+@fixture(scope="session")
+def root_dir(repo_dir):
+    root_dir = repo_dir / "test_repositoriesdb"
+    yield root_dir
+    shutil.rmtree(root_dir, onerror=on_rm_error)
 
+
+@fixture(scope="session")
+def target_repos(root_dir):
+    repos = []
+    for target in ("target1", "target2", "target3"):
+        target_repo_path = root_dir / target
+        target_repo_path.mkdir(parents=True)
+        target_repo = GitRepository(path=target_repo_path)
+        target_repo.init_repo()
+        target_repo.commit_empty("Initial commit")
+        repos.append(target_repo)
+    return repos
+
+
+@fixture(scope="session")
+def auth_repo_with_targets(
+    root_dir: Path,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
+    repositories_json_template: Dict,
+    mirrors_json_path: Path,
+):
+    auth_path = root_dir / AUTH_REPO_NAME
+    auth_path.mkdir(exist_ok=True, parents=True)
+    namespace = root_dir.name
+    copy_repositories_json(repositories_json_template, namespace, auth_path)
+    copy_mirrors_json(mirrors_json_path, auth_path)
+    create_repository(
+        str(auth_path),
+        roles_key_infos=with_delegations_no_yubikeys_path,
+        keystore=keystore_delegations,
+        commit=True,
+    )
+    update_target_repos_from_repositories_json(
+        str(auth_path),
+        str(root_dir.parent),
+        keystore_delegations,
+        commit=True
+    )
+
+    auth_reo = AuthenticationRepository(path=auth_path)
+    yield auth_reo
 
 @contextmanager
 def load_repositories(auth_repo, **kwargs):

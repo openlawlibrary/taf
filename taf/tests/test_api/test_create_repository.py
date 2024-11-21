@@ -7,9 +7,8 @@ from taf.auth_repo import AuthenticationRepository
 from taf.messages import git_commit_message
 from taf.tests.test_api.util import (
     check_if_targets_signed,
-    copy_mirrors_json,
-    copy_repositories_json,
 )
+from taf.tests.utils import copy_mirrors_json, copy_repositories_json
 from taf.updater.updater import validate_repository
 
 

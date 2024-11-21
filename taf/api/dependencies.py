@@ -5,10 +5,6 @@ import click
 from taf.api.targets import register_target_files
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._metadata import (
-    update_snapshot_and_timestamp,
-    update_target_metadata,
-)
 from taf.api.utils._git import check_if_clean
 from taf.messages import git_commit_message
 from pathlib import Path

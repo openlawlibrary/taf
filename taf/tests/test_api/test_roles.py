@@ -8,16 +8,11 @@ from taf.api.roles import (
     add_signing_key,
     list_keys_of_role,
     remove_paths,
-    remove_role,
 )
-from taf.api.targets import register_target_files
-from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.conftest import KEYSTORES_PATH
 from pytest import fixture
-from taf.api.repository import create_repository
-from taf.tests.test_api.util import check_if_targets_signed
 
 
 @fixture(scope="module")

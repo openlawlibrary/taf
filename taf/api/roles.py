@@ -10,30 +10,20 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.api_workflow import manage_repo_and_signers
 from taf.tuf.keys import get_sslib_key_from_value
-from tuf.api._payload import Targets
-from taf.api.utils._roles import create_delegations
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
-from taf.models.types import RolesIterator, TargetsRole, compare_roles_data
-from taf.repositoriesdb import REPOSITORIES_JSON_PATH
-import taf.repositoriesdb as repositoriesdb
+from taf.models.types import TargetsRole, compare_roles_data
 from taf.keys import (
     find_keystore,
     get_key_name,
     get_metadata_key_info,
-    load_signers,
     load_sorted_keys_of_new_roles,
-)
-from taf.api.utils._metadata import (
-    update_snapshot_and_timestamp,
-    update_target_metadata,
 )
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
     DEFAULT_ROLE_SETUP_PARAMS,
     DEFAULT_RSA_SIGNATURE_SCHEME,
-    TARGETS_DIRECTORY_NAME,
 )
 from taf.keystore import new_public_key_cmd_prompt
 from taf.tuf.repository import MAIN_ROLES, METADATA_DIRECTORY_NAME
