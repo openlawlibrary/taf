@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 from typing import Dict
 import uuid
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
@@ -22,7 +23,6 @@ from taf.tests.test_api.util import (
     check_target_file,
 )
 from taf.utils import on_rm_error
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
 AUTH_REPO_NAME = "auth"

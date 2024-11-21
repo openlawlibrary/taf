@@ -1,7 +1,12 @@
 import json
 
 from pathlib import Path
+import shutil
+import uuid
+from taf.api.repository import create_repository
+from taf.auth_repo import AuthenticationRepository
 from taf.tests.conftest import KEYSTORES_PATH, TEST_DATA_PATH
+from taf.utils import on_rm_error
 
 from pytest import fixture
 
@@ -21,7 +26,6 @@ INVALID_KEYS_NUMBER_INPUT = (
 INVALID_PATH_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_path.json"
 OLD_YUBIKEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_old_yubikey.json"
 
-KEYSTORE_PATH = KEYSTORES_PATH / "api_keystore"
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 
@@ -31,8 +35,46 @@ def _read_json(path):
 
 
 @fixture
-def api_keystore():
-    return str(KEYSTORE_PATH)
+def auth_repo_path(repo_dir):
+    random_name = str(uuid.uuid4())
+    path = repo_dir / "api" / random_name / "auth"
+    yield path
+    shutil.rmtree(path.parent, onerror=on_rm_error)
+
+
+@fixture
+def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
+    repo_path = str(auth_repo_path)
+    create_repository(
+        repo_path,
+        roles_key_infos=no_yubikeys_path,
+        keystore=keystore_delegations,
+        commit=True,
+        test=True,
+    )
+    auth_repo = AuthenticationRepository(path=repo_path)
+    yield auth_repo
+
+
+@fixture
+def auth_repo_with_delegations(auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path):
+    repo_path = str(auth_repo_path)
+    create_repository(
+        repo_path,
+        roles_key_infos=with_delegations_no_yubikeys_path,
+        keystore=keystore_delegations,
+        commit=True,
+        test=True,
+    )
+    auth_repo = AuthenticationRepository(path=repo_path)
+    yield auth_repo
+
+
+@fixture(scope="module")
+def api_repo_path(repo_dir):
+    path = repo_dir / "api" / "auth"
+    yield path
+    shutil.rmtree(path.parent, onerror=on_rm_error)
 
 
 @fixture
@@ -58,7 +100,6 @@ def no_yubikeys_path():
 @fixture
 def with_delegations_json_input():
     return _read_json(WITH_DELEGATIONS_INPUT)
-
 
 @fixture
 def invalid_public_key_json_input():

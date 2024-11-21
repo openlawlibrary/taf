@@ -75,7 +75,6 @@ def manage_repo_and_signers(
             # restore metadata, leave targets as they might have been modified by the user
             # TODO flag for also resetting targets?
             # also update the CLI error handling
-            import pdb; pdb.set_trace()
             auth_repo.restore(paths_to_reset_on_error)
 
         raise TAFError from e

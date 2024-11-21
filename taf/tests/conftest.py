@@ -39,7 +39,9 @@ def pytest_generate_tests(metafunc):
 
 @fixture(scope="module", autouse=True)
 def repo_dir():
-    path = CLIENT_DIR_PATH / "repos"
+    path = CLIENT_DIR_PATH
+    if path.is_dir():
+        shutil.rmtree(path, onerror=on_rm_error)
     path.mkdir()
     yield path
     shutil.rmtree(path, onerror=on_rm_error)
@@ -54,7 +56,7 @@ def keystore():
 @fixture(scope="module")
 def keystore_delegations():
     """Create signer from some rsa test key."""
-    return TEST_DATA_PATH / "keystores" / "keystore_no_delegations"
+    return TEST_DATA_PATH / "keystores" / "keystore_delegations"
 
 
 @fixture(scope="module")
@@ -65,6 +67,11 @@ def no_yubikeys_input():
 @fixture(scope="module")
 def with_delegations_no_yubikeys_input():
     return json.loads(WITH_DELEGATIONS.read_text())
+
+
+@fixture(scope="module")
+def with_delegations_no_yubikeys_path():
+    return WITH_DELEGATIONS
 
 
 @fixture(scope="module")

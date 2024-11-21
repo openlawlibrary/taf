@@ -150,7 +150,7 @@ def is_run_from_python_executable() -> bool:
 def read_input_dict(value):
     if value is None:
         return {}
-    if type(value) is str:
+    if not isinstance(value, dict):
         if Path(value).is_file():
             with open(value) as f:
                 try:

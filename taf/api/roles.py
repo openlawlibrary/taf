@@ -274,7 +274,7 @@ def add_multiple_roles(
 
     roles_to_add = [role_data.name for role_data in new_roles_data]
     commit_msg = git_commit_message("add-roles", roles=", ".join(roles_to_add))
-    roles_to_load = [role_data.parent.name for role_data in new_roles_data]
+    roles_to_load = [role_data.parent.name for role_data in new_roles_data if role_data.parent.name not in roles_to_add]
     keystore_path = roles_keys_data_new.keystore
 
     with manage_repo_and_signers(
@@ -288,7 +288,6 @@ def add_multiple_roles(
         commit=commit,
         push=push,
     ):
-
         all_signers = {}
         for role_to_add_data in roles_to_add_data:
             signers, _ = load_sorted_keys_of_new_roles(

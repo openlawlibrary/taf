@@ -42,20 +42,20 @@ def parent_repo_path():
 def test_setup_repositories(
     child_repo_path: Path,
     parent_repo_path: Path,
-    no_yubikeys_path: str,
-    api_keystore: str,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
 ):
     for path in (child_repo_path, parent_repo_path):
         create_repository(
             str(path),
-            roles_key_infos=no_yubikeys_path,
-            keystore=api_keystore,
+            roles_key_infos=with_delegations_no_yubikeys_path,
+            keystore=keystore_delegations,
             commit=True,
         )
 
 
 def test_add_dependency_when_on_filesystem_invalid_commit(
-    parent_repo_path, child_repo_path, api_keystore
+    parent_repo_path, child_repo_path, keystore_delegations
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -65,7 +65,7 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
         add_dependency(
             path=str(parent_repo_path),
             dependency_name=child_repository.name,
-            keystore=api_keystore,
+            keystore=keystore_delegations,
             branch_name="main",
             out_of_band_commit="66d7f48e972f9fa25196523f469227dfcd85c994",
             no_prompt=True,
@@ -76,7 +76,7 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
 
 
 def test_add_dependency_when_on_filesystem(
-    parent_repo_path, child_repo_path, api_keystore
+    parent_repo_path, child_repo_path, keystore_delegations
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -85,7 +85,7 @@ def test_add_dependency_when_on_filesystem(
     add_dependency(
         path=str(parent_repo_path),
         dependency_name=child_repository.name,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
         branch_name=None,
         out_of_band_commit=None,
         no_prompt=True,
@@ -106,7 +106,7 @@ def test_add_dependency_when_on_filesystem(
     }
 
 
-def test_add_dependency_when_not_on_filesystem(parent_repo_path, api_keystore):
+def test_add_dependency_when_not_on_filesystem(parent_repo_path, keystore_delegations):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     branch_name = "main"
@@ -114,7 +114,7 @@ def test_add_dependency_when_not_on_filesystem(parent_repo_path, api_keystore):
     add_dependency(
         path=str(parent_repo_path),
         dependency_name=DEPENDENCY_NAME,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
         branch_name=branch_name,
         out_of_band_commit=out_of_band_commit,
         no_prompt=True,
@@ -135,7 +135,7 @@ def test_add_dependency_when_not_on_filesystem(parent_repo_path, api_keystore):
     }
 
 
-def test_remove_dependency(parent_repo_path, child_repo_path, api_keystore):
+def test_remove_dependency(parent_repo_path, child_repo_path, keystore_delegations):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     child_repository = AuthenticationRepository(path=child_repo_path)
@@ -143,7 +143,7 @@ def test_remove_dependency(parent_repo_path, child_repo_path, api_keystore):
     remove_dependency(
         path=str(parent_repo_path),
         dependency_name=child_repository.name,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
         push=False,
     )
     commits = auth_repo.list_commits()

@@ -1,9 +1,6 @@
-import shutil
-import uuid
 from pathlib import Path
 
 from taf.constants import METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
-from pytest import fixture
 from typing import Dict
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
@@ -14,15 +11,6 @@ from taf.tests.test_api.util import (
     copy_repositories_json,
 )
 from taf.updater.updater import validate_repository
-from taf.utils import on_rm_error
-
-
-@fixture
-def auth_repo_path(repo_dir):
-    random_name = str(uuid.uuid4())
-    path = repo_dir / random_name / "auth"
-    yield path
-    shutil.rmtree(path.parent, onerror=on_rm_error)
 
 
 def _check_repo_initialization_successful(auth_repo: AuthenticationRepository, is_targets_initialized=True):
@@ -43,12 +31,12 @@ def _check_repo_initialization_successful(auth_repo: AuthenticationRepository, i
 
 
 def test_create_repository_when_no_delegations(
-    auth_repo_path: Path, no_yubikeys_path: str, keystore_delegations: str
+    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, keystore_delegations: str
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
-        roles_key_infos=no_yubikeys_path,
+        roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
     )
@@ -58,12 +46,12 @@ def test_create_repository_when_no_delegations(
     validate_repository(repo_path)
 
 def test_create_repository_when_no_delegations_with_test_flag(
-    auth_repo_path: Path, no_yubikeys_path: str, keystore_delegations: str
+    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, keystore_delegations: str
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
-        roles_key_infos=no_yubikeys_path,
+        roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
         test=True,
