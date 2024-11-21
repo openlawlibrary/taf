@@ -957,9 +957,10 @@ def remove_paths(
         taf_logger.log("NOTICE", "No paths delegated")
         return False
 
-    commit_msg = git_commit_message(
-        "remove-role-paths", paths=", ".join(paths), role=delegated_role
-    )
+    if commit_msg is None:
+        commit_msg = git_commit_message(
+            "remove-role-paths", paths=", ".join(paths), role=delegated_role
+        )
     with manage_repo_and_signers(
         auth_repo,
         roles=list(paths_to_remove_from_roles.keys()),

@@ -42,7 +42,7 @@ def repo_dir():
     path = CLIENT_DIR_PATH
     if path.is_dir():
         shutil.rmtree(path, onerror=on_rm_error)
-    path.mkdir()
+    path.mkdir(parents=True)
     yield path
     shutil.rmtree(path, onerror=on_rm_error)
 

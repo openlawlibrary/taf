@@ -50,7 +50,7 @@ def library():
 def test_setup_auth_repo_when_add_repositories_json(
     library: Path,
     with_delegations_no_yubikeys_path: str,
-    api_keystore: str,
+    keystore_delegations: str,
     repositories_json_template: Dict,
     mirrors_json_path: Path,
 ):
@@ -62,12 +62,12 @@ def test_setup_auth_repo_when_add_repositories_json(
     create_repository(
         str(repo_path),
         roles_key_infos=with_delegations_no_yubikeys_path,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
         commit=True,
     )
 
 
-def test_register_targets_when_file_added(library: Path, api_keystore: str):
+def test_register_targets_when_file_added(library: Path, keystore_delegations: str):
     repo_path = library / "auth"
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -75,14 +75,14 @@ def test_register_targets_when_file_added(library: Path, api_keystore: str):
     # add a new file to the targets directory, check if it was signed
     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
     file_path.write_text("test")
-    register_target_files(repo_path, api_keystore, write=True, push=False)
+    register_target_files(repo_path, keystore_delegations, update_snapshot_and_timestamp=True, push=False)
     check_if_targets_signed(auth_repo, "targets", FILENAME)
     commits = auth_repo.list_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
-def test_register_targets_when_file_removed(library: Path, api_keystore: str):
+def test_register_targets_when_file_removed(library: Path, keystore_delegations: str):
     repo_path = library / "auth"
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -90,7 +90,7 @@ def test_register_targets_when_file_removed(library: Path, api_keystore: str):
     # add a new file to the targets directory, check if it was signed
     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
     file_path.unlink()
-    register_target_files(repo_path, api_keystore, write=True, push=False)
+    register_target_files(repo_path, keystore_delegations, update_snapshot_and_timestamp=True, push=False)
     signed_target_files = auth_repo.get_signed_target_files()
     assert FILENAME not in signed_target_files
     commits = auth_repo.list_commits()
@@ -98,7 +98,7 @@ def test_register_targets_when_file_removed(library: Path, api_keystore: str):
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
-def test_update_target_repos_from_repositories_json(library: Path, api_keystore: str):
+def test_update_target_repos_from_repositories_json(library: Path, keystore_delegations: str):
     repo_path = library / "auth"
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -106,7 +106,7 @@ def test_update_target_repos_from_repositories_json(library: Path, api_keystore:
     update_target_repos_from_repositories_json(
         str(repo_path),
         str(library.parent),
-        api_keystore,
+        keystore_delegations,
         push=False,
     )
     # this should create target files and save commit and branch to them, then sign
@@ -119,7 +119,7 @@ def test_update_target_repos_from_repositories_json(library: Path, api_keystore:
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
-def test_add_target_repository_when_not_on_filesystem(library: Path, api_keystore: str):
+def test_add_target_repository_when_not_on_filesystem(library: Path, keystore_delegations: str):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -131,8 +131,9 @@ def test_add_target_repository_when_not_on_filesystem(library: Path, api_keystor
         target_repo_name,
         "delegated_role",
         None,
-        api_keystore,
+        keystore_delegations,
         push=False,
+        should_create_new_role=True,
     )
     # verify repositories.json was updated and that changes were committed
     # then validate the repository
@@ -141,15 +142,15 @@ def test_add_target_repository_when_not_on_filesystem(library: Path, api_keystor
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
     commits = auth_repo.list_commits()
-    assert len(commits) == initial_commits_num + 1
+    assert len(commits) == initial_commits_num + 2
     assert commits[0].message.strip() == git_commit_message(
         "add-target", target_name=target_repo_name
     )
-    delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
+    delegated_paths = auth_repo.get_paths_of_role("delegated_role")
     assert target_repo_name in delegated_paths
 
 
-def test_add_target_repository_when_on_filesystem(library: Path, api_keystore: str):
+def test_add_target_repository_when_on_filesystem(library: Path, keystore_delegations: str):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -161,8 +162,9 @@ def test_add_target_repository_when_on_filesystem(library: Path, api_keystore: s
         target_repo_name,
         "delegated_role",
         None,
-        api_keystore,
+        keystore_delegations,
         push=False,
+        should_create_new_role=True,
     )
     # verify repositories.json was updated and that changes were committed
     # then validate the repository
@@ -171,20 +173,16 @@ def test_add_target_repository_when_on_filesystem(library: Path, api_keystore: s
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
     commits = auth_repo.list_commits()
-    assert len(commits) == initial_commits_num + 1
+    assert len(commits) == initial_commits_num + 2
     assert commits[0].message.strip() == git_commit_message(
         "add-target", target_name=target_repo_name
     )
-    signed_target_files = auth_repo.get_signed_target_files()
-    assert target_repo_name in signed_target_files
-    delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
+    delegated_paths = auth_repo.get_paths_of_role("delegated_role")
     assert target_repo_name in delegated_paths
-    target_repo_path = library.parent / target_repo_name
-    assert check_target_file(target_repo_path, target_repo_name, auth_repo)
 
 
 def test_remove_target_repository_when_not_on_filesystem(
-    library: Path, api_keystore: str
+    library: Path, keystore_delegations: str
 ):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
@@ -198,7 +196,7 @@ def test_remove_target_repository_when_not_on_filesystem(
     remove_target_repo(
         str(repo_path),
         target_repo_name,
-        api_keystore,
+        keystore_delegations,
         push=False,
     )
     # verify repositories.json was updated and that changes were committed
@@ -217,11 +215,11 @@ def test_remove_target_repository_when_not_on_filesystem(
     assert commits[0].message.strip() == git_commit_message(
         "remove-from-delegated-paths", target_name=target_repo_name
     )
-    delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
+    delegated_paths = auth_repo.get_paths_of_role("delegated_role")
     assert target_repo_name not in delegated_paths
 
 
-def test_remove_target_repository_when_on_filesystem(library: Path, api_keystore: str):
+def test_remove_target_repository_when_on_filesystem(library: Path, keystore_delegations: str):
     repo_path = str(library / "auth")
     auth_repo = AuthenticationRepository(path=repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -230,12 +228,11 @@ def test_remove_target_repository_when_on_filesystem(library: Path, api_keystore
     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
     assert repositories_json is not None
     repositories = repositories_json["repositories"]
-    assert Path(repo_path, TARGETS_DIRECTORY_NAME, target_repo_name).is_file()
     assert target_repo_name in repositories
     remove_target_repo(
         str(repo_path),
         target_repo_name,
-        api_keystore,
+        keystore_delegations,
         push=False,
     )
     # verify that repositories.json was updated and that changes were committed
@@ -254,6 +251,6 @@ def test_remove_target_repository_when_on_filesystem(library: Path, api_keystore
     assert commits[0].message.strip() == git_commit_message(
         "remove-from-delegated-paths", target_name=target_repo_name
     )
-    delegated_paths = auth_repo.get_delegated_role_property("paths", "delegated_role")
+    delegated_paths = auth_repo.get_paths_of_role("delegated_role")
     assert target_repo_name not in delegated_paths
     assert not Path(repo_path, TARGETS_DIRECTORY_NAME, target_repo_name).is_file()

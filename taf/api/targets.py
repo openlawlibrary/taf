@@ -137,6 +137,7 @@ def add_target_repo(
         )
 
     _add_target_repository_to_repositories_json(auth_repo, target_name, custom)
+    commit_msg = git_commit_message("add-target", target_name=target_name)
     register_target_files(
         path=path,
         keystore=keystore,
@@ -148,7 +149,7 @@ def add_target_repo(
         push=push,
         no_commit_warning=True,
         reset_updated_targets_on_error=True,
-        commit_msg=f"Added target repo {target_name}"
+        commit_msg=commit_msg,
     )
 
 # TODO Move this to auth repo when repositoriesdb is removed and there are no circular imports
@@ -461,7 +462,7 @@ def remove_target_repo(
 
     commit_msg = git_commit_message("remove-from-delegated-paths", target_name=target_name)
     delegation_existed = remove_paths(
-        path, [target_name], keystore=keystore, commit=True, prompt_for_keys=prompt_for_keys,  push=False
+        path, [target_name], keystore=keystore, commit=True, prompt_for_keys=prompt_for_keys, push=False, commit_msg=commit_msg
     )
     if delegation_existed:
         changes_committed = True

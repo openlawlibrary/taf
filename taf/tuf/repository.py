@@ -603,6 +603,13 @@ class MetadataRepository(Repository):
         role_obj = self._role_obj(role_name)
         return role_obj.keyids
 
+    def get_paths_of_role(self, role_name):
+        parent = self.find_delegated_roles_parent(role_name)
+        if parent:
+            parent_obj = self._signed_obj(parent)
+            return parent_obj.delegations.roles[role_name].paths
+        return []
+
     def get_targets_of_role(self, role_name):
         return self._signed_obj(role_name).targets
 
@@ -979,7 +986,6 @@ class MetadataRepository(Repository):
             return role_obj.keyids
         except KeyError:
             pass
-        return self.get_delegated_role_property("keyids", role, parent_role)
 
     def is_valid_metadata_key(self, role: str, key: Union[SSlibKey, str], scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> bool:
         """Checks if metadata role contains key id of provided key.

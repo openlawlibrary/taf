@@ -2,6 +2,8 @@ import datetime
 from pathlib import Path
 import shutil
 import uuid
+
+from taf.constants import TARGETS_DIRECTORY_NAME
 from freezegun import freeze_time
 from taf.api.repository import create_repository
 from taf.api.utils._metadata import (
@@ -13,7 +15,6 @@ from pytest import fixture
 from taf.tests.conftest import CLIENT_DIR_PATH
 from taf.tests.test_api.util import check_if_targets_removed, check_if_targets_signed
 from taf.utils import on_rm_error
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
 AUTH_REPO_NAME = "auth"
@@ -34,7 +35,7 @@ def auth_repo_path():
 
 
 def test_create_repository_with_targets(
-    auth_repo_path: Path, no_yubikeys_path: str, api_keystore: str
+    auth_repo_path: Path, no_yubikeys_path: str, keystore_delegations: str
 ):
     repo_path = str(auth_repo_path)
     # add a new file to the targets directory, check if it was signed
@@ -47,18 +48,18 @@ def test_create_repository_with_targets(
     create_repository(
         repo_path,
         roles_key_infos=no_yubikeys_path,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
         commit=True,
     )
 
 
 @freeze_time("2023-01-01")
-def test_update_snapshot_and_timestamp(auth_repo_path: Path, api_keystore: str):
+def test_update_snapshot_and_timestamp(auth_repo_path: Path, keystore_delegations: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     # signs snapshot and timestamp, uses default expiration intervals
     update_snapshot_and_timestamp(
         auth_repo,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
     )
     now = datetime.datetime.now()
     for role, interval in [("timestamp", 1), ("snapshot", 7)]:
@@ -66,7 +67,7 @@ def test_update_snapshot_and_timestamp(auth_repo_path: Path, api_keystore: str):
         assert now + datetime.timedelta(interval) == actual_expiration
 
 
-def test_update_target_metadata(auth_repo_path: Path, api_keystore: str):
+def test_update_target_metadata(auth_repo_path: Path, keystore_delegations: str):
     auth_repo = AuthenticationRepository(path=auth_repo_path)
     # remove one file, add one file, modify one file
     # add a new file to the targets directory, check if it was signed
@@ -88,7 +89,7 @@ def test_update_target_metadata(auth_repo_path: Path, api_keystore: str):
         auth_repo,
         added_targets_data=added_targets_data,
         removed_targets_data=removed_targets_data,
-        keystore=api_keystore,
+        keystore=keystore_delegations,
         write=True,
     )
     check_if_targets_signed(auth_repo, "targets", TARGET_FILE1, TARGET_FILE3)
