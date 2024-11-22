@@ -21,6 +21,8 @@ from securesystemslib import hash as sslib_hash
 
 from taf import YubikeyMissingLibrary
 
+from securesystemslib.storage import FilesystemBackend
+
 try:
     import taf.yubikey as yk
 except ImportError:
@@ -114,12 +116,17 @@ class MetadataRepository(Repository):
         return str(certs_dir)
 
     def __init__(self, path: Union[Path, str], *args, **kwargs) -> None:
+        storage_backend = kwargs.pop("storage", None)
         super().__init__(*args, **kwargs)
         self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
         self.path = Path(path)
 
         self._snapshot_info = MetaFile(1)
         self._targets_infos: Dict[str, MetaFile] = defaultdict(lambda: MetaFile(1))
+        if storage_backend:
+            self.storage_backend = storage_backend
+        else:
+            self.storage_backend = FilesystemBackend()
 
     @property
     def metadata_path(self) -> Path:
@@ -290,9 +297,10 @@ class MetadataRepository(Repository):
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
         try:
-            return Metadata.from_file(self.metadata_path / f"{role}.json")
+            path = self.metadata_path / f"{role}.json"
+            return Metadata.from_file(path, storage_backend=self.storage_backend)
         except StorageError:
-            raise TAFError(f"Metadata file {self.metadata_path} does not exist")
+            raise TAFError(f"Metadata file {path} does not exist")
 
     def check_if_keys_loaded(self, role_name: str) -> bool:
         threshold = self.get_role_threshold(role_name)
@@ -386,10 +394,10 @@ class MetadataRepository(Repository):
             self._targets_infos[fname].version = md.signed.version
 
         # Write role metadata to disk (root gets a version-prefixed copy)
-        md.to_file(self.metadata_path / fname, serializer=self.serializer)
+        md.to_file(self.metadata_path / fname, serializer=self.serializer, storage_backend=self.storage_backend)
 
         if role == "root":
-            md.to_file(self.metadata_path / f"{md.signed.version}.{fname}",  serializer=self.serializer)
+            md.to_file(self.metadata_path / f"{md.signed.version}.{fname}", serializer=self.serializer)
 
 
     def create(self, roles_keys_data: RolesKeysData, signers: dict, additional_verification_keys: Optional[dict]=None):
@@ -534,9 +542,10 @@ class MetadataRepository(Repository):
         return added_roles, existing_roles
 
     def _create_target_object(self, filesystem_path: str, target_path: str, custom: Optional[Dict]):
-        target_file = TargetFile.from_file(
+        data = Path(filesystem_path).read_text().encode()
+        target_file = TargetFile.from_data(
             target_file_path=target_path,
-            local_path=filesystem_path,
+            data=data,
             hash_algorithms=["sha256", "sha512"],
         )
         if custom:
@@ -585,7 +594,7 @@ class MetadataRepository(Repository):
         return parents
 
     def get_delegations_of_role(self, role_name):
-        signed_obj = self._signed_obj(role_name)
+        signed_obj = self.signed_obj(role_name)
         if signed_obj.delegations:
             return signed_obj.delegations.roles
         return []
@@ -597,12 +606,12 @@ class MetadataRepository(Repository):
     def get_paths_of_role(self, role_name):
         parent = self.find_delegated_roles_parent(role_name)
         if parent:
-            parent_obj = self._signed_obj(parent)
+            parent_obj = self.signed_obj(parent)
             return parent_obj.delegations.roles[role_name].paths
         return []
 
     def get_targets_of_role(self, role_name):
-        return self._signed_obj(role_name).targets
+        return self.signed_obj(role_name).targets
 
     def find_keys_roles(self, public_keys, check_threshold=True):
         """Find all roles that can be signed by the provided keys.
@@ -665,7 +674,6 @@ class MetadataRepository(Repository):
         """
         target_roles = ["targets"]
         all_roles = []
-
         while target_roles:
             role = target_roles.pop()
             all_roles.append(role)
@@ -715,7 +723,7 @@ class MetadataRepository(Repository):
         return added_target_files, removed_target_files
 
     def get_expiration_date(self, role: str) -> datetime:
-        meta_file = self._signed_obj(role)
+        meta_file = self.signed_obj(role)
         if meta_file is None:
             raise TAFError(f"Role {role} does not exist")
 
@@ -800,7 +808,7 @@ class MetadataRepository(Repository):
         Raises:
         None
         """
-        signed = self._signed_obj(role)
+        signed = self.signed_obj(role)
         return signed.to_dict()
 
     def get_signed_target_files(self) -> Set[str]:
@@ -830,7 +838,7 @@ class MetadataRepository(Repository):
         return set(
             reduce(
                 operator.iconcat,
-                [self._signed_obj(role).targets.keys()  for role in roles],
+                [self.signed_obj(role).targets.keys()  for role in roles],
                 [],
             )
         )
@@ -925,7 +933,7 @@ class MetadataRepository(Repository):
 
                 delegations_info[delegation]["scheme"] = scheme
                 delegations_info[delegation]["length"] = pub_key.key_size
-                delegated_signed = self._signed_obj(delegation)
+                delegated_signed = self.signed_obj(delegation)
                 if delegated_signed.delegations:
                     inner_roles_data = _get_delegations(delegation)
                     if len(inner_roles_data):
@@ -946,7 +954,7 @@ class MetadataRepository(Repository):
             roles_description[role_name]["scheme"] = scheme
             roles_description[role_name]["length"] = pub_key.key_size
             if role_name == "targets":
-                targets_signed = self._signed_obj(role_name)
+                targets_signed = self.signed_obj(role_name)
                 if targets_signed.delegations:
                     delegations_info = _get_delegations(role_name)
                     if len(delegations_info):
@@ -1125,17 +1133,8 @@ class MetadataRepository(Repository):
         for path, target_data in added_data.items():
             target_path = (self.targets_path / path).absolute()
             self._create_target_file(target_path, target_data)
-            target_file = TargetFile.from_file(
-                target_file_path=path,
-                local_path=str(target_path),
-                hash_algorithms=["sha256", "sha512"],
-            )
             custom = target_data.get("custom", None)
-            if custom:
-                unrecognized_fields = {
-                    "custom": custom
-                }
-                target_file.unrecognized_fields=unrecognized_fields
+            target_file = self._create_target_object(path, target_path, custom)
             target_files.append(target_file)
 
         # remove existing target files
@@ -1280,8 +1279,13 @@ class MetadataRepository(Repository):
                         raise TAFError(f"{delegation}.json is invalid")
             return None
 
-    def _signed_obj(self, role):
+    def signed_obj(self, role: str):
         md = self.open(role)
+        return self._signed_obj(role, md)
+
+    def _signed_obj(self, role: str, md=None):
+        if md is None:
+            md = self.open(role)
         try:
             signed_data = md.to_dict()["signed"]
             role_to_role_class = {

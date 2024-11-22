@@ -134,7 +134,7 @@ def repo_path(request, repo_dir):
     # Append the test name
     test_name = request.node.name
     full_path = repo_dir / test_name
-    full_path.mkdir()
+    full_path.mkdir(parents=True)
 
     # Convert to string if necessary, or use it as a Path object
     yield full_path

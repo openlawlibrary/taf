@@ -22,11 +22,15 @@ def _check_repo_initialization_successful(auth_repo: AuthenticationRepository, i
     for role in ("root", "targets", "snapshot", "timestamp"):
         assert (metadata_dir / f"{role}.json").is_file() is True
 
+    commits = auth_repo.list_commits()
     if is_targets_initialized:
         assert targets_dir.is_dir() is True
-    commits = auth_repo.list_commits()
-    assert len(commits) == 1
-    assert commits[0].message.strip() == git_commit_message("create-repo")
+        assert len(commits) == 2
+        assert commits[0].message.strip() == git_commit_message("update-targets")
+        assert commits[1].message.strip() == git_commit_message("create-repo")
+    else:
+        assert len(commits) == 1
+        assert commits[0].message.strip() == git_commit_message("create-repo")
 
 
 def test_create_repository_when_no_delegations(
@@ -57,7 +61,7 @@ def test_create_repository_when_no_delegations_with_test_flag(
     )
 
     auth_repo = AuthenticationRepository(path=repo_path)
-    _check_repo_initialization_successful(auth_repo, is_targets_initialized=False)
+    _check_repo_initialization_successful(auth_repo, is_targets_initialized=True)
     assert auth_repo.is_test_repo is True
     validate_repository(repo_path)
 

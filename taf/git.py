@@ -1501,9 +1501,12 @@ class GitRepository:
     def restore(
         self, file_paths: List[str]
     ) -> None:
+        if not file_paths:
+            return
         file_paths = [str(Path(file_path).as_posix()) for file_path in file_paths]
         existing, non_existing = self.check_files_exist(file_paths)
-        self._git(f"restore {' '.join(existing)}")
+        if existing:
+            self._git(f"restore {' '.join(existing)}")
         for path in non_existing:
             file_path = Path(path)
             if file_path.is_file():
