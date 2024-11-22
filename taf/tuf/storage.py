@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 import io
 from pathlib import Path
-from typing import IO, List, Optional
+from typing import IO, Optional
 import pygit2
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.exceptions import GitError, TAFError
@@ -13,9 +13,25 @@ from securesystemslib.storage import FilesystemBackend
 
 from securesystemslib.exceptions import StorageError
 
+git_repos_cache = {}
+
+
+def is_subpath(path, potential_subpath):
+    path = Path(path).resolve()
+    potential_subpath = Path(potential_subpath).resolve()
+
+    try:
+        potential_subpath.relative_to(path)
+        return True
+    except ValueError:
+        return False
 
 def find_git_repository(inner_path):
+    for path, repo in git_repos_cache.items():
+        if is_subpath(inner_path, path):
+            return repo
     repo_path = pygit2.discover_repository(inner_path)
+    repo = None
     if not repo_path:
         # could be a bare repository
         repo_path = str(inner_path).split(METADATA_DIRECTORY_NAME)[0]
@@ -25,16 +41,22 @@ def find_git_repository(inner_path):
             except Exception:
                 return None
             else:
-                return GitRepository(path=repo_path)
+                repo = GitRepository(path=repo_path)
+    else:
+        repo_path = Path(repo_path).parent
+        repo = GitRepository(path=repo_path)
 
-    repo_path = Path(repo_path).parent
-    repo = GitRepository(path=repo_path)
+    if repo:
+        git_repos_cache[repo.path] = repo
     return repo
 
 
 class GitStorageBackend(FilesystemBackend):
 
     commit = None
+
+    def __new__(cls, *args, **kwargs):
+        return super(FilesystemBackend, cls).__new__(cls, *args, **kwargs)  # Bypass singleton
 
     @contextmanager
     def get(self, filepath: str):
