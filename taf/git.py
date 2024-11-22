@@ -905,8 +905,11 @@ class GitRepository:
 
         return bool(unpushed_commits), [commit.id for commit in unpushed_commits]
 
-    def commit(self, message: str) -> str:
-        self._git("add -A")
+    def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> str:
+        if not paths_to_commit:
+            self._git("add -A")
+        else:
+            self._git(f"add {' '.join(paths_to_commit)}")
         try:
             self._git("diff --cached --exit-code --shortstat", reraise_error=True)
         except GitError:

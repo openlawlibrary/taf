@@ -86,8 +86,12 @@ def create_repository(
     if signers is None:
         return
 
-    repository = MetadataRepository(path)
+    repository = AuthenticationRepository(path=path)
     repository.create(roles_keys_data, signers, verification_keys)
+    if commit:
+        auth_repo.init_repo()
+        commit_msg = git_commit_message("create-repo")
+        auth_repo.commit(commit_msg, ["metadata"])
 
     if test:
         auth_repo.targets_path.mkdir(exist_ok=True)
@@ -100,7 +104,7 @@ def create_repository(
         path,
         keystore,
         roles_key_infos,
-        commit=False,
+        commit=commit,
         auth_repo=auth_repo,
         update_snapshot_and_timestamp=True,
         no_commit_warning=True,
@@ -108,11 +112,7 @@ def create_repository(
 
     ensure_pre_push_hook(auth_repo.path)
 
-    if commit:
-        auth_repo.init_repo()
-        commit_msg = git_commit_message("create-repo")
-        auth_repo.commit_and_push(push=False, commit_msg=commit_msg)
-    else:
+    if not commit:
         print("\nPlease commit manually.\n")
 
 

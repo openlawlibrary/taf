@@ -139,30 +139,21 @@ class MetadataRepository(Repository):
         # tracks snapshot metadata changes, needed in `do_timestamp`
         return self._snapshot_info
 
-    @staticmethod
     def calculate_hashes(
-       md: Metadata, algorithms: List[str]
+       self, md: Metadata, algorithms: List[str]
     ) -> None:
         # TODO see comment below
         hashes = {}
-        data = md.to_bytes()
+        data = md.to_bytes(serializer=self.serializer)
         for algo in algorithms:
-            try:
-                digest_object = sslib_hash.digest(algo)
-                digest_object.update(data)
-            except (
-                sslib_exceptions.UnsupportedAlgorithmError,
-                sslib_exceptions.FormatError,
-            ) as e:
-                raise LengthOrHashMismatchError(
-                    f"Unsupported algorithm '{algo}'"
-                ) from e
+            digest_object = sslib_hash.digest(algo)
+            digest_object.update(data)
 
             hashes[algo] = digest_object.hexdigest()
         return hashes
 
-    @staticmethod
     def calculate_length(
+        self,
         md: Metadata,
     ) -> None:
         # TODO this doesn't look correct
@@ -170,7 +161,7 @@ class MetadataRepository(Repository):
         # this is fine, but maybe md.to_bytes() is not
         # added to snapshot and length is < old length
         # something is weird
-        data = md.to_bytes()
+        data = md.to_bytes(serializer=self.serializer)
         return len(data)
 
     def add_signers_to_cache(self, roles_signers: Dict):

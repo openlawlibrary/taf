@@ -13,18 +13,16 @@ from freezegun import freeze_time
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
 from taf.api.metadata import (
-    _update_expiration_date_of_role,
     update_metadata_expiration_date,
 )
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf.messages import git_commit_message
 from taf import repositoriesdb, settings
 from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.api.repository import create_repository
 from taf.api.targets import (
     register_target_files,
@@ -624,10 +622,9 @@ def update_auth_repo_without_committing(
 def update_role_metadata_without_signing(
     auth_repo: AuthenticationRepository, role: str
 ):
-    _update_expiration_date_of_role(
+    update_metadata_expiration_date(
         auth_repo=auth_repo,
-        role=role,
-        loaded_yubikeys={},
+        roles=[role],
         start_date=None,
         keystore=KEYSTORE_PATH,
         interval=None,
@@ -664,17 +661,16 @@ def update_and_sign_metadata_without_clean_check(
             roles.append("timestamp")
 
     roles = ["root", "snapshot", "timestamp"]
-    for role in roles:
-        _update_expiration_date_of_role(
-            auth_repo=auth_repo,
-            role=role,
-            loaded_yubikeys={},
-            start_date=None,
-            keystore=KEYSTORE_PATH,
-            interval=None,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            prompt_for_keys=False,
-        )
+    update_metadata_expiration_date(
+        auth_repo=auth_repo,
+        roles=roles,
+        loaded_yubikeys={},
+        start_date=None,
+        keystore=KEYSTORE_PATH,
+        interval=None,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=False,
+    )
 
     commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
     auth_repo.commit_and_push(commit_msg=commit_msg, push=False)

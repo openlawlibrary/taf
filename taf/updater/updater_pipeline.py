@@ -1920,6 +1920,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
     current_commit = git_fetcher.current_commit
     try:
         auth_repo_name = auth_repo_name or ""
+        import pdb; pdb.set_trace()
         updater.refresh()
         taf_logger.debug(
             f"{auth_repo_name}: Validated metadata files at revision {current_commit}"
