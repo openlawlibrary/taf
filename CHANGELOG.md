@@ -13,7 +13,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-## [0.32.2]
+## [0.32.3] - 11/22/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix `get_last_remote_commit` - add missing value for parameter ([566])
+
+[566]: https://github.com/openlawlibrary/taf/pull/566
+
+## [0.32.2] - 11/20/2024
 
 ### Added
 
@@ -1345,7 +1357,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.3...HEAD
+[0.32.3]: https://github.com/openlawlibrary/taf/compare/v0.32.2...v0.32.3
 [0.32.2]: https://github.com/openlawlibrary/taf/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/openlawlibrary/taf/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/openlawlibrary/taf/compare/v0.31.2...v0.32.0
