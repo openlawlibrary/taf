@@ -623,13 +623,13 @@ def update_role_metadata_without_signing(
     auth_repo: AuthenticationRepository, role: str
 ):
     update_metadata_expiration_date(
-        auth_repo=auth_repo,
+        path=auth_repo.path,
         roles=[role],
-        start_date=None,
         keystore=KEYSTORE_PATH,
-        interval=None,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
+        commit=False,
+        push=False,
+        update_snapshot_and_timestamp=False,
     )
 
 
@@ -654,26 +654,17 @@ def update_role_metadata_invalid_signature(
 def update_and_sign_metadata_without_clean_check(
     auth_repo: AuthenticationRepository, roles: list
 ):
-    if "root" or "targets" in roles:
-        if "snapshot" not in roles:
-            roles.append("snapshot")
-        if "timestamp" not in roles:
-            roles.append("timestamp")
 
-    roles = ["root", "snapshot", "timestamp"]
     update_metadata_expiration_date(
-        auth_repo=auth_repo,
+        path=auth_repo.path,
         roles=roles,
-        loaded_yubikeys={},
-        start_date=None,
         keystore=KEYSTORE_PATH,
-        interval=None,
         scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
+        skip_clean_check=True,
+        update_snapshot_and_timestamp=True,
     )
 
-    commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
-    auth_repo.commit_and_push(commit_msg=commit_msg, push=False)
 
 
 def update_target_repository(

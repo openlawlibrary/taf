@@ -89,13 +89,14 @@ def print_expiration_dates(
 def update_metadata_expiration_date(
     path: str,
     roles: List[str],
-    interval: int,
+    interval: Optional[int] = None,
     keystore: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     start_date: Optional[datetime] = None,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    update_snapshot_and_timestamp: Optional[bool] = True,
 ) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -128,9 +129,10 @@ def update_metadata_expiration_date(
         start_date = datetime.now()
 
     roles_to_update = set(roles)
-    update_snapshot_and_timestamp = (
-        "timestamp" not in roles_to_update or len(roles_to_update) > 1
-    )
+    if update_snapshot_and_timestamp:
+        update_snapshot_and_timestamp = (
+            "timestamp" not in roles_to_update or len(roles_to_update) > 1
+        )
     if update_snapshot_and_timestamp:
         roles_to_update.add("snapshot")
         roles_to_update.add("timestamp")

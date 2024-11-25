@@ -390,6 +390,9 @@ class MetadataRepository(Repository):
             self._snapshot_info.version = md.signed.version
             self._snapshot_info.hashes = self.calculate_hashes(md, HASH_ALGS)
             self._snapshot_info.length = self.calculate_length(md)
+            root_version = self.signed_obj("root").version
+            md.signed.meta["root.json"].version = root_version
+
         elif role != "timestamp":  # role in [root, targets, <delegated targets>]
             self._targets_infos[fname].version = md.signed.version
 
