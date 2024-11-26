@@ -1361,6 +1361,7 @@ class MetadataRepository(Repository):
             roles_targets.setdefault(role, []).append(target_file)
         return roles_targets
 
+
     def update_target_role(self, role: str, target_paths: Dict):
         if not self.check_if_role_exists(role):
             raise TAFError(f"Role {role} does not exist")

@@ -183,7 +183,6 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
-                import pdb; pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:

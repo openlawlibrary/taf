@@ -2,6 +2,8 @@ import enum
 import os
 import re
 from typing import Optional
+
+from taf.api.api_workflow import manage_repo_and_signers
 import pytest
 import inspect
 import random
@@ -39,6 +41,8 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
+
+from tuf.api.metadata import Timestamp
 
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -639,16 +643,28 @@ def update_target_repo_without_committing(target_repos: list, target_name: str):
             update_target_repository(target_repo)
 
 
-def update_role_metadata_invalid_signature(
-    auth_repo: AuthenticationRepository, role: str
+def update_timestamp_metadata_invalid_signature(
+    auth_repo: AuthenticationRepository
 ):
-    role_metadata_path = Path(auth_repo.path, "metadata", f"{role}.json")
-    content = json.loads(role_metadata_path.read_text())
-    content["signatures"][0]["sign"] = "invalid signature"
-    version = content["signed"]["version"]
-    content["signed"]["version"] = version + 1
-    role_metadata_path.write_text(json.dumps(content, indent=4))
-    auth_repo.commit("Invalid metadata update")
+
+    role = Timestamp.type
+    with manage_repo_and_signers(
+        auth_repo,
+        [role],
+        keystore=KEYSTORE_PATH,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=False,
+        load_snapshot_and_timestamp=False,
+        commit=True,
+        commit_msg="Invalid metadata update",
+        push=False
+    ):
+        role_metadata_path = Path(auth_repo.path, "metadata", f"{role}.json")
+        content = json.loads(role_metadata_path.read_text())
+        content["signatures"][0]["sig"] = "invalid signature"
+        version = content["signed"]["version"]
+        content["signed"]["version"] = version + 1
+        role_metadata_path.write_text(json.dumps(content, indent=1))
 
 
 def update_and_sign_metadata_without_clean_check(

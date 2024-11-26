@@ -16,7 +16,7 @@ from taf.tests.test_updater.conftest import (
     clone_client_repo,
     swap_last_two_commits,
     update_expiration_dates,
-    update_role_metadata_invalid_signature,
+    update_timestamp_metadata_invalid_signature,
 )
 from taf.tests.test_updater.update_utils import (
     check_if_last_validated_commit_exists,
@@ -173,7 +173,7 @@ def test_clone_invalid_target_invalid_singature(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(
-        update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
+        update_timestamp_metadata_invalid_signature
     )
     setup_manager.execute_tasks()
 

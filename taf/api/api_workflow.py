@@ -30,21 +30,21 @@ def manage_repo_and_signers(
     no_commit_warning: bool =True,
 ):
     try:
+        roles_to_load = set()
         if roles:
+            if load_roles:
+                roles_to_load.update(roles)
+            if load_parents:
+                roles_to_load.update(auth_repo.find_parents_of_roles(roles))
+        if load_snapshot_and_timestamp:
+            roles_to_load.add("snapshot")
+            roles_to_load.add("timestamp")
+        if roles_to_load:
             if not keystore:
                 keystore_path = find_keystore(auth_repo.path)
             else:
                 keystore_path = Path(keystore)
             loaded_yubikeys = {}
-            roles_to_load = set()
-            if load_roles:
-                roles_to_load.update(roles)
-            if load_parents:
-                roles_to_load.update(auth_repo.find_parents_of_roles(roles))
-            if load_snapshot_and_timestamp:
-                roles_to_load.add("snapshot")
-                roles_to_load.add("timestamp")
-
             for role in roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
                     keystore_signers, yubikeys = load_signers(
@@ -65,6 +65,7 @@ def manage_repo_and_signers(
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
     except Exception as e:
+        import pdb; pdb.set_trace()
         taf_logger.error(f"An error occurred: {e}")
         if not paths_to_reset_on_error:
             paths_to_reset_on_error = [METADATA_DIRECTORY_NAME]
