@@ -277,6 +277,7 @@ def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None
     pub_key_pem = export_piv_pub_key(pub_key_pem=pub_key_pem).decode("utf-8")
     # TODO
     # return import_rsakey_from_pem(pub_key_pem, scheme)
+    return None
 
 
 @raise_yubikey_err("Cannot sign data.")

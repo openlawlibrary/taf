@@ -150,11 +150,13 @@ def add_target_repo(
 
 # TODO Move this to auth repo when repositoriesdb is removed and there are no circular imports
 def _add_target_repository_to_repositories_json(
-    auth_repo, target_repo_name: str, custom: Dict
+    auth_repo, target_repo_name: str, custom: Optional[Dict] = None
 ) -> None:
     """
     Add repository to repositories.json
     """
+    if custom is None:
+        custom = {}
     # target repo should be added to repositories.json
     # delegation paths should be extended if role != targets
     # if the repository already exists, create a target file
@@ -376,7 +378,7 @@ def register_target_files(
 
     with manage_repo_and_signers(
         auth_repo,
-        set(roles_and_targets.keys()),
+        list(roles_and_targets.keys()),
         keystore,
         scheme,
         prompt_for_keys,

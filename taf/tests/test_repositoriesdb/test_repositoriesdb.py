@@ -1,4 +1,3 @@
-import pytest
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
 from taf.tests.test_repositoriesdb.conftest import load_repositories

@@ -1041,7 +1041,7 @@ class MetadataRepository(Repository):
             else:
                 ssl_lib_key = key
             key_id = _get_legacy_keyid(ssl_lib_key)
-        except Exception as e:
+        except Exception:
             # TODO log
             raise TAFError("Invalid public key specified")
         else:
@@ -1352,7 +1352,10 @@ class MetadataRepository(Repository):
         signed.expires = expiration_date
 
     def set_metadata_expiration_date(
-        self, role_name: str, start_date: datetime = None, interval: int = None
+        self,
+        role_name: str,
+        start_date: Optional[datetime] = None,
+        interval: Optional[int] = None,
     ) -> None:
         """Set expiration date of the provided role.
 

@@ -95,7 +95,7 @@ def load_sorted_keys_of_new_roles(
     yubikeys: Optional[Dict[str, Dict]] = None,
     existing_roles: Optional[List[str]] = None,
     skip_prompt: Optional[bool] = False,
-    certs_dir: Optional[Path] = None,
+    certs_dir: Optional[Union[Path, str]] = None,
 ):
     """
     Load signing keys of roles - first those stored on YubiKeys to avoid entering pins
@@ -299,7 +299,7 @@ def load_signers(
 def setup_roles_keys(
     role: Role,
     certs_dir: Optional[Union[Path, str]] = None,
-    keystore: Optional[str] = None,
+    keystore: Optional[Union[Path, str]] = None,
     yubikeys: Optional[Dict] = None,
     users_yubikeys_details: Optional[Dict[str, UserKeyData]] = None,
     skip_prompt: Optional[bool] = False,
@@ -346,70 +346,70 @@ def setup_roles_keys(
 def _setup_yubikey_roles_keys(
     yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir, key_size
 ):
-    loaded_keys_num = 0
-    yk_with_public_key = {}
+    # loaded_keys_num = 0
+    # yk_with_public_key = {}
     yubikey_keys = []
+    # TODO
+    # for key_id in yubikey_ids:
+    #     # Check the present value from the yubikeys dictionary
+    #     if (
+    #         key_id in users_yubikeys_details
+    #         and not users_yubikeys_details[key_id].present
+    #     ):
+    #         continue
 
-    for key_id in yubikey_ids:
-        # Check the present value from the yubikeys dictionary
-        if (
-            key_id in users_yubikeys_details
-            and not users_yubikeys_details[key_id].present
-        ):
-            continue
+    #     public_key_text = None
+    #     if key_id in users_yubikeys_details:
+    #         public_key_text = users_yubikeys_details[key_id].public
+    #     if public_key_text:
+    #         scheme = users_yubikeys_details[key_id].scheme
+    #         public_key = keys.import_rsakey_from_public_pem(public_key_text, scheme)
+    #         # Check if the signing key is already loaded
+    #         if not yk.get_key_serial_by_id(key_id):
+    #             yk_with_public_key[key_id] = public_key
+    #         else:
+    #             loaded_keys_num += 1
+    #     else:
+    #         key_scheme = None
+    #         if key_id in users_yubikeys_details:
+    #             key_scheme = users_yubikeys_details[key_id].scheme
+    #         key_scheme = key_scheme or role.scheme
+    #         public_key = _setup_yubikey(
+    #             yubikeys,
+    #             role.name,
+    #             key_id,
+    #             yubikey_keys,
+    #             key_scheme,
+    #             certs_dir,
+    #             key_size,
+    #         )
+    #         loaded_keys_num += 1
+    #     yubikey_keys.append(public_key)
 
-        public_key_text = None
-        if key_id in users_yubikeys_details:
-            public_key_text = users_yubikeys_details[key_id].public
-        if public_key_text:
-            scheme = users_yubikeys_details[key_id].scheme
-            public_key = keys.import_rsakey_from_public_pem(public_key_text, scheme)
-            # Check if the signing key is already loaded
-            if not yk.get_key_serial_by_id(key_id):
-                yk_with_public_key[key_id] = public_key
-            else:
-                loaded_keys_num += 1
-        else:
-            key_scheme = None
-            if key_id in users_yubikeys_details:
-                key_scheme = users_yubikeys_details[key_id].scheme
-            key_scheme = key_scheme or role.scheme
-            public_key = _setup_yubikey(
-                yubikeys,
-                role.name,
-                key_id,
-                yubikey_keys,
-                key_scheme,
-                certs_dir,
-                key_size,
-            )
-            loaded_keys_num += 1
-        yubikey_keys.append(public_key)
-
-    if loaded_keys_num < role.threshold:
-        print(f"Threshold of role {role.name} is {role.threshold}")
-        while loaded_keys_num < role.threshold:
-            loaded_keys = []
-            for key_id, public_key in yk_with_public_key.items():
-                if _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key):
-                    loaded_keys_num += 1
-                    loaded_keys.append(key_id)
-                    yubikey_keys.append(public_key)
-                if loaded_keys_num == role.threshold:
-                    break
-            if loaded_keys_num < role.threshold:
-                if not click.confirm(
-                    f"Threshold of signing keys of role {role.name} not reached. Continue?"
-                ):
-                    raise SigningError("Not enough signing keys")
-                for key_id in loaded_keys:
-                    yk_with_public_key.pop(key_id)
+    # if loaded_keys_num < role.threshold:
+    #     print(f"Threshold of role {role.name} is {role.threshold}")
+    #     while loaded_keys_num < role.threshold:
+    #         loaded_keys = []
+    #         for key_id, public_key in yk_with_public_key.items():
+    #             if _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key):
+    #                 loaded_keys_num += 1
+    #                 loaded_keys.append(key_id)
+    #                 yubikey_keys.append(public_key)
+    #             if loaded_keys_num == role.threshold:
+    #                 break
+    #         if loaded_keys_num < role.threshold:
+    #             if not click.confirm(
+    #                 f"Threshold of signing keys of role {role.name} not reached. Continue?"
+    #             ):
+    #                 raise SigningError("Not enough signing keys")
+    #             for key_id in loaded_keys:
+    #                 yk_with_public_key.pop(key_id)
 
     return yubikey_keys
 
 
 def _setup_keystore_key(
-    keystore: Optional[str],
+    keystore: Optional[Union[Path, str]],
     role_name: str,
     key_name: str,
     scheme: str,

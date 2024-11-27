@@ -231,13 +231,13 @@ class GitRepository:
     @property
     def is_bare_repository(self) -> bool:
         if self._is_bare_repo is None:
-            if self.pygit_repo is None:
-                self._log_debug(
-                    "pygit repository could not be instantiated, assuming not bare"
-                )
-                self._is_bare_repo = False
-            else:
+            if self.pygit_repo is not None:
                 self._is_bare_repo = self.pygit_repo.is_bare
+            else:
+                raise GitError(
+                    "Cannot determine if repository is a bare repository. Cannot instantiate pygit repository"
+                )
+
         return self._is_bare_repo
 
     def _git(self, cmd, *args, **kwargs):

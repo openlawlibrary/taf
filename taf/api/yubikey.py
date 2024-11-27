@@ -76,9 +76,11 @@ def export_yk_certificate(path: Optional[str] = None) -> None:
         None
     """
     try:
-        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
-        scheme = DEFAULT_RSA_SIGNATURE_SCHEME
-        key = import_rsakey_from_pem(pub_key_pem, scheme)
+        # pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+        # scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+        # key = import_rsakey_from_pem(pub_key_pem, scheme)
+        # TODO
+        key = None
         yk.export_yk_certificate(path, key)
     except Exception:
         print("Could not export certificate. Check if a YubiKey is inserted")

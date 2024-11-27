@@ -71,7 +71,6 @@ def add_repo_command():
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit):
 
-
         config_data = {}
         if config_file:
             try:
@@ -79,7 +78,6 @@ def add_repo_command():
             except json.JSONDecodeError:
                 click.echo("Invalid JSON provided. Please check your input.", err=True)
                 sys.exit(1)
-
 
         if "role" in config_data:
             role_data = config_data.pop("role")

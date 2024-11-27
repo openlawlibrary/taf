@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
@@ -15,11 +15,11 @@ from taf.constants import METADATA_DIRECTORY_NAME
 @contextmanager
 def manage_repo_and_signers(
     auth_repo: AuthenticationRepository,
-    roles: Optional[List[str]] = None,
+    roles: Optional[Sequence[str]] = None,
     keystore: Optional[Union[str, Path]] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
-    paths_to_reset_on_error: Optional[List[str]] = None,
+    paths_to_reset_on_error: Optional[Sequence[Union[str, Path]]] = None,
     load_roles: Optional[bool] = True,
     load_parents: Optional[bool] = False,
     load_snapshot_and_timestamp: Optional[bool] = True,
@@ -27,15 +27,16 @@ def manage_repo_and_signers(
     push: Optional[bool] = True,
     commit_key: Optional[str] = None,
     commit_msg: Optional[str] = None,
-    no_commit_warning: bool = True,
+    no_commit_warning: Optional[bool] = True,
 ):
     try:
         roles_to_load = set()
         if roles:
+            unique_roles = set(roles)
             if load_roles:
-                roles_to_load.update(roles)
+                roles_to_load.update(unique_roles)
             if load_parents:
-                roles_to_load.update(auth_repo.find_parents_of_roles(roles))
+                roles_to_load.update(auth_repo.find_parents_of_roles(unique_roles))
         if load_snapshot_and_timestamp:
             roles_to_load.add("snapshot")
             roles_to_load.add("timestamp")
@@ -65,16 +66,13 @@ def manage_repo_and_signers(
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
     except Exception as e:
-        import pdb
-
-        pdb.set_trace()
         taf_logger.error(f"An error occurred: {e}")
         if not paths_to_reset_on_error:
             paths_to_reset_on_error = [METADATA_DIRECTORY_NAME]
         elif METADATA_DIRECTORY_NAME not in paths_to_reset_on_error:
             paths_to_reset_on_error.append(METADATA_DIRECTORY_NAME)
 
-        if auth_repo.is_git_repository:
+        if auth_repo.is_git_repository and paths_to_reset_on_error:
             # restore metadata, leave targets as they might have been modified by the user
             # TODO flag for also resetting targets?
             # also update the CLI error handling
