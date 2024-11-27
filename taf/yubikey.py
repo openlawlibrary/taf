@@ -394,15 +394,17 @@ def setup(
 
 
 def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=2048):
-    pin = get_key_pin(serial_num)
-    cert_cn = input("Enter key holder's name: ")
-    print("Generating key, please wait...")
-    pub_key_pem = setup(
-        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
-    ).decode("utf-8")
-    scheme = DEFAULT_RSA_SIGNATURE_SCHEME
-    key = import_rsakey_from_pem(pub_key_pem, scheme)
-    return key
+    # TODO
+    # pin = get_key_pin(serial_num)
+    # cert_cn = input("Enter key holder's name: ")
+    # print("Generating key, please wait...")
+    # pub_key_pem = setup(
+    #     pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
+    # ).decode("utf-8")
+    # scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+    # key = import_rsakey_from_pem(pub_key_pem, scheme)
+    # return key
+    return None
 
 
 def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):

@@ -366,7 +366,7 @@ def register_target_files(
         all_updated_targets.extend(list(removed_targets_data.keys()))
 
     roles_and_targets = defaultdict(list)
-    paths_to_reset = []
+    paths_to_reset: List = []
     for path in all_updated_targets:
         roles_and_targets[auth_repo.get_role_from_target_paths([path])].append(path)
         if reset_updated_targets_on_error:

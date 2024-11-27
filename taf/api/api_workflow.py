@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Union
 
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
@@ -15,11 +15,11 @@ from taf.constants import METADATA_DIRECTORY_NAME
 @contextmanager
 def manage_repo_and_signers(
     auth_repo: AuthenticationRepository,
-    roles: Optional[Sequence[str]] = None,
+    roles: Optional[List[str]] = None,
     keystore: Optional[Union[str, Path]] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
-    paths_to_reset_on_error: Optional[Sequence[Union[str, Path]]] = None,
+    paths_to_reset_on_error: Optional[List[Union[str, Path]]] = None,
     load_roles: Optional[bool] = True,
     load_parents: Optional[bool] = False,
     load_snapshot_and_timestamp: Optional[bool] = True,
@@ -75,7 +75,7 @@ def manage_repo_and_signers(
         if auth_repo.is_git_repository and paths_to_reset_on_error:
             # restore metadata, leave targets as they might have been modified by the user
             # TODO flag for also resetting targets?
-            # also update the CLI error handling
-            auth_repo.restore(paths_to_reset_on_error)
+            # also update the CLI error handling]
+            auth_repo.restore([str(path) for path in paths_to_reset_on_error])
 
         raise TAFError from e
