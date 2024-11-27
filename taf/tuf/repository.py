@@ -22,6 +22,8 @@ from taf import YubikeyMissingLibrary
 
 from securesystemslib.storage import FilesystemBackend
 
+from tuf.api.metadata import Signed
+
 try:
     import taf.yubikey as yk
 except ImportError:
@@ -149,7 +151,7 @@ class MetadataRepository(Repository):
         # tracks snapshot metadata changes, needed in `do_timestamp`
         return self._snapshot_info
 
-    def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> None:
+    def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> Dict:
         hashes = {}
         data = md.to_bytes(serializer=self.serializer)
         for algo in algorithms:
@@ -162,7 +164,7 @@ class MetadataRepository(Repository):
     def calculate_length(
         self,
         md: Metadata,
-    ) -> None:
+    ) -> int:
         data = md.to_bytes(serializer=self.serializer)
         return len(data)
 
@@ -212,7 +214,7 @@ class MetadataRepository(Repository):
                         keys_to_be_added[role].append(key)
             return keys_to_be_added
 
-        parents = self.find_parents_of_roles(roles_keys.keys())
+        parents = self.find_parents_of_roles(list(roles_keys.keys()))
         self.verify_signers_loaded(parents)
 
         # when a key is added to one of the main roles
@@ -292,7 +294,7 @@ class MetadataRepository(Repository):
                 )
 
     def add_to_open_metadata(self, roles: List[str]):
-        self._metadata_to_keep_open.add(roles)
+        self._metadata_to_keep_open.update(roles)
 
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
@@ -480,7 +482,7 @@ class MetadataRepository(Repository):
 
         targets = Targets()
         target_roles = {"targets": targets}
-        delegations_per_parent = defaultdict(dict)
+        delegations_per_parent: Dict[str, Dict] = defaultdict(dict)
         for role in RolesIterator(roles_keys_data.roles.targets):
             if role.parent is None:
                 continue
@@ -531,10 +533,11 @@ class MetadataRepository(Repository):
         roles_parents_dict = defaultdict(list)
         for role_data in roles_data:
             if role_data.name in existing_roles:
-                existing_roles.append(roles_data.name)
+                existing_roles.append(role_data.name)
                 continue
-            parent = role_data.parent.name
-            roles_parents_dict[parent].append(role_data)
+            if role_data.parent is not None:
+                parent = role_data.parent.name
+                roles_parents_dict[parent].append(role_data)
 
         for parent, parents_roles_data in roles_parents_dict.items():
             with self.edit(parent) as parent_obj:
@@ -885,7 +888,7 @@ class MetadataRepository(Repository):
         """
         if roles is None:
             roles = self.get_all_targets_roles()
-        target_files = {}
+        target_files: Dict[str, Dict] = {}
         try:
             for role in roles:
                 roles_targets = self.get_targets_of_role(role)
@@ -1211,6 +1214,10 @@ class MetadataRepository(Repository):
             raise TAFError("Keyid to revoke not specified")
         if not roles:
             roles = self.find_keysid_roles([key_id])
+
+        if not roles:
+            raise TAFError("Key not used to sign any role")
+
         parents = self.find_parents_of_roles(roles)
         self.verify_signers_loaded(parents)
 
@@ -1223,7 +1230,8 @@ class MetadataRepository(Repository):
             if len(role_obj.keyids) - 1 < role_obj.threshold:
                 less_than_threshold_roles.append(role)
                 return False
-            if key_id not in self.get_keyids_of_role(role):
+            key_ids_of_role = self.get_keyids_of_role(role) or []
+            if key_id not in key_ids_of_role:
                 not_added_roles.append(role)
                 return False
             return True
@@ -1337,10 +1345,10 @@ class MetadataRepository(Repository):
         except (KeyError, ValueError):
             raise TAFError(f"Invalid metadata file {role}.json")
 
-    def _set_default_expiration_date(self, signed):
-        interval = self.expiration_intervals[signed.type]
+    def _set_default_expiration_date(self, signed: Signed) -> None:
+        interval = self.expiration_intervals.get(signed.type, 90)
         start_date = datetime.now(timezone.utc)
-        expiration_date = start_date + timedelta(interval)
+        expiration_date = start_date + timedelta(days=interval)
         signed.expires = expiration_date
 
     def set_metadata_expiration_date(

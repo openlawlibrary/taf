@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 import io
 from pathlib import Path
-from typing import IO, Optional
+from typing import IO, Dict, Optional
 import pygit2
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.exceptions import GitError, TAFError
@@ -11,7 +11,7 @@ from securesystemslib.storage import FilesystemBackend
 
 from securesystemslib.exceptions import StorageError
 
-git_repos_cache = {}
+git_repos_cache: Dict[str, GitRepository] = {}
 
 
 def is_subpath(path, potential_subpath):
@@ -52,7 +52,7 @@ def find_git_repository(inner_path):
 
 class GitStorageBackend(FilesystemBackend):
 
-    commit = None
+    commit: Optional[str] = None
 
     def __new__(cls, *args, **kwargs):
         return super(FilesystemBackend, cls).__new__(

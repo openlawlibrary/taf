@@ -30,7 +30,7 @@ def _read_json(path):
     return json.loads(Path(path).read_text())
 
 
-@fixture
+@pytest.fixture
 def auth_repo_path(repo_dir):
     random_name = str(uuid.uuid4())
     path = repo_dir / "api" / random_name / "auth"
@@ -38,7 +38,7 @@ def auth_repo_path(repo_dir):
     shutil.rmtree(path.parent, onerror=on_rm_error)
 
 
-@fixture
+@pytest.fixture
 def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
     repo_path = str(auth_repo_path)
     create_repository(
@@ -52,7 +52,7 @@ def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
     yield auth_repo
 
 
-@fixture
+@pytest.fixture
 def auth_repo_with_delegations(
     auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path
 ):
@@ -68,48 +68,48 @@ def auth_repo_with_delegations(
     yield auth_repo
 
 
-@fixture(scope="module")
+@pytest.fixture(scope="module")
 def api_repo_path(repo_dir):
     path = repo_dir / "api" / "auth"
     yield path
     shutil.rmtree(path.parent, onerror=on_rm_error)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def no_delegations_json_input():
     return _read_json(NO_DELEGATIONS_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def no_yubikeys_json_input():
     return _read_json(NO_YUBIKEYS_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def no_yubikeys_path():
     return str(NO_YUBIKEYS_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def with_delegations_json_input():
     return _read_json(WITH_DELEGATIONS_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def invalid_public_key_json_input():
     return _read_json(INVALID_PUBLIC_KEY_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def invalid_keys_number_json_input():
     return _read_json(INVALID_KEYS_NUMBER_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def invalid_path_input():
     return _read_json(INVALID_PATH_INPUT)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def with_old_yubikey_input():
     return _read_json(OLD_YUBIKEY_INPUT)

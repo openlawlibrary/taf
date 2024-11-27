@@ -91,7 +91,7 @@ def _extract_x509(cert_pem: bytes) -> Dict:
 def load_sorted_keys_of_new_roles(
     roles: Union[MainRoles, TargetsRole],
     yubikeys_data: Optional[Dict[str, UserKeyData]],
-    keystore: Optional[str],
+    keystore: Optional[Union[Path, str]],
     yubikeys: Optional[Dict[str, Dict]] = None,
     existing_roles: Optional[List[str]] = None,
     skip_prompt: Optional[bool] = False,
@@ -474,7 +474,7 @@ def _setup_keystore_key(
             )
             signer = load_signer_from_pem(private_pem)
         else:
-            _, private_pem = generate_rsa_keypair(bits=length)
+            _, private_pem = generate_rsa_keypair(key_size=length)
             print(f"{role_name} key:\n\n{private_pem}\n\n")
             signer = load_signer_from_pem(private_pem)
 

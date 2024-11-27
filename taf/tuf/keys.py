@@ -3,7 +3,7 @@
 """
 
 
-from typing import Optional
+from typing import Optional, Union
 
 from pathlib import Path
 from securesystemslib.signer import (
@@ -132,7 +132,7 @@ def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSli
 
 
 def load_public_key_from_file(
-    path: Path, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+    path: Union[str, Path], scheme=DEFAULT_RSA_SIGNATURE_SCHEME
 ) -> SSlibKey:
     """Load SSlibKey from RSA public key file.
 

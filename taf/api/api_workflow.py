@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
@@ -15,18 +15,18 @@ from taf.constants import METADATA_DIRECTORY_NAME
 @contextmanager
 def manage_repo_and_signers(
     auth_repo: AuthenticationRepository,
-    roles: Optional[Set[str]] = None,
-    keystore: Optional[str] = None,
+    roles: Optional[List[str]] = None,
+    keystore: Optional[Union[str, Path]] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
-    paths_to_reset_on_error: List[str] = None,
-    load_roles: bool = True,
-    load_parents: bool = False,
-    load_snapshot_and_timestamp: bool = True,
-    commit: bool = True,
-    push: bool = True,
-    commit_key: str = None,
-    commit_msg: str = None,
+    paths_to_reset_on_error: Optional[List[str]] = None,
+    load_roles: Optional[bool] = True,
+    load_parents: Optional[bool] = False,
+    load_snapshot_and_timestamp: Optional[bool] = True,
+    commit: Optional[bool] = True,
+    push: Optional[bool] = True,
+    commit_key: Optional[str] = None,
+    commit_msg: Optional[str] = None,
     no_commit_warning: bool = True,
 ):
     try:
@@ -44,7 +44,7 @@ def manage_repo_and_signers(
                 keystore_path = find_keystore(auth_repo.path)
             else:
                 keystore_path = Path(keystore)
-            loaded_yubikeys = {}
+            loaded_yubikeys: Dict = {}
             for role in roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
                     keystore_signers, yubikeys = load_signers(

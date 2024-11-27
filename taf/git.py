@@ -236,7 +236,8 @@ class GitRepository:
                     "pygit repository could not be instantiated, assuming not bare"
                 )
                 self._is_bare_repo = False
-            self._is_bare_repo = self.pygit_repo.is_bare
+            else:
+                self._is_bare_repo = self.pygit_repo.is_bare
         return self._is_bare_repo
 
     def _git(self, cmd, *args, **kwargs):
@@ -644,7 +645,9 @@ class GitRepository:
         except GitError:  # If repository is empty
             pass
 
-    def check_files_exist(self, file_paths: str, commit_sha: Optional[str] = None):
+    def check_files_exist(
+        self, file_paths: List[str], commit_sha: Optional[str] = None
+    ):
         """
         Check if file paths are known to git
         """

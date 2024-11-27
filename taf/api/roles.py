@@ -118,14 +118,13 @@ def add_role(
             targets_parent_role.name = parent_role
             targets_parent_role.paths = []
 
-        new_role = TargetsRole(
-            name=role,
-            parent=targets_parent_role,
-            paths=paths,
-            number=keys_number,
-            threshold=threshold,
-            yubikey=yubikey,
-        )
+        new_role = TargetsRole()
+        new_role.name = role
+        new_role.parent = targets_parent_role
+        new_role.paths = paths
+        new_role.number = keys_number
+        new_role.threshold = threshold
+        new_role.yubikey = yubikey
 
         signers, _ = load_sorted_keys_of_new_roles(
             roles=new_role,
