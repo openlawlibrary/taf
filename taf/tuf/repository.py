@@ -151,7 +151,6 @@ class MetadataRepository(Repository):
     def calculate_hashes(
        self, md: Metadata, algorithms: List[str]
     ) -> None:
-        # TODO see comment below
         hashes = {}
         data = md.to_bytes(serializer=self.serializer)
         for algo in algorithms:
@@ -165,11 +164,6 @@ class MetadataRepository(Repository):
         self,
         md: Metadata,
     ) -> None:
-        # TODO this doesn't look correct
-        # how was it being calculated before?
-        # this is fine, but maybe md.to_bytes() is not
-        # added to snapshot and length is < old length
-        # something is weird
         data = md.to_bytes(serializer=self.serializer)
         return len(data)
 

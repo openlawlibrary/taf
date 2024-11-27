@@ -308,7 +308,7 @@ def create_authentication_repository(
 
 def sign_target_files(library_dir, repo_name, keystore):
     repo_path = Path(library_dir, repo_name)
-    register_target_files(str(repo_path), keystore, write=True)
+    register_target_files(str(repo_path), keystore)
 
 
 def _init_auth_repo(

@@ -7,11 +7,11 @@ from taf.tests.test_updater.conftest import (
     SetupManager,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
-    update_role_metadata_invalid_signature,
+    update_timestamp_metadata_invalid_signature,
 )
 from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
-    _clone_full_library,
+    clone_full_library,
     update_and_validate_repositories,
 )
 
@@ -46,7 +46,7 @@ def test_update_with_invalid_dependency_repo(
     library_with_dependencies, origin_dir, client_dir
 ):
 
-    _clone_full_library(
+    clone_full_library(
         library_with_dependencies,
         origin_dir,
         client_dir,
@@ -57,7 +57,7 @@ def test_update_with_invalid_dependency_repo(
     dependency_auth_repo = library_with_dependencies["namespace11/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
     setup_manager.add_task(
-        update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
+        update_timestamp_metadata_invalid_signature
     )
     setup_manager.execute_tasks()
 
@@ -98,7 +98,7 @@ def test_update_invalid_target_repo(
     origin_dir,
     client_dir,
 ):
-    _clone_full_library(
+    clone_full_library(
         library_with_dependencies,
         origin_dir,
         client_dir,
@@ -151,7 +151,7 @@ def test_update_all_except_invalid(
     client_dir,
 ):
 
-    _clone_full_library(
+    clone_full_library(
         library_with_dependencies,
         origin_dir,
         client_dir,
