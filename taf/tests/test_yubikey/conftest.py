@@ -1,17 +1,17 @@
-import pytest
-import taf.yubikey
-from taf.tests import TEST_WITH_REAL_YK
-from taf.tests.conftest import KEYSTORE_PATH
+# import pytest
+# import taf.yubikey
+# from taf.tests import TEST_WITH_REAL_YK
+# from taf.tests.conftest import KEYSTORE_PATH
 
-from taf.tools.yubikey.yubikey_utils import TargetYubiKey, _yk_piv_ctrl_mock
-
-
-def pytest_configure(config):
-    if not TEST_WITH_REAL_YK:
-        taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
+# from taf.tools.yubikey.yubikey_utils import TargetYubiKey, _yk_piv_ctrl_mock
 
 
-@pytest.fixture
-def targets_yk(pytestconfig):
-    """Targets YubiKey."""
-    return TargetYubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
+# def pytest_configure(config):
+#     if not TEST_WITH_REAL_YK:
+#         taf.yubikey._yk_piv_ctrl = _yk_piv_ctrl_mock
+
+
+# @pytest.fixture
+# def targets_yk(pytestconfig):
+#     """Targets YubiKey."""
+#     return TargetYubiKey(KEYSTORE_PATH, pytestconfig.option.signature_scheme)
