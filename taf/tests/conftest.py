@@ -6,7 +6,7 @@ from pathlib import Path
 
 from taf.tuf.keys import load_signer_from_file
 
-from taf.tests import TEST_WITH_REAL_YK
+# from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import on_rm_error
 
 TEST_DATA_PATH = Path(__file__).parent / "data"
@@ -27,17 +27,6 @@ WITH_DELEGATIONS_NO_YUBIKEY = (
 )
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
-
-
-def pytest_generate_tests(metafunc):
-    if "repositories" in metafunc.pytest.fixturenames:
-        # When running tests with real yubikey, use just rsa-pkcs1v15-sha256 scheme
-        schemes = (
-            ["rsa-pkcs1v15-sha256"]
-            if TEST_WITH_REAL_YK
-            else ["rsassa-pss-sha256", "rsa-pkcs1v15-sha256"]
-        )
-        metafunc.parametrize("repositories", schemes, indirect=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
