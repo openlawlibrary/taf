@@ -16,7 +16,6 @@ from securesystemslib.exceptions import StorageError
 from cryptography.hazmat.primitives import serialization
 
 from securesystemslib.signer import Signer
-from securesystemslib import exceptions as sslib_exceptions
 from securesystemslib import hash as sslib_hash
 
 from taf import YubikeyMissingLibrary
@@ -43,7 +42,7 @@ from tuf.api.metadata import (
     Delegations,
 )
 from tuf.api.serialization.json import JSONSerializer
-from taf.exceptions import InvalidKeyError, SignersNotLoaded, SigningError, TAFError, TargetsError
+from taf.exceptions import InvalidKeyError, SignersNotLoaded, TAFError, TargetsError
 from taf.models.types import RolesIterator, RolesKeysData, TargetsRole
 from taf.tuf.keys import SSlibKey, _get_legacy_keyid, get_sslib_key_from_value
 from tuf.repository import Repository
@@ -98,6 +97,8 @@ class MetadataRepository(Repository):
         signer_cache: All signers available to the repository. Keys are role
             names, values are lists of signers. On `close` each signer for a
             role is used to sign the related role metadata.
+        metadata_to_keep_open: A set containing metadata whose version numbers should not
+        be increased when saving to disk. This makes it possible to combine multiple updates
     """
 
     expiration_intervals = {"root": 365, "targets": 90, "snapshot": 7, "timestamp": 1}
@@ -127,6 +128,7 @@ class MetadataRepository(Repository):
             self.storage_backend = storage_backend
         else:
             self.storage_backend = FilesystemBackend()
+        self._metadata_to_keep_open: Set[str] = set()
 
     @property
     def metadata_path(self) -> Path:
@@ -268,7 +270,6 @@ class MetadataRepository(Repository):
         self.modify_targets(added_data=added_data)
 
 
-
     def add_path_to_delegated_role(self, role: str, paths: List[str]) -> bool:
         """
         Add delegated paths to delegated role and return True if successful
@@ -293,6 +294,9 @@ class MetadataRepository(Repository):
                 parents_of_roles.add(parent_role)
             for parent_role in parents_of_roles:
                 sn.meta[f"{parent_role}.json"].version =  sn.meta[f"{parent_role}.json"].version + 1
+
+    def add_to_open_metadata(self, roles: List[str]):
+        self._metadata_to_keep_open.add(roles)
 
     def open(self, role: str) -> Metadata:
         """Read role metadata from disk."""
@@ -372,11 +376,15 @@ class MetadataRepository(Repository):
                 else:
                     f.write(content)
 
+    def clear_open_metadata(self):
+        self._metadata_to_keep_open = set()
+
     def close(self, role: str, md: Metadata) -> None:
         """Bump version and expiry, re-sign, and write role metadata to disk."""
 
         # expiration date is updated before close is called
-        md.signed.version += 1
+        if role not in self._metadata_to_keep_open:
+            md.signed.version += 1
 
         md.signatures.clear()
         for signer in self.signer_cache[role].values():
@@ -1342,7 +1350,7 @@ class MetadataRepository(Repository):
                     interval = self.expiration_intervals[role_name]
                 except KeyError:
                     interval = self.expiration_intervals["targets"]
-            expiration_date = start_date + timedelta(interval)
+            expiration_date = start_date + timedelta(days=interval)
             role.expires = expiration_date
 
 
@@ -1380,10 +1388,10 @@ class MetadataRepository(Repository):
 
         self._modify_tarets_role(target_files, removed_paths, role)
 
-    def update_snapshot_and_timestamp(self):
+    def update_snapshot_and_timestamp(self, force=True):
         self.verify_signers_loaded(["snapshot", "timestamp"])
-        self.do_snapshot()
-        self.do_timestamp()
+        self.do_snapshot(force=force)
+        self.do_timestamp(force=force)
 
     def verify_roles_exist(self, roles: List[str]):
         non_existant_roles = []

@@ -13,6 +13,8 @@ from taf.tuf.repository import MetadataRepository as TUFRepository, is_delegated
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
 
+from tuf.api.metadata import Snapshot, Timestamp
+
 
 @log_on_error(
     ERROR,
@@ -129,22 +131,25 @@ def update_metadata_expiration_date(
     if start_date is None:
         start_date = datetime.now()
 
-    roles_to_update = set(roles)
-    if update_snapshot_and_timestamp:
-        update_snapshot_and_timestamp = (
-            "timestamp" not in roles_to_update or len(roles_to_update) > 1
-        )
-    if update_snapshot_and_timestamp:
-        roles_to_update.add("snapshot")
-        roles_to_update.add("timestamp")
-
     commit_msg = git_commit_message(
         "update-expiration-dates", roles=",".join(roles)
     )
 
+    # update the order, snapshot has to be updated before timestamp
+    # and all other roles have to be updated before snapshot
+    # all other roles can be updated in any order
+
+    if len(roles) == 1 and Timestamp.type in roles:
+        update_snapshot_and_timestamp = False
+    if Timestamp.type in roles and Snapshot.type in roles:
+        update_snapshot_and_timestamp = True
+
+    update_snapshot_expiration_date = Snapshot.type in roles
+    update_timestamp_expiration_date = Timestamp.type in roles
+
     with manage_repo_and_signers(
         auth_repo,
-        roles_to_update,
+        roles,
         keystore,
         scheme,
         prompt_for_keys,
@@ -153,7 +158,18 @@ def update_metadata_expiration_date(
         commit_msg=commit_msg,
         push=push
     ):
-        for role in roles_to_update:
+        if update_snapshot_and_timestamp:
+            if update_snapshot_expiration_date:
+                auth_repo.add_to_open_metadata(Snapshot.type)
+            if update_timestamp_expiration_date:
+                auth_repo.add_to_open_metadata(Timestamp.type)
+
+        for role in roles:
             auth_repo.set_metadata_expiration_date(
                 role, start_date=start_date, interval=interval
             )
+
+        auth_repo.clear_open_metadata()
+
+        if update_snapshot_and_timestamp:
+            auth_repo.update_snapshot_and_timestamp()
