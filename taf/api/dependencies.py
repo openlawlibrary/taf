@@ -301,7 +301,7 @@ Setting:
     Branch:                             {branch_name}
     out-of-band authentication commit:  {out_of_band_commit}.
 
-Proceed?""" # noqa: E241
+Proceed?"""  # noqa: E241
         if not click.confirm(message):
             return None, None
 
