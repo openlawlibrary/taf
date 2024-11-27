@@ -1,3 +1,4 @@
+import pytest
 import json
 import re
 import shutil
@@ -5,8 +6,6 @@ from pathlib import Path
 
 from taf.tuf.keys import load_signer_from_file
 
-
-from pytest import fixture
 from taf.tests import TEST_WITH_REAL_YK
 from taf.utils import on_rm_error
 
@@ -23,12 +22,15 @@ HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
 TEST_INIT_DATA_PATH = Path(__file__).parent / "init_data"
 REPOSITORY_DESCRIPTION_INPUT_DIR = TEST_DATA_PATH / "repository_description_inputs"
 NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
-WITH_DELEGATIONS_NO_YUBIKEY = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
+WITH_DELEGATIONS_NO_YUBIKEY = (
+    REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
+)
 REPOSITORIES_JSON_PATH = TEST_INIT_DATA_PATH / "repositories.json"
 MIRRORS_JSON_PATH = TEST_INIT_DATA_PATH / "mirrors.json"
 
+
 def pytest_generate_tests(metafunc):
-    if "repositories" in metafunc.fixturenames:
+    if "repositories" in metafunc.pytest.fixturenames:
         # When running tests with real yubikey, use just rsa-pkcs1v15-sha256 scheme
         schemes = (
             ["rsa-pkcs1v15-sha256"]
@@ -38,7 +40,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("repositories", schemes, indirect=True)
 
 
-@fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def repo_dir():
     path = CLIENT_DIR_PATH
     if path.is_dir():
@@ -48,65 +50,67 @@ def repo_dir():
     shutil.rmtree(path, onerror=on_rm_error)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def keystore():
     """Create signer from some rsa test key."""
     return TEST_DATA_PATH / "keystores" / "keystore"
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def keystore_delegations():
     """Create signer from some rsa test key."""
     return TEST_DATA_PATH / "keystores" / "keystore_delegations"
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def mirrors_json_path():
     return MIRRORS_JSON_PATH
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def no_yubikeys_input():
     return json.loads(NO_YUBIKEYS_INPUT.read_text())
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def with_delegations_no_yubikeys_input():
     return json.loads(WITH_DELEGATIONS_NO_YUBIKEY.read_text())
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def with_delegations_no_yubikeys_path():
     return WITH_DELEGATIONS_NO_YUBIKEY
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def signers(keystore):
     return _load_signers_from_keystore(keystore)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def signers_with_delegations(keystore_delegations):
     return _load_signers_from_keystore(keystore_delegations)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def public_keys(signers):
     return {
-        role_name: [signer.public_key for signer in signers] for role_name, signers in signers.items()
+        role_name: [signer.public_key for signer in signers]
+        for role_name, signers in signers.items()
     }
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def public_keys_with_delegations(signers_with_delegations):
     return {
-        role_name: [signer.public_key for signer in signers] for role_name, signers in signers_with_delegations.items()
+        role_name: [signer.public_key for signer in signers]
+        for role_name, signers in signers_with_delegations.items()
     }
 
 
 def _load_signers_from_keystore(keystore):
     def normalize_base_name(name):
-        return re.sub(r'\d+$', '', name)
+        return re.sub(r"\d+$", "", name)
 
     signers = {}
 
@@ -120,14 +124,12 @@ def _load_signers_from_keystore(keystore):
     return signers
 
 
-
-
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def repositories_json_template():
     return json.loads(Path(REPOSITORIES_JSON_PATH).read_text())
 
 
-@fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def repo_path(request, repo_dir):
     # Get the base directory path
 
@@ -141,7 +143,7 @@ def repo_path(request, repo_dir):
     shutil.rmtree(full_path, onerror=on_rm_error)
 
 
-@fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def output_path():
     shutil.rmtree(TEST_OUTPUT_PATH, ignore_errors=True)
     TEST_OUTPUT_PATH.mkdir()
@@ -149,17 +151,17 @@ def output_path():
     shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def client_dir():
     return CLIENT_DIR_PATH
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def origin_dir():
     return TEST_DATA_ORIGIN_PATH
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def wrong_keystore():
     """Path of the wrong keystore"""
     return str(WRONG_KEYSTORE_PATH)

@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import List, Optional
 import click
 import securesystemslib
-from taf.tuf.keys import load_public_key_from_file, load_signer_from_file, load_signer_from_pem
+from taf.tuf.keys import (
+    load_public_key_from_file,
+    load_signer_from_file,
+    load_signer_from_pem,
+)
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import KeystoreError
@@ -75,7 +79,6 @@ def key_cmd_prompt(
             return pem
 
 
-
 def new_public_key_cmd_prompt(scheme: Optional[str]) -> SSlibKey:
     def _enter_and_check_key(scheme):
         pem = getpass("Enter public key without its header and footer\n")
@@ -105,9 +108,7 @@ def load_signer_from_private_keystore(
     def _read_key(path, password, scheme):
         def _read_key_or_keystore_error(path, password, scheme):
             try:
-                return load_signer_from_file(
-                    path, password or None, scheme=scheme
-                )
+                return load_signer_from_file(path, password or None, scheme=scheme)
             except TypeError:
                 raise
             except Exception as e:

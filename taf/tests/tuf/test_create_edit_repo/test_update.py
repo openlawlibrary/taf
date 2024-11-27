@@ -1,4 +1,3 @@
-
 import datetime
 
 from taf.models.types import TargetsRole
@@ -8,9 +7,15 @@ def test_update_expiration_date(tuf_repo, signers_with_delegations):
 
     assert tuf_repo.root().version == 1
     today = datetime.datetime.now(datetime.timezone.utc).date()
-    assert tuf_repo.get_expiration_date("root").date() == today + datetime.timedelta(days=365)
-    tuf_repo.set_metadata_expiration_date("root", signers_with_delegations["root"], interval=730)
-    assert tuf_repo.get_expiration_date("root").date() == today + datetime.timedelta(days=730)
+    assert tuf_repo.get_expiration_date("root").date() == today + datetime.timedelta(
+        days=365
+    )
+    tuf_repo.set_metadata_expiration_date(
+        "root", signers_with_delegations["root"], interval=730
+    )
+    assert tuf_repo.get_expiration_date("root").date() == today + datetime.timedelta(
+        days=730
+    )
     assert tuf_repo.root().version == 2
     # timestamp and snapshot are not updated here
     assert tuf_repo.timestamp().version == 1
@@ -28,7 +33,9 @@ def test_add_delegated_paths(tuf_repo):
     assert tuf_repo.snapshot().version == 1
 
     for path in new_paths:
-        assert path in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths
+        assert (
+            path in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths
+        )
 
 
 def test_add_new_role(tuf_repo, signers):
@@ -39,7 +46,14 @@ def test_add_new_role(tuf_repo, signers):
     keys_number = 2
 
     role_signers = {role_name: [signers["targets"][0], signers["snapshot"][0]]}
-    new_role = TargetsRole(name=role_name,parent=targets_parent_role,paths=paths,number=keys_number,threshold=threshold, yubikey=False )
+    new_role = TargetsRole(
+        name=role_name,
+        parent=targets_parent_role,
+        paths=paths,
+        number=keys_number,
+        threshold=threshold,
+        yubikey=False,
+    )
     tuf_repo.create_delegated_role([new_role], role_signers)
     assert tuf_repo.targets().version == 2
     assert role_name in tuf_repo.targets().delegations.roles
@@ -63,5 +77,7 @@ def test_remove_delegated_paths(tuf_repo):
     assert tuf_repo.snapshot().version == 1
 
     for path in paths_to_remvoe:
-        assert path not in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths
-
+        assert (
+            path
+            not in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths
+        )

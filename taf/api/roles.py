@@ -1,7 +1,4 @@
-from functools import partial
-import glob
 from logging import DEBUG, ERROR
-import os
 from typing import Dict, List, Optional, Tuple
 import click
 from collections import defaultdict
@@ -114,7 +111,7 @@ def add_role(
         commit=commit,
         push=push,
         commit_msg=commit_msg,
-        paths_to_reset_on_error=[metadata_path]
+        paths_to_reset_on_error=[metadata_path],
     ):
         targets_parent_role = TargetsRole()
         if parent_role != "targets":
@@ -186,11 +183,16 @@ def add_role_paths(
         auth_repo = AuthenticationRepository(path=auth_path)
 
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
-    if all(path in auth_repo.get_delegations_of_role(parent_role)[delegated_role].paths for path in paths):
+    if all(
+        path in auth_repo.get_delegations_of_role(parent_role)[delegated_role].paths
+        for path in paths
+    ):
         taf_logger.log("NOTICE", "Paths already added")
         return
 
-    commit_msg = git_commit_message("add-role-paths", role=delegated_role, paths=", ".join(paths))
+    commit_msg = git_commit_message(
+        "add-role-paths", role=delegated_role, paths=", ".join(paths)
+    )
 
     with manage_repo_and_signers(
         auth_repo,
@@ -202,7 +204,7 @@ def add_role_paths(
         load_snapshot_and_timestamp=True,
         commit=commit,
         push=push,
-        commit_msg=commit_msg
+        commit_msg=commit_msg,
     ):
         auth_repo.add_path_to_delegated_role(role=delegated_role, paths=paths)
         auth_repo.update_snapshot_and_timestamp()
@@ -257,14 +259,22 @@ def add_multiple_roles(
     new_roles_data, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
     existing_roles = auth_repo.get_all_targets_roles()
     existing_roles.extend(MAIN_ROLES)
-    roles_to_add_data = [role_data for role_data in new_roles_data if role_data.name not in existing_roles]
+    roles_to_add_data = [
+        role_data
+        for role_data in new_roles_data
+        if role_data.name not in existing_roles
+    ]
     if not len(roles_to_add_data):
         taf_logger.log("NOTICE", "All roles already set up")
         return
 
     roles_to_add = [role_data.name for role_data in new_roles_data]
     commit_msg = git_commit_message("add-roles", roles=", ".join(roles_to_add))
-    roles_to_load = [role_data.parent.name for role_data in new_roles_data if role_data.parent.name not in roles_to_add]
+    roles_to_load = [
+        role_data.parent.name
+        for role_data in new_roles_data
+        if role_data.parent.name not in roles_to_add
+    ]
     keystore_path = roles_keys_data_new.keystore
 
     with manage_repo_and_signers(
@@ -354,7 +364,6 @@ def add_signing_key(
     pub_key = get_sslib_key_from_value(pub_key_pem)
 
     roles_keys = {role: [pub_key] for role in roles}
-
 
     auth_repo = AuthenticationRepository(path=path)
 
@@ -962,7 +971,7 @@ def remove_paths(
         load_snapshot_and_timestamp=True,
         commit=commit,
         push=push,
-        commit_msg=commit_msg
+        commit_msg=commit_msg,
     ):
         auth_repo.remove_delegated_paths(paths_to_remove_from_roles)
         auth_repo.update_snapshot_and_timestamp()

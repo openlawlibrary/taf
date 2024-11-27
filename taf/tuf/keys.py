@@ -41,9 +41,7 @@ def create_signer(priv, pub):
 def generate_rsa_keypair(key_size=3072, password=None):
     # Generate private key
     private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=key_size,
-        backend=default_backend()
+        public_exponent=65537, key_size=key_size, backend=default_backend()
     )
 
     # Encrypt the private key if a password is provided
@@ -56,7 +54,7 @@ def generate_rsa_keypair(key_size=3072, password=None):
     private_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=encryption_algorithm
+        encryption_algorithm=encryption_algorithm,
     )
 
     # Get the public key from the private key
@@ -64,10 +62,11 @@ def generate_rsa_keypair(key_size=3072, password=None):
     # Serialize public key
     public_pem = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
 
     return private_pem, public_pem
+
 
 def generate_and_write_rsa_keypair(path, key_size, password):
 
@@ -78,7 +77,7 @@ def generate_and_write_rsa_keypair(path, key_size, password):
     with open(path, "wb") as f:
         f.write(private_pem)
 
-    with open(f"{path}.pub", 'wb') as f:
+    with open(f"{path}.pub", "wb") as f:
         f.write(public_pem)
 
     return private_pem
@@ -96,7 +95,9 @@ def _get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
         return role_name + str(key_num + 1)
 
 
-def get_sslib_key_from_value(key: str, scheme:str=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
+def get_sslib_key_from_value(
+    key: str, scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME
+) -> SSlibKey:
     key_val = key.encode()
     crypto_key = load_pem_public_key(key_val, backend=default_backend())
     return _from_crypto(crypto_key, scheme=scheme)
@@ -118,7 +119,6 @@ def _get_legacy_keyid(key: SSlibKey) -> str:
     return hasher.hexdigest()
 
 
-
 def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
     """Converts pyca/cryptography public key to SSlibKey with default signing
     scheme and legacy keyid."""
@@ -131,8 +131,9 @@ def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSli
     return key
 
 
-
-def load_public_key_from_file(path: Path, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
+def load_public_key_from_file(
+    path: Path, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+) -> SSlibKey:
     """Load SSlibKey from RSA public key file.
 
     * Expected key file format is SubjectPublicKeyInfo/PEM
@@ -148,7 +149,9 @@ def load_public_key_from_file(path: Path, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -
     return _from_crypto(pub)
 
 
-def load_signer_from_file(path: Path, password: Optional[str]=None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> CryptoSigner:
+def load_signer_from_file(
+    path: Path, password: Optional[str] = None, scheme=DEFAULT_RSA_SIGNATURE_SCHEME
+) -> CryptoSigner:
     """Load CryptoSigner from RSA private key file.
 
     * Expected key file format is PKCS8/PEM
@@ -168,7 +171,7 @@ def load_signer_from_file(path: Path, password: Optional[str]=None, scheme=DEFAU
     return CryptoSigner(priv, _from_crypto(pub))
 
 
-def load_signer_from_pem(pem: bytes, password: Optional[bytes]=None) -> CryptoSigner:
+def load_signer_from_pem(pem: bytes, password: Optional[bytes] = None) -> CryptoSigner:
     """Load CryptoSigner from RSA private key file.
 
     * Expected key file format is PKCS8/PEM

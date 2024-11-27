@@ -7,7 +7,6 @@ from taf.exceptions import TAFError
 from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from pytest import fixture
 from taf.api.repository import create_repository
 from taf.tests.conftest import CLIENT_DIR_PATH
 from taf.utils import on_rm_error
@@ -25,14 +24,14 @@ def _init_auth_repo_dir():
     return auth_path
 
 
-@fixture(scope="module")
+@pytest.fixture(scope="module")
 def child_repo_path():
     repo_path = _init_auth_repo_dir()
     yield repo_path
     shutil.rmtree(str(repo_path.parent), onerror=on_rm_error)
 
 
-@fixture(scope="module")
+@pytest.fixture(scope="module")
 def parent_repo_path():
     repo_path = _init_auth_repo_dir()
     yield repo_path

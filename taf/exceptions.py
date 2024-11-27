@@ -18,8 +18,11 @@ class CloneRepoException(TAFError):
             f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
         )
 
+
 class CommandValidationError(TAFError):
     pass
+
+
 class FetchException(TAFError):
     def __init__(self, path: str):
         self.message = f"Cannot fetch changes. Repo: {path}"

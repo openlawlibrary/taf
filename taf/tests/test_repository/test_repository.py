@@ -1,5 +1,5 @@
-from pygit2 import init_repository
 import pytest
+from pygit2 import init_repository
 from pathlib import Path
 
 from taf.exceptions import InvalidRepositoryError
@@ -219,12 +219,12 @@ def test_autodetect_default_branch_with_git_init_bare_expect_autodetected(repo_p
 
 
 def test_default_branch_when_master(repo_path):
-    init_repository(repo_path, initial_head='main')
+    init_repository(repo_path, initial_head="main")
     repo = GitRepository(path=repo_path)
     assert repo.default_branch == "main"
 
 
 def test_default_branch_when_main(repo_path):
-    init_repository(repo_path, initial_head='master')
+    init_repository(repo_path, initial_head="master")
     repo = GitRepository(path=repo_path)
     assert repo.default_branch == "master"

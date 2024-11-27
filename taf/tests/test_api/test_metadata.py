@@ -1,22 +1,21 @@
 import datetime
-
+import pytest
 from taf.messages import git_commit_message
 from freezegun import freeze_time
-from pathlib import Path
 from typing import Dict
 from taf.auth_repo import AuthenticationRepository
-from pytest import fixture
 from taf.api.repository import create_repository
-from taf.utils import on_rm_error
 from taf.api.metadata import check_expiration_dates, update_metadata_expiration_date
 
 
 AUTH_REPO_NAME = "auth"
 
 
-@fixture(scope="module")
+@pytest.fixture(scope="module")
 @freeze_time("2021-12-31")
-def auth_repo_expired(api_repo_path, keystore_delegations, with_delegations_no_yubikeys_path):
+def auth_repo_expired(
+    api_repo_path, keystore_delegations, with_delegations_no_yubikeys_path
+):
     repo_path = str(api_repo_path)
     create_repository(
         repo_path,
@@ -30,8 +29,12 @@ def auth_repo_expired(api_repo_path, keystore_delegations, with_delegations_no_y
 
 
 @freeze_time("2023-01-01")
-def test_check_expiration_date_when_all_expired(auth_repo_expired: AuthenticationRepository):
-    expired, will_expire = check_expiration_dates(auth_repo_expired.path, print_output=False)
+def test_check_expiration_date_when_all_expired(
+    auth_repo_expired: AuthenticationRepository,
+):
+    expired, will_expire = check_expiration_dates(
+        auth_repo_expired.path, print_output=False
+    )
     start = datetime.datetime(2021, 12, 31, tzinfo=datetime.timezone.utc)
     # expect expire after 1 day
     _check_expired_role("timestamp", start, 1, expired)
@@ -46,7 +49,9 @@ def test_check_expiration_date_when_all_expired(auth_repo_expired: Authenticatio
 
 
 @freeze_time("2023-01-01")
-def test_update_root_metadata(auth_repo_expired: AuthenticationRepository, keystore_delegations: str):
+def test_update_root_metadata(
+    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+):
     # update root metadata, expect snapshot and timestamp to be updated too
     # targets should not be updated
     auth_repo_path = auth_repo_expired.path
@@ -77,7 +82,9 @@ def test_update_root_metadata(auth_repo_expired: AuthenticationRepository, keyst
 
 
 @freeze_time("2023-01-01")
-def test_check_expiration_date_when_expired_and_will_expire(auth_repo_expired: AuthenticationRepository):
+def test_check_expiration_date_when_expired_and_will_expire(
+    auth_repo_expired: AuthenticationRepository,
+):
     auth_repo_path = auth_repo_expired.path
     expired, will_expire = check_expiration_dates(
         auth_repo_path, interval=90, print_output=False
@@ -101,7 +108,9 @@ def test_check_expiration_date_when_expired_and_will_expire(auth_repo_expired: A
 
 
 @freeze_time("2023-01-01")
-def test_update_multiple_roles_metadata(auth_repo_expired: AuthenticationRepository, keystore_delegations: str):
+def test_update_multiple_roles_metadata(
+    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+):
     # update root metadata, expect snapshot and timestamp to be updated too
     # targets should not be updated
     auth_repo_path = auth_repo_expired.path
@@ -128,7 +137,9 @@ def test_update_multiple_roles_metadata(auth_repo_expired: AuthenticationReposit
 
 
 @freeze_time("2023-01-01")
-def test_check_expiration_date_when_no_expired(auth_repo_expired: AuthenticationRepository):
+def test_check_expiration_date_when_no_expired(
+    auth_repo_expired: AuthenticationRepository,
+):
     auth_repo_path = auth_repo_expired.path
     expired, will_expire = check_expiration_dates(
         auth_repo_path, interval=90, print_output=False

@@ -21,13 +21,13 @@ def manage_repo_and_signers(
     prompt_for_keys: Optional[bool] = False,
     paths_to_reset_on_error: List[str] = None,
     load_roles: bool = True,
-    load_parents: bool =False,
-    load_snapshot_and_timestamp: bool =True,
-    commit: bool =True,
-    push: bool =True,
-    commit_key: str=None,
-    commit_msg: str=None,
-    no_commit_warning: bool =True,
+    load_parents: bool = False,
+    load_snapshot_and_timestamp: bool = True,
+    commit: bool = True,
+    push: bool = True,
+    commit_key: str = None,
+    commit_msg: str = None,
+    no_commit_warning: bool = True,
 ):
     try:
         roles_to_load = set()
@@ -65,7 +65,9 @@ def manage_repo_and_signers(
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
     except Exception as e:
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
         taf_logger.error(f"An error occurred: {e}")
         if not paths_to_reset_on_error:
             paths_to_reset_on_error = [METADATA_DIRECTORY_NAME]

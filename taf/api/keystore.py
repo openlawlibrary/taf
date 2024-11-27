@@ -5,7 +5,6 @@ from pathlib import Path
 from taf.models.types import RolesKeysData
 from taf.api.utils._conf import find_taf_directory
 
-
 from taf.api.roles import _initialize_roles_and_keystore
 from taf.keys import get_key_name
 from taf.log import taf_logger

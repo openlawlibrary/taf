@@ -20,7 +20,7 @@ from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
 from taf.api.utils._conf import find_keystore
-from taf.tuf.repository import METADATA_DIRECTORY_NAME, MetadataRepository
+from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
 from taf.log import taf_logger
 
@@ -95,9 +95,7 @@ def create_repository(
 
     if test:
         auth_repo.targets_path.mkdir(exist_ok=True)
-        test_auth_file = (
-            auth_repo.targets_path / auth_repo.TEST_REPO_FLAG_FILE
-        )
+        test_auth_file = auth_repo.targets_path / auth_repo.TEST_REPO_FLAG_FILE
         test_auth_file.touch()
 
     register_target_files(

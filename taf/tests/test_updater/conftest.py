@@ -19,7 +19,6 @@ from taf.api.metadata import (
 )
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
-from taf.messages import git_commit_message
 from taf import repositoriesdb, settings
 from taf.exceptions import GitError
 from taf.utils import on_rm_error
@@ -643,9 +642,7 @@ def update_target_repo_without_committing(target_repos: list, target_name: str):
             update_target_repository(target_repo)
 
 
-def update_timestamp_metadata_invalid_signature(
-    auth_repo: AuthenticationRepository
-):
+def update_timestamp_metadata_invalid_signature(auth_repo: AuthenticationRepository):
 
     role = Timestamp.type
     with manage_repo_and_signers(
@@ -657,7 +654,7 @@ def update_timestamp_metadata_invalid_signature(
         load_snapshot_and_timestamp=False,
         commit=True,
         commit_msg="Invalid metadata update",
-        push=False
+        push=False,
     ):
         role_metadata_path = Path(auth_repo.path, "metadata", f"{role}.json")
         content = json.loads(role_metadata_path.read_text())
@@ -680,7 +677,6 @@ def update_and_sign_metadata_without_clean_check(
         skip_clean_check=True,
         update_snapshot_and_timestamp=True,
     )
-
 
 
 def update_target_repository(

@@ -2,7 +2,15 @@ import json
 from pathlib import Path
 import sys
 import click
-from taf.api.roles import add_multiple_roles, add_role, list_keys_of_role, add_signing_key, remove_role, revoke_signing_key, remove_paths
+from taf.api.roles import (
+    add_multiple_roles,
+    add_role,
+    list_keys_of_role,
+    add_signing_key,
+    remove_role,
+    revoke_signing_key,
+    remove_paths
+)
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository

@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil
-from pytest import fixture
+import pytest
 from taf.git import GitRepository
 from taf.exceptions import NothingToCommitError
 from taf.utils import on_rm_error
@@ -12,7 +12,7 @@ REPO_NAME = "repository"
 CLONE_REPO_NAME = "repository2"
 
 
-@fixture
+@pytest.fixture
 def repository():
     path = TEST_DIR / REPO_NAME
     path.mkdir(exist_ok=True, parents=True)
@@ -33,7 +33,7 @@ def repository():
     shutil.rmtree(path, onerror=on_rm_error)
 
 
-@fixture
+@pytest.fixture
 def clone_repository():
     path = TEST_DIR / CLONE_REPO_NAME
     path.mkdir(exist_ok=True, parents=True)
@@ -43,7 +43,7 @@ def clone_repository():
     shutil.rmtree(path, onerror=on_rm_error)
 
 
-@fixture
+@pytest.fixture
 def empty_repository():
     path = TEST_DIR / CLONE_REPO_NAME
     path.mkdir(exist_ok=True, parents=True)

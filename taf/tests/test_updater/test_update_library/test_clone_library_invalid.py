@@ -46,9 +46,7 @@ def test_clone_with_invalid_dependency_repo(
     # Invalidate one of the authentication repositories in dependencies
     dependency_auth_repo = library_with_dependencies["namespace1/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
-    setup_manager.add_task(
-        update_timestamp_metadata_invalid_signature
-    )
+    setup_manager.add_task(update_timestamp_metadata_invalid_signature)
     setup_manager.execute_tasks()
 
     # Run the updater which will clone and then update
@@ -144,9 +142,7 @@ def test_clone_with_invalid_root_repo(
     root_repo = library_with_dependencies["root/auth"]["auth_repo"]
     setup_manager = SetupManager(root_repo)
     setup_manager = SetupManager(root_repo)
-    setup_manager.add_task(
-        update_timestamp_metadata_invalid_signature
-    )
+    setup_manager.add_task(update_timestamp_metadata_invalid_signature)
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN_ROOT):

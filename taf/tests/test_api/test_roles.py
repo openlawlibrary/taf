@@ -1,4 +1,5 @@
 import shutil
+import pytest
 from pathlib import Path
 from typing import List
 from taf.api.roles import (
@@ -12,10 +13,9 @@ from taf.api.roles import (
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.conftest import KEYSTORES_PATH
-from pytest import fixture
 
 
-@fixture(scope="module")
+@pytest.fixture(scope="module")
 def roles_keystore(keystore_delegations):
     # set up a keystore by copying the api keystore
     # new keystore files are expected to be created and store to this directory
@@ -31,7 +31,9 @@ def roles_keystore(keystore_delegations):
     shutil.rmtree(str(roles_keystore))
 
 
-def test_add_role_when_target_is_parent(auth_repo: AuthenticationRepository, roles_keystore: str):
+def test_add_role_when_target_is_parent(
+    auth_repo: AuthenticationRepository, roles_keystore: str
+):
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "new_role"
     PATHS = ["some-path1", "some-path2"]
@@ -78,11 +80,15 @@ def test_add_role_when_delegated_role_is_parent(
     commits = auth_repo_with_delegations.list_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("add-role", role=ROLE_NAME)
-    _check_new_role(auth_repo_with_delegations, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME)
+    _check_new_role(
+        auth_repo_with_delegations, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME
+    )
 
 
 def test_add_multiple_roles(
-    auth_repo: AuthenticationRepository, roles_keystore: str, with_delegations_no_yubikeys_path: str
+    auth_repo: AuthenticationRepository,
+    roles_keystore: str,
+    with_delegations_no_yubikeys_path: str,
 ):
     initial_commits_num = len(auth_repo.list_commits())
     add_multiple_roles(
@@ -106,7 +112,9 @@ def test_add_multiple_roles(
     assert auth_repo.find_delegated_roles_parent("inner_role") == "delegated_role"
 
 
-def test_add_role_paths(auth_repo_with_delegations: AuthenticationRepository,  roles_keystore: str):
+def test_add_role_paths(
+    auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str
+):
     initial_commits_num = len(auth_repo_with_delegations.list_commits())
     NEW_PATHS = ["some-path3"]
     ROLE_NAME = "delegated_role"
@@ -128,7 +136,9 @@ def test_add_role_paths(auth_repo_with_delegations: AuthenticationRepository,  r
     assert "some-path3" in roles_paths
 
 
-def test_remove_role_paths(auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str):
+def test_remove_role_paths(
+    auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str
+):
     initial_commits_num = len(auth_repo_with_delegations.list_commits())
     REMOVED_PATHS = ["dir2/path1"]
     ROLE_NAME = "delegated_role"

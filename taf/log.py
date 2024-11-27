@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 from typing import Dict
-import securesystemslib
 from pathlib import Path
 
 # import tuf.log
@@ -94,8 +93,8 @@ def initialize_logger_handlers():
         )
         # tuf.log.set_console_log_level(logging.ERROR)
     # else:
-        # if console logging is disable, remove tuf console logger
-        # disable_tuf_console_logging()
+    # if console logging is disable, remove tuf console logger
+    # disable_tuf_console_logging()
 
     if settings.ENABLE_FILE_LOGGING:
         log_location = _get_log_location()
@@ -116,8 +115,8 @@ def initialize_logger_handlers():
     #     except tuf.exceptions.Error:
     #         pass
     # else:
-        # # if file logging is disabled, also disable tuf file logging
-        # disable_tuf_file_logging()
+    # # if file logging is disabled, also disable tuf file logging
+    # disable_tuf_file_logging()
 
 
 initialize_logger_handlers()

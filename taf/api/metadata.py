@@ -1,19 +1,17 @@
 from datetime import datetime, timezone
-from logging import INFO, ERROR
+from logging import ERROR
 from typing import Dict, List, Optional, Tuple
-from logdecorator import log_on_end, log_on_error
-from taf.api.utils._conf import find_keystore
+from logdecorator import log_on_error
+from tuf.api.metadata import Snapshot, Timestamp
+
 from taf.api.utils._git import check_if_clean
 from taf.api.api_workflow import manage_repo_and_signers
 from taf.exceptions import TAFError
-from taf.keys import load_signers
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
-from taf.tuf.repository import MetadataRepository as TUFRepository, is_delegated_role
+from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
-
-from tuf.api.metadata import Snapshot, Timestamp
 
 
 @log_on_error(
@@ -87,7 +85,6 @@ def print_expiration_dates(
         print(f"No roles will expire within the given {interval} day interval")
 
 
-
 @check_if_clean
 def update_metadata_expiration_date(
     path: str,
@@ -131,9 +128,7 @@ def update_metadata_expiration_date(
     if start_date is None:
         start_date = datetime.now()
 
-    commit_msg = git_commit_message(
-        "update-expiration-dates", roles=",".join(roles)
-    )
+    commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
 
     # update the order, snapshot has to be updated before timestamp
     # and all other roles have to be updated before snapshot
@@ -156,7 +151,7 @@ def update_metadata_expiration_date(
         load_snapshot_and_timestamp=update_snapshot_and_timestamp,
         commit=commit,
         commit_msg=commit_msg,
-        push=push
+        push=push,
     ):
         if update_snapshot_and_timestamp:
             if update_snapshot_expiration_date:

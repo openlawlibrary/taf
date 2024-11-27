@@ -1,5 +1,3 @@
-
-
 from contextlib import contextmanager
 import io
 from pathlib import Path
@@ -25,6 +23,7 @@ def is_subpath(path, potential_subpath):
         return True
     except ValueError:
         return False
+
 
 def find_git_repository(inner_path):
     for path, repo in git_repos_cache.items():
@@ -56,12 +55,14 @@ class GitStorageBackend(FilesystemBackend):
     commit = None
 
     def __new__(cls, *args, **kwargs):
-        return super(FilesystemBackend, cls).__new__(cls, *args, **kwargs)  # Bypass singleton
+        return super(FilesystemBackend, cls).__new__(
+            cls, *args, **kwargs
+        )  # Bypass singleton
 
     @contextmanager
     def get(self, filepath: str):
         if self.commit is None:
-           with super().get(filepath=filepath) as value_from_base:
+            with super().get(filepath=filepath) as value_from_base:
                 yield value_from_base
         else:
             try:
@@ -74,7 +75,6 @@ class GitStorageBackend(FilesystemBackend):
                 raise StorageError(e)
             except TAFError as e:
                 raise StorageError(e)
-
 
     def getsize(self, filepath: str) -> int:
         if self.commit is None:
@@ -90,15 +90,12 @@ class GitStorageBackend(FilesystemBackend):
         except TAFError as e:
             raise StorageError(e)
 
-
-    def put(
-        self, fileobj: IO, filepath: str, restrict: Optional[bool] = False
-    ) -> None:
+    def put(self, fileobj: IO, filepath: str, restrict: Optional[bool] = False) -> None:
         repo_path = pygit2.discover_repository(filepath)
         if repo_path:
             repo = find_git_repository(filepath)
             if repo.is_bare_repository:
-                raise TAFError(f"Cannot write to {filepath}. Repository is a bare repository")
+                raise TAFError(
+                    f"Cannot write to {filepath}. Repository is a bare repository"
+                )
         super().put(fileobj, filepath, restrict)
-
-

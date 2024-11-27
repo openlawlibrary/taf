@@ -172,9 +172,7 @@ def test_clone_invalid_target_repositories_targets_exist(
 def test_clone_invalid_target_invalid_singature(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(
-        update_timestamp_metadata_invalid_signature
-    )
+    setup_manager.add_task(update_timestamp_metadata_invalid_signature)
     setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(

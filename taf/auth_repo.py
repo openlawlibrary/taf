@@ -6,11 +6,14 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-from taf.exceptions import GitError, TAFError
 from taf.tuf.storage import GitStorageBackend
-from tuf.api.metadata import Metadata
 from taf.git import GitRepository
-from taf.tuf.repository import METADATA_DIRECTORY_NAME, MetadataRepository as TUFRepository, get_role_metadata_path, get_target_path
+from taf.tuf.repository import (
+    METADATA_DIRECTORY_NAME,
+    MetadataRepository as TUFRepository,
+    get_role_metadata_path,
+    get_target_path,
+)
 from taf.constants import INFO_JSON_PATH
 
 
@@ -22,7 +25,6 @@ class AuthenticationRepository(GitRepository):
 
     _conf_dir = None
     _dependencies: Dict = {}
-
 
     def __init__(
         self,
@@ -77,7 +79,7 @@ class AuthenticationRepository(GitRepository):
         self._tuf_repository = TUFRepository(self.path, storage=self._storage)
 
     def __getattr__(self, item):
-        """ Delegate attribute lookup to TUFRepository instance """
+        """Delegate attribute lookup to TUFRepository instance"""
         if item in self.__dict__:
             return self.__dict__[item]
         try:
@@ -88,8 +90,8 @@ class AuthenticationRepository(GitRepository):
             return getattr(self._tuf_repository, item)
 
     def __dir__(self):
-        """ Return list of attributes available on this object, including those
-        from TUFRepository. """
+        """Return list of attributes available on this object, including those
+        from TUFRepository."""
         return super().__dir__() + dir(self._tuf_repository)
 
     # TODO rework conf_dir
@@ -165,7 +167,6 @@ class AuthenticationRepository(GitRepository):
         if self.alias:
             return f"{self.alias}: "
         return f"Auth repo {self.name}: "
-
 
     def commit_and_push(
         self,
@@ -277,7 +278,6 @@ class AuthenticationRepository(GitRepository):
             except TypeError:
                 continue
         return False
-
 
     @contextmanager
     def repository_at_revision(self, commit: str):

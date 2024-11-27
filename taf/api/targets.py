@@ -1,6 +1,5 @@
 from logging import DEBUG, ERROR, INFO
 from typing import Dict, List, Optional, Union
-import click
 import os
 import json
 from collections import defaultdict
@@ -42,11 +41,11 @@ def add_target_repo(
     library_dir: str,
     keystore: str,
     should_create_new_role: bool,
-    parent_role: Optional[str]=None,
-    paths: Optional[List]=None,
-    keys_number: Optional[int]=None,
-    threshold: Optional[int]=None,
-    yubikey: Optional[bool]=None,
+    parent_role: Optional[str] = None,
+    paths: Optional[List] = None,
+    keys_number: Optional[int] = None,
+    threshold: Optional[int] = None,
+    yubikey: Optional[bool] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     custom: Optional[Dict] = None,
     commit: Optional[bool] = True,
@@ -97,7 +96,7 @@ def add_target_repo(
     existing_roles = auth_repo.get_all_targets_roles()
     if role not in existing_roles:
         if not should_create_new_role:
-            taf_logger.error( f"Role {role} does not exist")
+            taf_logger.error(f"Role {role} does not exist")
             return
         else:
             taf_logger.log("NOTICE", f"Role {role} does not exist. Creating a new role")
@@ -148,8 +147,11 @@ def add_target_repo(
         commit_msg=commit_msg,
     )
 
+
 # TODO Move this to auth repo when repositoriesdb is removed and there are no circular imports
-def _add_target_repository_to_repositories_json(auth_repo, target_repo_name: str, custom: Dict) -> None:
+def _add_target_repository_to_repositories_json(
+    auth_repo, target_repo_name: str, custom: Dict
+) -> None:
     """
     Add repository to repositories.json
     """
@@ -161,14 +163,18 @@ def _add_target_repository_to_repositories_json(auth_repo, target_repo_name: str
         repositories_json = {"repositories": {}}
     repositories = repositories_json["repositories"]
     if target_repo_name in repositories:
-        auth_repo._log_notice(f"{target_repo_name} already added to repositories.json. Overwriting")
+        auth_repo._log_notice(
+            f"{target_repo_name} already added to repositories.json. Overwriting"
+        )
 
     repositories[target_repo_name] = {}
     if custom:
         repositories[target_repo_name]["custom"] = custom
 
     # update content of repositories.json before updating targets metadata
-    full_repositories_json_path  = Path(auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH)
+    full_repositories_json_path = Path(
+        auth_repo.path, repositoriesdb.REPOSITORIES_JSON_PATH
+    )
     if not full_repositories_json_path.parent.is_dir():
         full_repositories_json_path.parent.mkdir()
 
@@ -456,9 +462,17 @@ def remove_target_repo(
 
         changes_committed = True
 
-    commit_msg = git_commit_message("remove-from-delegated-paths", target_name=target_name)
+    commit_msg = git_commit_message(
+        "remove-from-delegated-paths", target_name=target_name
+    )
     delegation_existed = remove_paths(
-        path, [target_name], keystore=keystore, commit=True, prompt_for_keys=prompt_for_keys, push=False, commit_msg=commit_msg
+        path,
+        [target_name],
+        keystore=keystore,
+        commit=True,
+        prompt_for_keys=prompt_for_keys,
+        push=False,
+        commit_msg=commit_msg,
     )
     if delegation_existed:
         changes_committed = True
@@ -485,6 +499,7 @@ def _remove_from_repositories_json(auth_repo, target_name):
     else:
         taf_logger.log("NOTICE", f"{target_name} not in repositories.json")
         return False
+
 
 def _save_top_commit_of_repo_to_target(
     library_dir: Path,

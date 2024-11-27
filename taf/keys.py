@@ -4,14 +4,17 @@ from typing import Dict, List, Optional, Tuple, Union
 import click
 from pathlib import Path
 from logdecorator import log_on_start
-from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.api.utils._conf import find_keystore
-from taf.tuf.keys import generate_and_write_rsa_keypair, generate_rsa_keypair, load_signer_from_pem
+from taf.tuf.keys import (
+    generate_and_write_rsa_keypair,
+    generate_rsa_keypair,
+    load_signer_from_pem,
+)
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, RoleSetupParams
 from taf.exceptions import (
@@ -466,7 +469,9 @@ def _setup_keystore_key(
                 password = input(
                     "Enter keystore password and press ENTER (can be left empty)"
                 )
-            private_pem = generate_and_write_rsa_keypair(path=Path(keystore, key_name), key_size=length, password=password)
+            private_pem = generate_and_write_rsa_keypair(
+                path=Path(keystore, key_name), key_size=length, password=password
+            )
             signer = load_signer_from_pem(private_pem)
         else:
             _, private_pem = generate_rsa_keypair(bits=length)

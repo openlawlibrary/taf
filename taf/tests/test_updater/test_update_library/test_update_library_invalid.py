@@ -56,9 +56,7 @@ def test_update_with_invalid_dependency_repo(
     # Invalidate one of the authentication repositories in dependencies
     dependency_auth_repo = library_with_dependencies["namespace11/auth"]["auth_repo"]
     setup_manager = SetupManager(dependency_auth_repo)
-    setup_manager.add_task(
-        update_timestamp_metadata_invalid_signature
-    )
+    setup_manager.add_task(update_timestamp_metadata_invalid_signature)
     setup_manager.execute_tasks()
 
     with pytest.raises(UpdateFailedError, match=INVALID_TIMESTAMP_PATTERN):

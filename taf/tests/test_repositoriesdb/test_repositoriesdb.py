@@ -16,16 +16,20 @@ def teardown_module(module):
 
 def test_load_repositories_when_no_delegations(target_repos, auth_repo_with_targets):
     with load_repositories(auth_repo_with_targets):
-        _check_repositories_dict(target_repos, auth_repo_with_targets, auth_repo_with_targets.head_commit_sha())
+        _check_repositories_dict(
+            target_repos,
+            auth_repo_with_targets,
+            auth_repo_with_targets.head_commit_sha(),
+        )
 
 
-
-def test_load_repositories_only_load_targets(
-    target_repos, auth_repo_with_targets
-):
+def test_load_repositories_only_load_targets(target_repos, auth_repo_with_targets):
     with load_repositories(auth_repo_with_targets):
         _check_repositories_dict(
-             target_repos, auth_repo_with_targets, auth_repo_with_targets.head_commit_sha(), only_load_targets=True
+            target_repos,
+            auth_repo_with_targets,
+            auth_repo_with_targets.head_commit_sha(),
+            only_load_targets=True,
         )
 
 
@@ -33,19 +37,29 @@ def test_load_repositories_of_roles(target_repos, auth_repo_with_targets):
     roles = ["delegated_role"]
     with load_repositories(auth_repo_with_targets, roles=roles):
         _check_repositories_dict(
-            target_repos, auth_repo_with_targets, auth_repo_with_targets.head_commit_sha(), roles=roles
+            target_repos,
+            auth_repo_with_targets,
+            auth_repo_with_targets.head_commit_sha(),
+            roles=roles,
         )
 
+
 def test_load_repositories_all_commits(target_repos, auth_repo_with_targets):
-    commits = auth_repo_with_targets.all_commits_on_branch()[1:]  # remove the first commit
+    commits = auth_repo_with_targets.all_commits_on_branch()[
+        1:
+    ]  # remove the first commit
     with load_repositories(auth_repo_with_targets, commits=commits):
         _check_repositories_dict(target_repos, auth_repo_with_targets, *commits)
 
 
 def test_get_deduplicated_repositories(target_repos, auth_repo_with_targets):
-    commits = auth_repo_with_targets.all_commits_on_branch()[1:]  # remove the first commit
+    commits = auth_repo_with_targets.all_commits_on_branch()[
+        1:
+    ]  # remove the first commit
     with load_repositories(auth_repo_with_targets, commits=commits):
-        repos = repositoriesdb.get_deduplicated_repositories(auth_repo_with_targets, commits)
+        repos = repositoriesdb.get_deduplicated_repositories(
+            auth_repo_with_targets, commits
+        )
         assert len(repos) == 3
         for target_repo in target_repos:
             assert target_repo.name in repos
@@ -55,7 +69,9 @@ def test_get_repository(target_repos, auth_repo_with_targets):
     commits = auth_repo_with_targets.all_commits_on_branch()[1:]
     with load_repositories(auth_repo_with_targets, commits=commits):
         for target_repo in target_repos:
-            repo = repositoriesdb.get_repository(auth_repo_with_targets, target_repo.name, commits[-1])
+            repo = repositoriesdb.get_repository(
+                auth_repo_with_targets, target_repo.name, commits[-1]
+            )
             assert repo.name == target_repo.name
 
 

@@ -18,7 +18,9 @@ from taf.updater.updater import OperationType, clone_repository
 import taf.updater.updater as updater
 
 
-def _add_to_dependencies(auth_repo, branch_name, dependency_name, out_of_band_commit, custom):
+def _add_to_dependencies(
+    auth_repo, branch_name, dependency_name, out_of_band_commit, custom
+):
 
     # add to dependencies.json or update the entry
     dependencies_json = repositoriesdb.load_dependencies_json(auth_repo)
@@ -157,10 +159,10 @@ def add_dependency(
             "Branch name and out-of-band commit must be specified if repository does not exist on disk"
         )
 
-    _add_to_dependencies(auth_repo, branch_name, dependency_name, out_of_band_commit, custom)
-    commit_msg = git_commit_message(
-        "add-dependency", dependency_name=dependency_name
+    _add_to_dependencies(
+        auth_repo, branch_name, dependency_name, out_of_band_commit, custom
     )
+    commit_msg = git_commit_message("add-dependency", dependency_name=dependency_name)
     register_target_files(
         path=path,
         keystore=keystore,
@@ -172,8 +174,9 @@ def add_dependency(
         push=push,
         no_commit_warning=True,
         reset_updated_targets_on_error=True,
-        commit_msg=commit_msg
+        commit_msg=commit_msg,
     )
+
 
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
@@ -257,6 +260,7 @@ def remove_dependency(
         reset_updated_targets_on_error=True,
         commit_msg=commit_msg,
     )
+
 
 def _determine_out_of_band_data(
     dependency: GitRepository,

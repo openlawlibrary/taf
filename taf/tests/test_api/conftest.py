@@ -1,14 +1,13 @@
 import json
-
+import pytest
 from pathlib import Path
 import shutil
 import uuid
+
 from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.conftest import TEST_DATA_PATH
 from taf.utils import on_rm_error
-
-from pytest import fixture
 
 
 REPOSITORY_DESCRIPTION_INPUT_DIR = TEST_DATA_PATH / "repository_description_inputs"
@@ -54,7 +53,9 @@ def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
 
 
 @fixture
-def auth_repo_with_delegations(auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path):
+def auth_repo_with_delegations(
+    auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path
+):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
@@ -92,6 +93,7 @@ def no_yubikeys_path():
 @fixture(scope="session")
 def with_delegations_json_input():
     return _read_json(WITH_DELEGATIONS_INPUT)
+
 
 @fixture(scope="session")
 def invalid_public_key_json_input():

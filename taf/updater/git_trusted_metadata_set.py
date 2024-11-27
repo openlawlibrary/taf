@@ -19,4 +19,6 @@ class GitTrustedMetadataSet(trusted_metadata_set.TrustedMetadataSet):
 
     def __init__(self, data, envelope_type=EnvelopeType.METADATA):
         super(GitTrustedMetadataSet, self).__init__(data, envelope_type)
-        self.reference_time = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        self.reference_time = datetime.datetime.min.replace(
+            tzinfo=datetime.timezone.utc
+        )

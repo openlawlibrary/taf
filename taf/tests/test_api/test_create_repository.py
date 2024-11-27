@@ -12,7 +12,9 @@ from taf.tests.utils import copy_mirrors_json, copy_repositories_json
 from taf.updater.updater import validate_repository
 
 
-def _check_repo_initialization_successful(auth_repo: AuthenticationRepository, is_targets_initialized=True):
+def _check_repo_initialization_successful(
+    auth_repo: AuthenticationRepository, is_targets_initialized=True
+):
     repo_root_path = auth_repo.path
     metadata_dir = repo_root_path / METADATA_DIRECTORY_NAME
     targets_dir = repo_root_path / TARGETS_DIRECTORY_NAME
@@ -34,7 +36,9 @@ def _check_repo_initialization_successful(auth_repo: AuthenticationRepository, i
 
 
 def test_create_repository_when_no_delegations(
-    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, keystore_delegations: str
+    auth_repo_path: Path,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
 ):
     repo_path = str(auth_repo_path)
     create_repository(
@@ -48,8 +52,11 @@ def test_create_repository_when_no_delegations(
     assert auth_repo.is_test_repo is False
     validate_repository(repo_path)
 
+
 def test_create_repository_when_no_delegations_with_test_flag(
-    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, keystore_delegations: str
+    auth_repo_path: Path,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
 ):
     repo_path = str(auth_repo_path)
     create_repository(
@@ -67,7 +74,9 @@ def test_create_repository_when_no_delegations_with_test_flag(
 
 
 def test_create_repository_when_delegations(
-    auth_repo_path: Path, with_delegations_no_yubikeys_path: str, keystore_delegations: str
+    auth_repo_path: Path,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
 ):
     repo_path = str(auth_repo_path)
     create_repository(
