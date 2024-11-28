@@ -1,7 +1,7 @@
+import pytest
 import shutil
 
 from taf.utils import on_rm_error
-import pytest
 from taf.models.converter import from_dict
 from taf.models.types import RolesKeysData
 from taf.tuf.repository import MetadataRepository
