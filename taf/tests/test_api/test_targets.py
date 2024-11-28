@@ -13,7 +13,6 @@ from taf.api.repository import create_repository
 from taf.api.targets import (
     add_target_repo,
     register_target_files,
-    remove_target_repo,
     update_target_repos_from_repositories_json,
 )
 from taf.tests.test_api.util import (
