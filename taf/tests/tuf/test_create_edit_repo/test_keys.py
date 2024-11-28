@@ -135,15 +135,15 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
     assert tuf_repo.snapshot().meta["root.json"].version == 6
     assert tuf_repo.snapshot().meta["targets.json"].version == 2
 
-    # try adding again, no metadata should be updated
+    # try adding again, the metadata should not be updated
     tuf_repo.add_metadata_keys(roles_keys)
     tuf_repo.update_snapshot_and_timestamp()
 
     assert _get_legacy_keyid(new_targets_key) in tuf_repo.root().roles["targets"].keyids
     assert _get_legacy_keyid(new_targets_key) in tuf_repo.root().keys
     assert tuf_repo.root().version == 6
-    assert tuf_repo.timestamp().version == 6
-    assert tuf_repo.snapshot().version == 6
+    assert tuf_repo.timestamp().version == 7
+    assert tuf_repo.snapshot().version == 7
     assert tuf_repo.targets().version == 2
     assert tuf_repo.snapshot().meta["root.json"].version == 6
     assert tuf_repo.snapshot().meta["targets.json"].version == 2

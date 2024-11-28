@@ -365,7 +365,7 @@ class MetadataRepository(Repository):
     def _create_target_file(self, target_path, target_data):
         # if the target's parent directory should not be "targets", create
         # its parent directories if they do not exist
-        target_dir = target_path.parents[0]
+        target_dir = target_path.parent
         target_dir.mkdir(parents=True, exist_ok=True)
 
         # create the target file
@@ -1167,7 +1167,7 @@ class MetadataRepository(Repository):
             target_path = (self.targets_path / path).absolute()
             self._create_target_file(target_path, target_data)
             custom = target_data.get("custom", None)
-            target_file = self._create_target_object(path, target_path, custom)
+            target_file = self._create_target_object(target_path, path, custom)
             target_files.append(target_file)
 
         # remove existing target files

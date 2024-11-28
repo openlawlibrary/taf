@@ -45,7 +45,7 @@ def test_load_repositories_of_roles(target_repos, auth_repo_with_targets):
 
 def test_load_repositories_all_commits(target_repos, auth_repo_with_targets):
     commits = auth_repo_with_targets.all_commits_on_branch()[
-        1:
+        2:
     ]  # remove the first commit
     with load_repositories(auth_repo_with_targets, commits=commits):
         _check_repositories_dict(target_repos, auth_repo_with_targets, *commits)

@@ -1,5 +1,7 @@
 from pathlib import Path
 import shutil
+
+from taf.api.metadata import update_metadata_expiration_date
 import pytest
 from typing import Dict
 from taf import repositoriesdb
@@ -55,6 +57,11 @@ def auth_repo_with_targets(
     )
     update_target_repos_from_repositories_json(
         str(auth_path), str(root_dir.parent), keystore_delegations, commit=True
+    )
+    update_metadata_expiration_date(
+        path=auth_path,
+        roles=["targets"],
+        keystore=keystore_delegations,
     )
 
     auth_reo = AuthenticationRepository(path=auth_path)

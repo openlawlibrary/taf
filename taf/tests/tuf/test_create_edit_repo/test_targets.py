@@ -4,7 +4,7 @@ from collections import defaultdict
 def test_add_target_files(tuf_repo):
 
     # assert add target file and correct version bumps
-    path1 = "test1.txt"
+    path1 = "test1"
     tuf_repo.add_target_files_to_role({path1: {"target": "test1"}})
     assert (tuf_repo.path / "targets" / path1).is_file()
     assert tuf_repo.targets().targets[path1]
@@ -16,7 +16,7 @@ def test_add_target_files(tuf_repo):
     assert tuf_repo.targets().version == 2
 
     # now add with custom
-    path2 = "test2.txt"
+    path2 = "test2"
     custom = {"custom_attr": "custom_val"}
     tuf_repo.add_target_files_to_role({path2: {"target": "test2", "custom": custom}})
     assert (tuf_repo.path / "targets" / path2).is_file()
@@ -26,8 +26,8 @@ def test_add_target_files(tuf_repo):
 
 def test_repo_target_files(tuf_repo):
     # assert add target file and correct version bumps
-    path1 = "test1.txt"
-    path2 = "test2.txt"
+    path1 = "test1"
+    path2 = "test2"
     tuf_repo.add_target_files_to_role(
         {path1: {"target": "test1"}, path2: {"target": "test2"}}
     )
