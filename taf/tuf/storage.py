@@ -26,9 +26,9 @@ def is_subpath(path, potential_subpath):
 
 
 def find_git_repository(inner_path):
-    for path, repo in git_repos_cache.items():
+    for path in list(git_repos_cache.keys()):
         if is_subpath(inner_path, path):
-            return repo
+            return git_repos_cache[path]
     repo_path = pygit2.discover_repository(inner_path)
     repo = None
     if not repo_path:
