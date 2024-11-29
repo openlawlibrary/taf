@@ -71,7 +71,7 @@ def setup_test_key_command():
         WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
     def setup_test_key(key_path):
-        setup_test_yubikey(key_path,key_size=2048)
+        setup_test_yubikey(key_path)
     return setup_test_key
 
 

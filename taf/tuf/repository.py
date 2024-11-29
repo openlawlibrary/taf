@@ -681,7 +681,7 @@ class MetadataRepository(Repository):
 
         return keys_roles
 
-    def find_associated_roles_of_key(self, public_key):
+    def find_associated_roles_of_key(self, public_key: SSlibKey):
         """
         Find all roles whose metadata files can be signed by this key
         Threshold is not important, as long as the key is one of the signing keys

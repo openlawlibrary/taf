@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
 # TODO: Remove legacy imports
 # from tuf.repository_tool import import_rsakey_from_pem
+from taf.tuf.keys import get_sslib_key_from_value
 from ykman.device import list_all_devices
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
@@ -34,6 +35,8 @@ from yubikit.piv import (
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
+
+from securesystemslib.signer._key import SSlibKey
 
 DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
@@ -245,20 +248,22 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
 
 
 @raise_yubikey_err("Cannot export yk certificate.")
-def export_yk_certificate(certs_dir, key):
+def export_yk_certificate(certs_dir, key: SSlibKey):
     if certs_dir is None:
         certs_dir = Path.home()
     else:
         certs_dir = Path(certs_dir)
     certs_dir.mkdir(parents=True, exist_ok=True)
-    cert_path = certs_dir / f"{key['keyid']}.cert"
+    cert_path = certs_dir / f"{key.keyid}.cert"
     print(f"Exporting certificate to {cert_path}")
     with open(cert_path, "wb") as f:
         f.write(export_piv_x509())
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None):
+def get_piv_public_key_tuf(
+    scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None
+) -> SSlibKey:
     """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
     Args:
@@ -275,9 +280,7 @@ def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None
         - YubikeyError
     """
     pub_key_pem = export_piv_pub_key(pub_key_pem=pub_key_pem).decode("utf-8")
-    # TODO
-    # return import_rsakey_from_pem(pub_key_pem, scheme)
-    return None
+    return get_sslib_key_from_value(pub_key_pem, scheme)
 
 
 @raise_yubikey_err("Cannot sign data.")
@@ -393,18 +396,18 @@ def setup(
     )
 
 
-def setup_new_yubikey(serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=2048):
-    # TODO
-    # pin = get_key_pin(serial_num)
-    # cert_cn = input("Enter key holder's name: ")
-    # print("Generating key, please wait...")
-    # pub_key_pem = setup(
-    #     pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
-    # ).decode("utf-8")
-    # scheme = DEFAULT_RSA_SIGNATURE_SCHEME
-    # key = import_rsakey_from_pem(pub_key_pem, scheme)
-    # return key
-    return None
+def setup_new_yubikey(
+    serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=2048
+) -> SSlibKey:
+    pin = get_key_pin(serial_num)
+    cert_cn = input("Enter key holder's name: ")
+    print("Generating key, please wait...")
+    pub_key_pem = setup(
+        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
+    ).decode("utf-8")
+    scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+    key = get_sslib_key_from_value(pub_key_pem, scheme)
+    return key
 
 
 def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True):
