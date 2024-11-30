@@ -470,14 +470,13 @@ class MetadataRepository(Repository):
                         public_keys[role_name][key_id] = public_key
 
         for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
-            if not role.is_yubikey:
-                if signers is None:
-                    raise TAFError(f"Cannot setup role {role.name}. Keys not specified")
-                for signer in signers[role.name]:
-                    key_id = _get_legacy_keyid(signer.public_key)
-                    self.signer_cache[role.name][key_id] = signer
-                for public_key in public_keys[role.name].values():
-                    root.add_key(public_key, role.name)
+            if signers.get(role.name) is None:
+                raise TAFError(f"Cannot setup role {role.name}. Keys not specified")
+            for signer in signers[role.name]:
+                key_id = _get_legacy_keyid(signer.public_key)
+                self.signer_cache[role.name][key_id] = signer
+            for public_key in public_keys[role.name].values():
+                root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
         targets = Targets()

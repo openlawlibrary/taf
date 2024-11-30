@@ -15,6 +15,7 @@ from taf.tuf.keys import (
     YkSigner,
     generate_and_write_rsa_keypair,
     generate_rsa_keypair,
+    get_sslib_key_from_value,
     load_signer_from_pem,
 )
 
@@ -33,7 +34,7 @@ from taf import YubikeyMissingLibrary
 
 
 from securesystemslib.signer._crypto_signer import CryptoSigner
-from taf.yubikey import yk_secrets_handler
+from taf.yubikey import get_serial_num, yk_secrets_handler
 
 
 try:
@@ -147,19 +148,18 @@ def load_sorted_keys_of_new_roles(
         for role in keystore_roles:
             if role.name in existing_roles:
                 continue
-            keystore_signers, _ = setup_roles_keys(
+            keystore_signers, _, _ = setup_roles_keys(
                 role,
                 keystore=keystore,
                 skip_prompt=skip_prompt,
             )
             for signer in keystore_signers:
                 signers.setdefault(role.name, []).append(signer)
-                verification_keys.setdefault(role.name, []).append(signer.public_key)
 
         for role in yubikey_roles:
             if role.name in existing_roles:
                 continue
-            _, yubikey_keys = setup_roles_keys(
+            _, yubikey_keys, yubikey_signers = setup_roles_keys(
                 role,
                 certs_dir=certs_dir,
                 yubikeys=yubikeys,
@@ -167,6 +167,7 @@ def load_sorted_keys_of_new_roles(
                 skip_prompt=skip_prompt,
             )
             verification_keys[role.name] = yubikey_keys
+            signers[role.name] = yubikey_signers
         return signers, verification_keys
     except KeystoreError:
         raise SigningError("Could not load keys of new roles")
@@ -314,6 +315,7 @@ def setup_roles_keys(
         raise SigningError("Cannot set up roles keys. Role name not specified")
     yubikey_keys = []
     keystore_signers = []
+    yubikey_signers= []
 
     yubikey_ids = role.yubikey_ids
     if yubikey_ids is None:
@@ -324,7 +326,7 @@ def setup_roles_keys(
     is_yubikey = bool(yubikey_ids)
 
     if is_yubikey:
-        yubikey_keys = _setup_yubikey_roles_keys(
+        yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(
             yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir, key_size
         )
     else:
@@ -344,72 +346,75 @@ def setup_roles_keys(
                 skip_prompt=skip_prompt,
             )
             keystore_signers.append(signer)
-    return keystore_signers, yubikey_keys
+    return keystore_signers, yubikey_keys, yubikey_signers
 
 
 def _setup_yubikey_roles_keys(
     yubikey_ids, users_yubikeys_details, yubikeys, role, certs_dir, key_size
 ):
-    # loaded_keys_num = 0
-    # yk_with_public_key = {}
+    loaded_keys_num = 0
+    yk_with_public_key = {}
     yubikey_keys = []
-    # TODO
-    # for key_id in yubikey_ids:
-    #     # Check the present value from the yubikeys dictionary
-    #     if (
-    #         key_id in users_yubikeys_details
-    #         and not users_yubikeys_details[key_id].present
-    #     ):
-    #         continue
+    signers = []
+    for key_id in yubikey_ids:
 
-    #     public_key_text = None
-    #     if key_id in users_yubikeys_details:
-    #         public_key_text = users_yubikeys_details[key_id].public
-    #     if public_key_text:
-    #         scheme = users_yubikeys_details[key_id].scheme
-    #         public_key = keys.import_rsakey_from_public_pem(public_key_text, scheme)
-    #         # Check if the signing key is already loaded
-    #         if not yk.get_key_serial_by_id(key_id):
-    #             yk_with_public_key[key_id] = public_key
-    #         else:
-    #             loaded_keys_num += 1
-    #     else:
-    #         key_scheme = None
-    #         if key_id in users_yubikeys_details:
-    #             key_scheme = users_yubikeys_details[key_id].scheme
-    #         key_scheme = key_scheme or role.scheme
-    #         public_key = _setup_yubikey(
-    #             yubikeys,
-    #             role.name,
-    #             key_id,
-    #             yubikey_keys,
-    #             key_scheme,
-    #             certs_dir,
-    #             key_size,
-    #         )
-    #         loaded_keys_num += 1
-    #     yubikey_keys.append(public_key)
+        public_key_text = None
+        if key_id in users_yubikeys_details:
+            public_key_text = users_yubikeys_details[key_id].public
+        if public_key_text:
+            scheme = users_yubikeys_details[key_id].scheme
+            public_key = get_sslib_key_from_value(public_key_text, scheme)
+            # Check if the signing key is already loaded
+            if not yk.get_key_serial_by_id(key_id):
+                yk_with_public_key[key_id] = public_key
+            else:
+                loaded_keys_num += 1
+            yubikey_keys.append(public_key)
+        else:
+            key_scheme = None
+            if key_id in users_yubikeys_details:
+                key_scheme = users_yubikeys_details[key_id].scheme
+            key_scheme = key_scheme or role.scheme
+            public_key, serial_num = _setup_yubikey(
+                yubikeys,
+                role.name,
+                key_id,
+                yubikey_keys,
+                key_scheme,
+                certs_dir,
+                key_size,
+            )
+            loaded_keys_num += 1
+            signer = YkSigner(public_key, partial(yk_secrets_handler, serial_num=serial_num))
+            signers.append(signer)
 
-    # if loaded_keys_num < role.threshold:
-    #     print(f"Threshold of role {role.name} is {role.threshold}")
-    #     while loaded_keys_num < role.threshold:
-    #         loaded_keys = []
-    #         for key_id, public_key in yk_with_public_key.items():
-    #             if _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key):
-    #                 loaded_keys_num += 1
-    #                 loaded_keys.append(key_id)
-    #                 yubikey_keys.append(public_key)
-    #             if loaded_keys_num == role.threshold:
-    #                 break
-    #         if loaded_keys_num < role.threshold:
-    #             if not click.confirm(
-    #                 f"Threshold of signing keys of role {role.name} not reached. Continue?"
-    #             ):
-    #                 raise SigningError("Not enough signing keys")
-    #             for key_id in loaded_keys:
-    #                 yk_with_public_key.pop(key_id)
+    if loaded_keys_num < role.threshold:
+        print(f"Threshold of role {role.name} is {role.threshold}")
+        while loaded_keys_num < role.threshold:
+            loaded_keys = []
+            for key_id, public_key in yk_with_public_key.items():
+                if (
+                    key_id in users_yubikeys_details
+                    and not users_yubikeys_details[key_id].present
+                ):
+                    continue
+                serial_num = _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key)
+                if serial_num:
+                    loaded_keys_num += 1
+                    loaded_keys.append(key_id)
+                    signer = YkSigner(public_key, partial(yk_secrets_handler, serial_num=serial_num))
+                    signers.append(signer)
+                if loaded_keys_num == role.threshold:
+                    break
+            if loaded_keys_num < role.threshold:
+                if not click.confirm(
+                    f"Threshold of signing keys of role {role.name} not reached. Continue?"
+                ):
+                    raise SigningError("Not enough signing keys")
+                for key_id in loaded_keys:
+                    yk_with_public_key.pop(key_id)
 
-    return yubikey_keys
+    return yubikey_keys, signers
 
 
 def _setup_keystore_key(
@@ -522,7 +527,7 @@ def _setup_yubikey(
 
             if certs_dir is not None:
                 yk.export_yk_certificate(certs_dir, key)
-            return key
+            return key, serial_num
 
 
 def _load_and_verify_yubikey(
@@ -545,5 +550,5 @@ def _load_and_verify_yubikey(
         if yk_public_key["keyid"] != public_key["keyid"]:
             print("Public key of the inserted key is not equal to the specified one.")
             if not click.confirm("Try again?"):
-                return False
-        return True
+                return None
+        return get_serial_num()
