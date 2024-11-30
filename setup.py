@@ -31,6 +31,7 @@ tests_require = [
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
     "jinja2==3.1.*",
+    "pytest-mock==3.14.*",
 ]
 
 yubikey_require = ["yubikey-manager==5.5.*"]
