@@ -25,10 +25,11 @@ _SIG = b"\xc1}\xaa\xec\xf6#;\xe6\x89\xc26\x81\x1a;\xd3\xb2\x7f\xce\xe3}\x9a6w}P\
 
 def test_fake_yk(mocker):
     """Test public key export and signing with fake Yubikey."""
-    mocker.patch('taf.yubikey.export_piv_pub_key', return_value=_PUB)
-    mocker.patch('taf.yubikey.sign_piv_rsa_pkcs1v15', return_value=_SIG)
+    mocker.patch("taf.yubikey.export_piv_pub_key", return_value=_PUB)
+    mocker.patch("taf.yubikey.sign_piv_rsa_pkcs1v15", return_value=_SIG)
 
     from taf.tuf.keys import YkSigner
+
     key = YkSigner.import_()
     signer = YkSigner(key, lambda sec: None)
 
@@ -36,6 +37,7 @@ def test_fake_yk(mocker):
     key.verify_signature(sig, _DATA)
     with pytest.raises(UnverifiedSignatureError):
         key.verify_signature(sig, _NOT_DATA)
+
 
 @pytest.mark.skipif(
     not os.environ.get("REAL_YK"),
@@ -48,6 +50,7 @@ def test_real_yk():
         return getpass(f"Enter {secret_name}: ")
 
     from taf.tuf.keys import YkSigner
+
     key = YkSigner.import_()
     signer = YkSigner(key, sec_handler)
 

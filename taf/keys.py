@@ -239,7 +239,9 @@ def load_signers(
             hide_already_loaded_message=hide_already_loaded_message,
         )
         if public_key is not None and public_key not in yubikeys:
-            signer = YkSigner(public_key, partial(yk_secrets_handler, serial_num=serial_num))
+            signer = YkSigner(
+                public_key, partial(yk_secrets_handler, serial_num=serial_num)
+            )
             yubikeys.append(signer)
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
             return True
@@ -315,7 +317,7 @@ def setup_roles_keys(
         raise SigningError("Cannot set up roles keys. Role name not specified")
     yubikey_keys = []
     keystore_signers = []
-    yubikey_signers= []
+    yubikey_signers = []
 
     yubikey_ids = role.yubikey_ids
     if yubikey_ids is None:
@@ -385,7 +387,9 @@ def _setup_yubikey_roles_keys(
                 key_size,
             )
             loaded_keys_num += 1
-            signer = YkSigner(public_key, partial(yk_secrets_handler, serial_num=serial_num))
+            signer = YkSigner(
+                public_key, partial(yk_secrets_handler, serial_num=serial_num)
+            )
             signers.append(signer)
 
     if loaded_keys_num < role.threshold:
@@ -398,11 +402,15 @@ def _setup_yubikey_roles_keys(
                     and not users_yubikeys_details[key_id].present
                 ):
                     continue
-                serial_num = _load_and_verify_yubikey(yubikeys, role.name, key_id, public_key)
+                serial_num = _load_and_verify_yubikey(
+                    yubikeys, role.name, key_id, public_key
+                )
                 if serial_num:
                     loaded_keys_num += 1
                     loaded_keys.append(key_id)
-                    signer = YkSigner(public_key, partial(yk_secrets_handler, serial_num=serial_num))
+                    signer = YkSigner(
+                        public_key, partial(yk_secrets_handler, serial_num=serial_num)
+                    )
                     signers.append(signer)
                 if loaded_keys_num == role.threshold:
                     break
@@ -498,7 +506,7 @@ def _setup_yubikey(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     certs_dir: Optional[Union[Path, str]] = None,
     key_size: int = 2048,
-) -> Dict:
+) -> Tuple[Dict, str]:
     print(f"Registering keys for {key_name}")
     while True:
         use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
@@ -532,9 +540,9 @@ def _setup_yubikey(
 
 def _load_and_verify_yubikey(
     yubikeys: Optional[Dict], role_name: str, key_name: str, public_key
-) -> bool:
+) -> Optional[str]:
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
-        return False
+        return None
     while True:
         yk_public_key, _ = yk.yubikey_prompt(
             key_name,

@@ -4,7 +4,6 @@ import click
 
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._roles import get_roles_and_paths_of_key
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
@@ -41,7 +40,7 @@ def export_yk_public_pem(path: Optional[str] = None) -> None:
     """
     try:
         pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
-    except Exception as e:
+    except Exception:
         print("Could not export the public key. Check if a YubiKey is inserted")
         return
     if path is None:

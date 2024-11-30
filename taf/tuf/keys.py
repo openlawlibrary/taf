@@ -24,7 +24,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from taf import YubikeyMissingLibrary
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
@@ -216,6 +215,7 @@ class YkSigner(Signer):
         """
         # TODO: export pyca/cryptography key to avoid duplicate deserialization
         from taf.yubikey import export_piv_pub_key
+
         pem = export_piv_pub_key()
         pub = load_pem_public_key(pem)
         return _from_crypto(pub)
@@ -225,6 +225,7 @@ class YkSigner(Signer):
         # TODO: openlawlibrary/taf#515
         # sig = sign_piv_rsa_pkcs1v15(payload, pin, self.public_key.keyval["public"])
         from taf.yubikey import sign_piv_rsa_pkcs1v15
+
         sig = sign_piv_rsa_pkcs1v15(payload, pin)
         return Signature(self.public_key.keyid, sig.hex())
 
@@ -259,36 +260,3 @@ def root_signature_provider(signature_dict, key_id, _key, _data):
     from binascii import hexlify
 
     return {"keyid": key_id, "sig": hexlify(signature_dict.get(key_id)).decode()}
-
-
-def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W0613
-    """
-    A signatures provider which asks the user to insert a yubikey
-    Useful if several yubikeys need to be used at the same time
-    """
-    from binascii import hexlify
-
-    def _check_key_and_get_pin(expected_key_id):
-        try:
-            inserted_key = yk.get_piv_public_key_tuf()
-            if expected_key_id != inserted_key["keyid"]:
-                return None
-            serial_num = yk.get_serial_num(inserted_key)
-            pin = yk.get_key_pin(serial_num)
-            if pin is None:
-                pin = yk.get_and_validate_pin(name)
-            return pin
-        except Exception:
-            return None
-
-    while True:
-        # check if the needed YubiKey is inserted before asking the user to do so
-        # this allows us to use this signature provider inside an automated process
-        # assuming that all YubiKeys needed for signing are inserted
-        pin = _check_key_and_get_pin(key_id)
-        if pin is not None:
-            break
-        input(f"\nInsert {name} and press enter")
-
-    signature = yk.sign_piv_rsa_pkcs1v15(data, pin)
-    return {"keyid": key_id, "sig": hexlify(signature).decode()}
