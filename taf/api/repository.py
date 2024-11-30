@@ -61,8 +61,6 @@ def create_repository(
     Returns:
         None
     """
-    # TODO support yubikeys
-
     if not _check_if_can_create_repository(Path(path)):
         return
 

@@ -28,12 +28,6 @@ from taf import YubikeyMissingLibrary
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
-try:
-    import taf.yubikey as yk
-except ImportError:
-    yk = YubikeyMissingLibrary()  # type: ignore
-
-
 def create_signer(priv, pub):
     return CryptoSigner(priv, _from_crypto(pub))
 
@@ -221,7 +215,8 @@ class YkSigner(Signer):
         securesystemslib signers, e.g. `HSMSigner.import_`.
         """
         # TODO: export pyca/cryptography key to avoid duplicate deserialization
-        pem = yk.export_piv_pub_key()
+        from taf.yubikey import export_piv_pub_key
+        pem = export_piv_pub_key()
         pub = load_pem_public_key(pem)
         return _from_crypto(pub)
 
@@ -229,7 +224,8 @@ class YkSigner(Signer):
         pin = self._pin_handler(self._SECRET_PROMPT)
         # TODO: openlawlibrary/taf#515
         # sig = sign_piv_rsa_pkcs1v15(payload, pin, self.public_key.keyval["public"])
-        sig = yk.sign_piv_rsa_pkcs1v15(payload, pin)
+        from taf.yubikey import sign_piv_rsa_pkcs1v15
+        sig = sign_piv_rsa_pkcs1v15(payload, pin)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

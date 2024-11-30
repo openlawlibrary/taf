@@ -48,7 +48,7 @@ def manage_repo_and_signers(
             loaded_yubikeys: Dict = {}
             for role in roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
-                    keystore_signers, yubikeys = load_signers(
+                    keystore_signers, yubikey_signers = load_signers(
                         auth_repo,
                         role,
                         loaded_yubikeys=loaded_yubikeys,
@@ -57,6 +57,7 @@ def manage_repo_and_signers(
                         prompt_for_keys=prompt_for_keys,
                     )
                     auth_repo.add_signers_to_cache({role: keystore_signers})
+                    auth_repo.add_signers_to_cache({role: yubikey_signers})
         yield
         if auth_repo.something_to_commit() and commit:
             if not commit_msg and commit_key:

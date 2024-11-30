@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import partial
 from logging import INFO
 from typing import Dict, List, Optional, Tuple, Union
 import click
@@ -11,6 +12,7 @@ from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.tuf.repository import MetadataRepository as TUFRepository
 from taf.api.utils._conf import find_keystore
 from taf.tuf.keys import (
+    YkSigner,
     generate_and_write_rsa_keypair,
     generate_rsa_keypair,
     load_signer_from_pem,
@@ -31,6 +33,7 @@ from taf import YubikeyMissingLibrary
 
 
 from securesystemslib.signer._crypto_signer import CryptoSigner
+from taf.yubikey import yk_secrets_handler
 
 
 try:
@@ -226,7 +229,7 @@ def load_signers(
     def _load_and_append_yubikeys(
         key_name, role, retry_on_failure, hide_already_loaded_message
     ):
-        public_key, _ = yk.yubikey_prompt(
+        public_key, serial_num = yk.yubikey_prompt(
             key_name,
             role,
             taf_repo,
@@ -235,7 +238,8 @@ def load_signers(
             hide_already_loaded_message=hide_already_loaded_message,
         )
         if public_key is not None and public_key not in yubikeys:
-            yubikeys.append(public_key)
+            signer = YkSigner(public_key, partial(yk_secrets_handler, serial_num=serial_num))
+            yubikeys.append(signer)
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
             return True
         return False

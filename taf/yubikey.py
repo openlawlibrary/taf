@@ -523,3 +523,9 @@ def yubikey_prompt(
         if success:
             return key, serial_num
         retry_counter += 1
+
+
+def yk_secrets_handler(prompt, serial_num):
+    if prompt == "pin":
+        return get_key_pin(serial_num)
+    raise YubikeyError(f"Invalid prompt {prompt}")
