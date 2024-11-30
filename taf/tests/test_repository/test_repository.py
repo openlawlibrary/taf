@@ -1,5 +1,5 @@
 import pytest
-import tempfile
+from pygit2 import init_repository
 from pathlib import Path
 
 from taf.exceptions import InvalidRepositoryError
@@ -97,6 +97,7 @@ def test_from_json_dict():
             assert getattr(repo, attr_name) == attr_value
 
     repo = GitRepository.from_json_dict(data)
+
     _check_values(repo, data)
 
     auth_data = data.copy()
@@ -208,24 +209,22 @@ def test_autodetect_default_branch_expect_none():
         assert repo.default_branch is None
 
 
-def test_autodetect_default_branch_with_git_init_bare_expect_autodetected():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        repo = GitRepository(path=Path(temp_dir))
-        repo._git("init --bare")
-        default_branch = repo._determine_default_branch()
-        assert default_branch is not None
-        # depends on git defaultBranch config on users' machine
-        assert default_branch in ("main", "master")
+def test_autodetect_default_branch_with_git_init_bare_expect_autodetected(repo_path):
+    repo = GitRepository(path=repo_path)
+    repo._git("init --bare")
+    default_branch = repo._determine_default_branch()
+    assert default_branch is not None
+    # depends on git defaultBranch config on users' machine
+    assert default_branch in ("main", "master")
 
 
-@pytest.mark.parametrize(
-    "test_name, branch",
-    [
-        ("test-repository-main-branch", "main"),
-        ("test-repository-master-branch", "master"),
-    ],
-)
-def test_load_repositories(test_name, branch, repository_test_repositories):
-    repository_path = repository_test_repositories["test-default-branch"][test_name]
-    repo = GitRepository(path=repository_path)
-    assert repo.default_branch == branch
+def test_default_branch_when_master(repo_path):
+    init_repository(repo_path, initial_head="main")
+    repo = GitRepository(path=repo_path)
+    assert repo.default_branch == "main"
+
+
+def test_default_branch_when_main(repo_path):
+    init_repository(repo_path, initial_head="master")
+    repo = GitRepository(path=repo_path)
+    assert repo.default_branch == "master"

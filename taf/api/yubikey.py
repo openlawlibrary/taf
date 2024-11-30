@@ -4,13 +4,14 @@ import click
 
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._roles import get_roles_and_paths_of_key
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import TAFError
-from tuf.repository_tool import import_rsakey_from_pem
-
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.exceptions import TAFError
+
+# from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.log import taf_logger
+from taf.tuf.keys import get_sslib_key_from_value
+from taf.tuf.repository import MAIN_ROLES
 import taf.yubikey as yk
 
 
@@ -79,9 +80,10 @@ def export_yk_certificate(path: Optional[str] = None) -> None:
     try:
         pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
         scheme = DEFAULT_RSA_SIGNATURE_SCHEME
-        key = import_rsakey_from_pem(pub_key_pem, scheme)
+        key = get_sslib_key_from_value(pub_key_pem, scheme)
         yk.export_yk_certificate(path, key)
-    except Exception:
+    except Exception as e:
+        print(e)
         print("Could not export certificate. Check if a YubiKey is inserted")
         return
 
@@ -109,7 +111,12 @@ def get_yk_roles(path: str) -> Dict:
     """
     auth = AuthenticationRepository(path=path)
     pub_key = yk.get_piv_public_key_tuf()
-    return get_roles_and_paths_of_key(pub_key, auth)
+    roles = auth.find_associated_roles_of_key(pub_key)
+    roles_with_paths: Dict = {role: {} for role in roles}
+    for role in roles:
+        if role not in MAIN_ROLES:
+            roles_with_paths[role] = auth.get_role_paths(role)
+    return roles_with_paths
 
 
 @log_on_start(DEBUG, "Setting up a new signing YubiKey", logger=taf_logger)
