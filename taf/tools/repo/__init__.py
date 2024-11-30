@@ -166,7 +166,7 @@ def clone_repo_command():
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
         """)
-    @catch_cli_exception(handle=UpdateFailedError)
+    @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @click.argument("url")
     @common_update_options
     @click.option("--path", help="Authentication repository's location. If not specified, calculated by combining repository's name specified in info.json and library dir")
@@ -235,7 +235,7 @@ def update_repo_command():
         is disabled.
         """)
     @find_repository
-    @catch_cli_exception(handle=UpdateFailedError)
+    @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @common_update_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--library-dir", default=None, help="Directory where target repositories and, optionally, authentication repository are located. If not specified, calculated based on the authentication repository's path")

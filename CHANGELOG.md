@@ -13,6 +13,44 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.32.3] - 11/22/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix `get_last_remote_commit` - add missing value for parameter ([566])
+
+[566]: https://github.com/openlawlibrary/taf/pull/566
+
+## [0.32.2] - 11/20/2024
+
+### Added
+
+### Changed
+
+- Make url optional for `get_last_remote_commit` ([564])
+
+### Fixed
+
+
+[564]: https://github.com/openlawlibrary/taf/pull/564
+
+## [0.32.1] - 11/01/2024
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix two git methods where `GitError` was not being instantiated correctly ([562])
+- Fix determination of auth commits to be validated when starting the update from the beginning ([562])
+
+[562]: https://github.com/openlawlibrary/taf/pull/562
+
 ## [0.32.0] - 10/23/2024
 
 ### Added
@@ -23,8 +61,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix specification of pygit2 version depending on the Python version [(558)]
-- Fix validation and listing targets of an auth repo that does not contain `mirrors.json` [(558)]
+- Fix specification of pygit2 version depending on the Python version ([558])
+- Fix validation and listing targets of an auth repo that does not contain `mirrors.json` ([558])
 
 [558]: https://github.com/openlawlibrary/taf/pull/558
 
@@ -1319,7 +1357,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.31.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.3...HEAD
+[0.32.3]: https://github.com/openlawlibrary/taf/compare/v0.32.2...v0.32.3
+[0.32.2]: https://github.com/openlawlibrary/taf/compare/v0.32.1...v0.32.2
+[0.32.1]: https://github.com/openlawlibrary/taf/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/openlawlibrary/taf/compare/v0.31.2...v0.32.0
 [0.31.2]: https://github.com/openlawlibrary/taf/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/openlawlibrary/taf/compare/v0.31.0...v0.31.1
