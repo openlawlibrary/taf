@@ -596,12 +596,12 @@ def remove_last_validated_commit(auth_repo: AuthenticationRepository):
 
 
 def remove_last_validated_data(auth_repo: AuthenticationRepository):
-    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_DATA_FILENAME).unlink()
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).unlink()
     assert not auth_repo.last_validated_data
 
 
 def replace_with_old_last_validated_commit_format(auth_repo: AuthenticationRepository):
-    last_validated_commit = auth_repo.last_validated_commit
+    last_validated_commit = auth_repo.last_validated_commit or ""
     Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).write_text(
         last_validated_commit
     )
@@ -771,7 +771,9 @@ def create_index_lock_in_repo(repo_path: str):
 def set_head_commit(auth_repo: AuthenticationRepository):
     last_valid_commit = auth_repo.head_commit_sha()
     if last_valid_commit is not None:
-        auth_repo.set_last_validated_commit(last_valid_commit)
+        auth_repo.set_last_validated_of_repo(
+            auth_repo.name, last_valid_commit, set_last_validated_commit=True
+        )
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
 

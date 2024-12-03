@@ -27,7 +27,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     _conf_dir = None
     _dependencies: Dict = {}
-    _last_validated_data = None
+    _last_validated_data: Optional[Dict] = None
 
     def __init__(
         self,
@@ -143,9 +143,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Return the last validated commit of the authentication repository
         """
         try:
-            return self.last_validated_data[self.LAST_VALIDATED_KEY]
+            if self.last_validated_data is not None:
+                return self.last_validated_data[self.LAST_VALIDATED_KEY]
         except KeyError:
             return None
+        return None
 
     @property
     def last_validated_data(self) -> Optional[dict]:
@@ -190,7 +192,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 if new_commit_branch:
                     new_commit = self.top_commit_of_branch(new_commit_branch)
                     if new_commit:
-                        self.set_last_validated_of_repo(self.name, new_commit)
+                        self.set_last_validated_of_repo(
+                            self.name, new_commit, set_last_validated_commit=True
+                        )
                         self._log_notice(
                             f"Updated last_validated_commit to {new_commit}"
                         )
@@ -293,13 +297,22 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         self._log_debug(f"setting last validated data to: {last_data_str}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(last_data_str)
 
-    def set_last_validated_of_repo(self, repo_name: str, commit: str):
+    def set_last_validated_of_repo(
+        self,
+        repo_name: str,
+        commit: str,
+        set_last_validated_commit: Optional[bool] = True,
+    ):
         last_validated_data = self.last_validated_data or {}
         last_validated_data[repo_name] = commit
         last_validated_data[self.LAST_VALIDATED_KEY] = commit
         last_data_str = json.dumps(last_validated_data, indent=4)
         self._log_debug(f"setting last validated data to: {last_data_str}")
-        Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
+        if set_last_validated_commit and self.name == repo_name:
+            last_validated_data[self.LAST_VALIDATED_KEY] = last_validated_data[
+                self.name
+            ]
+        Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(last_data_str)
 
     def auth_repo_commits_after_repos_last_validated(
         self, target_repos: List, last_validated_data
@@ -519,11 +532,11 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 targets_at_revision = targets_at_revision["signed"]["targets"]
 
                 for target_path in targets_at_revision:
-                    # if there are older auth repo commtis corresponding to repositories
+                    # if there are older auth repo commits corresponding to repositories
                     # that were not validated in the one or more previous updates
                     # skip the ones that were validated more recently
                     # when the last validated commit of a repo is reached
-                    # the repo is addes to the repos_to_skip list
+                    # the repo is added to the repos_to_skip list
                     if target_path in repos_to_skip:
                         continue
                     if (
