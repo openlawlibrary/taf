@@ -24,9 +24,10 @@ def check_last_validated_commit(
     last_validated_data = client_auth_repo.last_validated_data
     assert last_validated_data[client_auth_repo.name] == head_sha
     if not excluded_targets:
-        assert client_auth_repo.last_validated_commit == head_sha
-    else:
-        assert client_auth_repo.last_validated_commit != head_sha
+        assert (
+            client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]
+            == head_sha
+        )
 
     if all_target_repositories and excluded_targets:
         for target_repo in all_target_repositories:

@@ -600,16 +600,25 @@ def remove_last_validated_data(auth_repo: AuthenticationRepository):
     assert not auth_repo.last_validated_data
 
 
+def replace_with_old_last_validated_commit_format(auth_repo: AuthenticationRepository):
+    last_validated_commit = auth_repo.last_validated_commit
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).write_text(
+        last_validated_commit
+    )
+
+
 def revert_last_validated_commit(auth_repo: AuthenticationRepository):
     older_commit = auth_repo.all_commits_on_branch(auth_repo.default_branch)[-2]
-    auth_repo.set_last_validated_commit(older_commit)
-    auth_repo.set_last_validated_of_repo(auth_repo.name, older_commit)
+    auth_repo.set_last_validated_of_repo(
+        auth_repo.name, older_commit, set_last_validated_commit=True
+    )
     assert auth_repo.last_validated_commit == older_commit
 
 
 def set_last_commit_of_auth_repo(auth_repo: AuthenticationRepository, commit: str):
-    auth_repo.set_last_validated_commit(commit)
-    auth_repo.set_last_validated_of_repo(auth_repo.name, commit)
+    auth_repo.set_last_validated_of_repo(
+        auth_repo.name, commit, set_last_validated_commit=True
+    )
 
 
 def swap_last_two_commits(auth_repo: AuthenticationRepository):

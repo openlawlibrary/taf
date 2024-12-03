@@ -21,7 +21,7 @@ from taf.constants import INFO_JSON_PATH
 class AuthenticationRepository(GitRepository, TAFRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
-    LAST_VALIDATED_DATA_FILENAME = "last_validated_data"
+    LAST_VALIDATED_KEY = "last_validated_commit"
     TEST_REPO_FLAG_FILE = "test-auth-repo"
     SCRIPTS_PATH = "scripts"
 
@@ -143,8 +143,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Return the last validated commit of the authentication repository
         """
         try:
-            return Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).read_text().strip()
-        except FileNotFoundError:
+            return self.last_validated_data[self.LAST_VALIDATED_KEY]
+        except KeyError:
             return None
 
     @property
@@ -153,15 +153,16 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         Return the last validated data of the authentication repository
         """
         if self._last_validated_data is None:
-            try:
-                data = Path(
-                    self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME
-                ).read_text()
-                self._last_validated_data = json.loads(data)
-            except FileNotFoundError:
-                self._last_validated_data = {}
-            except json.decoder.JSONDecodeError:
-                self._last_validated_data = {}
+            last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+            self._last_validated_data = {}
+            if last_validated_path.is_file():
+                data = last_validated_path.read_text().strip()
+                try:
+                    self._last_validated_data = json.loads(data)
+                except json.decoder.JSONDecodeError:
+                    if data:
+                        self._last_validated_data = {self.name: data}
+
         return self._last_validated_data
 
     @property
@@ -189,7 +190,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                 if new_commit_branch:
                     new_commit = self.top_commit_of_branch(new_commit_branch)
                     if new_commit:
-                        self.set_last_validated_commit(new_commit)
                         self.set_last_validated_of_repo(self.name, new_commit)
                         self._log_notice(
                             f"Updated last_validated_commit to {new_commit}"
@@ -275,25 +275,28 @@ class AuthenticationRepository(GitRepository, TAFRepository):
             yield
             self._tuf_repository = tuf_repository
 
-    def set_last_validated_commit(self, commit: str):
-        """
-        Set the last validated commit of the authentication repository
-        """
-        Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(commit)
-
-    def set_last_validated_data(self, last_validated_data: dict):
+    def set_last_validated_data(
+        self,
+        last_validated_data: dict,
+        set_last_validated_commit: Optional[bool] = True,
+    ):
         """
         Set the last validated data of the authentication repository.
         In case of a partial update (update run with the --exclude-target option),
         update last validated commits of target repositories that were updated
         """
+        if set_last_validated_commit:
+            last_validated_data[self.LAST_VALIDATED_KEY] = last_validated_data[
+                self.name
+            ]
         last_data_str = json.dumps(last_validated_data, indent=4)
         self._log_debug(f"setting last validated data to: {last_data_str}")
-        Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)
+        Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(last_data_str)
 
     def set_last_validated_of_repo(self, repo_name: str, commit: str):
         last_validated_data = self.last_validated_data or {}
         last_validated_data[repo_name] = commit
+        last_validated_data[self.LAST_VALIDATED_KEY] = commit
         last_data_str = json.dumps(last_validated_data, indent=4)
         self._log_debug(f"setting last validated data to: {last_data_str}")
         Path(self.conf_dir, self.LAST_VALIDATED_DATA_FILENAME).write_text(last_data_str)

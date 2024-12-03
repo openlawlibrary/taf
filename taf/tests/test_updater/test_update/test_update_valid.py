@@ -10,6 +10,7 @@ from taf.tests.test_updater.conftest import (
     remove_commits,
     remove_last_validated_commit,
     remove_last_validated_data,
+    replace_with_old_last_validated_commit_format,
     revert_last_validated_commit,
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
@@ -43,6 +44,37 @@ def test_update_valid_happy_path(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_when_old_last_validated_commit(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    client_setup_manager = SetupManager(client_auth_repo)
+    client_setup_manager.add_task(replace_with_old_last_validated_commit_format)
+    client_setup_manager.execute_tasks()
 
     update_and_check_commit_shas(
         OperationType.UPDATE,

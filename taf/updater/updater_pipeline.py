@@ -189,6 +189,9 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
+                import pdb
+
+                pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:
@@ -487,15 +490,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # last_validated_commit is not updated after a partial update
             # however, last_validated_data file is
             # even thought we cannot claim that the system as a whole is valid
-            # after a partial update, there is not need to validate the auth repo
+            # after a partial update, there is no need to validate the auth repo
             # from an older commit, just because one of more targets were skipped
             self.state.last_validated_data = users_auth_repo.last_validated_data
-            if self.state.last_validated_data:
-                last_validated_commit = self.state.last_validated_data[
-                    users_auth_repo.name
-                ]
-            else:
-                last_validated_commit = users_auth_repo.last_validated_commit
+            last_validated_commit = self.state.last_validated_data[users_auth_repo.name]
 
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
@@ -1168,6 +1166,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # we still expect the last validated target commit to exist
             # and the remaining commits will be validated afterwards
             # if the last validated target commit does not exist, start the validation from scratch
+
             if self.state.last_validated_commit is not None:
                 for repository in self.state.temp_target_repositories.values():
                     if repository.name not in self.state.targets_data_by_auth_commits:
@@ -1771,10 +1770,10 @@ but commit not on branch {current_branch}"
             for repo in self.state.users_target_repositories.keys():
                 last_validated_data[repo] = last_commit
             last_validated_data[self.state.users_auth_repo.name] = last_commit
-            self.state.users_auth_repo.set_last_validated_data(last_validated_data)
-
-            if not self.excluded_target_globs:
-                self.state.users_auth_repo.set_last_validated_commit(last_commit)
+            self.state.users_auth_repo.set_last_validated_data(
+                last_validated_data,
+                set_last_validated_commit=not bool(self.excluded_target_globs),
+            )
 
             return self.state.update_status
         except Exception as e:
