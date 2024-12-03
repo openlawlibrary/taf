@@ -535,7 +535,7 @@ def _get_deduplicated_target_or_auth_repositories(
     )
     all_repositories = loaded_repositories_dict.get(auth_repo.path)
     if all_repositories is None:
-        taf_logger.error(
+        taf_logger.debug(
             "{} defined in authentication repository {} have not been loaded",
             repositories_msg,
             auth_repo.path,
@@ -548,7 +548,7 @@ def _get_deduplicated_target_or_auth_repositories(
     # persuming that the newest commit is the last one
     for commit in commits:
         if commit not in all_repositories:
-            taf_logger.error(
+            taf_logger.debug(
                 "{} defined in authentication repository {} at revision {} have "
                 "not been loaded",
                 repositories_msg,
@@ -630,7 +630,7 @@ def _get_repositories(auth_repo, commit=None, load_auth=False):
 
     repositories = all_repositories.get(commit)
     if repositories is None:
-        taf_logger.error(
+        taf_logger.debug(
             "{} defined in authentication repository {} at revision {} have "
             "not been loaded",
             repositories_msg,

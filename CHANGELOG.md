@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.32.4]
+
+### Added
+
+### Changed
+
+- Change log level for `repositoriesdb` messages ([569])
+
+### Fixed
+
+[569]: https://github.com/openlawlibrary/taf/pull/569
+
 ## [0.32.3] - 11/22/2024
 
 ### Added
@@ -1357,7 +1369,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.3...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.4...HEAD
+[0.32.4]: https://github.com/openlawlibrary/taf/compare/v0.32.3...v0.32.4
 [0.32.3]: https://github.com/openlawlibrary/taf/compare/v0.32.2...v0.32.3
 [0.32.2]: https://github.com/openlawlibrary/taf/compare/v0.32.1...v0.32.2
 [0.32.1]: https://github.com/openlawlibrary/taf/compare/v0.32.0...v0.32.1
