@@ -26,6 +26,12 @@ def is_subpath(path, potential_subpath):
 
 
 def find_git_repository(inner_path):
+    """
+    Instantiates a git repository based on a path
+    that is expected to be inside that repository.
+    Enables smoother integration with TUF's default
+    FilesystemBackend implementation
+    """
     for path in list(git_repos_cache.keys()):
         if is_subpath(inner_path, path):
             return git_repos_cache[path]
@@ -51,6 +57,12 @@ def find_git_repository(inner_path):
 
 
 class GitStorageBackend(FilesystemBackend):
+    """
+    Storage backend implemnantation that loads data
+    from a specific commit, if it is specified,
+    or from the filesystem, if the commit is None
+    Extends TUF's FilesystemBackend.
+    """
 
     commit: Optional[str] = None
 
