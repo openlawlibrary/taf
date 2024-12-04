@@ -21,7 +21,7 @@ from taf.tests.test_updater.update_utils import (
     clone_repositories,
     load_target_repositories,
     update_and_check_commit_shas,
-    verify_repos_eixst,
+    verify_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
 
@@ -528,7 +528,7 @@ def test_update_when_target_empty(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo, excluded=["empty"])
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["empty"])
 
 
 @pytest.mark.parametrize(

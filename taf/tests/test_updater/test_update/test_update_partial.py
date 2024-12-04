@@ -13,7 +13,7 @@ from taf.tests.test_updater.update_utils import (
     clone_repositories,
     update_and_check_commit_shas,
     update_invalid_repos_and_check_if_repos_exist,
-    verify_repos_eixst,
+    verify_repos_exist,
 )
 from taf.updater.types.update import OperationType
 
@@ -141,7 +141,7 @@ def test_update_after_update_with_exclude(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=expected_repo_type,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo)
+    verify_repos_exist(client_dir, origin_auth_repo)
 
 
 @pytest.mark.parametrize(
@@ -195,7 +195,7 @@ def test_update_after_update_with_exclude_with_invalid_commits(
         TARGET_MISSMATCH_PATTERN,
         True,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo)
+    verify_repos_exist(client_dir, origin_auth_repo)
 
 
 @pytest.mark.parametrize(
@@ -226,7 +226,7 @@ def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
         expected_repo_type=expected_repo_type,
         excluded_target_globs=["*/target_same*"],
     )
-    verify_repos_eixst(
+    verify_repos_exist(
         client_dir, origin_auth_repo, excluded=["target_same1", "target_same2"]
     )
 
@@ -238,7 +238,7 @@ def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
         no_upstream=False,
         expected_repo_type=expected_repo_type,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo)
+    verify_repos_exist(client_dir, origin_auth_repo)
 
 
 @pytest.mark.parametrize(

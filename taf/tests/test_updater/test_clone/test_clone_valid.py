@@ -14,7 +14,7 @@ from taf.tests.test_updater.conftest import (
 from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
     update_and_check_commit_shas,
-    verify_repos_eixst,
+    verify_repos_exist,
 )
 from taf.updater.types.update import OperationType, UpdateType
 
@@ -340,7 +340,7 @@ def test_clone_when_target_empty(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=UpdateType.EITHER,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo, excluded=["empty"])
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["empty"])
 
 
 @pytest.mark.parametrize(
@@ -369,4 +369,4 @@ def test_clone_when_no_target_file_and_commit(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=UpdateType.EITHER,
     )
-    verify_repos_eixst(client_dir, origin_auth_repo, excluded=["target2"])
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["target2"])
