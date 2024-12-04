@@ -27,7 +27,6 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     _conf_dir = None
     _dependencies: Dict = {}
-    _last_validated_data: Optional[Dict] = None
 
     def __init__(
         self,
@@ -154,18 +153,17 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         Return the last validated data of the authentication repository
         """
-        if self._last_validated_data is None:
-            last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
-            self._last_validated_data = {}
-            if last_validated_path.is_file():
-                data = last_validated_path.read_text().strip()
-                try:
-                    self._last_validated_data = json.loads(data)
-                except json.decoder.JSONDecodeError:
-                    if data:
-                        self._last_validated_data = {self.name: data}
+        last_validated_data = {}
+        last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+        if last_validated_path.is_file():
+            data = last_validated_path.read_text().strip()
+            try:
+                last_validated_data = json.loads(data)
+            except json.decoder.JSONDecodeError:
+                if data:
+                    last_validated_data = {self.name: data}
 
-        return self._last_validated_data
+        return last_validated_data
 
     @property
     def log_prefix(self) -> str:

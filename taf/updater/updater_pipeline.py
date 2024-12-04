@@ -490,7 +490,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # after a partial update, there is no need to validate the auth repo
             # from an older commit, just because one of more targets were skipped
             self.state.last_validated_data = users_auth_repo.last_validated_data
-            last_validated_commit = self.state.last_validated_data[users_auth_repo.name]
+            last_validated_commit = self.state.last_validated_data.get(
+                users_auth_repo.name
+            )
 
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
