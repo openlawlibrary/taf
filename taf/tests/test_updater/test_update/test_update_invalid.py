@@ -9,6 +9,7 @@ from taf.tests.test_updater.conftest import (
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     create_index_lock,
+    set_last_commit_of_auth_repo,
     update_expiration_dates,
     update_role_metadata_invalid_signature,
 )
@@ -95,7 +96,11 @@ def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir)
 
     invalid_commit_sha = "66d7f48e972f9fa25196523f469227dfcd85c994"
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    client_auth_repo.set_last_validated_commit(invalid_commit_sha)
+    clients_setup_manager = SetupManager(client_auth_repo)
+    clients_setup_manager.add_task(
+        set_last_commit_of_auth_repo, kwargs={"commit": invalid_commit_sha}
+    )
+    clients_setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,

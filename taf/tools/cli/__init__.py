@@ -43,11 +43,12 @@ def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove
         finally:
             if not skip_cleanup and not successful and "path" in kwargs:
                 path = kwargs["path"]
-                repo = GitRepository(path=path)
-                if repo.is_git_repository and not repo.is_bare_repository:
-                    repo.clean_and_reset()
-                if remove_dir_on_error:
-                    shutil.rmtree(path, onerror=on_rm_error)
+                if path:
+                    repo = GitRepository(path=path)
+                    if repo.is_git_repository and not repo.is_bare_repository:
+                        repo.clean_and_reset()
+                    if remove_dir_on_error:
+                        shutil.rmtree(path, onerror=on_rm_error)
 
     return wrapper
 
