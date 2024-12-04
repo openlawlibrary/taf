@@ -723,7 +723,9 @@ class GitRepository:
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
-            raise GitError(f"Could not clone repository from local path {local_path}")
+            raise GitError(
+                self, message=f"Could not clone repository from local path {local_path}"
+            )
         repo = self.pygit_repo
 
         if not keep_remote:
@@ -1165,15 +1167,17 @@ class GitRepository:
         return branch.shorthand
 
     def get_last_remote_commit(
-        self, url: str, branch: Optional[str] = None
+        self, url: Optional[str] = None, branch: Optional[str] = None
     ) -> Optional[str]:
         """
         Fetch the last remote commit of the specified branch
         """
         branch = branch or self.default_branch
         if url is None:
+            url = self.get_remote_url()
+        if url is None:
             raise FetchException(
-                "Could not fetch the last remote commit. URL not specified"
+                "Could not fetch the last remote commit. URL not found"
             )
         last_commit = self._git(f"--no-pager ls-remote {url} {branch}", log_error=True)
         if last_commit:
@@ -1627,7 +1631,7 @@ class GitRepository:
         remote_branch = f"{remote}/{branch}"
         if not self.branch_exists(remote_branch, include_remotes=True):
             raise GitError(
-                f"Branch {remote_branch} does not exist in the remote repository."
+                self, message=f"Remote branch {remote_branch} does not exist"
             )
         return self.top_commit_of_branch(remote_branch)
 
