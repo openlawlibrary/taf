@@ -31,11 +31,7 @@ from taf.keystore import (
     load_signer_from_private_keystore,
 )
 from taf import YubikeyMissingLibrary
-
-
 from securesystemslib.signer._crypto_signer import CryptoSigner
-from taf.yubikey import get_serial_num, yk_secrets_handler
-
 
 try:
     import taf.yubikey as yk
@@ -240,7 +236,7 @@ def load_signers(
         )
         if public_key is not None and public_key not in yubikeys:
             signer = YkSigner(
-                public_key, partial(yk_secrets_handler, serial_num=serial_num)
+                public_key, partial(yk.yk_secrets_handler, serial_num=serial_num)
             )
             yubikeys.append(signer)
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
@@ -388,7 +384,7 @@ def _setup_yubikey_roles_keys(
             )
             loaded_keys_num += 1
             signer = YkSigner(
-                public_key, partial(yk_secrets_handler, serial_num=serial_num)
+                public_key, partial(yk.yk_secrets_handler, serial_num=serial_num)
             )
             signers.append(signer)
 
@@ -409,7 +405,8 @@ def _setup_yubikey_roles_keys(
                     loaded_keys_num += 1
                     loaded_keys.append(key_id)
                     signer = YkSigner(
-                        public_key, partial(yk_secrets_handler, serial_num=serial_num)
+                        public_key,
+                        partial(yk.yk_secrets_handler, serial_num=serial_num),
                     )
                     signers.append(signer)
                 if loaded_keys_num == role.threshold:
@@ -559,4 +556,4 @@ def _load_and_verify_yubikey(
             print("Public key of the inserted key is not equal to the specified one.")
             if not click.confirm("Try again?"):
                 return None
-        return get_serial_num()
+        return yk.get_serial_num()
