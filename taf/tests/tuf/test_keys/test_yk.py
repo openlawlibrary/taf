@@ -25,7 +25,7 @@ _SIG = b"\xc1}\xaa\xec\xf6#;\xe6\x89\xc26\x81\x1a;\xd3\xb2\x7f\xce\xe3}\x9a6w}P\
 
 def is_yubikey_manager_installed():
     try:
-        import taf.yubikey
+        import taf.yubikey  # noqa: F401
     except ImportError:
         return False
     else:
