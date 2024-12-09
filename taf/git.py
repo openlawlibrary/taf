@@ -17,6 +17,7 @@ import taf.settings as settings
 from taf.exceptions import (
     NoRemoteError,
     NothingToCommitError,
+    PushFailedError,
     TAFError,
     CloneRepoException,
     FetchException,
@@ -1463,10 +1464,7 @@ class GitRepository:
             self._log_notice("Successfully pushed to remote")
             return True
         except GitError as e:
-            self._log_error(
-                f"Push failed: {str(e)}. Please check if there are upstream changes."
-            )
-            raise TAFError("Push operation failed") from e
+            raise PushFailedError(self, message=f"Push operation failed: {e}")
 
     def remove_remote(self, remote_name: str) -> None:
         try:

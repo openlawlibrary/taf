@@ -78,6 +78,10 @@ class InvalidPINError(TAFError):
     pass
 
 
+class PushFailedError(GitError):
+    pass
+
+
 class RemoveMetadataKeyThresholdError(TAFError):
     def __init__(self, threshold: int):
         super().__init__(

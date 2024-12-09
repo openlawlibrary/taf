@@ -5,7 +5,7 @@ from collections import defaultdict
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.api_workflow import manage_repo_and_signers
+from taf.api.api_workflow import manage_repo_and_signers, transactional_execution
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import KeystoreError, TAFError
@@ -25,9 +25,11 @@ from taf.constants import (
 from taf.keystore import new_public_key_cmd_prompt
 from taf.tuf.repository import MAIN_ROLES, METADATA_DIRECTORY_NAME
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
-from taf.log import taf_logger
+from taf.log import NOTICE, taf_logger
 from taf.models.types import RolesKeysData
 from taf.messages import git_commit_message
+
+from securesystemslib.signer._key import SSlibKey
 
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
@@ -303,11 +305,11 @@ def add_multiple_roles(
         auth_repo.do_timestamp()
 
 
-@log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
-@log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
+@log_on_start(NOTICE, "Adding a new signing key", logger=taf_logger)
+@log_on_end(DEBUG, "Finished adding a new signing key", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new signing key to roles: {e}",
+    "An error occurred while adding a new signing key: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,
@@ -317,6 +319,7 @@ def add_signing_key(
     path: str,
     roles: List[str],
     pub_key_path: Optional[str] = None,
+    pub_key: Optional[SSlibKey] = None,
     keystore: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
@@ -347,20 +350,9 @@ def add_signing_key(
         None
     """
 
-    pub_key_pem = None
-    if pub_key_path is not None:
-        pub_key_pem_path = Path(pub_key_path)
-        if pub_key_pem_path.is_file():
-            pub_key_pem = Path(pub_key_path).read_text()
-
-    if pub_key_pem is None and prompt_for_keys:
-        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
-
-    if pub_key_pem is None:
-        taf_logger.error("Public key not provided or invalid")
-        return
-
-    pub_key = get_sslib_key_from_value(pub_key_pem)
+    pub_key = pub_key or _load_pub_key_from_file(
+        pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
+    )
 
     roles_keys = {role: [pub_key] for role in roles}
 
@@ -393,11 +385,11 @@ def add_signing_key(
             auth_repo.update_snapshot_and_timestamp()
 
 
-@log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
-@log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
+@log_on_start(NOTICE, "Revoking signing key", logger=taf_logger)
+@log_on_end(DEBUG, "Finished revoking signing key", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new signing key to roles: {e}",
+    "An error occurred while revoking signing key: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,
@@ -438,7 +430,7 @@ def revoke_signing_key(
 
     auth_repo = AuthenticationRepository(path=path)
 
-    roles_to_update = auth_repo.find_keysid_roles([key_id])
+    roles_to_update = roles or auth_repo.find_keysid_roles([key_id])
 
     with manage_repo_and_signers(
         auth_repo,
@@ -453,6 +445,7 @@ def revoke_signing_key(
         push=push,
         commit_msg=commit_msg,
     ):
+
         (
             removed_from_roles,
             not_added_roles,
@@ -470,6 +463,75 @@ def revoke_signing_key(
 
         if len(removed_from_roles):
             auth_repo.update_snapshot_and_timestamp()
+
+
+@check_if_clean
+def rotate_signing_key(
+    path: str,
+    key_id: str,
+    pub_key_path: Optional[str] = None,
+    roles: Optional[List[str]] = None,
+    keystore: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+) -> None:
+    """
+    Rotate signing key. Remove it from one or more roles and add a new signing key.
+    Update root metadata if one or more roles is one of the main TUF roles,
+    parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
+
+    Arguments:
+        path: Path to the authentication repository.
+        roles: A list of roles whose signing keys need to be extended.
+        key_id: id of the key to be removed
+        pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
+            it will be necessary to ender the key when prompted.
+        keystore (optional): Location of the keystore files.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        push (optional): Flag specifying whether to push to remote.
+        commit_msg(optional): Commit message. Will be necessary to enter it if not provided.
+    Side Effects:
+        Updates metadata files (parents of the affected roles, snapshot and timestamp).
+        Writes changes to disk.
+
+    Returns:
+        None
+    """
+
+    pub_key = _load_pub_key_from_file(
+        pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
+    )
+    auth_repo = AuthenticationRepository(path=path)
+    roles = roles or auth_repo.find_keysid_roles([key_id])
+
+    with transactional_execution(auth_repo):
+        revoke_signing_key(
+            path=path,
+            key_id=key_id,
+            roles=roles,
+            keystore=keystore,
+            scheme=scheme,
+            commit=commit,
+            prompt_for_keys=prompt_for_keys,
+            push=False,
+        )
+
+        add_signing_key(
+            path=path,
+            roles=roles,
+            pub_key=pub_key,
+            keystore=keystore,
+            scheme=scheme,
+            commit=commit,
+            prompt_for_keys=prompt_for_keys,
+            push=push,
+            commit_msg=commit_msg,
+        )
 
 
 # TODO this is probably outdated, the format of the outputted roles_key_infos
@@ -585,6 +647,22 @@ def _enter_role_info(
         role_info["delegations"] = delegated_roles
 
     return role_info
+
+
+def _load_pub_key_from_file(pub_key_path, prompt_for_keys, scheme) -> SSlibKey:
+    pub_key_pem = None
+    if pub_key_path is not None:
+        pub_key_pem_path = Path(pub_key_path)
+        if pub_key_pem_path.is_file():
+            pub_key_pem = Path(pub_key_path).read_text()
+
+    if pub_key_pem is None and prompt_for_keys:
+        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+
+    if pub_key_pem is None:
+        raise TAFError("Public key not provided or invalid")
+
+    return get_sslib_key_from_value(pub_key_pem)
 
 
 def _read_val(input_type, name, param=None, required=False):

@@ -5,11 +5,23 @@ from typing import Dict, List, Optional, Union
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import TAFError
+from taf.exceptions import PushFailedError, TAFError
 from taf.keys import load_signers
 from taf.log import taf_logger
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
+
+
+@contextmanager
+def transactional_execution(auth_repo):
+    initial_commit = auth_repo.head_commit_sha()
+    try:
+        yield
+    except PushFailedError:
+        pass
+    except Exception:
+        auth_repo.reset_to_commit(initial_commit, hard=True)
+        raise
 
 
 @contextmanager
@@ -66,6 +78,8 @@ def manage_repo_and_signers(
         elif not no_commit_warning:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
+    except PushFailedError:
+        raise
     except Exception as e:
         taf_logger.error(f"An error occurred: {e}")
         if not paths_to_reset_on_error:
