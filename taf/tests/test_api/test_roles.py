@@ -9,6 +9,7 @@ from taf.api.roles import (
     add_signing_key,
     list_keys_of_role,
     remove_paths,
+    revoke_signing_key,
 )
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
@@ -276,6 +277,28 @@ def test_add_signing_key(auth_repo: AuthenticationRepository, roles_keystore: st
     assert len(timestamp_keys_infos) == 2
     snapshot_keys_infos = list_keys_of_role(str(auth_repo.path), "snapshot")
     assert len(snapshot_keys_infos) == 2
+
+
+def test_revoke_signing_key(auth_repo: AuthenticationRepository, roles_keystore: str):
+    auth_repo = AuthenticationRepository(path=auth_repo.path)
+    targest_keyids = auth_repo.get_keyids_of_role("targets")
+    key_to_remove = targest_keyids[-1]
+    initial_commits_num = len(auth_repo.list_commits())
+    targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
+    assert len(targets_keys_infos) == 2
+    COMMIT_MSG = "Revoke a targets key"
+    revoke_signing_key(
+        path=str(auth_repo.path),
+        key_id=key_to_remove,
+        keystore=roles_keystore,
+        push=False,
+        commit_msg=COMMIT_MSG,
+    )
+    commits = auth_repo.list_commits()
+    assert len(commits) == initial_commits_num + 1
+    targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
+    assert len(targets_keys_infos) == 1
+    assert commits[0].message.strip() == COMMIT_MSG
 
 
 def _check_new_role(
