@@ -108,17 +108,6 @@ class MetadataRepository(Repository):
 
     serializer = JSONSerializer(compact=False)
 
-    # TODO - what is this?
-    # @property
-    # def repo_id(self):
-    #     return GitRepository(path=self.path).initial_commit
-
-    @property
-    def certs_dir(self):
-        certs_dir = self.path / "certs"
-        certs_dir.mkdir(parents=True, exist_ok=True)
-        return str(certs_dir)
-
     def __init__(self, path: Union[Path, str], *args, **kwargs) -> None:
         storage_backend = kwargs.pop("storage", None)
         super().__init__(*args, **kwargs)

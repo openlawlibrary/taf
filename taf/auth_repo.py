@@ -125,8 +125,9 @@ class AuthenticationRepository(GitRepository):
         return self._conf_dir
 
     @property
-    def certs_dir(self) -> str:
-        certs_dir = Path(self.path, "certs")
+    def certs_dir(self):
+        certs_dir = self.path / "certs"
+        certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
     @property
