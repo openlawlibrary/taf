@@ -139,7 +139,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     @property
     def last_validated_commit(self) -> Optional[str]:
         """
-        Return the last validated commit of the authentication repository
+        Last validated commit across the entire set of repositories, including authentication and target repositories.
+        It is only validated if the update process does not skip any repository
         """
         try:
             if self.last_validated_data is not None:
@@ -151,7 +152,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     @property
     def last_validated_data(self) -> Optional[dict]:
         """
-        Return the last validated data of the authentication repository
+        A dictionary containing the last validated commits for each repository, including both target repositories
+        and the authentication repository. It also includes the last validated commit for when all repositories
+        were simultaneously updated.
         """
         last_validated_data = {}
         last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)

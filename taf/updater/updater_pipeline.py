@@ -45,6 +45,56 @@ class RunMode(Enum):
 
 @define
 class UpdateState:
+    """
+    A class to manage the state of repository updates, encapsulating information about authentication and validation
+    of commits, and the management of repository data during updates.
+
+    Attributes:
+        auth_commits_since_last_validated (List[Any]): A list of fetched commits following the last validated commit
+        invalid_auth_commits (List[Any]): List of authenticated commits identified as invalid.
+        existing_repo (bool): Indicates if the repository already exists.
+        is_test_repo (bool): Flags the repository as a test repository. Is set based on the existance of a specific target file.
+        update_status (UpdateStatus): Update status - successful, partial, failed
+        update_successful (bool): Indicates whether the update was successful.
+        event (Event): event to be passed into the lifecycle handlers following the update.
+        users_auth_repo (Optional["AuthenticationRepository"]): User's authentication repository.
+        validation_auth_repo (Optional["AuthenticationRepository"]): Temporary authentication repository used for validation.
+        auth_repo_name (Optional[str]): Name of the authentication repository.
+        errors (Optional[List[Exception]]): Errors encountered during the update process.
+        warnings (Optional[List[Exception]]): Warnings issued during the update process.
+        targets_data (Dict[str, Any]): Data related to the target repositories, set based on the information in the
+            authentication repository.
+        last_validated_commit (str): The commit SHA of the last validated commit across the entire set of repositories.
+            This is only updated if the update is run without the --exclude-target option, so if the auth repo and all
+            target repositories were updated.
+        last_validated_data (Dict[str, Any]): Data set after each partial or successful update. If run with
+            --exclude-targets, last validated commit is set for each updated repo.
+        temp_target_repositories (Dict[str, "GitRepository"]): Temporary repositories created and cleaned up during
+            the update process.
+        users_target_repositories (Dict[str, "GitRepository"]): Permanent repositories within the user's local directory.
+        repos_on_disk (Dict[str, "GitRepository"]): Repositories that are already present in the user's local directory
+            at the start of the update.
+        repos_not_on_disk (Dict[str, "GitRepository"]): Repositories not present in the user's local directory at the
+            start of the update.
+        target_branches_data_from_auth_repo (Dict): Target repositories data, sorted by branches, based on information
+            from the authentication repository.
+        targets_data_by_auth_commits (Dict): Targets data organized by authentication commits.
+        old_heads_per_target_repos_branches (Dict[str, Dict[str, str]]): Old head commits per target repository branches.
+        fetched_commits_per_target_repos_branches (Dict[str, Dict[str, List[str]]]): Fetched commits per target repository branches.
+        validated_commits_per_target_repos_branches (Dict[str, Dict[str, str]]): Validated commits per target repository branches.
+        additional_commits_per_target_repos_branches (Dict[str, Dict[str, List[str]]]): Additional commits per target repository branches.
+        validated_auth_commits (List[str]): List of validated authenticated commits.
+        temp_root (TempPartition): Temporary storage partition used during updates.
+        update_handler (GitUpdater): update handler used to interface with TUF's updater.
+        clean_check_data (Dict[str, str]): A dictionary used while checking if the repositories are clean.
+        last_validated_data_per_repositories (Dict[str, Dict[str, str]]): Keeps track of last successfully validated
+            commits per branches of target repositories. Updated during the validation process.
+        all_targets_auth_commits (List[str]): All commits of the authentication repository that correspond
+            to commits of target repositories that need to be validated. If the previous update excluded some
+            target repositories, this list will not be the same as the list containing new auth repo commits.
+        is_partially_updated (bool): Indicates if the update was partial.
+    """
+
     auth_commits_since_last_validated: List[Any] = field(factory=list)
     invalid_auth_commits: List[Any] = field(factory=list)
     existing_repo: bool = field(default=False)
@@ -58,23 +108,12 @@ class UpdateState:
     errors: Optional[List[Exception]] = field(default=None)
     warnings: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
-    # last validated commit is updated only if the update is run without --exclude-target
     last_validated_commit: str = field(factory=str)
-    # last validated data is set after each partial or successful updater run
-    # if run with --exclude-targets, last validated commit is set for each updated repo
     last_validated_data: str = field(factory=dict)
-    # repositories inside the temp folder which are created and cleaned up
-    # during the update process
     temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
-    # permanent repositories inside the user's local direcotry
     users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
-    # a dictionary of repositories which are already present inside a user's local and
-    # directory when the update is started
     repos_on_disk: Dict[str, GitRepository] = field(factory=dict)
-    # a dictionary of repositories which are not present inside a user's local
-    # directory when the update is started
     repos_not_on_disk: Dict[str, GitRepository] = field(factory=dict)
-    # a list of repositoires that were added to repositories.json in one of new commits
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
@@ -506,7 +545,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def check_if_local_repositories_clean(self):
         try:
-            self.clean_check_data = {}
+            self.state.clean_check_data = {}
             # Early exit if the repository does not exist
             if not self.state.existing_repo:
                 return UpdateStatus.SUCCESS
