@@ -11,7 +11,11 @@ from taf.tests.test_updater.conftest import (
     add_file_to_target_repo_without_committing,
     add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
+    create_new_target_repo_branch,
     remove_commits,
+    remove_commits_from_auth_repo,
+    reset_to_commit,
+    set_last_commit_of_auth_repo,
     update_auth_repo_without_committing,
     update_expiration_dates,
     update_target_repo_without_committing,
@@ -304,14 +308,20 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
     all_commits = client_auth_repo.all_commits_on_branch(
         client_auth_repo.default_branch
     )
-    client_auth_repo.reset_to_commit(all_commits[-2], hard=True)
+
+    clients_setup_manager = SetupManager(client_auth_repo)
+    clients_setup_manager.add_task(reset_to_commit, kwargs={"commit": all_commits[-2]})
+    clients_setup_manager.add_task(
+        set_last_commit_of_auth_repo, kwargs={"commit": all_commits[-2]}
+    )
+    clients_setup_manager.execute_tasks()
+
     client_auth_repo.checkout_commit(all_commits[-3])
     assert client_auth_repo.is_detached_head
     assert (
         client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
         == all_commits[-2]
     )
-    client_auth_repo.set_last_validated_commit(all_commits[-2])
 
     update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -475,12 +485,12 @@ def test_update_with_last_validated_commit_not_in_local_repo(
 
     origin_top_commit_sha = origin_auth_repo.head_commit_sha()
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    client_auth_repo.set_last_validated_commit(origin_top_commit_sha)
-
-    remove_commits(
-        repo_path=str(client_auth_repo.path),
-        num_commits=1,
+    clients_setup_manager = SetupManager(client_auth_repo)
+    clients_setup_manager.add_task(
+        set_last_commit_of_auth_repo, kwargs={"commit": origin_top_commit_sha}
     )
+    clients_setup_manager.add_task(remove_commits_from_auth_repo)
+    clients_setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
@@ -518,12 +528,15 @@ def test_update_with_targets_repo_having_a_local_branch_not_on_remote_origin_exp
 
     origin_top_commit_sha = origin_auth_repo.head_commit_sha()
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
-    client_auth_repo.set_last_validated_commit(origin_top_commit_sha)
-    client_target_repo_path = client_auth_repo.path.parent / "target1"
-    client_target_repo = GitRepository(path=client_target_repo_path)
-
-    client_target_repo.checkout_branch("branch-not-synced-with-remote", create=True)
-    client_target_repo.commit_empty("Add new commit that diverges from default branch")
+    client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
+    clients_setup_manager = SetupManager(client_auth_repo)
+    clients_setup_manager.add_task(
+        set_last_commit_of_auth_repo, kwargs={"commit": origin_top_commit_sha}
+    )
+    clients_setup_manager.add_task(
+        create_new_target_repo_branch, kwargs={"target_name": "target1"}
+    )
+    clients_setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,

@@ -372,31 +372,30 @@ def _update_or_clone_repository(config: UpdateConfig):
         )
 
     update_data = Update()
-    if not config.excluded_target_globs:
-        # after all repositories have been updated
-        # update information is in repos_update_data
-        if auth_repo_name is None or auth_repo_name not in repos_update_data:
-            # this must mean that an error occurred
-            if root_error is not None:
-                raise root_error
-            else:
-                raise UpdateFailedError(f"Update of {auth_repo_name} failed")
-        root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
 
-        update_status, errors = _check_update_status(repos_update_data)
-        update_transient_data = _update_transient_data(
-            transient_data, repos_update_data
-        )
+    if auth_repo_name is None or auth_repo_name not in repos_update_data:
+        # this must mean that an error occurred
+        if root_error is not None:
+            raise root_error
+        else:
+            raise UpdateFailedError(f"Update of {auth_repo_name} failed")
 
-        update_data = handle_update_event(
-            update_status,
-            update_transient_data,
-            root_auth_repo.library_dir,
-            config.scripts_root_dir,
-            repos_update_data,
-            errors,
-            root_auth_repo,
-        )
+    # after all repositories have been updated
+    # update information is in repos_update_data
+    root_auth_repo = repos_update_data[auth_repo_name]["auth_repo"]
+
+    update_status, errors = _check_update_status(repos_update_data)
+    update_transient_data = _update_transient_data(transient_data, repos_update_data)
+
+    update_data = handle_update_event(
+        update_status,
+        update_transient_data,
+        root_auth_repo.library_dir,
+        config.scripts_root_dir,
+        repos_update_data,
+        errors,
+        root_auth_repo,
+    )
     if repos_update_data[auth_repo_name].get("warnings"):
         taf_logger.warning(repos_update_data[auth_repo_name].get("warnings"))
 
