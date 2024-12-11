@@ -143,7 +143,7 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         """
         try:
             if self.last_validated_data is not None:
-                return self.last_validated_data[self.LAST_VALIDATED_KEY]
+                return self.last_validated_data[self.name]
         except KeyError:
             return None
         return None
@@ -279,18 +279,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
     def set_last_validated_data(
         self,
-        last_validated_data: dict,
-        set_last_validated_commit: Optional[bool] = True,
+        last_validated_data: dict
     ):
         """
         Set the last validated data of the authentication repository.
         In case of a partial update (update run with the --exclude-target option),
         update last validated commits of target repositories that were updated
         """
-        if set_last_validated_commit:
-            last_validated_data[self.LAST_VALIDATED_KEY] = last_validated_data[
-                self.name
-            ]
         last_data_str = json.dumps(last_validated_data, indent=4)
         self._log_debug(f"setting last validated data to: {last_data_str}")
         Path(self.conf_dir, self.LAST_VALIDATED_FILENAME).write_text(last_data_str)
