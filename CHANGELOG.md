@@ -69,7 +69,6 @@ and this project adheres to [Semantic Versioning][semver].
 
 [562]: https://github.com/openlawlibrary/taf/pull/562
 
->>>>>>> master
 ## [0.32.0] - 10/23/2024
 
 ### Added
