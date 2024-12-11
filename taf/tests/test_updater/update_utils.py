@@ -25,7 +25,7 @@ def check_last_validated_commit(
     assert last_validated_data[client_auth_repo.name] == head_sha
     if not excluded_targets:
         assert (
-            client_auth_repo.last_validated_data[client_auth_repo.name]
+            client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]
             == head_sha
         )
 

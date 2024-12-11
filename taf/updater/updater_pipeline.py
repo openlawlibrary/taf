@@ -1789,7 +1789,8 @@ but commit not on branch {current_branch}"
                 last_validated_data[repo] = last_commit
             last_validated_data[self.state.users_auth_repo.name] = last_commit
             self.state.users_auth_repo.set_last_validated_data(
-                last_validated_data
+                last_validated_data,
+                set_last_validated_commit=not bool(self.excluded_target_globs),
             )
 
             return self.state.update_status
