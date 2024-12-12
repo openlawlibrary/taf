@@ -178,7 +178,7 @@ def is_valid_pin(pin):
 
 
 @raise_yubikey_err("Cannot get serial number.")
-def get_serial_num(pub_key_pem=None):
+def get_serial_num():
     """Get Yubikey serial number.
 
     Args:
@@ -191,12 +191,12 @@ def get_serial_num(pub_key_pem=None):
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (_, serial):
+    with _yk_piv_ctrl() as (_, serial):
         return serial
 
 
 @raise_yubikey_err("Cannot export x509 certificate.")
-def export_piv_x509(cert_format=serialization.Encoding.PEM, pub_key_pem=None):
+def export_piv_x509(cert_format=serialization.Encoding.PEM):
     """Exports YubiKey's piv slot x509.
 
     Args:
@@ -210,13 +210,13 @@ def export_piv_x509(cert_format=serialization.Encoding.PEM, pub_key_pem=None):
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
+    with _yk_piv_ctrl() as (ctrl, _):
         x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_bytes(encoding=cert_format)
 
 
 @raise_yubikey_err("Cannot export public key.")
-def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=None):
+def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM):
     """Exports YubiKey's piv slot public key.
 
     Args:
@@ -230,7 +230,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, pub_key_pem=No
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
+    with _yk_piv_ctrl() as (ctrl, _):
         try:
             x509_cert = ctrl.get_certificate(SLOT.SIGNATURE)
             public_key = x509_cert.public_key()
@@ -256,7 +256,7 @@ def export_yk_certificate(certs_dir, key):
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None):
+def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME):
     """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
     Args:
@@ -272,12 +272,12 @@ def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME, pub_key_pem=None
     Raises:
         - YubikeyError
     """
-    pub_key_pem = export_piv_pub_key(pub_key_pem=pub_key_pem).decode("utf-8")
+    pub_key_pem = export_piv_pub_key().decode("utf-8")
     return import_rsakey_from_pem(pub_key_pem, scheme)
 
 
 @raise_yubikey_err("Cannot sign data.")
-def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
+def sign_piv_rsa_pkcs1v15(data, pin):
     """Sign data with key from YubiKey's piv slot.
 
     Args:
@@ -292,7 +292,7 @@ def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(pub_key_pem=pub_key_pem) as (ctrl, _):
+    with _yk_piv_ctrl() as (ctrl, _):
         ctrl.verify_pin(pin)
         return ctrl.sign(
             SLOT.SIGNATURE, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
