@@ -95,7 +95,7 @@ def raise_yubikey_err(msg: Optional[str] = None) -> Callable:
 
 
 @contextmanager
-def _yk_piv_ctrl(serial=None, pub_key_pem=None):
+def _yk_piv_ctrl(serial=None):
     """Context manager to open connection and instantiate Piv Session.
 
     Args:
@@ -110,35 +110,13 @@ def _yk_piv_ctrl(serial=None, pub_key_pem=None):
     """
     # If pub_key_pem is given, iterate all devices, read x509 certs and try to match
     # public keys.
-    if pub_key_pem is not None:
-        for dev, info in list_all_devices():
-            # Connect to a YubiKey over a SmartCardConnection, which is needed for PIV.
+    for dev, info in list_all_devices():
+        if serial is None or info.serial == serial:
             with dev.open_connection(SmartCardConnection) as connection:
                 session = PivSession(connection)
-                device_pub_key_pem = (
-                    session.get_certificate(SLOT.SIGNATURE)
-                    .public_key()
-                    .public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                    )
-                    .decode("utf-8")
-                )
-                # Tries to match without last newline char
-                if (
-                    device_pub_key_pem == pub_key_pem
-                    or device_pub_key_pem[:-1] == pub_key_pem
-                ):
-                    break
                 yield session, info.serial
-    else:
-        for dev, info in list_all_devices():
-            if serial is None or info.serial == serial:
-                with dev.open_connection(SmartCardConnection) as connection:
-                    session = PivSession(connection)
-                    yield session, info.serial
-            else:
-                pass
+        else:
+            pass
 
 
 def is_inserted():
