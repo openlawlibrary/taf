@@ -147,7 +147,7 @@ class Root3YubiKey(FakeYubiKey):
 
 
 @contextmanager
-def _yk_piv_ctrl_mock(serial=None, pub_key_pem=None):
+def _yk_piv_ctrl_mock(serial=None):
     global INSERTED_YUBIKEY
 
     if INSERTED_YUBIKEY is None:
