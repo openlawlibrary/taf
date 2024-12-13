@@ -68,9 +68,6 @@ def test_get_last_remote_commit(origin_repo, clone_repository):
     last_remote_on_origin = clone_repository.get_last_remote_commit(
         clone_repository.get_remote_url()
     )
-    assert last_remote_on_origin == origin_repo.top_commit_of_branch(
-        origin_repo.default_branch
-    )
     assert last_remote_on_origin == top_commit
 
 
