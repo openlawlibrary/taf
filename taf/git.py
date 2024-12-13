@@ -1167,7 +1167,7 @@ class GitRepository:
         return branch.shorthand
 
     def get_last_remote_commit(
-        self, url: Optional[str], branch: Optional[str] = None
+        self, url: Optional[str] = None, branch: Optional[str] = None
     ) -> Optional[str]:
         """
         Fetch the last remote commit of the specified branch
