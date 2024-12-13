@@ -1,19 +1,19 @@
 import enum
 import os
 import re
-from typing import Optional
-
-from taf.api.api_workflow import manage_repo_and_signers
+import uuid
 import pytest
 import inspect
 import random
 import shutil
 import string
 import json
+from typing import Optional
 from functools import partial
 from freezegun import freeze_time
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
+from taf.api.api_workflow import manage_repo_and_signers
 from taf.api.metadata import (
     update_metadata_expiration_date,
 )
@@ -553,6 +553,17 @@ def create_new_target_orphan_branches(
     sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
 
 
+def create_new_target_repo_branch(
+    auth_repo: AuthenticationRepository, target_repos: list, target_name: str
+):
+    for repo in target_repos:
+        if target_name in repo.name:
+            branch_name = str(uuid.uuid4())
+            repo.checkout_branch(branch_name, create=True)
+            repo.commit_empty("Add new branch commit")
+            break
+
+
 def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     # Create an `index.lock` file, indicating that an incomplete git operation took place
     # index.lock is created by git when a git operation is interrupted.
@@ -569,17 +580,45 @@ def _generate_random_text(length=10):
     return "".join(random.choice(letters) for i in range(length))
 
 
-def remove_last_validate_commit(auth_repo: AuthenticationRepository, client_dir: Path):
-    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
-    Path(client_repo.conf_dir, client_repo.LAST_VALIDATED_FILENAME).unlink()
-    assert client_repo.last_validated_commit is None
+def remove_commits_from_auth_repo(
+    auth_repo: AuthenticationRepository, num_of_commits: int = 1
+):
+    auth_repo.reset_num_of_commits(num_of_commits, hard=True)
 
 
-def revert_last_validated_commit(auth_repo: AuthenticationRepository, client_dir: Path):
-    client_repo = AuthenticationRepository(client_dir, auth_repo.name)
-    older_commit = client_repo.all_commits_on_branch(client_repo.default_branch)[-2]
-    client_repo.set_last_validated_commit(older_commit)
-    assert client_repo.last_validated_commit == older_commit
+def reset_to_commit(auth_repo: AuthenticationRepository, commit: str):
+    auth_repo.reset_to_commit(commit, hard=True)
+
+
+def remove_last_validated_commit(auth_repo: AuthenticationRepository):
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).unlink()
+    assert auth_repo.last_validated_commit is None
+
+
+def remove_last_validated_data(auth_repo: AuthenticationRepository):
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).unlink()
+    assert not auth_repo.last_validated_data
+
+
+def replace_with_old_last_validated_commit_format(auth_repo: AuthenticationRepository):
+    last_validated_commit = auth_repo.last_validated_commit or ""
+    Path(auth_repo.conf_dir, auth_repo.LAST_VALIDATED_FILENAME).write_text(
+        last_validated_commit
+    )
+
+
+def revert_last_validated_commit(auth_repo: AuthenticationRepository):
+    older_commit = auth_repo.all_commits_on_branch(auth_repo.default_branch)[-2]
+    auth_repo.set_last_validated_of_repo(
+        auth_repo.name, older_commit, set_last_validated_commit=True
+    )
+    assert auth_repo.last_validated_commit == older_commit
+
+
+def set_last_commit_of_auth_repo(auth_repo: AuthenticationRepository, commit: str):
+    auth_repo.set_last_validated_of_repo(
+        auth_repo.name, commit, set_last_validated_commit=True
+    )
 
 
 def swap_last_two_commits(auth_repo: AuthenticationRepository):
@@ -730,7 +769,9 @@ def create_index_lock_in_repo(repo_path: str):
 def set_head_commit(auth_repo: AuthenticationRepository):
     last_valid_commit = auth_repo.head_commit_sha()
     if last_valid_commit is not None:
-        auth_repo.set_last_validated_commit(last_valid_commit)
+        auth_repo.set_last_validated_of_repo(
+            auth_repo.name, last_valid_commit, set_last_validated_commit=True
+        )
     else:
         raise ValueError("Failed to retrieve the last valid commit SHA.")
 

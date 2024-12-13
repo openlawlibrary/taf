@@ -14,7 +14,7 @@ def check_target_file(
         auth_repo_head_sha = auth_repo.head_commit_sha()
     target_repo = GitRepository(path=target_repo_path)
     target_repo_head_sha = target_repo.head_commit_sha()
-    targets = auth_repo.targets_at_revisions(auth_repo_head_sha)
+    targets = auth_repo.targets_at_revisions(commits=[auth_repo_head_sha])
     target_content = targets[auth_repo_head_sha][target_repo_name]
     branch = target_repo.default_branch
     return (
