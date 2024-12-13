@@ -33,7 +33,7 @@ tests_require = [
     "jinja2==3.1.*",
 ]
 
-yubikey_require = ["yubikey-manager==5.1.*"]
+yubikey_require = ["yubikey-manager==5.5.*"]
 
 
 kwargs = {
