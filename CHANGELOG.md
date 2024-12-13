@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[564]: https://github.com/openlawlibrary/taf/pull/564
+
 ## [0.32.1] - 11/01/2024
 
 ### Added
