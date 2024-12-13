@@ -1460,13 +1460,19 @@ class GitRepository:
         self._git(f"reset {flag} HEAD~{num_of_commits}")
 
     def reset_to_commit(
-        self, commit: str, branch: Optional[str] = None, hard: Optional[bool] = False
+        self,
+        commit: str,
+        branch: Optional[str] = None,
+        hard: Optional[bool] = False,
+        reset_remote_tracking=True,
     ) -> None:
         flag = "--hard" if hard else "--soft"
 
-        if branch is None:
-            branch = self.get_current_branch()
-        self.update_branch_refs(branch, commit)
+        if reset_remote_tracking:
+            if branch is None:
+                branch = self.get_current_branch()
+            self.update_branch_refs(branch, commit)
+
         if hard:
             self._git(f"reset {flag} HEAD")
 
@@ -1626,7 +1632,8 @@ class GitRepository:
 
     def top_commit_of_remote_branch(self, branch, remote="origin"):
         """
-        Fetches the top commit of the specified remote branch.
+        Fetches the top commit of the specified remote tracking branch.
+
         """
         remote_branch = f"{remote}/{branch}"
         if not self.branch_exists(remote_branch, include_remotes=True):
