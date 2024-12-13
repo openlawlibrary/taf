@@ -4,6 +4,7 @@ from taf.api.yubikey import export_yk_certificate, export_yk_public_pem, get_yk_
 from taf.exceptions import YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
+from taf.yubikey import list_connected_yubikeys
 
 
 def check_pin_command():
@@ -56,6 +57,13 @@ def export_certificate_command():
     return export_certificate
 
 
+def list_key_command():
+    @click.command(help="List All Connected Keys and their information")
+    def list_keys():
+        list_connected_yubikeys()
+    return list_keys
+
+
 def setup_signing_key_command():
     @click.command(help="""Generate a new key on the yubikey and set the pin. Export the generated certificate
         to the specified directory.
@@ -80,5 +88,6 @@ def attach_to_group(group):
     group.add_command(export_pub_key_command(), name='export-pub-key')
     group.add_command(get_roles_command(), name='get-roles')
     group.add_command(export_certificate_command(), name='export-certificate')
+    group.add_command(list_key_command(), name='list-key')
     group.add_command(setup_signing_key_command(), name='setup-signing-key')
     group.add_command(setup_test_key_command(), name='setup-test-key')

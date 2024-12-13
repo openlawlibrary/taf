@@ -281,6 +281,19 @@ def get_piv_public_key_tuf(
     return get_sslib_key_from_value(pub_key_pem, scheme)
 
 
+def list_connected_yubikeys():
+    """Lists all connected YubiKeys with their serial numbers and details."""
+    yubikeys = list_all_devices()
+    if not yubikeys:
+        print("No YubiKeys connected.")
+    else:
+        for index, (_, info) in enumerate(yubikeys, start=1):
+            print(f"YubiKey {index}:")
+            print(f"  Serial Number: {info.serial}")
+            print(f"  Version: {info.version}")
+            print(f"  Form Factor: {info.form_factor}")
+
+
 @raise_yubikey_err("Cannot sign data.")
 def sign_piv_rsa_pkcs1v15(data, pin, pub_key_pem=None):
     """Sign data with key from YubiKey's piv slot.
