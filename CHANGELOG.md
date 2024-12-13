@@ -9,14 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add tests for `get_last_remote_commit` and `reset_to_commit` ([573])
 - Implement full partial update. Store last validated commit per repo ([559)])
 
 ### Changed
 
 ### Fixed
 
-
-[559]: https://github.com/openlawlibrary/taf/pull/558
+[573]: https://github.com/openlawlibrary/taf/pull/573
+[559]: https://github.com/openlawlibrary/taf/pull/559
 
 
 ## [0.32.4]
