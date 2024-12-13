@@ -1,5 +1,6 @@
 import datetime
 from tuf.ngclient._internal import trusted_metadata_set
+from tuf.ngclient.config import EnvelopeType
 
 
 class GitTrustedMetadataSet(trusted_metadata_set.TrustedMetadataSet):
@@ -16,6 +17,8 @@ class GitTrustedMetadataSet(trusted_metadata_set.TrustedMetadataSet):
     See: GitUpdater
     """
 
-    def __init__(self, data):
-        super(GitTrustedMetadataSet, self).__init__(data)
-        self.reference_time = datetime.datetime.min
+    def __init__(self, data, envelope_type=EnvelopeType.METADATA):
+        super(GitTrustedMetadataSet, self).__init__(data, envelope_type)
+        self.reference_time = datetime.datetime.min.replace(
+            tzinfo=datetime.timezone.utc
+        )

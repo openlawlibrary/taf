@@ -18,7 +18,7 @@ from taf.tests.test_updater.conftest import (
     pull_specific_target_repo,
     remove_commits,
     update_expiration_dates,
-    update_role_metadata_invalid_signature,
+    update_timestamp_metadata_invalid_signature,
 )
 
 from taf.tests.test_updater.update_utils import verify_partial_targets_update
@@ -143,9 +143,7 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(
-        update_role_metadata_invalid_signature, kwargs={"role": "timestamp"}
-    )
+    setup_manager.add_task(update_timestamp_metadata_invalid_signature)
     setup_manager.execute_tasks()
 
     assert client_auth_repo.head_commit_sha() != origin_auth_repo.head_commit_sha()

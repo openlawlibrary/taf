@@ -21,9 +21,13 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 from json import JSONDecoder
+from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
-from taf.log import taf_logger
+
+# TODO: Remove legacy imports
+# from taf.log import taf_logger
+
 from typing import List, Optional, Tuple, Dict
 from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
@@ -146,7 +150,7 @@ def is_run_from_python_executable() -> bool:
 def read_input_dict(value):
     if value is None:
         return {}
-    if type(value) is str:
+    if not isinstance(value, dict):
         if Path(value).is_file():
             with open(value) as f:
                 try:

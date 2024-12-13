@@ -1,7 +1,7 @@
 import pytest
 from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
-    _clone_full_library,
+    clone_full_library,
 )
 
 
@@ -36,7 +36,7 @@ def test_clone_repository_with_dependencies(
     origin_dir,
     client_dir,
 ):
-    _clone_full_library(
+    clone_full_library(
         library_with_dependencies,
         origin_dir,
         client_dir,

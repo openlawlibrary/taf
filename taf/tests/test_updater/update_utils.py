@@ -80,7 +80,7 @@ def check_if_last_validated_commit_exists(client_auth_repo, should_exist):
         )
 
 
-def _clone_full_library(
+def clone_full_library(
     library_dict,
     origin_dir,
     client_dir,

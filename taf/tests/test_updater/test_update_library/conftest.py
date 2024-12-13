@@ -1,4 +1,5 @@
 import re
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.repositoriesdb import (
     DEPENDENCIES_JSON_NAME,
 )
@@ -14,7 +15,6 @@ from taf.tests.conftest import (
 )
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
 
 original_tuf_trusted_metadata_set = trusted_metadata_set.TrustedMetadataSet

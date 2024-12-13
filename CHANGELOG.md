@@ -9,14 +9,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Implement removal of keys [(561)]
 - Implement full partial update. Store last validated commit per repo ([559)])
 
 ### Changed
 
+- Transition to the newest version of TUF [(561)]
+
 ### Fixed
 
 
-[559]: https://github.com/openlawlibrary/taf/pull/558
+[561]: https://github.com/openlawlibrary/taf/pull/561
+[559]: https://github.com/openlawlibrary/taf/pull/559
 
 
 ## [0.32.4]

@@ -2,8 +2,8 @@ import json
 from typing import Callable, Dict, List, Optional, Type
 import fnmatch
 from pathlib import Path
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.auth_repo import AuthenticationRepository
+from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.exceptions import (
     InvalidOrMissingMetadataError,
     RepositoriesNotFoundError,
