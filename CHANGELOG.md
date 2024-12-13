@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Remove unused optional parameter from _yk_piv_ctrl ([572])
+
 ### Fixed
+
+[572]: https://github.com/openlawlibrary/taf/pull/572
 
 ## [0.32.2]
 
