@@ -226,7 +226,7 @@ def load_signers(
     def _load_and_append_yubikeys(
         key_name, role, retry_on_failure, hide_already_loaded_message
     ):
-        public_key, serial_num = yk.yubikey_prompt(
+        inserted_yubikeys = yk.yubikey_prompt(
             key_name,
             role,
             taf_repo,
@@ -234,13 +234,14 @@ def load_signers(
             retry_on_failure=retry_on_failure,
             hide_already_loaded_message=hide_already_loaded_message,
         )
-        if public_key is not None and public_key not in yubikeys:
-            signer = YkSigner(
-                public_key, partial(yk.yk_secrets_handler, serial_num=serial_num)
-            )
-            yubikeys.append(signer)
-            taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
-            return True
+        for public_key, serial_num in inserted_yubikeys:
+            if public_key is not None and public_key not in yubikeys:
+                signer = YkSigner(
+                    public_key, partial(yk.yk_secrets_handler, serial_num=serial_num)
+                )
+                yubikeys.append(signer)
+                taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
+                return True
         return False
 
     keystore_files = []

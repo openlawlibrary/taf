@@ -224,6 +224,7 @@ class YkSigner(Signer):
         pin = self._pin_handler(self._SECRET_PROMPT)
         # TODO: openlawlibrary/taf#515
         # sig = sign_piv_rsa_pkcs1v15(payload, pin, self.public_key.keyval["public"])
+        # TODO needs a serial
         from taf.yubikey import sign_piv_rsa_pkcs1v15
 
         sig = sign_piv_rsa_pkcs1v15(payload, pin)
