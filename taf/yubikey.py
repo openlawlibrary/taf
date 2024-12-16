@@ -99,8 +99,7 @@ def _yk_piv_ctrl(serial=None):
     """Context manager to open connection and instantiate Piv Session.
 
     Args:
-        - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
-                            are inserted
+        - serial (str): Match Yubikey's serial multiple keys are inserted
 
     Returns:
         - ykman.piv.PivSession
