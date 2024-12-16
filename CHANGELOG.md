@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add tests for `get_last_remote_commit` and `reset_to_commit` ([573])
+- Remove unused optional parameter from _yk_piv_ctrl ([572])
 - Implement full partial update. Store last validated commit per repo ([559)])
 
 ### Changed
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 [573]: https://github.com/openlawlibrary/taf/pull/573
+[572]: https://github.com/openlawlibrary/taf/pull/572
 [559]: https://github.com/openlawlibrary/taf/pull/559
 
 
@@ -53,7 +55,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Make url optional for `get_last_remote_commit` ([564])
 
 ### Fixed
-
 
 [564]: https://github.com/openlawlibrary/taf/pull/564
 

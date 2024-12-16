@@ -155,7 +155,7 @@ def yubikey_signature_provider(name, key_id, key, data):  # pylint: disable=W061
             inserted_key = yk.get_piv_public_key_tuf()
             if expected_key_id != inserted_key["keyid"]:
                 return None
-            serial_num = yk.get_serial_num(inserted_key)
+            serial_num = yk.get_serial_num()
             pin = yk.get_key_pin(serial_num)
             if pin is None:
                 pin = yk.get_and_validate_pin(name)

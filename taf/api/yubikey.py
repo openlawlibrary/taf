@@ -161,7 +161,7 @@ def setup_signing_yubikey(
     on_exceptions=TAFError,
     reraise=True,
 )
-def setup_test_yubikey(key_path: str) -> None:
+def setup_test_yubikey(key_path: str, key_size: Optional[int] = 2048) -> None:
     """
     Reset the inserted yubikey, set default pin and copy the specified key
     to it.
@@ -183,7 +183,7 @@ def setup_test_yubikey(key_path: str) -> None:
     print(f"Importing RSA private key from {key_path} to Yubikey...")
     pin = yk.DEFAULT_PIN
 
-    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem)
+    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem, key_size=key_size)
     print("\nPrivate key successfully imported.\n")
     print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
     print("Pin: {}\n".format(pin))
