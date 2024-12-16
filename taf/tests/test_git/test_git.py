@@ -84,7 +84,6 @@ def test_reset_to_commit_when_reset_remote_tracking(origin_repo, clone_repositor
 
 
 def test_reset_to_commit_when_not_reset_remote_tracking(origin_repo, clone_repository):
-    # reset to commit is also expected to update the remote tracking branch by default
     clone_repository.urls = [origin_repo.path]
     clone_repository.clone()
     top_commit = clone_repository.head_commit_sha()
