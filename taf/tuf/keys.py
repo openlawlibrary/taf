@@ -193,14 +193,19 @@ class YkSigner(Signer):
 
     _SECRET_PROMPT = "pin"
 
-    def __init__(self, public_key: SSlibKey, pin_handler: SecretsHandler):
+    def __init__(self, public_key: SSlibKey, serial_num: str,  pin_handler: SecretsHandler):
 
         self._public_key = public_key
         self._pin_handler = pin_handler
+        self._serial_num = serial_num
 
     @property
     def public_key(self) -> SSlibKey:
         return self._public_key
+
+    @property
+    def serial_num(self) -> str:
+        return self._serial_num
 
     @classmethod
     def import_(cls) -> SSlibKey:
@@ -222,12 +227,9 @@ class YkSigner(Signer):
 
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
-        # TODO: openlawlibrary/taf#515
-        # sig = sign_piv_rsa_pkcs1v15(payload, pin, self.public_key.keyval["public"])
-        # TODO needs a serial
         from taf.yubikey import sign_piv_rsa_pkcs1v15
 
-        sig = sign_piv_rsa_pkcs1v15(payload, pin)
+        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

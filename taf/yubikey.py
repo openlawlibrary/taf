@@ -309,7 +309,7 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
         - YubikeyError
     """
     with _yk_piv_ctrl(serial=serial) as (ctrl, _):
-        ctrl.verify_pin(pin, serial=serial)
+        ctrl.verify_pin(pin)
         return ctrl.sign(
             SLOT.SIGNATURE, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
         )
@@ -420,7 +420,6 @@ def setup_new_yubikey(
 
 
 def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True, serial=None):
-    import pdb; pdb.set_trace()
     valid_pin = False
     while not valid_pin:
         pin = get_pin_for(key_name, pin_confirm, pin_repeat)

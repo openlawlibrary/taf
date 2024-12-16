@@ -207,6 +207,7 @@ def load_signers(
     all_loaded = False
     num_of_signatures = 0
     signers_keystore = []
+    signers_yubikeys = []
     yubikeys = []
 
     # first try to sign using yubikey
@@ -234,15 +235,20 @@ def load_signers(
             retry_on_failure=retry_on_failure,
             hide_already_loaded_message=hide_already_loaded_message,
         )
+
+        num_of_loaded_keys = 0
         for public_key, serial_num in inserted_yubikeys:
-            if public_key is not None and public_key not in yubikeys:
+            if public_key is not None and public_key.keyid not in yubikeys:
                 signer = YkSigner(
-                    public_key, partial(yk.yk_secrets_handler, serial_num=serial_num)
+                    public_key, serial_num, partial(yk.yk_secrets_handler, serial_num=serial_num)
                 )
-                yubikeys.append(signer)
+                signers_yubikeys.append(signer)
+                yubikeys.append(public_key.keyid)
+                num_of_loaded_keys += 1
                 taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
-                return True
-        return False
+        return num_of_loaded_keys
+
+
 
     keystore_files = []
     if keystore is not None:
@@ -274,8 +280,10 @@ def load_signers(
 
         # try to load from the inserted YubiKey, without asking the user to insert it
         key_name = get_key_name(role, num_of_signatures, signing_keys_num)
-        if _load_and_append_yubikeys(key_name, role, False, True):
-            num_of_signatures += 1
+        num_of_loaded_keys = _load_and_append_yubikeys(key_name, role, False, True)
+
+        if num_of_loaded_keys:
+            num_of_signatures += num_of_loaded_keys
             continue
 
         if prompt_for_yubikey:
@@ -297,7 +305,7 @@ def load_signers(
         else:
             raise SigningError(f"Cannot load keys of role {role}")
 
-    return signers_keystore, yubikeys
+    return signers_keystore, signers_yubikeys
 
 
 def setup_roles_keys(
