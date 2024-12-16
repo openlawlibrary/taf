@@ -10,6 +10,7 @@ from taf.tests.conftest import TEST_DATA_REPOS_PATH
 TEST_DIR = Path(TEST_DATA_REPOS_PATH, "test-git")
 REPO_NAME = "repository"
 CLONE_REPO_NAME = "repository2"
+ORIGIN_REPO_NAME = "origin_repo"
 
 
 @fixture
@@ -28,6 +29,16 @@ def repository():
     except NothingToCommitError:
         pass  # this can happen if cleanup was not successful
 
+    yield repo
+    repo.cleanup()
+    shutil.rmtree(path, onerror=on_rm_error)
+
+
+@fixture
+def origin_repo(repository):
+    path = TEST_DIR / ORIGIN_REPO_NAME
+    repo = GitRepository(path=path)
+    repo.clone_from_disk(repository.path, is_bare=True)
     yield repo
     repo.cleanup()
     shutil.rmtree(path, onerror=on_rm_error)
