@@ -415,6 +415,7 @@ class MetadataRepository(Repository):
         roles_keys_data: RolesKeysData,
         signers: dict,
         additional_verification_keys: Optional[dict] = None,
+        key_name_mappings: Optional[Dict[str, str]] = None
     ):
         """Create a new metadata repository on disk.
 
@@ -468,6 +469,7 @@ class MetadataRepository(Repository):
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
+        root.unrecognized_fields["key_names"] = key_name_mappings
         targets = Targets()
         target_roles = {"targets": targets}
         delegations_per_parent: Dict[str, Dict] = defaultdict(dict)
@@ -512,7 +514,7 @@ class MetadataRepository(Repository):
                 self.close(name, Metadata(signed))
 
     def create_delegated_role(
-        self, roles_data: List[TargetsRole], signers: Dict[str, List[CryptoSigner]]
+        self, roles_data: List[TargetsRole], signers: Dict[str, List[CryptoSigner]], key_name_mappings: Optional[Dict[str, str]]=None
     ):
         existing_roles = self.get_all_targets_roles()
         existing_roles.extend(MAIN_ROLES)

@@ -128,7 +128,7 @@ def add_role(
         new_role.threshold = threshold
         new_role.yubikey = yubikey
 
-        signers, _ = load_sorted_keys_of_new_roles(
+        signers, _, key_name_mappings = load_sorted_keys_of_new_roles(
             roles=new_role,
             yubikeys_data=None,
             keystore=keystore_path,
@@ -291,7 +291,7 @@ def add_multiple_roles(
     ):
         all_signers = {}
         for role_to_add_data in roles_to_add_data:
-            signers, _ = load_sorted_keys_of_new_roles(
+            signers, _, key_name_mappings = load_sorted_keys_of_new_roles(
                 roles=role_to_add_data,
                 yubikeys_data=None,
                 keystore=keystore_path,

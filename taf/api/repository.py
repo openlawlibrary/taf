@@ -74,7 +74,7 @@ def create_repository(
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     auth_repo = AuthenticationRepository(path=path)
-    signers, verification_keys = load_sorted_keys_of_new_roles(
+    signers, verification_keys, key_name_mappings = load_sorted_keys_of_new_roles(
         roles=roles_keys_data.roles,
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
@@ -85,7 +85,7 @@ def create_repository(
         return
 
     repository = AuthenticationRepository(path=path)
-    repository.create(roles_keys_data, signers, verification_keys)
+    repository.create(roles_keys_data, signers, verification_keys, key_name_mappings)
     if commit:
         auth_repo.init_repo()
         commit_msg = git_commit_message("create-repo")

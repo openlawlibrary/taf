@@ -244,7 +244,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, serial=None):
 
 
 @raise_yubikey_err("Cannot export yk certificate.")
-def export_yk_certificate(certs_dir, key: SSlibKey):
+def export_yk_certificate(certs_dir, key: SSlibKey, serial: str) :
     if certs_dir is None:
         certs_dir = Path.home()
     else:
@@ -253,7 +253,7 @@ def export_yk_certificate(certs_dir, key: SSlibKey):
     cert_path = certs_dir / f"{key.keyid}.cert"
     print(f"Exporting certificate to {cert_path}")
     with open(cert_path, "wb") as f:
-        f.write(export_piv_x509())
+        f.write(export_piv_x509(serial=serial))
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
@@ -446,7 +446,18 @@ def yubikey_prompt(
     prompt_message=None,
     retry_on_failure=True,
     hide_already_loaded_message=False,
+    require_single_yubikey=True,
 ):
+    if require_single_yubikey:
+        while True:
+            serials = get_serial_num()
+            if len(serials) == 1:
+                break
+            else:
+                prompt_message = f"Please insert only one YubiKey and press ENTER"
+                getpass(prompt_message)
+
+
     # TODO
     # need to pass in multiple key names
     def _read_and_check_yubikeys(
