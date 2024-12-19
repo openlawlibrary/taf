@@ -135,7 +135,7 @@ def add_role(
             skip_prompt=skip_prompt,
             certs_dir=auth_repo.certs_dir,
         )
-        auth_repo.create_delegated_role([new_role], signers)
+        auth_repo.create_delegated_roles([new_role], signers)
         auth_repo.add_new_roles_to_snapshot([new_role.name])
         auth_repo.do_timestamp()
 
@@ -300,7 +300,7 @@ def add_multiple_roles(
             )
             all_signers.update(signers)
 
-        auth_repo.create_delegated_role(roles_to_add_data, all_signers)
+        auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
 

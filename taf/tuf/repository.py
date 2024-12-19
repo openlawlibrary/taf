@@ -66,10 +66,25 @@ HASH_ALGS = ["sha256", "sha512"]
 
 
 def get_role_metadata_path(role: str) -> str:
+    """
+    Arguments:
+        role: Name of a TUF role, main or delegated
+
+    Return:
+        Path of the metadata file corresponding to the specified role,
+        relative to the repository's root
+    """
     return f"{METADATA_DIRECTORY_NAME}/{role}.json"
 
 
 def get_target_path(target_name: str) -> str:
+    """
+    Arguments:
+        target_name: Name of the target file expected to be inside the targets directory
+
+    Return:
+        Path of the specified target file relative to the repository's root
+    """
     return f"{TARGETS_DIRECTORY_NAME}/{target_name}"
 
 
@@ -124,23 +139,44 @@ class MetadataRepository(Repository):
 
     @property
     def metadata_path(self) -> Path:
+        """
+        Full path of the metadata directory.
+        """
         return self.path / METADATA_DIRECTORY_NAME
 
     @property
     def targets_path(self):
+        """
+        Full path of the targets directory.
+        """
         return self.path / TARGETS_DIRECTORY_NAME
 
     @property
     def targets_infos(self) -> Dict[str, MetaFile]:
-        # tracks targets and root metadata changes, needed in `do_snapshot`
+        """
+        Tracks targets and root metadata changes, needed in `do_snapshot`
+        """
         return self._targets_infos
 
     @property
     def snapshot_info(self) -> MetaFile:
-        # tracks snapshot metadata changes, needed in `do_timestamp`
+        """
+        Tracks snapshot metadata changes, needed in `do_timestamp`
+        """
         return self._snapshot_info
 
     def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> Dict:
+        """
+        Calculate hashes of the specified signed metadata after serializing
+        it using the previously initialized serializer.
+        Hashes are computed for each specified algorithm.
+
+        Arguments:
+            md: Signed metadata
+            algorithms: A list of hash algorithms (e.g., 'sha256', 'sha512').
+        Return:
+            A dcitionary mapping algorithms and calculated hashes
+        """
         hashes = {}
         data = md.to_bytes(serializer=self.serializer)
         for algo in algorithms:
@@ -150,10 +186,16 @@ class MetadataRepository(Repository):
             hashes[algo] = digest_object.hexdigest()
         return hashes
 
-    def calculate_length(
-        self,
-        md: Metadata,
-    ) -> int:
+    def calculate_length(self, md: Metadata) -> int:
+        """
+        Calculate length of the specified signed metadata after serializing
+        it using the previously initialized serializer.
+
+        Arguments:
+            md: Signed metadata
+        Return:
+            Langth of the signed metadata
+        """
         data = md.to_bytes(serializer=self.serializer)
         return len(data)
 
@@ -238,23 +280,28 @@ class MetadataRepository(Repository):
 
     def add_target_files_to_role(self, added_data: Dict[str, Dict]) -> None:
         """Add target files to top-level targets metadata.
-        Args:
-            - added_data(dict): Dictionary of new data whose keys are target paths of repositories
-                    (as specified in targets.json, relative to the targets dictionary).
-                    The values are of form:
-                    {
-                        target: content of the target file
-                        custom: {
-                            custom_field1: custom_value1,
-                            custom_field2: custom_value2
-                        }
+
+        Arguments:
+            added_data(dict): Dictionary of new data whose keys are target paths of repositories
+            (as specified in targets.json, relative to the targets dictionary).
+            The values are of form:
+                {
+                    target: content of the target file
+                    custom: {
+                        custom_field1: custom_value1,
+                        custom_field2: custom_value2
                     }
+                }
         """
         self.modify_targets(added_data=added_data)
 
     def add_path_to_delegated_role(self, role: str, paths: List[str]) -> bool:
         """
         Add delegated paths to delegated role and return True if successful
+
+        Arguments:
+            role: Name of a delegated target role
+            path: A list of paths to be appended to a list of the role's delegated pats
         """
         if not self.check_if_role_exists(role):
             raise TAFError(f"Role {role} does not exist")
@@ -271,6 +318,11 @@ class MetadataRepository(Repository):
         return True
 
     def add_new_roles_to_snapshot(self, roles: List[str]):
+        """
+        Add versions of newly created target roles to the snapshot.
+        Also update the versions of their parent roles, which are modified
+        when a new delegated role is added.
+        """
         with self.edit(Snapshot.type) as sn:
             parents_of_roles = set()
             for role in roles:
@@ -283,6 +335,11 @@ class MetadataRepository(Repository):
                 )
 
     def add_to_open_metadata(self, roles: List[str]):
+        """
+        In order to execute several methods before updating the metadata on disk,
+        these methods need to be added to the _metadata_to_keep_open list.
+        This method adds all roles from the provided list to _metadata_to_keep_open.
+        """
         self._metadata_to_keep_open.update(roles)
 
     def open(self, role: str) -> Metadata:
@@ -294,6 +351,10 @@ class MetadataRepository(Repository):
             raise TAFError(f"Metadata file {path} does not exist")
 
     def check_if_keys_loaded(self, role_name: str) -> bool:
+        """
+        Check if at least a threshold of signers of the specified role
+        has been added to the signer cache.
+        """
         threshold = self.get_role_threshold(role_name)
         return (
             role_name in self.signer_cache
@@ -301,6 +362,9 @@ class MetadataRepository(Repository):
         )
 
     def check_if_role_exists(self, role_name: str) -> bool:
+        """
+        Given a name of a main or delegated target role, return True if it exist
+        """
         role = self._role_obj(role_name)
         return role is not None
 
@@ -352,6 +416,10 @@ class MetadataRepository(Repository):
         return expired_dict, will_expire_dict
 
     def _create_target_file(self, target_path, target_data):
+        """
+        Writes the specified data to a target file and stores it on disk.
+        If the target data is a dictionary, the data is written in JSON format.
+        """
         # if the target's parent directory should not be "targets", create
         # its parent directories if they do not exist
         target_dir = target_path.parent
@@ -370,6 +438,9 @@ class MetadataRepository(Repository):
                     f.write(content)
 
     def clear_open_metadata(self):
+        """
+        Removes everything from the _metadata_to_keep_open list
+        """
         self._metadata_to_keep_open = set()
 
     def close(self, role: str, md: Metadata) -> None:
@@ -422,7 +493,7 @@ class MetadataRepository(Repository):
         2. Create initial versions of top-level metadata
         3. Perform top-level delegation using keys from passed signers.
 
-        Args:
+        Arguments:
             roles_keys_data: an object containing information about roles, their threshold, delegations etc.
             signers: A dictionary, where dict-keys are role names and values
                 are dictionaries, where-dict keys are keyids and values
@@ -511,9 +582,21 @@ class MetadataRepository(Repository):
                 signed.version = 0  # `close` will bump to initial valid verison 1
                 self.close(name, Metadata(signed))
 
-    def create_delegated_role(
+    def create_delegated_roles(
         self, roles_data: List[TargetsRole], signers: Dict[str, List[CryptoSigner]]
-    ):
+    ) -> Tuple[List, List]:
+        """
+        Create a new delegated roles, signes them using the provided signers and
+        updates their paren roles.
+
+        Arguments:
+            roles_data (list): A list containing data about new roles. Each entry specifies
+                            a role's name, path, threshold, and number of signing keys.
+            signers (dict): A dictionary that maps each new role to a list of its signers
+
+        Return:
+            A list ofroles that were added and a list of roles that already existed
+        """
         existing_roles = self.get_all_targets_roles()
         existing_roles.extend(MAIN_ROLES)
         existing_roles = []
@@ -564,6 +647,9 @@ class MetadataRepository(Repository):
     def _create_target_object(
         self, filesystem_path: str, target_path: str, custom: Optional[Dict]
     ):
+        """
+        Creates a TUF target object, later used to update targets metadata
+        """
         data = Path(filesystem_path).read_text().encode()
         target_file = TargetFile.from_data(
             target_file_path=target_path,
@@ -585,11 +671,11 @@ class MetadataRepository(Repository):
                 if file_rel_path not in self.get_targets_of_role(targets_role):
                     (self.targets_path / file_rel_path).unlink()
 
-    def find_delegated_roles_parent(self, delegated_role, parent=None):
-        if parent is None:
-            parent = "targets"
-
-        parents = [parent]
+    def find_delegated_roles_parent(self, delegated_role: str) -> Optional[str]:
+        """
+        Find parent role of the specified delegated targets role
+        """
+        parents = ["targets"]
 
         while parents:
             parent = parents.pop()
@@ -777,6 +863,7 @@ class MetadataRepository(Repository):
 
         Returns:
         Defined delegated paths of delegate target role or * in case of targets
+        (the main target is responsible for signing all target files that no delegated role should sign.)
 
         Raises:
         - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.

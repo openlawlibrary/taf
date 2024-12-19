@@ -27,10 +27,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
-def create_signer(priv, pub):
-    return CryptoSigner(priv, _from_crypto(pub))
-
-
 def generate_rsa_keypair(key_size=3072, password=None):
     # Generate private key
     private_key = rsa.generate_private_key(

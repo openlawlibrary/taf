@@ -55,7 +55,7 @@ def test_add_new_role(tuf_repo, signers):
         threshold=threshold,
         yubikey=False,
     )
-    tuf_repo.create_delegated_role([new_role], role_signers)
+    tuf_repo.create_delegated_roles([new_role], role_signers)
     assert tuf_repo.targets().version == 2
     assert role_name in tuf_repo.targets().delegations.roles
     new_role_obj = tuf_repo.open(role_name)
