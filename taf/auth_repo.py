@@ -223,38 +223,6 @@ class AuthenticationRepository(GitRepository):
                         "Default branch is None, skipping last_validated_commit update."
                     )
 
-    def get_role_repositories(self, role, parent_role=None):
-        """Get repositories of the given role
-
-        Args:
-        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
-        - parent_role(str): Name of the parent role of the delegated role. If not specified,
-                            it will be set automatically, but this might be slow if there
-                            are many delegations.
-
-        Returns:
-        Repositories' path from repositories.json that matches given role paths
-
-        Raises:
-        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
-        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
-        """
-        role_paths = self.get_role_paths(role, parent_role=parent_role)
-
-        target_repositories = self._get_target_repositories()
-        return [
-            repo
-            for repo in target_repositories
-            if any([fnmatch(repo, path) for path in role_paths])
-        ]
-
-    def _get_target_repositories(self):
-        repositories_path = self.targets_path / "repositories.json"
-        if repositories_path.exists():
-            repositories = repositories_path.read_text()
-            repositories = json.loads(repositories)["repositories"]
-            return [str(Path(target_path).as_posix()) for target_path in repositories]
-
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
             commit = self.head_commit_sha()
@@ -309,10 +277,8 @@ class AuthenticationRepository(GitRepository):
     @contextmanager
     def repository_at_revision(self, commit: str):
         """
-        Context manager which makes sure that TUF repository is instantiated
-        using metadata files at the specified revision. Creates a temp directory
-        and metadata files inside it. Deleted the temp directory when no longer
-        needed.
+        Context manager that enables reading metadata from an older commit.
+        This should be used in combination with the Git storage backend.
         """
         self._storage.commit = commit
         yield

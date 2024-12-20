@@ -102,7 +102,7 @@ def _check_repositories_dict(
     if roles is not None and len(roles):
         only_load_targets = True
     if only_load_targets:
-        target_files_of_roles = auth_repo.get_singed_target_files_of_roles(roles)
+        target_files_of_roles = auth_repo.get_signed_target_files_of_roles(roles)
     for commit in commits:
         repositories_json = auth_repo.get_json(
             commit, repositoriesdb.REPOSITORIES_JSON_PATH

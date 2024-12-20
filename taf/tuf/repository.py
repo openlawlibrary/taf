@@ -936,9 +936,9 @@ class MetadataRepository(Repository):
         - Set of all target paths relative to targets directory
         """
         all_roles = self.get_all_targets_roles()
-        return self.get_singed_target_files_of_roles(all_roles)
+        return self.get_signed_target_files_of_roles(all_roles)
 
-    def get_singed_target_files_of_roles(
+    def get_signed_target_files_of_roles(
         self, roles: Optional[List] = None
     ) -> Set[str]:
         """Return all target files signed by the specified roles

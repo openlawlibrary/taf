@@ -87,7 +87,9 @@ regardless of whether there are `metadata` files located at `path/metadata`. In 
 metadata and target files from mediums other than the local file system. TUF enables such flexibility by allowing
 custom implementations of the `StorageBackendInterface`. These implementations can redefine how metadata and target
 files are read and written. To instantiate a `MetadataRepository` class with a custom storage interface, use the
-`storage` keyword argument. If not specified, TUF's default `FilesystemBackend` will be used.
+`storage` keyword argument. If not specified, TUF's default `FilesystemBackend` will be used. The other available
+option is `GitStorageBackend`. This implementation loads data from a specific commit if the commit is specified,
+or from the filesystem if the commit is `None`, by extending `FilesystemBackend`.
 
 This class is used extensively to implement API functions.
 

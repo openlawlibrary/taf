@@ -127,7 +127,6 @@ def repo_path(request, repo_dir):
     full_path = repo_dir / test_name
     full_path.mkdir(parents=True)
 
-    # Convert to string if necessary, or use it as a Path object
     yield full_path
     shutil.rmtree(full_path, onerror=on_rm_error)
 

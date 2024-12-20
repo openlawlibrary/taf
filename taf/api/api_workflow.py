@@ -41,6 +41,28 @@ def manage_repo_and_signers(
     commit_msg: Optional[str] = None,
     no_commit_warning: Optional[bool] = True,
 ):
+    """
+    A context manager that loads all signers and adds them to the specified authentication repository's
+    signers cache. This allows for the execution of other methods without having to update the
+    signers cache manually. Optionally, at the end, the context manager commits and pushes all changes made
+    to the authentication repository and handles cleanup in case of an error.
+
+    Arguments:
+        auth_repo (AuthenticationRepository): Already instantiated authentication repository.
+        roles (Optional[List[str]]): List of roles that are expected to be updated.
+        keystore (Optional[Union[str, Path]]): Path to the keystore containing signing keys.
+        scheme (Optional[str]): The signature scheme.
+        prompt_for_keys (Optional[bool]): If True, prompts for keys if not found. Defaults to False.
+        paths_to_reset_on_error (Optional[List[Union[str, Path]]]): Paths to reset if an error occurs.
+        load_roles (Optional[bool]): If True, loads signing keys of the roles specified using the argument of the same name.
+        load_parents (Optional[bool]): If true, loads sining keys of the specified roles' parents.
+        load_snapshot_and_timestamp (Optional[bool]): If True, loads snapshot and timestamp signing keys.
+        commit (Optional[bool]): If True, commits changes to the repository.
+        push (Optional[bool]): If True, pushes changes to the remote repository.
+        commit_key (Optional[str]): Commit key from `messages.py`
+        commit_msg (Optional[str]): The message to use for commits.
+        no_commit_warning (Optional[bool]): If True, suppresses warnings when not committing.
+    """
     try:
         roles_to_load = set()
         if roles:

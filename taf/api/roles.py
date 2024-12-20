@@ -449,16 +449,16 @@ def revoke_signing_key(
         (
             removed_from_roles,
             not_added_roles,
-            less_than_threshold_roless,
+            less_than_threshold_roles,
         ) = auth_repo.revoke_metadata_key(key_id=key_id, roles=roles)
         if not_added_roles:
             taf_logger.log(
                 "NOTICE",
                 f"Key is not a signing key of role(s) {', '.join(not_added_roles)}",
             )
-        if less_than_threshold_roless:
+        if less_than_threshold_roles:
             taf_logger.warning(
-                f"Cannot remove key from {', '.join(less_than_threshold_roless)}. Number of keys must be greater or equal to thresholds"
+                f"Cannot remove key from {', '.join(less_than_threshold_roles)}. Number of keys must be greater or equal to thresholds"
             )
 
         if len(removed_from_roles):

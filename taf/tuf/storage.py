@@ -67,12 +67,16 @@ class GitStorageBackend(FilesystemBackend):
     commit: Optional[str] = None
 
     def __new__(cls, *args, **kwargs):
+        # Bypass singleton
+        # This is necessary in order to use this within the context of
+        # parallel update of multiple repositories
         return super(FilesystemBackend, cls).__new__(
             cls, *args, **kwargs
-        )  # Bypass singleton
-
+        )
     @contextmanager
     def get(self, filepath: str):
+        # If the commit is specified, read from Git.
+        # If it is not specified, read from the filesystem.
         if self.commit is None:
             with super().get(filepath=filepath) as value_from_base:
                 yield value_from_base
@@ -89,6 +93,9 @@ class GitStorageBackend(FilesystemBackend):
                 raise StorageError(e)
 
     def getsize(self, filepath: str) -> int:
+        # Get size of a file after reading it from Git or the filesystem.
+        # If the commit is specified, read from Git.
+        # If it is not specified, read from the filesystem.
         if self.commit is None:
             return super().getsize(filepath=filepath)
         try:
@@ -103,6 +110,8 @@ class GitStorageBackend(FilesystemBackend):
             raise StorageError(e)
 
     def put(self, fileobj: IO, filepath: str, restrict: Optional[bool] = False) -> None:
+        # Write the file to the filesystem.
+        # Raise an error if the repository is a bare repository.
         repo_path = pygit2.discover_repository(filepath)
         if repo_path:
             repo = find_git_repository(filepath)
