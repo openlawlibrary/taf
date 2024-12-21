@@ -69,15 +69,15 @@ def test_add_new_role(tuf_repo, signers):
 
 def test_remove_delegated_paths(tuf_repo):
 
-    paths_to_remove  = ["dir2/path1"]
-    tuf_repo.remove_delegated_paths({"delegated_role": paths_to_remove })
+    paths_to_remove = ["dir2/path1"]
+    tuf_repo.remove_delegated_paths({"delegated_role": paths_to_remove})
 
     assert tuf_repo.root().version == 1
     assert tuf_repo.targets().version == 2
     assert tuf_repo.timestamp().version == 1
     assert tuf_repo.snapshot().version == 1
 
-    for path in paths_to_remove :
+    for path in paths_to_remove:
         assert (
             path
             not in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths

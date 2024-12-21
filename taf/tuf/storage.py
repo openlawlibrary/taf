@@ -70,9 +70,8 @@ class GitStorageBackend(FilesystemBackend):
         # Bypass singleton
         # This is necessary in order to use this within the context of
         # parallel update of multiple repositories
-        return super(FilesystemBackend, cls).__new__(
-            cls, *args, **kwargs
-        )
+        return super(FilesystemBackend, cls).__new__(cls, *args, **kwargs)
+
     @contextmanager
     def get(self, filepath: str):
         # If the commit is specified, read from Git.

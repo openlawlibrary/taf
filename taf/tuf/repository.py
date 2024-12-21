@@ -307,15 +307,19 @@ class MetadataRepository(Repository):
             raise TAFError(f"Role {role} does not exist")
 
         parent_role = self.find_delegated_roles_parent(role)
+        if parent_role is None:
+            return False
         if all(
             path in self.get_delegations_of_role(parent_role)[role].paths
             for path in paths
         ):
             return False
-        self.verify_signers_loaded([parent_role])
-        with self.edit(parent_role) as parent:
-            parent.delegations.roles[role].paths.extend(paths)
-        return True
+        if parent_role:
+            self.verify_signers_loaded([parent_role])
+            with self.edit(parent_role) as parent:
+                parent.delegations.roles[role].paths.extend(paths)
+            return True
+        return False
 
     def add_new_roles_to_snapshot(self, roles: List[str]) -> None:
         """
@@ -415,10 +419,17 @@ class MetadataRepository(Repository):
 
         return expired_dict, will_expire_dict
 
-    def _create_target_file(self, target_path: Path, target_data: Union[str, Dict]) -> None:
+    def _create_target_file(self, target_path: Path, target_data: Dict) -> None:
         """
         Writes the specified data to a target file and stores it on disk.
-        If the target data is a dictionary, the data is written in JSON format.
+        Target data is of the following form:
+        {
+            target: content of the target file, string or Dict (json)
+            custom: {
+                custom_field1: custom_value1,
+                custom_field2: custom_value2
+            }
+        }
         """
         # if the target's parent directory should not be "targets", create
         # its parent directories if they do not exist
@@ -700,14 +711,14 @@ class MetadataRepository(Repository):
                 parents.add(parent)
         return parents
 
-    def get_delegations_of_role(self, role_name: str) -> List:
+    def get_delegations_of_role(self, role_name: str) -> Dict:
         """
-        Return a list of delegated roles of the specified target role
+        Return a dictionary of delegated roles of the specified target role
         """
         signed_obj = self.signed_obj(role_name)
         if signed_obj.delegations:
             return signed_obj.delegations.roles
-        return []
+        return {}
 
     def get_keyids_of_role(self, role_name: str) -> List:
         """
@@ -732,7 +743,9 @@ class MetadataRepository(Repository):
         """
         return self.signed_obj(role_name).targets
 
-    def find_keys_roles(self, public_keys: List, check_threshold: Optional[bool]=True) -> List:
+    def find_keys_roles(
+        self, public_keys: List, check_threshold: Optional[bool] = True
+    ) -> List:
         """Find all roles that can be signed by the provided keys.
         A role can be signed by the list of keys if at least the number
         of keys that can sign that file is equal to or greater than the role's
@@ -741,13 +754,15 @@ class MetadataRepository(Repository):
         key_ids = [_get_legacy_keyid(public_key) for public_key in public_keys]
         return self.find_keysid_roles(key_ids=key_ids, check_threshold=check_threshold)
 
-    def find_keysid_roles(self, key_ids: List, check_threshold: Optional[bool]=True) -> List:
+    def find_keysid_roles(
+        self, key_ids: List, check_threshold: Optional[bool] = True
+    ) -> List:
         """Find all roles that can be signed by the provided keys.
         A role can be signed by the list of keys if at least the number
         of keys that can sign that file is equal to or greater than the role's
         threshold
         """
-        roles = []
+        roles: List[Tuple[str, Optional[str]]] = []
         for role in MAIN_ROLES:
             roles.append((role, None))
         keys_roles = []
@@ -797,7 +812,7 @@ class MetadataRepository(Repository):
 
         return all_roles
 
-    def get_all_target_files_state(self) -> List:
+    def get_all_target_files_state(self) -> Tuple:
         """Create dictionaries of added/modified and removed files by comparing current
         file-system state with current signed targets (and delegations) metadata state.
 
@@ -810,8 +825,8 @@ class MetadataRepository(Repository):
         Raises:
         - None
         """
-        added_target_files = {}
-        removed_target_files = {}
+        added_target_files: Dict = {}
+        removed_target_files: Dict = {}
 
         # current fs state
         fs_target_files = self.all_target_files()
@@ -888,7 +903,7 @@ class MetadataRepository(Repository):
             raise TAFError(f"Role {role} does not exist")
         return role.paths
 
-    def get_role_from_target_paths(self, target_paths: List) -> str:
+    def get_role_from_target_paths(self, target_paths: List) -> Optional[str]:
         """
         Find a common role that can be used to sign given target paths.
 
@@ -993,6 +1008,8 @@ class MetadataRepository(Repository):
         """
         try:
             role = self.get_role_from_target_paths([target_path])
+            if role is None:
+                return None
             target_obj = self.get_targets_of_role(role).get(target_path)
             if target_obj:
                 return target_obj.custom
@@ -1000,7 +1017,9 @@ class MetadataRepository(Repository):
         except KeyError:
             raise TAFError(f"Target {target_path} does not exist")
 
-    def get_target_file_hashes(self, target_path: str, hash_func: str=HASH_FUNCTION) -> str:
+    def get_target_file_hashes(
+        self, target_path: str, hash_func: str = HASH_FUNCTION
+    ) -> Optional[str]:
         """
         Return hashes of the given target path.
 
@@ -1009,9 +1028,11 @@ class MetadataRepository(Repository):
         """
         try:
             role = self.get_role_from_target_paths([target_path])
+            if role is None:
+                return None
             targets_of_role = self.get_targets_of_role(role)
             if target_path not in targets_of_role:
-                return None, None
+                return None
             hashes = targets_of_role[target_path].hashes
             if hash_func not in hashes:
                 raise TAFError(f"Invalid hashing algorithm {hash_func}")
@@ -1019,7 +1040,9 @@ class MetadataRepository(Repository):
         except KeyError:
             raise TAFError(f"Target {target_path} does not exist")
 
-    def get_key_length_and_scheme_from_metadata(self, parent_role: str, keyid: str) -> Tuple:
+    def get_key_length_and_scheme_from_metadata(
+        self, parent_role: str, keyid: str
+    ) -> Tuple:
         """
         Return length and signing scheme of the specified key id.
         This data is specified in metadata files (root or a target role that has delegations)
@@ -1210,7 +1233,9 @@ class MetadataRepository(Repository):
 
         return roles_targets
 
-    def modify_targets(self, added_data: Optional[Dict]=None, removed_data: Optional[Dict]=None) -> None:
+    def modify_targets(
+        self, added_data: Optional[Dict] = None, removed_data: Optional[Dict] = None
+    ) -> Targets:
         """Creates a target.json file containing a repository's commit for each repository.
         Adds those files to the tuf repository.
 
@@ -1239,7 +1264,7 @@ class MetadataRepository(Repository):
         Custom is an optional property which, if present, will be used to specify a TUF target's
 
         Returns:
-        - Role name used to update given targets
+        - Role whose targets were updates
         """
         added_data = {} if added_data is None else added_data
         removed_data = {} if removed_data is None else removed_data
@@ -1248,7 +1273,7 @@ class MetadataRepository(Repository):
             raise TargetsError("Nothing to be modified!")
 
         target_paths = list(data.keys())
-        targets_role = self.get_role_from_target_paths(data)
+        targets_role = self.get_role_from_target_paths(target_paths)
         if targets_role is None:
             raise TargetsError(
                 f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
@@ -1283,7 +1308,7 @@ class MetadataRepository(Repository):
         added_target_files: List[TargetFile],
         removed_paths: List[str],
         role_name: Optional[str] = Targets.type,
-    ) -> None:
+    ) -> Targets:
         """Add target files to top-level targets metadata."""
         with self.edit_targets(rolename=role_name) as targets:
             for target_file in added_target_files:
@@ -1395,7 +1420,7 @@ class MetadataRepository(Repository):
             roles_targets_mapping.setdefault(role_name, []).append(target_filename)
         return roles_targets_mapping
 
-    def _role_obj(self, role: str, parent: Optional[str]=None):
+    def _role_obj(self, role: str, parent: Optional[str] = None):
         """
         Return TUF's role object for the specified role
         """
@@ -1407,7 +1432,7 @@ class MetadataRepository(Repository):
             except (KeyError, ValueError):
                 raise TAFError("root.json is invalid")
         else:
-            parent_name = self.find_delegated_roles_parent(role, parent)
+            parent_name = self.find_delegated_roles_parent(role)
             if parent_name is None:
                 return None
             md = self.open(parent_name)
@@ -1536,7 +1561,7 @@ class MetadataRepository(Repository):
 
         self._modify_tarets_role(target_files, removed_paths, role)
 
-    def update_snapshot_and_timestamp(self, force: Optional[bool]=True):
+    def update_snapshot_and_timestamp(self, force: Optional[bool] = True):
         """
         Update timestamp and snapshot roles. If force is true, update them
         even if their content was not modified
