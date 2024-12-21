@@ -1,15 +1,10 @@
 from pathlib import Path
-import shutil
-import pytest
-from typing import Dict
-import uuid
+
 from taf.constants import TARGETS_DIRECTORY_NAME
 from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
-from taf.git import GitRepository
-from taf.tests.utils import copy_mirrors_json, copy_repositories_json
-from taf.api.repository import create_repository
+
 from taf.api.targets import (
     add_target_repo,
     register_target_files,
@@ -19,52 +14,9 @@ from taf.tests.test_api.util import (
     check_if_targets_signed,
     check_target_file,
 )
-from taf.utils import on_rm_error
 
 
 AUTH_REPO_NAME = "auth"
-
-
-@pytest.fixture(scope="module")
-def library(repo_dir):
-    random_name = str(uuid.uuid4())
-    root_dir = repo_dir / random_name
-    # create an initialize some target repositories
-    # their content is not important
-    auth_path = root_dir / AUTH_REPO_NAME
-    auth_path.mkdir(exist_ok=True, parents=True)
-    targets = ("target1", "target2", "target3", "new_target")
-    for target in targets:
-        target_repo_path = root_dir / target
-        target_repo_path.mkdir()
-        target_repo = GitRepository(path=target_repo_path)
-        target_repo.init_repo()
-        target_repo.commit_empty("Initial commit")
-    yield root_dir
-    shutil.rmtree(root_dir, onerror=on_rm_error)
-
-
-@pytest.fixture(scope="function")
-def auth_repo_when_add_repositories_json(
-    library: Path,
-    with_delegations_no_yubikeys_path: str,
-    keystore_delegations: str,
-    repositories_json_template: Dict,
-    mirrors_json_path: Path,
-):
-    repo_path = library / "auth"
-    namespace = library.name
-    copy_repositories_json(repositories_json_template, namespace, repo_path)
-    copy_mirrors_json(mirrors_json_path, repo_path)
-    create_repository(
-        str(repo_path),
-        roles_key_infos=with_delegations_no_yubikeys_path,
-        keystore=keystore_delegations,
-        commit=True,
-    )
-    auth_reo = AuthenticationRepository(path=repo_path)
-    yield auth_reo
-    shutil.rmtree(repo_path, onerror=on_rm_error)
 
 
 def test_register_targets_when_file_added(

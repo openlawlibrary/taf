@@ -1,7 +1,4 @@
-import shutil
-import pytest
 from pathlib import Path
-from typing import List
 from taf.api.roles import (
     add_role,
     add_role_paths,
@@ -13,23 +10,7 @@ from taf.api.roles import (
 )
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
-from taf.tests.conftest import KEYSTORES_PATH
-
-
-@pytest.fixture(scope="module")
-def roles_keystore(keystore_delegations):
-    # set up a keystore by copying the api keystore
-    # new keystore files are expected to be created and store to this directory
-    # it will be removed once this test's execution is done
-    # Create the destination folder if it doesn't exist
-    roles_keystore = KEYSTORES_PATH / "roles_keystore"
-    if roles_keystore.is_dir():
-        shutil.rmtree(str(roles_keystore))
-
-    # Copy the contents of the source folder to the destination folder
-    shutil.copytree(keystore_delegations, str(roles_keystore))
-    yield str(roles_keystore)
-    shutil.rmtree(str(roles_keystore))
+from taf.tests.test_api.util import check_new_role
 
 
 def test_add_role_when_target_is_parent(
@@ -55,7 +36,7 @@ def test_add_role_when_target_is_parent(
     commits = auth_repo.list_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("add-role", role=ROLE_NAME)
-    _check_new_role(auth_repo, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME)
+    check_new_role(auth_repo, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME)
 
 
 def test_add_role_when_delegated_role_is_parent(
@@ -81,7 +62,7 @@ def test_add_role_when_delegated_role_is_parent(
     commits = auth_repo_with_delegations.list_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("add-role", role=ROLE_NAME)
-    _check_new_role(
+    check_new_role(
         auth_repo_with_delegations, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME
     )
 
@@ -299,22 +280,3 @@ def test_revoke_signing_key(auth_repo: AuthenticationRepository, roles_keystore:
     targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
     assert len(targets_keys_infos) == 1
     assert commits[0].message.strip() == COMMIT_MSG
-
-
-def _check_new_role(
-    auth_repo: AuthenticationRepository,
-    role_name: str,
-    paths: List[str],
-    keystore_path: str,
-    parent_name: str,
-):
-    # check if keys were created
-    assert Path(keystore_path, f"{role_name}1").is_file()
-    assert Path(keystore_path, f"{role_name}2").is_file()
-    assert Path(keystore_path, f"{role_name}1.pub").is_file()
-    assert Path(keystore_path, f"{role_name}2.pub").is_file()
-    target_roles = auth_repo.get_all_targets_roles()
-    assert role_name in target_roles
-    assert auth_repo.find_delegated_roles_parent(role_name) == parent_name
-    roles_paths = auth_repo.get_role_paths(role_name)
-    assert roles_paths == paths

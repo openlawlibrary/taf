@@ -1,5 +1,3 @@
-import shutil
-import uuid
 import pytest
 from pathlib import Path
 from taf.api.dependencies import add_dependency, remove_dependency
@@ -8,34 +6,7 @@ from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.api.repository import create_repository
-from taf.tests.conftest import CLIENT_DIR_PATH
-from taf.utils import on_rm_error
-
-
-AUTH_REPO_NAME = "auth"
-DEPENDENCY_NAME = "dependency/auth"
-
-
-def _init_auth_repo_dir():
-    random_name = str(uuid.uuid4())
-    root_dir = CLIENT_DIR_PATH / random_name
-    auth_path = root_dir / AUTH_REPO_NAME
-    auth_path.mkdir(exist_ok=True, parents=True)
-    return auth_path
-
-
-@pytest.fixture(scope="module")
-def child_repo_path():
-    repo_path = _init_auth_repo_dir()
-    yield repo_path
-    shutil.rmtree(str(repo_path.parent), onerror=on_rm_error)
-
-
-@pytest.fixture(scope="module")
-def parent_repo_path():
-    repo_path = _init_auth_repo_dir()
-    yield repo_path
-    shutil.rmtree(str(repo_path.parent), onerror=on_rm_error)
+from taf.tests.test_api.conftest import DEPENDENCY_NAME
 
 
 def test_setup_repositories(
