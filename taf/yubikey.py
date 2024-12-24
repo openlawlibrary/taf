@@ -236,9 +236,7 @@ def export_yk_certificate(certs_dir, key: SSlibKey):
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
-def get_piv_public_key_tuf(
-    scheme=DEFAULT_RSA_SIGNATURE_SCHEME
-) -> SSlibKey:
+def get_piv_public_key_tuf(scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSlibKey:
     """Return public key from a Yubikey in TUF's RSAKEY_SCHEMA format.
 
     Args:
@@ -256,6 +254,7 @@ def get_piv_public_key_tuf(
     """
     pub_key_pem = export_piv_pub_key().decode("utf-8")
     return get_sslib_key_from_value(pub_key_pem, scheme)
+
 
 @raise_yubikey_err("Cannot sign data.")
 def sign_piv_rsa_pkcs1v15(data, pin):
