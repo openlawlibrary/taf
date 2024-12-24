@@ -61,6 +61,8 @@ def test_update_root_metadata(
     initial_commits_num = len(auth_repo.list_commits())
     roles = [Root.type]
     INTERVAL = 180
+    timestamp_version = auth_repo_expired.timestamp().version
+    snapshot_version = auth_repo_expired.snapshot().version
     update_metadata_expiration_date(
         path=auth_repo_path,
         roles=roles,
@@ -80,6 +82,8 @@ def test_update_root_metadata(
     for role in (Targets.type, "delegated_role", "inner_role"):
         actual_expiration = auth_repo.get_expiration_date(role)
         assert actual_expiration < now
+    assert auth_repo_expired.timestamp().version == timestamp_version + 1
+    assert auth_repo_expired.snapshot().version == snapshot_version + 1
 
 
 @freeze_time("2023-01-01")
@@ -107,6 +111,64 @@ def test_check_expiration_date_when_expired_and_will_expire(
 
 
 @freeze_time("2023-01-01")
+def test_update_snapshot_metadata(
+    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+):
+    # update root metadata, expect snapshot and timestamp to be updated too
+    # targets should not be updated
+    auth_repo_path = auth_repo_expired.path
+    auth_repo = AuthenticationRepository(path=auth_repo_path)
+    initial_commits_num = len(auth_repo.list_commits())
+    roles = [Snapshot.type]
+    INTERVAL = 7
+    timestamp_version = auth_repo_expired.timestamp().version
+    snapshot_version = auth_repo_expired.snapshot().version
+    update_metadata_expiration_date(
+        path=auth_repo_path,
+        roles=roles,
+        interval=INTERVAL,
+        keystore=keystore_delegations,
+        push=False,
+    )
+    commits = auth_repo.list_commits()
+    assert len(commits) == initial_commits_num + 1
+    assert commits[0].message.strip() == git_commit_message(
+        "update-expiration-dates", roles=",".join(roles)
+    )
+    assert auth_repo_expired.timestamp().version == timestamp_version + 1
+    assert auth_repo_expired.snapshot().version == snapshot_version + 1
+
+
+@freeze_time("2023-01-01")
+def test_update_timestamp_metadata(
+    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+):
+    # update root metadata, expect snapshot and timestamp to be updated too
+    # targets should not be updated
+    auth_repo_path = auth_repo_expired.path
+    auth_repo = AuthenticationRepository(path=auth_repo_path)
+    initial_commits_num = len(auth_repo.list_commits())
+    roles = [Timestamp.type]
+    INTERVAL = 1
+    timestamp_version = auth_repo_expired.timestamp().version
+    snapshot_version = auth_repo_expired.snapshot().version
+    update_metadata_expiration_date(
+        path=auth_repo_path,
+        roles=roles,
+        interval=INTERVAL,
+        keystore=keystore_delegations,
+        push=False,
+    )
+    commits = auth_repo.list_commits()
+    assert len(commits) == initial_commits_num + 1
+    assert commits[0].message.strip() == git_commit_message(
+        "update-expiration-dates", roles=",".join(roles)
+    )
+    assert auth_repo_expired.timestamp().version == timestamp_version + 1
+    assert auth_repo_expired.snapshot().version == snapshot_version
+
+
+@freeze_time("2023-01-01")
 def test_update_multiple_roles_metadata(
     auth_repo_expired: AuthenticationRepository, keystore_delegations: str
 ):
@@ -117,6 +179,8 @@ def test_update_multiple_roles_metadata(
     initial_commits_num = len(auth_repo.list_commits())
     roles = [Targets.type, "delegated_role", "inner_role"]
     INTERVAL = 365
+    timestamp_version = auth_repo_expired.timestamp().version
+    snapshot_version = auth_repo_expired.snapshot().version
     update_metadata_expiration_date(
         path=auth_repo_path,
         roles=roles,
@@ -133,6 +197,8 @@ def test_update_multiple_roles_metadata(
         expected_expiration = _get_date(INTERVAL)
         actual_expiration = auth_repo.get_expiration_date(role)
         assert expected_expiration == actual_expiration
+    assert auth_repo_expired.timestamp().version == timestamp_version + 1
+    assert auth_repo_expired.snapshot().version == snapshot_version + 1
 
 
 @freeze_time("2023-01-01")
@@ -143,8 +209,8 @@ def test_check_expiration_date_when_no_expired(
     expired, will_expire = check_expiration_dates(
         auth_repo_path, interval=90, print_output=False
     )
-    assert len(expired) == 2
-    assert not len(will_expire)
+    assert not len(expired)
+    assert len(will_expire) == 2
 
 
 def _check_expired_role(

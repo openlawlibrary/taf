@@ -136,8 +136,6 @@ def update_metadata_expiration_date(
 
     if len(roles) == 1 and Timestamp.type in roles:
         update_snapshot_and_timestamp = False
-    if Timestamp.type in roles and Snapshot.type in roles:
-        update_snapshot_and_timestamp = True
 
     update_snapshot_expiration_date = Snapshot.type in roles
     update_timestamp_expiration_date = Timestamp.type in roles
@@ -167,4 +165,7 @@ def update_metadata_expiration_date(
         auth_repo.clear_open_metadata()
 
         if update_snapshot_and_timestamp:
-            auth_repo.update_snapshot_and_timestamp()
+            if len(roles) == 1 and Snapshot.type in roles:
+                auth_repo.do_timestamp()
+            else:
+                auth_repo.update_snapshot_and_timestamp()
