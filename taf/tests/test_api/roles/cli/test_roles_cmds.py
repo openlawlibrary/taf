@@ -21,7 +21,7 @@ def test_roles_add_cmd_expect_success(auth_repo_with_delegations, roles_keystore
                 "/delegated_path_inside_targets1",
                 "/delegated_path_inside_targets2",
             ],
-            "keys_number": 1,
+            "keys_number": 2,
             "threshold": 1,
             "yubikey": False,
             "scheme": "rsa-pkcs1v15-sha256",
@@ -34,7 +34,7 @@ def test_roles_add_cmd_expect_success(auth_repo_with_delegations, roles_keystore
             [
                 "roles",
                 "add",
-                "rolename1",
+                "new_role",
                 "--path",
                 f"{str(auth_repo_with_delegations.path)}",
                 "--config-file",
@@ -43,10 +43,9 @@ def test_roles_add_cmd_expect_success(auth_repo_with_delegations, roles_keystore
                 f"{str(roles_keystore)}",
             ],
         )
-        # TODO: there seems to be an assertion error here
         check_new_role(
             auth_repo_with_delegations,
-            "rolename1",
+            "new_role",
             ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
             str(roles_keystore),
             "targets",
@@ -185,7 +184,10 @@ def test_rotate_key_cmd_expect_success(auth_repo, roles_keystore):
                 f"{pub_key_path}",
                 "--keystore",
                 f"{str(roles_keystore)}",
-                "--no-commit",
+                "--revoke-commit-msg",
+                "Remove targets key",
+                "--add-commit-msg",
+                "Add signing key",
             ],
         )
         new_targets_keyids = auth_repo.get_keyids_of_role("targets")

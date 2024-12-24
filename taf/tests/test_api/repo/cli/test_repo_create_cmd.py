@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -15,7 +16,7 @@ def test_repo_create_cmd_expect_success(
             [
                 "repo",
                 "create",
-                ".\\test-law\\",
+                "test/law",
                 "--keys-description",
                 f"{str(with_delegations_no_yubikeys_path)}",
                 "--keystore",
@@ -32,11 +33,8 @@ def test_repo_create_cmd_expect_success(
         assert "Finished creating a new repository" in output
 
         cwd = Path.cwd()
-        assert (cwd / "test-law" / "metadata").exists()
-        assert (cwd / "test-law" / "targets").exists()
-        # TODO: actually have this. hopefully once issue is resolved error should get removed from assert
-        assert "An error occurred while signing target files" in output
-        assert "An error occurred while creating a new repository" in output
+        assert (cwd / "test/law" / "metadata").exists()
+        assert (cwd / "test/law" / "targets").exists()
 
 
 def test_repo_create_cmd_when_repo_already_created_expect_error(
@@ -49,7 +47,7 @@ def test_repo_create_cmd_when_repo_already_created_expect_error(
             [
                 "repo",
                 "create",
-                ".\\test-law\\",
+                "test/law",
                 "--keys-description",
                 f"{str(with_delegations_no_yubikeys_path)}",
                 "--keystore",
@@ -59,8 +57,8 @@ def test_repo_create_cmd_when_repo_already_created_expect_error(
             ],
         )
         cwd = Path.cwd()
-        assert (cwd / "test-law" / "metadata").exists()
-        assert (cwd / "test-law" / "targets").exists()
+        assert (cwd / "test/law" / "metadata").exists()
+        assert (cwd / "test/law" / "targets").exists()
 
         output = caplog.text
         assert "Finished creating a new repository" in output
@@ -70,7 +68,7 @@ def test_repo_create_cmd_when_repo_already_created_expect_error(
             [
                 "repo",
                 "create",
-                ".\\test-law\\",
+                "test/law",
                 "--keys-description",
                 f"{str(with_delegations_no_yubikeys_path)}",
                 "--keystore",
@@ -79,8 +77,7 @@ def test_repo_create_cmd_when_repo_already_created_expect_error(
                 "--test",
             ],
         )
-        # TODO: expected to have this output, instead get same error as first test
         assert (
-            '"test-law" is a git repository containing the metadata directory. Generating new metadata files could make the repository invalid. Aborting'
+            f'Metadata directory found inside "test{os.sep}law". Recreate metadata files? [y/N]'
             in result.output
         )

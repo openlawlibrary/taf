@@ -93,7 +93,7 @@ def manage_repo_and_signers(
                     auth_repo.add_signers_to_cache({role: keystore_signers})
                     auth_repo.add_signers_to_cache({role: yubikey_signers})
         yield
-        if auth_repo.something_to_commit() and commit:
+        if commit and auth_repo.something_to_commit():
             if not commit_msg and commit_key:
                 commit_msg = git_commit_message(commit_key)
             auth_repo.commit_and_push(commit_msg=commit_msg, push=push)

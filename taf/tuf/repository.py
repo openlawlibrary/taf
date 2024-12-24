@@ -201,7 +201,8 @@ class MetadataRepository(Repository):
 
     def add_signers_to_cache(self, roles_signers: Dict):
         for role, signers in roles_signers.items():
-            self._load_role_signers(role, signers)
+            if self._role_obj(role):
+                self._load_role_signers(role, signers)
 
     def all_target_files(self) -> Set:
         """

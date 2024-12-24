@@ -235,6 +235,7 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
 def test_revoke_metadata_key(
     tuf_repo, signers_with_delegations, public_keys_with_delegations, public_keys
 ):
+
     tuf_repo.add_signers_to_cache(signers_with_delegations)
     targets_key1 = public_keys_with_delegations["targets"][0]
     targets_key2 = public_keys_with_delegations["targets"][1]
