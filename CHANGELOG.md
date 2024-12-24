@@ -9,17 +9,29 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Transition to the newest version of TUF [(561)]
 - Implement removal of keys [(561)]
+
+### Changed
+
+### Fixed
+
+[561]: https://github.com/openlawlibrary/taf/pull/561
+
+## [0.33.0]
+
+### Added
+
+- Add tests for `get_last_remote_commit` and `reset_to_commit` ([573])
+- Remove unused optional parameter from _yk_piv_ctrl ([572])
 - Implement full partial update. Store last validated commit per repo ([559)])
 
 ### Changed
 
-- Transition to the newest version of TUF [(561)]
-
 ### Fixed
 
-
-[561]: https://github.com/openlawlibrary/taf/pull/561
+[573]: https://github.com/openlawlibrary/taf/pull/573
+[572]: https://github.com/openlawlibrary/taf/pull/572
 [559]: https://github.com/openlawlibrary/taf/pull/559
 
 
@@ -56,7 +68,6 @@ and this project adheres to [Semantic Versioning][semver].
 - Make url optional for `get_last_remote_commit` ([564])
 
 ### Fixed
-
 
 [564]: https://github.com/openlawlibrary/taf/pull/564
 
@@ -1379,7 +1390,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.32.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/openlawlibrary/taf/compare/v0.32.4...v0.33.0
 [0.32.4]: https://github.com/openlawlibrary/taf/compare/v0.32.3...v0.32.4
 [0.32.3]: https://github.com/openlawlibrary/taf/compare/v0.32.2...v0.32.3
 [0.32.2]: https://github.com/openlawlibrary/taf/compare/v0.32.1...v0.32.2

@@ -51,3 +51,45 @@ def test_all_commits_since_commit_when_repo_empty(empty_repository):
     all_commits_empty = empty_repository.all_commits_since_commit()
     assert isinstance(all_commits_empty, list)
     assert len(all_commits_empty) == 0
+
+
+def test_get_last_remote_commit(origin_repo, clone_repository):
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    clone_repository.commit_empty("test commit1")
+    top_commit = clone_repository.commit_empty("test commit2")
+    clone_repository.push()
+    initial_commit = clone_repository.initial_commit
+    clone_repository.reset_to_commit(initial_commit)
+    assert (
+        clone_repository.top_commit_of_branch(clone_repository.default_branch)
+        == initial_commit
+    )
+    last_remote_on_origin = clone_repository.get_last_remote_commit(
+        clone_repository.get_remote_url()
+    )
+    assert last_remote_on_origin == top_commit
+
+
+def test_reset_to_commit_when_reset_remote_tracking(origin_repo, clone_repository):
+    # reset to commit is also expected to update the remote tracking branch by default
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    initial_commit = clone_repository.initial_commit
+    clone_repository.reset_to_commit(initial_commit)
+    assert (
+        clone_repository.top_commit_of_remote_branch(clone_repository.default_branch)
+        == initial_commit
+    )
+
+
+def test_reset_to_commit_when_not_reset_remote_tracking(origin_repo, clone_repository):
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    top_commit = clone_repository.head_commit_sha()
+    initial_commit = clone_repository.initial_commit
+    clone_repository.reset_to_commit(initial_commit, reset_remote_tracking=False)
+    assert (
+        clone_repository.top_commit_of_remote_branch(clone_repository.default_branch)
+        == top_commit
+    )
