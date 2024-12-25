@@ -173,3 +173,49 @@ def update_metadata_expiration_date(
         auth_repo.remove_from_open_metadata([Timestamp.type])
         if update_timestamp_expiration_date or update_snapshot_and_timestamp:
             auth_repo.do_timestamp(force=True)
+
+
+@check_if_clean
+def update_snapshot_and_timestamp(
+    path: str,
+    keystore: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+) -> None:
+    """
+    Update expiration snapshot and timestamp
+
+    Arguments:
+        path: Authentication repository's location.
+        keystore (optional): Keystore directory's path
+        scheme (optional): Signature scheme.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        commit_msg (optional): Custom commit messages.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        push (optional): Flag specifying whether to push to remote
+
+    Side Effects:
+        Updates metadata files, saves changes to disk and commits changes
+        unless no_commit is set to True.
+
+    Returns:
+        None
+    """
+
+    auth_repo = AuthenticationRepository(path=path)
+
+    with manage_repo_and_signers(
+        auth_repo,
+        [],
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        commit_msg=commit_msg,
+        push=push,
+    ):
+        auth_repo.update_snapshot_and_timestamp()

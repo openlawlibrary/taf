@@ -339,7 +339,7 @@ def register_target_files(
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
     scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
-        taf_repo (optional): If taf repository is already initialized, it can be passed and used.
+        auth_repo (optional): If auth repository is already initialized, it can be passed and used.
         write (optional): Write metadata updates to disk if set to True
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.

@@ -5,8 +5,7 @@ from contextlib import contextmanager
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from securesystemslib.rsa_keys import create_rsa_signature
-from tuf.repository_tool import import_rsakey_from_pem
+from taf.tuf.keys import load_signer_from_file
 
 VALID_PIN = "123456"
 WRONG_PIN = "111111"
@@ -30,7 +29,7 @@ class FakeYubiKey:
             self.pub_key_pem, default_backend()
         )
 
-        self.tuf_key = import_rsakey_from_pem(self.pub_key_pem.decode("utf-8"), scheme)
+        self.tuf_key = load_signer_from_file(priv_key_path)
 
     @property
     def driver(self):

@@ -98,7 +98,7 @@ class GitRepository:
             self.path = self._validate_repo_path(path)
 
         self.alias = alias
-        self.urls = self._validate_urls(urls)
+        self.urls = self._validate_urls([str(url) for url in urls]) if urls else None
         self.allow_unsafe = allow_unsafe
         self.custom = custom or {}
         if default_branch is None:
