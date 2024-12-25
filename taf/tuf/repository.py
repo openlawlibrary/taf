@@ -342,7 +342,8 @@ class MetadataRepository(Repository):
     def add_to_open_metadata(self, roles: List[str]) -> None:
         """
         In order to execute several methods before updating the metadata on disk,
-        these methods need to be added to the _metadata_to_keep_open list.
+        some metadata might need to be kept open, which is done by adding them to
+        _metadata_to_keep_open list.
         This method adds all roles from the provided list to _metadata_to_keep_open.
         """
         self._metadata_to_keep_open.update(roles)
@@ -1406,6 +1407,14 @@ class MetadataRepository(Repository):
                         parent.delegations.roles[role].paths.remove(path)
                         updated = True
         return updated
+
+    def remove_from_open_metadata(self, roles: List[str]) -> None:
+        """
+        Removes the listed roles from metadata_to_keep_open list
+        """
+        for role in roles:
+            if role in self._metadata_to_keep_open:
+                self._metadata_to_keep_open.remove(role)
 
     def roles_targets_for_filenames(self, target_filenames):
         """Sort target files by roles
