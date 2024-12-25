@@ -1,10 +1,10 @@
-# Default scheme for all RSA keys. It can be changed in keys.json while
-# generating repository
+import attrs
 import datetime
 from typing import List, Optional
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 
-import attrs
+
+TARGETS_DIRECTORY_NAME = "targets"
+METADATA_DIRECTORY_NAME = "metadata"
 
 
 DEFAULT_RSA_SIGNATURE_SCHEME = "rsa-pkcs1v15-sha256"

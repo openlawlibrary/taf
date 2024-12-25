@@ -1,17 +1,16 @@
 import json
 from logging import ERROR, INFO
+import shutil
 from typing import Optional
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._roles import setup_role
+from taf.git import GitRepository
 from taf.messages import git_commit_message
-from taf.models.types import RolesIterator
 from taf.models.types import RolesKeysData
 from taf.models.converter import from_dict
 
 from pathlib import Path
 from taf.api.roles import (
-    create_delegations,
     _initialize_roles_and_keystore,
 )
 from taf.api.targets import list_targets, register_target_files
@@ -21,8 +20,8 @@ from taf.exceptions import TAFError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
 from taf.api.utils._conf import find_keystore
+from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
-from tuf.repository_tool import create_new_repository
 from taf.log import taf_logger
 
 
@@ -62,12 +61,11 @@ def create_repository(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path=path)
-    if not _check_if_can_create_repository(auth_repo):
+    if not _check_if_can_create_repository(Path(path)):
         return
 
-    if not keystore and auth_repo.path is not None:
-        keystore_path = find_keystore(auth_repo.path)
+    if not keystore and path is not None:
+        keystore_path = find_keystore(path)
         if keystore_path is not None:
             keystore = str(keystore_path)
     roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
@@ -75,62 +73,46 @@ def create_repository(
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
-    repository = create_new_repository(
-        str(auth_repo.path), repository_name=auth_repo.name
-    )
-    signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo=auth_repo,
+    auth_repo = AuthenticationRepository(path=path)
+    signers, verification_keys = load_sorted_keys_of_new_roles(
         roles=roles_keys_data.roles,
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
         skip_prompt=skip_prompt,
+        certs_dir=auth_repo.certs_dir,
     )
-    if signing_keys is None:
+    if signers is None:
         return
 
-    for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
-        setup_role(
-            role,
-            repository,
-            verification_keys[role.name],
-            signing_keys.get(role.name),
-        )
-
-    create_delegations(
-        roles_keys_data.roles.targets, repository, verification_keys, signing_keys
-    )
+    repository = AuthenticationRepository(path=path)
+    repository.create(roles_keys_data, signers, verification_keys)
+    if commit:
+        auth_repo.init_repo()
+        commit_msg = git_commit_message("create-repo")
+        auth_repo.commit(commit_msg, ["metadata"])
 
     if test:
-        test_auth_file = (
-            Path(auth_repo.path, auth_repo.targets_path) / auth_repo.TEST_REPO_FLAG_FILE
-        )
+        auth_repo.targets_path.mkdir(exist_ok=True)
+        test_auth_file = auth_repo.targets_path / auth_repo.TEST_REPO_FLAG_FILE
         test_auth_file.touch()
 
-    auth_repo._tuf_repository = repository
-    updated = register_target_files(
+    register_target_files(
         path,
         keystore,
         roles_key_infos,
-        commit=False,
-        taf_repo=auth_repo,
-        write=True,
+        commit=commit,
+        auth_repo=auth_repo,
+        update_snapshot_and_timestamp=True,
         no_commit_warning=True,
     )
 
     ensure_pre_push_hook(auth_repo.path)
 
-    if not updated:
-        repository.writeall()
-
-    if commit:
-        auth_repo.init_repo()
-        commit_msg = git_commit_message("create-repo")
-        auth_repo.commit_and_push(push=False, commit_msg=commit_msg)
-    else:
+    if not commit:
         print("\nPlease commit manually.\n")
 
 
-def _check_if_can_create_repository(auth_repo: AuthenticationRepository) -> bool:
+def _check_if_can_create_repository(path: Path) -> bool:
     """
     Check if a new authentication repository can be created at the specified location.
     A repository can be created if there is not directory at the repository's location
@@ -145,11 +127,12 @@ def _check_if_can_create_repository(auth_repo: AuthenticationRepository) -> bool
     Returns:
         True if a new authentication repository can be created, False otherwise.
     """
-    path = Path(auth_repo.path)
+    repo = GitRepository(path=path)
     if path.is_dir():
         # check if there is non-empty metadata directory
-        if auth_repo.metadata_path.is_dir() and any(auth_repo.metadata_path.iterdir()):
-            if auth_repo.is_git_repository:
+        metadata_dir = path / METADATA_DIRECTORY_NAME
+        if metadata_dir.is_dir() and any(metadata_dir.iterdir()):
+            if repo.is_git_repository:
                 print(
                     f'"{path}" is a git repository containing the metadata directory. Generating new metadata files could make the repository invalid. Aborting.'
                 )
@@ -158,6 +141,8 @@ def _check_if_can_create_repository(auth_repo: AuthenticationRepository) -> bool
                 f'Metadata directory found inside "{path}". Recreate metadata files?'
             ):
                 return False
+            else:
+                shutil.rmtree(metadata_dir)
     return True
 
 
@@ -194,7 +179,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     print(f"{indent_str}Something to commit: {auth_repo.something_to_commit()}")
     print(f"{indent_str}Target Repositories Status:")
     # Call the list_targets function
-    print(json.dumps(list_targets(path=path), indent=4))
+    print(json.dumps(list_targets(path=path), indent=1))
 
     # Load dependencies using repositoriesdb.get_auth_repositories
     repositoriesdb.load_dependencies(auth_repo, library_dir=library_dir)

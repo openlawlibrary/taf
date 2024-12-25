@@ -2,7 +2,7 @@ import pytest
 from taf.tests.test_updater.conftest import SetupManager, add_valid_target_commits
 from taf.updater.types.update import UpdateType
 from taf.tests.test_updater.update_utils import (
-    _clone_full_library,
+    clone_full_library,
     update_and_validate_repositories,
 )
 
@@ -38,7 +38,7 @@ def test_update_repository_with_dependencies(
     origin_dir,
     client_dir,
 ):
-    _clone_full_library(
+    clone_full_library(
         library_with_dependencies,
         origin_dir,
         client_dir,

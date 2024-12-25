@@ -1,24 +1,24 @@
 import json
 import os
-import tempfile
 import fnmatch
+import pygit2
 
 from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-import pygit2
-from tuf.repository_tool import METADATA_DIRECTORY_NAME
+from taf.tuf.storage import GitStorageBackend
 from taf.git import GitRepository
-from taf.repository_tool import (
-    Repository as TAFRepository,
+from taf.tuf.repository import (
+    METADATA_DIRECTORY_NAME,
+    MetadataRepository as TUFRepository,
     get_role_metadata_path,
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
 
 
-class AuthenticationRepository(GitRepository, TAFRepository):
+class AuthenticationRepository(GitRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     LAST_VALIDATED_KEY = "last_validated_commit"
@@ -77,6 +77,24 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
+        self._storage = GitStorageBackend()
+        self._tuf_repository = TUFRepository(self.path, storage=self._storage)
+
+    def __getattr__(self, item):
+        """Delegate attribute lookup to TUFRepository instance"""
+        if item in self.__dict__:
+            return self.__dict__[item]
+        try:
+            # First try to get attribute from super class (GitRepository)
+            return super().__getattribute__(item)
+        except AttributeError:
+            # If not found, delegate to TUFRepository
+            return getattr(self._tuf_repository, item)
+
+    def __dir__(self):
+        """Return list of attributes available on this object, including those
+        from TUFRepository."""
+        return super().__dir__() + dir(self._tuf_repository)
 
     # TODO rework conf_dir
 
@@ -109,8 +127,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         return self._conf_dir
 
     @property
-    def certs_dir(self) -> str:
-        certs_dir = Path(self.path, "certs")
+    def certs_dir(self):
+        certs_dir = self.path / "certs"
+        certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
     @property
@@ -258,27 +277,12 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     @contextmanager
     def repository_at_revision(self, commit: str):
         """
-        Context manager which makes sure that TUF repository is instantiated
-        using metadata files at the specified revision. Creates a temp directory
-        and metadata files inside it. Deleted the temp directory when no longer
-        needed.
+        Context manager that enables reading metadata from an older commit.
+        This should be used in combination with the Git storage backend.
         """
-        tuf_repository = self._tuf_repository
-        with tempfile.TemporaryDirectory() as temp_dir:
-            metadata_files = self.list_files_at_revision(
-                commit, METADATA_DIRECTORY_NAME
-            )
-            Path(temp_dir, METADATA_DIRECTORY_NAME).mkdir(parents=True)
-            for file_name in metadata_files:
-                path = Path(temp_dir, METADATA_DIRECTORY_NAME, file_name)
-                with open(path, "w") as f:
-                    data = self.get_json(
-                        commit, f"{METADATA_DIRECTORY_NAME}/{file_name}"
-                    )
-                    json.dump(data, f)
-            self._load_tuf_repository(temp_dir)
-            yield
-            self._tuf_repository = tuf_repository
+        self._storage.commit = commit
+        yield
+        self._storage.commit = self.head_commit_sha()
 
     def set_last_validated_data(
         self,

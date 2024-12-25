@@ -2,7 +2,16 @@ import json
 from pathlib import Path
 import sys
 import click
-from taf.api.roles import add_multiple_roles, add_role, list_keys_of_role, add_signing_key, remove_role
+from taf.api.roles import (
+    add_multiple_roles,
+    add_role,
+    list_keys_of_role,
+    add_signing_key,
+    remove_role,
+    revoke_signing_key,
+    remove_paths,
+    rotate_signing_key,
+)
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository
@@ -217,6 +226,32 @@ def remove_role_command():
     return remove
 
 
+def remove_paths_command():
+    @click.command(help="""Remove paths from delegated role""")
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--delegated-path", multiple=True, help="A list of paths to be removed")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys):
+        if not delegated_path:
+            print("Specify at least one role")
+            return
+
+        remove_paths(
+            path=path,
+            paths=delegated_path,
+            keystore=keystore,
+            scheme=scheme,
+            commit=not no_commit,
+            prompt_for_keys=prompt_for_keys,
+        )
+    return remove_delegated_paths
+
+
 def add_signing_key_command():
     @click.command(help="""
         Add a new signing key. This will make it possible to a sign metadata files
@@ -233,11 +268,10 @@ def add_signing_key_command():
     @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys the new key should be added")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores the needed information")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def adding_signing_key(path, role, pub_key_path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
+    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys):
         if not role:
             print("Specify at least one role")
             return
@@ -247,12 +281,68 @@ def add_signing_key_command():
             roles=role,
             pub_key_path=pub_key_path,
             keystore=keystore,
-            roles_key_infos=keys_description,
             scheme=scheme,
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys
         )
     return adding_signing_key
+
+
+def revoke_signing_key_command():
+    @click.command(help="""
+        Revoke a signing key.
+        """)
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("keyid")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--role", multiple=True, help="A list of roles from which to remove the key. If unspecified, the key is removed from all roles by default.")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys):
+
+        revoke_signing_key(
+            path=path,
+            roles=role,
+            key_id=keyid,
+            keystore=keystore,
+            scheme=scheme,
+            commit=not no_commit,
+            prompt_for_keys=prompt_for_keys
+        )
+    return revoke_key
+
+
+def rotate_signing_key_command():
+    @click.command(help="""
+        Rotate a signing key.
+        """)
+    @find_repository
+    @catch_cli_exception(handle=TAFError)
+    @click.argument("keyid")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--role", multiple=True, help="A list of roles from which to remove the key. Remove from all by default")
+    @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
+    @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
+    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg):
+        rotate_signing_key(
+            path=path,
+            roles=role,
+            key_id=keyid,
+            keystore=keystore,
+            scheme=scheme,
+            prompt_for_keys=prompt_for_keys,
+            pub_key_path=pub_key_path,
+            revoke_commit_msg=revoke_commit_msg,
+            add_commit_msg=add_commit_msg,
+        )
+    return rotate_key
 
 
 def list_keys_command():
@@ -278,7 +368,10 @@ def attach_to_group(group):
     group.add_command(add_role_command(), name='add')
     group.add_command(add_multiple_command(), name='add-multiple')
     group.add_command(add_role_paths_command(), name='add-role-paths')
+    group.add_command(remove_paths_command(), name='remove-paths')
     # group.add_command(remove_role_command(), name='remove')
     group.add_command(add_signing_key_command(), name='add-signing-key')
+    group.add_command(revoke_signing_key_command(), name='revoke-key')
+    group.add_command(rotate_signing_key_command(), name='rotate-key')
     group.add_command(list_keys_command(), name='list-keys')
     group.add_command(export_roles_description_command(), name="export-description")
