@@ -164,7 +164,10 @@ def update_metadata_expiration_date(
 
         auth_repo.remove_from_open_metadata([Snapshot.type])
         # it is important to update snapshot first
-        if update_snapshot_expiration_date or update_snapshot_and_timestamp:
+
+        if (update_snapshot_expiration_date or update_snapshot_and_timestamp) and not (
+            len(roles) == 1 and update_timestamp_expiration_date
+        ):
             auth_repo.do_snapshot(force=True)
 
         auth_repo.remove_from_open_metadata([Timestamp.type])

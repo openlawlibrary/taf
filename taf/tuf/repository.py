@@ -684,6 +684,10 @@ class MetadataRepository(Repository):
                 if file_rel_path not in self.get_targets_of_role(targets_role):
                     (self.targets_path / file_rel_path).unlink()
 
+    def do_timestamp(self, force=False):
+        self._snapshot_info.version = self._signed_obj(Snapshot.type).version
+        return super().do_timestamp(force)
+
     def find_delegated_roles_parent(self, delegated_role: str) -> Optional[str]:
         """
         Find parent role of the specified delegated targets role
