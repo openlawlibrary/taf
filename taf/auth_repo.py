@@ -314,7 +314,7 @@ class AuthenticationRepository(GitRepository):
         """
         self._storage.commit = commit
         yield
-        self._storage.commit = self.head_commit_sha()
+        self._storage.commit = None
 
     def set_last_validated_data(
         self,
