@@ -657,6 +657,56 @@ class MetadataRepository(Repository):
                 added_roles.append(role_data.name)
         return added_roles, existing_roles
 
+    def create_and_remove_target_files(
+        self, added_data: Optional[Dict] = None, removed_data: Optional[Dict] = None
+    ) -> None:
+        """Create/updates/removes files in the targets directory
+        Args:
+        - added_data(dict): Dictionary of new data whose keys are target paths of repositories
+                            (as specified in targets.json, relative to the targets dictionary).
+                            The values are of form:
+                            {
+                                target: content of the target file
+                            }
+        - removed_data(dict): Dictionary of the old data whose keys are target paths of
+                              repositories
+                              (as specified in targets.json, relative to the targets dictionary).
+                              The values are not needed. This is just for consistency.
+
+        Content of the target file can be a dictionary, in which case a json file will be created.
+        If that is not the case, an ordinary textual file will be created.
+        If content is not specified and the file already exists, it will not be modified.
+        If it does not exist, an empty file will be created. To replace an existing file with an
+        empty file, specify empty content (target: '')
+
+        Returns:
+        - Role whose targets were updates
+        """
+        added_data = {} if added_data is None else added_data
+        removed_data = {} if removed_data is None else removed_data
+        data = dict(added_data, **removed_data)
+        if not data:
+            raise TargetsError("Nothing to be modified!")
+
+        added_paths = []
+        for path, target_data in added_data.items():
+            target_path = (self.targets_path / path).absolute()
+            self._create_target_file(target_path, target_data)
+            added_paths.append(target_path)
+
+        # remove existing target files
+        removed_paths = []
+        for path in removed_data.keys():
+            target_path = (self.targets_path / path).absolute()
+            if target_path.exists():
+                if target_path.is_file():
+                    target_path.unlink()
+                elif target_path.is_dir():
+                    shutil.rmtree(target_path, onerror=on_rm_error)
+            removed_paths.append(str(path))
+
+        return added_paths, removed_paths
+
     def _create_target_object(
         self, filesystem_path: str, target_path: str, custom: Optional[Dict]
     ) -> TargetFile:
@@ -1284,25 +1334,14 @@ class MetadataRepository(Repository):
             raise TargetsError(
                 f"Could not find a common role for target paths:\n{'-'.join(target_paths)}"
             )
-        # add new target files
+        _, removed_paths = self.create_and_remove_target_files(added_data, removed_data)
+
         target_files = []
         for path, target_data in added_data.items():
             target_path = (self.targets_path / path).absolute()
-            self._create_target_file(target_path, target_data)
             custom = target_data.get("custom", None)
             target_file = self._create_target_object(target_path, path, custom)
             target_files.append(target_file)
-
-        # remove existing target files
-        removed_paths = []
-        for path in removed_data.keys():
-            target_path = (self.targets_path / path).absolute()
-            if target_path.exists():
-                if target_path.is_file():
-                    target_path.unlink()
-                elif target_path.is_dir():
-                    shutil.rmtree(target_path, onerror=on_rm_error)
-            removed_paths.append(str(path))
 
         targets_role = self._modify_tarets_role(
             target_files, removed_paths, targets_role
