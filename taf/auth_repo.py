@@ -261,6 +261,38 @@ class AuthenticationRepository(GitRepository):
     def get_metadata_path(self, role):
         return self.path / METADATA_DIRECTORY_NAME / f"{role}.json"
 
+    def get_role_repositories(self, role, parent_role=None):
+        """Get repositories of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Repositories' path from repositories.json that matches given role paths
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        if self.is_bare_repository:
+            # raise an error for now
+            # once we have an ergonomic way to get repositories from a bare repository, remove the error
+            raise Exception(
+                "Getting role repositories from a bare repository is not yet supported."
+            )
+
+        role_paths = self._tuf_repository.get_role_paths(role)
+
+        target_repositories = self._get_target_repositories_from_disk()
+        return [
+            repo
+            for repo in target_repositories
+            if any([fnmatch.fnmatch(repo, path) for path in role_paths])
+        ]
+
     def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
@@ -568,3 +600,13 @@ class AuthenticationRepository(GitRepository):
                             "custom": target_content,
                         }
         return targets
+
+    def _get_target_repositories_from_disk(self):
+        """
+        Read repositories.json from disk and return the list of target repositories
+        """
+        repositories_path = self.targets_path / "repositories.json"
+        if repositories_path.exists():
+            repositories = repositories_path.read_text()
+            repositories = json.loads(repositories)["repositories"]
+            return [str(Path(target_path).as_posix()) for target_path in repositories]
