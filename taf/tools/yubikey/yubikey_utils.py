@@ -111,10 +111,8 @@ class FakePivController:
         if isinstance(data, str):
             data = data.encode("utf-8")
 
-        sig, _ = create_rsa_signature(
-            self._driver.priv_key_pem.decode("utf-8"), data, self._driver.scheme
-        )
-        return sig
+        signature = self._driver.priv_key.sign(data, padding, hash)
+        return signature
 
     def verify_pin(self, pin):
         if self._driver.pin != pin:
