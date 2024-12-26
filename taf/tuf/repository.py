@@ -659,7 +659,7 @@ class MetadataRepository(Repository):
 
     def create_and_remove_target_files(
         self, added_data: Optional[Dict] = None, removed_data: Optional[Dict] = None
-    ) -> None:
+    ) -> Tuple:
         """Create/updates/removes files in the targets directory
         Args:
         - added_data(dict): Dictionary of new data whose keys are target paths of repositories
