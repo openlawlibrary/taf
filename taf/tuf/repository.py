@@ -883,7 +883,6 @@ class MetadataRepository(Repository):
         """
         added_target_files: Dict = {}
         removed_target_files: Dict = {}
-
         # current fs state
         fs_target_files = self.all_target_files()
         # current signed state
@@ -1589,6 +1588,16 @@ class MetadataRepository(Repository):
         for target_file, role in files_to_roles.items():
             roles_targets.setdefault(role, []).append(target_file)
         return roles_targets
+
+    def sync_snapshot_with_roles(self, roles: List[str]) -> None:
+        """
+        Add versions of newly created target roles to the snapshot.
+        Also update the versions of their parent roles, which are modified
+        when a new delegated role is added.
+        """
+        with self.edit(Snapshot.type) as sn:
+            for role in roles:
+                sn.meta[f"{role}.json"].version = sn.meta[f"{role}.json"].version + 1
 
     def update_target_role(self, role: str, target_paths: Dict):
         """

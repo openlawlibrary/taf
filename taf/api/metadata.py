@@ -179,6 +179,7 @@ def update_metadata_expiration_date(
 def update_snapshot_and_timestamp(
     path: str,
     keystore: Optional[str] = None,
+    roles_to_sync: Optional[List[str]] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
@@ -218,4 +219,8 @@ def update_snapshot_and_timestamp(
         commit_msg=commit_msg,
         push=push,
     ):
-        auth_repo.update_snapshot_and_timestamp()
+        if roles_to_sync:
+            auth_repo.sync_snapshot_with_roles(roles_to_sync)
+            auth_repo.do_timestamp(force=True)
+        else:
+            auth_repo.update_snapshot_and_timestamp()
