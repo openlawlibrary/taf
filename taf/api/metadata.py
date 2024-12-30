@@ -185,6 +185,7 @@ def update_snapshot_and_timestamp(
     commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    update_expiration_dates: Optional[bool] = True,
 ) -> None:
     """
     Update expiration snapshot and timestamp
@@ -197,6 +198,7 @@ def update_snapshot_and_timestamp(
         commit_msg (optional): Custom commit messages.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
+        update_expiration_dates (optional): Flag specifying whether to update expiration dates
 
     Side Effects:
         Updates metadata files, saves changes to disk and commits changes
@@ -219,6 +221,11 @@ def update_snapshot_and_timestamp(
         commit_msg=commit_msg,
         push=push,
     ):
+        if update_expiration_dates:
+            auth_repo.add_to_open_metadata([Snapshot.type, Timestamp.type])
+            for role in [Snapshot.type, Timestamp.type]:
+                auth_repo.set_metadata_expiration_date(role)
+            auth_repo.clear_open_metadata()
         if roles_to_sync:
             auth_repo.sync_snapshot_with_roles(roles_to_sync)
             auth_repo.do_timestamp(force=True)
