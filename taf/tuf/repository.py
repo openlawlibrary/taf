@@ -1342,12 +1342,12 @@ class MetadataRepository(Repository):
             target_file = self._create_target_object(target_path, path, custom)
             target_files.append(target_file)
 
-        targets_role = self._modify_tarets_role(
+        targets_role = self._modify_targets_role(
             target_files, removed_paths, targets_role
         )
         return targets_role
 
-    def _modify_tarets_role(
+    def _modify_targets_role(
         self,
         added_target_files: List[TargetFile],
         removed_paths: List[str],
@@ -1621,7 +1621,7 @@ class MetadataRepository(Repository):
                 )
                 target_files.append(target_file)
 
-        self._modify_tarets_role(target_files, removed_paths, role)
+        self._modify_targets_role(target_files, removed_paths, role)
 
     def update_snapshot_and_timestamp(self, force: Optional[bool] = True):
         """
