@@ -30,7 +30,12 @@ except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.utils import default_backend, get_file_details, on_rm_error
+from taf.utils import (
+    default_backend,
+    get_file_details,
+    on_rm_error,
+    normalize_file_line_endings,
+)
 from tuf.api.metadata import (
     Metadata,
     MetaFile,
@@ -711,8 +716,12 @@ class MetadataRepository(Repository):
         self, filesystem_path: str, target_path: str, custom: Optional[Dict]
     ) -> TargetFile:
         """
-        Creates a TUF target object, later used to update targets metadata
+        Creates a TUF target object, later used to update targets metadata.
+        It's first necessary to normalize file line endings (convert all line endings to unix style endings)
+        before adding a target objects due to hashes getting calculated differently when using CRLF vs LF line endings.
+        So we instead convert all to unix style endings.
         """
+        normalize_file_line_endings(filesystem_path)
         data = Path(filesystem_path).read_text().encode()
         target_file = TargetFile.from_data(
             target_file_path=target_path,
