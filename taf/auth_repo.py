@@ -198,8 +198,8 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                             f"Updated last_validated_commit to {new_commit}"
                         )
                     else:
-                        self._log_warning(
-                            "Default branch is None, skipping last_validated_commit update."
+                        self._log_debug(
+                            "Not pushing to the default branch, skipping last_validated_commit update."
                         )
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
