@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Do not update last validated commit if pushing to a branch other than the default branch ([577])
+- Fix determining from which commit the update should start if the auth repo is in front of all target repos ([577])
+
+[577]: https://github.com/openlawlibrary/taf/pull/577
+
 ## [0.33.0]
 
 ### Added
