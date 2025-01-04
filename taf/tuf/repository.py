@@ -1608,29 +1608,35 @@ class MetadataRepository(Repository):
             for role in roles:
                 sn.meta[f"{role}.json"].version = sn.meta[f"{role}.json"].version + 1
 
-    def update_target_role(self, role: str, target_paths: Dict):
+    def update_target_role(self, role: str, target_paths: Dict, force=False):
         """
         Update the specified target role by adding or removing
         target files and target objects for the specified target paths
+        If false is True, update the metadata files even if no target
+        paths are specified
         """
         if not self.check_if_role_exists(role):
             raise TAFError(f"Role {role} does not exist")
         self.verify_signers_loaded([role])
         removed_paths = []
         target_files = []
-        for target_path in target_paths:
-            full_path = self.path / TARGETS_DIRECTORY_NAME / target_path
-            # file removed, removed from te role
-            if not full_path.is_file():
-                removed_paths.append(target_path)
-            else:
-                custom_data = self.get_target_file_custom_data(target_path)
-                target_file = self._create_target_object(
-                    full_path, target_path, custom_data
-                )
-                target_files.append(target_file)
+        if target_paths:
+            for target_path in target_paths:
+                full_path = self.path / TARGETS_DIRECTORY_NAME / target_path
+                # file removed, removed from te role
+                if not full_path.is_file():
+                    removed_paths.append(target_path)
+                else:
+                    custom_data = self.get_target_file_custom_data(target_path)
+                    target_file = self._create_target_object(
+                        full_path, target_path, custom_data
+                    )
+                    target_files.append(target_file)
 
-        self._modify_targets_role(target_files, removed_paths, role)
+            self._modify_targets_role(target_files, removed_paths, role)
+        elif force:
+            with self.edit(role) as _:
+                pass
 
     def update_snapshot_and_timestamp(self, force: Optional[bool] = True):
         """
