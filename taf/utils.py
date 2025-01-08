@@ -411,7 +411,7 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
             f"Failed to set pre-push git hook executable permission. Please set it manually for {pre_push_script}."
         )
         return False
-    taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
+    taf_logger.info("Pre-push hook updated successfully.")
     return True
 
     return True
