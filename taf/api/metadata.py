@@ -94,6 +94,7 @@ def update_metadata_expiration_date(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     start_date: Optional[datetime] = None,
     commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_snapshot_and_timestamp: Optional[bool] = True,
@@ -113,6 +114,7 @@ def update_metadata_expiration_date(
         start_date (optional): Date to which expiration interval is added.
             Set to today if not specified.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
+        commit_msg (optional): Custom commit messages.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
 
@@ -128,16 +130,13 @@ def update_metadata_expiration_date(
     if start_date is None:
         start_date = datetime.now()
 
-    commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
+    commit_msg = commit_msg or git_commit_message(
+        "update-expiration-dates", roles=",".join(roles)
+    )
 
     # update the order, snapshot has to be updated before timestamp
     # and all other roles have to be updated before snapshot
     # all other roles can be updated in any order
-
-    if len(roles) == 1 and Timestamp.type in roles:
-        update_snapshot_and_timestamp = False
-    if Timestamp.type in roles and Snapshot.type in roles:
-        update_snapshot_and_timestamp = True
 
     update_snapshot_expiration_date = Snapshot.type in roles
     update_timestamp_expiration_date = Timestamp.type in roles
@@ -153,18 +152,82 @@ def update_metadata_expiration_date(
         commit_msg=commit_msg,
         push=push,
     ):
-        if update_snapshot_and_timestamp:
-            if update_snapshot_expiration_date:
-                auth_repo.add_to_open_metadata(Snapshot.type)
-            if update_timestamp_expiration_date:
-                auth_repo.add_to_open_metadata(Timestamp.type)
+        if update_snapshot_expiration_date:
+            auth_repo.add_to_open_metadata([Snapshot.type])
+        if update_timestamp_expiration_date:
+            auth_repo.add_to_open_metadata([Timestamp.type])
 
         for role in roles:
             auth_repo.set_metadata_expiration_date(
                 role, start_date=start_date, interval=interval
             )
 
-        auth_repo.clear_open_metadata()
+        auth_repo.remove_from_open_metadata([Snapshot.type])
+        # it is important to update snapshot first
 
-        if update_snapshot_and_timestamp:
+        if (update_snapshot_expiration_date or update_snapshot_and_timestamp) and not (
+            len(roles) == 1 and update_timestamp_expiration_date
+        ):
+            auth_repo.do_snapshot(force=True)
+
+        auth_repo.remove_from_open_metadata([Timestamp.type])
+        if update_timestamp_expiration_date or update_snapshot_and_timestamp:
+            auth_repo.do_timestamp(force=True)
+
+
+@check_if_clean
+def update_snapshot_and_timestamp(
+    path: str,
+    keystore: Optional[str] = None,
+    roles_to_sync: Optional[List[str]] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    update_expiration_dates: Optional[bool] = True,
+) -> None:
+    """
+    Update expiration snapshot and timestamp
+
+    Arguments:
+        path: Authentication repository's location.
+        keystore (optional): Keystore directory's path
+        scheme (optional): Signature scheme.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        commit_msg (optional): Custom commit messages.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        push (optional): Flag specifying whether to push to remote
+        update_expiration_dates (optional): Flag specifying whether to update expiration dates
+
+    Side Effects:
+        Updates metadata files, saves changes to disk and commits changes
+        unless no_commit is set to True.
+
+    Returns:
+        None
+    """
+
+    auth_repo = AuthenticationRepository(path=path)
+
+    with manage_repo_and_signers(
+        auth_repo,
+        [],
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        commit_msg=commit_msg,
+        push=push,
+    ):
+        if update_expiration_dates:
+            auth_repo.add_to_open_metadata([Snapshot.type, Timestamp.type])
+            for role in [Snapshot.type, Timestamp.type]:
+                auth_repo.set_metadata_expiration_date(role)
+            auth_repo.clear_open_metadata()
+        if roles_to_sync:
+            auth_repo.sync_snapshot_with_roles(roles_to_sync)
+            auth_repo.do_timestamp(force=True)
+        else:
             auth_repo.update_snapshot_and_timestamp()

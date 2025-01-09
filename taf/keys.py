@@ -509,7 +509,7 @@ def _setup_keystore_key(
             signer = load_signer_from_pem(private_pem)
         else:
             _, private_pem = generate_rsa_keypair(key_size=length)
-            print(f"{role_name} key:\n\n{private_pem}\n\n")
+            print(f"{role_name} key:\n\n{private_pem.decode()}\n\n")
             signer = load_signer_from_pem(private_pem)
 
     return signer, _get_legacy_keyid(signer.public_key)

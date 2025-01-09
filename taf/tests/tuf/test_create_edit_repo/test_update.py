@@ -55,7 +55,7 @@ def test_add_new_role(tuf_repo, signers):
         threshold=threshold,
         yubikey=False,
     )
-    tuf_repo.create_delegated_role([new_role], role_signers)
+    tuf_repo.create_delegated_roles([new_role], role_signers)
     assert tuf_repo.targets().version == 2
     assert role_name in tuf_repo.targets().delegations.roles
     new_role_obj = tuf_repo.open(role_name)
@@ -69,15 +69,15 @@ def test_add_new_role(tuf_repo, signers):
 
 def test_remove_delegated_paths(tuf_repo):
 
-    paths_to_remvoe = ["dir2/path1"]
-    tuf_repo.remove_delegated_paths({"delegated_role": paths_to_remvoe})
+    paths_to_remove = ["dir2/path1"]
+    tuf_repo.remove_delegated_paths({"delegated_role": paths_to_remove})
 
     assert tuf_repo.root().version == 1
     assert tuf_repo.targets().version == 2
     assert tuf_repo.timestamp().version == 1
     assert tuf_repo.snapshot().version == 1
 
-    for path in paths_to_remvoe:
+    for path in paths_to_remove:
         assert (
             path
             not in tuf_repo.get_delegations_of_role("targets")["delegated_role"].paths
@@ -235,6 +235,7 @@ def test_add_metadata_keys(tuf_repo, signers_with_delegations, public_keys):
 def test_revoke_metadata_key(
     tuf_repo, signers_with_delegations, public_keys_with_delegations, public_keys
 ):
+
     tuf_repo.add_signers_to_cache(signers_with_delegations)
     targets_key1 = public_keys_with_delegations["targets"][0]
     targets_key2 = public_keys_with_delegations["targets"][1]

@@ -163,14 +163,14 @@ def test_all_target_files(tuf_repo_with_delegations):
     assert actual == {"test2", "test1", "dir2/path2", "dir1/path1", "dir2/path1"}
 
 
-def test_get_singed_target_files_of_roles(tuf_repo_with_delegations):
-    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles()
+def test_get_signed_target_files_of_roles(tuf_repo_with_delegations):
+    actual = tuf_repo_with_delegations.get_signed_target_files_of_roles()
     assert actual == {"test2", "test1", "dir2/path2", "dir1/path1", "dir2/path1"}
-    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles(["targets"])
+    actual = tuf_repo_with_delegations.get_signed_target_files_of_roles(["targets"])
     assert actual == {"test2", "test1"}
-    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles(["targets"])
+    actual = tuf_repo_with_delegations.get_signed_target_files_of_roles(["targets"])
     assert actual == {"test2", "test1"}
-    actual = tuf_repo_with_delegations.get_singed_target_files_of_roles(
+    actual = tuf_repo_with_delegations.get_signed_target_files_of_roles(
         ["targets", "delegated_role"]
     )
     assert actual == {"test2", "test1", "dir1/path1", "dir2/path1"}

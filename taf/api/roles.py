@@ -135,7 +135,7 @@ def add_role(
             skip_prompt=skip_prompt,
             certs_dir=auth_repo.certs_dir,
         )
-        auth_repo.create_delegated_role([new_role], signers)
+        auth_repo.create_delegated_roles([new_role], signers)
         auth_repo.add_new_roles_to_snapshot([new_role.name])
         auth_repo.do_timestamp()
 
@@ -300,7 +300,7 @@ def add_multiple_roles(
             )
             all_signers.update(signers)
 
-        auth_repo.create_delegated_role(roles_to_add_data, all_signers)
+        auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
 
@@ -449,16 +449,16 @@ def revoke_signing_key(
         (
             removed_from_roles,
             not_added_roles,
-            less_than_threshold_roless,
+            less_than_threshold_roles,
         ) = auth_repo.revoke_metadata_key(key_id=key_id, roles=roles)
         if not_added_roles:
             taf_logger.log(
                 "NOTICE",
                 f"Key is not a signing key of role(s) {', '.join(not_added_roles)}",
             )
-        if less_than_threshold_roless:
+        if less_than_threshold_roles:
             taf_logger.warning(
-                f"Cannot remove key from {', '.join(less_than_threshold_roless)}. Number of keys must be greater or equal to thresholds"
+                f"Cannot remove key from {', '.join(less_than_threshold_roles)}. Number of keys must be greater or equal to thresholds"
             )
 
         if len(removed_from_roles):
@@ -473,10 +473,10 @@ def rotate_signing_key(
     roles: Optional[List[str]] = None,
     keystore: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
-    commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
-    commit_msg: Optional[str] = None,
+    revoke_commit_msg: Optional[str] = None,
+    add_commit_msg: Optional[str] = None,
 ) -> None:
     """
     Rotate signing key. Remove it from one or more roles and add a new signing key.
@@ -494,7 +494,8 @@ def rotate_signing_key(
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         push (optional): Flag specifying whether to push to remote.
-        commit_msg(optional): Commit message. Will be necessary to enter it if not provided.
+        revoke_commit_msg(optional): First commit message, when revokig the specified key. Will be necessary to enter it if not provided.
+        add_commit_msg(optional): Second commit message, when addug a new signing key. Will be necessary to enter it if not provided.
     Side Effects:
         Updates metadata files (parents of the affected roles, snapshot and timestamp).
         Writes changes to disk.
@@ -516,9 +517,10 @@ def rotate_signing_key(
             roles=roles,
             keystore=keystore,
             scheme=scheme,
-            commit=commit,
+            commit=True,
             prompt_for_keys=prompt_for_keys,
             push=False,
+            commit_msg=revoke_commit_msg,
         )
 
         add_signing_key(
@@ -527,10 +529,10 @@ def rotate_signing_key(
             pub_key=pub_key,
             keystore=keystore,
             scheme=scheme,
-            commit=commit,
+            commit=True,
             prompt_for_keys=prompt_for_keys,
             push=push,
-            commit_msg=commit_msg,
+            commit_msg=add_commit_msg,
         )
 
 

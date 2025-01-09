@@ -327,18 +327,20 @@ def rotate_signing_key_command():
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, no_commit, prompt_for_keys):
+    @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
+    @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
+    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg):
         rotate_signing_key(
             path=path,
             roles=role,
             key_id=keyid,
             keystore=keystore,
             scheme=scheme,
-            commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             pub_key_path=pub_key_path,
+            revoke_commit_msg=revoke_commit_msg,
+            add_commit_msg=add_commit_msg,
         )
     return rotate_key
 

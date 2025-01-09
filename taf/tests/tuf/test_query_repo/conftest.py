@@ -44,7 +44,6 @@ def tuf_repo_with_delegations(
     custom1 = {"custom_attr1": "custom_val1"}
     custom2 = {"custom_attr2": "custom_val2"}
 
-    "delegated role's targets"
     tuf_repo.add_target_files_to_role(
         {
             delegated_path1: {"target": "test1", "custom": custom1},
@@ -52,7 +51,6 @@ def tuf_repo_with_delegations(
         }
     )
 
-    "inner delegated role's targets"
     path_delegated = "dir2/path2"
     tuf_repo.add_target_files_to_role(
         {

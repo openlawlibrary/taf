@@ -3,7 +3,7 @@
 """
 
 
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 from pathlib import Path
 from securesystemslib.signer import (
@@ -27,12 +27,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 
 
-def create_signer(priv, pub):
-    return CryptoSigner(priv, _from_crypto(pub))
-
-
-def generate_rsa_keypair(key_size=3072, password=None):
-    # Generate private key
+def generate_rsa_keypair(key_size=3072, password=None) -> Tuple[bytes, bytes]:
+    """
+    Generate a private-public key pair. Returns the generated keys as bytes in PEM format..
+    """
     private_key = rsa.generate_private_key(
         public_exponent=65537, key_size=key_size, backend=default_backend()
     )
@@ -61,8 +59,11 @@ def generate_rsa_keypair(key_size=3072, password=None):
     return private_pem, public_pem
 
 
-def generate_and_write_rsa_keypair(path, key_size, password):
-
+def generate_and_write_rsa_keypair(path, key_size, password) -> bytes:
+    """
+    Generate a private-public key pair and write and save it to files.
+    Returns the private key in PEM format.
+    """
     if not password:
         password = None
     private_pem, public_pem = generate_rsa_keypair(key_size, password)
@@ -76,21 +77,12 @@ def generate_and_write_rsa_keypair(path, key_size, password):
     return private_pem
 
 
-def _get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
-    """
-    Return a keystore key's name based on the role's name and total number of signing keys,
-    as well as the specified counter. If number of signing keys is one, return the role's name.
-    If the number of signing keys is greater that one, return role's name + counter (root1, root2...)
-    """
-    if num_of_keys == 1:
-        return role_name
-    else:
-        return role_name + str(key_num + 1)
-
-
 def get_sslib_key_from_value(
     key: str, scheme: str = DEFAULT_RSA_SIGNATURE_SCHEME
 ) -> SSlibKey:
+    """
+    Converts a key from its string representation into an SSlibKey object.
+    """
     key_val = key.encode()
     crypto_key = load_pem_public_key(key_val, backend=default_backend())
     return _from_crypto(crypto_key, scheme=scheme)

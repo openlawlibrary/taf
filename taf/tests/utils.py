@@ -5,6 +5,10 @@ from pathlib import Path
 import shutil
 
 
+def read_json(path):
+    return json.loads(Path(path).read_text())
+
+
 def copy_repositories_json(
     repositories_json_template: Dict, namespace: str, auth_repo_path: Path
 ):

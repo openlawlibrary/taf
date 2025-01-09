@@ -329,6 +329,7 @@ def register_target_files(
     no_commit_warning: Optional[bool] = True,
     reset_updated_targets_on_error: Optional[bool] = False,
     commit_msg: Optional[str] = None,
+    force_update_of_roles: Optional[str] = None,
 ):
     """
     Register all files found in the target directory as targets - update the targets
@@ -338,12 +339,14 @@ def register_target_files(
         path: Authentication repository's path.
         keystore: Location of the keystore files.
         roles_key_infos: A dictionary whose keys are role names, while values contain information about the keys.
-    scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
-        taf_repo (optional): If taf repository is already initialized, it can be passed and used.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        auth_repo (optional): If auth repository is already initialized, it can be passed and used.
         write (optional): Write metadata updates to disk if set to True
         commit (optional): Indicates if the changes should be committed and pushed automatically.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         push (optional): Flag specifying whether to push to remote
+        force_update_of_roles (optional): A list of roles whose version should be updated, even
+        if no other changes are made
     Side Effects:
        Updates metadata files, writes changes to disk and optionally commits changes.
 
@@ -376,9 +379,14 @@ def register_target_files(
         roles_key_infos, keystore, enter_info=False
     )
 
+    roles_to_load = list(roles_and_targets.keys())
+    if force_update_of_roles:
+        for role in force_update_of_roles:
+            if role not in roles_to_load:
+                roles_to_load.append(role)
     with manage_repo_and_signers(
         auth_repo,
-        list(roles_and_targets.keys()),
+        roles_to_load,
         keystore,
         scheme,
         prompt_for_keys,
@@ -394,6 +402,11 @@ def register_target_files(
     ):
         for role, targets in roles_and_targets.items():
             auth_repo.update_target_role(role, targets)
+        if force_update_of_roles:
+            for role in force_update_of_roles:
+                if role not in roles_and_targets:
+                    auth_repo.update_target_role(role, None, True)
+
         if update_snapshot_and_timestamp:
             auth_repo.update_snapshot_and_timestamp()
 
