@@ -521,6 +521,7 @@ class MetadataRepository(Repository):
                 of public keys that should be registered as the corresponding role's keys, but the private
                 keys are not available. E.g. keys exporeted from YubiKeys of maintainers who are not
                 present at the time of the repository's creation
+            key_name_mappings: A dictionary whose keys are key ids and values are custom names of those keys
         """
         # TODO add verification keys
         # support yubikeys
@@ -555,10 +556,12 @@ class MetadataRepository(Repository):
                 key_id = _get_legacy_keyid(signer.public_key)
                 self.signer_cache[role.name][key_id] = signer
             for public_key in public_keys[role.name].values():
+                key_id = _get_legacy_keyid(public_key)
+                if key_id in key_name_mappings:
+                    public_key.unrecognized_fields["name"] = key_name_mappings[key_id]
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
-        root.unrecognized_fields["key_names"] = key_name_mappings
         targets = Targets()
         target_roles = {"targets": targets}
         delegations_per_parent: Dict[str, Dict] = defaultdict(dict)
