@@ -123,4 +123,3 @@ def attach_to_group(group):
     group.add_command(list_key_command(), name='list-key')
     group.add_command(setup_signing_key_command(), name='setup-signing-key')
     group.add_command(setup_test_key_command(), name='setup-test-key')
-

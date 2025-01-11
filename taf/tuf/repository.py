@@ -504,7 +504,7 @@ class MetadataRepository(Repository):
         roles_keys_data: RolesKeysData,
         signers: dict,
         additional_verification_keys: Optional[dict] = None,
-        key_name_mappings: Optional[Dict[str, str]] = None
+        key_name_mappings: Optional[Dict[str, str]] = None,
     ) -> None:
         """Create a new metadata repository on disk.
 
@@ -602,9 +602,11 @@ class MetadataRepository(Repository):
                 signed.version = 0  # `close` will bump to initial valid verison 1
                 self.close(name, Metadata(signed))
 
-
     def create_delegated_roles(
-        self, roles_data: List[TargetsRole], signers: Dict[str, List[CryptoSigner]], key_name_mappings: Optional[Dict[str, str]]=None
+        self,
+        roles_data: List[TargetsRole],
+        signers: Dict[str, List[CryptoSigner]],
+        key_name_mappings: Optional[Dict[str, str]] = None,
     ) -> Tuple[List, List]:
         """
         Create a new delegated roles, signes them using the provided signers and

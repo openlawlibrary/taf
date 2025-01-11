@@ -185,7 +185,9 @@ class YkSigner(Signer):
 
     _SECRET_PROMPT = "pin"
 
-    def __init__(self, public_key: SSlibKey, serial_num: str,  pin_handler: SecretsHandler):
+    def __init__(
+        self, public_key: SSlibKey, serial_num: str, pin_handler: SecretsHandler
+    ):
 
         self._public_key = public_key
         self._pin_handler = pin_handler

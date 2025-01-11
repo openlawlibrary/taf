@@ -120,14 +120,16 @@ def _yk_piv_ctrl(serial=None):
                 try:
                     session = PivSession(connection)
                     sessions.append((session, info.serial))
-                    devices_info.append((connection, session))  # Store to manage cleanup
+                    devices_info.append(
+                        (connection, session)
+                    )  # Store to manage cleanup
                     if serial is not None:
                         break
                 except Exception as e:
                     connection.close()  # Ensure we close connection on error
                     raise e
         if serial is not None:
-            session, serial =  sessions[0]
+            session, serial = sessions[0]
             yield session, serial
         else:
             yield sessions
@@ -135,7 +137,6 @@ def _yk_piv_ctrl(serial=None):
         # Cleanup: ensure all connections are closed properly
         for connection, _ in devices_info:
             connection.close()
-
 
 
 def is_inserted():
@@ -244,7 +245,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, serial=None):
 
 
 @raise_yubikey_err("Cannot export yk certificate.")
-def export_yk_certificate(certs_dir, key: SSlibKey, serial: str) :
+def export_yk_certificate(certs_dir, key: SSlibKey, serial: str):
     if certs_dir is None:
         certs_dir = Path.home()
     else:
@@ -290,6 +291,87 @@ def list_connected_yubikeys():
             print(f"  Serial Number: {info.serial}")
             print(f"  Version: {info.version}")
             print(f"  Form Factor: {info.form_factor}")
+
+
+# TODO
+# need to pass in multiple key names
+def _read_and_check_yubikeys(
+    key_name,
+    role,
+    taf_repo,
+    registering_new_key,
+    creating_new_key,
+    loaded_yubikeys,
+    pin_confirm,
+    pin_repeat,
+    prompt_message,
+    retrying,
+):
+
+    if retrying:
+        if prompt_message is None:
+            prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
+        getpass(prompt_message)
+    # make sure that YubiKey is inserted
+    try:
+        serials = get_serial_num()
+    except Exception:
+        taf_logger.log("NOTICE", "No YubiKeys inserted")
+        return [False, None, None]
+
+    # check if this key is already loaded as the provided role's key (we can use the same key
+    # to sign different metadata)
+    yubikeys = []
+    already_loaded_keys = []
+    invalid_keys = []
+    for serial_num in serials:
+        if (
+            loaded_yubikeys is not None
+            and serial_num in loaded_yubikeys
+            and role in loaded_yubikeys[serial_num]
+        ):
+            already_loaded_keys.append(serial_num)
+        else:
+            # read the public key, unless a new key needs to be generated on the yubikey
+            public_key = (
+                get_piv_public_key_tuf(serial=serial_num)
+                if not creating_new_key
+                else None
+            )
+            # check if this yubikey is can be used for signing the provided role's metadata
+            # if the key was already registered as that role's key
+            if not registering_new_key and role is not None and taf_repo is not None:
+                if not taf_repo.is_valid_metadata_yubikey(role, public_key):
+                    invalid_keys.append(serial_num)
+                    # print(f"The inserted YubiKey is not a valid {role} key")
+                    continue
+
+            if get_key_pin(serial_num) is None:
+                if creating_new_key:
+                    pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+                else:
+                    pin = get_and_validate_pin(
+                        key_name, pin_confirm, pin_repeat, serial_num
+                    )
+                add_key_pin(serial_num, pin)
+
+            if get_key_public_key(serial_num) is None and public_key is not None:
+                add_key_public_key(serial_num, public_key)
+
+            # when reusing the same yubikey, public key will already be in the public keys dictionary
+            # but the key name still needs to be added to the key id mapping dictionary
+            add_key_id_mapping(serial_num, key_name)
+
+            if role is not None:
+                if loaded_yubikeys is None:
+                    loaded_yubikeys = {serial_num: [role]}
+                else:
+                    loaded_yubikeys.setdefault(serial_num, []).append(role)
+
+            yubikeys.append((public_key, serial_num))
+
+            # TODO error messages
+    return yubikeys
 
 
 @raise_yubikey_err("Cannot sign data.")
@@ -454,87 +536,11 @@ def yubikey_prompt(
             if len(serials) == 1:
                 break
             else:
-                prompt_message = f"Please insert only one YubiKey and press ENTER"
+                prompt_message = "Please insert only one YubiKey and press ENTER"
                 getpass(prompt_message)
-
-
-    # TODO
-    # need to pass in multiple key names
-    def _read_and_check_yubikeys(
-        key_name,
-        role,
-        taf_repo,
-        registering_new_key,
-        creating_new_key,
-        loaded_yubikeys,
-        pin_confirm,
-        pin_repeat,
-        prompt_message,
-        retrying,
-    ):
-
-        if retrying:
-            if prompt_message is None:
-                prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
-            getpass(prompt_message)
-        # make sure that YubiKey is inserted
-        try:
-            serials = get_serial_num()
-        except Exception:
-            taf_logger.log("NOTICE", "No YubiKeys inserted")
-            return [False, None, None]
-
-        # check if this key is already loaded as the provided role's key (we can use the same key
-        # to sign different metadata)
-        yubikeys = []
-        already_loaded_keys = []
-        invalid_keys = []
-        for serial_num in serials:
-            if (
-                loaded_yubikeys is not None
-                and serial_num in loaded_yubikeys
-                and role in loaded_yubikeys[serial_num]
-            ):
-                already_loaded_keys.append(serial_num)
-            else:
-                # read the public key, unless a new key needs to be generated on the yubikey
-                public_key = get_piv_public_key_tuf(serial=serial_num) if not creating_new_key else None
-                # check if this yubikey is can be used for signing the provided role's metadata
-                # if the key was already registered as that role's key
-                if not registering_new_key and role is not None and taf_repo is not None:
-                    if not taf_repo.is_valid_metadata_yubikey(role, public_key):
-                        invalid_keys.append(serial_num)
-                        # print(f"The inserted YubiKey is not a valid {role} key")
-                        continue
-
-                if get_key_pin(serial_num) is None:
-                    if creating_new_key:
-                        pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-                    else:
-                        pin = get_and_validate_pin(key_name, pin_confirm, pin_repeat, serial_num)
-                    add_key_pin(serial_num, pin)
-
-                if get_key_public_key(serial_num) is None and public_key is not None:
-                    add_key_public_key(serial_num, public_key)
-
-                # when reusing the same yubikey, public key will already be in the public keys dictionary
-                # but the key name still needs to be added to the key id mapping dictionary
-                add_key_id_mapping(serial_num, key_name)
-
-                if role is not None:
-                    if loaded_yubikeys is None:
-                        loaded_yubikeys = {serial_num: [role]}
-                    else:
-                        loaded_yubikeys.setdefault(serial_num, []).append(role)
-
-                yubikeys.append((public_key, serial_num))
-
-                #TODO error messages
-        return yubikeys
 
     retry_counter = 0
     while True:
-
         yubikeys = _read_and_check_yubikeys(
             key_name,
             role,
