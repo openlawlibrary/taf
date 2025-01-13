@@ -10,9 +10,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+
+- Implement removal and rotation of keys [(561)]
+
 ### Changed
 
+Transition to the newest version of TUF [(561)]
+
 ### Fixed
+
+
+[561]: https://github.com/openlawlibrary/taf/pull/561
 
 
 ## [0.33.1]
@@ -29,6 +37,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [579]: https://github.com/openlawlibrary/taf/pull/579
 [577]: https://github.com/openlawlibrary/taf/pull/577
+
 
 ## [0.33.0]
 

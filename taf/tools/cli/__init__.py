@@ -32,23 +32,26 @@ def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove
             successful = True
             return result
         except handle as e:
-            if print_error:
-                click.echo(e)
+            # TODO
+            # for now
+            # if print_error:
+            taf_logger.error(e)
         except Exception as e:
             if is_run_from_python_executable():
-                click.echo(f"An error occurred: {e}")
+                taf_logger.error(f"An error occurred: {e}")
                 sys.exit(1)
             else:
                 raise e
         finally:
             if not skip_cleanup and not successful and "path" in kwargs:
                 path = kwargs["path"]
-                if path:
-                    repo = GitRepository(path=path)
-                    if repo.is_git_repository and not repo.is_bare_repository:
-                        repo.clean_and_reset()
-                    if remove_dir_on_error:
-                        shutil.rmtree(path, onerror=on_rm_error)
+                repo = GitRepository(path=path)
+                if repo.is_git_repository and not repo.is_bare_repository:
+                    repo.restore(["metadata"])
+                    # repo.clean_and_reset()
+
+                if remove_dir_on_error:
+                    shutil.rmtree(path, onerror=on_rm_error)
 
     return wrapper
 

@@ -1,9 +1,8 @@
 from pathlib import Path
 
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME, METADATA_DIRECTORY_NAME
-from taf.repository_tool import Repository, get_target_path
-from taf.constants import CAPSTONE
+from taf.constants import CAPSTONE, METADATA_DIRECTORY_NAME, TARGETS_DIRECTORY_NAME
 from taf.exceptions import GitError, InvalidBranchError
+from taf.tuf.repository import MetadataRepository, get_target_path
 
 
 def validate_branch(
@@ -237,7 +236,7 @@ def _compare_commit_with_targets_metadata(
 
 
 def _get_unchanged_targets_metadata(auth_repo, updated_roles):
-    taf_repo = Repository(auth_repo.path)
+    taf_repo = MetadataRepository(auth_repo.path)
     all_roles = taf_repo.get_all_targets_roles()
     all_roles = [*(set(all_roles) - set(updated_roles))]
     return all_roles

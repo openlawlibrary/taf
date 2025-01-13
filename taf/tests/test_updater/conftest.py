@@ -1,7 +1,6 @@
 import enum
 import os
 import re
-from typing import Optional
 import uuid
 import pytest
 import inspect
@@ -9,23 +8,22 @@ import random
 import shutil
 import string
 import json
+from typing import Optional
 from functools import partial
 from freezegun import freeze_time
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
+from taf.api.api_workflow import manage_repo_and_signers
 from taf.api.metadata import (
-    _update_expiration_date_of_role,
     update_metadata_expiration_date,
 )
 from taf.auth_repo import AuthenticationRepository
-from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.messages import git_commit_message
+from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf import repositoriesdb, settings
 from taf.exceptions import GitError
 from taf.utils import on_rm_error
 from taf.log import disable_console_logging
 from taf.tests.test_updater.update_utils import load_target_repositories
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
 from taf.api.repository import create_repository
 from taf.api.targets import (
     register_target_files,
@@ -42,6 +40,8 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
+
+from tuf.api.metadata import Timestamp
 
 
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
@@ -307,7 +307,7 @@ def create_authentication_repository(
 
 def sign_target_files(library_dir, repo_name, keystore):
     repo_path = Path(library_dir, repo_name)
-    register_target_files(str(repo_path), keystore, write=True)
+    register_target_files(str(repo_path), keystore)
 
 
 def _init_auth_repo(
@@ -664,15 +664,14 @@ def update_auth_repo_without_committing(
 def update_role_metadata_without_signing(
     auth_repo: AuthenticationRepository, role: str
 ):
-    _update_expiration_date_of_role(
-        auth_repo=auth_repo,
-        role=role,
-        loaded_yubikeys={},
-        start_date=None,
+    update_metadata_expiration_date(
+        path=auth_repo.path,
+        roles=[role],
         keystore=KEYSTORE_PATH,
-        interval=None,
-        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
         prompt_for_keys=False,
+        commit=False,
+        push=False,
+        update_snapshot_and_timestamp=False,
     )
 
 
@@ -682,42 +681,41 @@ def update_target_repo_without_committing(target_repos: list, target_name: str):
             update_target_repository(target_repo)
 
 
-def update_role_metadata_invalid_signature(
-    auth_repo: AuthenticationRepository, role: str
-):
-    role_metadata_path = Path(auth_repo.path, "metadata", f"{role}.json")
-    content = json.loads(role_metadata_path.read_text())
-    content["signatures"][0]["sign"] = "invalid signature"
-    version = content["signed"]["version"]
-    content["signed"]["version"] = version + 1
-    role_metadata_path.write_text(json.dumps(content, indent=4))
-    auth_repo.commit("Invalid metadata update")
+def update_timestamp_metadata_invalid_signature(auth_repo: AuthenticationRepository):
+
+    role = Timestamp.type
+    with manage_repo_and_signers(
+        auth_repo,
+        [role],
+        keystore=KEYSTORE_PATH,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=False,
+        load_snapshot_and_timestamp=False,
+        commit=True,
+        commit_msg="Invalid metadata update",
+        push=False,
+    ):
+        role_metadata_path = Path(auth_repo.path, "metadata", f"{role}.json")
+        content = json.loads(role_metadata_path.read_text())
+        content["signatures"][0]["sig"] = "invalid signature"
+        version = content["signed"]["version"]
+        content["signed"]["version"] = version + 1
+        role_metadata_path.write_text(json.dumps(content, indent=1))
 
 
 def update_and_sign_metadata_without_clean_check(
     auth_repo: AuthenticationRepository, roles: list
 ):
-    if "root" or "targets" in roles:
-        if "snapshot" not in roles:
-            roles.append("snapshot")
-        if "timestamp" not in roles:
-            roles.append("timestamp")
 
-    roles = ["root", "snapshot", "timestamp"]
-    for role in roles:
-        _update_expiration_date_of_role(
-            auth_repo=auth_repo,
-            role=role,
-            loaded_yubikeys={},
-            start_date=None,
-            keystore=KEYSTORE_PATH,
-            interval=None,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            prompt_for_keys=False,
-        )
-
-    commit_msg = git_commit_message("update-expiration-dates", roles=",".join(roles))
-    auth_repo.commit_and_push(commit_msg=commit_msg, push=False)
+    update_metadata_expiration_date(
+        path=auth_repo.path,
+        roles=roles,
+        keystore=KEYSTORE_PATH,
+        scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+        prompt_for_keys=False,
+        skip_clean_check=True,
+        update_snapshot_and_timestamp=True,
+    )
 
 
 def update_target_repository(

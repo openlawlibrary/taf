@@ -1,24 +1,24 @@
 import json
 import os
-import tempfile
 import fnmatch
+import pygit2
 
 from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
-import pygit2
-from tuf.repository_tool import METADATA_DIRECTORY_NAME
+from taf.tuf.storage import GitStorageBackend
 from taf.git import GitRepository
-from taf.repository_tool import (
-    Repository as TAFRepository,
+from taf.tuf.repository import (
+    METADATA_DIRECTORY_NAME,
+    MetadataRepository as TUFRepository,
     get_role_metadata_path,
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
 
 
-class AuthenticationRepository(GitRepository, TAFRepository):
+class AuthenticationRepository(GitRepository):
 
     LAST_VALIDATED_FILENAME = "last_validated_commit"
     LAST_VALIDATED_KEY = "last_validated_commit"
@@ -77,6 +77,24 @@ class AuthenticationRepository(GitRepository, TAFRepository):
 
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
+        self._storage = GitStorageBackend()
+        self._tuf_repository = TUFRepository(self.path, storage=self._storage)
+
+    def __getattr__(self, item):
+        """Delegate attribute lookup to TUFRepository instance"""
+        if item in self.__dict__:
+            return self.__dict__[item]
+        try:
+            # First try to get attribute from super class (GitRepository)
+            return super().__getattribute__(item)
+        except AttributeError:
+            # If not found, delegate to TUFRepository
+            return getattr(self._tuf_repository, item)
+
+    def __dir__(self):
+        """Return list of attributes available on this object, including those
+        from TUFRepository."""
+        return super().__dir__() + dir(self._tuf_repository)
 
     # TODO rework conf_dir
 
@@ -109,8 +127,9 @@ class AuthenticationRepository(GitRepository, TAFRepository):
         return self._conf_dir
 
     @property
-    def certs_dir(self) -> str:
-        certs_dir = Path(self.path, "certs")
+    def certs_dir(self):
+        certs_dir = self.path / "certs"
+        certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
 
     @property
@@ -240,6 +259,38 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     def get_metadata_path(self, role):
         return self.path / METADATA_DIRECTORY_NAME / f"{role}.json"
 
+    def get_role_repositories(self, role, parent_role=None):
+        """Get repositories of the given role
+
+        Args:
+        - role(str): TUF role (root, targets, timestamp, snapshot or delegated one)
+        - parent_role(str): Name of the parent role of the delegated role. If not specified,
+                            it will be set automatically, but this might be slow if there
+                            are many delegations.
+
+        Returns:
+        Repositories' path from repositories.json that matches given role paths
+
+        Raises:
+        - securesystemslib.exceptions.FormatError: If the arguments are improperly formatted.
+        - securesystemslib.exceptions.UnknownRoleError: If 'rolename' has not been delegated by this
+        """
+        if self.is_bare_repository:
+            # raise an error for now
+            # once we have an ergonomic way to get repositories from a bare repository, remove the error
+            raise Exception(
+                "Getting role repositories from a bare repository is not yet supported."
+            )
+
+        role_paths = self._tuf_repository.get_role_paths(role)
+
+        target_repositories = self._get_target_repositories_from_disk()
+        return [
+            repo
+            for repo in target_repositories
+            if any([fnmatch.fnmatch(repo, path) for path in role_paths])
+        ]
+
     def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
@@ -256,27 +307,12 @@ class AuthenticationRepository(GitRepository, TAFRepository):
     @contextmanager
     def repository_at_revision(self, commit: str):
         """
-        Context manager which makes sure that TUF repository is instantiated
-        using metadata files at the specified revision. Creates a temp directory
-        and metadata files inside it. Deleted the temp directory when no longer
-        needed.
+        Context manager that enables reading metadata from an older commit.
+        This should be used in combination with the Git storage backend.
         """
-        tuf_repository = self._tuf_repository
-        with tempfile.TemporaryDirectory() as temp_dir:
-            metadata_files = self.list_files_at_revision(
-                commit, METADATA_DIRECTORY_NAME
-            )
-            Path(temp_dir, METADATA_DIRECTORY_NAME).mkdir(parents=True)
-            for file_name in metadata_files:
-                path = Path(temp_dir, METADATA_DIRECTORY_NAME, file_name)
-                with open(path, "w") as f:
-                    data = self.get_json(
-                        commit, f"{METADATA_DIRECTORY_NAME}/{file_name}"
-                    )
-                    json.dump(data, f)
-            self._load_tuf_repository(temp_dir)
-            yield
-            self._tuf_repository = tuf_repository
+        self._storage.commit = commit
+        yield
+        self._storage.commit = None
 
     def set_last_validated_data(
         self,
@@ -565,3 +601,13 @@ class AuthenticationRepository(GitRepository, TAFRepository):
                             "custom": target_content,
                         }
         return targets
+
+    def _get_target_repositories_from_disk(self):
+        """
+        Read repositories.json from disk and return the list of target repositories
+        """
+        repositories_path = self.targets_path / "repositories.json"
+        if repositories_path.exists():
+            repositories = repositories_path.read_text()
+            repositories = json.loads(repositories)["repositories"]
+            return [str(Path(target_path).as_posix()) for target_path in repositories]

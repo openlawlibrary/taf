@@ -4,6 +4,7 @@ import json
 import itertools
 import os
 import re
+import shutil
 import uuid
 import pygit2
 import subprocess
@@ -16,6 +17,7 @@ import taf.settings as settings
 from taf.exceptions import (
     NoRemoteError,
     NothingToCommitError,
+    PushFailedError,
     TAFError,
     CloneRepoException,
     FetchException,
@@ -96,7 +98,7 @@ class GitRepository:
             self.path = self._validate_repo_path(path)
 
         self.alias = alias
-        self.urls = self._validate_urls(urls)
+        self.urls = self._validate_urls([str(url) for url in urls]) if urls else None
         self.allow_unsafe = allow_unsafe
         self.custom = custom or {}
         if default_branch is None:
@@ -153,6 +155,8 @@ class GitRepository:
     log_template = "{}{}"
 
     _remotes = None
+
+    _is_bare_repo = None
 
     @property
     def remotes(self) -> List[str]:
@@ -227,12 +231,15 @@ class GitRepository:
 
     @property
     def is_bare_repository(self) -> bool:
-        if self.pygit_repo is None:
-            self._log_debug(
-                "pygit repository could not be instantiated, assuming not bare"
-            )
-            return False
-        return self.pygit_repo.is_bare
+        if self._is_bare_repo is None:
+            if self.pygit_repo is not None:
+                self._is_bare_repo = self.pygit_repo.is_bare
+            else:
+                raise GitError(
+                    "Cannot determine if repository is a bare repository. Cannot instantiate pygit repository"
+                )
+
+        return self._is_bare_repo
 
     def _git(self, cmd, *args, **kwargs):
         """Call git commands in subprocess
@@ -639,6 +646,32 @@ class GitRepository:
         except GitError:  # If repository is empty
             pass
 
+    def check_files_exist(
+        self, file_paths: List[str], commit_sha: Optional[str] = None
+    ):
+        """
+        Check if file paths are known to git
+        """
+        repo = self.pygit_repo
+        if commit_sha is None:
+            commit_sha = self.head_commit_sha()
+
+        commit = repo[commit_sha]
+        tree = commit.tree  # Get the tree of that commit
+
+        existing_files = []
+        non_existing = []
+
+        for file_path in file_paths:
+            try:
+                # Check if the file exists in the tree
+                tree[file_path]
+                existing_files.append(file_path)
+            except KeyError:
+                non_existing.append(file_path)
+
+        return existing_files, non_existing
+
     def clean(self):
         self._git("clean -fd")
 
@@ -878,8 +911,11 @@ class GitRepository:
 
         return bool(unpushed_commits), [commit.id for commit in unpushed_commits]
 
-    def commit(self, message: str) -> str:
-        self._git("add -A")
+    def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> str:
+        if not paths_to_commit:
+            self._git("add -A")
+        else:
+            self._git(f"add {' '.join(paths_to_commit)}")
         try:
             self._git("diff --cached --exit-code --shortstat", reraise_error=True)
         except GitError:
@@ -1428,10 +1464,7 @@ class GitRepository:
             self._log_notice("Successfully pushed to remote")
             return True
         except GitError as e:
-            self._log_error(
-                f"Push failed: {str(e)}. Please check if there are upstream changes."
-            )
-            raise TAFError("Push operation failed") from e
+            raise PushFailedError(self, message=f"Push operation failed: {e}")
 
     def remove_remote(self, remote_name: str) -> None:
         try:
@@ -1475,6 +1508,20 @@ class GitRepository:
 
         if hard:
             self._git(f"reset {flag} HEAD")
+
+    def restore(self, file_paths: List[str]) -> None:
+        if not file_paths:
+            return
+        file_paths = [str(Path(file_path).as_posix()) for file_path in file_paths]
+        existing, non_existing = self.check_files_exist(file_paths)
+        if existing:
+            self._git(f"restore {' '.join(existing)}")
+        for path in non_existing:
+            file_path = Path(path)
+            if file_path.is_file():
+                file_path.unlink()
+            elif file_path.is_dir():
+                shutil.rmtree(file_path)
 
     def update_branch_refs(self, branch: str, commit: str) -> None:
         # Update the local branch reference to the specific commit

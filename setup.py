@@ -31,6 +31,7 @@ tests_require = [
     "freezegun==0.3.15",
     "jsonschema==3.2.0",
     "jinja2==3.1.*",
+    "pytest-mock==3.14.*",
 ]
 
 yubikey_require = ["yubikey-manager==5.5.*"]
@@ -54,13 +55,13 @@ kwargs = {
         "cattrs>=23.1.2",
         "click==8.*",
         "colorama>=0.3.9",
-        "oll-tuf==0.20.0.dev2",
-        "cryptography==38.0.*",
-        "securesystemslib==0.25.*",
+        "tuf==5.*",
+        "cryptography==43.0.*",
+        "securesystemslib==1.*",
         "loguru==0.7.*",
         'pygit2==1.9.*; python_version < "3.11"',
         'pygit2==1.14.*; python_version >= "3.11"',
-        "pyOpenSSL==22.1.*",
+        "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
     ],
     "extras_require": {

@@ -1,32 +1,8 @@
-import json
 from pathlib import Path
-import shutil
-from typing import Dict, Optional
+from typing import Optional
 from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-
-
-def copy_repositories_json(
-    repositories_json_template: Dict, namespace: str, auth_repo_path: Path
-):
-    output = auth_repo_path / TARGETS_DIRECTORY_NAME
-
-    repositories = {
-        "repositories": {
-            repo_name.format(namespace=namespace): repo_data
-            for repo_name, repo_data in repositories_json_template[
-                "repositories"
-            ].items()
-        }
-    }
-    output.mkdir(parents=True, exist_ok=True)
-    Path(output / "repositories.json").write_text(json.dumps(repositories))
-
-
-def copy_mirrors_json(mirrors_json_path: Path, auth_repo_path: Path):
-    output = auth_repo_path / TARGETS_DIRECTORY_NAME
-    shutil.copy(str(mirrors_json_path), output)
+from typing import List
 
 
 def check_target_file(
@@ -70,3 +46,22 @@ def check_if_targets_removed(
     for target_file in targets_filenames:
         assert target_file not in target_files
         assert target_file not in signed_target_files
+
+
+def check_new_role(
+    auth_repo: AuthenticationRepository,
+    role_name: str,
+    paths: List[str],
+    keystore_path: str,
+    parent_name: str,
+):
+    # check if keys were created
+    assert Path(keystore_path, f"{role_name}1").is_file()
+    assert Path(keystore_path, f"{role_name}2").is_file()
+    assert Path(keystore_path, f"{role_name}1.pub").is_file()
+    assert Path(keystore_path, f"{role_name}2.pub").is_file()
+    target_roles = auth_repo.get_all_targets_roles()
+    assert role_name in target_roles
+    assert auth_repo.find_delegated_roles_parent(role_name) == parent_name
+    roles_paths = auth_repo.get_role_paths(role_name)
+    assert roles_paths == paths
