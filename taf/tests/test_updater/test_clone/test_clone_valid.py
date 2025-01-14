@@ -35,23 +35,24 @@ from taf.updater.types.update import OperationType, UpdateType
     ],
     indirect=True,
 )
-def test_clone_valid_happy_path(origin_auth_repo, client_dir, benchmark):
+def test_clone_valid_happy_path(origin_auth_repo, client_dir):
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    def clone_valid_happy_path_inner(origin_auth_repo, client_dir):
-        is_test_repo = origin_auth_repo.is_test_repo
-        expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
-        update_and_check_commit_shas(
-            OperationType.CLONE,
-            origin_auth_repo,
-            client_dir,
-            expected_repo_type=expected_repo_type,
-        )
-        cleanup_directory(client_dir)
 
-    benchmark(clone_valid_happy_path_inner, origin_auth_repo, client_dir)
+    # def clone_valid_happy_path_inner(origin_auth_repo, client_dir):
+    is_test_repo = origin_auth_repo.is_test_repo
+    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+    cleanup_directory(client_dir)
+
+    # benchmark(clone_valid_happy_path_inner, origin_auth_repo, client_dir)
 
 
 @pytest.mark.parametrize(
