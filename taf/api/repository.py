@@ -23,6 +23,7 @@ from taf.api.utils._conf import find_keystore
 from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
 from taf.log import taf_logger
+from taf.yubikey.pin_manager import PinManager
 
 
 @log_on_start(
@@ -38,6 +39,7 @@ from taf.log import taf_logger
 )
 def create_repository(
     path: str,
+    pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = False,
@@ -61,6 +63,7 @@ def create_repository(
     Returns:
         None
     """
+    import pdb; pdb.set_trace()
     if not _check_if_can_create_repository(Path(path)):
         return
 

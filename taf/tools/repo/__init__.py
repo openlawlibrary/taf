@@ -10,6 +10,7 @@ from taf.log import initialize_logger_handlers, taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
+from taf.yubikey.pin_manager import pin_managed
 
 
 def common_update_options(f):
@@ -121,9 +122,11 @@ def create_repo_command():
                   "committed automatically")
     @click.option("--test", is_flag=True, default=False, help="Indicates if the created repository "
                   "is a test authentication repository")
-    def create(path, keys_description, keystore, no_commit, test):
+    @pin_managed
+    def create(path, keys_description, keystore, no_commit, test, pin_manager):
         create_repository(
             path=path,
+            pin_manager=pin_manager,
             keystore=keystore,
             roles_key_infos=keys_description,
             commit=not no_commit,

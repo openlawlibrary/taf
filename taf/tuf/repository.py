@@ -130,6 +130,7 @@ class MetadataRepository(Repository):
 
     def __init__(self, path: Union[Path, str], *args, **kwargs) -> None:
         storage_backend = kwargs.pop("storage", None)
+        pin_manager = kwargs.pop("pin_manager", None)
         super().__init__(*args, **kwargs)
         self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
         self.path = Path(path)
@@ -141,6 +142,7 @@ class MetadataRepository(Repository):
         else:
             self.storage_backend = FilesystemBackend()
         self._metadata_to_keep_open: Set[str] = set()
+        self.pin_manager = pin_manager
 
     @property
     def metadata_path(self) -> Path:
