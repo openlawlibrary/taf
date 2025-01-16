@@ -998,11 +998,20 @@ class GitRepository:
         self._git(f"branch {flag} -r {remote_branch_name}", log_error=True)
 
     def delete_remote_branch(
-        self, branch_name: str, remote: Optional[str] = None
+        self,
+        branch_name: str,
+        remote: Optional[str] = None,
+        no_verify: Optional[bool] = False,
     ) -> None:
+        """
+        Delete remote branch.
+        """
         if remote is None:
             remote = self.remotes[0]
-        self._git(f"push {remote} --delete {branch_name}", log_error=True)
+        no_verify_flag = "--no-verify" if no_verify else ""
+        self._git(
+            f"push {remote} --delete {branch_name} {no_verify_flag}", log_error=True
+        )
 
     def get_commit_date(self, commit_sha: str) -> str:
         """Returns commit date of the given commit"""
@@ -1437,6 +1446,7 @@ class GitRepository:
         branch: Optional[str] = None,
         set_upstream: Optional[bool] = False,
         force: Optional[bool] = False,
+        no_verify: Optional[bool] = False,
     ) -> bool:
 
         if not self.has_remote():
@@ -1454,11 +1464,13 @@ class GitRepository:
 
             upstream_flag = "-u" if set_upstream else ""
             force_flag = "-f" if force else ""
+            no_verify_flag = "--no-verify" if no_verify else ""
             self._git(
-                "push {} {} origin {}",
+                "push {} {} origin {} {}",
                 upstream_flag,
                 force_flag,
                 branch,
+                no_verify_flag,
                 reraise_error=True,
             )
             self._log_notice("Successfully pushed to remote")
