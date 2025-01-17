@@ -19,3 +19,4 @@ cryptography==38.0.4
 securesystemslib==1.0
 tuf==5.1.0
 loguru==0.7.3
+cattrs==24.1.2
