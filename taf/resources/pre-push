@@ -3,10 +3,8 @@
 # Path to the TAF CLI executable
 TAF_CLI="taf"
 
-# Get the last validated commit using the new CLI command
 output=$($TAF_CLI repo latest-commit-and-branch)
 
-# Get the last validated commit using the new CLI command
 if [ $? -ne 0 ]; then
     echo "Failed to retrieve the last validated commit."
     DEFAULT_BRANCH=""
@@ -34,7 +32,7 @@ fi
 
 
 # Run the TAF validation command with --from-latest
-$TAF_CLI repo validate --from-latest
+$TAF_CLI repo validate --from-latest --no-deps
 VALIDATION_STATUS=$?
 
 # Check the validation status

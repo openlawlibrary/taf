@@ -1,33 +1,21 @@
-import glob
 from logging import DEBUG, ERROR
-import os
 from typing import Dict, List, Optional, Tuple
 import click
 from collections import defaultdict
 import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._roles import _role_obj, create_delegations
-from taf.messages import git_commit_message
-from tuf.repository_tool import Targets
+from taf.api.api_workflow import manage_repo_and_signers, transactional_execution
+from taf.tuf.keys import get_sslib_key_from_value
 from taf.api.utils._git import check_if_clean
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
-from taf.models.types import RolesIterator, TargetsRole, compare_roles_data
-from taf.repositoriesdb import REPOSITORIES_JSON_PATH
-from tuf.repository_tool import TARGETS_DIRECTORY_NAME
-import tuf.roledb
-import taf.repositoriesdb as repositoriesdb
+from taf.models.types import TargetsRole, compare_roles_data
 from taf.keys import (
     find_keystore,
     get_key_name,
     get_metadata_key_info,
-    load_signing_keys,
     load_sorted_keys_of_new_roles,
-)
-from taf.api.utils._metadata import (
-    update_snapshot_and_timestamp,
-    update_target_metadata,
 )
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import (
@@ -35,13 +23,13 @@ from taf.constants import (
     DEFAULT_RSA_SIGNATURE_SCHEME,
 )
 from taf.keystore import new_public_key_cmd_prompt
-from taf.repository_tool import is_delegated_role
+from taf.tuf.repository import MAIN_ROLES, METADATA_DIRECTORY_NAME
 from taf.utils import get_key_size, read_input_dict, resolve_keystore_path
-from taf.log import taf_logger
+from taf.log import NOTICE, taf_logger
 from taf.models.types import RolesKeysData
+from taf.messages import git_commit_message
 
-
-MAIN_ROLES = ["root", "snapshot", "timestamp", "targets"]
+from securesystemslib.signer._key import SSlibKey
 
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
@@ -97,52 +85,59 @@ def add_role(
     Returns:
         None
     """
+
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=path)
+
+    if not parent_role:
+        parent_role = "targets"
+
     existing_roles = auth_repo.get_all_targets_roles()
     existing_roles.extend(MAIN_ROLES)
     if role in existing_roles:
         taf_logger.log("NOTICE", "All roles already set up")
         return
 
-    targets_parent_role = TargetsRole()
-    if parent_role != "targets":
-        targets_parent_role.name = parent_role
-        targets_parent_role.paths = []
+    keystore_path = Path(keystore) if keystore else find_keystore(Path(path))
+    commit_msg = git_commit_message("add-role", role=role)
+    metadata_path = Path(METADATA_DIRECTORY_NAME, f"{role}.json")
 
-    new_role = TargetsRole()
-    new_role.parent = targets_parent_role
-    new_role.name = role
-    new_role.paths = paths
-    new_role.number = keys_number
-    new_role.threshold = threshold
-    new_role.yubikey = yubikey
-
-    signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo=auth_repo,
-        roles=new_role,
-        yubikeys_data=None,
-        keystore=keystore,
-        skip_prompt=skip_prompt,
-    )
-    create_delegations(
-        new_role, auth_repo, verification_keys, signing_keys, existing_roles
-    )
-    _update_role(
+    with manage_repo_and_signers(
         auth_repo,
-        targets_parent_role.name,
-        keystore,
+        roles=[parent_role],
+        keystore=keystore_path,
         scheme=scheme,
         prompt_for_keys=prompt_for_keys,
-    )
-    if commit:
-        update_snapshot_and_timestamp(
-            auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+        load_roles=True,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg,
+        paths_to_reset_on_error=[metadata_path],
+    ):
+        targets_parent_role = TargetsRole()
+        if parent_role != "targets":
+            targets_parent_role.name = parent_role
+            targets_parent_role.paths = []
+
+        new_role = TargetsRole()
+        new_role.name = role
+        new_role.parent = targets_parent_role
+        new_role.paths = paths
+        new_role.number = keys_number
+        new_role.threshold = threshold
+        new_role.yubikey = yubikey
+
+        signers, _ = load_sorted_keys_of_new_roles(
+            roles=new_role,
+            yubikeys_data=None,
+            keystore=keystore_path,
+            skip_prompt=skip_prompt,
+            certs_dir=auth_repo.certs_dir,
         )
-        commit_msg = git_commit_message("add-role", role=role)
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
+        auth_repo.create_delegated_roles([new_role], signers)
+        auth_repo.add_new_roles_to_snapshot([new_role.name])
+        auth_repo.do_timestamp()
 
 
 @log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
@@ -184,35 +179,36 @@ def add_role_paths(
     Returns:
         None
     """
+
     if auth_repo is None:
         auth_repo = AuthenticationRepository(path=auth_path)
-    if not auth_repo.check_if_role_exists(delegated_role):
-        raise TAFError(f"Role {delegated_role} does not exist")
 
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
-    parent_role_obj = _role_obj(parent_role, auth_repo)
-    if isinstance(parent_role_obj, Targets):
-        try:
-            parent_role_obj.add_paths(paths, delegated_role)
-        except tuf.exceptions.InvalidNameError:
-            raise TAFError(
-                "All delegated paths should be relative to targets directory."
-            )
-        _update_role(auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys)
-        if commit:
-            update_snapshot_and_timestamp(
-                auth_repo, keystore, prompt_for_keys=prompt_for_keys
-            )
-            commit_msg = git_commit_message(
-                "add-role-paths", paths=", ".join(paths), role=delegated_role
-            )
-            auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-        else:
-            taf_logger.log("NOTICE", "\nPlease commit manually\n")
-    else:
-        taf_logger.error(
-            f"Could not find parent role of role {delegated_role}. Check if its name was misspelled"
-        )
+    if all(
+        path in auth_repo.get_delegations_of_role(parent_role)[delegated_role].paths
+        for path in paths
+    ):
+        taf_logger.log("NOTICE", "Paths already added")
+        return
+
+    commit_msg = git_commit_message(
+        "add-role-paths", role=delegated_role, paths=", ".join(paths)
+    )
+
+    with manage_repo_and_signers(
+        auth_repo,
+        [delegated_role],
+        keystore=keystore,
+        prompt_for_keys=prompt_for_keys,
+        load_roles=False,
+        load_parents=True,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg,
+    ):
+        auth_repo.add_path_to_delegated_role(role=delegated_role, paths=paths)
+        auth_repo.update_snapshot_and_timestamp()
 
 
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
@@ -238,7 +234,6 @@ def add_multiple_roles(
     Add new target roles and sign all metadata files given information stored in roles_key_infos
     dictionary or .json file.
 
-
     Arguments:
         path: Path to the authentication repository.
         keystore (optional): Location of the keystore files.
@@ -254,65 +249,67 @@ def add_multiple_roles(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path=path)
 
     roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
         path, roles_key_infos, keystore
     )
+
+    auth_repo = AuthenticationRepository(path=path)
     roles_data = auth_repo.generate_roles_description()
     roles_keys_data_current = from_dict(roles_data, RolesKeysData)
-
-    new_roles, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
-
-    parent_roles_names = {role.parent.name for role in new_roles}
-
-    if not len(new_roles):
+    new_roles_data, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
+    existing_roles = auth_repo.get_all_targets_roles()
+    existing_roles.extend(MAIN_ROLES)
+    roles_to_add_data = [
+        role_data
+        for role_data in new_roles_data
+        if role_data.name not in existing_roles
+    ]
+    if not len(roles_to_add_data):
         taf_logger.log("NOTICE", "All roles already set up")
         return
 
-    repository = auth_repo._repository
-    existing_roles = [
-        role.name for role in RolesIterator(roles_keys_data_current.roles)
+    roles_to_add = [role_data.name for role_data in new_roles_data]
+    commit_msg = git_commit_message("add-roles", roles=", ".join(roles_to_add))
+    roles_to_load = [
+        role_data.parent.name
+        for role_data in new_roles_data
+        if role_data.parent.name not in roles_to_add
     ]
-    signing_keys, verification_keys = load_sorted_keys_of_new_roles(
-        auth_repo=auth_repo,
-        roles=roles_keys_data_new.roles,
-        keystore=keystore,
-        yubikeys_data=roles_keys_data_new.yubikeys,
-        existing_roles=existing_roles,
-    )
+    keystore_path = roles_keys_data_new.keystore
 
-    create_delegations(
-        roles_keys_data_new.roles.targets,
-        repository,
-        verification_keys,
-        signing_keys,
-        existing_roles=existing_roles,
-    )
-    for parent_role_name in parent_roles_names:
-        _update_role(
-            auth_repo,
-            parent_role_name,
-            keystore,
-            scheme=scheme,
-            prompt_for_keys=prompt_for_keys,
-        )
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        roles_names = [role.name for role in new_roles]
-        commit_msg = git_commit_message("add-roles", roles=", ".join(roles_names))
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
+    with manage_repo_and_signers(
+        auth_repo,
+        roles=roles_to_load,
+        keystore=keystore_path,
+        scheme=scheme,
+        prompt_for_keys=prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        commit_msg=commit_msg,
+        commit=commit,
+        push=push,
+    ):
+        all_signers = {}
+        for role_to_add_data in roles_to_add_data:
+            signers, _ = load_sorted_keys_of_new_roles(
+                roles=role_to_add_data,
+                yubikeys_data=None,
+                keystore=keystore_path,
+                skip_prompt=not prompt_for_keys,
+                certs_dir=auth_repo.certs_dir,
+            )
+            all_signers.update(signers)
+
+        auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
+        auth_repo.add_new_roles_to_snapshot(roles_to_add)
+        auth_repo.do_timestamp()
 
 
-@log_on_start(DEBUG, "Adding new signing key to roles", logger=taf_logger)
-@log_on_end(DEBUG, "Finished adding new signing key to roles", logger=taf_logger)
+@log_on_start(NOTICE, "Adding a new signing key", logger=taf_logger)
+@log_on_end(DEBUG, "Finished adding a new signing key", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while adding new signing key to roles: {e}",
+    "An error occurred while adding a new signing key: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,
@@ -322,8 +319,8 @@ def add_signing_key(
     path: str,
     roles: List[str],
     pub_key_path: Optional[str] = None,
+    pub_key: Optional[SSlibKey] = None,
     keystore: Optional[str] = None,
-    roles_key_infos: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
@@ -340,7 +337,6 @@ def add_signing_key(
         pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
             it will be necessary to ender the key when prompted.
         keystore (optional): Location of the keystore files.
-        roles_key_infos (optional): Path to a json file which contains information about repository's roles and keys.
         scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
         prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
         commit (optional): Indicates if the changes should be committed and pushed automatically.
@@ -353,70 +349,191 @@ def add_signing_key(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path=path)
-    non_existant_roles = []
-    for role in roles:
-        if not auth_repo.check_if_role_exists(role):
-            non_existant_roles.append(role)
-    if len(non_existant_roles):
-        raise TAFError(f"Role(s) {', '.join(non_existant_roles)} do not exist")
 
-    _, keystore, _ = _initialize_roles_and_keystore(
-        roles_key_infos, keystore, enter_info=False
+    pub_key = pub_key or _load_pub_key_from_file(
+        pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
     )
 
-    pub_key_pem = None
-    if pub_key_path is not None:
-        pub_key_pem_path = Path(pub_key_path)
-        if pub_key_pem_path.is_file():
-            pub_key_pem = Path(pub_key_path).read_text()
+    roles_keys = {role: [pub_key] for role in roles}
 
-    if pub_key_pem is None:
-        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+    auth_repo = AuthenticationRepository(path=path)
 
-    parent_roles = set()
-    for role in roles:
-        if auth_repo.is_valid_metadata_key(role, pub_key_pem):
+    with manage_repo_and_signers(
+        auth_repo,
+        roles,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        load_parents=True,
+        load_roles=False,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg,
+    ):
+        added_keys, already_added_keys, invalid_keys = auth_repo.add_metadata_keys(
+            roles_keys
+        )
+        if already_added_keys:
             taf_logger.log(
-                "NOTICE", f"Key already registered as signing key of role {role}"
+                "NOTICE", f"Key(s) {', '.join(already_added_keys)} already added"
             )
-            continue
+        if invalid_keys:
+            taf_logger.warning(f"Key(s) {', '.join(invalid_keys)} invalid")
 
-        auth_repo.add_metadata_key(role, pub_key_pem, scheme)
+        if len(added_keys):
+            auth_repo.update_snapshot_and_timestamp()
 
-        if is_delegated_role(role):
-            parent_role = auth_repo.find_delegated_roles_parent(role)
-        else:
-            parent_role = "root"
 
-        parent_roles.add(parent_role)
+@log_on_start(NOTICE, "Revoking signing key", logger=taf_logger)
+@log_on_end(DEBUG, "Finished revoking signing key", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while revoking signing key: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
+@check_if_clean
+def revoke_signing_key(
+    path: str,
+    key_id: str,
+    roles: Optional[List[str]] = None,
+    keystore: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    commit: Optional[bool] = True,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+) -> None:
+    """
+    Revoke signing key. Update root metadata if one or more roles is one of the main TUF roles,
+    parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
 
-    if not len(parent_roles):
-        return
+    Arguments:
+        path: Path to the authentication repository.
+        roles: A list of roles whose signing keys need to be extended.
+        key_id: id of the key to be removed
+        keystore (optional): Location of the keystore files.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        push (optional): Flag specifying whether to push to remote.
+        commit_msg(optional): Commit message. Will be necessary to enter it if not provided.
+    Side Effects:
+        Updates metadata files (parents of the affected roles, snapshot and timestamp).
+        Writes changes to disk.
 
-    auth_repo.unmark_dirty_roles(list(set(roles) - parent_roles))
-    for parent_role in parent_roles:
-        _update_role(
-            auth_repo,
-            parent_role,
-            keystore,
+    Returns:
+        None
+    """
+
+    auth_repo = AuthenticationRepository(path=path)
+
+    roles_to_update = roles or auth_repo.find_keysid_roles([key_id])
+
+    with manage_repo_and_signers(
+        auth_repo,
+        roles_to_update,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=True,
+        load_parents=True,
+        load_roles=False,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg,
+    ):
+
+        (
+            removed_from_roles,
+            not_added_roles,
+            less_than_threshold_roles,
+        ) = auth_repo.revoke_metadata_key(key_id=key_id, roles=roles)
+        if not_added_roles:
+            taf_logger.log(
+                "NOTICE",
+                f"Key is not a signing key of role(s) {', '.join(not_added_roles)}",
+            )
+        if less_than_threshold_roles:
+            taf_logger.warning(
+                f"Cannot remove key from {', '.join(less_than_threshold_roles)}. Number of keys must be greater or equal to thresholds"
+            )
+
+        if len(removed_from_roles):
+            auth_repo.update_snapshot_and_timestamp()
+
+
+@check_if_clean
+def rotate_signing_key(
+    path: str,
+    key_id: str,
+    pub_key_path: Optional[str] = None,
+    roles: Optional[List[str]] = None,
+    keystore: Optional[str] = None,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    revoke_commit_msg: Optional[str] = None,
+    add_commit_msg: Optional[str] = None,
+) -> None:
+    """
+    Rotate signing key. Remove it from one or more roles and add a new signing key.
+    Update root metadata if one or more roles is one of the main TUF roles,
+    parent target role if one of the roles is a delegated target role and timestamp and snapshot in any case.
+
+    Arguments:
+        path: Path to the authentication repository.
+        roles: A list of roles whose signing keys need to be extended.
+        key_id: id of the key to be removed
+        pub_key_path (optional): path to the file containing the public component of the new key. If not provided,
+            it will be necessary to ender the key when prompted.
+        keystore (optional): Location of the keystore files.
+        scheme (optional): Signing scheme. Set to rsa-pkcs1v15-sha256 by default.
+        prompt_for_keys (optional): Whether to ask the user to enter their key if it is not located inside the keystore directory.
+        commit (optional): Indicates if the changes should be committed and pushed automatically.
+        push (optional): Flag specifying whether to push to remote.
+        revoke_commit_msg(optional): First commit message, when revokig the specified key. Will be necessary to enter it if not provided.
+        add_commit_msg(optional): Second commit message, when addug a new signing key. Will be necessary to enter it if not provided.
+    Side Effects:
+        Updates metadata files (parents of the affected roles, snapshot and timestamp).
+        Writes changes to disk.
+
+    Returns:
+        None
+    """
+
+    pub_key = _load_pub_key_from_file(
+        pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
+    )
+    auth_repo = AuthenticationRepository(path=path)
+    roles = roles or auth_repo.find_keysid_roles([key_id])
+
+    with transactional_execution(auth_repo):
+        revoke_signing_key(
+            path=path,
+            key_id=key_id,
+            roles=roles,
+            keystore=keystore,
             scheme=scheme,
+            commit=True,
             prompt_for_keys=prompt_for_keys,
+            push=False,
+            commit_msg=revoke_commit_msg,
         )
 
-    update_snapshot_and_timestamp(
-        auth_repo, keystore=keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-
-    if commit:
-        # TODO after saving custom key ids is implemented, remove customization of the commit message
-        # for now, it might be helpful to be able to specify which key was added
-        # commit_msg = git_commit_message(
-        #     "add-signing-key", role={role}
-        # )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
+        add_signing_key(
+            path=path,
+            roles=roles,
+            pub_key=pub_key,
+            keystore=keystore,
+            scheme=scheme,
+            commit=True,
+            prompt_for_keys=prompt_for_keys,
+            push=push,
+            commit_msg=add_commit_msg,
+        )
 
 
 # TODO this is probably outdated, the format of the outputted roles_key_infos
@@ -534,6 +651,22 @@ def _enter_role_info(
     return role_info
 
 
+def _load_pub_key_from_file(pub_key_path, prompt_for_keys, scheme) -> SSlibKey:
+    pub_key_pem = None
+    if pub_key_path is not None:
+        pub_key_pem_path = Path(pub_key_path)
+        if pub_key_pem_path.is_file():
+            pub_key_pem = Path(pub_key_path).read_text()
+
+    if pub_key_pem is None and prompt_for_keys:
+        pub_key_pem = new_public_key_cmd_prompt(scheme)["keyval"]["public"]
+
+    if pub_key_pem is None:
+        raise TAFError("Public key not provided or invalid")
+
+    return get_sslib_key_from_value(pub_key_pem)
+
+
 def _read_val(input_type, name, param=None, required=False):
     default_value_msg = ""
     default_value = None
@@ -571,6 +704,8 @@ def _initialize_roles_and_keystore_for_existing_repo(
         keystore_path = find_keystore(Path(path))
         if keystore_path:
             roles_keys_data.keystore = str(keystore_path)
+    else:
+        roles_keys_data.keystore = keystore
     return roles_keys_data
 
 
@@ -762,89 +897,93 @@ def remove_role(
     Returns:
         None
     """
-    if role in MAIN_ROLES:
-        taf_logger.error(
-            f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
-        )
-        return
 
-    if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=path)
+    # TODO This didn't fully work and was not being used
+    # can be done later
 
-    parent_role = auth_repo.find_delegated_roles_parent(role)
-    if parent_role is None:
-        taf_logger.error("Role is not among delegated roles")
-        return
-    parent_role_obj = _role_obj(parent_role, auth_repo)
-    if not isinstance(parent_role_obj, Targets):
-        taf_logger.error(f"Could not find parent targets role of role {role}.")
-        return
+    # if role in MAIN_ROLES:
+    #     taf_logger.error(
+    #         f"Cannot remove role {role}. It is one of the roles required by the TUF specification"
+    #     )
+    #     return
 
-    roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
-    added_targets_data: Dict = {}
-    removed_targets = []
-    for delegations_data in roleinfo["delegations"]["roles"]:
-        if delegations_data["name"] == role:
-            paths = delegations_data["paths"]
-            for target_path in paths:
-                target_file_path = Path(path, TARGETS_DIRECTORY_NAME, target_path)
-                if target_file_path.is_file():
-                    if remove_targets:
-                        os.unlink(str(target_file_path))
-                        removed_targets.append(str(target_file_path))
-                    else:
-                        added_targets_data[target_file_path] = {}
-                else:
-                    # try glob pattern traversal
-                    full_pattern = str(Path(path, TARGETS_DIRECTORY_NAME, target_path))
-                    matching_files = glob.glob(full_pattern)
-                    for file_path in matching_files:
-                        if remove_targets:
-                            os.unlink(str(file_path))
-                            removed_targets.append(file_path)
-                        else:
-                            added_targets_data[file_path] = {}
-            break
+    # if auth_repo is None:
+    #     auth_repo = AuthenticationRepository(path=path)
 
-    parent_role_obj.revoke(role)
+    # parent_role = auth_repo.find_delegated_roles_parent(role)
+    # if parent_role is None:
+    #     taf_logger.error("Role is not among delegated roles")
+    #     return
+    # parent_role_obj = auth_repo._role_obj(parent_role, auth_repo)
+    # if not isinstance(parent_role_obj, Targets):
+    #     taf_logger.error(f"Could not find parent targets role of role {role}.")
+    #     return
 
-    _update_role(
-        auth_repo, role=parent_role, keystore=keystore, prompt_for_keys=prompt_for_keys
-    )
-    if len(added_targets_data):
-        removed_targets_data: Dict = {}
-        update_target_metadata(
-            auth_repo,
-            added_targets_data,
-            removed_targets_data,
-            keystore,
-            write=False,
-            scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
-            prompt_for_keys=prompt_for_keys,
-        )
+    # roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
+    # added_targets_data: Dict = {}
+    # removed_targets = []
+    # for delegations_data in roleinfo["delegations"]["roles"]:
+    #     if delegations_data["name"] == role:
+    #         paths = delegations_data["paths"]
+    #         for target_path in paths:
+    #             target_file_path = Path(path, TARGETS_DIRECTORY_NAME, target_path)
+    #             if target_file_path.is_file():
+    #                 if remove_targets:
+    #                     os.unlink(str(target_file_path))
+    #                     removed_targets.append(str(target_file_path))
+    #                 else:
+    #                     added_targets_data[target_file_path] = {}
+    #             else:
+    #                 # try glob pattern traversal
+    #                 full_pattern = str(Path(path, TARGETS_DIRECTORY_NAME, target_path))
+    #                 matching_files = glob.glob(full_pattern)
+    #                 for file_path in matching_files:
+    #                     if remove_targets:
+    #                         os.unlink(str(file_path))
+    #                         removed_targets.append(file_path)
+    #                     else:
+    #                         added_targets_data[file_path] = {}
+    #         break
 
-    # if targets should be deleted, also removed them from repositories.json
-    if len(removed_targets):
-        repositories_json = repositoriesdb.load_repositories_json(auth_repo)
-        if repositories_json is not None:
-            repositories = repositories_json["repositories"]
-            for removed_target in removed_targets:
-                if removed_target in repositories:
-                    repositories.pop(removed_target)
+    # parent_role_obj.revoke(role)
 
-                # update content of repositories.json before updating targets metadata
-                Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
-                    json.dumps(repositories_json, indent=4)
-                )
+    # _update_role(
+    #     auth_repo, role=parent_role, keystore=keystore, prompt_for_keys=prompt_for_keys
+    # )
+    # if len(added_targets_data):
+    #     removed_targets_data: Dict = {}
+    #     update_target_metadata(
+    #         auth_repo,
+    #         added_targets_data,
+    #         removed_targets_data,
+    #         keystore,
+    #         write=False,
+    #         scheme=DEFAULT_RSA_SIGNATURE_SCHEME,
+    #         prompt_for_keys=prompt_for_keys,
+    #     )
 
-    update_snapshot_and_timestamp(
-        auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
-    )
-    if commit:
-        commit_msg = git_commit_message("remove-role", role=role)
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    else:
-        taf_logger.log("NOTICE", "Please commit manually")
+    # # if targets should be deleted, also removed them from repositories.json
+    # if len(removed_targets):
+    #     repositories_json = repositoriesdb.load_repositories_json(auth_repo)
+    #     if repositories_json is not None:
+    #         repositories = repositories_json["repositories"]
+    #         for removed_target in removed_targets:
+    #             if removed_target in repositories:
+    #                 repositories.pop(removed_target)
+
+    #             # update content of repositories.json before updating targets metadata
+    #             Path(auth_repo.path, REPOSITORIES_JSON_PATH).write_text(
+    #                 json.dumps(repositories_json, indent=4)
+    #             )
+
+    # update_snapshot_and_timestamp(
+    #     auth_repo, keystore, scheme=scheme, prompt_for_keys=prompt_for_keys
+    # )
+    # if commit:
+    #     commit_msg = git_commit_message("remove-role", role=role)
+    #     auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
+    # else:
+    #     taf_logger.log("NOTICE", "Please commit manually")
 
 
 @log_on_start(DEBUG, "Removing delegated paths", logger=taf_logger)
@@ -860,7 +999,9 @@ def remove_paths(
     path: str,
     paths: List[str],
     keystore: str,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
 ) -> bool:
@@ -882,105 +1023,39 @@ def remove_paths(
         True if the delegation existed, False otherwise
     """
     auth_repo = AuthenticationRepository(path=path)
-    delegation_existed = False
+    paths_to_remove_from_roles = defaultdict(list)
     for path_to_remove in paths:
         delegated_role = auth_repo.get_role_from_target_paths([path_to_remove])
+
         if delegated_role != "targets":
-            parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
-            # parent_role_obj = _role_obj(parent_role, auth_repo)
-            current_delegation_existed = _remove_path_from_role_info(
-                path_to_remove, parent_role, delegated_role, auth_repo
-            )
-            delegation_existed = delegation_existed or current_delegation_existed
-            if current_delegation_existed:
-                _update_role(
-                    auth_repo, parent_role, keystore, prompt_for_keys=prompt_for_keys
-                )
-    if delegation_existed and commit:
-        update_snapshot_and_timestamp(
-            auth_repo, keystore, prompt_for_keys=prompt_for_keys
-        )
+            paths_to_remove_from_roles[delegated_role].append(path_to_remove)
+        else:
+            taf_logger.log("NOTICE", f"Path {path_to_remove} not delegated to any role")
+    if not len(paths_to_remove_from_roles):
+        taf_logger.log("NOTICE", "No paths delegated")
+        return False
+
+    if commit_msg is None:
         commit_msg = git_commit_message(
             "remove-role-paths", paths=", ".join(paths), role=delegated_role
         )
-        auth_repo.commit_and_push(commit_msg=commit_msg, push=push)
-    elif delegation_existed:
-        taf_logger.log("NOTICE", "\nPlease commit manually\n")
-    return delegation_existed
-
-
-def _remove_path_from_role_info(
-    path_to_remove: str,
-    parent_role: str,
-    delegated_role: str,
-    auth_repo: AuthenticationRepository,
-) -> bool:
-    """
-    Remove path from delegated paths if directly listed.
-
-    E.g. if delegated paths are
-
-    "paths": [
-      "namespace/repo1",
-      "namespace/repo2"
-    ]
-
-    Arguments:
-        path_to_remove: path to be removed from delegated paths
-        parent_role: Parent role's name
-        delegated_role: Delegated role's name
-        auth_repo: Authentication repository
-
-    and namespace/repo1 is being removed
-
-    Returns:
-        True if path was directly specified as a delegated path, False otherwise
-    """
-
-    auth_repo.reload_tuf_repository()
-    delegation_exists = False
-    roleinfo = tuf.roledb.get_roleinfo(parent_role, auth_repo.name)
-    for delegations_data in roleinfo["delegations"]["roles"]:
-        if delegations_data["name"] == delegated_role:
-            delegations_paths = delegations_data["paths"]
-            if path_to_remove in delegations_paths:
-                delegations_paths.remove(path_to_remove)
-                delegation_exists = True
-            else:
-                taf_logger.log("NOTICE", f"{path_to_remove} not in delegated paths")
-            break
-    if delegation_exists:
-        tuf.roledb.update_roleinfo(
-            parent_role, roleinfo, repository_name=auth_repo.name
-        )
-    return delegation_exists
-
-
-def _update_role(
-    auth_repo: AuthenticationRepository,
-    role: str,
-    keystore: Optional[str],
-    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
-    prompt_for_keys: Optional[bool] = False,
-) -> None:
-    """
-    Update the specified role's metadata's expiration date, load the signing keys
-    from either a keystore file or yubikey and sign the file without updating
-    snapshot and timestamp and writing changes to disk
-    """
-    loaded_yubikeys: Dict = {}
-    keystore_keys, yubikeys = load_signing_keys(
+    with manage_repo_and_signers(
         auth_repo,
-        role,
-        loaded_yubikeys,
-        keystore,
+        roles=list(paths_to_remove_from_roles.keys()),
+        keystore=keystore,
         scheme=scheme,
         prompt_for_keys=prompt_for_keys,
-    )
-    if len(keystore_keys):
-        auth_repo.update_role_keystores(role, keystore_keys, write=False)
-    if len(yubikeys):
-        auth_repo.update_role_yubikeys(role, yubikeys, write=False)
+        load_roles=False,
+        load_parents=True,
+        load_snapshot_and_timestamp=True,
+        commit=commit,
+        push=push,
+        commit_msg=commit_msg,
+    ):
+        auth_repo.remove_delegated_paths(paths_to_remove_from_roles)
+        auth_repo.update_snapshot_and_timestamp()
+
+    return True
 
 
 def list_roles(auth_repo: AuthenticationRepository) -> None:

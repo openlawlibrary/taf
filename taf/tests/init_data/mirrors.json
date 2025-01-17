@@ -1,6 +1,8 @@
 {
     "mirrors": [
-      "git@github.com:oll-test-repos/{org_name}-{repo_name}.git",
-      "http://github.com/oll-test-repos/{org_name}-{repo_name}"
+      "https://github.com/{org_name}/{repo_name}.git",
+      "https://github.com/test_org/{org_name}-{repo_name}.git",
+      "git@github.com:{org_name}/{repo_name}.git",
+      "git@github.com:test_org/{org_name}-{repo_name}.git"
     ]
   }

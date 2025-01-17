@@ -21,9 +21,13 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 from json import JSONDecoder
+from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
-from taf.log import taf_logger
+
+# TODO: Remove legacy imports
+# from taf.log import taf_logger
+
 from typing import List, Optional, Tuple, Dict
 from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
@@ -146,7 +150,7 @@ def is_run_from_python_executable() -> bool:
 def read_input_dict(value):
     if value is None:
         return {}
-    if type(value) is str:
+    if not isinstance(value, dict):
         if Path(value).is_file():
             with open(value) as f:
                 try:
@@ -394,30 +398,25 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
         Path(__file__).parent / "resources" / "pre-push"
     ).resolve()
 
-    if not pre_push_script.exists():
-        if not resources_pre_push_script.exists():
-            taf_logger.error(
-                f"Resources pre-push script not found at {resources_pre_push_script}"
-            )
-            return False
+    # always copy the newest version of the pre-push hook
 
-        shutil.copy(resources_pre_push_script, pre_push_script)
-        try:
-            if platform.system() != "Windows":
-                # Unix-like systems
-                pre_push_script.chmod(0o755)
-        except Exception as e:
-            taf_logger.error(f"Error setting executable permission: {e}")
-            return False
+    shutil.copy(resources_pre_push_script, pre_push_script)
+    try:
+        if platform.system() != "Windows":
+            # Unix-like systems
+            pre_push_script.chmod(0o755)
+    except Exception as e:
+        taf_logger.error(f"Error setting executable permission: {e}")
+        return False
 
-        # Check if permissions were set correctly on Unix-like systems
-        if platform.system() != "Windows" and not os.access(pre_push_script, os.X_OK):
-            taf_logger.error(
-                f"Failed to set pre-push git hook executable permission. Please set it manually for {pre_push_script}."
-            )
-            return False
-        taf_logger.info("Pre-push hook not present. Pre-push hook added successfully.")
-        return True
+    # Check if permissions were set correctly on Unix-like systems
+    if platform.system() != "Windows" and not os.access(pre_push_script, os.X_OK):
+        taf_logger.error(
+            f"Failed to set pre-push git hook executable permission. Please set it manually for {pre_push_script}."
+        )
+        return False
+    taf_logger.info("Pre-push hook updated successfully.")
+    return True
 
     return True
 

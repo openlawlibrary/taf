@@ -160,13 +160,11 @@ To validate commits that could be decades old without being obstructed by expire
 
 This module encapsulates the `GitRepository` class, a high-level abstraction over Git operations, designed to interface directly with Git repositories at the filesystem level. The `GitRepository` class serves as an intermediary, enabling programmatic access to Git actions including: creating branches, working with commits, and working with remotes. It leverages [`pygit2`](https://www.pygit2.org/) for some of the interactions with Git. Other interactions use direct shell command execution via subprocess for operations not covered by `pygit2` or where direct command invocation is preferred for efficiency or functionality reasons.
 
-### `taf/repository_tool.py`
+### `taf/tuf/repository`
 
-Contains a `Repository` class, which is a wrapper around TUF's repository, making it simple to execute important updates, like
-adding new signing keys, updating and signing metadata files and extracting information about roles, keys,
-delegations and targets.
-
-NOTE: Long-term plan is to rework this part of the codebase. This is necessary to transition to the newest version of TUF, since it is relying on parts which no longer exist in newer TUF.
+Contains a `MetadataRepository` class, which is an implementation of TUF's `Repository` class for editing metadata.
+It simplifies the execution of important updates such as adding new signing keys, updating and signing metadata
+files, and extracting information about roles, keys, delegations, and targets.
 
 ### `taf/auth_repo.py`
 

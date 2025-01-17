@@ -1,18 +1,18 @@
 # Repositories
 
-As a tool focused on creation and secure update of Git repositories (authentication repositories and their
-targets), TAF contains classes and functions which strive to make integration with Git and TUF as easy as possible.
-`GitRepository` can be seen as a wrapper around git calls which make it possible to interact with the actual `Git`
-repository located on the file system. E.g. to create a new branch, list commits, push to the remote etc.
-On the other hand, `Repository` class contained by the `repository_tool` module can instantiate a TUF repository,
-provided that the directory passed to it contains metadata files expected to be found in such a repository. It also
-implements important TUF concepts, such as adding a new delegated role, determine which role is responsible for which
-target file, add TUF targets etc. An authentication repository can be seen as a Git repository which is also a TUF repository - it
-contains TUF's metadata and target files and a `.git` folder. TAF's `auth_repo` module's `AuthenticationRepository`
-class follows that logic and is derived from the two previously mentioned base classes. Finally, `repositoriesdb`
-is a module inspired by TUF's modules like `keysdb`, which deals with instantiation of repositories and stores the
-created classes inside a "database" - a dictionary which maps authentication repositories and their commits
-to lists of their target repositories at certain revisions.
+As a tool focused on the creation and secure update of Git repositories (authentication repositories and their
+targets), TAF contains classes and functions that strive to make integration with Git and TUF as simple as possible.
+`GitRepository` acts as a wrapper around Git calls, enabling interaction with the actual `Git` repository on the file
+system, e.g., creating a new branch, listing, creating, and pushing commits, etc. Conversely, the `MetadataRepository`
+class in `tuf/repository.py` extends TUF's `Repository` class, an abstract class for metadata modifying implementations.
+It provides implementations of crucial TUF concepts, such as adding a new delegated role, determining which role is
+responsible for which target file, and adding TUF targets etc. An authentication repository can be seen as a Git
+repository that is also a TUF repository. It contains TUF's metadata and target files and a `.git` folder. TAF's
+`auth_repo` module's `AuthenticationRepository` class follows that logic and is derived from the two previously
+mentioned base classes. Finally, `repositoriesdb` is a module inspired by TUF's modules like `keysdb`, which deals with
+the instantiation of repositories and stores the created classes inside a "database" - a dictionary which maps
+authentication repositories and their commits to lists of their target repositories at certain revisions. Note: the
+concept of databases has been removed from TUF and removal of `repositoriesdb` is also planned in case of TAF.
 
 ## GitRepository
 
@@ -66,44 +66,40 @@ repo.commit_empty('An example message')
 repo.push()
 ```
 
-## Repository tool's `Repository`
+## Implementation of TUF's `Repository` class (`tuf/repository/MetadataRepository`)
 
-This class can be seen as a wrapper around a TUF repository, making it simple to execute important updates, like
-adding new signing keys, updating and signing metadata files and extracting information about roles, keys,
-delegations and targets. It is instantiated by passing file system path which corresponds to a directory containing
-all files and folders that a TUF repository expects. That means that `metadata` and `targets` folders have to exist
-and that a valid `root.json` file needs to be found inside `metadata`. So:
+This class extends TUF's repository interface, providing features for executing metadata updates, such as
+adding new signing keys, updating and signing metadata files, and extracting information about roles,
+keys, delegations, and targets. It can be used to create a new TUF repository, retrieve information about
+a TUF repository, or update its metadata files. TAF's implementation of the repository class follows the
+convention of separating metadata and target files into directories named `metadata` and `target`:
+
 ```
 - repo_root
   - metadata
     - root.json
   - targets
 ```
-Optionally, `name` attribute can also be specified during instantiation. It will be used to set name of the TUF's
-repository instance. This value is set to `default` if not provided. If more than one repository is to be used
-at the same time, it is important to set distinct names.
 
-TUF repository is instantiated lazily the first time it is needed. This object is not meant to be used directly.
-The main purpose of TAF's repository class is to group operations which enable valid update of TUF metadata and acquiring
-information like can a key be used to sign a certain metadata file or finding roles that are linked with
-the provided public key. To set up a new repository or add a new signing key, it is recommended to use the
-`developer_tool` module since it contains full implementations of these complex functionalities. Functionalities
-like updating targets and signing metadata or updating a metadata's expiration date are fully covered by repository
-class's methods and can be used directly. These include:
-- `update_timestamp_keystores`, `update_snapshot_keystores` (`update_rolename_keystores`) and `update_role_keystores` (for delegated roles)
--`update_timestamp_yubikeys`, `update_snapshot_yubikeys` (`update_rolename_yubikeys`) and `update_role_yubikeys` (for delegated roles)
+It is instantiated by providing the repository's path. Unlike the previous implementation, which was based on an
+older version of TUF, this repository does not have, nor does it need, a name. The class can be instantiated
+regardless of whether there are `metadata` files located at `path/metadata`. In fact, it is possible to read the
+metadata and target files from mediums other than the local file system. TUF enables such flexibility by allowing
+custom implementations of the `StorageBackendInterface`. These implementations can redefine how metadata and target
+files are read and written. To instantiate a `MetadataRepository` class with a custom storage interface, use the
+`storage` keyword argument. If not specified, TUF's default `FilesystemBackend` will be used. The other available
+option is `GitStorageBackend`. This implementation loads data from a specific commit if the commit is specified,
+or from the filesystem if the commit is `None`, by extending `FilesystemBackend`.
 
-If `added_targets_data` or `removed_targets_data` is passed in when calling these methods (only applicable to
-`targets` and delegated target roles), information about target files will be updated and the corresponding metadata
-file will be signed. Its expiration date will be updated too. If there is targets data or if the called method
-corresponds to a non-targets role, the metadata file's expiration will still be updated and the file will be signed.
+This class is used extensively to implement API functions.
 
 
 ## `AuthenticationRepository`
 
-This class is derived from both `GitRepository` and TAF's `Repository`. Authentication repositories are expected
-to contain TUF metadata and target files, but are also Git repositories. It is important to note that only files
-inside the `targets` folder are tracked and secured by TUF.
+This class is derived from `GitRepository`, and indirectly from `MetadataRepository`. Authentication repositories are
+expected to contain TUF metadata and target files, but are also Git repositories. It is important to note that only
+files inside the `targets` folder are tracked and secured by TUF.
+
 
 Instances of the `AuthenticationRepository` are created by passing the same arguments as to `GitRepository` (`library_dir`, `name`, `urls`, `custom`, `default_branch`, `allow_unsafe` and `path` which can replace `library_dir` and `name` combination), as well as some optional additional arguments:
 - `conf_directory_root` - path to the directory where the `last_validated_commit` will be stored.

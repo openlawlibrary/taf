@@ -31,6 +31,7 @@ from logging import ERROR
 from typing import Dict, Tuple, Any
 from attr import define, field
 from logdecorator import log_on_error
+from taf.auth_repo import AuthenticationRepository
 from taf.git import GitRepository
 from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater_pipeline import (
@@ -38,7 +39,7 @@ from taf.updater.updater_pipeline import (
 )
 
 from pathlib import Path
-from taf.log import taf_logger, disable_tuf_console_logging
+from taf.log import taf_logger
 import taf.repositoriesdb as repositoriesdb
 from taf.utils import is_non_empty_directory, timed_run
 import taf.settings as settings
@@ -57,8 +58,6 @@ from cattr import unstructure
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from taf.updater.types.update import Update
-
-disable_tuf_console_logging()
 
 
 def _check_update_status(repos_update_data: Dict[str, Any]) -> Tuple[Event, str]:
@@ -636,11 +635,11 @@ def validate_repository(
     else:
         library_dir = Path(library_dir).resolve()
 
+    auth_repo = AuthenticationRepository(path=auth_path)
     expected_repo_type = (
-        UpdateType.TEST
-        if (auth_path / "targets" / "test-auth-repo").exists()
-        else UpdateType.OFFICIAL
+        UpdateType.TEST if auth_repo.is_test_repo else UpdateType.OFFICIAL
     )
+
     auth_repo_name = None
 
     try:

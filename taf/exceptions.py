@@ -19,6 +19,10 @@ class CloneRepoException(TAFError):
         )
 
 
+class CommandValidationError(TAFError):
+    pass
+
+
 class FetchException(TAFError):
     def __init__(self, path: str):
         self.message = f"Cannot fetch changes. Repo: {path}"
@@ -71,6 +75,10 @@ class InvalidRepositoryError(TAFError):
 
 
 class InvalidPINError(TAFError):
+    pass
+
+
+class PushFailedError(GitError):
     pass
 
 
@@ -131,6 +139,12 @@ class ScriptExecutionError(TAFError):
         super().__init__(message)
         self.message = message
         self.script = script
+
+
+class SignersNotLoaded(TAFError):
+    def __init__(self, roles):
+        message = f"Signers of roles {', '.join(roles)} not loaded."
+        super().__init__(message)
 
 
 class MetadataUpdateError(TAFError):
