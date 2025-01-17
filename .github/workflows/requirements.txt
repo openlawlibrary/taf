@@ -24,3 +24,4 @@ freezegun==0.3.15
 Jinja2==3.1.5
 pygit2==1.9.2
 logdecorator==2.4
+jsonschema==3.2.0
