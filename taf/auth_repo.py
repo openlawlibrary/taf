@@ -16,6 +16,7 @@ from taf.tuf.repository import (
     get_target_path,
 )
 from taf.constants import INFO_JSON_PATH
+from taf.yubikey.yubikey_manager import PinManager
 
 
 class AuthenticationRepository(GitRepository):
@@ -40,6 +41,7 @@ class AuthenticationRepository(GitRepository):
         out_of_band_authentication: Optional[str] = None,
         path: Optional[Union[Path, str]] = None,
         alias: Optional[str] = None,
+        pin_manager: Optional[PinManager] = None,
         *args,
         **kwargs,
     ):
@@ -78,7 +80,7 @@ class AuthenticationRepository(GitRepository):
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
         self._storage = GitStorageBackend()
-        self._tuf_repository = TUFRepository(self.path, storage=self._storage)
+        self._tuf_repository = TUFRepository(self.path, storage=self._storage, pin_manager=pin_manager)
 
     def __getattr__(self, item):
         """Delegate attribute lookup to TUFRepository instance"""

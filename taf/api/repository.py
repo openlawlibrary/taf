@@ -23,7 +23,7 @@ from taf.api.utils._conf import find_keystore
 from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
 from taf.log import taf_logger
-from taf.yubikey.pin_manager import PinManager
+from taf.yubikey.yubikey_manager import PinManager
 
 
 @log_on_start(
@@ -63,7 +63,6 @@ def create_repository(
     Returns:
         None
     """
-    import pdb; pdb.set_trace()
     if not _check_if_can_create_repository(Path(path)):
         return
 
@@ -76,9 +75,10 @@ def create_repository(
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     signers, verification_keys, key_name_mappings = load_sorted_keys_of_new_roles(
         roles=roles_keys_data.roles,
+        auth_repo=auth_repo,
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
         skip_prompt=skip_prompt,

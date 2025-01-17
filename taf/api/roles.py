@@ -130,6 +130,7 @@ def add_role(
 
         signers, _, key_name_mappings = load_sorted_keys_of_new_roles(
             roles=new_role,
+            auth_repo=auth_repo,
             yubikeys_data=None,
             keystore=keystore_path,
             skip_prompt=skip_prompt,
@@ -293,6 +294,7 @@ def add_multiple_roles(
         for role_to_add_data in roles_to_add_data:
             signers, _, key_name_mappings = load_sorted_keys_of_new_roles(
                 roles=role_to_add_data,
+                auth_repo=auth_repo,
                 yubikeys_data=None,
                 keystore=keystore_path,
                 skip_prompt=not prompt_for_keys,

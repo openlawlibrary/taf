@@ -213,7 +213,7 @@ class YkSigner(Signer):
         securesystemslib signers, e.g. `HSMSigner.import_`.
         """
         # TODO: export pyca/cryptography key to avoid duplicate deserialization
-        from taf.yubikey import export_piv_pub_key
+        from taf.yubikey.yubikey import export_piv_pub_key
 
         pem = export_piv_pub_key()
         pub = load_pem_public_key(pem)
@@ -221,7 +221,7 @@ class YkSigner(Signer):
 
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
-        from taf.yubikey import sign_piv_rsa_pkcs1v15
+        from taf.yubikey.yubikey import sign_piv_rsa_pkcs1v15
 
         sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num)
         return Signature(self.public_key.keyid, sig.hex())

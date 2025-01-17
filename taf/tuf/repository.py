@@ -22,10 +22,11 @@ from taf import YubikeyMissingLibrary
 
 from securesystemslib.storage import FilesystemBackend
 
+from taf.yubikey.yubikey_manager import YubiKeyStore
 from tuf.api.metadata import Signed
 
 try:
-    import taf.yubikey as yk
+    import taf.yubikey.yubikey as yk
 except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
@@ -143,6 +144,7 @@ class MetadataRepository(Repository):
             self.storage_backend = FilesystemBackend()
         self._metadata_to_keep_open: Set[str] = set()
         self.pin_manager = pin_manager
+        self.yubikey_store = YubiKeyStore()
 
     @property
     def metadata_path(self) -> Path:
@@ -171,45 +173,6 @@ class MetadataRepository(Repository):
         Tracks snapshot metadata changes, needed in `do_timestamp`
         """
         return self._snapshot_info
-
-    def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> Dict:
-        """
-        Calculate hashes of the specified signed metadata after serializing
-        it using the previously initialized serializer.
-        Hashes are computed for each specified algorithm.
-
-        Arguments:
-            md: Signed metadata
-            algorithms: A list of hash algorithms (e.g., 'sha256', 'sha512').
-        Return:
-            A dcitionary mapping algorithms and calculated hashes
-        """
-        hashes = {}
-        data = md.to_bytes(serializer=self.serializer)
-        for algo in algorithms:
-            digest_object = sslib_hash.digest(algo)
-            digest_object.update(data)
-
-            hashes[algo] = digest_object.hexdigest()
-        return hashes
-
-    def calculate_length(self, md: Metadata) -> int:
-        """
-        Calculate length of the specified signed metadata after serializing
-        it using the previously initialized serializer.
-
-        Arguments:
-            md: Signed metadata
-        Return:
-            Langth of the signed metadata
-        """
-        data = md.to_bytes(serializer=self.serializer)
-        return len(data)
-
-    def add_signers_to_cache(self, roles_signers: Dict):
-        for role, signers in roles_signers.items():
-            if self._role_obj(role):
-                self._load_role_signers(role, signers)
 
     def all_target_files(self) -> Set:
         """
@@ -362,6 +325,41 @@ class MetadataRepository(Repository):
             return Metadata.from_file(path, storage_backend=self.storage_backend)
         except StorageError:
             raise TAFError(f"Metadata file {path} does not exist")
+
+    def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> Dict:
+        """
+        Calculate hashes of the specified signed metadata after serializing
+        it using the previously initialized serializer.
+        Hashes are computed for each specified algorithm.
+
+        Arguments:
+            md: Signed metadata
+            algorithms: A list of hash algorithms (e.g., 'sha256', 'sha512').
+        Return:
+            A dcitionary mapping algorithms and calculated hashes
+        """
+        hashes = {}
+        data = md.to_bytes(serializer=self.serializer)
+        for algo in algorithms:
+            digest_object = sslib_hash.digest(algo)
+            digest_object.update(data)
+
+            hashes[algo] = digest_object.hexdigest()
+        return hashes
+
+    def calculate_length(self, md: Metadata) -> int:
+        """
+        Calculate length of the specified signed metadata after serializing
+        it using the previously initialized serializer.
+
+        Arguments:
+            md: Signed metadata
+        Return:
+            Langth of the signed metadata
+        """
+        data = md.to_bytes(serializer=self.serializer)
+        return len(data)
+
 
     def check_if_keys_loaded(self, role_name: str) -> bool:
         """

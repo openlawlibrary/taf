@@ -41,39 +41,6 @@ DEFAULT_PIN = "123456"
 DEFAULT_PUK = "12345678"
 EXPIRATION_INTERVAL = 36500
 
-_yks_data_dict: Dict = defaultdict(dict)
-
-
-def add_key_id_mapping(serial_num: str, keyid: str) -> None:
-    if "ids" not in _yks_data_dict:
-        _yks_data_dict["ids"] = defaultdict(dict)
-    if keyid not in _yks_data_dict["ids"]:
-        _yks_data_dict["ids"][keyid] = serial_num
-
-
-def add_key_pin(serial_num: str, pin: str) -> None:
-    _yks_data_dict[serial_num]["pin"] = pin
-
-
-def add_key_public_key(serial_num: str, public_key: Dict) -> None:
-    _yks_data_dict[serial_num]["public_key"] = public_key
-
-
-def get_key_pin(serial_num: int) -> Optional[str]:
-    if serial_num in _yks_data_dict:
-        return _yks_data_dict.get(serial_num, {}).get("pin")
-    return None
-
-
-def get_key_serial_by_id(keyid: str) -> Optional[str]:
-    return _yks_data_dict.get("ids", {}).get(keyid)
-
-
-def get_key_public_key(serial_num: str) -> Optional[Dict]:
-    if serial_num in _yks_data_dict:
-        return _yks_data_dict.get(serial_num, {}).get("public_key")
-    return None
-
 
 def raise_yubikey_err(msg: Optional[str] = None) -> Callable:
     """Decorator used to catch all errors raised by yubikey-manager and raise
@@ -301,7 +268,6 @@ def _read_and_check_yubikeys(
     taf_repo,
     registering_new_key,
     creating_new_key,
-    loaded_yubikeys,
     pin_confirm,
     pin_repeat,
     prompt_message,
@@ -322,16 +288,9 @@ def _read_and_check_yubikeys(
     # check if this key is already loaded as the provided role's key (we can use the same key
     # to sign different metadata)
     yubikeys = []
-    already_loaded_keys = []
     invalid_keys = []
     for serial_num in serials:
-        if (
-            loaded_yubikeys is not None
-            and serial_num in loaded_yubikeys
-            and role in loaded_yubikeys[serial_num]
-        ):
-            already_loaded_keys.append(serial_num)
-        else:
+        if not taf_repo.pin_manager.is_loaded(serial_num):
             # read the public key, unless a new key needs to be generated on the yubikey
             public_key = (
                 get_piv_public_key_tuf(serial=serial_num)
@@ -346,27 +305,23 @@ def _read_and_check_yubikeys(
                     # print(f"The inserted YubiKey is not a valid {role} key")
                     continue
 
-            if get_key_pin(serial_num) is None:
-                if creating_new_key:
-                    pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-                else:
-                    pin = get_and_validate_pin(
-                        key_name, pin_confirm, pin_repeat, serial_num
-                    )
-                add_key_pin(serial_num, pin)
-
-            if get_key_public_key(serial_num) is None and public_key is not None:
-                add_key_public_key(serial_num, public_key)
+            if creating_new_key:
+                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+            else:
+                pin = get_and_validate_pin(
+                    key_name, pin_confirm, pin_repeat, serial_num
+                )
+            taf_repo.pin_manager.add_pin(serial_num, pin)
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
             # but the key name still needs to be added to the key id mapping dictionary
-            add_key_id_mapping(serial_num, key_name)
+            taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key)
 
-            if role is not None:
-                if loaded_yubikeys is None:
-                    loaded_yubikeys = {serial_num: [role]}
-                else:
-                    loaded_yubikeys.setdefault(serial_num, []).append(role)
+            # if role is not None:
+            #     if loaded_yubikeys is None:
+            #         loaded_yubikeys = {serial_num: [role]}
+            #     else:
+            #         loaded_yubikeys.setdefault(serial_num, []).append(role)
 
             yubikeys.append((public_key, serial_num))
 
@@ -522,7 +477,6 @@ def yubikey_prompt(
     taf_repo=None,
     registering_new_key=False,
     creating_new_key=False,
-    loaded_yubikeys=None,
     pin_confirm=True,
     pin_repeat=True,
     prompt_message=None,
@@ -547,7 +501,6 @@ def yubikey_prompt(
             taf_repo,
             registering_new_key,
             creating_new_key,
-            loaded_yubikeys,
             pin_confirm,
             pin_repeat,
             prompt_message,
@@ -560,7 +513,7 @@ def yubikey_prompt(
         retry_counter += 1
 
 
-def yk_secrets_handler(prompt, serial_num):
+def yk_secrets_handler(prompt, pin_manager, serial_num):
     if prompt == "pin":
-        return get_key_pin(serial_num)
+        return pin_manager.get_pin(serial_num)
     raise YubikeyError(f"Invalid prompt {prompt}")

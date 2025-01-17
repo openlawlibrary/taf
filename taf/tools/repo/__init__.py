@@ -10,7 +10,7 @@ from taf.log import initialize_logger_handlers, taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.updater.types.update import UpdateType
 from taf.updater.updater import OperationType, UpdateConfig, clone_repository, update_repository, validate_repository
-from taf.yubikey.pin_manager import pin_managed
+from taf.yubikey.yubikey_manager import pin_managed
 
 
 def common_update_options(f):
