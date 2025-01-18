@@ -286,6 +286,7 @@ def _read_and_check_yubikeys(
     pin_confirm,
     pin_repeat,
     prompt_message,
+    require_single_yubikey,
     retrying,
 ):
 
@@ -293,12 +294,19 @@ def _read_and_check_yubikeys(
         if prompt_message is None:
             prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
         getpass(prompt_message)
+
     # make sure that YubiKey is inserted
     try:
         serials = get_serial_num()
+        if require_single_yubikey:
+            not_loaded = [serial for serial in serials if not taf_repo.yubikey_store.is_loaded(serial)]
+            if len(not_loaded) > 1:
+                print("\nPlease insert only one YubiKey\n")
+                return None
+
     except Exception:
         taf_logger.log("NOTICE", "No YubiKeys inserted")
-        return [False, None, None]
+        return None
 
     # check if this key is already loaded as the provided role's key (we can use the same key
     # to sign different metadata)
@@ -498,14 +506,6 @@ def yubikey_prompt(
     hide_already_loaded_message=False,
     require_single_yubikey=True,
 ):
-    if require_single_yubikey:
-        while True:
-            serials = get_serial_num()
-            if len(serials) == 1:
-                break
-            else:
-                prompt_message = "Please insert only one YubiKey and press ENTER"
-                getpass(prompt_message)
 
     retry_counter = 0
     while True:
@@ -518,6 +518,7 @@ def yubikey_prompt(
             pin_confirm,
             pin_repeat,
             prompt_message,
+            require_single_yubikey=require_single_yubikey,
             retrying=retry_counter > 0,
         )
         if not yubikeys and not retry_on_failure:
