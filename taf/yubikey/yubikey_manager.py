@@ -9,6 +9,9 @@ class YubiKeyStore:
         # Initializes the dictionary to store YubiKey data
         self._yubikeys_data = defaultdict(dict)
 
+    def is_loaded(self, serial_number):
+        return any(data["serial"] == serial_number for data in self._yubikeys_data.values())
+
     def is_key_name_loaded(self, key_name: str) -> bool:
         """Check if the key name is already loaded."""
         return key_name in self._yubikeys_data
@@ -50,8 +53,6 @@ class PinManager():
     def get_pin(self, serial_number):
         return self._pins.get(serial_number)
 
-    def is_loaded(self, serial_number):
-        return self.get_pin(serial_number) is not None
 
 
 @contextlib.contextmanager

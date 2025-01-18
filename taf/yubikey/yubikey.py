@@ -224,6 +224,21 @@ def export_yk_certificate(certs_dir, key: SSlibKey, serial: str):
         f.write(export_piv_x509(serial=serial))
 
 
+def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True, serial=None):
+    valid_pin = False
+    while not valid_pin:
+        pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        valid_pin, retries = is_valid_pin(pin, serial)
+        if not valid_pin and not retries:
+            raise InvalidPINError("No retries left. YubiKey locked.")
+        if not valid_pin:
+            if not click.confirm(
+                f"Incorrect PIN. Do you want to try again? {retries} retires left."
+            ):
+                raise InvalidPINError("PIN input cancelled")
+    return pin
+
+
 @raise_yubikey_err("Cannot get public key in TUF format.")
 def get_piv_public_key_tuf(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None
@@ -290,7 +305,7 @@ def _read_and_check_yubikeys(
     yubikeys = []
     invalid_keys = []
     for serial_num in serials:
-        if not taf_repo.pin_manager.is_loaded(serial_num):
+        if not taf_repo.yubikey_store.is_loaded(serial_num):
             # read the public key, unless a new key needs to be generated on the yubikey
             public_key = (
                 get_piv_public_key_tuf(serial=serial_num)
@@ -456,20 +471,19 @@ def setup_new_yubikey(
     return key
 
 
-def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True, serial=None):
-    valid_pin = False
-    while not valid_pin:
-        pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-        valid_pin, retries = is_valid_pin(pin, serial)
-        if not valid_pin and not retries:
-            raise InvalidPINError("No retries left. YubiKey locked.")
-        if not valid_pin:
-            if not click.confirm(
-                f"Incorrect PIN. Do you want to try again? {retries} retires left."
-            ):
-                raise InvalidPINError("PIN input cancelled")
-    return pin
+def verify_yk_inserted(serial_num, key_name):
 
+    def _check_if_yk_inserted():
+        try:
+            serials = get_serial_num()
+        except Exception:
+            return False
+
+        return serial_num in serials
+
+    while not _check_if_yk_inserted():
+        prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
+        getpass(prompt_message)
 
 def yubikey_prompt(
     key_name,

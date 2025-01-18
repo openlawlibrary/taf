@@ -154,7 +154,6 @@ def load_sorted_keys_of_new_roles(
             for signer in keystore_signers:
                 signers.setdefault(role.name, []).append(signer)
 
-            # TODO add to repository...
             keys_name_mappings.update(key_name_mapping)
 
         for role in yubikey_roles:
@@ -220,6 +219,7 @@ def _load_and_append_yubikeys(
                 public_key,
                 serial_num,
                 partial(yk.yk_secrets_handler, pin_manager=taf_repo.pin_manager, serial_num=serial_num),
+                key_name=key_name,
             )
             signers_yubikeys.append(signer)
             loaded_keyids.append(public_key.keyid)
@@ -421,6 +421,7 @@ def _setup_yubikey_roles_keys(
                 public_key,
                 serial_num,
                   partial(yk.yk_secrets_handler, pin_manager=auth_repo.pin_manager, serial_num=serial_num),
+                  key_name=key_name,
             )
             signers.append(signer)
         keyid_name_mapping[_get_legacy_keyid(public_key)] = key_name
@@ -443,7 +444,8 @@ def _setup_yubikey_roles_keys(
                     loaded_keys.append(key_name)
                     signer = YkSigner(
                         public_key,
-                        partial(yk.yk_secrets_handler, pin_manager=auth_repo.pin_manager, serial_num=serial_num)
+                        partial(yk.yk_secrets_handler, pin_manager=auth_repo.pin_manager, serial_num=serial_num),
+                        key_name=key_name
                     )
                     signers.append(signer)
                 if loaded_keys_num == role.threshold:

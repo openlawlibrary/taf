@@ -145,6 +145,7 @@ class MetadataRepository(Repository):
         self._metadata_to_keep_open: Set[str] = set()
         self.pin_manager = pin_manager
         self.yubikey_store = YubiKeyStore()
+        self.keys_name_mappings: Dict[str, str] = {}
 
     @property
     def metadata_path(self) -> Path:
@@ -504,7 +505,7 @@ class MetadataRepository(Repository):
         roles_keys_data: RolesKeysData,
         signers: dict,
         additional_verification_keys: Optional[dict] = None,
-        key_name_mappings: Optional[Dict[str, str]] = None,
+        keys_name_mappings: Optional[Dict[str, str]] = None,
     ) -> None:
         """Create a new metadata repository on disk.
 
@@ -523,8 +524,8 @@ class MetadataRepository(Repository):
                 present at the time of the repository's creation
             key_name_mappings: A dictionary whose keys are key ids and values are custom names of those keys
         """
-        # TODO add verification keys
-        # support yubikeys
+        if keys_name_mappings:
+            self.keys_name_mappings = keys_name_mappings
         self.metadata_path.mkdir(parents=True)
         self.signer_cache = defaultdict(dict)
 
@@ -557,8 +558,8 @@ class MetadataRepository(Repository):
                 self.signer_cache[role.name][key_id] = signer
             for public_key in public_keys[role.name].values():
                 key_id = _get_legacy_keyid(public_key)
-                if key_id in key_name_mappings:
-                    public_key.unrecognized_fields["name"] = key_name_mappings[key_id]
+                if key_id in self.keys_name_mappings:
+                    public_key.unrecognized_fields["name"] = self.keys_name_mappings[key_id]
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
