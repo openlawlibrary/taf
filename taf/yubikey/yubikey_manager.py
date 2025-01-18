@@ -1,6 +1,6 @@
 from collections import defaultdict
 import contextlib
-from typing import Any, Dict, Optional, Tuple
+from typing import Tuple
 from taf.tuf.keys import SSlibKey
 
 
@@ -10,18 +10,22 @@ class YubiKeyStore:
         self._yubikeys_data = defaultdict(dict)
 
     def is_loaded(self, serial_number):
-        return any(data["serial"] == serial_number for data in self._yubikeys_data.values())
+        return any(
+            data["serial"] == serial_number for data in self._yubikeys_data.values()
+        )
 
     def is_key_name_loaded(self, key_name: str) -> bool:
         """Check if the key name is already loaded."""
         return key_name in self._yubikeys_data
 
-    def add_key_data(self, key_name: str, serial_num: str, public_key: SSlibKey) -> None:
+    def add_key_data(
+        self, key_name: str, serial_num: str, public_key: SSlibKey
+    ) -> None:
         """Add data associated with a YubiKey."""
         if not self.is_key_name_loaded(key_name):
             self._yubikeys_data[key_name] = {
                 "serial": serial_num,
-                "public_key": public_key
+                "public_key": public_key,
             }
 
     def get_key_data(self, key_name: str) -> Tuple[str, SSlibKey]:
@@ -37,8 +41,7 @@ class YubiKeyStore:
         return False
 
 
-class PinManager():
-
+class PinManager:
     def __init__(self):
         self._pins = {}
 
@@ -54,7 +57,6 @@ class PinManager():
         return self._pins.get(serial_number)
 
 
-
 @contextlib.contextmanager
 def manage_pins():
     pin_manager = PinManager()
@@ -67,6 +69,7 @@ def manage_pins():
 def pin_managed(func):
     def wrapper(*args, **kwargs):
         with manage_pins() as pin_manager:
-            kwargs['pin_manager'] = pin_manager
+            kwargs["pin_manager"] = pin_manager
             return func(*args, **kwargs)
+
     return wrapper

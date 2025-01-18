@@ -361,7 +361,6 @@ class MetadataRepository(Repository):
         data = md.to_bytes(serializer=self.serializer)
         return len(data)
 
-
     def check_if_keys_loaded(self, role_name: str) -> bool:
         """
         Check if at least a threshold of signers of the specified role
@@ -536,19 +535,7 @@ class MetadataRepository(Repository):
         sn = Snapshot()
         sn.meta["root.json"] = MetaFile(1)
 
-        public_keys = {
-            role_name: {
-                _get_legacy_keyid(signer.public_key): signer.public_key
-                for signer in role_signers
-            }
-            for role_name, role_signers in signers.items()
-        }
-        if additional_verification_keys:
-            for role_name, roles_public_keys in additional_verification_keys.items():
-                for public_key in roles_public_keys:
-                    key_id = _get_legacy_keyid(public_key)
-                    if key_id not in public_keys[role_name]:
-                        public_keys[role_name][key_id] = public_key
+        public_keys = self._process_keys(signers, additional_verification_keys)
 
         for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
             if signers.get(role.name) is None:
@@ -559,7 +546,9 @@ class MetadataRepository(Repository):
             for public_key in public_keys[role.name].values():
                 key_id = _get_legacy_keyid(public_key)
                 if key_id in self.keys_name_mappings:
-                    public_key.unrecognized_fields["name"] = self.keys_name_mappings[key_id]
+                    public_key.unrecognized_fields["name"] = self.keys_name_mappings[
+                        key_id
+                    ]
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
@@ -606,11 +595,25 @@ class MetadataRepository(Repository):
                 signed.version = 0  # `close` will bump to initial valid verison 1
                 self.close(name, Metadata(signed))
 
+    def _process_keys(self, signers, additional_verification_keys):
+        public_keys = {}
+        for role_name, role_signers in signers.items():
+            public_keys[role_name] = {}
+            for signer in role_signers:
+                key_id = self._get_legacy_keyid(signer.public_key)
+                public_keys[role_name][key_id] = signer.public_key
+
+        if additional_verification_keys:
+            for role_name, keys in additional_verification_keys.items():
+                for public_key in keys:
+                    key_id = self._get_legacy_keyid(public_key)
+                    public_keys[role_name][key_id] = public_key
+        return public_keys
+
     def create_delegated_roles(
         self,
         roles_data: List[TargetsRole],
         signers: Dict[str, List[CryptoSigner]],
-        key_name_mappings: Optional[Dict[str, str]] = None,
     ) -> Tuple[List, List]:
         """
         Create a new delegated roles, signes them using the provided signers and

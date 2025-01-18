@@ -1,10 +1,9 @@
 import datetime
 from contextlib import contextmanager
 from functools import wraps
-from collections import defaultdict
 from getpass import getpass
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 import click
 from cryptography import x509
@@ -15,6 +14,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
 from taf.tuf.keys import get_sslib_key_from_value
+from taf.yubikey.yubikey_manager import PinManager
 from ykman.device import list_all_devices
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
@@ -275,8 +275,6 @@ def list_connected_yubikeys():
             print(f"  Form Factor: {info.form_factor}")
 
 
-# TODO
-# need to pass in multiple key names
 def _read_and_check_yubikeys(
     key_name,
     role,
@@ -299,7 +297,11 @@ def _read_and_check_yubikeys(
     try:
         serials = get_serial_num()
         if require_single_yubikey:
-            not_loaded = [serial for serial in serials if not taf_repo.yubikey_store.is_loaded(serial)]
+            not_loaded = [
+                serial
+                for serial in serials
+                if not taf_repo.yubikey_store.is_loaded(serial)
+            ]
             if len(not_loaded) > 1:
                 print("\nPlease insert only one YubiKey\n")
                 return None
@@ -340,15 +342,8 @@ def _read_and_check_yubikeys(
             # but the key name still needs to be added to the key id mapping dictionary
             taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key)
 
-            # if role is not None:
-            #     if loaded_yubikeys is None:
-            #         loaded_yubikeys = {serial_num: [role]}
-            #     else:
-            #         loaded_yubikeys.setdefault(serial_num, []).append(role)
-
             yubikeys.append((public_key, serial_num))
 
-            # TODO error messages
     return yubikeys
 
 
@@ -466,9 +461,12 @@ def setup(
 
 
 def setup_new_yubikey(
-    serial_num, scheme=DEFAULT_RSA_SIGNATURE_SCHEME, key_size=2048
+    pin_manager: PinManager,
+    serial_num: str,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    key_size: Optional[int] = 2048,
 ) -> SSlibKey:
-    pin = get_key_pin(serial_num)
+    pin = pin_manager.get_pin(serial_num)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = setup(
@@ -480,7 +478,6 @@ def setup_new_yubikey(
 
 
 def verify_yk_inserted(serial_num, key_name):
-
     def _check_if_yk_inserted():
         try:
             serials = get_serial_num()
@@ -492,6 +489,7 @@ def verify_yk_inserted(serial_num, key_name):
     while not _check_if_yk_inserted():
         prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
         getpass(prompt_message)
+
 
 def yubikey_prompt(
     key_name,

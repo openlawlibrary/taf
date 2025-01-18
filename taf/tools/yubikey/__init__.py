@@ -10,7 +10,7 @@ from taf.api.yubikey import (
 from taf.exceptions import YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
-from taf.yubikey import list_connected_yubikeys
+from taf.yubikey.yubikey import list_connected_yubikeys
 
 
 def check_pin_command():

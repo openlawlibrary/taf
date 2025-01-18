@@ -1,4 +1,3 @@
-from collections import defaultdict
 from functools import partial
 from logging import INFO
 from typing import Dict, List, Optional, Tuple, Union
@@ -218,7 +217,11 @@ def _load_and_append_yubikeys(
             signer = YkSigner(
                 public_key,
                 serial_num,
-                partial(yk.yk_secrets_handler, pin_manager=taf_repo.pin_manager, serial_num=serial_num),
+                partial(
+                    yk.yk_secrets_handler,
+                    pin_manager=taf_repo.pin_manager,
+                    serial_num=serial_num,
+                ),
                 key_name=key_name,
             )
             signers_yubikeys.append(signer)
@@ -420,8 +423,12 @@ def _setup_yubikey_roles_keys(
             signer = YkSigner(
                 public_key,
                 serial_num,
-                  partial(yk.yk_secrets_handler, pin_manager=auth_repo.pin_manager, serial_num=serial_num),
-                  key_name=key_name,
+                partial(
+                    yk.yk_secrets_handler,
+                    pin_manager=auth_repo.pin_manager,
+                    serial_num=serial_num,
+                ),
+                key_name=key_name,
             )
             signers.append(signer)
         keyid_name_mapping[_get_legacy_keyid(public_key)] = key_name
@@ -437,15 +444,22 @@ def _setup_yubikey_roles_keys(
                 ):
                     continue
                 serial_num = _load_and_verify_yubikey(
-                    yubikeys, role.name, key_name, public_key
+                    role.name,
+                    key_name,
+                    public_key,
+                    taf_repo=auth_repo,
                 )
                 if serial_num:
                     loaded_keys_num += 1
                     loaded_keys.append(key_name)
                     signer = YkSigner(
                         public_key,
-                        partial(yk.yk_secrets_handler, pin_manager=auth_repo.pin_manager, serial_num=serial_num),
-                        key_name=key_name
+                        partial(
+                            yk.yk_secrets_handler,
+                            pin_manager=auth_repo.pin_manager,
+                            serial_num=serial_num,
+                        ),
+                        key_name=key_name,
                     )
                     signers.append(signer)
                 if loaded_keys_num == role.threshold:
@@ -572,7 +586,9 @@ def _setup_yubikey(
                 print("Key already loaded. Please insert a different YubiKey")
             else:
                 if not use_existing:
-                    key = yk.setup_new_yubikey(serial_num, scheme, key_size=key_size)
+                    key = yk.setup_new_yubikey(
+                        auth_repo.pin_manager, serial_num, scheme, key_size=key_size
+                    )
 
                 if certs_dir is not None:
                     yk.export_yk_certificate(certs_dir, key, serial=serial_num)
@@ -580,7 +596,10 @@ def _setup_yubikey(
 
 
 def _load_and_verify_yubikey(
-    yubikeys: Optional[Dict], role_name: str, key_name: str, public_key
+    role_name: str,
+    key_name: str,
+    public_key,
+    taf_repo: TUFRepository,
 ) -> Optional[str]:
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
         return None
@@ -588,10 +607,9 @@ def _load_and_verify_yubikey(
         yk_public_key, _ = yk.yubikey_prompt(
             key_name,
             role_name,
-            taf_repo=None,
+            taf_repo=taf_repo,
             registering_new_key=True,
             creating_new_key=False,
-            loaded_yubikeys=yubikeys,
             pin_confirm=True,
             pin_repeat=True,
         )

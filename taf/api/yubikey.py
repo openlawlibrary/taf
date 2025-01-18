@@ -12,7 +12,8 @@ from taf.exceptions import TAFError
 from taf.log import taf_logger
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.tuf.repository import MAIN_ROLES
-import taf.yubikey as yk
+import taf.yubikey.yubikey as yk
+from taf.yubikey.yubikey_manager import PinManager
 
 
 @log_on_start(DEBUG, "Exporting public pem from YubiKey", logger=taf_logger)
@@ -129,7 +130,7 @@ def get_yk_roles(path: str) -> Dict:
     reraise=True,
 )
 def setup_signing_yubikey(
-    certs_dir: Optional[str] = None, key_size: int = 2048
+    pin_manager: PinManager, certs_dir: Optional[str] = None, key_size: int = 2048
 ) -> None:
     """
     Delete everything from the inserted YubiKey, generate a new key and copy it to the YubiKey.
@@ -155,7 +156,7 @@ def setup_signing_yubikey(
         pin_repeat=True,
         prompt_message="Please insert the new Yubikey and press ENTER",
     )
-    key = yk.setup_new_yubikey(serial_num, key_size=key_size)
+    key = yk.setup_new_yubikey(pin_manager, serial_num, key_size=key_size)
     yk.export_yk_certificate(certs_dir, key)
 
 
