@@ -197,21 +197,23 @@ def _load_and_append_yubikeys(
     role,
     retry_on_failure,
     hide_already_loaded_message,
-    loaded_yubikeys,
     signers_yubikeys,
     threshold,
     initial_num_of_signatures,
     signing_keys_num,
 ):
 
-    key_names = [count + 1 for count in range(initial_num_of_signatures, signing_keys_num)]
+    key_names = [
+        count + 1 for count in range(initial_num_of_signatures, signing_keys_num)
+    ]
 
-    prompt_message = f"Please insert {role} YubiKey(s) and press ENTER.\nThreshold is {threshold}"
+    prompt_message = (
+        f"Please insert {role} YubiKey(s) and press ENTER.\nThreshold is {threshold}"
+    )
     inserted_yubikeys = yk.yubikey_prompt(
-        key_name=key_names,
+        key_names=key_names,
         role=role,
         taf_repo=taf_repo,
-        loaded_yubikeys=loaded_yubikeys,
         prompt_message=prompt_message,
         retry_on_failure=retry_on_failure,
         hide_already_loaded_message=hide_already_loaded_message,
@@ -308,7 +310,14 @@ def load_signers(
         # that can be used to sign the current role, but either read the name from the
         # metadata, or assign a role + counter name
         num_of_loaded_keys = _load_and_append_yubikeys(
-            taf_repo, role, False, True, loaded_yubikeys, signers_yubikeys,  threshold,  num_of_signatures, signing_keys_num
+            taf_repo,
+            role,
+            False,
+            True,
+            signers_yubikeys,
+            threshold,
+            num_of_signatures,
+            signing_keys_num,
         )
 
         if num_of_loaded_keys:
@@ -321,10 +330,17 @@ def load_signers(
             prompt_for_yubikey = False
 
         if use_yubikey_for_signing_confirmed:
-            if _load_and_append_yubikeys(
-                taf_repo, key_name, role, True, False, loaded_yubikeys, signers_yubikeys
-            ):
-                num_of_signatures += 1
+            num_of_loaded_keys = _load_and_append_yubikeys(
+                taf_repo,
+                role,
+                True,
+                False,
+                signers_yubikeys,
+                threshold,
+                num_of_signatures,
+                signing_keys_num,
+            )
+            num_of_signatures += num_of_loaded_keys
             continue
 
         if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):

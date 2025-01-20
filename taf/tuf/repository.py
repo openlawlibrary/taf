@@ -256,6 +256,11 @@ class MetadataRepository(Repository):
 
         return added_keys, already_added_keys, invalid_keys
 
+    def add_signers_to_cache(self, roles_signers: Dict):
+        for role, signers in roles_signers.items():
+            if self._role_obj(role):
+                self._load_role_signers(role, signers)
+
     def add_target_files_to_role(self, added_data: Dict[str, Dict]) -> None:
         """Add target files to top-level targets metadata.
 
@@ -606,13 +611,13 @@ class MetadataRepository(Repository):
         for role_name, role_signers in signers.items():
             public_keys[role_name] = {}
             for signer in role_signers:
-                key_id = self._get_legacy_keyid(signer.public_key)
+                key_id = _get_legacy_keyid(signer.public_key)
                 public_keys[role_name][key_id] = signer.public_key
 
         if additional_verification_keys:
             for role_name, keys in additional_verification_keys.items():
                 for public_key in keys:
-                    key_id = self._get_legacy_keyid(public_key)
+                    key_id = _get_legacy_keyid(public_key)
                     public_keys[role_name][key_id] = public_key
         return public_keys
 
@@ -1374,7 +1379,6 @@ class MetadataRepository(Repository):
         )
         return targets_role
 
-
     def load_key_names(self):
         # TODO target roles need to be handled too
         root_metadata = self.signed_obj("root")
@@ -1385,7 +1389,6 @@ class MetadataRepository(Repository):
             if name_data is not None and "name" in name_data:
                 name_mapping[key_id] = name_data["name"]
         return name_mapping
-
 
     def _modify_targets_role(
         self,

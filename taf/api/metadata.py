@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from logging import ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_error
+from taf.yubikey.yubikey_manager import PinManager
 from tuf.api.metadata import Snapshot, Timestamp
 
 from taf.api.utils._git import check_if_clean
@@ -88,6 +89,7 @@ def print_expiration_dates(
 @check_if_clean
 def update_metadata_expiration_date(
     path: str,
+    pin_manager: PinManager,
     roles: List[str],
     interval: Optional[int] = None,
     keystore: Optional[str] = None,
@@ -126,7 +128,7 @@ def update_metadata_expiration_date(
         None
     """
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     if start_date is None:
         start_date = datetime.now()
 
