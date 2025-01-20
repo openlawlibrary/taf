@@ -150,7 +150,7 @@ def setup_signing_yubikey(
     ):
         return
     _, serial_num = yk.yubikey_prompt(
-        "new Yubikey",
+        ["new Yubikey"],
         creating_new_key=True,
         pin_confirm=True,
         pin_repeat=True,

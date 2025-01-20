@@ -33,6 +33,11 @@ class YubiKeyStore:
         key_data = self._yubikeys_data.get(key_name)
         return key_data["public_key"], key_data["serial"]
 
+    def get_name_by_serial(self, serial_num: str) -> str:
+        for key_name, data in self._yubikeys_data.items():
+            if data["serial"] == serial_num:
+                return key_name
+
     def remove_key_data(self, key_name: str) -> bool:
         """Remove data associated with a given YubiKey name if it exists."""
         if self.is_key_name_loaded(key_name):

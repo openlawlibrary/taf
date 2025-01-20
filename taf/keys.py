@@ -194,18 +194,25 @@ def _load_signer_from_keystore(
 
 def _load_and_append_yubikeys(
     taf_repo,
-    key_name,
     role,
     retry_on_failure,
     hide_already_loaded_message,
     loaded_yubikeys,
     signers_yubikeys,
+    threshold,
+    initial_num_of_signatures,
+    signing_keys_num,
 ):
+
+    key_names = [count + 1 for count in range(initial_num_of_signatures, signing_keys_num)]
+
+    prompt_message = f"Please insert {role} YubiKey(s) and press ENTER.\nThreshold is {threshold}"
     inserted_yubikeys = yk.yubikey_prompt(
-        key_name,
-        role,
-        taf_repo,
+        key_name=key_names,
+        role=role,
+        taf_repo=taf_repo,
         loaded_yubikeys=loaded_yubikeys,
+        prompt_message=prompt_message,
         retry_on_failure=retry_on_failure,
         hide_already_loaded_message=hide_already_loaded_message,
     )
@@ -214,6 +221,7 @@ def _load_and_append_yubikeys(
     num_of_loaded_keys = 0
     for public_key, serial_num in inserted_yubikeys:
         if public_key is not None and public_key.keyid not in loaded_keyids:
+            key_name = taf_repo.yubikey_store.get_name_by_serial(serial_num)
             signer = YkSigner(
                 public_key,
                 serial_num,
@@ -228,6 +236,7 @@ def _load_and_append_yubikeys(
             loaded_keyids.append(public_key.keyid)
             num_of_loaded_keys += 1
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
+
     return num_of_loaded_keys
 
 
@@ -294,10 +303,12 @@ def load_signers(
                 # loading from keystore files, couldn't load from all of them, but loaded enough
                 break
 
-        # try to load from the inserted YubiKey, without asking the user to insert it
-        key_name = get_key_name(role, num_of_signatures, signing_keys_num)
+        # try to load from the inserted YubiKeys, without asking the user to insert it
+        # in case of yubikeys, instead of asking for a particular key, ask to insert all
+        # that can be used to sign the current role, but either read the name from the
+        # metadata, or assign a role + counter name
         num_of_loaded_keys = _load_and_append_yubikeys(
-            taf_repo, key_name, role, False, True, loaded_yubikeys, signers_yubikeys
+            taf_repo, role, False, True, loaded_yubikeys, signers_yubikeys,  threshold,  num_of_signatures, signing_keys_num
         )
 
         if num_of_loaded_keys:
@@ -571,14 +582,13 @@ def _setup_yubikey(
                     raise YubikeyError("Yubikey setup canceled")
                 continue
         yubikeys = yk.yubikey_prompt(
-            key_name,
+            [key_name],
             role_name,
             taf_repo=auth_repo,
             registering_new_key=True,
             creating_new_key=not use_existing,
             pin_confirm=True,
             pin_repeat=True,
-            require_single_yubikey=True,
         )
         if yubikeys is not None:
             key, serial_num = yubikeys[0]
@@ -605,7 +615,7 @@ def _load_and_verify_yubikey(
         return None
     while True:
         yk_public_key, _ = yk.yubikey_prompt(
-            key_name,
+            [key_name],
             role_name,
             taf_repo=taf_repo,
             registering_new_key=True,

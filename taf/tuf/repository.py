@@ -145,7 +145,13 @@ class MetadataRepository(Repository):
         self._metadata_to_keep_open: Set[str] = set()
         self.pin_manager = pin_manager
         self.yubikey_store = YubiKeyStore()
-        self.keys_name_mappings: Dict[str, str] = {}
+        self._keys_name_mappings: Optional[Dict[str, str]] = None
+
+    @property
+    def keys_name_mappings(self):
+        if self._keys_name_mappings is None:
+            self._keys_name_mappings = self.load_key_names()
+        return self._keys_name_mappings
 
     @property
     def metadata_path(self) -> Path:
@@ -524,7 +530,7 @@ class MetadataRepository(Repository):
             key_name_mappings: A dictionary whose keys are key ids and values are custom names of those keys
         """
         if keys_name_mappings:
-            self.keys_name_mappings = keys_name_mappings
+            self._keys_name_mappings = keys_name_mappings
         self.metadata_path.mkdir(parents=True)
         self.signer_cache = defaultdict(dict)
 
@@ -1367,6 +1373,19 @@ class MetadataRepository(Repository):
             target_files, removed_paths, targets_role
         )
         return targets_role
+
+
+    def load_key_names(self):
+        # TODO target roles need to be handled too
+        root_metadata = self.signed_obj("root")
+        name_mapping = {}
+        keys = root_metadata.keys
+        for key_id, key_obj in keys.items():
+            name_data = key_obj.unrecognized_fields
+            if name_data is not None and "name" in name_data:
+                name_mapping[key_id] = name_data["name"]
+        return name_mapping
+
 
     def _modify_targets_role(
         self,

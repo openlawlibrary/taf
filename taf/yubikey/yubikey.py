@@ -275,18 +275,18 @@ def list_connected_yubikeys():
             print(f"  Form Factor: {info.form_factor}")
 
 
-def _read_and_check_yubikeys(
-    key_name,
+def _read_and_check_single_yubikey(
     role,
+    key_name,
     taf_repo,
     registering_new_key,
     creating_new_key,
     pin_confirm,
     pin_repeat,
     prompt_message,
-    require_single_yubikey,
     retrying,
 ):
+
 
     if retrying:
         if prompt_message is None:
@@ -296,16 +296,71 @@ def _read_and_check_yubikeys(
     # make sure that YubiKey is inserted
     try:
         serials = get_serial_num()
-        if require_single_yubikey:
-            not_loaded = [
-                serial
-                for serial in serials
-                if not taf_repo.yubikey_store.is_loaded(serial)
-            ]
-            if len(not_loaded) > 1:
-                print("\nPlease insert only one YubiKey\n")
-                return None
+        not_loaded = [
+            serial
+            for serial in serials
+            if not taf_repo.yubikey_store.is_loaded(serial)
+        ]
+        if len(not_loaded) > 1:
+            print("\nPlease insert only one not previously inserted YubiKey\n")
+            return None
+        # no need to try loading keys that we know were previously loaded
+        serials = not_loaded
 
+    except Exception:
+        taf_logger.log("NOTICE", "No YubiKeys inserted")
+        return None
+
+    serial_num = serials[0]
+    # check if this key is already loaded as the provided role's key (we can use the same key
+    # to sign different metadata)
+    yubikeys = []
+    # read the public key, unless a new key needs to be generated on the yubikey
+    public_key = (
+        get_piv_public_key_tuf(serial=serial_num)
+        if not creating_new_key
+        else None
+    )
+    # check if this yubikey is can be used for signing the provided role's metadata
+    # if the key was already registered as that role's key
+    if not registering_new_key and role is not None and taf_repo is not None:
+        if not taf_repo.is_valid_metadata_yubikey(role, public_key):
+            return None
+
+    if taf_repo.pin_manager.get_pin(serial_num) is None:
+        if creating_new_key:
+            pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        else:
+            pin = get_and_validate_pin(
+                key_name, pin_confirm, pin_repeat, serial_num
+            )
+        taf_repo.pin_manager.add_pin(serial_num, pin)
+
+    # when reusing the same yubikey, public key will already be in the public keys dictionary
+    # but the key name still needs to be added to the key id mapping dictionary
+    taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key)
+    yubikeys.append((public_key, serial_num))
+
+    return yubikeys
+
+def _read_and_check_yubikeys(
+    role,
+    taf_repo,
+    pin_confirm,
+    pin_repeat,
+    prompt_message,
+    key_names,
+    retrying,
+):
+
+    if retrying:
+        if prompt_message is None:
+            prompt_message = f"Please insert {role} YubiKey(s) and press ENTER"
+        getpass(prompt_message)
+
+    # make sure that YubiKey is inserted
+    try:
+        serials = get_serial_num()
     except Exception:
         taf_logger.log("NOTICE", "No YubiKeys inserted")
         return None
@@ -314,34 +369,32 @@ def _read_and_check_yubikeys(
     # to sign different metadata)
     yubikeys = []
     invalid_keys = []
-    for serial_num in serials:
+    for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded(serial_num):
             # read the public key, unless a new key needs to be generated on the yubikey
-            public_key = (
-                get_piv_public_key_tuf(serial=serial_num)
-                if not creating_new_key
-                else None
-            )
+            public_key = get_piv_public_key_tuf(serial=serial_num)
             # check if this yubikey is can be used for signing the provided role's metadata
             # if the key was already registered as that role's key
-            if not registering_new_key and role is not None and taf_repo is not None:
+            if  role is not None and taf_repo is not None:
                 if not taf_repo.is_valid_metadata_yubikey(role, public_key):
                     invalid_keys.append(serial_num)
                     # print(f"The inserted YubiKey is not a valid {role} key")
                     continue
 
-            if creating_new_key:
-                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+            if taf_repo.keys_name_mappings:
+                key_name = taf_repo.keys_name_mappings.get(public_key.keyid)
             else:
+                key_name = key_names[index]
+
+            if taf_repo.pin_manager.get_pin(serial_num) is None:
                 pin = get_and_validate_pin(
                     key_name, pin_confirm, pin_repeat, serial_num
                 )
-            taf_repo.pin_manager.add_pin(serial_num, pin)
+                taf_repo.pin_manager.add_pin(serial_num, pin)
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
             # but the key name still needs to be added to the key id mapping dictionary
             taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key)
-
             yubikeys.append((public_key, serial_num))
 
     return yubikeys
@@ -492,7 +545,7 @@ def verify_yk_inserted(serial_num, key_name):
 
 
 def yubikey_prompt(
-    key_name,
+    key_names,
     role=None,
     taf_repo=None,
     registering_new_key=False,
@@ -502,23 +555,34 @@ def yubikey_prompt(
     prompt_message=None,
     retry_on_failure=True,
     hide_already_loaded_message=False,
-    require_single_yubikey=True,
 ):
 
     retry_counter = 0
     while True:
-        yubikeys = _read_and_check_yubikeys(
-            key_name,
-            role,
-            taf_repo,
-            registering_new_key,
-            creating_new_key,
-            pin_confirm,
-            pin_repeat,
-            prompt_message,
-            require_single_yubikey=require_single_yubikey,
-            retrying=retry_counter > 0,
-        )
+        retrying=retry_counter > 0
+        if registering_new_key or creating_new_key:
+            yubikeys = _read_and_check_single_yubikey(
+                role,
+                key_names[0],
+                taf_repo,
+                registering_new_key,
+                creating_new_key,
+                pin_confirm,
+                pin_repeat,
+                prompt_message,
+                retrying,
+            )
+        else:
+            yubikeys = _read_and_check_yubikeys(
+                role,
+                taf_repo,
+                pin_confirm,
+                pin_repeat,
+                prompt_message,
+                key_names,
+                retrying,
+            )
+
         if not yubikeys and not retry_on_failure:
             return [(None, None)]
         if yubikeys:
