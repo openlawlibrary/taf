@@ -1,5 +1,7 @@
 import pytest
-from taf.tests.test_updater.test_clone.test_clone_valid import test_clone_valid_happy_path
+from taf.tests.test_updater.test_clone.test_clone_valid import (
+    test_clone_valid_happy_path,
+)
 
 
 @pytest.mark.parametrize(

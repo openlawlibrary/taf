@@ -507,6 +507,7 @@ def test_update_with_last_validated_commit_not_in_local_repo(
         force=True,
     )
 
+
 @pytest.mark.skip(reason="Skipping this test (causes error)")
 @pytest.mark.parametrize(
     "origin_auth_repo",
