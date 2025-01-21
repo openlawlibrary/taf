@@ -808,6 +808,26 @@ class MetadataRepository(Repository):
             return signed_obj.delegations.roles
         return {}
 
+    def get_key_names_of_role(self, role_name: str) -> List:
+        keys_name_mapping = self.keys_name_mappings
+        key_names = []
+        num_of_keys_without_name = 0
+        threshold = self.get_role_threshold(role_name)
+        if keys_name_mapping:
+            key_ids = self.get_keyids_of_role(role_name)
+            for key_id in key_ids:
+                if key_id in keys_name_mapping:
+                    key_names.append(keys_name_mapping[key_id])
+                else:
+                    num_of_keys_without_name += 1
+        else:
+            num_of_keys_without_name = threshold
+
+        for num in range(threshold - num_of_keys_without_name, threshold):
+            key_names.append(num + 1)
+        return key_names
+
+
     def get_keyids_of_role(self, role_name: str) -> List:
         """
         Return all key ids of the specified role

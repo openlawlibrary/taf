@@ -195,35 +195,23 @@ def _load_signer_from_keystore(
 def _load_and_append_yubikeys(
     taf_repo,
     role,
+    key_names,
     retry_on_failure,
-    hide_already_loaded_message,
     signers_yubikeys,
-    threshold,
-    initial_num_of_signatures,
-    signing_keys_num,
 ):
 
-    key_names = [
-        count + 1 for count in range(initial_num_of_signatures, signing_keys_num)
-    ]
-
-    prompt_message = (
-        f"Please insert {role} YubiKey(s) and press ENTER.\nThreshold is {threshold}"
-    )
-    inserted_yubikeys = yk.yubikey_prompt(
+    yubikeys = yk.yubikey_prompt(
         key_names=key_names,
         role=role,
         taf_repo=taf_repo,
-        prompt_message=prompt_message,
         retry_on_failure=retry_on_failure,
-        hide_already_loaded_message=hide_already_loaded_message,
+        hide_already_loaded_message=True
     )
 
     loaded_keyids = [signer.public_key.keyid for signer in signers_yubikeys]
-    num_of_loaded_keys = 0
-    for public_key, serial_num in inserted_yubikeys:
+    loaded_key_names = []
+    for public_key, serial_num, key_name in yubikeys:
         if public_key is not None and public_key.keyid not in loaded_keyids:
-            key_name = taf_repo.yubikey_store.get_name_by_serial(serial_num)
             signer = YkSigner(
                 public_key,
                 serial_num,
@@ -236,10 +224,10 @@ def _load_and_append_yubikeys(
             )
             signers_yubikeys.append(signer)
             loaded_keyids.append(public_key.keyid)
-            num_of_loaded_keys += 1
+            loaded_key_names.append(key_name)
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
 
-    return num_of_loaded_keys
+    return loaded_key_names
 
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
@@ -282,6 +270,11 @@ def load_signers(
         keystore_files = get_keystore_keys_of_role(keystore, role)
     prompt_for_yubikey = True
     use_yubikey_for_signing_confirmed = False
+
+
+    key_names = taf_repo.get_key_names_of_role(role)
+    initial_yk_load_attempt = True
+
     while not all_loaded and num_of_signatures < signing_keys_num:
 
         # when loading from keystore files
@@ -309,39 +302,27 @@ def load_signers(
         # in case of yubikeys, instead of asking for a particular key, ask to insert all
         # that can be used to sign the current role, but either read the name from the
         # metadata, or assign a role + counter name
-        num_of_loaded_keys = _load_and_append_yubikeys(
-            taf_repo,
-            role,
-            False,
-            True,
-            signers_yubikeys,
-            threshold,
-            num_of_signatures,
-            signing_keys_num,
-        )
+        if initial_yk_load_attempt or use_yubikey_for_signing_confirmed:
+            loaded_keys = _load_and_append_yubikeys(
+                taf_repo=taf_repo,
+                role=role,
+                key_names=key_names,
+                retry_on_failure=use_yubikey_for_signing_confirmed,
+                signers_yubikeys=signers_yubikeys,
+            )
+            num_of_loaded_keys = len(loaded_keys)
+            for loaded_key in loaded_keys:
+                key_names.remove(loaded_key)
 
-        if num_of_loaded_keys:
-            num_of_signatures += num_of_loaded_keys
-            continue
+            if num_of_loaded_keys:
+                num_of_signatures += num_of_loaded_keys
+                continue
 
         if prompt_for_yubikey:
             if click.confirm(f"Sign {role} using YubiKey(s)?"):
                 use_yubikey_for_signing_confirmed = True
-            prompt_for_yubikey = False
-
-        if use_yubikey_for_signing_confirmed:
-            num_of_loaded_keys = _load_and_append_yubikeys(
-                taf_repo,
-                role,
-                True,
-                False,
-                signers_yubikeys,
-                threshold,
-                num_of_signatures,
-                signing_keys_num,
-            )
-            num_of_signatures += num_of_loaded_keys
-            continue
+                prompt_for_yubikey = False
+                continue
 
         if prompt_for_keys and click.confirm(f"Manually enter {role} key?"):
             keys = [signer.public_key for signer in signers_keystore]
