@@ -1,6 +1,4 @@
 import time
-import pytest
-import pytest_benchmark
 import random
 
 
