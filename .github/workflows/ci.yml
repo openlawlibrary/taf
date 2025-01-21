@@ -213,6 +213,7 @@ jobs:
       - name: Run benchmark
         run: |
           pip install pytest
+          pip install pytest-benchmark
           python -m pytest -k "test_benchmark_clone_valid_happy_path" --benchmark-json=output.json
 
       - name: Store benchmark result
