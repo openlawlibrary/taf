@@ -1,6 +1,4 @@
 import pytest
-import time
-import pytest_benchmark
 from taf.tests.test_updater.conftest import cleanup_directory, client_dir
 from taf.tests.test_updater.conftest import (
     SetupManager,
