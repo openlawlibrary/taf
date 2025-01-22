@@ -297,7 +297,7 @@ def _read_and_check_single_yubikey(
         serials = get_serial_num()
 
         not_loaded = [
-            serial for serial in serials if not taf_repo.yubikey_store.is_loaded(serial)
+            serial for serial in serials if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
         ]
         if len(not_loaded) > 1:
             print("\nPlease insert only one not previously inserted YubiKey\n")
@@ -335,7 +335,7 @@ def _read_and_check_single_yubikey(
 
     # when reusing the same yubikey, public key will already be in the public keys dictionary
     # but the key name still needs to be added to the key id mapping dictionary
-    taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key)
+    taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
     return public_key, serial_num, key_name
 
 
@@ -348,11 +348,15 @@ def _read_and_check_yubikeys(
     key_names,
     retrying,
     hide_already_loaded_message,
+    hide_threshold_message
 ):
     if retrying:
         if prompt_message is None:
-            threshold = taf_repo.get_role_threshold(role)
-            prompt_message = f"Please insert {role} ({', '.join(key_names)}) YubiKey(s) (threshold {threshold}) and press ENTER"
+            if not hide_threshold_message:
+                threshold = taf_repo.get_role_threshold(role)
+                prompt_message = f"Please insert {role} ({', '.join(key_names)}) YubiKey(s) (threshold {threshold}) and press ENTER"
+            else:
+                prompt_message = f"Please insert {role} ({', '.join(key_names)}) YubiKey(s) and press ENTER"
         getpass(prompt_message)
 
     # make sure that YubiKey is inserted
@@ -396,7 +400,7 @@ def _read_and_check_yubikeys(
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
             # but the key name still needs to be added to the key id mapping dictionary
-            taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key)
+            taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
             yubikeys.append((public_key, serial_num, key_name))
 
     if not hide_already_loaded_message and all_loaded:
@@ -560,9 +564,11 @@ def yubikey_prompt(
     prompt_message=None,
     retry_on_failure=True,
     hide_already_loaded_message=False,
+    hide_threshold_message=False,
 ):
 
     retry_counter = 0
+    yubikeys = None
     while True:
         retrying = retry_counter > 0
         if registering_new_key or creating_new_key:
@@ -577,7 +583,8 @@ def yubikey_prompt(
                 prompt_message,
                 retrying,
             )
-            yubikeys = [yubikey]
+            if yubikey:
+                yubikeys = [yubikey]
         else:
             yubikeys = _read_and_check_yubikeys(
                 role,
@@ -587,7 +594,8 @@ def yubikey_prompt(
                 prompt_message,
                 key_names,
                 retrying,
-                hide_already_loaded_message
+                hide_already_loaded_message,
+                hide_threshold_message
             )
 
         if not yubikeys and not retry_on_failure:

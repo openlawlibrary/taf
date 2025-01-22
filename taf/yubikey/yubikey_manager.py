@@ -1,7 +1,7 @@
 from collections import defaultdict
 import contextlib
-from typing import Tuple
-from taf.tuf.keys import SSlibKey
+from typing import List, Tuple
+from taf.tuf.keys import SSlibKey, _get_legacy_keyid
 
 
 class YubiKeyStore:
@@ -9,34 +9,48 @@ class YubiKeyStore:
         # Initializes the dictionary to store YubiKey data
         self._yubikeys_data = defaultdict(dict)
 
-    def is_loaded(self, serial_number):
+    def is_loaded(self, serial_number) -> bool:
         return any(
             data["serial"] == serial_number for data in self._yubikeys_data.values()
         )
+
+    def is_loaded_for_role(self, serial_number: str, role_name: str) -> bool:
+        for data in self._yubikeys_data.values():
+            if data["serial"] == serial_number and role_name in data["roles"]:
+                return True
+        return False
 
     def is_key_name_loaded(self, key_name: str) -> bool:
         """Check if the key name is already loaded."""
         return key_name in self._yubikeys_data
 
     def add_key_data(
-        self, key_name: str, serial_num: str, public_key: SSlibKey
+        self, key_name: str, serial_num: str, public_key: SSlibKey, role_name: str,
     ) -> None:
         """Add data associated with a YubiKey."""
-        if not self.is_key_name_loaded(key_name):
-            self._yubikeys_data[key_name] = {
+        if role_name in self._yubikeys_data:
+            key_data = self._yubikeys_data[key_name]
+        else:
+            key_data = {
                 "serial": serial_num,
                 "public_key": public_key,
+                "roles": []
             }
+        key_data["roles"].append(role_name)
+        self._yubikeys_data[key_name] = key_data
+
 
     def get_key_data(self, key_name: str) -> Tuple[str, SSlibKey]:
         """Retrieve data associated with a given YubiKey name."""
         key_data = self._yubikeys_data.get(key_name)
         return key_data["public_key"], key_data["serial"]
 
-    def get_name_by_serial(self, serial_num: str) -> str:
-        for key_name, data in self._yubikeys_data.items():
-            if data["serial"] == serial_num:
-                return key_name
+    def get_roles_of_key(self, serial_number: str) -> List[str]:
+        roles = []
+        for data in self._yubikeys_data.values():
+            if data["serial"] == serial_number:
+                roles.extend(data["roles"])
+        return roles
 
     def remove_key_data(self, key_name: str) -> bool:
         """Remove data associated with a given YubiKey name if it exists."""

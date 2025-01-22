@@ -198,6 +198,7 @@ def _load_and_append_yubikeys(
     key_names,
     retry_on_failure,
     signers_yubikeys,
+    hide_threshold_message,
 ):
 
     yubikeys = yk.yubikey_prompt(
@@ -205,7 +206,8 @@ def _load_and_append_yubikeys(
         role=role,
         taf_repo=taf_repo,
         retry_on_failure=retry_on_failure,
-        hide_already_loaded_message=True
+        hide_already_loaded_message=True,
+        hide_threshold_message=hide_threshold_message,
     )
 
     loaded_keyids = [signer.public_key.keyid for signer in signers_yubikeys]
@@ -274,6 +276,7 @@ def load_signers(
 
     key_names = taf_repo.get_key_names_of_role(role)
     initial_yk_load_attempt = True
+    hide_threshold_message = False
 
     while not all_loaded and num_of_signatures < signing_keys_num:
 
@@ -294,6 +297,8 @@ def load_signers(
                     f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
                 ):
                     break
+                else:
+                    hide_threshold_message = True
             else:
                 # loading from keystore files, couldn't load from all of them, but loaded enough
                 break
@@ -309,14 +314,17 @@ def load_signers(
                 key_names=key_names,
                 retry_on_failure=use_yubikey_for_signing_confirmed,
                 signers_yubikeys=signers_yubikeys,
+                hide_threshold_message=hide_threshold_message,
             )
-            num_of_loaded_keys = len(loaded_keys)
-            for loaded_key in loaded_keys:
-                key_names.remove(loaded_key)
+            if loaded_keys:
+                use_yubikey_for_signing_confirmed = True
+                num_of_loaded_keys = len(loaded_keys)
+                for loaded_key in loaded_keys:
+                    key_names.remove(loaded_key)
 
-            if num_of_loaded_keys:
-                num_of_signatures += num_of_loaded_keys
-                continue
+                if num_of_loaded_keys:
+                    num_of_signatures += num_of_loaded_keys
+                    continue
 
         if prompt_for_yubikey:
             if click.confirm(f"Sign {role} using YubiKey(s)?"):
@@ -421,11 +429,9 @@ def _setup_yubikey_roles_keys(
                     auth_repo,
                     role.name,
                     key_name,
-                    yubikey_keys,
                     key_scheme,
                     certs_dir,
                     key_size,
-                    require_single_yk=True,
                 )
             loaded_keys_num += 1
             signer = YkSigner(
@@ -562,11 +568,9 @@ def _setup_yubikey(
     auth_repo: AuthenticationRepository,
     role_name: str,
     key_name: str,
-    loaded_keys: List[str],
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     certs_dir: Optional[Union[Path, str]] = None,
     key_size: int = 2048,
-    require_single_yk=False,
 ) -> Tuple[Dict, str]:
     print(f"Registering keys for {key_name}")
     while True:
@@ -588,18 +592,18 @@ def _setup_yubikey(
             pin_repeat=True,
         )
         if yubikeys is not None:
-            key, serial_num = yubikeys[0]
-            if use_existing and key in loaded_keys:
-                print("Key already loaded. Please insert a different YubiKey")
-            else:
-                if not use_existing:
-                    key = yk.setup_new_yubikey(
-                        auth_repo.pin_manager, serial_num, scheme, key_size=key_size
-                    )
+            key, serial_num, key_name = yubikeys[0]
+            if not use_existing:
+                key = yk.setup_new_yubikey(
+                    auth_repo.pin_manager, serial_num, scheme, key_size=key_size
+                )
 
-                if certs_dir is not None:
+            if certs_dir is not None:
+                # check if already exporeted
+                if len(auth_repo.yubikey_store.get_roles_of_key(serial_num)) == 1:
+                    # this is the first time that this key is being used (can only be used once per role)
                     yk.export_yk_certificate(certs_dir, key, serial=serial_num)
-                return key, serial_num
+            return key, serial_num
 
 
 def _load_and_verify_yubikey(
