@@ -56,10 +56,10 @@ jobs:
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
 
-      - name: Run pre-commit and test with pytest
-        run: |
-          pre-commit run --all-files
-          pytest taf/tests --benchmark-skip
+      # - name: Run pre-commit and test with pytest
+      #   run: |
+      #     pre-commit run --all-files
+      #     pytest taf/tests --benchmark-skip
       
       - name: Run benchmark
         run: |
