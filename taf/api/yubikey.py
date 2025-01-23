@@ -171,15 +171,20 @@ def setup_signing_yubikey(
         "WARNING - this will delete everything from the inserted key. Proceed?"
     ):
         return
-    _, serial_num = yk.yubikey_prompt(
+    yubikeys = yk.yubikey_prompt(
         ["new Yubikey"],
+        pin_manager=pin_manager,
         creating_new_key=True,
         pin_confirm=True,
         pin_repeat=True,
         prompt_message="Please insert the new Yubikey and press ENTER",
     )
-    key = yk.setup_new_yubikey(pin_manager, serial_num, key_size=key_size)
-    yk.export_yk_certificate(certs_dir, key)
+    if yubikeys:
+        _, serial_num, _ = yubikeys[0]
+        key = yk.setup_new_yubikey(pin_manager, serial_num, key_size=key_size)
+        yk.export_yk_certificate(certs_dir, key, serial_num)
+    else:
+        raise YubikeyError("Could not generate a new key")
 
 
 @log_on_start(DEBUG, "Setting up a new test YubiKey", logger=taf_logger)
@@ -190,7 +195,7 @@ def setup_signing_yubikey(
     logger=taf_logger,
     on_exceptions=TAFError,
 )
-def setup_test_yubikey(key_path: str, key_size: Optional[int] = 2048, serial: Optional[str] = None) -> None:
+def setup_test_yubikey(pin_manager: PinManager, key_path: str, key_size: Optional[int] = 2048, serial: Optional[str] = None) -> None:
     """
     Reset the inserted yubikey, set default pin and copy the specified key
     to it.
@@ -209,17 +214,20 @@ def setup_test_yubikey(key_path: str, key_size: Optional[int] = 2048, serial: Op
         if not len(serials):
             raise YubikeyError("YubiKey not inserted")
         if len(serials) > 1:
-            raise YubikeyError("Inserted only one YubiKey")
+            raise YubikeyError("Insert only one YubiKey")
 
     if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
         return
+
+    serial = serials[0]
     key_pem_path = Path(key_path)
     key_pem = key_pem_path.read_bytes()
 
     print(f"Importing RSA private key from {key_path} to Yubikey...")
     pin = yk.DEFAULT_PIN
+    pin_manager.add_pin(serial, pin)
 
-    pub_key = yk.setup(pin, "Test Yubikey", private_key_pem=key_pem, key_size=key_size)
+    pub_key = yk.setup(pin, serial, "Test Yubikey", private_key_pem=key_pem, key_size=key_size)
     print("\nPrivate key successfully imported.\n")
     print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
     print("Pin: {}\n".format(pin))

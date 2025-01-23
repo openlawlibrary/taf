@@ -284,6 +284,7 @@ def _read_and_check_single_yubikey(
     role,
     key_name,
     taf_repo,
+    pin_manager,
     registering_new_key,
     creating_new_key,
     pin_confirm,
@@ -303,21 +304,22 @@ def _read_and_check_single_yubikey(
 
         if taf_repo is None:
             # if setting up a YubiKey outside of the creation of a new repository or addition of new roles
-            print("\nPlease insert only one YubiKey\n")
-            return
+            if len(serials) > 1:
+                print("\nPlease insert only one YubiKey\n")
+                return
+        else:
+            not_loaded = [
+                serial for serial in serials if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
+            ]
+            if len(not_loaded) > 1:
+                print("\nPlease insert only one not previously inserted YubiKey\n")
+                return None
 
-        not_loaded = [
-            serial for serial in serials if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
-        ]
-        if len(not_loaded) > 1:
-            print("\nPlease insert only one not previously inserted YubiKey\n")
-            return None
+            if not len(not_loaded):
+                return None
 
-        if not len(not_loaded):
-            return None
-
-        # no need to try loading keys that we know were previously loaded
-        serials = not_loaded
+            # no need to try loading keys that we know were previously loaded
+            serials = not_loaded
 
     except Exception:
         taf_logger.log("NOTICE", "No YubiKeys inserted")
@@ -336,22 +338,26 @@ def _read_and_check_single_yubikey(
         if not taf_repo.is_valid_metadata_yubikey(role, public_key):
             return None
 
-    if taf_repo.pin_manager.get_pin(serial_num) is None:
+    if pin_manager.get_pin(serial_num) is None:
         if creating_new_key:
             pin = get_pin_for(key_name, pin_confirm, pin_repeat)
         else:
             pin = get_and_validate_pin(key_name, pin_confirm, pin_repeat, serial_num)
-        taf_repo.pin_manager.add_pin(serial_num, pin)
 
-    # when reusing the same yubikey, public key will already be in the public keys dictionary
-    # but the key name still needs to be added to the key id mapping dictionary
-    taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
+        pin_manager.add_pin(serial_num, pin)
+
+    if taf_repo is not None:
+        # when reusing the same yubikey, public key will already be in the public keys dictionary
+        # but the key name still needs to be added to the key id mapping dictionary
+        taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
+
     return public_key, serial_num, key_name
 
 
 def _read_and_check_yubikeys(
     role,
     taf_repo,
+    pin_manager,
     pin_confirm,
     pin_repeat,
     prompt_message,
@@ -402,11 +408,11 @@ def _read_and_check_yubikeys(
             else:
                 key_name = key_names[index]
 
-            if taf_repo.pin_manager.get_pin(serial_num) is None:
+            if pin_manager.get_pin(serial_num) is None:
                 pin = get_and_validate_pin(
                     key_name, pin_confirm, pin_repeat, serial_num
                 )
-                taf_repo.pin_manager.add_pin(serial_num, pin)
+                pin_manager.add_pin(serial_num, pin)
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
             # but the key name still needs to be added to the key id mapping dictionary
@@ -566,6 +572,7 @@ def verify_yk_inserted(serial_num, key_name):
 
 def yubikey_prompt(
     key_names,
+    pin_manager,
     role=None,
     taf_repo=None,
     registering_new_key=False,
@@ -587,6 +594,7 @@ def yubikey_prompt(
                 role,
                 key_names[0],
                 taf_repo,
+                pin_manager,
                 registering_new_key,
                 creating_new_key,
                 pin_confirm,
@@ -600,6 +608,7 @@ def yubikey_prompt(
             yubikeys = _read_and_check_yubikeys(
                 role,
                 taf_repo,
+                pin_manager,
                 pin_confirm,
                 pin_repeat,
                 prompt_message,

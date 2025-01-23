@@ -10,6 +10,7 @@ from taf.api.yubikey import (
 from taf.exceptions import TAFError, YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
+from taf.tools.repo import pin_managed
 from taf.yubikey.yubikey import list_connected_yubikeys
 
 
@@ -109,11 +110,11 @@ def setup_signing_key_command():
         help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default",
     )
     @catch_cli_exception(handle=YubikeyError)
-    def setup_signing_key(certs_dir):
-        setup_signing_yubikey(certs_dir, key_size=2048)
+    @pin_managed
+    def setup_signing_key(certs_dir, pin_manager):
+        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048)
 
     return setup_signing_key
-
 
 def setup_test_key_command():
     @click.command(
@@ -122,8 +123,9 @@ def setup_test_key_command():
     )
     @click.argument("key-path")
     @catch_cli_exception(handle=YubikeyError)
-    def setup_test_key(key_path):
-        setup_test_yubikey(key_path)
+    @pin_managed
+    def setup_test_key(key_path, pin_manager):
+        setup_test_yubikey(pin_manager, key_path)
 
     return setup_test_key
 

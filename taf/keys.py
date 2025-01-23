@@ -203,6 +203,7 @@ def _load_and_append_yubikeys(
 
     yubikeys = yk.yubikey_prompt(
         key_names=key_names,
+        pin_manager=taf_repo.pin_manager,
         role=role,
         taf_repo=taf_repo,
         retry_on_failure=retry_on_failure,
@@ -583,7 +584,8 @@ def _setup_yubikey(
                 continue
         yubikeys = yk.yubikey_prompt(
             [key_name],
-            role_name,
+            pin_manager=auth_repo.pin_manager,
+            role=role_name,
             taf_repo=auth_repo,
             registering_new_key=True,
             creating_new_key=not use_existing,
@@ -616,7 +618,8 @@ def _load_and_verify_yubikey(
     while True:
         yk_public_key, _ = yk.yubikey_prompt(
             [key_name],
-            role_name,
+            role=role_name,
+            pin_manager=taf_repo.pin_manager,
             taf_repo=taf_repo,
             registering_new_key=True,
             creating_new_key=False,
