@@ -6,7 +6,7 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import TAFError
+from taf.exceptions import TAFError, YubikeyError
 
 # from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.log import taf_logger
@@ -25,7 +25,7 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_public_pem(path: Optional[str] = None) -> None:
+def export_yk_public_pem(path: Optional[str] = None, serial: Optional[str]=None) -> None:
     """
     Export public key from a YubiKey and save it to a file or print to console.
 
@@ -40,19 +40,27 @@ def export_yk_public_pem(path: Optional[str] = None) -> None:
         None
     """
     try:
-        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
+        serials = [serial] if serial else yk.get_serial_num()
+
+        if not len(serials):
+            print("YubiKey not inserted.")
+            return
+
+        for serial in serials:
+            pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
+            if path is None:
+                print(f"Serial: {serial}")
+                print(pub_key_pem)
+            else:
+                if not path.endswith(".pub"):
+                    path = f"{path}.pub"
+                pem_path = Path(path)
+                parent = pem_path.parent
+                parent.mkdir(parents=True, exist_ok=True)
+                pem_path.write_text(pub_key_pem)
     except Exception:
         print("Could not export the public key. Check if a YubiKey is inserted")
         return
-    if path is None:
-        print(pub_key_pem)
-    else:
-        if not path.endswith(".pub"):
-            path = f"{path}.pub"
-        pem_path = Path(path)
-        parent = pem_path.parent
-        parent.mkdir(parents=True, exist_ok=True)
-        pem_path.write_text(pub_key_pem)
 
 
 @log_on_start(DEBUG, "Exporting certificate from YubiKey", logger=taf_logger)
@@ -64,7 +72,7 @@ def export_yk_public_pem(path: Optional[str] = None) -> None:
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_certificate(path: Optional[str] = None) -> None:
+def export_yk_certificate(path: Optional[str] = None, serial: Optional[str]=None) -> None:
     """
     Export certificate from the YubiKey.
 
@@ -79,10 +87,16 @@ def export_yk_certificate(path: Optional[str] = None) -> None:
         None
     """
     try:
-        pub_key_pem = yk.export_piv_pub_key().decode("utf-8")
-        scheme = DEFAULT_RSA_SIGNATURE_SCHEME
-        key = get_sslib_key_from_value(pub_key_pem, scheme)
-        yk.export_yk_certificate(path, key)
+        serials = [serial] if serial else yk.get_serial_num()
+
+        if not len(serials):
+            print("YubiKey not inserted.")
+            return
+        for serial in serials:
+            pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
+            scheme = DEFAULT_RSA_SIGNATURE_SCHEME
+            key = get_sslib_key_from_value(pub_key_pem, scheme)
+            yk.export_yk_certificate(path, key, serial)
     except Exception as e:
         print(e)
         print("Could not export certificate. Check if a YubiKey is inserted")
@@ -97,7 +111,7 @@ def export_yk_certificate(path: Optional[str] = None) -> None:
     on_exceptions=TAFError,
     reraise=True,
 )
-def get_yk_roles(path: str) -> Dict:
+def get_yk_roles(path: str, serial: Optional[str]=None) -> Dict:
     """
     List all roles that the inserted YubiKey whose metadata files can be signed by this YubiKey.
     In case of delegated targets roles, include the delegation paths.
@@ -110,15 +124,23 @@ def get_yk_roles(path: str) -> Dict:
     Returns:
         A dictionary containing roles and delegated paths in case of delegated target roles
     """
-    auth = AuthenticationRepository(path=path)
-    pub_key = yk.get_piv_public_key_tuf()
-    roles = auth.find_associated_roles_of_key(pub_key)
-    roles_with_paths: Dict = {role: {} for role in roles}
-    for role in roles:
-        if role not in MAIN_ROLES:
-            roles_with_paths[role] = auth.get_role_paths(role)
-    return roles_with_paths
+    serials = [serial] if serial else yk.get_serial_num()
 
+    if not len(serials):
+        print("YubiKey not inserted.")
+        return
+
+    auth = AuthenticationRepository(path=path)
+    roles_per_yubikes = {}
+    for serial in serials:
+        pub_key = yk.get_piv_public_key_tuf(serial=serial)
+        roles = auth.find_associated_roles_of_key(pub_key)
+        roles_with_paths: Dict = {role: {} for role in roles}
+        for role in roles:
+            if role not in MAIN_ROLES:
+                roles_with_paths[role] = auth.get_role_paths(role)
+        roles_per_yubikes[serial] = roles_with_paths
+    return roles_per_yubikes
 
 @log_on_start(DEBUG, "Setting up a new signing YubiKey", logger=taf_logger)
 @log_on_end(DEBUG, "Finished setting up a new signing YubiKey", logger=taf_logger)
@@ -167,9 +189,8 @@ def setup_signing_yubikey(
     "An error occurred while setting up a test YubiKey: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
-    reraise=True,
 )
-def setup_test_yubikey(key_path: str, key_size: Optional[int] = 2048) -> None:
+def setup_test_yubikey(key_path: str, key_size: Optional[int] = 2048, serial: Optional[str] = None) -> None:
     """
     Reset the inserted yubikey, set default pin and copy the specified key
     to it.
@@ -183,6 +204,13 @@ def setup_test_yubikey(key_path: str, key_size: Optional[int] = 2048) -> None:
     Returns:
         None
     """
+    if serial is None:
+        serials = yk.get_serial_num()
+        if not len(serials):
+            raise YubikeyError("YubiKey not inserted")
+        if len(serials) > 1:
+            raise YubikeyError("Inserted only one YubiKey")
+
     if not click.confirm("WARNING - this will reset the inserted key. Proceed?"):
         return
     key_pem_path = Path(key_path)

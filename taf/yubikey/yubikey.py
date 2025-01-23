@@ -122,7 +122,7 @@ def is_inserted():
 
 
 @raise_yubikey_err()
-def is_valid_pin(pin, serial=None):
+def is_valid_pin(pin, serial):
     """Checks if given pin is valid.
 
     Args:
@@ -134,6 +134,11 @@ def is_valid_pin(pin, serial=None):
     Raises:
         - YubikeyError
     """
+    if serial is None:
+        serials = get_serial_num()
+        if len(serials) != 1:
+            raise YubikeyError(f"Please insert exactly one YubiKey or specify a serial number of the YubiKey whose pin is to be checked")
+        serial = serials[0]
     with _yk_piv_ctrl(serial=serial) as (ctrl, _):
         try:
             ctrl.verify_pin(pin)
@@ -144,7 +149,7 @@ def is_valid_pin(pin, serial=None):
 
 @raise_yubikey_err("Cannot get serial number.")
 def get_serial_num():
-    """Get Yubikey serial number.
+    """Get serial numbers of all isnerted YubiKeys
 
     Args:
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
@@ -296,6 +301,11 @@ def _read_and_check_single_yubikey(
     try:
         serials = get_serial_num()
 
+        if taf_repo is None:
+            # if setting up a YubiKey outside of the creation of a new repository or addition of new roles
+            print("\nPlease insert only one YubiKey\n")
+            return
+
         not_loaded = [
             serial for serial in serials if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
         ]
@@ -435,6 +445,7 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
 @raise_yubikey_err("Cannot setup Yubikey.")
 def setup(
     pin,
+    serial,
     cert_cn,
     cert_exp_days=365,
     pin_retries=10,
@@ -466,7 +477,7 @@ def setup(
         - YubikeyError
     """
 
-    with _yk_piv_ctrl() as (ctrl, _):
+    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
         # Factory reset and set PINs
         ctrl.reset()
 
@@ -524,15 +535,15 @@ def setup(
 
 def setup_new_yubikey(
     pin_manager: PinManager,
-    serial_num: str,
+    serial: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     key_size: Optional[int] = 2048,
 ) -> SSlibKey:
-    pin = pin_manager.get_pin(serial_num)
+    pin = pin_manager.get_pin(serial)
     cert_cn = input("Enter key holder's name: ")
     print("Generating key, please wait...")
     pub_key_pem = setup(
-        pin, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
+        pin, serial, cert_cn, cert_exp_days=EXPIRATION_INTERVAL, key_size=key_size
     ).decode("utf-8")
     scheme = DEFAULT_RSA_SIGNATURE_SCHEME
     key = get_sslib_key_from_value(pub_key_pem, scheme)

@@ -236,7 +236,6 @@ def _load_and_append_yubikeys(
 def load_signers(
     taf_repo: TUFRepository,
     role: str,
-    loaded_yubikeys: Optional[Dict],
     keystore: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,

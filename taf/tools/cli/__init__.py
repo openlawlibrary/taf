@@ -32,11 +32,8 @@ def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove
             successful = True
             return result
         except handle as e:
-            # TODO
-            # for now
-            # if print_error:
-            raise e
-            # taf_logger.error(e)
+            if print_error:
+                taf_logger.error(e)
         except Exception as e:
             if is_run_from_python_executable():
                 taf_logger.error(f"An error occurred: {e}")
