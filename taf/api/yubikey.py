@@ -129,7 +129,7 @@ def get_yk_roles(path: str, serial: Optional[str] = None) -> Dict:
         A dictionary containing roles and delegated paths in case of delegated target roles
     """
     serials = [serial] if serial else yk.get_serial_num()
-    roles_per_yubikes = {}
+    roles_per_yubikes: Dict = {}
 
     if not len(serials):
         print("YubiKey not inserted.")

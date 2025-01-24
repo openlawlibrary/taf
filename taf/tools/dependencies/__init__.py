@@ -92,8 +92,6 @@ def remove_dependency_command():
         remove_dependency(
             path=path,
             pin_manager=pin_manager,
-            pin_manager=pin_manager,
-            pin_manager=pin_manager,
             dependency_name=dependency_name,
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,

@@ -80,6 +80,8 @@ class AuthenticationRepository(GitRepository):
         self.conf_directory_root = conf_directory_root_path.resolve()
         self.out_of_band_authentication = out_of_band_authentication
         self._storage = GitStorageBackend()
+        if pin_manager is None:
+            pin_manager = PinManager()
         self._tuf_repository = TUFRepository(
             self.path, storage=self._storage, pin_manager=pin_manager
         )
