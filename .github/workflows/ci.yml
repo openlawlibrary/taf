@@ -65,10 +65,10 @@ jobs:
         run: |
           python -m pytest --benchmark-only --benchmark-json=output.json
 
-      - name: Archive benchmark results
-        uses: actions/upload-artifact@v4
+      - name: Cache benchmark results
+        uses: actions/cache@v4
         with:
-          name: benchmark-results
+          key: benchmark-results
           path: output.json
 
       # - name: Store benchmark result
