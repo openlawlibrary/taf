@@ -13,6 +13,7 @@ from taf.git import GitRepository
 from taf.tests.conftest import CLIENT_DIR_PATH, KEYSTORES_PATH, TEST_DATA_PATH
 from taf.tests.utils import copy_mirrors_json, copy_repositories_json, read_json
 from taf.utils import on_rm_error
+from taf.yubikey.yubikey_manager import PinManager
 
 REPOSITORY_DESCRIPTION_INPUT_DIR = TEST_DATA_PATH / "repository_description_inputs"
 TEST_INIT_DATA_PATH = Path(__file__).parent.parent / "init_data"
@@ -79,10 +80,11 @@ def auth_repo_path(repo_dir):
 
 
 @pytest.fixture
-def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
+def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path, pin_manager):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -94,11 +96,12 @@ def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
 
 @pytest.fixture
 def auth_repo_with_delegations(
-    auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path
+    auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path, pin_manager
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -144,6 +147,7 @@ def auth_repo_when_add_repositories_json(
     keystore_delegations: str,
     repositories_json_template: Dict,
     mirrors_json_path: Path,
+    pin_manager: PinManager,
 ):
     repo_path = library / "auth"
     namespace = library.name
@@ -151,6 +155,7 @@ def auth_repo_when_add_repositories_json(
     copy_mirrors_json(mirrors_json_path, repo_path)
     create_repository(
         str(repo_path),
+        pin_manager=pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -180,6 +185,11 @@ def parent_repo_path():
     repo_path = _init_auth_repo_dir()
     yield repo_path
     shutil.rmtree(str(repo_path.parent), onerror=on_rm_error)
+
+
+@pytest.fixture(scope="module")
+def pin_manager():
+    return PinManager()
 
 
 @pytest.fixture(scope="module")

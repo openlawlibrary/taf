@@ -12,6 +12,7 @@ from taf.git import GitRepository
 from taf.tests.utils import copy_mirrors_json, copy_repositories_json
 from taf.utils import on_rm_error
 from contextlib import contextmanager
+from taf.yubikey.yubikey_manager import PinManager
 
 AUTH_REPO_NAME = "auth"
 
@@ -43,6 +44,7 @@ def auth_repo_with_targets(
     keystore_delegations: str,
     repositories_json_template: Dict,
     mirrors_json_path: Path,
+    pin_manager: PinManager,
 ):
     auth_path = root_dir / AUTH_REPO_NAME
     auth_path.mkdir(exist_ok=True, parents=True)
@@ -51,6 +53,7 @@ def auth_repo_with_targets(
     copy_mirrors_json(mirrors_json_path, auth_path)
     create_repository(
         str(auth_path),
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,

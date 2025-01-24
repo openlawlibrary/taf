@@ -11,10 +11,13 @@ from taf.api.roles import (
 from taf.messages import git_commit_message
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_api.util import check_new_role
+from taf.yubikey.yubikey_manager import PinManager
 
 
 def test_add_role_when_target_is_parent(
-    auth_repo: AuthenticationRepository, roles_keystore: str
+    auth_repo: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
 ):
     initial_commits_num = len(auth_repo.list_commits())
     ROLE_NAME = "new_role"
@@ -22,6 +25,7 @@ def test_add_role_when_target_is_parent(
     PARENT_NAME = "targets"
     add_role(
         path=str(auth_repo.path),
+        pin_manager=pin_manager,
         auth_repo=auth_repo,
         role=ROLE_NAME,
         parent_role=PARENT_NAME,
@@ -40,7 +44,9 @@ def test_add_role_when_target_is_parent(
 
 
 def test_add_role_when_delegated_role_is_parent(
-    auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str
+    auth_repo_with_delegations: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
 ):
     initial_commits_num = len(auth_repo_with_delegations.list_commits())
     ROLE_NAME = "new_inner_role"
@@ -48,6 +54,7 @@ def test_add_role_when_delegated_role_is_parent(
     PARENT_NAME = "delegated_role"
     add_role(
         path=str(auth_repo_with_delegations.path),
+        pin_manager=pin_manager,
         auth_repo=auth_repo_with_delegations,
         role=ROLE_NAME,
         parent_role=PARENT_NAME,
@@ -69,12 +76,14 @@ def test_add_role_when_delegated_role_is_parent(
 
 def test_add_multiple_roles(
     auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
     roles_keystore: str,
     with_delegations_no_yubikeys_path: str,
 ):
     initial_commits_num = len(auth_repo.list_commits())
     add_multiple_roles(
         path=str(auth_repo.path),
+        pin_manager=pin_manager,
         keystore=roles_keystore,
         roles_key_infos=with_delegations_no_yubikeys_path,
         push=False,
@@ -95,13 +104,16 @@ def test_add_multiple_roles(
 
 
 def test_add_role_paths(
-    auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str
+    auth_repo_with_delegations: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
 ):
     initial_commits_num = len(auth_repo_with_delegations.list_commits())
     NEW_PATHS = ["some-path3"]
     ROLE_NAME = "delegated_role"
     add_role_paths(
         auth_repo=auth_repo_with_delegations,
+        pin_manager=pin_manager,
         paths=NEW_PATHS,
         keystore=roles_keystore,
         delegated_role=ROLE_NAME,
@@ -119,13 +131,16 @@ def test_add_role_paths(
 
 
 def test_remove_role_paths(
-    auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str
+    auth_repo_with_delegations: AuthenticationRepository,
+    roles_keystore: str,
+    pin_manager: PinManager,
 ):
     initial_commits_num = len(auth_repo_with_delegations.list_commits())
     REMOVED_PATHS = ["dir2/path1"]
     ROLE_NAME = "delegated_role"
     remove_paths(
         path=str(auth_repo_with_delegations.path),
+        pin_manager=pin_manager,
         paths=REMOVED_PATHS,
         keystore=roles_keystore,
         push=False,

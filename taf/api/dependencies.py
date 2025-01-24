@@ -167,6 +167,7 @@ def add_dependency(
     commit_msg = git_commit_message("add-dependency", dependency_name=dependency_name)
     register_target_files(
         path=path,
+        pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
         scheme=scheme,
@@ -252,6 +253,7 @@ def remove_dependency(
 
     register_target_files(
         path=path,
+        pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
         scheme=scheme,

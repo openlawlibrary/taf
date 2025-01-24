@@ -40,6 +40,7 @@ from taf.tests.conftest import (
     KEYSTORE_PATH,
     TEST_INIT_DATA_PATH,
 )
+from taf.yubikey.yubikey_manager import PinManager
 
 from tuf.api.metadata import Timestamp
 
@@ -293,11 +294,16 @@ def create_mirrors_json(library_dir: Path, repo_name: str):
 
 
 def create_authentication_repository(
-    library_dir: Path, repo_name: str, keys_description: str, is_test_repo: bool = False
+    library_dir: Path,
+    pin_manager: PinManager,
+    repo_name: str,
+    keys_description: str,
+    is_test_repo: bool = False,
 ):
     repo_path = Path(library_dir, repo_name)
     create_repository(
         str(repo_path),
+        pin_manager,
         str(KEYSTORE_PATH),
         keys_description,
         commit=True,
@@ -386,7 +392,11 @@ def generate_repositories_json(targets_data: list):
 
 
 def setup_repository_all_files_initially(
-    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+    origin_dir: Path,
+    repo_name: str,
+    targets_config: list,
+    is_test_repo: bool,
+    pin_manager: PinManager,
 ) -> AuthenticationRepository:
     # Define the origin path
     # Execute the tasks directly
@@ -395,6 +405,7 @@ def setup_repository_all_files_initially(
     create_info_json(origin_dir, repo_name)
     create_authentication_repository(
         origin_dir,
+        pin_manager,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
@@ -408,7 +419,11 @@ def setup_repository_all_files_initially(
 
 
 def setup_repository_no_info_json(
-    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+    origin_dir: Path,
+    repo_name: str,
+    targets_config: list,
+    is_test_repo: bool,
+    pin_manager: PinManager,
 ) -> AuthenticationRepository:
     # Define the origin path
 
@@ -417,6 +432,7 @@ def setup_repository_no_info_json(
     create_mirrors_json(origin_dir, repo_name)
     create_authentication_repository(
         origin_dir,
+        pin_manager,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
@@ -430,13 +446,18 @@ def setup_repository_no_info_json(
 
 
 def setup_repository_mirrors_added_later(
-    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+    origin_dir: Path,
+    repo_name: str,
+    targets_config: list,
+    is_test_repo: bool,
+    pin_manager: PinManager,
 ) -> AuthenticationRepository:
     # Execute the tasks directly
     create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
     create_info_json(origin_dir, repo_name)
     create_authentication_repository(
         origin_dir,
+        pin_manager,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
@@ -452,12 +473,17 @@ def setup_repository_mirrors_added_later(
 
 
 def setup_repository_repositories_and_mirrors_added_later(
-    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+    origin_dir: Path,
+    repo_name: str,
+    targets_config: list,
+    is_test_repo: bool,
+    pin_manager: PinManager,
 ) -> AuthenticationRepository:
     # Execute the tasks directly
     create_info_json(origin_dir, repo_name)
     create_authentication_repository(
         origin_dir,
+        pin_manager,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
@@ -474,7 +500,11 @@ def setup_repository_repositories_and_mirrors_added_later(
 
 
 def setup_repository_no_target_repositories(
-    origin_dir: Path, repo_name: str, targets_config: list, is_test_repo: bool
+    origin_dir: Path,
+    repo_name: str,
+    targets_config: list,
+    is_test_repo: bool,
+    pin_manager: PinManager,
 ) -> AuthenticationRepository:
 
     # Execute the tasks directly
@@ -483,6 +513,7 @@ def setup_repository_no_target_repositories(
     create_mirrors_json(origin_dir, repo_name)
     create_authentication_repository(
         origin_dir,
+        pin_manager,
         repo_name,
         keys_description=KEYS_DESCRIPTION,
         is_test_repo=is_test_repo,
