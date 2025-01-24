@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository

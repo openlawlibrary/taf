@@ -25,7 +25,7 @@ def common_update_options(f):
 
 def _call_updater(config, format_output):
     """
-    A helper function which call update or clone repository
+    A helper function which calls update or clone repository
     """
     try:
         if config.operation == OperationType.CLONE:

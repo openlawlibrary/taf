@@ -25,7 +25,9 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_public_pem(path: Optional[str] = None, serial: Optional[str]=None) -> None:
+def export_yk_public_pem(
+    path: Optional[str] = None, serial: Optional[str] = None
+) -> None:
     """
     Export public key from a YubiKey and save it to a file or print to console.
 
@@ -72,7 +74,9 @@ def export_yk_public_pem(path: Optional[str] = None, serial: Optional[str]=None)
     on_exceptions=TAFError,
     reraise=True,
 )
-def export_yk_certificate(path: Optional[str] = None, serial: Optional[str]=None) -> None:
+def export_yk_certificate(
+    path: Optional[str] = None, serial: Optional[str] = None
+) -> None:
     """
     Export certificate from the YubiKey.
 
@@ -111,7 +115,7 @@ def export_yk_certificate(path: Optional[str] = None, serial: Optional[str]=None
     on_exceptions=TAFError,
     reraise=True,
 )
-def get_yk_roles(path: str, serial: Optional[str]=None) -> Dict:
+def get_yk_roles(path: str, serial: Optional[str] = None) -> Dict:
     """
     List all roles that the inserted YubiKey whose metadata files can be signed by this YubiKey.
     In case of delegated targets roles, include the delegation paths.
@@ -125,13 +129,13 @@ def get_yk_roles(path: str, serial: Optional[str]=None) -> Dict:
         A dictionary containing roles and delegated paths in case of delegated target roles
     """
     serials = [serial] if serial else yk.get_serial_num()
+    roles_per_yubikes = {}
 
     if not len(serials):
         print("YubiKey not inserted.")
-        return
+        return roles_per_yubikes
 
     auth = AuthenticationRepository(path=path)
-    roles_per_yubikes = {}
     for serial in serials:
         pub_key = yk.get_piv_public_key_tuf(serial=serial)
         roles = auth.find_associated_roles_of_key(pub_key)
@@ -141,6 +145,7 @@ def get_yk_roles(path: str, serial: Optional[str]=None) -> Dict:
                 roles_with_paths[role] = auth.get_role_paths(role)
         roles_per_yubikes[serial] = roles_with_paths
     return roles_per_yubikes
+
 
 @log_on_start(DEBUG, "Setting up a new signing YubiKey", logger=taf_logger)
 @log_on_end(DEBUG, "Finished setting up a new signing YubiKey", logger=taf_logger)
@@ -195,7 +200,12 @@ def setup_signing_yubikey(
     logger=taf_logger,
     on_exceptions=TAFError,
 )
-def setup_test_yubikey(pin_manager: PinManager, key_path: str, key_size: Optional[int] = 2048, serial: Optional[str] = None) -> None:
+def setup_test_yubikey(
+    pin_manager: PinManager,
+    key_path: str,
+    key_size: Optional[int] = 2048,
+    serial: Optional[str] = None,
+) -> None:
     """
     Reset the inserted yubikey, set default pin and copy the specified key
     to it.
@@ -227,7 +237,9 @@ def setup_test_yubikey(pin_manager: PinManager, key_path: str, key_size: Optiona
     pin = yk.DEFAULT_PIN
     pin_manager.add_pin(serial, pin)
 
-    pub_key = yk.setup(pin, serial, "Test Yubikey", private_key_pem=key_pem, key_size=key_size)
+    pub_key = yk.setup(
+        pin, serial, "Test Yubikey", private_key_pem=key_pem, key_size=key_size
+    )
     print("\nPrivate key successfully imported.\n")
     print("\nPublic key (PEM): \n{}".format(pub_key.decode("utf-8")))
     print("Pin: {}\n".format(pin))

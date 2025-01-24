@@ -15,6 +15,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.log import taf_logger
+from taf.tools.repo import pin_managed
 
 
 def add_repo_command():
@@ -69,7 +70,8 @@ def add_repo_command():
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit):
+    @pin_managed
+    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit, pin_manager):
 
         config_data = {}
         if config_file:
@@ -89,6 +91,7 @@ def add_repo_command():
 
             add_target_repo(
                 path=path,
+                pin_manager=pin_manager,
                 target_path=target_path,
                 target_name=target_name,
                 library_dir=None,
@@ -172,9 +175,11 @@ def remove_repo_command():
     @click.argument("target-name")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def remove_repo(path, target_name, keystore, prompt_for_keys):
+    @pin_managed
+    def remove_repo(path, target_name, keystore, prompt_for_keys, pin_manager):
         remove_target_repo(
             path=path,
+            pin_manager=pin_manager,
             target_name=target_name,
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,
@@ -197,10 +202,12 @@ def sign_targets_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    def sign(path, keystore, keys_description, scheme, prompt_for_keys, no_commit):
+    @pin_managed
+    def sign(path, keystore, keys_description, scheme, prompt_for_keys, no_commit, pin_manager):
         try:
             register_target_files(
                 path=path,
+                pin_manager=pin_manager,
                 keystore=keystore,
                 roles_key_infos=keys_description,
                 scheme=scheme,
@@ -245,11 +252,13 @@ def update_and_sign_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme, prompt_for_keys, no_commit):
+    @pin_managed
+    def update_and_sign(path, library_dir, target_type, keystore, keys_description, scheme, prompt_for_keys, no_commit, pin_manager):
         try:
             if len(target_type):
                 update_and_sign_targets(
                     path,
+                    pin_manager,
                     library_dir,
                     target_type,
                     keystore=keystore,

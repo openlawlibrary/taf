@@ -30,6 +30,7 @@ from taf.models.types import RolesKeysData
 from taf.messages import git_commit_message
 
 from securesystemslib.signer._key import SSlibKey
+from taf.yubikey.yubikey_manager import PinManager
 
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
@@ -44,6 +45,7 @@ from securesystemslib.signer._key import SSlibKey
 @check_if_clean
 def add_role(
     path: str,
+    pin_manager: PinManager,
     role: str,
     parent_role: str,
     paths: list,
@@ -87,7 +89,9 @@ def add_role(
     """
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=path)
+        auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    elif auth_repo.pin_manager is None:
+        auth_repo.pin_manager = pin_manager
 
     if not parent_role:
         parent_role = "targets"
@@ -152,6 +156,7 @@ def add_role(
 )
 def add_role_paths(
     paths: List[str],
+    pin_manager: PinManager,
     delegated_role: str,
     keystore: str,
     commit: Optional[bool] = True,
@@ -182,7 +187,9 @@ def add_role_paths(
     """
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=auth_path)
+        auth_repo = AuthenticationRepository(path=auth_path, pin_manger=pin_manager)
+    elif auth_repo.pin_manager is None:
+        auth_repo.pin_manager = pin_manager
 
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     if all(
@@ -224,6 +231,7 @@ def add_role_paths(
 @check_if_clean
 def add_multiple_roles(
     path: str,
+    pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -255,7 +263,7 @@ def add_multiple_roles(
         path, roles_key_infos, keystore
     )
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     roles_data = auth_repo.generate_roles_description()
     roles_keys_data_current = from_dict(roles_data, RolesKeysData)
     new_roles_data, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
@@ -319,6 +327,7 @@ def add_multiple_roles(
 @check_if_clean
 def add_signing_key(
     path: str,
+    pin_manager: PinManager,
     roles: List[str],
     pub_key_path: Optional[str] = None,
     pub_key: Optional[SSlibKey] = None,
@@ -358,7 +367,7 @@ def add_signing_key(
 
     roles_keys = {role: [pub_key] for role in roles}
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     with manage_repo_and_signers(
         auth_repo,
@@ -399,6 +408,7 @@ def add_signing_key(
 @check_if_clean
 def revoke_signing_key(
     path: str,
+    pin_manager: PinManager,
     key_id: str,
     roles: Optional[List[str]] = None,
     keystore: Optional[str] = None,
@@ -430,7 +440,7 @@ def revoke_signing_key(
         None
     """
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     roles_to_update = roles or auth_repo.find_keysid_roles([key_id])
 
@@ -470,6 +480,7 @@ def revoke_signing_key(
 @check_if_clean
 def rotate_signing_key(
     path: str,
+    pin_manager: PinManager,
     key_id: str,
     pub_key_path: Optional[str] = None,
     roles: Optional[List[str]] = None,
@@ -509,7 +520,7 @@ def rotate_signing_key(
     pub_key = _load_pub_key_from_file(
         pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
     )
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     roles = roles or auth_repo.find_keysid_roles([key_id])
 
     with transactional_execution(auth_repo):
@@ -711,7 +722,7 @@ def _initialize_roles_and_keystore_for_existing_repo(
     return roles_keys_data
 
 
-def _initialize_roles_and_keystore(
+def initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
@@ -868,6 +879,7 @@ def list_keys_of_role(
 @check_if_clean
 def remove_role(
     path: str,
+    pin_manager: PinManager,
     role: str,
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,

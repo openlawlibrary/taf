@@ -1,7 +1,7 @@
 from collections import defaultdict
 import contextlib
 from typing import List, Tuple
-from taf.tuf.keys import SSlibKey, _get_legacy_keyid
+from taf.tuf.keys import SSlibKey
 
 
 class YubiKeyStore:
@@ -25,20 +25,19 @@ class YubiKeyStore:
         return key_name in self._yubikeys_data
 
     def add_key_data(
-        self, key_name: str, serial_num: str, public_key: SSlibKey, role_name: str,
+        self,
+        key_name: str,
+        serial_num: str,
+        public_key: SSlibKey,
+        role_name: str,
     ) -> None:
         """Add data associated with a YubiKey."""
         if role_name in self._yubikeys_data:
             key_data = self._yubikeys_data[key_name]
         else:
-            key_data = {
-                "serial": serial_num,
-                "public_key": public_key,
-                "roles": []
-            }
+            key_data = {"serial": serial_num, "public_key": public_key, "roles": []}
         key_data["roles"].append(role_name)
         self._yubikeys_data[key_name] = key_data
-
 
     def get_key_data(self, key_name: str) -> Tuple[str, SSlibKey]:
         """Retrieve data associated with a given YubiKey name."""

@@ -19,6 +19,7 @@ from taf.log import taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 
 from taf.api.roles import add_role_paths
+from taf.tools.repo import pin_managed
 
 
 def add_role_command():
@@ -53,7 +54,8 @@ def add_role_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add(role, config_file, path, keystore, no_commit, prompt_for_keys):
+    @pin_managed
+    def add(role, config_file, path, keystore, no_commit, prompt_for_keys, pin_manager):
 
         config_data = {}
         if config_file:
@@ -76,6 +78,7 @@ def add_role_command():
 
         add_role(
             path=path,
+            pin_manager=pin_manager,
             role=role,
             parent_role=parent_role,
             paths=delegated_path,
@@ -99,8 +102,9 @@ def export_roles_description_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--output", default=None, help="Output file path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    def export_roles_description(path, output, keystore):
-        auth_repo = AuthenticationRepository(path=path)
+    @pin_managed
+    def export_roles_description(path, output, keystore, pin_manager):
+        auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
         roles_description = auth_repo.generate_roles_description()
         if keystore:
             roles_description["keystore"] = keystore
@@ -156,9 +160,11 @@ def add_multiple_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys, pin_manager):
         add_multiple_roles(
             path=path,
+            pin_manager=pin_manager,
             keystore=keystore,
             roles_key_infos=keys_description,
             scheme=scheme,
@@ -178,13 +184,15 @@ def add_role_paths_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
+    @pin_managed
+    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys, pin_manager):
         if not delegated_path:
             print("Specify at least one path")
             return
 
         add_role_paths(
             paths=delegated_path,
+            pin_manager=pin_manager,
             delegated_role=role,
             keystore=keystore,
             commit=not no_commit,
@@ -213,9 +221,11 @@ def remove_role_command():
     @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
+    @pin_managed
+    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys, pin_manager):
         remove_role(
             path=path,
+            pin_manager=pin_manager,
             role=role,
             keystore=keystore,
             scheme=scheme,
@@ -236,13 +246,15 @@ def remove_paths_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager):
         if not delegated_path:
             print("Specify at least one role")
             return
 
         remove_paths(
             path=path,
+            pin_manager=pin_manager,
             paths=delegated_path,
             keystore=keystore,
             scheme=scheme,
@@ -271,13 +283,15 @@ def add_signing_key_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager):
         if not role:
             print("Specify at least one role")
             return
 
         add_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             pub_key_path=pub_key_path,
             keystore=keystore,
@@ -301,10 +315,12 @@ def revoke_signing_key_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager):
 
         revoke_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             key_id=keyid,
             keystore=keystore,
@@ -330,9 +346,11 @@ def rotate_signing_key_command():
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
-    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg):
+    @pin_managed
+    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager):
         rotate_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             key_id=keyid,
             keystore=keystore,

@@ -137,7 +137,9 @@ def is_valid_pin(pin, serial):
     if serial is None:
         serials = get_serial_num()
         if len(serials) != 1:
-            raise YubikeyError(f"Please insert exactly one YubiKey or specify a serial number of the YubiKey whose pin is to be checked")
+            raise YubikeyError(
+                "Please insert exactly one YubiKey or specify a serial number of the YubiKey whose pin is to be checked"
+            )
         serial = serials[0]
     with _yk_piv_ctrl(serial=serial) as (ctrl, _):
         try:
@@ -309,7 +311,9 @@ def _read_and_check_single_yubikey(
                 return
         else:
             not_loaded = [
-                serial for serial in serials if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
+                serial
+                for serial in serials
+                if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
             ]
             if len(not_loaded) > 1:
                 print("\nPlease insert only one not previously inserted YubiKey\n")
@@ -364,7 +368,7 @@ def _read_and_check_yubikeys(
     key_names,
     retrying,
     hide_already_loaded_message,
-    hide_threshold_message
+    hide_threshold_message,
 ):
     if retrying:
         if prompt_message is None:
@@ -615,7 +619,7 @@ def yubikey_prompt(
                 key_names,
                 retrying,
                 hide_already_loaded_message,
-                hide_threshold_message
+                hide_threshold_message,
             )
 
         if not yubikeys and not retry_on_failure:

@@ -7,7 +7,7 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.api_workflow import manage_repo_and_signers
 from taf.api.roles import (
-    _initialize_roles_and_keystore,
+    initialize_roles_and_keystore,
     add_role,
     add_role_paths,
     remove_paths,
@@ -21,6 +21,7 @@ from taf.messages import git_commit_message
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
+from taf.yubikey.yubikey_manager import PinManager
 
 
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
@@ -35,6 +36,7 @@ from taf.auth_repo import AuthenticationRepository
 @check_if_clean
 def add_target_repo(
     path: str,
+    pin_manager: PinManager,
     target_path: str,
     target_name: str,
     role: str,
@@ -80,7 +82,7 @@ def add_target_repo(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
@@ -103,6 +105,7 @@ def add_target_repo(
 
             add_role(
                 path=path,
+                pin_manager=pin_manager,
                 role=role,
                 parent_role=parent_role or "targets",
                 paths=paths,
@@ -123,6 +126,7 @@ def add_target_repo(
         taf_logger.info("Role already exists")
         add_role_paths(
             paths=[target_name],
+            pin_manager=pin_manager,
             delegated_role=role,
             keystore=keystore,
             commit=True,
@@ -135,6 +139,7 @@ def add_target_repo(
     commit_msg = git_commit_message("add-target", target_name=target_name)
     register_target_files(
         path=path,
+        pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
         scheme=scheme,
@@ -318,6 +323,7 @@ def list_targets(
 )
 def register_target_files(
     path: Union[Path, str],
+    pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = True,
@@ -357,7 +363,9 @@ def register_target_files(
     # find files that should be added/modified/removed
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=path)
+        auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    elif auth_repo.pin_manager is None:
+        auth_repo.pin_manager = pin_manager
 
     added_targets_data, removed_targets_data = auth_repo.get_all_target_files_state()
     if not added_targets_data and not removed_targets_data:
@@ -375,7 +383,7 @@ def register_target_files(
         if reset_updated_targets_on_error:
             paths_to_reset.append(str(Path(TARGETS_DIRECTORY_NAME, path)))
 
-    _, keystore, _ = _initialize_roles_and_keystore(
+    _, keystore, _ = initialize_roles_and_keystore(
         roles_key_infos, keystore, enter_info=False
     )
 
@@ -423,6 +431,7 @@ def register_target_files(
 @check_if_clean
 def remove_target_repo(
     path: str,
+    pin_manager: PinManager,
     target_name: str,
     keystore: str,
     prompt_for_keys: Optional[bool] = False,
@@ -445,7 +454,7 @@ def remove_target_repo(
     Returns:
         None
     """
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     tarets_updated = _remove_from_repositories_json(auth_repo, target_name)
 
@@ -463,6 +472,7 @@ def remove_target_repo(
         commit_msg = git_commit_message("remove-target", target_name=target_name)
         register_target_files(
             path=path,
+            pin_manager=pin_manager,
             keystore=keystore,
             commit=True,
             scheme=scheme,
@@ -549,6 +559,7 @@ def _save_top_commit_of_repo_to_target(
 @check_if_clean
 def update_target_repos_from_repositories_json(
     path: str,
+    pin_manager: PinManager,
     library_dir: str,
     keystore: str,
     add_branch: Optional[bool] = True,
@@ -590,6 +601,7 @@ def update_target_repos_from_repositories_json(
 
     register_target_files(
         repo_path,
+        pin_manager,
         keystore,
         None,
         commit,
@@ -613,6 +625,7 @@ def update_target_repos_from_repositories_json(
 @check_if_clean
 def update_and_sign_targets(
     path: str,
+    pin_manager: PinManager,
     library_dir: Optional[str],
     target_types: list,
     keystore: str,
@@ -642,7 +655,7 @@ def update_and_sign_targets(
         None
     """
     repo_path = Path(path).resolve()
-    auth_repo = AuthenticationRepository(path=repo_path)
+    auth_repo = AuthenticationRepository(path=repo_path, pin_manager=pin_manager)
     if library_dir is None:
         library_dir = str(repo_path.parent.parent)  # Ensure this uses the Path object
     repositoriesdb.load_repositories(auth_repo)
@@ -675,6 +688,7 @@ def update_and_sign_targets(
 
     register_target_files(
         repo_path,
+        pin_manager,
         keystore,
         roles_key_infos,
         commit,

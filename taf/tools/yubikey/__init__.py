@@ -7,7 +7,7 @@ from taf.api.yubikey import (
     setup_signing_yubikey,
     setup_test_yubikey,
 )
-from taf.exceptions import TAFError, YubikeyError
+from taf.exceptions import YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
@@ -115,6 +115,7 @@ def setup_signing_key_command():
         setup_signing_yubikey(pin_manager, certs_dir, key_size=2048)
 
     return setup_signing_key
+
 
 def setup_test_key_command():
     @click.command(

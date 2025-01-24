@@ -11,7 +11,7 @@ from taf.models.converter import from_dict
 
 from pathlib import Path
 from taf.api.roles import (
-    _initialize_roles_and_keystore,
+    initialize_roles_and_keystore,
 )
 from taf.api.targets import list_targets, register_target_files
 
@@ -70,7 +70,7 @@ def create_repository(
         keystore_path = find_keystore(path)
         if keystore_path is not None:
             keystore = str(keystore_path)
-    roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, skip_prompt = initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 

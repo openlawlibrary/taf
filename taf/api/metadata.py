@@ -180,6 +180,7 @@ def update_metadata_expiration_date(
 @check_if_clean
 def update_snapshot_and_timestamp(
     path: str,
+    pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_to_sync: Optional[List[str]] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -210,7 +211,7 @@ def update_snapshot_and_timestamp(
         None
     """
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     with manage_repo_and_signers(
         auth_repo,

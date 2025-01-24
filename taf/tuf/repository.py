@@ -827,7 +827,6 @@ class MetadataRepository(Repository):
             key_names.append(num + 1)
         return key_names
 
-
     def get_keyids_of_role(self, role_name: str) -> List:
         """
         Return all key ids of the specified role
