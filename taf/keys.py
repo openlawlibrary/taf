@@ -291,7 +291,10 @@ def load_signers(
                 num_of_signatures += 1
                 continue
         if num_of_signatures >= threshold:
-            if use_yubikey_for_signing_confirmed:
+            if (
+                use_yubikey_for_signing_confirmed
+                and not taf_repo.pin_manager.auto_continue
+            ):
                 if not click.confirm(
                     f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
                 ):
@@ -300,6 +303,7 @@ def load_signers(
                     hide_threshold_message = True
             else:
                 # loading from keystore files, couldn't load from all of them, but loaded enough
+                # or auto continue sets
                 break
 
         # try to load from the inserted YubiKeys, without asking the user to insert it

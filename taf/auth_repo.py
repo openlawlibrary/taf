@@ -83,6 +83,7 @@ class AuthenticationRepository(GitRepository):
         self._tuf_repository = TUFRepository(
             self.path, storage=self._storage, pin_manager=pin_manager
         )
+        self.pin_manager = pin_manager
 
     def __getattr__(self, item):
         """Delegate attribute lookup to TUFRepository instance"""

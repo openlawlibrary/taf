@@ -60,8 +60,10 @@ class YubiKeyStore:
 
 
 class PinManager:
-    def __init__(self):
+    def __init__(self, auto_continue=False):
         self._pins = {}
+        # Automatically continue without prompts, such as loading more keys
+        self.auto_continue = auto_continue
 
     def add_pin(self, serial_number, pin):
         self._pins[serial_number] = pin
