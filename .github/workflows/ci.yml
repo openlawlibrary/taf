@@ -60,10 +60,17 @@ jobs:
       #   run: |
       #     pre-commit run --all-files
       #     pytest taf/tests --benchmark-skip
+
+      - name: Download artifact
+        id: download-artifact
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          # branch: master
+          name: benchmark-results${{ matrix.python-version }}
       
       - name: Run benchmark
         run: |
-          python -m pytest --benchmark-only --benchmark-json=output.json
+          python -m pytest --benchmark-only --benchmark-json=output.json --benchmark-compare
 
       - name: Archive benchmark results
         uses: actions/upload-artifact@v4
