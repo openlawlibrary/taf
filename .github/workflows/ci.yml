@@ -63,13 +63,13 @@ jobs:
       
       - name: Run benchmark
         run: |
-          python -m pytest --benchmark-only --benchmark-json=output.json
+          python -m pytest --benchmark-only --benchmark-json=output${{ matrix.python-version }}.json
 
       - name: Archive benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: output.json
+          path: output${{ matrix.python-version }}.json
 
       # - name: Store benchmark result
       #   uses: benchmark-action/github-action-benchmark@v1
