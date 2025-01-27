@@ -67,6 +67,7 @@ jobs:
         with:
           # branch: master
           name: benchmark-results${{ matrix.python-version }}
+          path: /home/runner/work/taf/taf/.benchmarks
       
       - name: Run benchmark
         run: |
