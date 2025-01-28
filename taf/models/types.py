@@ -61,6 +61,7 @@ class Role:
             return None
         return self.yubikeys
 
+
 @attrs.define
 class RootRole(Role):
     name: str = "root"

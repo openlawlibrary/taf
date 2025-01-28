@@ -132,7 +132,7 @@ def add_role(
         new_role.threshold = threshold
         new_role.yubikey = yubikey
 
-        signers, _, key_name_mappings = load_sorted_keys_of_new_roles(
+        signers, _ = load_sorted_keys_of_new_roles(
             roles=new_role,
             auth_repo=auth_repo,
             yubikeys_data=None,
@@ -259,10 +259,12 @@ def add_roles(
         None
     """
 
-
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
-        path, auth_repo, roles_key_infos, keystore,
+        path,
+        auth_repo,
+        roles_key_infos,
+        keystore,
     )
     roles_data = auth_repo.generate_roles_description()
     roles_keys_data_current = from_dict(roles_data, RolesKeysData)
@@ -300,7 +302,7 @@ def add_roles(
     ):
         all_signers = {}
         for role_to_add_data in roles_to_add_data:
-            signers, _, key_name_mappings = load_sorted_keys_of_new_roles(
+            signers, _ = load_sorted_keys_of_new_roles(
                 roles=role_to_add_data,
                 auth_repo=auth_repo,
                 yubikeys_data=None,
@@ -310,6 +312,7 @@ def add_roles(
             )
             all_signers.update(signers)
 
+        # TODO add key name mappings
         auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
@@ -711,15 +714,11 @@ def _transform_roles_dict(data, auth_repo):
         if key_name not in yubikeys_data:
             yubikeys_data[key_name] = {}
 
-    transformed_roles = {
-        "root": {},
-        "snapshot": {},
-        "timestamp": {}
-    }
+    transformed_roles = {"root": {}, "snapshot": {}, "timestamp": {}}
 
     if "roles" in data:
         for role_name, role_data in data["roles"].items():
-            parent_role = role_data.pop('parent_role')
+            parent_role = role_data.pop("parent_role")
 
             if parent_role == "targets":
                 if "targets" not in transformed_roles:
@@ -729,8 +728,12 @@ def _transform_roles_dict(data, auth_repo):
                 if "targets" not in transformed_roles:
                     transformed_roles["targets"] = {"delegations": {}}
                 if parent_role not in transformed_roles["targets"]["delegations"]:
-                    transformed_roles["targets"]["delegations"][parent_role] = {"delegations": {}}
-                transformed_roles["targets"]["delegations"][parent_role]["delegations"][role_name] = role_data
+                    transformed_roles["targets"]["delegations"][parent_role] = {
+                        "delegations": {}
+                    }
+                transformed_roles["targets"]["delegations"][parent_role]["delegations"][
+                    role_name
+                ] = role_data
 
         transformed_data["roles"] = transformed_roles
 
@@ -749,7 +752,9 @@ def _initialize_roles_and_keystore_for_existing_repo(
     if not roles_key_infos_dict and enter_info:
         roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
     elif roles_key_infos_dict:
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
         roles_key_infos_dict = _transform_roles_dict(roles_key_infos_dict, auth_repo)
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     keystore = keystore or roles_keys_data.keystore

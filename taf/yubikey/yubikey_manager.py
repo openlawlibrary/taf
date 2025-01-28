@@ -43,7 +43,7 @@ class YubiKeyStore:
         key_data["roles"].append(role_name)
         self._yubikeys_data[key_name] = key_data
 
-    def get_key_data(self, key_name: str) -> Tuple[str, SSlibKey]:
+    def get_key_data(self, key_name: str) -> Optional[Tuple[str, SSlibKey]]:
         """Retrieve data associated with a given YubiKey name."""
         if not self.is_key_name_loaded(key_name):
             return None

@@ -149,8 +149,12 @@ class MetadataRepository(Repository):
 
     @property
     def keys_name_mappings(self):
-        if self._keys_name_mappings is None:
-            self._keys_name_mappings = self.load_key_names()
+        try:
+            if self._keys_name_mappings is None:
+                self._keys_name_mappings = self.load_key_names()
+        except TAFError:
+            # repository does not exist yet, so no metadata files
+            self._keys_name_mappings = {}
         return self._keys_name_mappings
 
     @property
@@ -180,6 +184,10 @@ class MetadataRepository(Repository):
         Tracks snapshot metadata changes, needed in `do_timestamp`
         """
         return self._snapshot_info
+
+    def add_key_name(self, key_name, key_id, overwrite=False):
+        if overwrite or not key_id in self.keys_name_mappings:
+            self._keys_name_mappings[key_id] = key_name
 
     def all_target_files(self) -> Set:
         """
@@ -515,7 +523,6 @@ class MetadataRepository(Repository):
         roles_keys_data: RolesKeysData,
         signers: dict,
         additional_verification_keys: Optional[dict] = None,
-        keys_name_mappings: Optional[Dict[str, str]] = None,
     ) -> None:
         """Create a new metadata repository on disk.
 
@@ -534,8 +541,6 @@ class MetadataRepository(Repository):
                 present at the time of the repository's creation
             key_name_mappings: A dictionary whose keys are key ids and values are custom names of those keys
         """
-        if keys_name_mappings:
-            self._keys_name_mappings = keys_name_mappings
         self.metadata_path.mkdir(parents=True)
         self.signer_cache = defaultdict(dict)
 
@@ -1400,7 +1405,7 @@ class MetadataRepository(Repository):
 
     def load_key_names(self):
         root_metadata = self.signed_obj("root")
-        target_roles = self.get_all_targets_roles()
+        # target_roles = self.get_all_targets_roles()
         name_mapping = {}
         keys = root_metadata.keys
         for key_id, key_obj in keys.items():

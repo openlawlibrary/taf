@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-import sys
 import click
 from taf.api.roles import (
     add_roles as add_multiple_roles,
@@ -55,7 +54,7 @@ def add_roles_command():
     roles: {
         "name": {
             "parent_role": "targets",
-            "delegated_path": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+            "patsh": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
             "keys_number": 2,
             "threshold": 1,
             "yubikey": true,
@@ -86,6 +85,7 @@ def add_roles_command():
             commit=not no_commit,
         )
     return add_roles
+
 
 def export_roles_description_command():
     @click.command(help="""

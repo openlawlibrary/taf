@@ -317,7 +317,8 @@ def _read_and_check_single_yubikey(
             not_loaded = [
                 serial
                 for serial in serials
-                if not taf_repo.yubikey_store.is_loaded_for_role(serial, role) and serial not in yubikeys_to_skip
+                if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
+                and serial not in yubikeys_to_skip
             ]
 
             if len(not_loaded) != 1:

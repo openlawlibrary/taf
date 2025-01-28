@@ -43,6 +43,19 @@ except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
 
+def _create_signer(auth_repo, public_key, serial_num, key_name):
+    return YkSigner(
+        public_key,
+        serial_num,
+        partial(
+            yk.yk_secrets_handler,
+            pin_manager=auth_repo.pin_manager,
+            serial_num=serial_num,
+        ),
+        key_name=key_name,
+    )
+
+
 def get_key_name(role_name: str, key_num: int, num_of_keys: int) -> str:
     """
     Return a keystore key's name based on the role's name and total number of signing keys,
@@ -139,12 +152,11 @@ def load_sorted_keys_of_new_roles(
         keystore_roles, yubikey_roles = _sort_roles(roles)
         signers: Dict = {}
         verification_keys: Dict = {}
-        keys_name_mappings: Dict = {}
 
         for role in keystore_roles:
             if role.name in existing_roles:
                 continue
-            keystore_signers, _, _, key_name_mapping = setup_roles_keys(
+            keystore_signers, _, _ = setup_roles_keys(
                 role,
                 auth_repo,
                 keystore=keystore,
@@ -153,12 +165,10 @@ def load_sorted_keys_of_new_roles(
             for signer in keystore_signers:
                 signers.setdefault(role.name, []).append(signer)
 
-            keys_name_mappings.update(key_name_mapping)
-
         for role in yubikey_roles:
             if role.name in existing_roles:
                 continue
-            _, yubikey_keys, yubikey_signers, key_name_mapping = setup_roles_keys(
+            _, yubikey_keys, yubikey_signers = setup_roles_keys(
                 role,
                 auth_repo,
                 certs_dir=certs_dir,
@@ -167,8 +177,8 @@ def load_sorted_keys_of_new_roles(
             )
             verification_keys[role.name] = yubikey_keys
             signers[role.name] = yubikey_signers
-            keys_name_mappings.update(key_name_mapping)
-        return signers, verification_keys, keys_name_mappings
+
+        return signers, verification_keys
     except KeystoreError:
         raise SigningError("Could not load keys of new roles")
 
@@ -369,13 +379,10 @@ def setup_roles_keys(
     if users_yubikeys_details is None:
         users_yubikeys_details = {}
 
-    keys_name_mappings: Dict = {}
-
     if role.is_yubikey:
-        yubikey_keys, yubikey_signers, keys_name_mapping = _setup_yubikey_roles_keys(
+        yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(
             auth_repo, yubikey_ids, users_yubikeys_details, role, certs_dir, key_size
         )
-        keys_name_mappings.update(keys_name_mapping)
     else:
         if keystore is None:
             taf_logger.error("No keystore provided and no default keystore found")
@@ -393,9 +400,9 @@ def setup_roles_keys(
                 skip_prompt=skip_prompt,
             )
             keystore_signers.append(signer)
-            keys_name_mappings[key_id] = key_name
+            auth_repo.add_key_name(key_name, key_id)
 
-    return keystore_signers, yubikey_keys, yubikey_signers, keys_name_mappings
+    return keystore_signers, yubikey_keys, yubikey_signers
 
 
 def _setup_yubikey_roles_keys(
@@ -405,19 +412,6 @@ def _setup_yubikey_roles_keys(
     yk_with_public_key = {}
     yubikey_keys = []
     signers = []
-    keyid_name_mapping = {}
-
-    def _create_signer(public_key, serial_num, key_name):
-        return YkSigner(
-            public_key,
-            serial_num,
-            partial(
-                yk.yk_secrets_handler,
-                pin_manager=auth_repo.pin_manager,
-                serial_num=serial_num,
-            ),
-            key_name=key_name,
-        )
 
     # if a key was already loaded (while setting up a different role)
     # register signers and remove the key id, so that the user is not asked to enter it again
@@ -428,11 +422,13 @@ def _setup_yubikey_roles_keys(
             key_data = auth_repo.yubikey_store.get_key_data(key_name)
             if key_data is not None:
                 public_key, serial_num = key_data
-                auth_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role.name)
+                auth_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, public_key, role.name
+                )
                 yubikey_ids.remove(key_name)
                 yubikey_keys.append(public_key)
                 loaded_keys_num += 1
-                signer = _create_signer(public_key, serial_num, key_name)
+                signer = _create_signer(auth_repo, public_key, serial_num, key_name)
                 signers.append(signer)
 
         # if key already loaded while setting up a different role, skip it
@@ -442,7 +438,6 @@ def _setup_yubikey_roles_keys(
         for key_name, key_data in auth_repo.yubikey_store.yubikeys_data.items():
             if key_name not in yubikey_ids:
                 yubikes_to_skip.append(key_data["serial"])
-
     else:
         yubikey_ids = [f"{role.name}{counter}" for counter in range(1, role.number + 1)]
 
@@ -453,8 +448,15 @@ def _setup_yubikey_roles_keys(
         if public_key_text:
             scheme = users_yubikeys_details[key_name].scheme
             public_key = get_sslib_key_from_value(public_key_text, scheme)
-            yk_with_public_key[key_name] = public_key
-            loaded_keys_num += 1
+            # Check if the signing key is already loaded
+            if not auth_repo.yubikey_store.is_key_name_loaded(key_name):
+                yk_with_public_key[key_name] = public_key
+            else:
+                serial_num = auth_repo.yubikey_store.get_key_data["serial"]
+                auth_repo.yubikey_store.add_key_data(
+                    key_name, serial_num, public_key, role.name
+                )
+                loaded_keys_num += 1
             yubikey_keys.append(public_key)
         else:
             key_scheme = None
@@ -471,53 +473,24 @@ def _setup_yubikey_roles_keys(
                 yubikes_to_skip,
             )
             loaded_keys_num += 1
-            signer = _create_signer(public_key, serial_num, key_name)
+            signer = _create_signer(auth_repo, public_key, serial_num, key_name)
             signers.append(signer)
 
         key_id = _get_legacy_keyid(public_key)
-        if names_defined or key_id not in keyid_name_mapping:
-            keyid_name_mapping[key_id] = key_name
+        auth_repo.add_key_name(key_name, key_id, overwrite=names_defined)
 
-    if loaded_keys_num < role.number:  # role.threshold:
+    if loaded_keys_num < role.threshold:
         print(f"Threshold of role {role.name} is {role.threshold}")
-        while loaded_keys_num < role.threshold:
-            loaded_keys = []
-            for key_name, public_key in yk_with_public_key.items():
-                if (
-                    key_name in users_yubikeys_details
-                    and not users_yubikeys_details[key_name].present
-                ):
-                    continue
-                serial_num = _load_and_verify_yubikey(
-                    role.name,
-                    key_name,
-                    public_key,
-                    taf_repo=auth_repo,
-                )
-                if serial_num:
-                    loaded_keys_num += 1
-                    loaded_keys.append(key_name)
-                    signer = YkSigner(
-                        public_key,
-                        partial(
-                            yk.yk_secrets_handler,
-                            pin_manager=auth_repo.pin_manager,
-                            serial_num=serial_num,
-                        ),
-                        key_name=key_name,
-                    )
-                    signers.append(signer)
-                if loaded_keys_num == role.threshold:
-                    break
-            if loaded_keys_num < role.threshold:
-                if not click.confirm(
-                    f"Threshold of signing keys of role {role.name} not reached. Continue?"
-                ):
-                    raise SigningError("Not enough signing keys")
-                for key_name in loaded_keys:
-                    yk_with_public_key.pop(key_name)
+        _load_remaining_keys_of_role(
+            auth_repo,
+            role,
+            loaded_keys_num,
+            users_yubikeys_details,
+            yk_with_public_key,
+            signers,
+        )
 
-    return yubikey_keys, signers, keyid_name_mapping
+    return yubikey_keys, signers
 
 
 def _setup_keystore_key(
@@ -640,6 +613,44 @@ def _setup_yubikey(
             return key, serial_num
 
 
+def _load_remaining_keys_of_role(
+    auth_repo: AuthenticationRepository,
+    role: Role,
+    loaded_keys_num: int,
+    users_yubikeys_details: UserKeyData,
+    yk_with_public_key: Dict,
+    signers: List,
+):
+    """
+    If a a yubikey's public key was specified, meaning that it can be added as a
+    verification key without being inserted, but the total number of signing
+    keys is smaller than the threshold
+    """
+    while loaded_keys_num < role.threshold:
+        loaded_keys = []
+        for key_name, public_key in yk_with_public_key.items():
+            serial_num = _load_and_verify_yubikey(
+                role.name,
+                key_name,
+                public_key,
+                taf_repo=auth_repo,
+            )
+            if serial_num:
+                loaded_keys_num += 1
+                loaded_keys.append(key_name)
+                signer = _create_signer(auth_repo, public_key, serial_num, key_name)
+                signers.append(signer)
+            if loaded_keys_num == role.threshold:
+                break
+        if loaded_keys_num < role.threshold:
+            if not click.confirm(
+                f"Threshold of signing keys of role {role.name} not reached. Continue?"
+            ):
+                raise SigningError("Not enough signing keys")
+            for key_name in loaded_keys:
+                yk_with_public_key.pop(key_name)
+
+
 def _load_and_verify_yubikey(
     role_name: str,
     key_name: str,
@@ -649,7 +660,7 @@ def _load_and_verify_yubikey(
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
         return None
     while True:
-        yk_public_key, _ = yk.yubikey_prompt(
+        yubikeys = yk.yubikey_prompt(
             [key_name],
             role=role_name,
             pin_manager=taf_repo.pin_manager,
@@ -659,9 +670,13 @@ def _load_and_verify_yubikey(
             pin_confirm=True,
             pin_repeat=True,
         )
-
-        if yk_public_key["keyid"] != public_key["keyid"]:
-            print("Public key of the inserted key is not equal to the specified one.")
-            if not click.confirm("Try again?"):
-                return None
-        return yk.get_serial_num()
+        if yubikeys:
+            yubikey = yubikeys[0]
+            yk_pub_key_id = yubikey[0].keyid
+            if yk_pub_key_id != public_key.keyid:
+                print(
+                    "Public key of the inserted key is not equal to the specified one."
+                )
+                if not click.confirm("Try again?"):
+                    return None
+            return yubikey[1]
