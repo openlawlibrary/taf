@@ -67,17 +67,17 @@ jobs:
       #   with:
       #     # branch: master
       #     name: benchmark-results${{ matrix.python-version }}
-      #     path: /home/runner/work/taf/taf/.benchmarks/Windows-CPython-3.10-64bit
+      #     path: /home/runner/work/taf/taf/.benchmarks/Linux-CPython-${{ matrix.python-version }}-64bit
       
       - name: Run benchmark
         run: |
-          python -m pytest --benchmark-only --benchmark-autosave --benchmark-compare
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare
 
       - name: Archive benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results${{ matrix.python-version }}
-          path: /home/runner/work/taf/taf/.benchmarks
+          path: 0001_output.json
 
       # - name: Store benchmark result 
       #   uses: benchmark-action/github-action-benchmark@v1
