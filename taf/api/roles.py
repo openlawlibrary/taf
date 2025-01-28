@@ -229,7 +229,7 @@ def add_role_paths(
     reraise=True,
 )
 @check_if_clean
-def add_multiple_roles(
+def add_roles(
     path: str,
     pin_manager: PinManager,
     keystore: Optional[str] = None,
@@ -259,11 +259,11 @@ def add_multiple_roles(
         None
     """
 
-    roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
-        path, roles_key_infos, keystore
-    )
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
+        path, auth_repo, roles_key_infos, keystore,
+    )
     roles_data = auth_repo.generate_roles_description()
     roles_keys_data_current = from_dict(roles_data, RolesKeysData)
     new_roles_data, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
@@ -701,8 +701,45 @@ def _read_val(input_type, name, param=None, required=False):
             pass
 
 
+def _transform_roles_dict(data, auth_repo):
+    key_names = auth_repo.keys_name_mappings.values()
+
+    transformed_data = data.copy()
+
+    yubikeys_data = transformed_data.get("yubikeys", {})
+    for key_name in key_names:
+        if key_name not in yubikeys_data:
+            yubikeys_data[key_name] = {}
+
+    transformed_roles = {
+        "root": {},
+        "snapshot": {},
+        "timestamp": {}
+    }
+
+    if "roles" in data:
+        for role_name, role_data in data["roles"].items():
+            parent_role = role_data.pop('parent_role')
+
+            if parent_role == "targets":
+                if "targets" not in transformed_roles:
+                    transformed_roles["targets"] = {"delegations": {}}
+                transformed_roles["targets"]["delegations"][role_name] = role_data
+            else:
+                if "targets" not in transformed_roles:
+                    transformed_roles["targets"] = {"delegations": {}}
+                if parent_role not in transformed_roles["targets"]["delegations"]:
+                    transformed_roles["targets"]["delegations"][parent_role] = {"delegations": {}}
+                transformed_roles["targets"]["delegations"][parent_role]["delegations"][role_name] = role_data
+
+        transformed_data["roles"] = transformed_roles
+
+    return transformed_data
+
+
 def _initialize_roles_and_keystore_for_existing_repo(
     path: str,
+    auth_repo: AuthenticationRepository,
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
@@ -711,6 +748,9 @@ def _initialize_roles_and_keystore_for_existing_repo(
 
     if not roles_key_infos_dict and enter_info:
         roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
+    elif roles_key_infos_dict:
+        import pdb; pdb.set_trace()
+        roles_key_infos_dict = _transform_roles_dict(roles_key_infos_dict, auth_repo)
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     keystore = keystore or roles_keys_data.keystore
     if keystore is None and path is not None:

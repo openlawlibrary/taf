@@ -369,10 +369,9 @@ def setup_roles_keys(
     if users_yubikeys_details is None:
         users_yubikeys_details = {}
 
-    is_yubikey = bool(yubikey_ids)
     keys_name_mappings: Dict = {}
 
-    if is_yubikey:
+    if role.is_yubikey:
         yubikey_keys, yubikey_signers, keys_name_mapping = _setup_yubikey_roles_keys(
             auth_repo, yubikey_ids, users_yubikeys_details, role, certs_dir, key_size
         )
@@ -407,6 +406,46 @@ def _setup_yubikey_roles_keys(
     yubikey_keys = []
     signers = []
     keyid_name_mapping = {}
+
+    def _create_signer(public_key, serial_num, key_name):
+        return YkSigner(
+            public_key,
+            serial_num,
+            partial(
+                yk.yk_secrets_handler,
+                pin_manager=auth_repo.pin_manager,
+                serial_num=serial_num,
+            ),
+            key_name=key_name,
+        )
+
+    # if a key was already loaded (while setting up a different role)
+    # register signers and remove the key id, so that the user is not asked to enter it again
+    yubikes_to_skip = []
+    names_defined = bool(yubikey_ids)
+    if names_defined:
+        for key_name in list(yubikey_ids):
+            key_data = auth_repo.yubikey_store.get_key_data(key_name)
+            if key_data is not None:
+                public_key, serial_num = key_data
+                auth_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role.name)
+                yubikey_ids.remove(key_name)
+                yubikey_keys.append(public_key)
+                loaded_keys_num += 1
+                signer = _create_signer(public_key, serial_num, key_name)
+                signers.append(signer)
+
+        # if key already loaded while setting up a different role, skip it
+        # if the current role's yubikey ids are defined
+        # however, if the current role's yubikey ids are not specified
+        # it can be possible to reuse a yubikey
+        for key_name, key_data in auth_repo.yubikey_store.yubikeys_data.items():
+            if key_name not in yubikey_ids:
+                yubikes_to_skip.append(key_data["serial"])
+
+    else:
+        yubikey_ids = [f"{role.name}{counter}" for counter in range(1, role.number + 1)]
+
     for key_name in yubikey_ids:
         public_key_text = None
         if key_name in users_yubikeys_details:
@@ -414,41 +453,30 @@ def _setup_yubikey_roles_keys(
         if public_key_text:
             scheme = users_yubikeys_details[key_name].scheme
             public_key = get_sslib_key_from_value(public_key_text, scheme)
-            # Check if the signing key is already loaded
-            if not auth_repo.yubikey_store.is_key_name_loaded(key_name):
-                yk_with_public_key[key_name] = public_key
-            else:
-                loaded_keys_num += 1
+            yk_with_public_key[key_name] = public_key
+            loaded_keys_num += 1
             yubikey_keys.append(public_key)
         else:
             key_scheme = None
             if key_name in users_yubikeys_details:
                 key_scheme = users_yubikeys_details[key_name].scheme
             key_scheme = key_scheme or role.scheme
-            if auth_repo.yubikey_store.is_key_name_loaded(key_name):
-                public_key, serial_num = auth_repo.yubikey_store.get_key_data(key_name)
-            else:
-                public_key, serial_num = _setup_yubikey(
-                    auth_repo,
-                    role.name,
-                    key_name,
-                    key_scheme,
-                    certs_dir,
-                    key_size,
-                )
-            loaded_keys_num += 1
-            signer = YkSigner(
-                public_key,
-                serial_num,
-                partial(
-                    yk.yk_secrets_handler,
-                    pin_manager=auth_repo.pin_manager,
-                    serial_num=serial_num,
-                ),
-                key_name=key_name,
+            public_key, serial_num = _setup_yubikey(
+                auth_repo,
+                role.name,
+                key_name,
+                key_scheme,
+                certs_dir,
+                key_size,
+                yubikes_to_skip,
             )
+            loaded_keys_num += 1
+            signer = _create_signer(public_key, serial_num, key_name)
             signers.append(signer)
-        keyid_name_mapping[_get_legacy_keyid(public_key)] = key_name
+
+        key_id = _get_legacy_keyid(public_key)
+        if names_defined or key_id not in keyid_name_mapping:
+            keyid_name_mapping[key_id] = key_name
 
     if loaded_keys_num < role.number:  # role.threshold:
         print(f"Threshold of role {role.name} is {role.threshold}")
@@ -574,6 +602,7 @@ def _setup_yubikey(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     certs_dir: Optional[Union[Path, str]] = None,
     key_size: int = 2048,
+    yubikeys_to_skip: Optional[List] = None,
 ) -> Tuple[Dict, str]:
     print(f"Registering keys for {key_name}")
     while True:
@@ -594,6 +623,7 @@ def _setup_yubikey(
             creating_new_key=not use_existing,
             pin_confirm=True,
             pin_repeat=True,
+            yubikeys_to_skip=yubikeys_to_skip,
         )
         if yubikeys is not None:
             key, serial_num, key_name = yubikeys[0]

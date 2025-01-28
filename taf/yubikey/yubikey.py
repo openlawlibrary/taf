@@ -293,12 +293,16 @@ def _read_and_check_single_yubikey(
     pin_repeat,
     prompt_message,
     retrying,
+    yubikeys_to_skip,
 ):
 
     if retrying:
         if prompt_message is None:
             prompt_message = f"Please insert {key_name} YubiKey and press ENTER"
         getpass(prompt_message)
+
+    if not yubikeys_to_skip:
+        yubikeys_to_skip = []
 
     # make sure that YubiKey is inserted
     try:
@@ -313,9 +317,10 @@ def _read_and_check_single_yubikey(
             not_loaded = [
                 serial
                 for serial in serials
-                if not taf_repo.yubikey_store.is_loaded_for_role(serial, role)
+                if not taf_repo.yubikey_store.is_loaded_for_role(serial, role) and serial not in yubikeys_to_skip
             ]
-            if len(not_loaded) > 1:
+
+            if len(not_loaded) != 1:
                 print("\nPlease insert only one not previously inserted YubiKey\n")
                 return None
 
@@ -587,6 +592,7 @@ def yubikey_prompt(
     retry_on_failure=True,
     hide_already_loaded_message=False,
     hide_threshold_message=False,
+    yubikeys_to_skip=None,
 ):
 
     retry_counter = 0
@@ -605,6 +611,7 @@ def yubikey_prompt(
                 pin_repeat,
                 prompt_message,
                 retrying,
+                yubikeys_to_skip,
             )
             if yubikey:
                 yubikeys = [yubikey]

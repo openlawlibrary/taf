@@ -1399,8 +1399,8 @@ class MetadataRepository(Repository):
         return targets_role
 
     def load_key_names(self):
-        # TODO target roles need to be handled too
         root_metadata = self.signed_obj("root")
+        target_roles = self.get_all_targets_roles()
         name_mapping = {}
         keys = root_metadata.keys
         for key_id, key_obj in keys.items():

@@ -1,6 +1,6 @@
 from collections import defaultdict
 import contextlib
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from taf.tuf.keys import SSlibKey
 
 
@@ -8,6 +8,10 @@ class YubiKeyStore:
     def __init__(self):
         # Initializes the dictionary to store YubiKey data
         self._yubikeys_data = defaultdict(dict)
+
+    @property
+    def yubikeys_data(self) -> Dict:
+        return self._yubikeys_data
 
     def is_loaded(self, serial_number) -> bool:
         return any(
@@ -41,6 +45,8 @@ class YubiKeyStore:
 
     def get_key_data(self, key_name: str) -> Tuple[str, SSlibKey]:
         """Retrieve data associated with a given YubiKey name."""
+        if not self.is_key_name_loaded(key_name):
+            return None
         key_data = self._yubikeys_data.get(key_name)
         return key_data["public_key"], key_data["serial"]
 
