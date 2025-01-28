@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results${{ matrix.python-version }}
-          path: 0001_output.json
+          path: /home/runner/work/taf/taf/.benchmarks
 
       # - name: Store benchmark result 
       #   uses: benchmark-action/github-action-benchmark@v1
