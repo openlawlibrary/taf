@@ -61,13 +61,13 @@ jobs:
       #     pre-commit run --all-files
       #     pytest taf/tests --benchmark-skip
 
-      # - name: Download artifact
-      #   id: download-artifact
-      #   uses: dawidd6/action-download-artifact@v8
-      #   with:
-      #     # branch: master
-      #     name: benchmark-results${{ matrix.python-version }}
-      #     path: /home/runner/work/taf/taf/.benchmarks/Linux-CPython-${{ matrix.python-version }}-64bit
+      - name: Download artifact
+        id: download-artifact
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          # branch: master
+          name: benchmark-results${{ matrix.python-version }}
+          path: /home/runner/work/taf/taf/.benchmarks/Linux-CPython-${{ matrix.python-version }}-64bit
       
       - name: Run benchmark
         run: |
