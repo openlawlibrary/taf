@@ -67,7 +67,7 @@ jobs:
         with:
           # branch: master
           name: benchmark-results${{ matrix.python-version }}
-          path: /home/runner/work/taf/taf/.benchmarks/Linux-CPython-${{ matrix.python-version }}-64bit
+          path: /home/runner/work/taf/taf/.benchmarks/${{ runner.os }}-CPython-${{ matrix.python-version }}-64bit
       
       - name: Run benchmark
         run: |
