@@ -657,7 +657,6 @@ class MetadataRepository(Repository):
                 parent = role_data.parent.name
                 roles_parents_dict[parent].append(role_data)
 
-
         public_keys = self._process_keys(signers, additional_verification_keys)
 
         for parent, parents_roles_data in roles_parents_dict.items():
@@ -668,9 +667,9 @@ class MetadataRepository(Repository):
                         key_id = _get_legacy_keyid(public_key)
                         keys_data[key_id] = public_key
                         if key_id in self.keys_name_mappings:
-                            public_key.unrecognized_fields["name"] = self.keys_name_mappings[
-                                  key_id
-                        ]
+                            public_key.unrecognized_fields[
+                                "name"
+                            ] = self.keys_name_mappings[key_id]
 
                     for signer in signers[role_data.name]:
                         public_key = signer.public_key
@@ -1189,28 +1188,28 @@ class MetadataRepository(Repository):
             return None, None
 
     def get_public_key_of_keyid(self, keyid: str):
-
         def _find_keyid(role_name, keyid):
 
-            _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(role_name, keyid)
+            _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
+                role_name, keyid
+            )
             if pub_key_pem is not None:
                 return pub_key_pem, scheme
 
             for delegation in self.get_delegations_of_role(role_name):
-                pub_key_pem, scheme = self._find_keyid(
-                    delegation, keyid
-                )
+                pub_key_pem, scheme = self._find_keyid(delegation, keyid)
                 if pub_key_pem is not None:
                     return pub_key_pem, scheme
 
-        _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata("root", keyid)
+        _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
+            "root", keyid
+        )
         if pub_key_pem is not None:
             return pub_key_pem, scheme
 
         targets_obj = self.signed_obj("targets")
         if targets_obj.delegations:
             return _find_keyid("targets", keyid)
-
 
     def generate_roles_description(self) -> Dict:
         """

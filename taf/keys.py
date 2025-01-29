@@ -379,21 +379,20 @@ def setup_roles_keys(
     if users_yubikeys_details is None:
         users_yubikeys_details = {}
 
-
     if yubikey_ids:
         if auth_repo.keys_name_mappings:
             # check if some of the listed key names are already defined as signing keys
             # in that case, they need to be loaded and verified
             existing_key_names = {
-                existing_key_name: existing_key_id for existing_key_id, existing_key_name in auth_repo.keys_name_mappings.items()
+                existing_key_name: existing_key_id
+                for existing_key_id, existing_key_name in auth_repo.keys_name_mappings.items()
             }
             for key_name in yubikey_ids:
                 if key_name in existing_key_names:
-                    public_key_pem, scheme = auth_repo.get_public_key_of_keyid(existing_key_names[key_name])
-                    key_data = {
-                        "public": public_key_pem,
-                        "scheme": scheme
-                    }
+                    public_key_pem, scheme = auth_repo.get_public_key_of_keyid(
+                        existing_key_names[key_name]
+                    )
+                    key_data = {"public": public_key_pem, "scheme": scheme}
                     users_yubikeys_details[key_name] = UserKeyData(**key_data)
 
     if role.is_yubikey:
@@ -675,7 +674,7 @@ def _load_and_verify_yubikey(
     role_name: str,
     key_name: str,
     public_key,
-    taf_repo: TUFRepository,
+    taf_repo: AuthenticationRepository,
 ) -> Optional[str]:
     if not click.confirm(f"Sign using {key_name} Yubikey?"):
         return None

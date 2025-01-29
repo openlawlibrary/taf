@@ -2,7 +2,7 @@ from pathlib import Path
 from taf.api.roles import (
     add_role,
     add_role_paths,
-    add_multiple_roles,
+    add_roles,
     add_signing_key,
     list_keys_of_role,
     remove_paths,
@@ -81,7 +81,7 @@ def test_add_multiple_roles(
     with_delegations_no_yubikeys_path: str,
 ):
     initial_commits_num = len(auth_repo.list_commits())
-    add_multiple_roles(
+    add_roles(
         path=str(auth_repo.path),
         pin_manager=pin_manager,
         keystore=roles_keystore,

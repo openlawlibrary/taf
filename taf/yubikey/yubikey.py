@@ -429,7 +429,6 @@ def _read_and_check_yubikeys(
             taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
             yubikeys.append((public_key, serial_num, key_name))
 
-
     if not hide_already_loaded_message and all_loaded:
         print("All inserted YubiKeys already loaded")
 

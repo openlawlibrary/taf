@@ -119,8 +119,7 @@ def add_role(
     new_role.threshold = threshold
     new_role.yubikey = yubikey
 
-    import pdb; pdb.set_trace()
-    signers, _ = load_sorted_keys_of_new_roles(
+    signers, verification_keys = load_sorted_keys_of_new_roles(
         roles=new_role,
         auth_repo=auth_repo,
         yubikeys_data=None,
@@ -141,7 +140,7 @@ def add_role(
         commit_msg=commit_msg,
         paths_to_reset_on_error=[metadata_path],
     ):
-        auth_repo.create_delegated_roles([new_role], signers)
+        auth_repo.create_delegated_roles([new_role], signers, verification_keys)
         auth_repo.add_new_roles_to_snapshot([new_role.name])
         auth_repo.do_timestamp()
 
@@ -316,7 +315,9 @@ def add_roles(
         push=push,
     ):
 
-        auth_repo.create_delegated_roles(roles_to_add_data, all_signers, all_verification_keys)
+        auth_repo.create_delegated_roles(
+            roles_to_add_data, all_signers, all_verification_keys
+        )
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
 
