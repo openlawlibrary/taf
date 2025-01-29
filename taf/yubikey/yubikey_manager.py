@@ -1,6 +1,6 @@
 from collections import defaultdict
 import contextlib
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from taf.tuf.keys import SSlibKey
 
 

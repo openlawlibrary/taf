@@ -1172,9 +1172,33 @@ class MetadataRepository(Repository):
             pub_key = serialization.load_pem_public_key(
                 pub_key_pem.encode(), backend=default_backend()
             )
-            return pub_key, scheme
+            return pub_key, pub_key_pem, scheme
         except Exception:
             return None, None
+
+    def get_public_key_of_keyid(self, keyid: str):
+
+        def _find_keyid(role_name, keyid):
+
+            _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(role_name, keyid)
+            if pub_key_pem is not None:
+                return pub_key_pem, scheme
+
+            for delegation in self.get_delegations_of_role(role_name):
+                pub_key_pem, scheme = self._find_keyid(
+                    delegation, keyid
+                )
+                if pub_key_pem is not None:
+                    return pub_key_pem, scheme
+
+        _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata("root", keyid)
+        if pub_key_pem is not None:
+            return pub_key_pem, scheme
+
+        targets_obj = self.signed_obj("targets")
+        if targets_obj.delegations:
+            return _find_keyid("targets", keyid)
+
 
     def generate_roles_description(self) -> Dict:
         """
@@ -1194,7 +1218,7 @@ class MetadataRepository(Repository):
                     "paths": delegated_role.paths,
                     "terminating": delegated_role.terminating,
                 }
-                pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+                pub_key, _, scheme = self.get_key_length_and_scheme_from_metadata(
                     role_name, delegated_role.keyids[0]
                 )
 
@@ -1213,7 +1237,7 @@ class MetadataRepository(Repository):
                 "threshold": role_obj.threshold,
                 "number": len(role_obj.keyids),
             }
-            pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+            pub_key, _, scheme = self.get_key_length_and_scheme_from_metadata(
                 "root", role_obj.keyids[0]
             )
             roles_description[role_name]["scheme"] = scheme

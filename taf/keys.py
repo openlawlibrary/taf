@@ -202,15 +202,15 @@ def _load_signer_from_keystore(
     return None
 
 
-def _load_and_append_yubikeys(
+def _load_yubikeys(
     taf_repo,
     role,
     key_names,
     retry_on_failure,
-    signers_yubikeys,
     hide_threshold_message,
 ):
 
+    signers_yubikeys = []
     yubikeys = yk.yubikey_prompt(
         key_names=key_names,
         pin_manager=taf_repo.pin_manager,
@@ -240,7 +240,7 @@ def _load_and_append_yubikeys(
             loaded_key_names.append(key_name)
             taf_logger.info(f"Successfully loaded {key_name} from inserted YubiKey")
 
-    return loaded_key_names
+    return signers_yubikeys, loaded_key_names
 
 
 @log_on_start(INFO, "Loading signing keys of '{role:s}'", logger=taf_logger)
@@ -321,14 +321,14 @@ def load_signers(
         # that can be used to sign the current role, but either read the name from the
         # metadata, or assign a role + counter name
         if initial_yk_load_attempt or use_yubikey_for_signing_confirmed:
-            loaded_keys = _load_and_append_yubikeys(
+            loaded_signers, loaded_keys = _load_yubikeys(
                 taf_repo=taf_repo,
                 role=role,
                 key_names=key_names,
                 retry_on_failure=use_yubikey_for_signing_confirmed,
-                signers_yubikeys=signers_yubikeys,
                 hide_threshold_message=hide_threshold_message,
             )
+            signers_yubikeys.extend(loaded_signers)
             if loaded_keys:
                 use_yubikey_for_signing_confirmed = True
                 num_of_loaded_keys = len(loaded_keys)
@@ -378,6 +378,23 @@ def setup_roles_keys(
         yubikey_ids = []
     if users_yubikeys_details is None:
         users_yubikeys_details = {}
+
+
+    if yubikey_ids:
+        if auth_repo.keys_name_mappings:
+            # check if some of the listed key names are already defined as signing keys
+            # in that case, they need to be loaded and verified
+            existing_key_names = {
+                existing_key_name: existing_key_id for existing_key_id, existing_key_name in auth_repo.keys_name_mappings.items()
+            }
+            for key_name in yubikey_ids:
+                if key_name in existing_key_names:
+                    public_key_pem, scheme = auth_repo.get_public_key_of_keyid(existing_key_names[key_name])
+                    key_data = {
+                        "public": public_key_pem,
+                        "scheme": scheme
+                    }
+                    users_yubikeys_details[key_name] = UserKeyData(**key_data)
 
     if role.is_yubikey:
         yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(

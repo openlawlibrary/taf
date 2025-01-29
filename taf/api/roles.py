@@ -106,6 +106,28 @@ def add_role(
     commit_msg = git_commit_message("add-role", role=role)
     metadata_path = Path(METADATA_DIRECTORY_NAME, f"{role}.json")
 
+    targets_parent_role = TargetsRole()
+    if parent_role != "targets":
+        targets_parent_role.name = parent_role
+        targets_parent_role.paths = []
+
+    new_role = TargetsRole()
+    new_role.name = role
+    new_role.parent = targets_parent_role
+    new_role.paths = paths
+    new_role.number = keys_number
+    new_role.threshold = threshold
+    new_role.yubikey = yubikey
+
+    import pdb; pdb.set_trace()
+    signers, _ = load_sorted_keys_of_new_roles(
+        roles=new_role,
+        auth_repo=auth_repo,
+        yubikeys_data=None,
+        keystore=keystore_path,
+        skip_prompt=skip_prompt,
+        certs_dir=auth_repo.certs_dir,
+    )
     with manage_repo_and_signers(
         auth_repo,
         roles=[parent_role],
@@ -119,27 +141,6 @@ def add_role(
         commit_msg=commit_msg,
         paths_to_reset_on_error=[metadata_path],
     ):
-        targets_parent_role = TargetsRole()
-        if parent_role != "targets":
-            targets_parent_role.name = parent_role
-            targets_parent_role.paths = []
-
-        new_role = TargetsRole()
-        new_role.name = role
-        new_role.parent = targets_parent_role
-        new_role.paths = paths
-        new_role.number = keys_number
-        new_role.threshold = threshold
-        new_role.yubikey = yubikey
-
-        signers, _ = load_sorted_keys_of_new_roles(
-            roles=new_role,
-            auth_repo=auth_repo,
-            yubikeys_data=None,
-            keystore=keystore_path,
-            skip_prompt=skip_prompt,
-            certs_dir=auth_repo.certs_dir,
-        )
         auth_repo.create_delegated_roles([new_role], signers)
         auth_repo.add_new_roles_to_snapshot([new_role.name])
         auth_repo.do_timestamp()
@@ -289,6 +290,18 @@ def add_roles(
     ]
     keystore_path = roles_keys_data_new.keystore
 
+    all_signers = {}
+    for role_to_add_data in roles_to_add_data:
+        signers, _ = load_sorted_keys_of_new_roles(
+            roles=role_to_add_data,
+            auth_repo=auth_repo,
+            yubikeys_data=None,
+            keystore=keystore_path,
+            skip_prompt=not prompt_for_keys,
+            certs_dir=auth_repo.certs_dir,
+        )
+        all_signers.update(signers)
+
     with manage_repo_and_signers(
         auth_repo,
         roles=roles_to_load,
@@ -300,17 +313,6 @@ def add_roles(
         commit=commit,
         push=push,
     ):
-        all_signers = {}
-        for role_to_add_data in roles_to_add_data:
-            signers, _ = load_sorted_keys_of_new_roles(
-                roles=role_to_add_data,
-                auth_repo=auth_repo,
-                yubikeys_data=None,
-                keystore=keystore_path,
-                skip_prompt=not prompt_for_keys,
-                certs_dir=auth_repo.certs_dir,
-            )
-            all_signers.update(signers)
 
         # TODO add key name mappings
         auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
@@ -752,9 +754,6 @@ def _initialize_roles_and_keystore_for_existing_repo(
     if not roles_key_infos_dict and enter_info:
         roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
     elif roles_key_infos_dict:
-        import pdb
-
-        pdb.set_trace()
         roles_key_infos_dict = _transform_roles_dict(roles_key_infos_dict, auth_repo)
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     keystore = keystore or roles_keys_data.keystore
