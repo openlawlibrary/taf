@@ -454,7 +454,9 @@ def setup_repository_no_info_json(
     )
     if targets_config:
         initialize_target_repositories(origin_dir, targets_config=targets_config)
-        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+        sign_target_repositories(
+            origin_dir, repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+        )
 
     # Yield the authentication repository object
     return AuthenticationRepository(origin_dir, repo_name)
@@ -479,9 +481,13 @@ def setup_repository_mirrors_added_later(
     )
     if targets_config:
         initialize_target_repositories(origin_dir, targets_config=targets_config)
-        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+        sign_target_repositories(
+            origin_dir, repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+        )
     create_mirrors_json(origin_dir, repo_name)
-    sign_target_files(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+    sign_target_files(
+        origin_dir, repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+    )
 
     # Yield the authentication repository object
     return AuthenticationRepository(origin_dir, repo_name)
@@ -505,10 +511,14 @@ def setup_repository_repositories_and_mirrors_added_later(
     )
     create_repositories_json(origin_dir, repo_name, targets_config=targets_config)
     create_mirrors_json(origin_dir, repo_name)
-    sign_target_files(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+    sign_target_files(
+        origin_dir, repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+    )
     if targets_config:
         initialize_target_repositories(origin_dir, targets_config=targets_config)
-        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+        sign_target_repositories(
+            origin_dir, repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+        )
 
     # Yield the authentication repository object
     return AuthenticationRepository(origin_dir, repo_name)

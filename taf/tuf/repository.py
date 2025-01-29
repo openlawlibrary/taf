@@ -1187,7 +1187,7 @@ class MetadataRepository(Repository):
         except Exception:
             return None, None, None
 
-    def get_key_names_from_metadata(self, parent_role: str) -> Tuple:
+    def get_key_names_from_metadata(self, parent_role: str) -> Optional[dict]:
         """
         Return length and signing scheme of the specified key id.
         This data is specified in metadata files (root or a target role that has delegations)
