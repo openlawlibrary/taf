@@ -533,6 +533,7 @@ def rotate_signing_key(
     with transactional_execution(auth_repo):
         revoke_signing_key(
             path=path,
+            pin_manager=pin_manager,
             key_id=key_id,
             roles=roles,
             keystore=keystore,
@@ -545,6 +546,7 @@ def rotate_signing_key(
 
         add_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=roles,
             pub_key=pub_key,
             keystore=keystore,
@@ -1057,6 +1059,7 @@ def remove_role(
 )
 def remove_paths(
     path: str,
+    pin_manager: PinManager,
     paths: List[str],
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -1082,7 +1085,7 @@ def remove_paths(
     Returns:
         True if the delegation existed, False otherwise
     """
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     paths_to_remove_from_roles = defaultdict(list)
     for path_to_remove in paths:
         delegated_role = auth_repo.get_role_from_target_paths([path_to_remove])

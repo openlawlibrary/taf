@@ -78,7 +78,9 @@ def library_with_dependencies(origin_dir, pin_manager, request):
         params,
         root_auth_repo.path / TARGETS_DIRECTORY_NAME / DEPENDENCIES_JSON_NAME,
     )
-    sign_target_files(origin_dir, root_repo_name, keystore=KEYSTORE_PATH, pin_manager)
+    sign_target_files(
+        origin_dir, root_repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+    )
 
     library[root_auth_repo.name] = {"auth_repo": root_auth_repo, "target_repos": []}
     yield library

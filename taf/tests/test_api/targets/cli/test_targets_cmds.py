@@ -8,74 +8,74 @@ from taf.tests.test_api.util import check_if_targets_signed
 from taf.tools.cli.taf import taf
 
 
-# def test_targets_sign_when_target_file_is_added_expect_success(
-#     auth_repo_when_add_repositories_json,
-#     library,
-#     keystore_delegations,
-# ):
-#     runner = CliRunner()
+def test_targets_sign_when_target_file_is_added_expect_success(
+    auth_repo_when_add_repositories_json,
+    library,
+    keystore_delegations,
+):
+    runner = CliRunner()
 
-#     repo_path = library / "auth"
-#     FILENAME = "test.txt"
-#     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
-#     file_path.write_text("test")
+    repo_path = library / "auth"
+    FILENAME = "test.txt"
+    file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
+    file_path.write_text("test")
 
-#     runner.invoke(
-#         taf,
-#         [
-#             "targets",
-#             "sign",
-#             "--path",
-#             f"{str(auth_repo_when_add_repositories_json.path)}",
-#             "--keystore",
-#             f"{str(keystore_delegations)}",
-#         ],
-#     )
+    runner.invoke(
+        taf,
+        [
+            "targets",
+            "sign",
+            "--path",
+            f"{str(auth_repo_when_add_repositories_json.path)}",
+            "--keystore",
+            f"{str(keystore_delegations)}",
+        ],
+    )
 
-#     check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
+    check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
 
 
-# def test_targets_sign_when_target_file_is_removed_expect_success(
-#     auth_repo_when_add_repositories_json,
-#     library,
-#     keystore_delegations,
-# ):
-#     runner = CliRunner()
+def test_targets_sign_when_target_file_is_removed_expect_success(
+    auth_repo_when_add_repositories_json,
+    library,
+    keystore_delegations,
+):
+    runner = CliRunner()
 
-#     repo_path = library / "auth"
-#     FILENAME = "test.txt"
-#     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
-#     file_path.write_text("test")
+    repo_path = library / "auth"
+    FILENAME = "test.txt"
+    file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
+    file_path.write_text("test")
 
-#     runner.invoke(
-#         taf,
-#         [
-#             "targets",
-#             "sign",
-#             "--path",
-#             f"{str(auth_repo_when_add_repositories_json.path)}",
-#             "--keystore",
-#             f"{str(keystore_delegations)}",
-#         ],
-#     )
-#     check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
+    runner.invoke(
+        taf,
+        [
+            "targets",
+            "sign",
+            "--path",
+            f"{str(auth_repo_when_add_repositories_json.path)}",
+            "--keystore",
+            f"{str(keystore_delegations)}",
+        ],
+    )
+    check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
 
-#     file_path.unlink()
+    file_path.unlink()
 
-#     runner.invoke(
-#         taf,
-#         [
-#             "targets",
-#             "sign",
-#             "--path",
-#             f"{str(auth_repo_when_add_repositories_json.path)}",
-#             "--keystore",
-#             f"{str(keystore_delegations)}",
-#         ],
-#     )
+    runner.invoke(
+        taf,
+        [
+            "targets",
+            "sign",
+            "--path",
+            f"{str(auth_repo_when_add_repositories_json.path)}",
+            "--keystore",
+            f"{str(keystore_delegations)}",
+        ],
+    )
 
-#     signed_target_files = auth_repo_when_add_repositories_json.get_signed_target_files()
-#     assert FILENAME not in signed_target_files
+    signed_target_files = auth_repo_when_add_repositories_json.get_signed_target_files()
+    assert FILENAME not in signed_target_files
 
 
 def test_targets_add_repo_cmd_expect_success(

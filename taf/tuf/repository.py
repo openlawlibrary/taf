@@ -1185,11 +1185,35 @@ class MetadataRepository(Repository):
             )
             return pub_key, pub_key_pem, scheme
         except Exception:
-            return None, None
+            return None, None, None
+
+    def get_key_names_from_metadata(self, parent_role: str) -> Tuple:
+        """
+        Return length and signing scheme of the specified key id.
+        This data is specified in metadata files (root or a target role that has delegations)
+        """
+        try:
+            metadata = json.loads(
+                Path(
+                    self.path, METADATA_DIRECTORY_NAME, f"{parent_role}.json"
+                ).read_text()
+            )
+            metadata = metadata["signed"]
+            if "delegations" in metadata:
+                metadata = metadata["delegations"]
+
+            keys = metadata["keys"]
+            names = {
+                key_id: key_data["name"]
+                for key_id, key_data in keys.items()
+                if "name" in key_data
+            }
+            return names
+        except Exception:
+            return None
 
     def get_public_key_of_keyid(self, keyid: str):
         def _find_keyid(role_name, keyid):
-
             _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
                 role_name, keyid
             )
@@ -1439,14 +1463,28 @@ class MetadataRepository(Repository):
         return targets_role
 
     def load_key_names(self):
+        def _get_keys_of_delegations(role_name):
+            keys = {}
+            role_keys = self.get_key_names_from_metadata(role_name)
+            if role_keys is not None:
+                keys.update(role_keys)
+
+            for delegation in self.get_delegations_of_role(role_name):
+                delegated_signed = self.signed_obj(delegation)
+                if delegated_signed.delegations:
+                    inner_roles_keys = _get_keys_of_delegations(delegation)
+                    if inner_roles_keys:
+                        keys.update(inner_roles_keys)
+            return keys
+
         root_metadata = self.signed_obj("root")
-        # target_roles = self.get_all_targets_roles()
         name_mapping = {}
         keys = root_metadata.keys
         for key_id, key_obj in keys.items():
             name_data = key_obj.unrecognized_fields
             if name_data is not None and "name" in name_data:
                 name_mapping[key_id] = name_data["name"]
+        name_mapping.update(_get_keys_of_delegations("targets"))
         return name_mapping
 
     def _modify_targets_role(
