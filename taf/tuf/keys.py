@@ -221,8 +221,16 @@ class YkSigner(Signer):
         See e.g. `self.from_priv_key_uri` and other `import_` methods on
         securesystemslib signers, e.g. `HSMSigner.import_`.
         """
-        # if multiple keys are inserted, we need to know from which one the key should be imported
-        raise NotImplementedError
+        # if multiple keys are inserted, we need to know from which key should be imported
+        # TODO
+        # only used for testing purposes now
+        from taf.yubikey.yubikey import export_piv_pub_key, get_serial_num
+
+        serials = get_serial_num()
+        serial = serials[0]
+        pem = export_piv_pub_key(serial=serial)
+        pub = load_pem_public_key(pem)
+        return _from_crypto(pub)
 
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)

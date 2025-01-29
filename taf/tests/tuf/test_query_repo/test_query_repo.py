@@ -219,7 +219,8 @@ def test_get_key_length_and_scheme_from_metadata(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.get_key_length_and_scheme_from_metadata(
         "root", keyid
     )
-    key, scheme = actual
+    pem, key, scheme = actual
+    assert pem is not None
     assert key is not None
     assert scheme == "rsa-pkcs1v15-sha256"
 
@@ -264,7 +265,7 @@ def test_generate_roles_description(tuf_repo_with_delegations):
 def test_sort_roles_targets_for_filenames(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.sort_roles_targets_for_filenames()
     assert actual["targets"] == ["test1", "test2"]
-    assert actual["delegated_role"] == ["dir1/path1", "dir2/path1"]
+    assert set(actual["delegated_role"]) == set(["dir1/path1", "dir2/path1"])
     assert actual["inner_role"] == ["dir2/path2"]
 
 

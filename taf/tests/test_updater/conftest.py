@@ -747,12 +747,10 @@ def update_role_metadata_without_signing(
     )
 
 
-def update_target_repo_without_committing(
-    pin_manager, target_repos: list, target_name: str
-):
+def update_target_repo_without_committing(target_repos: list, target_name: str):
     for target_repo in target_repos:
         if target_name in target_repo.name:
-            update_target_repository(pin_manager, target_repo)
+            update_target_repository(target_repo, None)
 
 
 def update_timestamp_metadata_invalid_signature(

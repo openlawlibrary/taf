@@ -1,7 +1,9 @@
 """Test YkSigner"""
 
-from getpass import getpass
+from functools import partial
 import os
+
+from taf.yubikey.yubikey_manager import PinManager
 import pytest
 
 from securesystemslib.exceptions import UnverifiedSignatureError
@@ -38,13 +40,18 @@ def is_yubikey_manager_installed():
 )
 def test_fake_yk(mocker):
     """Test public key export and signing with fake Yubikey."""
-    mocker.patch("taf.yubikey.export_piv_pub_key", return_value=_PUB)
-    mocker.patch("taf.yubikey.sign_piv_rsa_pkcs1v15", return_value=_SIG)
+    mocker.patch("taf.yubikey.yubikey.export_piv_pub_key", return_value=_PUB)
+    mocker.patch("taf.yubikey.yubikey.sign_piv_rsa_pkcs1v15", return_value=_SIG)
+    mocker.patch("taf.yubikey.yubikey.verify_yk_inserted", return_value=True)
 
     from taf.tuf.keys import YkSigner
 
     key = YkSigner.import_()
-    signer = YkSigner(key, lambda sec: None)
+
+    def _secrets_handler(key_name):
+        return "123456"
+
+    signer = YkSigner(key, "1234", _secrets_handler, "test")
 
     sig = signer.sign(_DATA)
     key.verify_signature(sig, _DATA)
@@ -59,13 +66,22 @@ def test_fake_yk(mocker):
 def test_real_yk():
     """Test public key export and signing with real Yubikey."""
 
-    def sec_handler(secret_name: str) -> str:
-        return getpass(f"Enter {secret_name}: ")
-
+    import taf.yubikey.yubikey as yk
     from taf.tuf.keys import YkSigner
+    from taf.yubikey.yubikey import get_serial_num
 
+    serials = get_serial_num()
+    serial = serials[0]
+    pin_manager = PinManager()
+    pin_manager.add_pin(serial, "123456")
+
+    secrets_handler = partial(
+        yk.yk_secrets_handler,
+        pin_manager=pin_manager,
+        serial_num=serial,
+    )
     key = YkSigner.import_()
-    signer = YkSigner(key, sec_handler)
+    signer = YkSigner(key, serial, secrets_handler, "test")
 
     sig = signer.sign(_DATA)
     key.verify_signature(sig, _DATA)
