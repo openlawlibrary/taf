@@ -322,7 +322,7 @@ def create_authentication_repository(
 
 def sign_target_files(library_dir, repo_name, keystore, pin_manager):
     repo_path = Path(library_dir, repo_name)
-    register_target_files(str(repo_path), keystore, pin_manager)
+    register_target_files(str(repo_path), pin_manager, keystore)
 
 
 def _init_auth_repo(
