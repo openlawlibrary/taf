@@ -630,6 +630,7 @@ class MetadataRepository(Repository):
         self,
         roles_data: List[TargetsRole],
         signers: Dict[str, List[CryptoSigner]],
+        additional_verification_keys: Optional[dict] = None,
     ) -> Tuple[List, List]:
         """
         Create a new delegated roles, signes them using the provided signers and
@@ -656,15 +657,26 @@ class MetadataRepository(Repository):
                 parent = role_data.parent.name
                 roles_parents_dict[parent].append(role_data)
 
+
+        public_keys = self._process_keys(signers, additional_verification_keys)
+
         for parent, parents_roles_data in roles_parents_dict.items():
             with self.edit(parent) as parent_obj:
                 keys_data = {}
                 for role_data in parents_roles_data:
+                    for public_key in public_keys[role_data.name].values():
+                        key_id = _get_legacy_keyid(public_key)
+                        keys_data[key_id] = public_key
+                        if key_id in self.keys_name_mappings:
+                            public_key.unrecognized_fields["name"] = self.keys_name_mappings[
+                                  key_id
+                        ]
+
                     for signer in signers[role_data.name]:
                         public_key = signer.public_key
                         key_id = _get_legacy_keyid(public_key)
-                        keys_data[key_id] = public_key
                         self.signer_cache[role_data.name][key_id] = signer
+
                     delegated_role = DelegatedRole(
                         name=role_data.name,
                         threshold=role_data.threshold,

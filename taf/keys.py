@@ -496,17 +496,19 @@ def _setup_yubikey_roles_keys(
         key_id = _get_legacy_keyid(public_key)
         auth_repo.add_key_name(key_name, key_id, overwrite=names_defined)
 
-    if loaded_keys_num < role.threshold:
-        print(f"Threshold of role {role.name} is {role.threshold}")
+    if loaded_keys_num < role.number:
+        if loaded_keys_num < role.threshold:
+            print(f"Threshold of role {role.name} is {role.threshold}")
+
         _load_remaining_keys_of_role(
             auth_repo,
             role,
             loaded_keys_num,
             users_yubikeys_details,
             yk_with_public_key,
+            yubikey_keys,
             signers,
         )
-
     return yubikey_keys, signers
 
 
@@ -636,6 +638,7 @@ def _load_remaining_keys_of_role(
     loaded_keys_num: int,
     users_yubikeys_details: UserKeyData,
     yk_with_public_key: Dict,
+    yubikey_keys,
     signers: List,
 ):
     """
@@ -657,8 +660,8 @@ def _load_remaining_keys_of_role(
                 loaded_keys.append(key_name)
                 signer = _create_signer(auth_repo, public_key, serial_num, key_name)
                 signers.append(signer)
-            if loaded_keys_num == role.threshold:
-                break
+                yubikey_keys.remove(signer.public_key)
+
         if loaded_keys_num < role.threshold:
             if not click.confirm(
                 f"Threshold of signing keys of role {role.name} not reached. Continue?"

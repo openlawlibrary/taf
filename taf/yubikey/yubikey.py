@@ -401,7 +401,7 @@ def _read_and_check_yubikeys(
     invalid_keys = []
     all_loaded = True
     for index, serial_num in enumerate(serials):
-        if not taf_repo.yubikey_store.is_loaded(serial_num):
+        if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
             all_loaded = False
             # read the public key, unless a new key needs to be generated on the yubikey
             public_key = get_piv_public_key_tuf(serial=serial_num)
@@ -428,6 +428,7 @@ def _read_and_check_yubikeys(
             # but the key name still needs to be added to the key id mapping dictionary
             taf_repo.yubikey_store.add_key_data(key_name, serial_num, public_key, role)
             yubikeys.append((public_key, serial_num, key_name))
+
 
     if not hide_already_loaded_message and all_loaded:
         print("All inserted YubiKeys already loaded")

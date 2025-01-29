@@ -291,8 +291,9 @@ def add_roles(
     keystore_path = roles_keys_data_new.keystore
 
     all_signers = {}
+    all_verification_keys = {}
     for role_to_add_data in roles_to_add_data:
-        signers, _ = load_sorted_keys_of_new_roles(
+        signers, verification_keys = load_sorted_keys_of_new_roles(
             roles=role_to_add_data,
             auth_repo=auth_repo,
             yubikeys_data=None,
@@ -301,6 +302,7 @@ def add_roles(
             certs_dir=auth_repo.certs_dir,
         )
         all_signers.update(signers)
+        all_verification_keys.update(verification_keys)
 
     with manage_repo_and_signers(
         auth_repo,
@@ -314,8 +316,7 @@ def add_roles(
         push=push,
     ):
 
-        # TODO add key name mappings
-        auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
+        auth_repo.create_delegated_roles(roles_to_add_data, all_signers, all_verification_keys)
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
 
