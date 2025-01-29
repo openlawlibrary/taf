@@ -5,77 +5,40 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from taf.api.roles import list_keys_of_role
+from taf.tests.test_api.conftest import ADD_ROLES_CONFIG_INPUT
 from taf.tests.test_api.util import check_new_role
 from taf.tools.cli.taf import taf
 
 
-def test_roles_add_cmd_expect_success(auth_repo_with_delegations, roles_keystore):
+def test_roles_add_cmd_expect_success(auth_repo, roles_keystore):
     runner = CliRunner()
 
     with runner.isolated_filesystem():
-        # cli expects a config file, so we manually create config pass it to the cli
-        cwd = Path.cwd()
-        config = {
-            "parent_role": "targets",
-            "delegated_path": [
-                "/delegated_path_inside_targets1",
-                "/delegated_path_inside_targets2",
-            ],
-            "keys_number": 2,
-            "threshold": 1,
-            "yubikey": False,
-            "scheme": "rsa-pkcs1v15-sha256",
-        }
-        config_file_path = cwd / "config.json"
-        with open(config_file_path, "w") as f:
-            json.dump(config, f)
         runner.invoke(
             taf,
             [
                 "roles",
                 "add",
-                "new_role",
-                "--path",
-                f"{str(auth_repo_with_delegations.path)}",
                 "--config-file",
-                f"{str(config_file_path)}",
-                "--keystore",
-                f"{str(roles_keystore)}",
-            ],
-        )
-        check_new_role(
-            auth_repo_with_delegations,
-            "new_role",
-            ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
-            str(roles_keystore),
-            "targets",
-        )
-
-
-def test_roles_add_multiple_cmd_expect_success(
-    auth_repo, with_delegations_no_yubikeys_path, roles_keystore
-):
-    runner = CliRunner()
-
-    with runner.isolated_filesystem():
-        runner.invoke(
-            taf,
-            [
-                "roles",
-                "add-multiple",
-                f"{str(with_delegations_no_yubikeys_path)}",
+                f"{ADD_ROLES_CONFIG_INPUT}",
                 "--path",
                 f"{str(auth_repo.path)}",
                 "--keystore",
                 f"{str(roles_keystore)}",
             ],
         )
-        new_roles = ["delegated_role", "inner_role"]
+        new_roles = ["delegated_role"]
         target_roles = auth_repo.get_all_targets_roles()
         for role_name in new_roles:
             assert role_name in target_roles
         assert auth_repo.find_delegated_roles_parent("delegated_role") == "targets"
-        assert auth_repo.find_delegated_roles_parent("inner_role") == "delegated_role"
+        check_new_role(
+            auth_repo,
+            "delegated_role",
+            ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+            str(roles_keystore),
+            "targets",
+        )
 
 
 def test_roles_add_role_paths_cmd_expect_success(

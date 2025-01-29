@@ -156,6 +156,8 @@ class SetupManager:
         date = kwargs.pop("date", None)
         repetitions = kwargs.pop("repetitions", 1)
         sig = inspect.signature(function)
+        if "pin_manager" in sig.parameters:
+            function = partial(function, pin_manager=self.auth_repo.pin_manager)
         if "auth_repo" in sig.parameters:
             function = partial(function, auth_repo=self.auth_repo)
         # Check if the parameter is in the signature
@@ -211,7 +213,9 @@ def test_name(request):
 
 
 @pytest.fixture(scope="function")
-def origin_auth_repo(request, test_name: str, origin_dir: Path):
+def origin_auth_repo(
+    request, test_name: str, origin_dir: Path, pin_manager: PinManager
+):
     targets_config_list = request.param["targets_config"]
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
@@ -229,11 +233,16 @@ def origin_auth_repo(request, test_name: str, origin_dir: Path):
     if date is not None:
         with freeze_time(date):
             auth_repo = _init_auth_repo(
-                origin_dir, setup_type, repo_name, targets_config, is_test_repo
+                origin_dir,
+                setup_type,
+                repo_name,
+                targets_config,
+                is_test_repo,
+                pin_manager,
             )
     else:
         auth_repo = _init_auth_repo(
-            origin_dir, setup_type, repo_name, targets_config, is_test_repo
+            origin_dir, setup_type, repo_name, targets_config, is_test_repo, pin_manager
         )
 
     yield auth_repo
@@ -311,9 +320,9 @@ def create_authentication_repository(
     )
 
 
-def sign_target_files(library_dir, repo_name, keystore):
+def sign_target_files(library_dir, repo_name, keystore, pin_manager):
     repo_path = Path(library_dir, repo_name)
-    register_target_files(str(repo_path), keystore)
+    register_target_files(str(repo_path), keystore, pin_manager)
 
 
 def _init_auth_repo(
@@ -322,26 +331,27 @@ def _init_auth_repo(
     repo_name: str,
     targets_config: list,
     is_test_repo: bool,
+    pin_manager: PinManager,
 ) -> AuthenticationRepository:
     if setup_type == SetupState.ALL_FILES_INITIALLY:
         return setup_repository_all_files_initially(
-            origin_dir, repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo, pin_manager
         )
     elif setup_type == SetupState.NO_INFO_JSON:
         return setup_repository_no_info_json(
-            origin_dir, repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo, pin_manager
         )
     elif setup_type == SetupState.MIRRORS_ADDED_LATER:
         return setup_repository_mirrors_added_later(
-            origin_dir, repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo, pin_manager
         )
     elif setup_type == SetupState.MIRRORS_AND_REPOSITOIRES_ADDED_LATER:
         return setup_repository_repositories_and_mirrors_added_later(
-            origin_dir, repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo, pin_manager
         )
     elif setup_type == SetupState.NO_TARGET_REPOSITORIES:
         return setup_repository_no_target_repositories(
-            origin_dir, repo_name, targets_config, is_test_repo
+            origin_dir, repo_name, targets_config, is_test_repo, pin_manager
         )
     else:
         raise ValueError(f"Unsupported setup type: {setup_type}")
@@ -375,10 +385,13 @@ def initialize_target_repositories(
             target_repo.commit("Initial commit")
 
 
-def sign_target_repositories(library_dir: Path, repo_name: str, keystore: Path):
+def sign_target_repositories(
+    library_dir: Path, repo_name: str, keystore: Path, pin_manager: PinManager
+):
     repo_path = Path(library_dir, repo_name)
     update_target_repos_from_repositories_json(
         str(repo_path),
+        pin_manager,
         str(library_dir),
         str(keystore),
     )
@@ -412,7 +425,9 @@ def setup_repository_all_files_initially(
     )
     if targets_config:
         initialize_target_repositories(origin_dir, targets_config=targets_config)
-        sign_target_repositories(origin_dir, repo_name, keystore=KEYSTORE_PATH)
+        sign_target_repositories(
+            origin_dir, repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+        )
 
     # Yield the authentication repository object
     return AuthenticationRepository(origin_dir, repo_name)
@@ -534,13 +549,18 @@ def add_file_to_repository(
 
 
 def add_valid_target_commits(
-    auth_repo: AuthenticationRepository, target_repos: list, add_if_empty: bool = True
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_repos: list,
+    add_if_empty: bool = True,
 ):
     for target_repo in target_repos:
         if not add_if_empty and target_repo.head_commit_sha() is None:
             continue
         update_target_repository(target_repo, "Update target files")
-    sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
 
 
 def add_file_to_target_repo_without_committing(target_repos: list, target_name: str):
@@ -571,7 +591,10 @@ def add_unauthenticated_commit_to_target_repo(target_repos: list, target_name: s
 
 
 def create_new_target_orphan_branches(
-    auth_repo: AuthenticationRepository, target_repos: list, branch_name: str
+    auth_repo: AuthenticationRepository,
+    target_repos: list,
+    pin_manager: PinManager,
+    branch_name: str,
 ):
     for target_repo in target_repos:
         target_repo.checkout_orphan_branch(branch_name)
@@ -581,7 +604,9 @@ def create_new_target_orphan_branches(
             random_text = _generate_random_text()
             (target_repo.path / f"test{i}.txt").write_text(random_text)
         target_repo.commit("Initial commit")
-    sign_target_repositories(TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH)
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
 
 
 def create_new_target_repo_branch(
@@ -669,10 +694,14 @@ def swap_last_two_commits(auth_repo: AuthenticationRepository):
 
 
 def update_expiration_dates(
-    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"], push=True
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    roles=["snapshot", "timestamp"],
+    push=True,
 ):
     update_metadata_expiration_date(
         str(auth_repo.path),
+        pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
         interval=None,
@@ -681,10 +710,11 @@ def update_expiration_dates(
 
 
 def update_auth_repo_without_committing(
-    auth_repo: AuthenticationRepository, roles=["snapshot", "timestamp"]
+    auth_repo: AuthenticationRepository, pin_manager, roles=["snapshot", "timestamp"]
 ):
     update_metadata_expiration_date(
         str(auth_repo.path),
+        pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
         interval=None,
@@ -693,10 +723,11 @@ def update_auth_repo_without_committing(
 
 
 def update_role_metadata_without_signing(
-    auth_repo: AuthenticationRepository, role: str
+    auth_repo: AuthenticationRepository, pin_manager, role: str
 ):
     update_metadata_expiration_date(
         path=auth_repo.path,
+        pin_manager=pin_manager,
         roles=[role],
         keystore=KEYSTORE_PATH,
         prompt_for_keys=False,
@@ -706,13 +737,17 @@ def update_role_metadata_without_signing(
     )
 
 
-def update_target_repo_without_committing(target_repos: list, target_name: str):
+def update_target_repo_without_committing(
+    pin_manager, target_repos: list, target_name: str
+):
     for target_repo in target_repos:
         if target_name in target_repo.name:
-            update_target_repository(target_repo)
+            update_target_repository(pin_manager, target_repo)
 
 
-def update_timestamp_metadata_invalid_signature(auth_repo: AuthenticationRepository):
+def update_timestamp_metadata_invalid_signature(
+    auth_repo: AuthenticationRepository,
+):
 
     role = Timestamp.type
     with manage_repo_and_signers(
@@ -735,11 +770,12 @@ def update_timestamp_metadata_invalid_signature(auth_repo: AuthenticationReposit
 
 
 def update_and_sign_metadata_without_clean_check(
-    auth_repo: AuthenticationRepository, roles: list
+    auth_repo: AuthenticationRepository, pin_manager: PinManager, roles: list
 ):
 
     update_metadata_expiration_date(
         path=auth_repo.path,
+        pin_manager=pin_manager,
         roles=roles,
         keystore=KEYSTORE_PATH,
         scheme=DEFAULT_RSA_SIGNATURE_SCHEME,

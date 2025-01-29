@@ -20,6 +20,7 @@ TEST_INIT_DATA_PATH = Path(__file__).parent.parent / "init_data"
 NO_DELEGATIONS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_delegations.json"
 NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
 WITH_DELEGATIONS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations.json"
+ADD_ROLES_CONFIG_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "add_roles_config.json"
 INVALID_PUBLIC_KEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_public_key.json"
 WITH_DELEGATIONS_NO_YUBIKEYS_INPUT = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
@@ -49,6 +50,11 @@ def no_delegations_json_input():
 @pytest.fixture(scope="session")
 def with_delegations_json_input():
     return read_json(WITH_DELEGATIONS_INPUT)
+
+
+@pytest.fixture(scope="session")
+def add_roles_config_json_input():
+    return read_json(ADD_ROLES_CONFIG_INPUT)
 
 
 @pytest.fixture(scope="session")
@@ -185,11 +191,6 @@ def parent_repo_path():
     repo_path = _init_auth_repo_dir()
     yield repo_path
     shutil.rmtree(str(repo_path.parent), onerror=on_rm_error)
-
-
-@pytest.fixture(scope="module")
-def pin_manager():
-    return PinManager()
 
 
 @pytest.fixture(scope="module")

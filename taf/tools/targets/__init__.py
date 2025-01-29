@@ -111,6 +111,7 @@ def add_repo_command():
         else:
             add_target_repo(
                 path=path,
+                pin_manager=pin_manager,
                 target_path=target_path,
                 target_name=target_name,
                 library_dir=None,

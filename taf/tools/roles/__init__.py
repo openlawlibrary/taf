@@ -22,9 +22,7 @@ from taf.tools.repo import pin_managed
 
 def add_roles_command():
     @click.command(help="""
-    Add a new delegated target role. Allows optional specification of the role's properties through a JSON configuration file.
-    If the configuration file is not provided or specific properties are omitted, default values are used.
-    Only a list of one or more delegated paths has to be provided.
+    Add new delegated target roles. Allows optional specification of each role's properties through a JSON configuration file.
 
     Configuration file (JSON) can specify:
     - 'parent_role' (string): The parent role under which the new role will be delegated. Default is 'targets'.

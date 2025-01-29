@@ -59,10 +59,15 @@ def auth_repo_with_targets(
         commit=True,
     )
     update_target_repos_from_repositories_json(
-        str(auth_path), str(root_dir.parent), keystore_delegations, commit=True
+        str(auth_path),
+        pin_manager,
+        str(root_dir.parent),
+        keystore_delegations,
+        commit=True,
     )
     update_metadata_expiration_date(
         path=auth_path,
+        pin_manager=pin_manager,
         roles=["targets"],
         keystore=keystore_delegations,
     )

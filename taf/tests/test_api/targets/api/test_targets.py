@@ -34,10 +34,10 @@ def test_register_targets_when_file_added(
     file_path.write_text("test")
     register_target_files(
         repo_path,
+        pin_manager,
         keystore_delegations,
         update_snapshot_and_timestamp=True,
         push=False,
-        pin_manager=pin_manager,
     )
     check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
     commits = auth_repo_when_add_repositories_json.list_commits()
