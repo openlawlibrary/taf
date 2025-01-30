@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
+- Implement iteration over all inserted YubiKeys during metadata signing [(583)]
+- Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage [(583)]
 - Transition to the newest version of TUF [(561)]
 - Implement removal of keys [(561)]
 
@@ -16,6 +19,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[563]: https://github.com/openlawlibrary/taf/pull/563
 [561]: https://github.com/openlawlibrary/taf/pull/561
 
 ## [0.33.0]
