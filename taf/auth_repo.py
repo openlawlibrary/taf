@@ -210,25 +210,23 @@ class AuthenticationRepository(GitRepository):
         if commit:
             if commit_msg is None:
                 commit_msg = input("\nEnter commit message and press ENTER\n\n")
-            self.commit(commit_msg)
+            new_commit = self.commit(commit_msg)
 
-        if push:
-            push_successful = self.push()
-            if push_successful:
-                new_commit_branch = self.default_branch
-                if new_commit_branch:
-                    new_commit = self.top_commit_of_branch(new_commit_branch)
-                    if new_commit:
+            if new_commit and push:
+                push_successful = self.push()
+                if push_successful:
+                    current_branch = self.get_current_branch()
+                    if current_branch == self.default_branch:
                         self.set_last_validated_of_repo(
                             self.name, new_commit, set_last_validated_commit=True
                         )
                         self._log_notice(
                             f"Updated last_validated_commit to {new_commit}"
                         )
-                else:
-                    self._log_warning(
-                        "Default branch is None, skipping last_validated_commit update."
-                    )
+                    else:
+                        self._log_debug(
+                            "Not pushing to the default branch, skipping last_validated_commit update."
+                        )
 
     def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
         if commit is None:
@@ -378,7 +376,10 @@ class AuthenticationRepository(GitRepository):
 
         repo = self.pygit_repo
 
-        walker = repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL)
+        default_branch = repo.lookup_branch(self.default_branch)
+        top_commit = default_branch.peel()
+
+        walker = repo.walk(top_commit.id, pygit2.GIT_SORT_TOPOLOGICAL)
 
         traversed_commits = []
         for commit in walker:

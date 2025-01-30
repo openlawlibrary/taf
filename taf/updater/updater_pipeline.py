@@ -1065,10 +1065,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             repo_name: self._get_last_validated_commit(repo_name)
             for repo_name in self.state.users_target_repositories
         }
+        last_commits_per_repos[
+            self.state.users_auth_repo.name
+        ] = self._get_last_validated_commit(self.state.users_auth_repo.name)
 
-        last_validated_target_commits = list(set(last_commits_per_repos.values()))
+        last_validated_commits = list(set(last_commits_per_repos.values()))
 
-        if len(last_validated_target_commits) > 1:
+        if len(last_validated_commits) > 1:
             # not all target repositories were updated at the same time
             # updater was run with --exclude-targets
             # check if the repositories are in sync according to that data
@@ -2118,6 +2121,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
         # using refresh, we have updated all main roles
         # we still need to update the delegated roles (if there are any)
         # and validate any target files
+
         current_targets = git_fetcher.get_current_targets()
         for target_path in current_targets:
             target_filepath = target_path.replace("\\", "/")

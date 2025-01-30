@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
 
 ### Added
@@ -12,15 +13,34 @@ and this project adheres to [Semantic Versioning][semver].
 - Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
 - Implement iteration over all inserted YubiKeys during metadata signing [(583)]
 - Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage [(583)]
-- Transition to the newest version of TUF [(561)]
 - Implement removal of keys [(561)]
+- Implement removal and rotation of keys [(561)]
 
 ### Changed
+
+Transition to the newest version of TUF [(561)]
 
 ### Fixed
 
 [563]: https://github.com/openlawlibrary/taf/pull/563
 [561]: https://github.com/openlawlibrary/taf/pull/561
+
+
+## [0.33.1]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Run validation with --no-deps when pushing ([579])
+- Do not update last validated commit if pushing to a branch other than the default branch ([577])
+- Fix determining from which commit the update should start if the auth repo is in front of all target repos ([577])
+
+[579]: https://github.com/openlawlibrary/taf/pull/579
+[577]: https://github.com/openlawlibrary/taf/pull/577
+
 
 ## [0.33.0]
 
@@ -1394,7 +1414,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.33.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.33.1...HEAD
+[0.33.1]: https://github.com/openlawlibrary/taf/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/openlawlibrary/taf/compare/v0.32.4...v0.33.0
 [0.32.4]: https://github.com/openlawlibrary/taf/compare/v0.32.3...v0.32.4
 [0.32.3]: https://github.com/openlawlibrary/taf/compare/v0.32.2...v0.32.3
