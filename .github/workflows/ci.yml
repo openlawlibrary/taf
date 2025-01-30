@@ -65,9 +65,10 @@ jobs:
         id: download-artifact
         uses: dawidd6/action-download-artifact@v8
         with:
-          # branch: master
+          branch: PytestBenchmarkTesting
           name: benchmark-results${{ matrix.python-version }}
           path: /home/runner/work/taf/taf/.benchmarks/${{ runner.os }}-CPython-${{ matrix.python-version }}-64bit
+          workflow_conclusion: success
       
       - name: Run benchmark
         run: |
