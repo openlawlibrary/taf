@@ -43,6 +43,7 @@ def test_fake_yk(mocker):
     mocker.patch("taf.yubikey.yubikey.export_piv_pub_key", return_value=_PUB)
     mocker.patch("taf.yubikey.yubikey.sign_piv_rsa_pkcs1v15", return_value=_SIG)
     mocker.patch("taf.yubikey.yubikey.verify_yk_inserted", return_value=True)
+    mocker.patch("taf.yubikey.yubikey.get_serial_num", return_value=["1234"])
 
     from taf.tuf.keys import YkSigner
 
