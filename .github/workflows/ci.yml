@@ -56,6 +56,11 @@ jobs:
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
 
+      - name: test pull request reading
+        if: ${{ github.event.pull_request }} and contains(github.event.pull_request.body, 'test') 
+        run: |
+          echo say "this is a test message"
+
       # - name: Run pre-commit and test with pytest
       #   run: |
       #     pre-commit run --all-files
@@ -65,7 +70,7 @@ jobs:
         id: download-artifact
         uses: dawidd6/action-download-artifact@v8
         with:
-          branch: PytestBenchmarkTesting
+          branch: PytestBenchmarkTesting #change to "master" when ready
           name: benchmark-results${{ matrix.python-version }}
           path: /home/runner/work/taf/taf/.benchmarks/${{ runner.os }}-CPython-${{ matrix.python-version }}-64bit
           workflow_conclusion: success
@@ -79,18 +84,6 @@ jobs:
         with:
           name: benchmark-results${{ matrix.python-version }}
           path: 0001_output.json
-
-      # - name: Store benchmark result 
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   with:
-      #     name: Python Benchmark with pytest-benchmark
-      #     tool: 'pytest'
-      #     output-file-path: output.json
-      #     auto-push: false
-      #     # Show alert with commit comment on detecting possible performance regression
-      #     alert-threshold: '120%'
-      #     comment-on-alert: false
-      #     fail-on-alert: true
 
   build_and_upload_wheel:
     runs-on: ubuntu-latest

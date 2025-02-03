@@ -1,5 +1,4 @@
 import pytest
-import time
 from taf.tests.test_updater.conftest import cleanup_directory
 from taf.tests.test_updater.conftest import (
     SetupManager,
@@ -39,9 +38,8 @@ def test_clone_valid_happy_path(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    time.sleep(10)
+    # time.sleep(10)
 
-    # def clone_valid_happy_path_inner(origin_auth_repo, client_dir):
     is_test_repo = origin_auth_repo.is_test_repo
     expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
     update_and_check_commit_shas(
@@ -51,8 +49,6 @@ def test_clone_valid_happy_path(origin_auth_repo, client_dir):
         expected_repo_type=expected_repo_type,
     )
     cleanup_directory(client_dir)
-
-    # benchmark(clone_valid_happy_path_inner, origin_auth_repo, client_dir)
 
 
 @pytest.mark.parametrize(
