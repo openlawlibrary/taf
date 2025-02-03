@@ -46,7 +46,7 @@ def test_clone_valid_happy_path(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=expected_repo_type,
     )
-    # cleanup_directory(client_dir)
+    cleanup_directory(client_dir)
 
 
 @pytest.mark.parametrize(
