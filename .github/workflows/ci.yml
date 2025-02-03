@@ -57,7 +57,7 @@ jobs:
           git config --global user.email developers@openlawlib.org
 
       - name: test pull request reading
-        if: ${{ github.event.pull_request }} and contains(github.event.pull_request.body, 'test') 
+        if: contains(github.event.pull_request.body, 'test') 
         run: |
           echo test ${{ github.event.pull_request.body }}
 
