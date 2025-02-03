@@ -229,6 +229,7 @@ def load_target_repositories(
     if library_dir is None:
         library_dir = auth_repo.path.parent.parent
 
+    repositoriesdb.clear_repositories_db()
     repositoriesdb.load_repositories(
         auth_repo,
         library_dir=library_dir,
