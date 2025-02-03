@@ -59,7 +59,7 @@ jobs:
       - name: test pull request reading
         if: ${{ github.event.pull_request }} and contains(github.event.pull_request.body, 'test') 
         run: |
-          echo say "this is a test message"
+          echo ${{ github.event.pull_request.body }}
 
       # - name: Run pre-commit and test with pytest
       #   run: |
