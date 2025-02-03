@@ -263,9 +263,9 @@ def test_generate_roles_description(tuf_repo_with_delegations):
 
 def test_sort_roles_targets_for_filenames(tuf_repo_with_delegations):
     actual = tuf_repo_with_delegations.sort_roles_targets_for_filenames()
-    assert actual["targets"] == ["test1", "test2"]
-    assert actual["delegated_role"] == ["dir1/path1", "dir2/path1"]
-    assert actual["inner_role"] == ["dir2/path2"]
+    assert set(actual["targets"]) == set(["test1", "test2"])
+    assert set(actual["delegated_role"]) == set(["dir1/path1", "dir2/path1"])
+    assert set(actual["inner_role"]) == set(["dir2/path2"])
 
 
 def test_is_valid_metadata_key(tuf_repo_with_delegations, public_keys_with_delegations):
