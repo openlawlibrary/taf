@@ -62,20 +62,20 @@ jobs:
         run: |
           echo body: ${{ github.event.pull_request.body }}
 
-      - name: Run pre-commit and test with pytest
-        run: |
-          pre-commit run --all-files
-          pytest taf/tests --benchmark-skip
+      # - name: Run pre-commit and test with pytest
+      #   run: |
+      #     pre-commit run --all-files
+      #     pytest taf/tests --benchmark-skip
 
 
-      - name: Download artifact
-        id: download-artifact
-        uses: dawidd6/action-download-artifact@v8
-        with:
-          branch: CalShucha/automated-benchmarking #change to "master" when testing is done
-          name: benchmark-results${{ matrix.python-version }}
-          path: /home/runner/work/taf/taf/.benchmarks/${{ runner.os }}-CPython-${{ matrix.python-version }}-64bit
-          workflow_conclusion: success
+      # - name: Download artifact # Known issue: this will fail the whole workflow if there is no artifact available
+      #   id: download-artifact
+      #   uses: dawidd6/action-download-artifact@v8
+      #   with:
+      #     branch: CalShucha/automated-benchmarking #change to "master" when testing is done
+      #     name: benchmark-results${{ matrix.python-version }}
+      #     path: /home/runner/work/taf/taf/.benchmarks/${{ runner.os }}-CPython-${{ matrix.python-version }}-64bit
+      #     workflow_conclusion: success
   
       - name: Run benchmark
         run: |

@@ -4,7 +4,7 @@ from taf.tests.test_updater.test_clone.test_clone_valid import (
 )
 
 
-@pytest.mark.skip(reason="benchmarking disabled for time being")
+
 @pytest.mark.parametrize(
     "origin_auth_repo",
     [
