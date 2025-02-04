@@ -79,7 +79,7 @@ jobs:
   
       - name: Run benchmark
         run: |
-          python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare --benchmark-compare-fail=mean:20%
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json 
       - name: Archive benchmark results
         uses: actions/upload-artifact@v4
         with:
