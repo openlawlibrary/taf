@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-
+- Added benchmark testing for test_clone_valid_happy_path [(584)]
 - Implement removal and rotation of keys [(561)]
 
 ### Changed
@@ -30,6 +30,7 @@ Transition to the newest version of TUF [(561)]
 
 [585]: https://github.com/openlawlibrary/taf/pull/585
 
+[584]: https://github.com/openlawlibrary/taf/pull/584
 [561]: https://github.com/openlawlibrary/taf/pull/561
 
 
