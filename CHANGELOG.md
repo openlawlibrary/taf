@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
+
+
+### Added
+
+
+### Changed
+
+
+### Fixed
+
+
+## [0.34.0]
 
 ### Added
 
@@ -18,6 +31,9 @@ Transition to the newest version of TUF [(561)]
 
 ### Fixed
 
+[584]: https://github.com/openlawlibrary/taf/pull/584
+[561]: https://github.com/openlawlibrary/taf/pull/561
+
 ## [0.33.2]
 
 ### Added
@@ -29,9 +45,6 @@ Transition to the newest version of TUF [(561)]
 - Fix `_is_repository_in_sync` check ([585])
 
 [585]: https://github.com/openlawlibrary/taf/pull/585
-
-[584]: https://github.com/openlawlibrary/taf/pull/584
-[561]: https://github.com/openlawlibrary/taf/pull/561
 
 
 ## [0.33.1]
@@ -1422,7 +1435,8 @@ Transition to the newest version of TUF [(561)]
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.33.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/openlawlibrary/taf/compare/v0.33.2...v0.34.0
 [0.33.2]: https://github.com/openlawlibrary/taf/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/openlawlibrary/taf/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/openlawlibrary/taf/compare/v0.32.4...v0.33.0
