@@ -12,13 +12,18 @@ class TAFError(Exception):
             return super().__str__()
 
 
-class CloneRepoException(TAFError):
-    def __init__(self, repo, message=None):
+class GitAccessDeniedException(TAFError):
+    def __init__(self, repo, operation, message=None):
         self.message = (
-            f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
+            f"Cannot {operation} {repo.name} from any of the following URLs: {repo.urls}"
         )
         if message is not None:
             self.message = f"{self.message}\n{message}"
+
+
+class CloneRepoException(GitAccessDeniedException):
+    def __init__(self, repo, operation="clone", message=None):
+        super().__init__(repo, operation, message)
 
 
 class CommandValidationError(TAFError):
