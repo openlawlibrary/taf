@@ -13,10 +13,12 @@ class TAFError(Exception):
 
 
 class CloneRepoException(TAFError):
-    def __init__(self, repo):
+    def __init__(self, repo, message=None):
         self.message = (
             f"Cannot clone {repo.name} from any of the following URLs: {repo.urls}"
         )
+        if message is not None:
+            self.message = f"{self.message}\n{message}"
 
 
 class CommandValidationError(TAFError):
@@ -145,6 +147,10 @@ class SignersNotLoaded(TAFError):
     def __init__(self, roles):
         message = f"Signers of roles {', '.join(roles)} not loaded."
         super().__init__(message)
+
+
+class SSHError(TAFError):
+    pass
 
 
 class MetadataUpdateError(TAFError):

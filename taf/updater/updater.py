@@ -365,9 +365,9 @@ def _update_or_clone_repository(config: UpdateConfig):
         if repos_update_data[auth_repo_name].get("error"):
             raise repos_update_data[auth_repo_name]["error"]
 
-    except Exception as e:
+    except Exception:
         root_error = UpdateFailedError(
-            f"Update of {auth_repo_name or 'repository'} failed due to error: {e}"
+            f"Update of {auth_repo_name or 'repository'} failed."
         )
 
     update_data = Update()

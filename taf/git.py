@@ -27,7 +27,7 @@ from taf.exceptions import (
     PygitError,
 )
 from taf.log import NOTICE, taf_logger
-from taf.utils import run
+from taf.utils import repository_exists, run
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from .pygit import PyGitRepository
 
@@ -729,17 +729,20 @@ class GitRepository:
                     url,
                     joined_params,
                     log_success_msg=f"successfully cloned from {url}",
-                    log_error_msg=f"cannot clone from url {url}",
                     reraise_error=True,
+                    error_if_not_exists=False,
                 )
             except GitError as e:
-                self._log_info(f"could not clone from {url} due to {e}")
+                self._log_notice(f"could not clone from {url} due to {e}")
             else:
                 self._log_info(f"successfully cloned from {url}")
                 cloned = True
                 break
 
         if not cloned:
+            repo_exists = any(repository_exists(url) for url in self.urls)
+            if repo_exists:
+                raise CloneRepoException(self, message=_clone_or_pull_error_message)
             raise CloneRepoException(self)
 
         if self.default_branch is None:
@@ -1117,12 +1120,15 @@ class GitRepository:
         branch: Optional[str] = None,
         remote: Optional[str] = "origin",
     ) -> None:
-        if fetch_all:
-            self._git("fetch --all", log_error=True)
-        else:
-            if branch is None:
-                branch = ""
-            self._git("fetch {} {}", remote, branch, log_error=True)
+        try:
+            if fetch_all:
+                self._git("fetch --all", log_error=True, reraise_error=True)
+            else:
+                if branch is None:
+                    branch = ""
+                self._git("fetch {} {}", remote, branch, log_error=True, reraise_error=True)
+        except GitError:
+            raise GitError(repo=self, message=_clone_or_pull_error_message)
 
     def fetch_from_disk(self, local_repo_path, branches):
 
@@ -1439,7 +1445,10 @@ class GitRepository:
 
     def pull(self):
         """Pull current branch"""
-        self._git("pull", log_error=True)
+        try:
+            self._git("pull", log_error=True, reraise_error=True)
+        except GitError:
+            raise GitError(repo=self, message=_clone_or_pull_error_message)
 
     def push(
         self,
@@ -1774,6 +1783,24 @@ class GitRepository:
                 urls = sorted((_find_url(self.path, url) for url in urls), reverse=True)
         return urls
 
+_clone_or_pull_error_message = (
+    "The remote repository exists, so this is probably due to the lack of privileges or SSH key issues. "
+    "Here are some steps you can take to resolve common issues:\n\n"
+    "1. Check Repository Access:\n"
+    "   - Ensure you have the correct access rights to the repository.\n"
+    "   - If the repository is private, verify that your account has been granted access.\n\n"
+    "2. Check SSH Key Configuration:\n"
+    "   - Ensure your SSH key is correctly added to your Git hosting account (GitHub, GitLab, Bitbucket, etc.).\n"
+    "   - Verify that your SSH key does not require a passphrase, or use an SSH agent to manage the passphrase.\n\n"
+    "3. Using an SSH Agent:\n"
+    "   - If your SSH key is passphrase-protected, start the ssh-agent in the background:\n"
+    "       eval $(ssh-agent -s)\n"
+    "   - Add your SSH key to the ssh-agent:\n"
+    "       ssh-add /path/to/your/private/key\n"
+    "4. If Problems Persist:\n"
+    "   - - If you are using Windows and encounter issues, consider running these commands in Bash or another Unix-like shell available on Windows, such as Git Bash or WSL.\n"
+    "   - Try using a different SSH key that does not require a passphrase.\n"
+    )
 
 _remote_branch_re = re.compile(r"^(refs/heads/)")
 

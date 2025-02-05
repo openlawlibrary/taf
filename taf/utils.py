@@ -1,4 +1,5 @@
 import platform
+import re
 import click
 import errno
 import datetime
@@ -21,6 +22,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
 )
 from json import JSONDecoder
+import requests
 from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
@@ -222,6 +224,24 @@ def run(*command, **kwargs):
 
     return completed.stdout if raw else completed.stdout.rstrip()
 
+
+def repository_exists(url):
+    """ Check if the repository URL exists by making a HEAD request to the URL. """
+    # Convert SSH URL to HTTP URL
+    if url.startswith('git@'):
+        # General pattern: git@HOST:USER/REPO
+        http_url = re.sub(r'git@(.*?):(.*?)/(.*)\.git', r'https://\1/\2/\3', url)
+    elif url.startswith('git://'):
+        http_url = url.replace('git://', 'https://').replace('.git', '')
+    else:
+        http_url = url
+
+    try:
+        response = requests.head(http_url)
+        return response.status_code == 200
+    except requests.RequestException as e:
+        print(f"Error checking repository URL: {e}")
+        return False
 
 def run_subprocess(command):
     try:
