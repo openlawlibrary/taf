@@ -1492,9 +1492,9 @@ class GitRepository:
         self, error_cls=GitAccessDeniedException, operation=None
     ):
         hosts = {extract_hostname(url) for url in self.urls}
-        not_knowns_hosts = [host for host in hosts if not is_host_known(host)]
-        if len(not_knowns_hosts):
-            message = _no_hosts_error_format.format(hostname=",".join(not_knowns_hosts))
+        unknown_hosts = [host for host in hosts if not is_host_known(host)]
+        if len(unknown_hosts):
+            message = _no_hosts_error_format.format(hostname=",".join(unknown_hosts))
             raise error_cls(self, operation=operation, message=message)
         repo_exists = any(repository_exists(url) for url in self.urls)
         if repo_exists:
