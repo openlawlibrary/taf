@@ -13,7 +13,7 @@ from collections import OrderedDict
 from functools import partial, reduce
 from pathlib import Path
 
-import requests
+import requests  # type: ignore
 import taf.settings as settings
 from taf.exceptions import (
     GitAccessDeniedException,
@@ -1125,7 +1125,9 @@ class GitRepository:
             else:
                 if branch is None:
                     branch = ""
-                self._git("fetch {} {}", remote, branch, log_error=True, reraise_error=True)
+                self._git(
+                    "fetch {} {}", remote, branch, log_error=True, reraise_error=True
+                )
         except GitError:
             self.raise_git_access_error(operation="fetch")
 
@@ -1486,22 +1488,27 @@ class GitRepository:
         except GitError as e:
             raise PushFailedError(self, message=f"Push operation failed: {e}")
 
-
-    def raise_git_access_error(self, error_cls=GitAccessDeniedException, operation=None):
-        hosts = {
-            extract_hostname(url) for url in self.urls
-        }
+    def raise_git_access_error(
+        self, error_cls=GitAccessDeniedException, operation=None
+    ):
+        hosts = {extract_hostname(url) for url in self.urls}
         not_knowns_hosts = [host for host in hosts if not is_host_known(host)]
         if len(not_knowns_hosts):
             message = _no_hosts_error_format.format(hostname=",".join(not_knowns_hosts))
-            raise error_cls(self,operation=operation, message=message)
+            raise error_cls(self, operation=operation, message=message)
         repo_exists = any(repository_exists(url) for url in self.urls)
         if repo_exists:
-            uses_ssh = any(url.startswith('git@') for url in self.urls)
+            uses_ssh = any(url.startswith("git@") for url in self.urls)
             if uses_ssh:
-                raise error_cls(self, operation=operation, message=_clone_or_pull_error_message)
+                raise error_cls(
+                    self, operation=operation, message=_clone_or_pull_error_message
+                )
             else:
-                raise error_cls(self, operation=operation, message=_clone_or_pull_error_message_no_ssh)
+                raise error_cls(
+                    self,
+                    operation=operation,
+                    message=_clone_or_pull_error_message_no_ssh,
+                )
         raise error_cls(self)
 
     def remove_remote(self, remote_name: str) -> None:
@@ -1817,14 +1824,14 @@ _clone_or_pull_error_message = (
     "4. If Problems Persist:\n"
     "   - If you are using Windows and encounter issues, consider running these commands in Bash or another Unix-like shell available on Windows, such as Git Bash or WSL.\n"
     "   - Try using a different SSH key that does not require a passphrase.\n"
-    )
+)
 
 
 _clone_or_pull_error_message_no_ssh = (
     "The remote repository exists, so this issue is probably due to lack of privileges.\n"
     "Verify that you have access to the repository if it is private, and verify your HTTPS configuration.\n"
     "Consider switching to SSH for potentially enhanced security and easier handling of credentials."
-    )
+)
 
 
 _no_hosts_error_format = (
@@ -1857,13 +1864,13 @@ _ssh_url = re.compile(
 
 
 def extract_hostname(url):
-    """ Extract the hostname from a Git URL, which can be either SSH or HTTP(S). """
-    if url.startswith('git@'):
+    """Extract the hostname from a Git URL, which can be either SSH or HTTP(S)."""
+    if url.startswith("git@"):
         # Handle SSH URL
-        match = re.match(r'git@(.*?):', url)
+        match = re.match(r"git@(.*?):", url)
     else:
         # Handle HTTP(S) URL
-        match = re.match(r'https?://([^/]+)/', url)
+        match = re.match(r"https?://([^/]+)/", url)
 
     if match:
         return match.group(1)
@@ -1872,10 +1879,10 @@ def extract_hostname(url):
 
 
 def is_host_known(hostname):
-    """ Check if the given hostname is in the known_hosts file. """
+    """Check if the given hostname is in the known_hosts file."""
     known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
     try:
-        with open(known_hosts_path, 'r') as file:
+        with open(known_hosts_path, "r") as file:
             for line in file:
                 if line.startswith(hostname) or hostname in line.split():
                     return True
@@ -1889,13 +1896,13 @@ def is_host_known(hostname):
 
 
 def repository_exists(url):
-    """ Check if the repository URL exists by making a HEAD request to the URL. """
+    """Check if the repository URL exists by making a HEAD request to the URL."""
     # Convert SSH URL to HTTP URL
-    if url.startswith('git@'):
+    if url.startswith("git@"):
         # General pattern: git@HOST:USER/REPO
-        http_url = re.sub(r'git@(.*?):(.*?)/(.*)\.git', r'https://\1/\2/\3', url)
-    elif url.startswith('git://'):
-        http_url = url.replace('git://', 'https://').replace('.git', '')
+        http_url = re.sub(r"git@(.*?):(.*?)/(.*)\.git", r"https://\1/\2/\3", url)
+    elif url.startswith("git://"):
+        http_url = url.replace("git://", "https://").replace(".git", "")
     else:
         http_url = url
 

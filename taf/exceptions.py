@@ -14,9 +14,7 @@ class TAFError(Exception):
 
 class GitAccessDeniedException(TAFError):
     def __init__(self, repo, operation, message=None):
-        self.message = (
-            f"Cannot {operation} {repo.name} from any of the following URLs: {repo.urls}"
-        )
+        self.message = f"Cannot {operation} {repo.name} from any of the following URLs: {repo.urls}"
         if message is not None:
             self.message = f"{self.message}\n{message}"
 
