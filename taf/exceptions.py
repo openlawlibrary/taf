@@ -152,10 +152,6 @@ class SignersNotLoaded(TAFError):
         super().__init__(message)
 
 
-class SSHError(TAFError):
-    pass
-
-
 class MetadataUpdateError(TAFError):
     def __init__(self, metadata_role: str, message: str):
         super().__init__(
