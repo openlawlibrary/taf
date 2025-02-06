@@ -13,8 +13,10 @@ from collections import OrderedDict
 from functools import partial, reduce
 from pathlib import Path
 
+import requests  # type: ignore
 import taf.settings as settings
 from taf.exceptions import (
+    GitAccessDeniedException,
     NoRemoteError,
     NothingToCommitError,
     PushFailedError,
@@ -729,18 +731,18 @@ class GitRepository:
                     url,
                     joined_params,
                     log_success_msg=f"successfully cloned from {url}",
-                    log_error_msg=f"cannot clone from url {url}",
                     reraise_error=True,
+                    error_if_not_exists=False,
                 )
             except GitError as e:
-                self._log_info(f"could not clone from {url} due to {e}")
+                self._log_debug(f"could not clone from {url} due to {e}")
             else:
                 self._log_info(f"successfully cloned from {url}")
                 cloned = True
                 break
 
         if not cloned:
-            raise CloneRepoException(self)
+            self.raise_git_access_error(CloneRepoException)
 
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
@@ -1117,12 +1119,17 @@ class GitRepository:
         branch: Optional[str] = None,
         remote: Optional[str] = "origin",
     ) -> None:
-        if fetch_all:
-            self._git("fetch --all", log_error=True)
-        else:
-            if branch is None:
-                branch = ""
-            self._git("fetch {} {}", remote, branch, log_error=True)
+        try:
+            if fetch_all:
+                self._git("fetch --all", log_error=True, reraise_error=True)
+            else:
+                if branch is None:
+                    branch = ""
+                self._git(
+                    "fetch {} {}", remote, branch, log_error=True, reraise_error=True
+                )
+        except GitError:
+            self.raise_git_access_error(operation="fetch")
 
     def fetch_from_disk(self, local_repo_path, branches):
 
@@ -1439,7 +1446,10 @@ class GitRepository:
 
     def pull(self):
         """Pull current branch"""
-        self._git("pull", log_error=True)
+        try:
+            self._git("pull", log_error=True, reraise_error=True)
+        except GitError:
+            self.raise_git_access_error(operation="pull")
 
     def push(
         self,
@@ -1478,12 +1488,35 @@ class GitRepository:
         except GitError as e:
             raise PushFailedError(self, message=f"Push operation failed: {e}")
 
+    def raise_git_access_error(
+        self, error_cls=GitAccessDeniedException, operation=None
+    ):
+        hosts = {extract_hostname(url) for url in self.urls}
+        unknown_hosts = [host for host in hosts if not is_host_known(host)]
+        if len(unknown_hosts):
+            message = _no_hosts_error_format.format(hostname=",".join(unknown_hosts))
+            raise error_cls(self, operation=operation, message=message)
+        repo_exists = any(repository_exists(url) for url in self.urls)
+        if repo_exists:
+            uses_ssh = any(url.startswith("git@") for url in self.urls)
+            if uses_ssh:
+                raise error_cls(
+                    self, operation=operation, message=_clone_or_pull_error_message
+                )
+            else:
+                raise error_cls(
+                    self,
+                    operation=operation,
+                    message=_clone_or_pull_error_message_no_ssh,
+                )
+        raise error_cls(self)
+
     def remove_remote(self, remote_name: str) -> None:
         try:
             self._git("remote remove {}", remote_name)
         except GitError as e:
             if "No such remote" not in str(e):
-                self._git("remote rename {remote_name} local")
+                self._git(f"remote rename {remote_name} local")
                 self._log_warning(
                     f"Could not remove remote {remote_name}. It was renamed to 'local'. Remove it manually"
                 )
@@ -1775,6 +1808,39 @@ class GitRepository:
         return urls
 
 
+_clone_or_pull_error_message = (
+    "The remote repository exists, so this is probably due to the lack of privileges or SSH key issues. "
+    "Here are some steps you can take to resolve common issues:\n\n"
+    "1. Check Repository Access:\n"
+    "   - If the repository is private, verify that your account has been granted access.\n\n"
+    "2. Check SSH Key Configuration:\n"
+    "   - Ensure your SSH key is correctly added to your Git hosting account (GitHub, GitLab, Bitbucket, etc.).\n"
+    "   - Verify that your SSH key does not require a passphrase, or use an SSH agent to manage the passphrase.\n\n"
+    "3. Using an SSH Agent:\n"
+    "   - If your SSH key is passphrase-protected, start the ssh-agent in the background:\n"
+    "       eval $(ssh-agent -s)\n"
+    "   - Add your SSH key to the ssh-agent:\n"
+    "       ssh-add /path/to/your/private/key\n"
+    "4. If Problems Persist:\n"
+    "   - If you are using Windows and encounter issues, consider running these commands in Bash or another Unix-like shell available on Windows, such as Git Bash or WSL.\n"
+    "   - Try using a different SSH key that does not require a passphrase.\n"
+)
+
+
+_clone_or_pull_error_message_no_ssh = (
+    "The remote repository exists, so this issue is probably due to lack of privileges.\n"
+    "Verify that you have access to the repository if it is private, and verify your HTTPS configuration.\n"
+    "Consider switching to SSH for potentially enhanced security and easier handling of credentials."
+)
+
+
+_no_hosts_error_format = (
+    "Error: The host(s) '{hostname}' not recognized."
+    "To add a host to your known_hosts file, manually connect via SSH using the command:\n"
+    "ssh -T git@{hostname}\n"
+    "Accept the host key to proceed.\n"
+)
+
 _remote_branch_re = re.compile(r"^(refs/heads/)")
 
 _local_branch_re = re.compile(r"^(origin/)")
@@ -1795,3 +1861,54 @@ _http_fttp_url = re.compile(
 _ssh_url = re.compile(
     r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)?(/)?"
 )
+
+
+def extract_hostname(url):
+    """Extract the hostname from a Git URL, which can be either SSH or HTTP(S)."""
+    if url.startswith("git@"):
+        # Handle SSH URL
+        match = re.match(r"git@(.*?):", url)
+    else:
+        # Handle HTTP(S) URL
+        match = re.match(r"https?://([^/]+)/", url)
+
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
+def is_host_known(hostname):
+    """Check if the given hostname is in the known_hosts file."""
+    known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
+    try:
+        with open(known_hosts_path, "r") as file:
+            for line in file:
+                if line.startswith(hostname) or hostname in line.split():
+                    return True
+        return False
+    except FileNotFoundError:
+        print("Known hosts file not found.")
+        return False
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return False
+
+
+def repository_exists(url):
+    """Check if the repository URL exists by making a HEAD request to the URL."""
+    # Convert SSH URL to HTTP URL
+    if url.startswith("git@"):
+        # General pattern: git@HOST:USER/REPO
+        http_url = re.sub(r"git@(.*?):(.*?)/(.*)\.git", r"https://\1/\2/\3", url)
+    elif url.startswith("git://"):
+        http_url = url.replace("git://", "https://").replace(".git", "")
+    else:
+        http_url = url
+
+    try:
+        response = requests.head(http_url)
+        return response.status_code == 200
+    except requests.RequestException as e:
+        print(f"Error checking repository URL: {e}")
+        return False

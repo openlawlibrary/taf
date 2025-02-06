@@ -11,11 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Improved Git error messaging to provide clearer troubleshooting instructions for remote operations [(588)]
 
 ### Changed
 
 
 ### Fixed
+
+[588]: https://github.com/openlawlibrary/taf/pull/588
 
 
 ## [0.34.0]
