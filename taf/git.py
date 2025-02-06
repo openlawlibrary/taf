@@ -735,7 +735,7 @@ class GitRepository:
                     error_if_not_exists=False,
                 )
             except GitError as e:
-                self._log_notice(f"could not clone from {url} due to {e}")
+                self._log_debug(f"could not clone from {url} due to {e}")
             else:
                 self._log_info(f"successfully cloned from {url}")
                 cloned = True
@@ -1516,7 +1516,7 @@ class GitRepository:
             self._git("remote remove {}", remote_name)
         except GitError as e:
             if "No such remote" not in str(e):
-                self._git("remote rename {remote_name} local")
+                self._git(f"remote rename {remote_name} local")
                 self._log_warning(
                     f"Could not remove remote {remote_name}. It was renamed to 'local'. Remove it manually"
                 )
