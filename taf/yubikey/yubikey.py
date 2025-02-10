@@ -97,7 +97,7 @@ def _yk_piv_ctrl(serial=None):
                     raise e
         if serial is not None:
             session, serial = sessions[0]
-            yield session, serial
+            yield [(session, serial)]
         else:
             yield sessions
     finally:
@@ -122,7 +122,7 @@ def is_inserted():
 
 
 @raise_yubikey_err()
-def is_valid_pin(pin, serial):
+def is_valid_pin(pin, serial=None):
     """Checks if given pin is valid.
 
     Args:
@@ -141,7 +141,7 @@ def is_valid_pin(pin, serial):
                 "Please insert exactly one YubiKey or specify a serial number of the YubiKey whose pin is to be checked"
             )
         serial = serials[0]
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         try:
             ctrl.verify_pin(pin)
             return True, None  # ctrl.get_pin_tries() fails if PIN is valid
@@ -186,7 +186,7 @@ def export_piv_x509(cert_format=serialization.Encoding.PEM, serial=None):
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         x509 = ctrl.get_certificate(SLOT.SIGNATURE)
         return x509.public_bytes(encoding=cert_format)
 
@@ -206,7 +206,7 @@ def export_piv_pub_key(pub_key_format=serialization.Encoding.PEM, serial=None):
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         try:
             x509_cert = ctrl.get_certificate(SLOT.SIGNATURE)
             public_key = x509_cert.public_key()
@@ -451,7 +451,7 @@ def sign_piv_rsa_pkcs1v15(data, pin, serial=None):
     Raises:
         - YubikeyError
     """
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         ctrl.verify_pin(pin)
         return ctrl.sign(
             SLOT.SIGNATURE, KEY_TYPE.RSA2048, data, hashes.SHA256(), padding.PKCS1v15()
@@ -493,7 +493,7 @@ def setup(
         - YubikeyError
     """
 
-    with _yk_piv_ctrl(serial=serial) as (ctrl, _):
+    with _yk_piv_ctrl(serial=serial) as [(ctrl, _)]:
         # Factory reset and set PINs
         ctrl.reset()
 

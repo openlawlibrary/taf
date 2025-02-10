@@ -150,4 +150,4 @@ def _yk_piv_ctrl_mock(serial=None):
     if INSERTED_YUBIKEY is None:
         raise ValueError("No YubiKey found with the given interface(s)")
 
-    yield FakePivController(INSERTED_YUBIKEY), INSERTED_YUBIKEY.serial
+    yield [(FakePivController(INSERTED_YUBIKEY), INSERTED_YUBIKEY.serial)]
