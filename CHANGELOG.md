@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-## [0.34.1]
+## [0.34.1] - 02/11/2025
 
 ### Added
 
@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning][semver].
 [588]: https://github.com/openlawlibrary/taf/pull/588
 
 
-## [0.34.0]
+## [0.34.0] - 02/04/2025
 
 ### Added
 
@@ -49,7 +49,7 @@ Transition to the newest version of TUF [(561)]
 [584]: https://github.com/openlawlibrary/taf/pull/584
 [561]: https://github.com/openlawlibrary/taf/pull/561
 
-## [0.33.2]
+## [0.33.2] - 02/04/2025
 
 ### Added
 
@@ -62,7 +62,7 @@ Transition to the newest version of TUF [(561)]
 [585]: https://github.com/openlawlibrary/taf/pull/585
 
 
-## [0.33.1]
+## [0.33.1] - 01/09/2025
 
 ### Added
 
@@ -78,7 +78,7 @@ Transition to the newest version of TUF [(561)]
 [577]: https://github.com/openlawlibrary/taf/pull/577
 
 
-## [0.33.0]
+## [0.33.0] - 12/23/2024
 
 ### Added
 
@@ -95,7 +95,7 @@ Transition to the newest version of TUF [(561)]
 [559]: https://github.com/openlawlibrary/taf/pull/559
 
 
-## [0.32.4]
+## [0.32.4] - 12/03/2024
 
 ### Added
 
