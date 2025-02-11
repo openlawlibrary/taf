@@ -10,6 +10,7 @@ class Update:
     error_msg: str = field(default="")
     auth_repos: Dict = field(factory=dict)
     auth_repo_name: str = field(default="")
+    target_repos: list = field(default=[])
 
 
 class UpdateType(enum.Enum):

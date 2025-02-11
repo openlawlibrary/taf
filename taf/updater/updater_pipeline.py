@@ -455,6 +455,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return True
 
     def start_update(self):
+        """
+        Print the message that validation/update has started.
+        """
         # This message should be shown regardless of verbosity setting
         update_text = "validation" if self.only_validate else "update"
         if self.auth_path:
@@ -464,6 +467,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             taf_logger.log("NOTICE", f"Starting {update_text}...")
 
     def finish_update(self):
+        """
+        Print the message that validation/update has finished.
+        """
         # This message should be shown regardless of verbosity setting
         update_text = "validation" if self.only_validate else "update"
         taf_logger.log(
@@ -471,6 +477,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def set_users_auth_repo(self):
+        """
+        Create auth repo instance if path is defined and update state property.
+        """
         settings.update_from_filesystem = self.update_from_filesystem
         self.state.existing_repo = False
         if self.auth_path:
@@ -482,6 +491,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.existing_repo = True
 
     def set_existing_target_repositories(self):
+        """
+        Check which repositories are already on disk.
+        Load them, check if they are clean and synced and update state property.
+        """
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Checking which repositories are already on disk..."
         )
@@ -517,6 +530,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def _set_last_validated_commit(self):
+        """
+        Set last validated commit in settings handler.
+        If a commit to validate from is set, it is used as LVC. Else, LVC is fetched from users auth repo.
+        """
         if self.operation == OperationType.CLONE:
             settings.last_validated_commit[self.state.validation_auth_repo.name] = None
             self.state.last_validated_commit = None
@@ -544,6 +561,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.last_validated_commit = self.validate_from_commit
 
     def check_if_local_repositories_clean(self):
+        """
+        Checks if auth repo and target repos have something to commit or have unpushed commits.
+        If force flag is set, the branch is cleaned of untracked files and unpushed commits are removed.
+        """
         try:
             self.state.clean_check_data = {}
             # Early exit if the repository does not exist
@@ -653,6 +674,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state.is_partially_updated = _previous_update_partial()
 
     def _check_if_target_repos_clean(self, target_repos, branches_per_repo):
+        """
+        Check if target repos have something to commit or have unpushed commits.
+        If force flag is set, the branch is cleaned of untracked files and unpushed commits are removed.
+        """
         dirty_index_repos = []
         unpushed_commits_repos_and_branches = []
         # Check the target repositories on disk
@@ -697,6 +722,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     @cleanup_decorator
     def clone_auth_to_temp(self):
+        """
+        Clones bare authentication repository to temporary location and updates settings handler.
+        """
         try:
             users_path = self.auth_path or self.library_dir
             self.state.temp_root = TempPartition(Path(users_path))
@@ -723,6 +751,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def prepare_for_auth_update_and_check_last_validated_commit(self):
+        """
+        Set operation type and state properties that are necessary for auth update.
+        Set last validated commit.
+        """
         try:
             if self.operation == OperationType.CLONE_OR_UPDATE:
                 if (
@@ -871,7 +903,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def run_tuf_updater(self):
-
+        """ """
         try:
 
             self.state.update_handler = GitUpdater(
@@ -973,6 +1005,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
 
     def _validate_operation_type(self):
+        """
+        Raises an error if clone is attempted on existing repo and if update is attempted on non-existing repo.
+        """
         if self.operation == OperationType.CLONE and self.state.existing_repo:
             raise UpdateFailedError(
                 f"Destination path {self.state.users_auth_repo.path} already exists and is not an empty directory. Run 'taf repo update' to update it."
@@ -983,6 +1018,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
 
     def validate_out_of_band_and_update_type(self):
+        """ """
         # this is the repository cloned inside the temp directory
         # we validate it before updating the actual authentication repository
         taf_logger.info(
@@ -1025,6 +1061,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def validate_last_validated_commit(self):
+        """
+        Raises an error if LVC is invalid. If force flag is set, LVC will be set to None
+        and validation will start from the beginning.
+        """
         # last validated commit was already validated against the remote repo before the update was initiated
         # so just check if it was manually set to a commit that follows the last valid commit
         if (
@@ -1043,6 +1083,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 raise UpdateFailedError(error_msg)
 
     def clone_or_fetch_users_auth_repo(self):
+        """
+        Runs git fetch if repo exists, or git clone if repo doesn't exist.
+        """
         # fetch the latest commit or clone the repository without checkout
         # do not merge before targets are validated as well
         taf_logger.info(
@@ -1097,6 +1140,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def load_target_repositories(self):
+        """
+        Loads target repositories from repositoriesdb.
+        """
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
             self.state.users_target_repositories = (
@@ -1129,6 +1175,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def check_if_repositories_on_disk(self):
+        """
+        Looks for target repositories on disk. If any of them is not found, an error is raised.
+        """
         taf_logger.info(
             f"{self.state.auth_repo_name}: Checking if all target repositories are already on disk..."
         )
@@ -1149,6 +1198,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def clone_target_repositories_to_temp(self):
+        """
+        Clones target repositories to temporary location.
+        """
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Cloning target repositories to temp..."
         )
@@ -1189,6 +1241,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def determine_start_commits(self):
+        """ """
         taf_logger.info(
             f"{self.state.auth_repo_name}: Validating initial state of target repositories..."
         )
@@ -1338,6 +1391,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def get_targets_data_from_auth_repo(self):
+        """
+        Populates a list of repositories that were added to repositories.json in one of new commits.
+        """
         repo_branches = {}
         for repo_name, commits_data in self.state.targets_data_by_auth_commits.items():
             branches = set()  # using a set to avoid duplicate branches
@@ -1442,6 +1498,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     def check_if_local_target_repositories_clean(self):
+        """
+        Checks if there are dirty index repos or unpushed commits.
+        """
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Checking if newly added target repositories are clean..."
         )
@@ -1695,6 +1754,9 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     def update_users_target_repositories(self):
+        """
+        Iterates through list of target repositories and clones/updates them.
+        """
         taf_logger.debug(
             f"{self.state.auth_repo_name}: Copying or updating user's target repositories..."
         )
@@ -1738,6 +1800,9 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     def remove_temp_repositories(self):
+        """
+        Clean temp target repos, temp root and update handler.
+        """
         taf_logger.debug(f"{self.state.auth_repo_name}: Removing temp repositories...")
         if not self.state.temp_root:
             return self.state.update_status
@@ -1908,6 +1973,7 @@ but commit not on branch {current_branch}"
         return Event.CHANGED
 
     def set_target_repositories_data(self):
+        """ """
         try:
             targets_data = {}
             for repo_name, repo in self.state.users_target_repositories.items():
@@ -2025,6 +2091,7 @@ but commit not on branch {current_branch}"
         )
 
     def print_additional_commits(self):
+        """ """
         for (
             repo_name,
             branches,
@@ -2040,6 +2107,7 @@ but commit not on branch {current_branch}"
                     )
 
     def check_pre_push_hook(self):
+        """ """
         try:
             ensure_pre_push_hook(self.state.users_auth_repo.path)
             return UpdateStatus.SUCCESS
