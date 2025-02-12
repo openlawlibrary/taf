@@ -217,7 +217,7 @@ def _load_yubikeys(
             - list of YkSigner instances representing the signers initialized from the loaded YubiKeys.
             - list of key names that were successfully loaded.
     """
-    signers_yubikeys = []
+    signers_yubikeys: List = []
     yubikeys = yk.yubikey_prompt(
         key_names=key_names,
         pin_manager=taf_repo.pin_manager,

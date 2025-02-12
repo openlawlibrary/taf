@@ -724,7 +724,7 @@ def _transform_roles_dict(data: dict, auth_repo: AuthenticationRepository):
         if key_name not in yubikeys_data:
             yubikeys_data[key_name] = {}
 
-    transformed_roles = {"root": {}, "snapshot": {}, "timestamp": {}}
+    transformed_roles: Dict = {"root": {}, "snapshot": {}, "timestamp": {}}
 
     if "roles" in data:
         for role_name, role_data in data["roles"].items():
