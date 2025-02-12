@@ -66,9 +66,19 @@ class YubiKeyStore:
 
 
 class PinManager:
+    """
+    Manages PIN storage and retrieval for YubiKeys, providing a centralized mechanism
+    to handle adding and retrieving PINs to and from storage.
+
+    Attributes:
+        auto_continue (bool): If set to True, suppresses prompts when they are not necessary, allowing
+                              uninterrupted execution. Default is False.
+        _pins (dict): A private dictionary that stores PINs, keyed by an identifier (e.g., the YubiKey serial number).
+    """
+
     def __init__(self, auto_continue=False):
         self._pins = {}
-        # Automatically continue without prompts, such as loading more keys
+        # Automatically continue without prompts e.g. when attempting to load more keys
         self.auto_continue = auto_continue
 
     def add_pin(self, serial_number, pin):
@@ -85,6 +95,15 @@ class PinManager:
 
 @contextlib.contextmanager
 def manage_pins():
+    """
+    Context manager to handle the lifecycle of PinManager instances.
+
+    Yields:
+        PinManager: An instance of PinManager, ready for use.
+
+    Ensures that PINs are cleared from memory immediately after the operations
+    involving the PinManager are completed, maintaining security.
+    """
     pin_manager = PinManager()
     try:
         yield pin_manager
@@ -93,6 +112,19 @@ def manage_pins():
 
 
 def pin_managed(func):
+    """
+    Decorator that wraps a function to automatically provide it with a managed PinManager instance.
+
+    Args:
+        func (Callable): The function to be decorated, which will use a PinManager.
+
+    Returns:
+        Callable: The wrapped function with a PinManager instance passed as a keyword argument.
+
+    This decorator abstracts away the creation and cleanup of PinManager instances, allowing
+    functions to utilize a PinManager without concern for its lifecycle.
+    """
+
     def wrapper(*args, **kwargs):
         with manage_pins() as pin_manager:
             kwargs["pin_manager"] = pin_manager

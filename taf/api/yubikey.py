@@ -42,7 +42,7 @@ def export_yk_public_pem(
         None
     """
     try:
-        serials = [serial] if serial else yk.get_serial_num()
+        serials = [serial] if serial else yk.get_serial_nums()
 
         if not len(serials):
             print("YubiKey not inserted.")
@@ -91,7 +91,7 @@ def export_yk_certificate(
         None
     """
     try:
-        serials = [serial] if serial else yk.get_serial_num()
+        serials = [serial] if serial else yk.get_serial_nums()
 
         if not len(serials):
             print("YubiKey not inserted.")
@@ -128,7 +128,7 @@ def get_yk_roles(path: str, serial: Optional[str] = None) -> Dict:
     Returns:
         A dictionary containing roles and delegated paths in case of delegated target roles
     """
-    serials = [serial] if serial else yk.get_serial_num()
+    serials = [serial] if serial else yk.get_serial_nums()
     roles_per_yubikes: Dict = {}
 
     if not len(serials):
@@ -220,7 +220,7 @@ def setup_test_yubikey(
         None
     """
     if serial is None:
-        serials = yk.get_serial_num()
+        serials = yk.get_serial_nums()
         if not len(serials):
             raise YubikeyError("YubiKey not inserted")
         if len(serials) > 1:

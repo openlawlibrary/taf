@@ -122,7 +122,7 @@ def is_inserted():
 
 
 @raise_yubikey_err()
-def is_valid_pin(pin, serial=None):
+def is_valid_pin(pin: str, serial: Optional[str] = None):
     """Checks if given pin is valid.
 
     Args:
@@ -135,7 +135,7 @@ def is_valid_pin(pin, serial=None):
         - YubikeyError
     """
     if serial is None:
-        serials = get_serial_num()
+        serials = get_serial_nums()
         if len(serials) != 1:
             raise YubikeyError(
                 "Please insert exactly one YubiKey or specify a serial number of the YubiKey whose pin is to be checked"
@@ -150,15 +150,15 @@ def is_valid_pin(pin, serial=None):
 
 
 @raise_yubikey_err("Cannot get serial number.")
-def get_serial_num():
-    """Get serial numbers of all isnerted YubiKeys
+def get_serial_nums():
+    """Get serial numbers of all inserted  YubiKeys
 
     Args:
         - pub_key_pem(str): Match Yubikey's public key (PEM) if multiple keys
                             are inserted
 
     Returns:
-        Yubikey serial number
+        Yubikey serial numbers
 
     Raises:
         - YubikeyError
@@ -306,7 +306,7 @@ def _read_and_check_single_yubikey(
 
     # make sure that YubiKey is inserted
     try:
-        serials = get_serial_num()
+        serials = get_serial_nums()
 
         if taf_repo is None:
             # if setting up a YubiKey outside of the creation of a new repository or addition of new roles
@@ -387,7 +387,7 @@ def _read_and_check_yubikeys(
 
     # make sure that YubiKey is inserted
     try:
-        serials = get_serial_num()
+        serials = get_serial_nums()
     except Exception:
         taf_logger.log("NOTICE", "No YubiKeys inserted")
         return None
@@ -569,7 +569,7 @@ def setup_new_yubikey(
 def verify_yk_inserted(serial_num, key_name):
     def _check_if_yk_inserted():
         try:
-            serials = get_serial_num()
+            serials = get_serial_nums()
         except Exception:
             return False
 

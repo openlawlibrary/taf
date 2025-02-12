@@ -203,13 +203,20 @@ def _load_signer_from_keystore(
 
 
 def _load_yubikeys(
-    taf_repo,
-    role,
-    key_names,
-    retry_on_failure,
-    hide_threshold_message,
+    taf_repo: TUFRepository,
+    role: str,
+    key_names: List[str],
+    retry_on_failure: bool,
+    hide_threshold_message: bool,
 ):
+    """
+    Loads YubiKeys for a specified role using given key names and manages the interaction process.
 
+    Returns:
+        A tuple containing two elements:
+            - list of YkSigner instances representing the signers initialized from the loaded YubiKeys.
+            - list of key names that were successfully loaded.
+    """
     signers_yubikeys = []
     yubikeys = yk.yubikey_prompt(
         key_names=key_names,

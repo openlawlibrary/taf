@@ -224,9 +224,9 @@ class YkSigner(Signer):
         # if multiple keys are inserted, we need to know from which key should be imported
         # TODO
         # only used for testing purposes now
-        from taf.yubikey.yubikey import export_piv_pub_key, get_serial_num
+        from taf.yubikey.yubikey import export_piv_pub_key, get_serial_nums
 
-        serials = get_serial_num()
+        serials = get_serial_nums()
         serial = serials[0]
         pem = export_piv_pub_key(serial=serial)
         pub = load_pem_public_key(pem)

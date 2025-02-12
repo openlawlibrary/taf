@@ -710,7 +710,11 @@ def _read_val(input_type, name, param=None, required=False):
             pass
 
 
-def _transform_roles_dict(data, auth_repo):
+def _transform_roles_dict(data: dict, auth_repo: AuthenticationRepository):
+    """
+    Transforms simplified role data into a structured format consistent with keys_store_description.
+    It facilitates easier additions of new roles by allowing input data to be simplified.
+    """
     key_names = auth_repo.keys_name_mappings.values()
 
     transformed_data = data.copy()
