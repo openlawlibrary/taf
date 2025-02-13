@@ -5,14 +5,22 @@ from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
-from taf.exceptions import InvalidRepositoryError, TAFError
+from taf.exceptions import InvalidRepositoryError, RepositoryNotCleanError, TAFError
 from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
 from taf.utils import is_run_from_python_executable, on_rm_error
 
 
-def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove_dir_on_error=False, skip_cleanup=False):
+def catch_cli_exception(
+    func=None,
+    *,
+    handle=TAFError,
+    print_error=False,
+    remove_dir_on_error=False,
+    skip_cleanup=False,
+    errors_to_always_print=[RepositoryNotCleanError],
+):
     if not func:
         return partial(
             catch_cli_exception,
@@ -32,7 +40,7 @@ def catch_cli_exception(func=None, *, handle=TAFError, print_error=False, remove
             successful = True
             return result
         except handle as e:
-            if print_error:
+            if print_error or type(e) in errors_to_always_print:
                 taf_logger.error(e)
         except Exception as e:
             if is_run_from_python_executable():

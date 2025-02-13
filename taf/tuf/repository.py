@@ -101,7 +101,7 @@ def is_delegated_role(role: str) -> bool:
 def is_auth_repo(repo_path: str) -> bool:
     """Check if the given path contains a valid TUF repository"""
     try:
-        Repository(repo_path)._repository
+        MetadataRepository(path=repo_path).open(Root.type)
         return True
     except Exception:
         return False

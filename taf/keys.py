@@ -9,7 +9,7 @@ from taf.log import taf_logger
 from taf.models.types import Role, RolesIterator
 from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
-from taf.tuf.repository import MetadataRepository as TUFRepository
+from taf.tuf.repository import MetadataRepository as TUFRepository, is_auth_repo
 from taf.api.utils._conf import find_keystore
 from taf.tuf.keys import (
     YkSigner,
@@ -390,17 +390,18 @@ def setup_roles_keys(
         if auth_repo.keys_name_mappings:
             # check if some of the listed key names are already defined as signing keys
             # in that case, they need to be loaded and verified
-            existing_key_names = {
-                existing_key_name: existing_key_id
-                for existing_key_id, existing_key_name in auth_repo.keys_name_mappings.items()
-            }
-            for key_name in yubikey_ids:
-                if key_name in existing_key_names:
-                    public_key_pem, scheme = auth_repo.get_public_key_of_keyid(
-                        existing_key_names[key_name]
-                    )
-                    key_data = {"public": public_key_pem, "scheme": scheme}
-                    users_yubikeys_details[key_name] = UserKeyData(**key_data)
+            if is_auth_repo(auth_repo.path):
+                existing_key_names = {
+                    existing_key_name: existing_key_id
+                    for existing_key_id, existing_key_name in auth_repo.keys_name_mappings.items()
+                }
+                for key_name in yubikey_ids:
+                    if key_name in existing_key_names:
+                        public_key_pem, scheme = auth_repo.get_public_key_of_keyid(
+                            existing_key_names[key_name]
+                        )
+                        key_data = {"public": public_key_pem, "scheme": scheme}
+                        users_yubikeys_details[key_name] = UserKeyData(**key_data)
 
     if role.is_yubikey:
         yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(
