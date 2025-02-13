@@ -98,7 +98,7 @@ def is_delegated_role(role: str) -> bool:
     return role not in ("root", "targets", "snapshot", "timestamp")
 
 
-def is_auth_repo(repo_path: str) -> bool:
+def is_auth_repo(repo_path: Union[Path, str]) -> bool:
     """Check if the given path contains a valid TUF repository"""
     try:
         MetadataRepository(path=repo_path).open(Root.type)
