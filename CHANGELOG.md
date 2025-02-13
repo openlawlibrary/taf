@@ -13,20 +13,61 @@ and this project adheres to [Semantic Versioning][semver].
 - Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
 - Implement iteration over all inserted YubiKeys during metadata signing [(583)]
 - Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage [(583)]
-- Implement removal of keys [(561)]
+
+### Changed
+
+
+### Fixed
+
+[583]: https://github.com/openlawlibrary/taf/pull/583
+
+## [0.34.1] - 02/11/2025
+
+### Added
+
+- Improved Git error messaging to provide clearer troubleshooting instructions for remote operations [(588)]
+
+### Changed
+
+
+### Fixed
+
+- Fixed loading from repositories cache [(590)]
+
+[590]: https://github.com/openlawlibrary/taf/pull/590
+[588]: https://github.com/openlawlibrary/taf/pull/588
+
+
+## [0.34.0] - 02/04/2025
+
+### Added
+
+- Added benchmark testing for test_clone_valid_happy_path [(584)]
 - Implement removal and rotation of keys [(561)]
 
 ### Changed
 
-Transition to the newest version of TUF [(561)]
+- Transition to the newest version of TUF [(561)]
 
 ### Fixed
 
-[563]: https://github.com/openlawlibrary/taf/pull/563
+[584]: https://github.com/openlawlibrary/taf/pull/584
 [561]: https://github.com/openlawlibrary/taf/pull/561
 
+## [0.33.2] - 02/04/2025
 
-## [0.33.1]
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix `_is_repository_in_sync` check ([585])
+
+[585]: https://github.com/openlawlibrary/taf/pull/585
+
+
+## [0.33.1] - 01/09/2025
 
 ### Added
 
@@ -42,7 +83,7 @@ Transition to the newest version of TUF [(561)]
 [577]: https://github.com/openlawlibrary/taf/pull/577
 
 
-## [0.33.0]
+## [0.33.0] - 12/23/2024
 
 ### Added
 
@@ -59,7 +100,7 @@ Transition to the newest version of TUF [(561)]
 [559]: https://github.com/openlawlibrary/taf/pull/559
 
 
-## [0.32.4]
+## [0.32.4] - 12/03/2024
 
 ### Added
 
@@ -1414,7 +1455,10 @@ Transition to the newest version of TUF [(561)]
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.33.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.34.1...HEAD
+[0.34.1]: https://github.com/openlawlibrary/taf/compare/v0.34.0...v0.34.1
+[0.34.0]: https://github.com/openlawlibrary/taf/compare/v0.33.2...v0.34.0
+[0.33.2]: https://github.com/openlawlibrary/taf/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/openlawlibrary/taf/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/openlawlibrary/taf/compare/v0.32.4...v0.33.0
 [0.32.4]: https://github.com/openlawlibrary/taf/compare/v0.32.3...v0.32.4

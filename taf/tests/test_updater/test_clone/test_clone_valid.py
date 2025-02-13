@@ -10,6 +10,7 @@ from taf.tests.test_updater.conftest import (
     update_and_sign_metadata_without_clean_check,
     update_expiration_dates,
     update_role_metadata_without_signing,
+    cleanup_directory,
 )
 from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
@@ -46,6 +47,7 @@ def test_clone_valid_happy_path(origin_auth_repo, client_dir):
         client_dir,
         expected_repo_type=expected_repo_type,
     )
+    cleanup_directory(client_dir)
 
 
 @pytest.mark.parametrize(

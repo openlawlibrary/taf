@@ -1270,12 +1270,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
         last_validated_commit = last_validated_commit_data["commit"]
 
-        if repository.is_bare_repository:
-            try:
-                top_commit_of_branch = repository.top_commit_of_remote_branch(
-                    current_branch
-                )
-            except GitError:
+        try:
+            top_commit_of_branch = repository.top_commit_of_remote_branch(
+                current_branch
+            )
+        except GitError:
+            if repository.is_bare_repository:
                 # Check if the user's local repository has the branch
                 if current_branch in repository.branches:
                     repository.create_branch(current_branch)
@@ -1285,10 +1285,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                 else:
                     return False
-        else:
-            if not repository.branch_exists(current_branch, include_remotes=False):
-                return False
-            top_commit_of_branch = repository.top_commit_of_branch(current_branch)
+            else:
+                if not repository.branch_exists(current_branch, include_remotes=False):
+                    return False
+                top_commit_of_branch = repository.top_commit_of_branch(current_branch)
 
         if top_commit_of_branch != last_validated_commit:
             # check if top commit is newer (which is fine, it will be validated)

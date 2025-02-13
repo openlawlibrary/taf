@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = "taf"
-VERSION = "0.33.1"
+VERSION = "0.34.1"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -32,6 +32,7 @@ tests_require = [
     "jsonschema==3.2.0",
     "jinja2==3.1.*",
     "pytest-mock==3.14.*",
+    "pytest-benchmark==4.0.0",
 ]
 
 yubikey_require = ["yubikey-manager==5.5.*"]

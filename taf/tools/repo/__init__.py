@@ -49,7 +49,6 @@ def _call_updater(config, format_output):
             taf_logger.error(json.dumps(error_data))
             sys.exit(1)
         else:
-            taf_logger.error(str(e))
             sys.exit(1)
 
 

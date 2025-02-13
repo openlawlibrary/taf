@@ -24,10 +24,6 @@ from json import JSONDecoder
 from taf.log import taf_logger
 import taf.settings
 from taf.exceptions import PINMissmatchError
-
-# TODO: Remove legacy imports
-# from taf.log import taf_logger
-
 from typing import List, Optional, Tuple, Dict
 from securesystemslib.hash import digest_fileobject
 from securesystemslib.storage import FilesystemBackend, StorageBackendInterface
@@ -416,8 +412,6 @@ def ensure_pre_push_hook(auth_repo_path: Path) -> bool:
         )
         return False
     taf_logger.info("Pre-push hook updated successfully.")
-    return True
-
     return True
 
 
