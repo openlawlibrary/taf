@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from taf.api.utils._conf import find_keystore
 from taf.auth_repo import AuthenticationRepository
@@ -79,13 +79,11 @@ def manage_repo_and_signers(
                 keystore_path = find_keystore(auth_repo.path)
             else:
                 keystore_path = Path(keystore)
-            loaded_yubikeys: Dict = {}
             for role in roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
                     keystore_signers, yubikey_signers = load_signers(
                         auth_repo,
                         role,
-                        loaded_yubikeys=loaded_yubikeys,
                         keystore=keystore_path,
                         scheme=scheme,
                         prompt_for_keys=prompt_for_keys,

@@ -1,0 +1,9 @@
+{
+    "roles": {
+      "delegated_role": {
+          "parent_role": "targets",
+          "paths": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+          "threshold": 1
+      }
+    }
+  }

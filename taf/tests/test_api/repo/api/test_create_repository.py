@@ -10,6 +10,7 @@ from taf.tests.test_api.util import (
 )
 from taf.tests.utils import copy_mirrors_json, copy_repositories_json
 from taf.updater.updater import validate_repository
+from taf.yubikey.yubikey_manager import PinManager
 
 
 def _check_repo_initialization_successful(
@@ -39,10 +40,12 @@ def test_create_repository_when_no_delegations(
     auth_repo_path: Path,
     with_delegations_no_yubikeys_path: str,
     keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -57,10 +60,12 @@ def test_create_repository_when_no_delegations_with_test_flag(
     auth_repo_path: Path,
     with_delegations_no_yubikeys_path: str,
     keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -77,10 +82,12 @@ def test_create_repository_when_delegations(
     auth_repo_path: Path,
     with_delegations_no_yubikeys_path: str,
     keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         str(auth_repo_path),
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -100,6 +107,7 @@ def test_create_repository_when_add_repositories_json(
     keystore_delegations: str,
     repositories_json_template: Dict,
     mirrors_json_path: Path,
+    pin_manager: PinManager,
 ):
     repo_path = str(auth_repo_path)
     namespace = auth_repo_path.parent.name
@@ -108,6 +116,7 @@ def test_create_repository_when_add_repositories_json(
 
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,

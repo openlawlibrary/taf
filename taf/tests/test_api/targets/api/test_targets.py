@@ -14,6 +14,7 @@ from taf.tests.test_api.util import (
     check_if_targets_signed,
     check_target_file,
 )
+from taf.yubikey.yubikey_manager import PinManager
 
 
 AUTH_REPO_NAME = "auth"
@@ -21,6 +22,7 @@ AUTH_REPO_NAME = "auth"
 
 def test_register_targets_when_file_added(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
     library: Path,
     keystore_delegations: str,
 ):
@@ -31,7 +33,11 @@ def test_register_targets_when_file_added(
     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
     file_path.write_text("test")
     register_target_files(
-        repo_path, keystore_delegations, update_snapshot_and_timestamp=True, push=False
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
     )
     check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
     commits = auth_repo_when_add_repositories_json.list_commits()
@@ -41,6 +47,7 @@ def test_register_targets_when_file_added(
 
 def test_register_targets_when_file_removed(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
     library: Path,
     keystore_delegations: str,
 ):
@@ -51,11 +58,19 @@ def test_register_targets_when_file_removed(
     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
     file_path.write_text("test")
     register_target_files(
-        repo_path, keystore_delegations, update_snapshot_and_timestamp=True, push=False
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
     )
     file_path.unlink()
     register_target_files(
-        repo_path, keystore_delegations, update_snapshot_and_timestamp=True, push=False
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
     )
     signed_target_files = auth_repo_when_add_repositories_json.get_signed_target_files()
     assert FILENAME not in signed_target_files
@@ -66,6 +81,7 @@ def test_register_targets_when_file_removed(
 
 def test_update_target_repos_from_repositories_json(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
     library: Path,
     keystore_delegations: str,
 ):
@@ -74,6 +90,7 @@ def test_update_target_repos_from_repositories_json(
     namespace = library.name
     update_target_repos_from_repositories_json(
         str(repo_path),
+        pin_manager,
         str(library.parent),
         keystore_delegations,
         push=False,
@@ -92,6 +109,7 @@ def test_update_target_repos_from_repositories_json(
 
 def test_add_target_repository_when_not_on_filesystem(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
     library: Path,
     keystore_delegations: str,
 ):
@@ -101,6 +119,7 @@ def test_add_target_repository_when_not_on_filesystem(
     target_repo_name = f"{namespace}/target4"
     add_target_repo(
         str(repo_path),
+        pin_manager,
         None,
         target_repo_name,
         "delegated_role",
@@ -130,6 +149,7 @@ def test_add_target_repository_when_not_on_filesystem(
 
 def test_add_target_repository_when_on_filesystem(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
     library: Path,
     keystore_delegations: str,
 ):
@@ -139,6 +159,7 @@ def test_add_target_repository_when_on_filesystem(
     target_repo_name = f"{namespace}/new_target"
     add_target_repo(
         repo_path,
+        pin_manager,
         None,
         target_repo_name,
         "delegated_role",

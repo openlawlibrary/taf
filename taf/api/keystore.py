@@ -5,7 +5,7 @@ from pathlib import Path
 from taf.models.types import RolesKeysData
 from taf.api.utils._conf import find_taf_directory
 
-from taf.api.roles import _initialize_roles_and_keystore
+from taf.api.roles import initialize_roles_and_keystore
 from taf.keys import get_key_name
 from taf.log import taf_logger
 from taf.models.types import RolesIterator
@@ -80,7 +80,7 @@ def generate_keys(
             keystore = "./keystore"
 
     taf_logger.log("NOTICE", f"Generating keys in {str(Path(keystore).absolute())}")
-    roles_key_infos_dict, keystore, _ = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, _ = initialize_roles_and_keystore(
         roles_key_infos, str(keystore)
     )
 

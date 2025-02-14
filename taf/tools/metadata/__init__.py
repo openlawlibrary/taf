@@ -3,6 +3,7 @@ from taf.api.metadata import update_metadata_expiration_date, check_expiration_d
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, find_repository
+from taf.tools.repo import pin_managed
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
@@ -58,12 +59,14 @@ def update_expiration_dates_command():
     @click.option("--start-date", default=datetime.datetime.now(), type=ISO_DATE, help="Date to which the interval is added")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys):
+    @pin_managed
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager):
         if not len(role):
             print("Specify at least one role")
             return
         update_metadata_expiration_date(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             interval=interval,
             keystore=keystore,

@@ -8,6 +8,7 @@ from taf.api.repository import create_repository
 from taf.api.metadata import check_expiration_dates, update_metadata_expiration_date
 
 from tuf.api.metadata import Root, Snapshot, Timestamp, Targets
+from taf.yubikey.yubikey_manager import PinManager
 
 
 AUTH_REPO_NAME = "auth"
@@ -16,11 +17,15 @@ AUTH_REPO_NAME = "auth"
 @pytest.fixture(scope="module")
 @freeze_time("2021-12-31")
 def auth_repo_expired(
-    api_repo_path, keystore_delegations, with_delegations_no_yubikeys_path
+    api_repo_path,
+    keystore_delegations,
+    with_delegations_no_yubikeys_path,
+    pin_manager,
 ):
     repo_path = str(api_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=str(with_delegations_no_yubikeys_path),
         keystore=keystore_delegations,
         commit=True,
@@ -52,7 +57,9 @@ def test_check_expiration_date_when_all_expired(
 
 @freeze_time("2023-01-01")
 def test_update_root_metadata(
-    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+    auth_repo_expired: AuthenticationRepository,
+    keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     # update root metadata, expect snapshot and timestamp to be updated too
     # targets should not be updated
@@ -65,6 +72,7 @@ def test_update_root_metadata(
     snapshot_version = auth_repo_expired.snapshot().version
     update_metadata_expiration_date(
         path=auth_repo_path,
+        pin_manager=pin_manager,
         roles=roles,
         interval=INTERVAL,
         keystore=keystore_delegations,
@@ -112,7 +120,9 @@ def test_check_expiration_date_when_expired_and_will_expire(
 
 @freeze_time("2023-01-01")
 def test_update_snapshot_metadata(
-    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+    auth_repo_expired: AuthenticationRepository,
+    keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     # update root metadata, expect snapshot and timestamp to be updated too
     # targets should not be updated
@@ -125,6 +135,7 @@ def test_update_snapshot_metadata(
     snapshot_version = auth_repo_expired.snapshot().version
     update_metadata_expiration_date(
         path=auth_repo_path,
+        pin_manager=pin_manager,
         roles=roles,
         interval=INTERVAL,
         keystore=keystore_delegations,
@@ -141,7 +152,9 @@ def test_update_snapshot_metadata(
 
 @freeze_time("2023-01-01")
 def test_update_timestamp_metadata(
-    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+    auth_repo_expired: AuthenticationRepository,
+    keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     # update root metadata, expect snapshot and timestamp to be updated too
     # targets should not be updated
@@ -154,6 +167,7 @@ def test_update_timestamp_metadata(
     snapshot_version = auth_repo_expired.snapshot().version
     update_metadata_expiration_date(
         path=auth_repo_path,
+        pin_manager=pin_manager,
         roles=roles,
         interval=INTERVAL,
         keystore=keystore_delegations,
@@ -170,7 +184,9 @@ def test_update_timestamp_metadata(
 
 @freeze_time("2023-01-01")
 def test_update_multiple_roles_metadata(
-    auth_repo_expired: AuthenticationRepository, keystore_delegations: str
+    auth_repo_expired: AuthenticationRepository,
+    keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     # update root metadata, expect snapshot and timestamp to be updated too
     # targets should not be updated
@@ -183,6 +199,7 @@ def test_update_multiple_roles_metadata(
     snapshot_version = auth_repo_expired.snapshot().version
     update_metadata_expiration_date(
         path=auth_repo_path,
+        pin_manager=pin_manager,
         roles=roles,
         interval=INTERVAL,
         keystore=keystore_delegations,

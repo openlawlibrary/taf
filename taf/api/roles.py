@@ -30,6 +30,7 @@ from taf.models.types import RolesKeysData
 from taf.messages import git_commit_message
 
 from securesystemslib.signer._key import SSlibKey
+from taf.yubikey.yubikey_manager import PinManager
 
 
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
@@ -44,6 +45,7 @@ from securesystemslib.signer._key import SSlibKey
 @check_if_clean
 def add_role(
     path: str,
+    pin_manager: PinManager,
     role: str,
     parent_role: str,
     paths: list,
@@ -87,7 +89,9 @@ def add_role(
     """
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=path)
+        auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    elif auth_repo.pin_manager is None:
+        auth_repo.pin_manager = pin_manager
 
     if not parent_role:
         parent_role = "targets"
@@ -102,6 +106,27 @@ def add_role(
     commit_msg = git_commit_message("add-role", role=role)
     metadata_path = Path(METADATA_DIRECTORY_NAME, f"{role}.json")
 
+    targets_parent_role = TargetsRole()
+    if parent_role != "targets":
+        targets_parent_role.name = parent_role
+        targets_parent_role.paths = []
+
+    new_role = TargetsRole()
+    new_role.name = role
+    new_role.parent = targets_parent_role
+    new_role.paths = paths
+    new_role.number = keys_number
+    new_role.threshold = threshold
+    new_role.yubikey = yubikey
+
+    signers, verification_keys = load_sorted_keys_of_new_roles(
+        roles=new_role,
+        auth_repo=auth_repo,
+        yubikeys_data=None,
+        keystore=keystore_path,
+        skip_prompt=skip_prompt,
+        certs_dir=auth_repo.certs_dir,
+    )
     with manage_repo_and_signers(
         auth_repo,
         roles=[parent_role],
@@ -115,27 +140,7 @@ def add_role(
         commit_msg=commit_msg,
         paths_to_reset_on_error=[metadata_path],
     ):
-        targets_parent_role = TargetsRole()
-        if parent_role != "targets":
-            targets_parent_role.name = parent_role
-            targets_parent_role.paths = []
-
-        new_role = TargetsRole()
-        new_role.name = role
-        new_role.parent = targets_parent_role
-        new_role.paths = paths
-        new_role.number = keys_number
-        new_role.threshold = threshold
-        new_role.yubikey = yubikey
-
-        signers, _ = load_sorted_keys_of_new_roles(
-            roles=new_role,
-            yubikeys_data=None,
-            keystore=keystore_path,
-            skip_prompt=skip_prompt,
-            certs_dir=auth_repo.certs_dir,
-        )
-        auth_repo.create_delegated_roles([new_role], signers)
+        auth_repo.create_delegated_roles([new_role], signers, verification_keys)
         auth_repo.add_new_roles_to_snapshot([new_role.name])
         auth_repo.do_timestamp()
 
@@ -151,6 +156,7 @@ def add_role(
 )
 def add_role_paths(
     paths: List[str],
+    pin_manager: PinManager,
     delegated_role: str,
     keystore: str,
     commit: Optional[bool] = True,
@@ -181,7 +187,9 @@ def add_role_paths(
     """
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=auth_path)
+        auth_repo = AuthenticationRepository(path=auth_path, pin_manger=pin_manager)
+    elif auth_repo.pin_manager is None:
+        auth_repo.pin_manager = pin_manager
 
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     if all(
@@ -221,8 +229,9 @@ def add_role_paths(
     reraise=True,
 )
 @check_if_clean
-def add_multiple_roles(
+def add_roles(
     path: str,
+    pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -250,11 +259,13 @@ def add_multiple_roles(
         None
     """
 
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
-        path, roles_key_infos, keystore
+        path,
+        auth_repo,
+        roles_key_infos,
+        keystore,
     )
-
-    auth_repo = AuthenticationRepository(path=path)
     roles_data = auth_repo.generate_roles_description()
     roles_keys_data_current = from_dict(roles_data, RolesKeysData)
     new_roles_data, _ = compare_roles_data(roles_keys_data_current, roles_keys_data_new)
@@ -278,6 +289,20 @@ def add_multiple_roles(
     ]
     keystore_path = roles_keys_data_new.keystore
 
+    all_signers = {}
+    all_verification_keys = {}
+    for role_to_add_data in roles_to_add_data:
+        signers, verification_keys = load_sorted_keys_of_new_roles(
+            roles=role_to_add_data,
+            auth_repo=auth_repo,
+            yubikeys_data=None,
+            keystore=keystore_path,
+            skip_prompt=not prompt_for_keys,
+            certs_dir=auth_repo.certs_dir,
+        )
+        all_signers.update(signers)
+        all_verification_keys.update(verification_keys)
+
     with manage_repo_and_signers(
         auth_repo,
         roles=roles_to_load,
@@ -289,18 +314,10 @@ def add_multiple_roles(
         commit=commit,
         push=push,
     ):
-        all_signers = {}
-        for role_to_add_data in roles_to_add_data:
-            signers, _ = load_sorted_keys_of_new_roles(
-                roles=role_to_add_data,
-                yubikeys_data=None,
-                keystore=keystore_path,
-                skip_prompt=not prompt_for_keys,
-                certs_dir=auth_repo.certs_dir,
-            )
-            all_signers.update(signers)
 
-        auth_repo.create_delegated_roles(roles_to_add_data, all_signers)
+        auth_repo.create_delegated_roles(
+            roles_to_add_data, all_signers, all_verification_keys
+        )
         auth_repo.add_new_roles_to_snapshot(roles_to_add)
         auth_repo.do_timestamp()
 
@@ -317,6 +334,7 @@ def add_multiple_roles(
 @check_if_clean
 def add_signing_key(
     path: str,
+    pin_manager: PinManager,
     roles: List[str],
     pub_key_path: Optional[str] = None,
     pub_key: Optional[SSlibKey] = None,
@@ -356,7 +374,7 @@ def add_signing_key(
 
     roles_keys = {role: [pub_key] for role in roles}
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     with manage_repo_and_signers(
         auth_repo,
@@ -397,6 +415,7 @@ def add_signing_key(
 @check_if_clean
 def revoke_signing_key(
     path: str,
+    pin_manager: PinManager,
     key_id: str,
     roles: Optional[List[str]] = None,
     keystore: Optional[str] = None,
@@ -428,7 +447,7 @@ def revoke_signing_key(
         None
     """
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
 
     roles_to_update = roles or auth_repo.find_keysid_roles([key_id])
 
@@ -468,6 +487,7 @@ def revoke_signing_key(
 @check_if_clean
 def rotate_signing_key(
     path: str,
+    pin_manager: PinManager,
     key_id: str,
     pub_key_path: Optional[str] = None,
     roles: Optional[List[str]] = None,
@@ -507,12 +527,13 @@ def rotate_signing_key(
     pub_key = _load_pub_key_from_file(
         pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
     )
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     roles = roles or auth_repo.find_keysid_roles([key_id])
 
     with transactional_execution(auth_repo):
         revoke_signing_key(
             path=path,
+            pin_manager=pin_manager,
             key_id=key_id,
             roles=roles,
             keystore=keystore,
@@ -525,6 +546,7 @@ def rotate_signing_key(
 
         add_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=roles,
             pub_key=pub_key,
             keystore=keystore,
@@ -688,8 +710,49 @@ def _read_val(input_type, name, param=None, required=False):
             pass
 
 
+def _transform_roles_dict(data: dict, auth_repo: AuthenticationRepository):
+    """
+    Transforms simplified role data into a structured format consistent with keys_store_description.
+    It facilitates easier additions of new roles by allowing input data to be simplified.
+    """
+    key_names = auth_repo.keys_name_mappings.values()
+
+    transformed_data = data.copy()
+
+    yubikeys_data = transformed_data.get("yubikeys", {})
+    for key_name in key_names:
+        if key_name not in yubikeys_data:
+            yubikeys_data[key_name] = {}
+
+    transformed_roles: Dict = {"root": {}, "snapshot": {}, "timestamp": {}}
+
+    if "roles" in data:
+        for role_name, role_data in data["roles"].items():
+            parent_role = role_data.pop("parent_role")
+
+            if parent_role == "targets":
+                if "targets" not in transformed_roles:
+                    transformed_roles["targets"] = {"delegations": {}}
+                transformed_roles["targets"]["delegations"][role_name] = role_data
+            else:
+                if "targets" not in transformed_roles:
+                    transformed_roles["targets"] = {"delegations": {}}
+                if parent_role not in transformed_roles["targets"]["delegations"]:
+                    transformed_roles["targets"]["delegations"][parent_role] = {
+                        "delegations": {}
+                    }
+                transformed_roles["targets"]["delegations"][parent_role]["delegations"][
+                    role_name
+                ] = role_data
+
+        transformed_data["roles"] = transformed_roles
+
+    return transformed_data
+
+
 def _initialize_roles_and_keystore_for_existing_repo(
     path: str,
+    auth_repo: AuthenticationRepository,
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
@@ -698,6 +761,8 @@ def _initialize_roles_and_keystore_for_existing_repo(
 
     if not roles_key_infos_dict and enter_info:
         roles_key_infos_dict = _enter_roles_infos(None, roles_key_infos)
+    elif roles_key_infos_dict:
+        roles_key_infos_dict = _transform_roles_dict(roles_key_infos_dict, auth_repo)
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
     keystore = keystore or roles_keys_data.keystore
     if keystore is None and path is not None:
@@ -709,7 +774,7 @@ def _initialize_roles_and_keystore_for_existing_repo(
     return roles_keys_data
 
 
-def _initialize_roles_and_keystore(
+def initialize_roles_and_keystore(
     roles_key_infos: Optional[str],
     keystore: Optional[str],
     enter_info: Optional[bool] = True,
@@ -866,6 +931,7 @@ def list_keys_of_role(
 @check_if_clean
 def remove_role(
     path: str,
+    pin_manager: PinManager,
     role: str,
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -997,6 +1063,7 @@ def remove_role(
 )
 def remove_paths(
     path: str,
+    pin_manager: PinManager,
     paths: List[str],
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -1022,7 +1089,7 @@ def remove_paths(
     Returns:
         True if the delegation existed, False otherwise
     """
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     paths_to_remove_from_roles = defaultdict(list)
     for path_to_remove in paths:
         delegated_role = auth_repo.get_role_from_target_paths([path_to_remove])

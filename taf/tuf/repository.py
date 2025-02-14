@@ -22,10 +22,11 @@ from taf import YubikeyMissingLibrary
 
 from securesystemslib.storage import FilesystemBackend
 
+from taf.yubikey.yubikey_manager import YubiKeyStore
 from tuf.api.metadata import Signed
 
 try:
-    import taf.yubikey as yk
+    import taf.yubikey.yubikey as yk
 except ImportError:
     yk = YubikeyMissingLibrary()  # type: ignore
 
@@ -97,10 +98,10 @@ def is_delegated_role(role: str) -> bool:
     return role not in ("root", "targets", "snapshot", "timestamp")
 
 
-def is_auth_repo(repo_path: str) -> bool:
+def is_auth_repo(repo_path: Union[Path, str]) -> bool:
     """Check if the given path contains a valid TUF repository"""
     try:
-        Repository(repo_path)._repository
+        MetadataRepository(path=repo_path).open(Root.type)
         return True
     except Exception:
         return False
@@ -130,6 +131,7 @@ class MetadataRepository(Repository):
 
     def __init__(self, path: Union[Path, str], *args, **kwargs) -> None:
         storage_backend = kwargs.pop("storage", None)
+        pin_manager = kwargs.pop("pin_manager", None)
         super().__init__(*args, **kwargs)
         self.signer_cache: Dict[str, Dict[str, Signer]] = defaultdict(dict)
         self.path = Path(path)
@@ -141,6 +143,19 @@ class MetadataRepository(Repository):
         else:
             self.storage_backend = FilesystemBackend()
         self._metadata_to_keep_open: Set[str] = set()
+        self.pin_manager = pin_manager
+        self.yubikey_store = YubiKeyStore()
+        self._keys_name_mappings: Optional[Dict[str, str]] = None
+
+    @property
+    def keys_name_mappings(self):
+        try:
+            if self._keys_name_mappings is None:
+                self._keys_name_mappings = self.load_key_names()
+        except TAFError:
+            # repository does not exist yet, so no metadata files
+            self._keys_name_mappings = {}
+        return self._keys_name_mappings
 
     @property
     def metadata_path(self) -> Path:
@@ -170,44 +185,9 @@ class MetadataRepository(Repository):
         """
         return self._snapshot_info
 
-    def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> Dict:
-        """
-        Calculate hashes of the specified signed metadata after serializing
-        it using the previously initialized serializer.
-        Hashes are computed for each specified algorithm.
-
-        Arguments:
-            md: Signed metadata
-            algorithms: A list of hash algorithms (e.g., 'sha256', 'sha512').
-        Return:
-            A dcitionary mapping algorithms and calculated hashes
-        """
-        hashes = {}
-        data = md.to_bytes(serializer=self.serializer)
-        for algo in algorithms:
-            digest_object = sslib_hash.digest(algo)
-            digest_object.update(data)
-
-            hashes[algo] = digest_object.hexdigest()
-        return hashes
-
-    def calculate_length(self, md: Metadata) -> int:
-        """
-        Calculate length of the specified signed metadata after serializing
-        it using the previously initialized serializer.
-
-        Arguments:
-            md: Signed metadata
-        Return:
-            Langth of the signed metadata
-        """
-        data = md.to_bytes(serializer=self.serializer)
-        return len(data)
-
-    def add_signers_to_cache(self, roles_signers: Dict):
-        for role, signers in roles_signers.items():
-            if self._role_obj(role):
-                self._load_role_signers(role, signers)
+    def add_key_name(self, key_name, key_id, overwrite=False):
+        if overwrite or not key_id in self.keys_name_mappings:
+            self._keys_name_mappings[key_id] = key_name
 
     def all_target_files(self) -> Set:
         """
@@ -283,6 +263,11 @@ class MetadataRepository(Repository):
                             added_keys[role].append(key)
 
         return added_keys, already_added_keys, invalid_keys
+
+    def add_signers_to_cache(self, roles_signers: Dict):
+        for role, signers in roles_signers.items():
+            if self._role_obj(role):
+                self._load_role_signers(role, signers)
 
     def add_target_files_to_role(self, added_data: Dict[str, Dict]) -> None:
         """Add target files to top-level targets metadata.
@@ -360,6 +345,40 @@ class MetadataRepository(Repository):
             return Metadata.from_file(path, storage_backend=self.storage_backend)
         except StorageError:
             raise TAFError(f"Metadata file {path} does not exist")
+
+    def calculate_hashes(self, md: Metadata, algorithms: List[str]) -> Dict:
+        """
+        Calculate hashes of the specified signed metadata after serializing
+        it using the previously initialized serializer.
+        Hashes are computed for each specified algorithm.
+
+        Arguments:
+            md: Signed metadata
+            algorithms: A list of hash algorithms (e.g., 'sha256', 'sha512').
+        Return:
+            A dcitionary mapping algorithms and calculated hashes
+        """
+        hashes = {}
+        data = md.to_bytes(serializer=self.serializer)
+        for algo in algorithms:
+            digest_object = sslib_hash.digest(algo)
+            digest_object.update(data)
+
+            hashes[algo] = digest_object.hexdigest()
+        return hashes
+
+    def calculate_length(self, md: Metadata) -> int:
+        """
+        Calculate length of the specified signed metadata after serializing
+        it using the previously initialized serializer.
+
+        Arguments:
+            md: Signed metadata
+        Return:
+            Langth of the signed metadata
+        """
+        data = md.to_bytes(serializer=self.serializer)
+        return len(data)
 
     def check_if_keys_loaded(self, role_name: str) -> bool:
         """
@@ -520,9 +539,8 @@ class MetadataRepository(Repository):
                 of public keys that should be registered as the corresponding role's keys, but the private
                 keys are not available. E.g. keys exporeted from YubiKeys of maintainers who are not
                 present at the time of the repository's creation
+            key_name_mappings: A dictionary whose keys are key ids and values are custom names of those keys
         """
-        # TODO add verification keys
-        # support yubikeys
         self.metadata_path.mkdir(parents=True)
         self.signer_cache = defaultdict(dict)
 
@@ -533,19 +551,7 @@ class MetadataRepository(Repository):
         sn = Snapshot()
         sn.meta["root.json"] = MetaFile(1)
 
-        public_keys = {
-            role_name: {
-                _get_legacy_keyid(signer.public_key): signer.public_key
-                for signer in role_signers
-            }
-            for role_name, role_signers in signers.items()
-        }
-        if additional_verification_keys:
-            for role_name, roles_public_keys in additional_verification_keys.items():
-                for public_key in roles_public_keys:
-                    key_id = _get_legacy_keyid(public_key)
-                    if key_id not in public_keys[role_name]:
-                        public_keys[role_name][key_id] = public_key
+        public_keys = self._process_keys(signers, additional_verification_keys)
 
         for role in RolesIterator(roles_keys_data.roles, include_delegations=False):
             if signers.get(role.name) is None:
@@ -554,6 +560,11 @@ class MetadataRepository(Repository):
                 key_id = _get_legacy_keyid(signer.public_key)
                 self.signer_cache[role.name][key_id] = signer
             for public_key in public_keys[role.name].values():
+                key_id = _get_legacy_keyid(public_key)
+                if key_id in self.keys_name_mappings:
+                    public_key.unrecognized_fields["name"] = self.keys_name_mappings[
+                        key_id
+                    ]
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
@@ -600,8 +611,26 @@ class MetadataRepository(Repository):
                 signed.version = 0  # `close` will bump to initial valid verison 1
                 self.close(name, Metadata(signed))
 
+    def _process_keys(self, signers, additional_verification_keys):
+        public_keys = {}
+        for role_name, role_signers in signers.items():
+            public_keys[role_name] = {}
+            for signer in role_signers:
+                key_id = _get_legacy_keyid(signer.public_key)
+                public_keys[role_name][key_id] = signer.public_key
+
+        if additional_verification_keys:
+            for role_name, keys in additional_verification_keys.items():
+                for public_key in keys:
+                    key_id = _get_legacy_keyid(public_key)
+                    public_keys[role_name][key_id] = public_key
+        return public_keys
+
     def create_delegated_roles(
-        self, roles_data: List[TargetsRole], signers: Dict[str, List[CryptoSigner]]
+        self,
+        roles_data: List[TargetsRole],
+        signers: Dict[str, List[CryptoSigner]],
+        additional_verification_keys: Optional[dict] = None,
     ) -> Tuple[List, List]:
         """
         Create a new delegated roles, signes them using the provided signers and
@@ -628,15 +657,25 @@ class MetadataRepository(Repository):
                 parent = role_data.parent.name
                 roles_parents_dict[parent].append(role_data)
 
+        public_keys = self._process_keys(signers, additional_verification_keys)
+
         for parent, parents_roles_data in roles_parents_dict.items():
             with self.edit(parent) as parent_obj:
                 keys_data = {}
                 for role_data in parents_roles_data:
+                    for public_key in public_keys[role_data.name].values():
+                        key_id = _get_legacy_keyid(public_key)
+                        keys_data[key_id] = public_key
+                        if key_id in self.keys_name_mappings:
+                            public_key.unrecognized_fields[
+                                "name"
+                            ] = self.keys_name_mappings[key_id]
+
                     for signer in signers[role_data.name]:
                         public_key = signer.public_key
                         key_id = _get_legacy_keyid(public_key)
-                        keys_data[key_id] = public_key
                         self.signer_cache[role_data.name][key_id] = signer
+
                     delegated_role = DelegatedRole(
                         name=role_data.name,
                         threshold=role_data.threshold,
@@ -784,6 +823,25 @@ class MetadataRepository(Repository):
         if signed_obj.delegations:
             return signed_obj.delegations.roles
         return {}
+
+    def get_key_names_of_role(self, role_name: str) -> List:
+        keys_name_mapping = self.keys_name_mappings
+        key_names = []
+        num_of_keys_without_name = 0
+        threshold = self.get_role_threshold(role_name)
+        if keys_name_mapping:
+            key_ids = self.get_keyids_of_role(role_name)
+            for key_id in key_ids:
+                if key_id in keys_name_mapping:
+                    key_names.append(keys_name_mapping[key_id])
+                else:
+                    num_of_keys_without_name += 1
+        else:
+            num_of_keys_without_name = threshold
+
+        for num in range(threshold - num_of_keys_without_name, threshold):
+            key_names.append(num + 1)
+        return key_names
 
     def get_keyids_of_role(self, role_name: str) -> List:
         """
@@ -1125,9 +1183,57 @@ class MetadataRepository(Repository):
             pub_key = serialization.load_pem_public_key(
                 pub_key_pem.encode(), backend=default_backend()
             )
-            return pub_key, scheme
+            return pub_key, pub_key_pem, scheme
         except Exception:
-            return None, None
+            return None, None, None
+
+    def get_key_names_from_metadata(self, parent_role: str) -> Optional[dict]:
+        """
+        Return length and signing scheme of the specified key id.
+        This data is specified in metadata files (root or a target role that has delegations)
+        """
+        try:
+            metadata = json.loads(
+                Path(
+                    self.path, METADATA_DIRECTORY_NAME, f"{parent_role}.json"
+                ).read_text()
+            )
+            metadata = metadata["signed"]
+            if "delegations" in metadata:
+                metadata = metadata["delegations"]
+
+            keys = metadata["keys"]
+            names = {
+                key_id: key_data["name"]
+                for key_id, key_data in keys.items()
+                if "name" in key_data
+            }
+            return names
+        except Exception:
+            return None
+
+    def get_public_key_of_keyid(self, keyid: str):
+        def _find_keyid(role_name, keyid):
+            _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
+                role_name, keyid
+            )
+            if pub_key_pem is not None:
+                return pub_key_pem, scheme
+
+            for delegation in self.get_delegations_of_role(role_name):
+                pub_key_pem, scheme = self._find_keyid(delegation, keyid)
+                if pub_key_pem is not None:
+                    return pub_key_pem, scheme
+
+        _, pub_key_pem, scheme = self.get_key_length_and_scheme_from_metadata(
+            "root", keyid
+        )
+        if pub_key_pem is not None:
+            return pub_key_pem, scheme
+
+        targets_obj = self.signed_obj("targets")
+        if targets_obj.delegations:
+            return _find_keyid("targets", keyid)
 
     def generate_roles_description(self) -> Dict:
         """
@@ -1147,7 +1253,7 @@ class MetadataRepository(Repository):
                     "paths": delegated_role.paths,
                     "terminating": delegated_role.terminating,
                 }
-                pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+                pub_key, _, scheme = self.get_key_length_and_scheme_from_metadata(
                     role_name, delegated_role.keyids[0]
                 )
 
@@ -1166,7 +1272,7 @@ class MetadataRepository(Repository):
                 "threshold": role_obj.threshold,
                 "number": len(role_obj.keyids),
             }
-            pub_key, scheme = self.get_key_length_and_scheme_from_metadata(
+            pub_key, _, scheme = self.get_key_length_and_scheme_from_metadata(
                 "root", role_obj.keyids[0]
             )
             roles_description[role_name]["scheme"] = scheme
@@ -1355,6 +1461,31 @@ class MetadataRepository(Repository):
             target_files, removed_paths, targets_role
         )
         return targets_role
+
+    def load_key_names(self):
+        def _get_keys_of_delegations(role_name):
+            keys = {}
+            role_keys = self.get_key_names_from_metadata(role_name)
+            if role_keys is not None:
+                keys.update(role_keys)
+
+            for delegation in self.get_delegations_of_role(role_name):
+                delegated_signed = self.signed_obj(delegation)
+                if delegated_signed.delegations:
+                    inner_roles_keys = _get_keys_of_delegations(delegation)
+                    if inner_roles_keys:
+                        keys.update(inner_roles_keys)
+            return keys
+
+        root_metadata = self.signed_obj("root")
+        name_mapping = {}
+        keys = root_metadata.keys
+        for key_id, key_obj in keys.items():
+            name_data = key_obj.unrecognized_fields
+            if name_data is not None and "name" in name_data:
+                name_mapping[key_id] = name_data["name"]
+        name_mapping.update(_get_keys_of_delegations("targets"))
+        return name_mapping
 
     def _modify_targets_role(
         self,

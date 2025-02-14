@@ -6,6 +6,7 @@ from taf.api.repository import create_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_api.conftest import DEPENDENCY_NAME
 from taf.tools.cli.taf import taf
+from taf.yubikey.yubikey_manager import PinManager
 
 
 def test_dependencies_add_cmd_expect_success(
@@ -13,10 +14,12 @@ def test_dependencies_add_cmd_expect_success(
     child_repo_path,
     with_delegations_no_yubikeys_path,
     keystore_delegations,
+    pin_manager: PinManager,
 ):
     for path in (child_repo_path, parent_repo_path):
         create_repository(
             str(path),
+            pin_manager,
             roles_key_infos=with_delegations_no_yubikeys_path,
             keystore=keystore_delegations,
             commit=True,
