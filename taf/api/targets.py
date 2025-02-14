@@ -214,8 +214,8 @@ def export_targets_history(
     """
     auth_repo = AuthenticationRepository(path=path)
     commits = auth_repo.all_commits_since_commit(commit, auth_repo.default_branch)
+    repositoriesdb.load_repositories(auth_repo)
     if target_repos:
-        repositoriesdb.load_repositories(auth_repo)
         invalid_targets = []
         for target_repo in target_repos:
             if repositoriesdb.get_repository(auth_repo, target_repo) is None:
@@ -229,8 +229,9 @@ def export_targets_history(
     elif target_repos is not None:
         target_repos = None
 
+    target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
     commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
-        commits, target_repos
+        commits, target_repositories
     )
     commits_json = json.dumps(commits_on_branches, indent=4)
     if output is not None:
@@ -270,7 +271,7 @@ def list_targets(
     repositoriesdb.load_repositories(auth_repo)
     target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
     repositories_data = auth_repo.sorted_commits_and_branches_per_repositories(
-        top_commit
+        top_commit, target_repositories
     )
     output: Dict = defaultdict(dict)
     for repo_name, repo_data in repositories_data.items():

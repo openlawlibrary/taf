@@ -396,9 +396,8 @@ class AuthenticationRepository(GitRepository):
     def targets_data_by_auth_commits(
         self,
         commits: List[str],
-        target_repos: Optional[List[str]] = None,
+        target_repos: Dict[str, GitRepository],
         custom_fns: Optional[Dict[str, Callable]] = None,
-        default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
         last_commits_per_repos: Optional[Dict[str, List]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
@@ -423,7 +422,6 @@ class AuthenticationRepository(GitRepository):
         targets = self.targets_at_revisions(
             commits,
             target_repos=target_repos,
-            default_branch=default_branch,
             last_commits_per_repos=last_commits_per_repos,
         )
         excluded_target_globs = excluded_target_globs or []
@@ -455,9 +453,8 @@ class AuthenticationRepository(GitRepository):
     def sorted_commits_and_branches_per_repositories(
         self,
         commits: List[str],
-        target_repos: Optional[List[str]] = None,
+        target_repos: Dict[str, GitRepository],
         custom_fns: Optional[Dict[str, Callable]] = None,
-        default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return a dictionary consisting of branches and commits belonging
@@ -487,9 +484,7 @@ class AuthenticationRepository(GitRepository):
         file is not updated everytime something is committed to the authentication repo.
         """
         repositories_commits: Dict = defaultdict(dict)
-        targets = self.targets_at_revisions(
-            commits, target_repos=target_repos, default_branch=default_branch
-        )
+        targets = self.targets_at_revisions(commits, target_repos=target_repos)
         previous_commits: Dict = {}
         skipped_targets = []
         excluded_target_globs = excluded_target_globs or []
@@ -534,13 +529,10 @@ class AuthenticationRepository(GitRepository):
     def targets_at_revisions(
         self,
         commits,
-        target_repos=None,
-        default_branch=None,
+        target_repos,
         last_commits_per_repos=None,
     ):
         targets = defaultdict(dict)
-        if default_branch is None:
-            default_branch = self.default_branch
         previous_metadata = []
         new_files = []
         repos_to_skip = []
@@ -576,33 +568,31 @@ class AuthenticationRepository(GitRepository):
                     continue
                 targets_at_revision = targets_at_revision["signed"]["targets"]
 
-                for target_path in targets_at_revision:
+                for target_name in targets_at_revision:
                     # if there are older auth repo commits corresponding to repositories
                     # that were not validated in the one or more previous updates
                     # skip the ones that were validated more recently
                     # when the last validated commit of a repo is reached
                     # the repo is added to the repos_to_skip list
-                    if target_path in repos_to_skip:
+                    if target_name in repos_to_skip:
                         continue
                     if (
                         last_commits_per_repos
-                        and last_commits_per_repos.get(target_path) == commit
+                        and last_commits_per_repos.get(target_name) == commit
                     ):
-                        repos_to_skip.append(target_path)
-                    if target_path not in repositories_at_revision:
+                        repos_to_skip.append(target_name)
+                    if target_name not in repositories_at_revision:
                         # we only care about repositories
                         continue
-                    if target_repos and target_path not in target_repos:
-                        # if specific target repositories are specified, skip all other
-                        # repositories
-                        continue
                     target_content = self.safely_get_json(
-                        commit, get_target_path(target_path)
+                        commit, get_target_path(target_name)
                     )
+
+                    default_branch = target_repos[target_name].default_branch
                     if target_content is not None:
                         target_commit = target_content.pop("commit")
                         target_branch = target_content.pop("branch", default_branch)
-                        targets[commit][target_path] = {
+                        targets[commit][target_name] = {
                             "branch": target_branch,
                             "commit": target_commit,
                             "custom": target_content,
