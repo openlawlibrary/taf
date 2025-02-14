@@ -33,7 +33,7 @@ def find_git_repository(inner_path):
     FilesystemBackend implementation
     """
     for path in list(git_repos_cache.keys()):
-        if is_subpath(inner_path, path):
+        if is_subpath(path, inner_path):
             return git_repos_cache[path]
     repo_path = pygit2.discover_repository(inner_path)
     repo = None
