@@ -236,7 +236,6 @@ def run_with_timeout(command, options, timeout=300):
     last_chunk = None
     with subprocess.Popen(command, **options) as proc:
         last_output_time = time.time()
-        output = []
         while True:
             # Read from stdout with a specific buffer size
             current_chunk = proc.stdout.read(buffer_size)
@@ -257,15 +256,14 @@ def run_with_timeout(command, options, timeout=300):
             if proc.poll() is not None:
                 break  # Process completed
             time.sleep(0.1)
-        full_output = "".join(output)
 
         if proc.returncode == 0:
             return subprocess.CompletedProcess(
-                proc.args, proc.returncode, stdout=full_output
+                proc.args, proc.returncode, stdout=last_chunk
             )
         else:
             raise subprocess.CalledProcessError(
-                proc.returncode, proc.args, output="".join(full_output)
+                proc.returncode, proc.args, output="".join(last_chunk)
             )
 
 
