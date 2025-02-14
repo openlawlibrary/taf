@@ -10,11 +10,16 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Implement adaptive timeout for Git clone operations ([592])
+- Check if repository is synced with remote before running API functions ([592])
 
 ### Changed
 
+- Re-implement restore without using a feature not available in older versions of git ([592])
 
 ### Fixed
+
+[592]: https://github.com/openlawlibrary/taf/pull/592
 
 ## [0.34.1] - 02/11/2025
 
