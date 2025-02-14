@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_error
 from tuf.api.metadata import Snapshot, Timestamp
 
-from taf.api.utils._git import check_if_clean
+from taf.api.utils._git import check_if_clean_and_synced
 from taf.api.api_workflow import manage_repo_and_signers
 from taf.exceptions import TAFError
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
@@ -85,7 +85,7 @@ def print_expiration_dates(
         print(f"No roles will expire within the given {interval} day interval")
 
 
-@check_if_clean
+@check_if_clean_and_synced
 def update_metadata_expiration_date(
     path: str,
     roles: List[str],
@@ -175,7 +175,7 @@ def update_metadata_expiration_date(
             auth_repo.do_timestamp(force=True)
 
 
-@check_if_clean
+@check_if_clean_and_synced
 def update_snapshot_and_timestamp(
     path: str,
     keystore: Optional[str] = None,

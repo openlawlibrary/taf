@@ -103,6 +103,16 @@ class RepositoryNotCleanError(TAFError):
         self.message = message
 
 
+class RepositoryNotSynced(TAFError):
+    def __init__(self, repo_name: str):
+        message = (
+            f"Repository {repo_name} is not synced with remote, or the synchronization status could not be verified due to communication issues."
+            "\nRun the updater and try again."
+        )
+        super().__init__(message)
+        self.message = message
+
+
 class MultipleRepositoriesNotCleanError(TAFError):
     def __init__(
         self,

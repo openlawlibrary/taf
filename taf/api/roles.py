@@ -7,7 +7,7 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.api_workflow import manage_repo_and_signers, transactional_execution
 from taf.tuf.keys import get_sslib_key_from_value
-from taf.api.utils._git import check_if_clean
+from taf.api.utils._git import check_if_clean_and_synced
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import TargetsRole, compare_roles_data
@@ -41,7 +41,7 @@ from securesystemslib.signer._key import SSlibKey
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_role(
     path: str,
     role: str,
@@ -220,7 +220,7 @@ def add_role_paths(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_multiple_roles(
     path: str,
     keystore: Optional[str] = None,
@@ -314,7 +314,7 @@ def add_multiple_roles(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_signing_key(
     path: str,
     roles: List[str],
@@ -394,7 +394,7 @@ def add_signing_key(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def revoke_signing_key(
     path: str,
     key_id: str,
@@ -465,7 +465,7 @@ def revoke_signing_key(
             auth_repo.update_snapshot_and_timestamp()
 
 
-@check_if_clean
+@check_if_clean_and_synced
 def rotate_signing_key(
     path: str,
     key_id: str,
@@ -863,7 +863,7 @@ def list_keys_of_role(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def remove_role(
     path: str,
     role: str,

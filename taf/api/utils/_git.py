@@ -1,9 +1,9 @@
 import functools
-from taf.exceptions import RepositoryNotCleanError
+from taf.exceptions import RepositoryNotCleanError, RepositoryNotSynced
 from taf.git import GitRepository
 
 
-def check_if_clean(func):
+def check_if_clean_and_synced(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         skip_check = kwargs.pop("skip_clean_check", False)
@@ -14,8 +14,10 @@ def check_if_clean(func):
             repo = GitRepository(path=path)
             if repo.something_to_commit():
                 raise RepositoryNotCleanError(repo.name)
+            if repo.has_remote():
+                if not repo.synced_with_remote(repo.default_branch):
+                    raise RepositoryNotSynced(repo.name)
 
-        # Call the original function
         return func(*args, **kwargs)
 
     return wrapper
