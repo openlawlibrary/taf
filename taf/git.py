@@ -1528,7 +1528,8 @@ class GitRepository:
         file_paths = [str(Path(file_path).as_posix()) for file_path in file_paths]
         existing, non_existing = self.check_files_exist(file_paths)
         if existing:
-            self._git(f"restore {' '.join(existing)}")
+            self._git(f"reset HEAD -- {' '.join(existing)}")
+            self._git(f"checkout HEAD -- {' '.join(existing)}")
         for path in non_existing:
             file_path = Path(path)
             if file_path.is_file():
