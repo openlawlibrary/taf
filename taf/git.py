@@ -731,6 +731,7 @@ class GitRepository:
                     log_success_msg=f"successfully cloned from {url}",
                     log_error_msg=f"cannot clone from url {url}",
                     reraise_error=True,
+                    timeout=60,
                 )
             except GitError as e:
                 self._log_info(f"could not clone from {url} due to {e}")
