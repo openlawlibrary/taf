@@ -5,7 +5,7 @@ import click
 from taf.api.targets import register_target_files
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
-from taf.api.utils._git import check_if_clean
+from taf.api.utils._git import check_if_clean_and_synced
 from taf.messages import git_commit_message
 from pathlib import Path
 
@@ -57,7 +57,7 @@ def _add_to_dependencies(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_dependency(
     path: str,
     pin_manager: PinManager,
@@ -190,7 +190,7 @@ def add_dependency(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def remove_dependency(
     path: str,
     pin_manager: PinManager,

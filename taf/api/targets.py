@@ -12,7 +12,7 @@ from taf.api.roles import (
     add_role_paths,
     remove_paths,
 )
-from taf.api.utils._git import check_if_clean
+from taf.api.utils._git import check_if_clean_and_synced
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf.exceptions import TAFError
 from taf.git import GitRepository
@@ -33,7 +33,7 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_target_repo(
     path: str,
     pin_manager: PinManager,
@@ -428,7 +428,7 @@ def register_target_files(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def remove_target_repo(
     path: str,
     pin_manager: PinManager,
@@ -556,7 +556,7 @@ def _save_top_commit_of_repo_to_target(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def update_target_repos_from_repositories_json(
     path: str,
     pin_manager: PinManager,
@@ -622,7 +622,7 @@ def update_target_repos_from_repositories_json(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def update_and_sign_targets(
     path: str,
     pin_manager: PinManager,

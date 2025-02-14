@@ -171,8 +171,10 @@ def run(*command, **kwargs):
     In order to get bytes, call this command with `raw=True` argument.
     """
     # Skip decoding
+
     raw = kwargs.pop("raw", False)
     data = kwargs.pop("input", None)
+    timeout = kwargs.pop("timeout", None)
 
     if len(command) == 1 and isinstance(command[0], str):
         command = command[0].split()
@@ -187,16 +189,24 @@ def run(*command, **kwargs):
             return word
 
     command = [_format_word(word, **os.environ) for word in command]
+    if timeout:
+        command.append("--progress")
     try:
-        options = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+        options = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if not raw:
             options.update(universal_newlines=True)
         if data is not None:
             options.update(input=data)
 
         options.update(kwargs)
-        completed = subprocess.run(command, **options)
-    except subprocess.CalledProcessError as err:
+        if not timeout:
+            options.update(check=True)
+            completed = subprocess.run(command, **options)
+        else:
+            options.update(text=True, bufsize=1)
+            completed = run_with_timeout(command, options, timeout)
+
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
         if err.stdout:
             taf_logger.debug(err.stdout)
         if err.stderr:
@@ -217,6 +227,44 @@ def run(*command, **kwargs):
         return None
 
     return completed.stdout if raw else completed.stdout.rstrip()
+
+
+def run_with_timeout(command, options, timeout=300):
+    """Function to run a command with adaptive timeout and handle output."""
+    buffer_size = 1024
+    last_output_time = time.time()
+    last_chunk = None
+    with subprocess.Popen(command, **options) as proc:
+        last_output_time = time.time()
+        while True:
+            # Read from stdout with a specific buffer size
+            current_chunk = proc.stdout.read(buffer_size)
+            if current_chunk:
+                if last_chunk != current_chunk:
+                    last_chunk = current_chunk
+                    last_output_time = time.time()
+
+            if time.time() - last_output_time > timeout:
+                proc.kill()
+                proc.wait()  # Ensure the process is cleaned up
+                raise subprocess.CalledProcessError(
+                    1,
+                    proc.args,
+                    output=None,
+                    stderr=f"Command timed out after {timeout} seconds",
+                )
+            if proc.poll() is not None:
+                break  # Process completed
+            time.sleep(0.1)
+
+        if proc.returncode == 0:
+            return subprocess.CompletedProcess(
+                proc.args, proc.returncode, stdout=last_chunk
+            )
+        else:
+            raise subprocess.CalledProcessError(
+                proc.returncode, proc.args, output="".join(last_chunk)
+            )
 
 
 def run_subprocess(command):

@@ -7,7 +7,7 @@ from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.api_workflow import manage_repo_and_signers, transactional_execution
 from taf.tuf.keys import get_sslib_key_from_value
-from taf.api.utils._git import check_if_clean
+from taf.api.utils._git import check_if_clean_and_synced
 from taf.exceptions import KeystoreError, TAFError
 from taf.models.converter import from_dict
 from taf.models.types import TargetsRole, compare_roles_data
@@ -42,7 +42,7 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_role(
     path: str,
     pin_manager: PinManager,
@@ -228,7 +228,7 @@ def add_role_paths(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_roles(
     path: str,
     pin_manager: PinManager,
@@ -331,7 +331,7 @@ def add_roles(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def add_signing_key(
     path: str,
     pin_manager: PinManager,
@@ -412,7 +412,7 @@ def add_signing_key(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def revoke_signing_key(
     path: str,
     pin_manager: PinManager,
@@ -484,7 +484,7 @@ def revoke_signing_key(
             auth_repo.update_snapshot_and_timestamp()
 
 
-@check_if_clean
+@check_if_clean_and_synced
 def rotate_signing_key(
     path: str,
     pin_manager: PinManager,
@@ -928,7 +928,7 @@ def list_keys_of_role(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean
+@check_if_clean_and_synced
 def remove_role(
     path: str,
     pin_manager: PinManager,
