@@ -1,5 +1,4 @@
 import platform
-import select
 import click
 import errno
 import datetime
