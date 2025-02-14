@@ -1,3 +1,4 @@
+from taf.yubikey.yubikey_manager import PinManager
 import pytest
 import json
 import re
@@ -137,6 +138,11 @@ def output_path():
     TEST_OUTPUT_PATH.mkdir()
     yield TEST_OUTPUT_PATH
     shutil.rmtree(TEST_OUTPUT_PATH, onerror=on_rm_error)
+
+
+@pytest.fixture(scope="session")
+def pin_manager():
+    return PinManager()
 
 
 @pytest.fixture(scope="session")

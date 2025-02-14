@@ -39,7 +39,7 @@ def create_and_write_json(template_path, substitutions, output_path):
 
 
 @fixture
-def library_with_dependencies(origin_dir, request):
+def library_with_dependencies(origin_dir, pin_manager, request):
     library = {}
     dependencies_config = request.param["dependencies_config"]
     initial_commits = {}
@@ -50,7 +50,7 @@ def library_with_dependencies(origin_dir, request):
             RepositoryConfig(target["name"]) for target in dep.get("targets_config", [])
         ]
         auth_repo = setup_repository_all_files_initially(
-            origin_dir, namespace, targets_config, False
+            origin_dir, namespace, targets_config, False, pin_manager
         )
         target_repos = load_target_repositories(auth_repo).values()
         library[auth_repo.name] = {
@@ -63,7 +63,7 @@ def library_with_dependencies(origin_dir, request):
 
     root_repo_name = f"{ROOT_REPO_NAMESPACE}/{AUTH_NAME}"
     root_auth_repo = setup_repository_all_files_initially(
-        origin_dir, root_repo_name, [], False
+        origin_dir, root_repo_name, [], False, pin_manager
     )
     (root_auth_repo.path / TARGETS_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
 
@@ -78,7 +78,9 @@ def library_with_dependencies(origin_dir, request):
         params,
         root_auth_repo.path / TARGETS_DIRECTORY_NAME / DEPENDENCIES_JSON_NAME,
     )
-    sign_target_files(origin_dir, root_repo_name, keystore=KEYSTORE_PATH)
+    sign_target_files(
+        origin_dir, root_repo_name, keystore=KEYSTORE_PATH, pin_manager=pin_manager
+    )
 
     library[root_auth_repo.name] = {"auth_repo": root_auth_repo, "target_repos": []}
     yield library

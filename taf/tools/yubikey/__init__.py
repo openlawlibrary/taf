@@ -10,18 +10,25 @@ from taf.api.yubikey import (
 from taf.exceptions import YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
+from taf.tools.repo import pin_managed
+from taf.yubikey.yubikey import list_connected_yubikeys
 
 
 def check_pin_command():
     @click.command(help="Checks if the specified pin is valid")
     @click.argument("pin")
-    def check_pin(pin):
+    @click.option("--serial", help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted")
+    @catch_cli_exception(handle=YubikeyError)
+    def check_pin(pin, serial):
+        # TODO entering a pin like this seems very insecure
+        # is this still needed?
         try:
-            from taf.yubikey import is_valid_pin
+            from taf.yubikey.yubikey import is_valid_pin
 
-            valid, retries = is_valid_pin(pin)
+            valid, retries = is_valid_pin(pin, serial=serial)
             inserted = True
-        except YubikeyError:
+        except YubikeyError as e:
+            print(e)
             valid = False
             inserted = False
             retries = None
@@ -32,12 +39,13 @@ def check_pin_command():
 
 def export_pub_key_command():
     @click.command(
-        help="Export the inserted Yubikey's public key and save it to the specified location."
+        help="Export public keys of the inserted YubiKeys"
     )
     @click.option(
         "--output",
         help="File to which the exported public key will be written. The result will be written to the console if path is not specified",
     )
+    @catch_cli_exception(handle=YubikeyError)
     def export_pub_key(output):
         export_yk_public_pem(output)
 
@@ -46,7 +54,7 @@ def export_pub_key_command():
 
 def get_roles_command():
     @click.command(
-        help="Export the inserted Yubikey's public key and save it to the specified location."
+        help="List roles the inserted YubiKey is allowed to sign."
     )
     @catch_cli_exception(handle=YubikeyError, print_error=True)
     @click.option(
@@ -54,29 +62,41 @@ def get_roles_command():
         default=".",
         help="Authentication repository's location. If not specified, set to the current directory",
     )
+    @catch_cli_exception(handle=YubikeyError)
     def get_roles(path):
         path = find_valid_repository(path)
         roles_with_paths = get_yk_roles(path)
-        for role, paths in roles_with_paths.items():
-            print(f"\n{role}")
-            for path in paths:
-                print(f"\n -{path}")
+        for serial, roles_and_paths in roles_with_paths.items():
+            print(f"\nSerial: {serial}")
+            for role, paths in roles_and_paths.items():
+                print(f"\n{role}")
+                for path in paths:
+                    print(f"\n -{path}")
 
     return get_roles
 
 
 def export_certificate_command():
     @click.command(
-        help="Export the inserted Yubikey's public key and save it to the specified location."
+        help="Export certificates of the inserted YubiKeys"
     )
     @click.option(
         "--output",
         help="File to which the exported certificate key will be written. The result will be written to the user's home directory by default",
     )
+    @catch_cli_exception(handle=YubikeyError)
     def export_certificate(output):
         export_yk_certificate(output)
 
     return export_certificate
+
+
+def list_key_command():
+    @click.command(help="List All Connected Keys and their information")
+    @catch_cli_exception(handle=YubikeyError)
+    def list_keys():
+        list_connected_yubikeys()
+    return list_keys
 
 
 def setup_signing_key_command():
@@ -89,8 +109,10 @@ def setup_signing_key_command():
         "--certs-dir",
         help="Path of the directory where the exported certificate will be saved. Set to the user home directory by default",
     )
-    def setup_signing_key(certs_dir):
-        setup_signing_yubikey(certs_dir, key_size=2048)
+    @catch_cli_exception(handle=YubikeyError)
+    @pin_managed
+    def setup_signing_key(certs_dir, pin_manager):
+        setup_signing_yubikey(pin_manager, certs_dir, key_size=2048)
 
     return setup_signing_key
 
@@ -101,16 +123,19 @@ def setup_test_key_command():
         WARNING - this will reset the inserted key."""
     )
     @click.argument("key-path")
-    def setup_test_key(key_path):
-        setup_test_yubikey(key_path)
+    @catch_cli_exception(handle=YubikeyError)
+    @pin_managed
+    def setup_test_key(key_path, pin_manager):
+        setup_test_yubikey(pin_manager, key_path)
 
     return setup_test_key
 
 
 def attach_to_group(group):
-    group.add_command(check_pin_command(), name="check-pin")
-    group.add_command(export_pub_key_command(), name="export-pub-key")
-    group.add_command(get_roles_command(), name="get-roles")
-    group.add_command(export_certificate_command(), name="export-certificate")
-    group.add_command(setup_signing_key_command(), name="setup-signing-key")
-    group.add_command(setup_test_key_command(), name="setup-test-key")
+    group.add_command(check_pin_command(), name='check-pin')
+    group.add_command(export_pub_key_command(), name='export-pub-key')
+    group.add_command(get_roles_command(), name='get-roles')
+    group.add_command(export_certificate_command(), name='export-certificate')
+    group.add_command(list_key_command(), name='list-key')
+    group.add_command(setup_signing_key_command(), name='setup-signing-key')
+    group.add_command(setup_test_key_command(), name='setup-test-key')

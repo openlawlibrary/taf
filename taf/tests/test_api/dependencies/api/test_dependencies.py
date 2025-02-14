@@ -7,6 +7,7 @@ import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.api.repository import create_repository
 from taf.tests.test_api.conftest import DEPENDENCY_NAME
+from taf.yubikey.yubikey_manager import PinManager
 
 
 def test_setup_repositories(
@@ -14,10 +15,12 @@ def test_setup_repositories(
     parent_repo_path: Path,
     with_delegations_no_yubikeys_path: str,
     keystore_delegations: str,
+    pin_manager: PinManager,
 ):
     for path in (child_repo_path, parent_repo_path):
         create_repository(
             str(path),
+            pin_manager,
             roles_key_infos=with_delegations_no_yubikeys_path,
             keystore=keystore_delegations,
             commit=True,
@@ -25,7 +28,10 @@ def test_setup_repositories(
 
 
 def test_add_dependency_when_on_filesystem_invalid_commit(
-    parent_repo_path, child_repo_path, keystore_delegations
+    parent_repo_path,
+    child_repo_path,
+    keystore_delegations,
+    pin_manager,
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -34,6 +40,7 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
     with pytest.raises(TAFError):
         add_dependency(
             path=str(parent_repo_path),
+            pin_manager=pin_manager,
             dependency_name=child_repository.name,
             keystore=keystore_delegations,
             branch_name="main",
@@ -46,7 +53,10 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
 
 
 def test_add_dependency_when_on_filesystem(
-    parent_repo_path, child_repo_path, keystore_delegations
+    parent_repo_path,
+    child_repo_path,
+    keystore_delegations,
+    pin_manager,
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
@@ -54,6 +64,7 @@ def test_add_dependency_when_on_filesystem(
 
     add_dependency(
         path=str(parent_repo_path),
+        pin_manager=pin_manager,
         dependency_name=child_repository.name,
         keystore=keystore_delegations,
         branch_name=None,
@@ -76,13 +87,16 @@ def test_add_dependency_when_on_filesystem(
     }
 
 
-def test_add_dependency_when_not_on_filesystem(parent_repo_path, keystore_delegations):
+def test_add_dependency_when_not_on_filesystem(
+    parent_repo_path, keystore_delegations, pin_manager
+):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     branch_name = "main"
     out_of_band_commit = "66d7f48e972f9fa25196523f469227dfcd85c994"
     add_dependency(
         path=str(parent_repo_path),
+        pin_manager=pin_manager,
         dependency_name=DEPENDENCY_NAME,
         keystore=keystore_delegations,
         branch_name=branch_name,
@@ -105,13 +119,16 @@ def test_add_dependency_when_not_on_filesystem(parent_repo_path, keystore_delega
     }
 
 
-def test_remove_dependency(parent_repo_path, child_repo_path, keystore_delegations):
+def test_remove_dependency(
+    parent_repo_path, child_repo_path, keystore_delegations, pin_manager
+):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
     initial_commits_num = len(auth_repo.list_commits())
     child_repository = AuthenticationRepository(path=child_repo_path)
 
     remove_dependency(
         path=str(parent_repo_path),
+        pin_manager=pin_manager,
         dependency_name=child_repository.name,
         keystore=keystore_delegations,
         push=False,

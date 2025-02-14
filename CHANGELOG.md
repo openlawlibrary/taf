@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Implement adaptive timeout for Git clone operations ([592])
 - Check if repository is synced with remote before running API functions ([592])
+- Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
+- Implement iteration over all inserted YubiKeys during metadata signing [(583)]
+- Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage [(583)]
 
 ### Changed
 
@@ -20,6 +23,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 [592]: https://github.com/openlawlibrary/taf/pull/592
+[583]: https://github.com/openlawlibrary/taf/pull/583
 
 ## [0.34.1] - 02/11/2025
 
@@ -47,7 +51,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-Transition to the newest version of TUF [(561)]
+- Transition to the newest version of TUF [(561)]
 
 ### Fixed
 

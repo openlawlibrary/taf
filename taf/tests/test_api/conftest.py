@@ -13,12 +13,14 @@ from taf.git import GitRepository
 from taf.tests.conftest import CLIENT_DIR_PATH, KEYSTORES_PATH, TEST_DATA_PATH
 from taf.tests.utils import copy_mirrors_json, copy_repositories_json, read_json
 from taf.utils import on_rm_error
+from taf.yubikey.yubikey_manager import PinManager
 
 REPOSITORY_DESCRIPTION_INPUT_DIR = TEST_DATA_PATH / "repository_description_inputs"
 TEST_INIT_DATA_PATH = Path(__file__).parent.parent / "init_data"
 NO_DELEGATIONS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_delegations.json"
 NO_YUBIKEYS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "no_yubikeys.json"
 WITH_DELEGATIONS_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations.json"
+ADD_ROLES_CONFIG_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "add_roles_config.json"
 INVALID_PUBLIC_KEY_INPUT = REPOSITORY_DESCRIPTION_INPUT_DIR / "invalid_public_key.json"
 WITH_DELEGATIONS_NO_YUBIKEYS_INPUT = (
     REPOSITORY_DESCRIPTION_INPUT_DIR / "with_delegations_no_yubikeys.json"
@@ -51,6 +53,11 @@ def with_delegations_json_input():
 
 
 @pytest.fixture(scope="session")
+def add_roles_config_json_input():
+    return read_json(ADD_ROLES_CONFIG_INPUT)
+
+
+@pytest.fixture(scope="session")
 def invalid_public_key_json_input():
     return read_json(INVALID_PUBLIC_KEY_INPUT)
 
@@ -79,10 +86,11 @@ def auth_repo_path(repo_dir):
 
 
 @pytest.fixture
-def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
+def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path, pin_manager):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -94,11 +102,12 @@ def auth_repo(auth_repo_path, keystore_delegations, no_yubikeys_path):
 
 @pytest.fixture
 def auth_repo_with_delegations(
-    auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path
+    auth_repo_path, keystore_delegations, with_delegations_no_yubikeys_path, pin_manager
 ):
     repo_path = str(auth_repo_path)
     create_repository(
         repo_path,
+        pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,
@@ -144,6 +153,7 @@ def auth_repo_when_add_repositories_json(
     keystore_delegations: str,
     repositories_json_template: Dict,
     mirrors_json_path: Path,
+    pin_manager: PinManager,
 ):
     repo_path = library / "auth"
     namespace = library.name
@@ -151,6 +161,7 @@ def auth_repo_when_add_repositories_json(
     copy_mirrors_json(mirrors_json_path, repo_path)
     create_repository(
         str(repo_path),
+        pin_manager=pin_manager,
         roles_key_infos=with_delegations_no_yubikeys_path,
         keystore=keystore_delegations,
         commit=True,

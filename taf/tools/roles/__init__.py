@@ -1,10 +1,8 @@
 import json
 from pathlib import Path
-import sys
 import click
 from taf.api.roles import (
-    add_multiple_roles,
-    add_role,
+    add_roles as add_multiple_roles,
     list_keys_of_role,
     add_signing_key,
     remove_role,
@@ -19,13 +17,12 @@ from taf.log import taf_logger
 from taf.tools.cli import catch_cli_exception, find_repository
 
 from taf.api.roles import add_role_paths
+from taf.tools.repo import pin_managed
 
 
-def add_role_command():
+def add_roles_command():
     @click.command(help="""
-    Add a new delegated target role. Allows optional specification of the role's properties through a JSON configuration file.
-    If the configuration file is not provided or specific properties are omitted, default values are used.
-    Only a list of one or more delegated paths has to be provided.
+    Add new delegated target roles. Allows optional specification of each role's properties through a JSON configuration file.
 
     Configuration file (JSON) can specify:
     - 'parent_role' (string): The parent role under which the new role will be delegated. Default is 'targets'.
@@ -35,59 +32,57 @@ def add_role_command():
     - 'yubikey' (boolean): Whether to use a YubiKey for signing. Default is false.
     - 'scheme' (string): Signature scheme, e.g., 'rsa-pkcs1v15-sha256'. Default is 'rsa-pkcs1v15-sha256'.
 
+    The structure of the configuration file is the very similar tohe structure of the one use when creating the repository,
+    but does not have to contain all roles, just the ones that should be added. If roles that already
+    exist are also defined, they will be skipped. If the role's parent is not the main targets role,
+    it's necessary to specify it using the "parent_role" option
+
     Example JSON structure:
     {
-    "parent_role": "targets",
-    "delegated_path": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
-    "keys_number": 1,
-    "threshold": 1,
-    "yubikey": true,
-    "scheme": "rsa-pkcs1v15-sha256"
+      "yubikeys": {
+            "user1": {
+                "public": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA95lvROpv0cjcXM4xBYe1\nhNYajb/lfM+57UhTteJsTsUgFefLKJmvXLZ7gFVroHTRzMeU0UvCaEWAxFWJiPOr\nxYBOtClSiPs4e0a/safLKDX0zBwT776CqA/EJ/P6+rPc2E2fawmq1k8RzalJj+0W\nz/xr9fKyMpZU7RQjJmuLcyqfUYTdnZHADn0CDM54gBZ4dYDGGQ70Pjmc1otq4jzh\nI390O4W9Gj9yXd6SyxW2Wpj2CI3g4J0pLl2c2Wjf7Jd4PVNxLGAFOU2YLoI4F3Ri\nsACFUWjfT7p6AagSPStzIMik1YfLq+qFUlhn3KbNMAY9afkvdbTPWT+vajjsoc4c\nOAex1y/uZ2npn/5Q0lT7gMH/JxB3GmAYHCew5W6GmO2mRfNO3J8A+hqS3nKGEbfR\ncb7V176O/tdRM0HguIWAuV75khrCpGLx/fZNAMFf3Q9p0iJsx9p6gCAHERi5e4BJ\nSCBkbtVGGsQ7JM7ptSiLLgi79hIXWehZFUIjuU7a2y4xAgMBAAE=\n-----END PUBLIC KEY-----",
+                "scheme": "rsa-pkcs1v15-sha256",
+                "present": false
+            },
+            "userYK": {
+                "scheme": "rsa-pkcs1v15-sha256"
+            }
+    },
+    roles: {
+        "name": {
+            "parent_role": "targets",
+            "patsh": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
+            "keys_number": 2,
+            "threshold": 1,
+            "yubikey": true,
+            "scheme": "rsa-pkcs1v15-sha256"
+            "yubikeys": [
+                "user1", "userYK"
+            ]
+        }
     }
     """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
-    @click.argument("role")
     @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add(role, config_file, path, keystore, no_commit, prompt_for_keys):
-
-        config_data = {}
-        if config_file:
-            try:
-                config_data = json.loads(Path(config_file).read_text())
-            except json.JSONDecodeError:
-                click.echo("Invalid JSON provided. Please check your input.", err=True)
-                sys.exit(1)
-
-        delegated_path = config_data.get("delegated_path", [])
-        if not delegated_path:
-            taf_logger.log("NOTICE", "Specify at least one delegated path through a configuration file.")
-            return
-
-        parent_role = config_data.get("parent_role", "targets")
-        keys_number = config_data.get("keys_number", 1)
-        threshold = config_data.get("threshold", 1)
-        yubikey = config_data.get("yubikey", False)
-        scheme = config_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-
-        add_role(
+    @pin_managed
+    def add_roles(config_file, path, scheme, keystore, no_commit, prompt_for_keys, pin_manager):
+        add_multiple_roles(
             path=path,
-            role=role,
-            parent_role=parent_role,
-            paths=delegated_path,
-            keys_number=keys_number,
-            threshold=threshold,
-            yubikey=yubikey,
+            pin_manager=pin_manager,
             keystore=keystore,
+            roles_key_infos=config_file,
             scheme=scheme,
-            commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
+            commit=not no_commit,
         )
-    return add
+    return add_roles
 
 
 def export_roles_description_command():
@@ -99,8 +94,9 @@ def export_roles_description_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--output", default=None, help="Output file path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
-    def export_roles_description(path, output, keystore):
-        auth_repo = AuthenticationRepository(path=path)
+    @pin_managed
+    def export_roles_description(path, output, keystore, pin_manager):
+        auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
         roles_description = auth_repo.generate_roles_description()
         if keystore:
             roles_description["keystore"] = keystore
@@ -114,60 +110,6 @@ def export_roles_description_command():
     return export_roles_description
 
 
-def add_multiple_command():
-    @click.command(help="""Adds new roles based on the provided keys-description file by
-            comparing it with the current state of the repository.
-
-            The current state can be exported using taf roles export_roles_description and then
-            edited manually to add new roles.
-
-            For each role, the following can be defined:
-            - Total number of keys per role.
-            - Threshold of required signatures per role.
-            - Use of Yubikeys or keystore files for storing keys.
-            - Signature scheme, with the default being 'rsa-pkcs1v15-sha256'.
-            - Keystore path, if not specified via the keystore option.
-
-        \b
-        Example of a JSON configuration:
-        {
-            "roles": {
-                "root": {
-                    "number": 3,
-                    "length": 2048,
-                    "passwords": ["password1", "password2", "password3"],
-                    "threshold": 2,
-                    "yubikey": true
-                },
-                "targets": {
-                    "length": 2048
-                },
-                "snapshot": {},
-                "timestamp": {}
-            },
-            "keystore": "keystore_path"
-        }
-        """)
-    @find_repository
-    @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.argument("keys-description")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def add_multiple(path, keystore, keys_description, scheme, no_commit, prompt_for_keys):
-        add_multiple_roles(
-            path=path,
-            keystore=keystore,
-            roles_key_infos=keys_description,
-            scheme=scheme,
-            prompt_for_keys=prompt_for_keys,
-            commit=not no_commit,
-        )
-    return add_multiple
-
-
 def add_role_paths_command():
     @click.command(help="Add a new delegated target role, specifying which paths are delegated to the new role. Its parent role, number of signing keys and signatures threshold can also be defined. Update and sign all metadata files and commit.")
     @find_repository
@@ -178,13 +120,15 @@ def add_role_paths_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys):
+    @pin_managed
+    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys, pin_manager):
         if not delegated_path:
             print("Specify at least one path")
             return
 
         add_role_paths(
             paths=delegated_path,
+            pin_manager=pin_manager,
             delegated_role=role,
             keystore=keystore,
             commit=not no_commit,
@@ -213,9 +157,11 @@ def remove_role_command():
     @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys):
+    @pin_managed
+    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys, pin_manager):
         remove_role(
             path=path,
+            pin_manager=pin_manager,
             role=role,
             keystore=keystore,
             scheme=scheme,
@@ -236,13 +182,15 @@ def remove_paths_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager):
         if not delegated_path:
             print("Specify at least one role")
             return
 
         remove_paths(
             path=path,
+            pin_manager=pin_manager,
             paths=delegated_path,
             keystore=keystore,
             scheme=scheme,
@@ -271,13 +219,15 @@ def add_signing_key_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager):
         if not role:
             print("Specify at least one role")
             return
 
         add_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             pub_key_path=pub_key_path,
             keystore=keystore,
@@ -301,10 +251,12 @@ def revoke_signing_key_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys):
+    @pin_managed
+    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager):
 
         revoke_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             key_id=keyid,
             keystore=keystore,
@@ -330,9 +282,11 @@ def rotate_signing_key_command():
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
-    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg):
+    @pin_managed
+    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager):
         rotate_signing_key(
             path=path,
+            pin_manager=pin_manager,
             roles=role,
             key_id=keyid,
             keystore=keystore,
@@ -365,8 +319,7 @@ def list_keys_command():
 
 def attach_to_group(group):
 
-    group.add_command(add_role_command(), name='add')
-    group.add_command(add_multiple_command(), name='add-multiple')
+    group.add_command(add_roles_command(), name='add')
     group.add_command(add_role_paths_command(), name='add-role-paths')
     group.add_command(remove_paths_command(), name='remove-paths')
     # group.add_command(remove_role_command(), name='remove')

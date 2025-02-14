@@ -185,14 +185,30 @@ class YkSigner(Signer):
 
     _SECRET_PROMPT = "pin"
 
-    def __init__(self, public_key: SSlibKey, pin_handler: SecretsHandler):
+    def __init__(
+        self,
+        public_key: SSlibKey,
+        serial_num: str,
+        pin_handler: SecretsHandler,
+        key_name: str,
+    ):
 
         self._public_key = public_key
         self._pin_handler = pin_handler
+        self._serial_num = serial_num
+        self._key_name = key_name
 
     @property
     def public_key(self) -> SSlibKey:
         return self._public_key
+
+    @property
+    def serial_num(self) -> str:
+        return self._serial_num
+
+    @property
+    def key_name(self) -> str:
+        return self._key_name
 
     @classmethod
     def import_(cls) -> SSlibKey:
@@ -205,20 +221,23 @@ class YkSigner(Signer):
         See e.g. `self.from_priv_key_uri` and other `import_` methods on
         securesystemslib signers, e.g. `HSMSigner.import_`.
         """
-        # TODO: export pyca/cryptography key to avoid duplicate deserialization
-        from taf.yubikey import export_piv_pub_key
+        # if multiple keys are inserted, we need to know from which key should be imported
+        # TODO
+        # only used for testing purposes now
+        from taf.yubikey.yubikey import export_piv_pub_key, get_serial_nums
 
-        pem = export_piv_pub_key()
+        serials = get_serial_nums()
+        serial = serials[0]
+        pem = export_piv_pub_key(serial=serial)
         pub = load_pem_public_key(pem)
         return _from_crypto(pub)
 
     def sign(self, payload: bytes) -> Signature:
         pin = self._pin_handler(self._SECRET_PROMPT)
-        # TODO: openlawlibrary/taf#515
-        # sig = sign_piv_rsa_pkcs1v15(payload, pin, self.public_key.keyval["public"])
-        from taf.yubikey import sign_piv_rsa_pkcs1v15
+        from taf.yubikey.yubikey import sign_piv_rsa_pkcs1v15, verify_yk_inserted
 
-        sig = sign_piv_rsa_pkcs1v15(payload, pin)
+        verify_yk_inserted(self.serial_num, self.key_name)
+        sig = sign_piv_rsa_pkcs1v15(payload, pin, serial=self.serial_num)
         return Signature(self.public_key.keyid, sig.hex())
 
     @classmethod

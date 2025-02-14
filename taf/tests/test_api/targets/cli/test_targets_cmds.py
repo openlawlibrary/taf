@@ -99,6 +99,7 @@ def test_targets_add_repo_cmd_expect_success(
         config_file_path = cwd / "config.json"
         with open(config_file_path, "w") as f:
             json.dump(config, f)
+
         runner.invoke(
             taf,
             [

@@ -16,6 +16,7 @@ from taf.git import GitRepository
 from taf.log import taf_logger
 from taf.updater.updater import OperationType, clone_repository
 import taf.updater.updater as updater
+from taf.yubikey.yubikey_manager import PinManager
 
 
 def _add_to_dependencies(
@@ -59,6 +60,7 @@ def _add_to_dependencies(
 @check_if_clean_and_synced
 def add_dependency(
     path: str,
+    pin_manager: PinManager,
     dependency_name: str,
     branch_name: str,
     out_of_band_commit: str,
@@ -107,7 +109,7 @@ def add_dependency(
     if path is None:
         raise TAFError("Authentication repository's path not provided")
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     if not auth_repo.is_git_repository_root:
         taf_logger.error(f"{path} is not a git repository!")
         return
@@ -165,6 +167,7 @@ def add_dependency(
     commit_msg = git_commit_message("add-dependency", dependency_name=dependency_name)
     register_target_files(
         path=path,
+        pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
         scheme=scheme,
@@ -190,6 +193,7 @@ def add_dependency(
 @check_if_clean_and_synced
 def remove_dependency(
     path: str,
+    pin_manager: PinManager,
     dependency_name: str,
     keystore: str,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
@@ -218,7 +222,7 @@ def remove_dependency(
     if path is None:
         raise TAFError("Authentication repository's path not provided")
 
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     if not auth_repo.is_git_repository_root:
         print(f"{path} is not a git repository!")
         return
@@ -249,6 +253,7 @@ def remove_dependency(
 
     register_target_files(
         path=path,
+        pin_manager=pin_manager,
         keystore=keystore,
         commit=commit,
         scheme=scheme,

@@ -11,7 +11,7 @@ from taf.models.converter import from_dict
 
 from pathlib import Path
 from taf.api.roles import (
-    _initialize_roles_and_keystore,
+    initialize_roles_and_keystore,
 )
 from taf.api.targets import list_targets, register_target_files
 
@@ -23,6 +23,7 @@ from taf.api.utils._conf import find_keystore
 from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
 from taf.log import taf_logger
+from taf.yubikey.yubikey_manager import PinManager
 
 
 @log_on_start(
@@ -38,6 +39,7 @@ from taf.log import taf_logger
 )
 def create_repository(
     path: str,
+    pin_manager: PinManager,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
     commit: Optional[bool] = False,
@@ -68,14 +70,15 @@ def create_repository(
         keystore_path = find_keystore(path)
         if keystore_path is not None:
             keystore = str(keystore_path)
-    roles_key_infos_dict, keystore, skip_prompt = _initialize_roles_and_keystore(
+    roles_key_infos_dict, keystore, skip_prompt = initialize_roles_and_keystore(
         roles_key_infos, keystore
     )
 
     roles_keys_data = from_dict(roles_key_infos_dict, RolesKeysData)
-    auth_repo = AuthenticationRepository(path=path)
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     signers, verification_keys = load_sorted_keys_of_new_roles(
         roles=roles_keys_data.roles,
+        auth_repo=auth_repo,
         yubikeys_data=roles_keys_data.yubikeys,
         keystore=keystore,
         skip_prompt=skip_prompt,
@@ -84,8 +87,7 @@ def create_repository(
     if signers is None:
         return
 
-    repository = AuthenticationRepository(path=path)
-    repository.create(roles_keys_data, signers, verification_keys)
+    auth_repo.create(roles_keys_data, signers, verification_keys)
     if commit:
         auth_repo.init_repo()
         commit_msg = git_commit_message("create-repo")
