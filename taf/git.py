@@ -14,6 +14,7 @@ from functools import partial, reduce
 from pathlib import Path
 
 import requests  # type: ignore
+from taf.models.types import Commitish
 import taf.settings as settings
 from taf.exceptions import (
     GitAccessDeniedException,
@@ -396,16 +397,18 @@ class GitRepository:
             latest_commit_id = repo[repo.head.target].id
 
         sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
-        commits = [commit.id.hex for commit in repo.walk(latest_commit_id, sort)]
+        commits = [
+            Commitish(commit.id.hex) for commit in repo.walk(latest_commit_id, sort)
+        ]
         self._log_debug(f"found the following commits: {', '.join(commits)}")
         return commits
 
     def all_commits_since_commit(
         self,
-        since_commit: Optional[str] = None,
+        since_commit: Optional[Commitish] = None,
         branch: Optional[str] = None,
         reverse: Optional[bool] = True,
-    ) -> List[str]:
+    ) -> List[Commitish]:
         """Returns a list of all commits since the specified commit on the
         specified or currently checked out branch
 
@@ -442,7 +445,7 @@ class GitRepository:
 
         shas: List[str] = []
         for commit in repo.walk(latest_commit_id):
-            sha = commit.id.hex
+            sha = Commitish(commit.id.hex)
             if sha == since_commit:
                 break
             shas.insert(0, sha)
@@ -493,7 +496,7 @@ class GitRepository:
 
     def branches_containing_commit(
         self,
-        commit: str,
+        commit: Commitish,
         strip_remote: Optional[bool] = False,
         sort_key: Optional[Callable] = None,
     ) -> OrderedDict:
@@ -502,11 +505,11 @@ class GitRepository:
 
         local_branches = remote_branches = []
         try:
-            local_branches = list(repo.branches.local.with_commit(commit))
+            local_branches = list(repo.branches.local.with_commit(commit.hash))
         except pygit2.GitError:
             pass
         try:
-            remote_branches = list(repo.branches.remote.with_commit(commit))
+            remote_branches = list(repo.branches.remote.with_commit(commit.hash))
         except pygit2.GitError:
             pass
         filtered_remote_branches = []
@@ -556,13 +559,13 @@ class GitRepository:
 
         return False
 
-    def branch_off_commit(self, branch_name: str, commit_sha: str) -> None:
+    def branch_off_commit(self, branch_name: str, commit: Commitish) -> None:
         """Create a new branch by branching off of the specified commit"""
         repo = self.pygit_repo
 
         try:
-            commit = repo[commit_sha]
-            repo.branches.local.create(branch_name, commit)
+            commit = repo[commit.hash]
+            repo.branches.local.create(branch_name, commit.hash)
             branch = repo.lookup_branch(branch_name)
             ref = repo.lookup_reference(branch.name)
             repo.checkout(ref)
@@ -571,7 +574,7 @@ class GitRepository:
             raise
         finally:
             self._log_info(
-                f"Created a new branch {branch_name} from branching off of {commit_sha}"
+                f"Created a new branch {branch_name} from branching off of {commit.hash}"
             )
 
     def branch_local_name(self, remote_branch_name: str) -> Optional[str]:
@@ -632,11 +635,11 @@ class GitRepository:
             return False
         return True
 
-    def checkout_paths(self, commit_sha: str, *args) -> None:
+    def checkout_paths(self, commit: Commitish, *args) -> None:
         repo = self.pygit_repo
 
-        commit = repo.get(commit_sha)
-        repo.checkout_tree(commit, paths=list(args))
+        pygit_commit = repo.get(commit.hash)
+        repo.checkout_tree(pygit_commit, paths=list(args))
 
     def checkout_orphan_branch(self, branch_name: str) -> None:
         """Creates orphan branch"""
@@ -649,17 +652,17 @@ class GitRepository:
             pass
 
     def check_files_exist(
-        self, file_paths: List[str], commit_sha: Optional[str] = None
+        self, file_paths: List[str], commit: Optional[Commitish] = None
     ):
         """
         Check if file paths are known to git
         """
         repo = self.pygit_repo
-        if commit_sha is None:
-            commit_sha = self.head_commit_sha()
+        if commit is None:
+            commit = self.head_commit_sha()
 
-        commit = repo[commit_sha]
-        tree = commit.tree  # Get the tree of that commit
+        pygit_commit = repo[commit.hash]
+        tree = pygit_commit.tree  # Get the tree of that commit
 
         existing_files = []
         non_existing = []
@@ -782,7 +785,7 @@ class GitRepository:
         branches: Optional[List[str]] = None,
         only_fetch: Optional[bool] = False,
         **kwargs,
-    ) -> Tuple[str | None, str | None]:
+    ) -> Tuple[Commitish | None, Commitish | None]:
         """
         Clone or fetch the specified branch for the given repo.
         Return old and new HEAD.
@@ -855,26 +858,28 @@ class GitRepository:
         finally:
             self._log_info(f"Created a new branch {branch_name}")
 
-    def create_branch(self, branch_name: str, commit: Optional[str] = None) -> None:
+    def create_branch(
+        self, branch_name: str, commit: Optional[Commitish] = None
+    ) -> None:
         repo = self.pygit_repo
 
         try:
             if commit is not None:
-                branch_commit = repo[commit]
+                pygit_commit = repo[commit.hash]
             else:
-                branch_commit = repo.revparse_single("HEAD")
-            repo.branches.local.create(branch_name, branch_commit)
+                pygit_commit = repo.revparse_single("HEAD")
+            repo.branches.local.create(branch_name, pygit_commit)
         except Exception as e:
             self._log_error(str(e))
             raise
         finally:
             self._log_info(f"Created a new branch {branch_name}")
 
-    def checkout_commit(self, commit: str) -> None:
+    def checkout_commit(self, commit: Commitish) -> None:
         self._git(
             "checkout {}",
-            commit,
-            log_success_msg=f"checked out commit {commit}",
+            commit.hash,
+            log_success_msg=f"checked out commit {commit.hash}",
             log_error=True,
             reraise_error=True,
         )
@@ -912,7 +917,9 @@ class GitRepository:
             else:
                 break
 
-        return bool(unpushed_commits), [commit.id for commit in unpushed_commits]
+        return bool(unpushed_commits), [
+            Commitish(commit.id) for commit in unpushed_commits
+        ]
 
     def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> str:
         if not paths_to_commit:
@@ -945,10 +952,12 @@ class GitRepository:
         )
         return self._git("rev-parse HEAD")
 
-    def commit_exists(self, commit_sha: str) -> str:
-        return self._git(f"rev-parse {commit_sha}")
+    def commit_exists(self, commit: Commitish) -> str:
+        return self._git(f"rev-parse {commit.value}")
 
-    def commits_on_branch_and_not_other(self, branch1: str, branch2: str) -> List[str]:
+    def commits_on_branch_and_not_other(
+        self, branch1: str, branch2: str
+    ) -> List[Commitish]:
         """
         Meant to find commits belonging to a branch which branches off of
         a commit from another branch. For example, to find only commits
@@ -959,14 +968,14 @@ class GitRepository:
 
         return commits
 
-    def commit_before_commit(self, commit: str) -> Optional[str]:
+    def commit_before_commit(self, commit: Commitish) -> Optional[Commitish]:
         repo = self.pygit_repo
 
         repo_commit_id = repo.get(commit).id
         for comm in repo.walk(repo_commit_id):
             hex = comm.id.hex
-            if hex != commit:
-                return hex
+            if hex != commit.hash:
+                return Commitish(hex)
         return None
 
     def create_local_branch_from_remote_tracking(self, branch, remote="origin"):
@@ -1016,23 +1025,23 @@ class GitRepository:
             f"push {remote} --delete {branch_name} {no_verify_flag}", log_error=True
         )
 
-    def get_commit_date(self, commit_sha: str) -> str:
+    def get_commit_date(self, commit: Commitish) -> str:
         """Returns commit date of the given commit"""
         repo = self.pygit_repo
 
-        commit = repo.get(commit_sha)
+        pygit_commit = repo.get(commit.hash)
         date = datetime.datetime.utcfromtimestamp(
-            commit.commit_time + commit.commit_time_offset
+            pygit_commit.commit_time + pygit_commit.commit_time_offset
         )
         formatted_date = date.strftime("%Y-%m-%d")
         return formatted_date
 
-    def get_commit_message(self, commit_sha: str) -> str:
+    def get_commit_message(self, commit: Commitish) -> str:
         """Returns commit message of the given commit"""
         repo = self.pygit_repo
 
-        commit = repo.get(commit_sha)
-        return commit.message
+        pygit_commit = repo.get(commit.hash)
+        return pygit_commit.message
 
     def get_commit_sha(self, behind_head: str) -> str:
         """Get commit sha of HEAD~{behind_head}"""
@@ -1048,7 +1057,7 @@ class GitRepository:
         return self._get_default_branch_from_local()
 
     def get_json(
-        self, commit: str, path: str, raw: Optional[bool] = False
+        self, commit: Commitish, path: str, raw: Optional[bool] = False
     ) -> Optional[Dict]:
         s = self.get_file(commit, path, raw=raw)
         if s and isinstance(s, str):
@@ -1057,7 +1066,7 @@ class GitRepository:
 
     def get_file(
         self,
-        commit: str,
+        commit: Commitish,
         path: str,
         raw: Optional[bool] = False,
         with_id: Optional[bool] = False,
@@ -1073,12 +1082,14 @@ class GitRepository:
         except Exception:
             return self._git("show {}:{}", commit, path, raw=raw)
 
-    def get_first_commit_on_branch(self, branch: Optional[str] = None) -> str:
+    def get_first_commit_on_branch(
+        self, branch: Optional[str] = None
+    ) -> Optional[Commitish]:
         branch = branch or self.default_branch
         first_commit = self._git(
             f"rev-list --max-parents=0 {branch}", error_if_not_exists=False
         )
-        return first_commit.strip() if first_commit else None
+        return Commitish(first_commit.strip()) if first_commit else None
 
     def get_last_branch_by_committer_date(self) -> Optional[str]:
         """Find the latest branch based on committer date. Should only be used for
@@ -1105,12 +1116,12 @@ class GitRepository:
     def has_remote(self) -> bool:
         return len(self.remotes) > 0
 
-    def head_commit_sha(self) -> Optional[str]:
+    def head_commit_sha(self) -> Optional[Commitish]:
         """Finds sha of the commit to which the current HEAD points"""
         repo = self.pygit_repo
 
         try:
-            return repo.revparse_single("HEAD").id.hex
+            return Commitish(repo.revparse_single("HEAD").id.hex)
         except Exception:
             return None
 
@@ -1221,7 +1232,7 @@ class GitRepository:
 
     def get_last_remote_commit(
         self, url: Optional[str] = None, branch: Optional[str] = None
-    ) -> Optional[str]:
+    ) -> Optional[Commitish]:
         """
         Fetch the last remote commit of the specified branch
         """
@@ -1236,7 +1247,7 @@ class GitRepository:
         if last_commit:
             last_commit = last_commit.split("\t", 1)[0]
             # in some cases (e.g. upstream is defined the result might contain a warning line)
-            return last_commit.split()[-1]
+            return Commitish(last_commit.split()[-1])
         return None
 
     def get_merge_base(self, branch1: str, branch2: str) -> str:
@@ -1245,7 +1256,7 @@ class GitRepository:
 
         commit1 = self.top_commit_of_branch(branch1)
         commit2 = self.top_commit_of_branch(branch2)
-        return repo.merge_base(commit1, commit2).hex
+        return repo.merge_base(commit1.hash, commit2.hash).hex
 
     def get_tracking_branch(
         self, branch: Optional[str] = "", strip_remote: Optional[bool] = False
@@ -1275,10 +1286,10 @@ class GitRepository:
                 return True
         return False
 
-    def list_files_at_revision(self, commit: str, path: str = "") -> List[str]:
+    def list_files_at_revision(self, commit: Commitish, path: str = "") -> List[str]:
         posix_path = Path(path).as_posix()
         try:
-            return self.pygit.list_files_at_revision(commit, posix_path)
+            return self.pygit.list_files_at_revision(commit.hash, posix_path)
         except TAFError as e:
             raise e
         except Exception:
@@ -1287,7 +1298,7 @@ class GitRepository:
             )
             return self._list_files_at_revision(commit, posix_path)
 
-    def _list_files_at_revision(self, commit: str, path: str) -> List[str]:
+    def _list_files_at_revision(self, commit: Commitish, path: str) -> List[str]:
         if path is None:
             path = ""
         file_names = self._git("ls-tree -r --name-only {}", commit)
@@ -1301,15 +1312,15 @@ class GitRepository:
             list_of_files.append(file_in_repo)
         return list_of_files
 
-    def list_changed_files_at_revision(self, commit: str) -> List[str]:
+    def list_changed_files_at_revision(self, commit: Commitish) -> List[str]:
         repo = self.pygit_repo
 
-        commit1 = repo.get(commit)
-        commit2 = self.commit_before_commit(commit)
-        if commit2 is not None:
-            commit2 = repo.get(commit2)
+        pygit_commit1 = repo.get(commit.hash)
+        pygit_commit2 = self.commit_before_commit(pygit_commit1)
+        if pygit_commit2 is not None:
+            pygit_commit2 = repo.get(pygit_commit2)
 
-        diff = repo.diff(commit1, commit2)
+        diff = repo.diff(pygit_commit1, pygit_commit2)
 
         file_names = set()
         for patch in diff:
@@ -1329,31 +1340,35 @@ class GitRepository:
 
         return [commit for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)]
 
-    def list_commit_shas(self, branch: Optional[str] = None) -> List[str]:
+    def list_commit_shas(self, branch: Optional[str] = None) -> List[Commitish]:
         branch = branch or self.default_branch
-        return self.list_commits(branch)
+        return [Commitish(commit.id) for commit in self.list_commits(branch)]
 
     def list_n_commits(
         self,
         number: Optional[int] = 10,
-        start_commit_sha: Optional[str] = None,
+        start_commit: Optional[Commitish] = None,
         branch: Optional[str] = None,
-    ) -> List[str]:
+    ) -> List[Commitish]:
         """List the specified number of top commits of the current branch
         Optionally skip a number of commits from the top"""
         if number is None or number <= 0:
             return []
         repo = self.pygit_repo
 
-        if start_commit_sha is not None:
-            start_commit_id = repo.get(start_commit_sha).id
+        if start_commit is not None:
+            start_commit_id = repo.get(start_commit.hash).id
         elif branch:
             branch_obj = repo.branches.get(branch)
             start_commit_id = branch_obj.target
         else:
             start_commit_id = repo[repo.head.target].id
         commits = itertools.islice(repo.walk(start_commit_id), number + 1)
-        return [commit.hex for commit in commits if commit.hex != start_commit_sha]
+        return [
+            Commitish(commit.hex)
+            for commit in commits
+            if commit.hex != start_commit.hash
+        ]
 
     def list_modified_files(
         self, path: Optional[str] = None, with_status: Optional[bool] = False
@@ -1405,7 +1420,7 @@ class GitRepository:
 
     def merge_commit(
         self,
-        commit: str,
+        commit: Commitish,
         target_branch: Optional[str] = None,
         fast_forward_only: Optional[bool] = False,
         check_if_merge_completed: Optional[bool] = False,
@@ -1540,7 +1555,7 @@ class GitRepository:
 
     def reset_to_commit(
         self,
-        commit: str,
+        commit: Commitish,
         branch: Optional[str] = None,
         hard: Optional[bool] = False,
         reset_remote_tracking=True,
@@ -1570,21 +1585,21 @@ class GitRepository:
             elif file_path.is_dir():
                 shutil.rmtree(file_path)
 
-    def update_branch_refs(self, branch: str, commit: str) -> None:
+    def update_branch_refs(self, branch: str, commit: Commitish) -> None:
         # Update the local branch reference to the specific commit
         self._git(f"update-ref refs/heads/{branch} {commit}")
         # Update the remote-tracking branch
         self._git(f"update-ref refs/remotes/origin/{branch} {commit}", log_error=True)
 
-    def update_ref_for_bare_repository(self, branch: str, commit_sha: str) -> None:
+    def update_ref_for_bare_repository(self, branch: str, commit: Commitish) -> None:
         """
         Update the reference of the branch to the given commit SHA in a bare repository.
         """
         try:
-            self._git(f"update-ref refs/heads/{branch} {commit_sha}")
+            self._git(f"update-ref refs/heads/{branch} {commit}")
         except GitError:
             raise UpdateFailedError(
-                f"Could not update branch {branch} to commit {commit_sha} in bare repository {self.name}."
+                f"Could not update branch {branch} to commit {commit} in bare repository {self.name}."
             )
 
     def reset_remote_tracking_branch(self, branch_name) -> None:
@@ -1592,13 +1607,13 @@ class GitRepository:
         Set top commit of origing/branch to the top comit of the local branch
         Used while testing the updater
         """
-        commit_sha = self.top_commit_of_branch(branch_name)
-        self._git(f"update-ref refs/remotes/origin/{branch_name} {commit_sha}")
+        commit = self.top_commit_of_branch(branch_name)
+        self._git(f"update-ref refs/remotes/origin/{branch_name} {commit}")
 
     def reset_to_head(self) -> None:
         self._git("reset --hard HEAD")
 
-    def safely_get_json(self, commit: str, path: str) -> Optional[Dict]:
+    def safely_get_json(self, commit: Commitish, path: str) -> Optional[Dict]:
         try:
             return self.get_json(commit, path)
         except GitError:
@@ -1675,7 +1690,7 @@ class GitRepository:
 
         return local_commit == remote_commit
 
-    def top_commit_of_branch(self, branch_name: str) -> Optional[str]:
+    def top_commit_of_branch(self, branch_name: str) -> Optional[Commitish]:
         repo = self.pygit_repo
 
         branch = repo.branches.get(branch_name)
@@ -1683,7 +1698,7 @@ class GitRepository:
             return branch.target.hex
         # a reference like HEAD
         try:
-            return repo.revparse_single(branch_name).id.hex
+            return Commitish(repo.revparse_single(branch_name).id.hex)
         except Exception:
             return None
 
@@ -1724,7 +1739,9 @@ class GitRepository:
         )
         return None
 
-    def top_commit_of_remote_branch(self, branch, remote="origin"):
+    def top_commit_of_remote_branch(
+        self, branch, remote="origin"
+    ) -> Optional[Commitish]:
         """
         Fetches the top commit of the specified remote tracking branch.
 

@@ -13,6 +13,7 @@ from taf.exceptions import (
 )
 from taf.git import GitRepository
 from taf.log import taf_logger
+from taf.models.types import Commitish
 
 
 # Target repositories db
@@ -48,7 +49,7 @@ def clear_dependencies_db():
 
 
 def check_if_repositories_json_exists(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> bool:
     if commit is None:
         commit = auth_repo.head_commit_sha()
@@ -68,7 +69,7 @@ def load_dependencies(
     auth_repo: AuthenticationRepository,
     auth_class: Type = AuthenticationRepository,
     library_dir: Optional[str] = None,
-    commits: Optional[List[str]] = None,
+    commits: Optional[List[Commitish]] = None,
 ) -> None:
     global _dependencies_dict
 
@@ -88,7 +89,7 @@ def _load_dependencies(
     auth_repo: AuthenticationRepository,
     auth_class: Type = AuthenticationRepository,
     library_dir: Optional[str] = None,
-    commits: Optional[List[str]] = None,
+    commits: Optional[List[Commitish]] = None,
 ) -> Dict:
 
     dependencies = {}
@@ -181,7 +182,7 @@ def load_repositories(
     factory: Optional[Callable] = None,
     library_dir: Optional[str] = None,
     only_load_targets: bool = True,
-    commits: Optional[List[str]] = None,
+    commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
     raise_error_if_no_urls: bool = False,
@@ -247,7 +248,7 @@ def _load_repositories(
     factory: Optional[Callable] = None,
     library_dir: Optional[str] = None,
     only_load_targets: bool = True,
-    commits: Optional[List[str]] = None,
+    commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
     raise_error_if_no_urls: bool = False,
@@ -357,7 +358,7 @@ def _get_custom_data(repo, target):
     return custom
 
 
-def _get_json_file(auth_repo, name, commit):
+def _get_json_file(auth_repo: AuthenticationRepository, name: str, commit: Commitish):
     try:
         return auth_repo.get_json(commit, name)
     except GitError:
@@ -394,7 +395,7 @@ def _get_urls(
 
 
 def _get_target_default_branch(
-    auth_repo: AuthenticationRepository, name: str, commit: str
+    auth_repo: AuthenticationRepository, name: str, commit: Commitish
 ) -> Optional[str]:
     """
     Gets signed name of branch for a target repository by loading json at specified <commit>.
@@ -416,7 +417,7 @@ def _get_target_default_branch(
 
 
 def get_repositories_paths_by_custom_data(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None, **custom
+    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None, **custom
 ) -> Optional[List[str]]:
     if not commit:
         commit = auth_repo.head_commit_sha()
@@ -466,14 +467,14 @@ def get_repositories_paths_by_custom_data(
 
 def get_deduplicated_auth_repositories(
     auth_repo: AuthenticationRepository,
-    commits: List[str],
+    commits: List[Commitish],
 ) -> Dict[str, AuthenticationRepository]:
     return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
 
 def get_deduplicated_repositories(
     auth_repo: AuthenticationRepository,
-    commits: Optional[List[str]] = None,
+    commits: Optional[List[Commitish]] = None,
     excluded_target_globs: Optional[List[str]] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls=False,
@@ -489,12 +490,12 @@ def get_deduplicated_repositories(
 
 
 def _get_deduplicated_target_or_auth_repositories(
-    auth_repo,
-    commits,
-    load_auth=False,
-    excluded_target_globs=None,
-    library_dir=None,
-    raise_error_if_no_urls=False,
+    auth_repo: AuthenticationRepository,
+    commits: List[Commitish],
+    load_auth: Optional[bool] = False,
+    excluded_target_globs: Optional[List[str]] = None,
+    library_dir: Optional[str] = None,
+    raise_error_if_no_urls: Optional[bool] = False,
 ):
     if commits is None:
         commits = [auth_repo.head_commit_sha()]
@@ -573,7 +574,7 @@ def _get_deduplicated_target_or_auth_repositories(
 
 
 def get_repository(
-    auth_repo: AuthenticationRepository, name: str, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, name: str, commit: Optional[Commitish] = None
 ) -> Optional[GitRepository]:
     repositories = get_repositories(auth_repo, commit)
     if repositories is None:
@@ -582,7 +583,7 @@ def get_repository(
 
 
 def get_auth_repository(
-    auth_repo: AuthenticationRepository, name: str, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, name: str, commit: Optional[Commitish] = None
 ) -> Optional[AuthenticationRepository]:
     repositories = get_auth_repositories(auth_repo, commit)
     if repositories is None:
@@ -591,18 +592,22 @@ def get_auth_repository(
 
 
 def get_auth_repositories(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> Dict[str, AuthenticationRepository]:
     return _get_repositories(auth_repo, commit, True)
 
 
 def get_repositories(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> Dict[str, GitRepository]:
     return _get_repositories(auth_repo, commit)
 
 
-def _get_repositories(auth_repo, commit=None, load_auth=False):
+def _get_repositories(
+    auth_repo: AuthenticationRepository,
+    commit: Optional[Commitish] = None,
+    load_auth: Optional[bool] = False,
+):
     loaded_repositories_dict = _dependencies_dict if load_auth else _repositories_dict
     auth_msg = "included authentication " if load_auth else ""
     repositories_msg = (
@@ -652,7 +657,9 @@ def _get_repositories(auth_repo, commit=None, load_auth=False):
 
 
 def get_repositories_by_custom_data(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None, **custom_data
+    auth_repo: AuthenticationRepository,
+    commit: Optional[Commitish] = None,
+    **custom_data,
 ):
     taf_logger.debug(
         "Auth repo {}: finding repositories by custom data {}",
@@ -721,7 +728,7 @@ def _initialize_repository(
 
 
 def load_dependencies_json(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> Optional[Dict]:
     if commit is None:
         branch = auth_repo.default_branch
@@ -743,7 +750,7 @@ def load_dependencies_json(
 
 
 def load_repositories_json(
-    auth_repo: AuthenticationRepository, commit: Optional[str] = None
+    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> Optional[Dict]:
     if commit is None:
         branch = auth_repo.default_branch
@@ -767,7 +774,7 @@ def load_repositories_json(
 
 
 def load_mirrors_json(
-    auth_repo: AuthenticationRepository, commit: str
+    auth_repo: AuthenticationRepository, commit: Commitish
 ) -> Optional[Dict]:
     try:
         return _get_json_file(auth_repo, MIRRORS_JSON_PATH, commit).get("mirrors")
@@ -781,7 +788,11 @@ def load_mirrors_json(
         return None
 
 
-def _targets_of_roles(auth_repo, commit, roles=None):
+def _targets_of_roles(
+    auth_repo: AuthenticationRepository,
+    commit: Commitish,
+    roles: Optional[List[str]] = None,
+):
 
     with auth_repo.repository_at_revision(commit):
         return auth_repo.get_signed_targets_with_custom_data(roles)

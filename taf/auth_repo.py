@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
+from taf.models.types import Commitish
 from taf.tuf.storage import GitStorageBackend
 from taf.git import GitRepository
 from taf.tuf.repository import (
@@ -228,7 +229,9 @@ class AuthenticationRepository(GitRepository):
                             "Not pushing to the default branch, skipping last_validated_commit update."
                         )
 
-    def get_target(self, target_name, commit=None, safely=True) -> Optional[Dict]:
+    def get_target(
+        self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True
+    ) -> Optional[Dict]:
         if commit is None:
             commit = self.head_commit_sha()
         if commit is None:
@@ -240,7 +243,7 @@ class AuthenticationRepository(GitRepository):
             return self.get_json(commit, target_path)
 
     def get_metadata(
-        self, role: str, commit: Optional[str] = None, safely: bool = True
+        self, role: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
         if commit is None:
             commit = self.head_commit_sha()
@@ -253,7 +256,7 @@ class AuthenticationRepository(GitRepository):
             return self.get_json(commit, metadata_path)
 
     def get_info_json(
-        self, commit: Optional[str] = None, safely: bool = True
+        self, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
         head_commit = commit or self.head_commit_sha()
         if head_commit is None:
@@ -298,21 +301,21 @@ class AuthenticationRepository(GitRepository):
             if any([fnmatch.fnmatch(repo, path) for path in role_paths])
         ]
 
-    def is_commit_authenticated(self, target_name: str, commit: str) -> bool:
+    def is_commit_authenticated(self, target_name: str, commit: Commitish) -> bool:
         """Checks if passed commit is ever authenticated for given target name."""
         for auth_commit in self.all_commits_on_branch(reverse=False):
             target = self.get_target(target_name, auth_commit)
             if target is None:
                 continue
             try:
-                if target["commit"] == commit:
+                if target["commit"] == commit.hash:
                     return True
             except TypeError:
                 continue
         return False
 
     @contextmanager
-    def repository_at_revision(self, commit: str):
+    def repository_at_revision(self, commit: Commitish):
         """
         Context manager that enables reading metadata from an older commit.
         This should be used in combination with the Git storage backend.
@@ -342,7 +345,7 @@ class AuthenticationRepository(GitRepository):
     def set_last_validated_of_repo(
         self,
         repo_name: str,
-        commit: str,
+        commit: Commitish,
         set_last_validated_commit: Optional[bool] = True,
     ):
         last_validated_data = self.last_validated_data or {}
@@ -358,7 +361,7 @@ class AuthenticationRepository(GitRepository):
 
     def auth_repo_commits_after_repos_last_validated(
         self, target_repos: List, last_validated_data
-    ) -> List[str]:
+    ) -> List[Commitish]:
         """
         Traverses the commit history from the most recent commit back to the oldest last validated commit
         of the target repositories. It then quantifies how many of these commits are related to each target repository.
@@ -387,7 +390,7 @@ class AuthenticationRepository(GitRepository):
             if commit_id in last_validated_target_commits:
                 last_validated_target_commits.pop(commit_id)
 
-            traversed_commits.append(commit_id)
+            traversed_commits.append(Commitish(commit_id))
             if not len(last_validated_target_commits):
                 break
         traversed_commits.reverse()
@@ -395,12 +398,12 @@ class AuthenticationRepository(GitRepository):
 
     def targets_data_by_auth_commits(
         self,
-        commits: List[str],
+        commits: List[Commitish],
         target_repos: Optional[List[str]] = None,
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
-        last_commits_per_repos: Optional[Dict[str, List]] = None,
+        last_commits_per_repos: Optional[Dict[Commitish, List]] = None,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
@@ -454,7 +457,7 @@ class AuthenticationRepository(GitRepository):
 
     def sorted_commits_and_branches_per_repositories(
         self,
-        commits: List[str],
+        commits: List[Commitish],
         target_repos: Optional[List[str]] = None,
         custom_fns: Optional[Dict[str, Callable]] = None,
         default_branch: Optional[str] = None,

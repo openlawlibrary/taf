@@ -15,6 +15,23 @@ from taf.models.validators import (
 
 
 @attrs.define
+class Commitish:
+    hash: str
+    tag: Optional[str] = None
+
+    @property
+    def value(self) -> str:
+        return self.taf if self.tag else self.hash
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    @property
+    def __str__(self):
+        return self.value
+
+
+@attrs.define
 class UserKeyData:
     public: Optional[str] = attrs.field(validator=public_key_validator, default=None)
     scheme: Optional[str] = attrs.field(
