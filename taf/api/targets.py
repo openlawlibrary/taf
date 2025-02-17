@@ -217,19 +217,22 @@ def export_targets_history(
     repositoriesdb.load_repositories(auth_repo)
     if target_repos:
         invalid_targets = []
+        target_repositories = {}
         for target_repo in target_repos:
-            if repositoriesdb.get_repository(auth_repo, target_repo) is None:
+            repo = repositoriesdb.get_repository(auth_repo, target_repo)
+            if repo is None:
                 invalid_targets.append(target_repo)
+            else:
+                target_repositories[target_repo] = repo
         if len(invalid_targets):
             taf_logger.log(
                 "NOTICE",
                 f"The following target repositories are not defined: {', '.join(invalid_targets)}",
             )
             return
-    elif target_repos is not None:
-        target_repos = None
+    else:
+        target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
 
-    target_repositories = repositoriesdb.get_deduplicated_repositories(auth_repo)
     commits_on_branches = auth_repo.sorted_commits_and_branches_per_repositories(
         commits, target_repositories
     )

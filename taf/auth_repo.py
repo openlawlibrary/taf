@@ -584,6 +584,10 @@ class AuthenticationRepository(GitRepository):
                     if target_name not in repositories_at_revision:
                         # we only care about repositories
                         continue
+                    if target_repos and target_name not in target_repos.keys():
+                        # if specific target repositories are specified, skip all other
+                        # repositories
+                        continue
                     target_content = self.safely_get_json(
                         commit, get_target_path(target_name)
                     )

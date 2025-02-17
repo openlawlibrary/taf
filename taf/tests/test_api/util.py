@@ -17,7 +17,9 @@ def check_target_file(
     target_repo = GitRepository(path=target_repo_path)
     target_repo_head_sha = target_repo.head_commit_sha()
     repositoriesdb.load_repositories(auth_repo)
-    target_repos = repositoriesdb.get_deduplicated_repositories(auth_repo)
+    target_repos = {
+        target_repo_name: repositoriesdb.get_repository(auth_repo, target_repo_name)
+    }
     targets = auth_repo.targets_at_revisions(
         commits=[auth_repo_head_sha], target_repos=target_repos
     )
