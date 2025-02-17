@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix wrong default branch assignment for target repos [(593)]
+
+[593]: https://github.com/openlawlibrary/taf/pull/593
 [592]: https://github.com/openlawlibrary/taf/pull/592
 [583]: https://github.com/openlawlibrary/taf/pull/583
 
