@@ -389,7 +389,7 @@ class GitRepository:
                 )
             latest_commit_id = branch_obj.target
         else:
-            if self.head_commit_sha() is None:
+            if self.head_commit_sha().value is None:
                 raise GitError(
                     self,
                     message=f"Error occurred while getting commits of branch {branch}. No HEAD reference",
@@ -400,7 +400,9 @@ class GitRepository:
         commits = [
             Commitish(commit.id.hex) for commit in repo.walk(latest_commit_id, sort)
         ]
-        self._log_debug(f"found the following commits: {', '.join(commits)}")
+        self._log_debug(
+            f"found the following commits: {', '.join([commit.value for commit in commits])}"
+        )
         return commits
 
     def all_commits_since_commit(
@@ -416,7 +418,7 @@ class GitRepository:
             exceptions.GitError: An error occurred with provided commit SHA
         """
 
-        if since_commit is None:
+        if since_commit.value is None:
             try:
                 return self.all_commits_on_branch(branch=branch, reverse=reverse)
             except GitError as e:
@@ -424,7 +426,7 @@ class GitRepository:
                 return []
 
         try:
-            self.commit_exists(commit_sha=since_commit)
+            self.commit_exists(commit=since_commit)
         except GitError as e:
             self._log_warning(f"Commit {since_commit} not found in local repository.")
             raise e
@@ -436,24 +438,26 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
-            if self.head_commit_sha() is None:
+            if self.head_commit_sha().value is None:
                 return []
             latest_commit_id = repo[repo.head.target].id
 
         if repo.descendant_of(since_commit, latest_commit_id):
             return []
 
-        shas: List[str] = []
+        commits: List[Commitish] = []
         for commit in repo.walk(latest_commit_id):
-            sha = Commitish(commit.id.hex)
-            if sha == since_commit:
+            commit = Commitish(commit.id.hex)
+            if commit == since_commit:
                 break
-            shas.insert(0, sha)
+            commits.insert(0, commit)
 
         if not reverse:
-            shas = shas[::-1]
-        self._log_debug(f"found the following commits: {', '.join(shas)}")
-        return shas
+            commits = commits[::-1]
+        self._log_debug(
+            f"found the following commits: {', '.join([commit.value for commit in commits])}"
+        )
+        return commits
 
     def add_remote(
         self, upstream_name: str, upstream_url: str, raise_error_if_exists=False
@@ -658,7 +662,7 @@ class GitRepository:
         Check if file paths are known to git
         """
         repo = self.pygit_repo
-        if commit is None:
+        if commit.value is None:
             commit = self.head_commit_sha()
 
         pygit_commit = repo[commit.hash]
@@ -796,7 +800,7 @@ class GitRepository:
             # repo does not exist
             old_head = None
 
-        if old_head is None:
+        if old_head.value is None:
             self._log_debug(f"cloning {self.name}")
             self._log_debug(f"old head sha is {old_head}")
             self.clone(**kwargs)
@@ -864,7 +868,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         try:
-            if commit is not None:
+            if commit.value is not None:
                 pygit_commit = repo[commit.hash]
             else:
                 pygit_commit = repo.revparse_single("HEAD")
@@ -1289,7 +1293,7 @@ class GitRepository:
     def list_files_at_revision(self, commit: Commitish, path: str = "") -> List[str]:
         posix_path = Path(path).as_posix()
         try:
-            return self.pygit.list_files_at_revision(commit.hash, posix_path)
+            return self.pygit.list_files_at_revision(commit, posix_path)
         except TAFError as e:
             raise e
         except Exception:
@@ -1695,7 +1699,7 @@ class GitRepository:
 
         branch = repo.branches.get(branch_name)
         if branch is not None:
-            return branch.target.hex
+            return Commitish(branch.target.hex)
         # a reference like HEAD
         try:
             return Commitish(repo.revparse_single(branch_name).id.hex)

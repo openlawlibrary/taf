@@ -51,9 +51,9 @@ def clear_dependencies_db():
 def check_if_repositories_json_exists(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> bool:
-    if commit is None:
+    if commit.value is None:
         commit = auth_repo.head_commit_sha()
-        if commit is None:
+        if commit.value is None:
             raise GitError(
                 auth_repo,
                 message="Could not check if repositroies.json exists. Commit is not specified and head commit could not be determined",
@@ -95,7 +95,7 @@ def _load_dependencies(
     dependencies = {}
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
-        if auth_repo_head_commit is None:
+        if auth_repo_head_commit.value is None:
             taf_logger.info(
                 "Authentication repository does not exist - cannot load included authentication repositories"
             )
@@ -105,7 +105,7 @@ def _load_dependencies(
     taf_logger.debug(
         "Loading {}'s included authentication repositories at revisions {}",
         auth_repo.path,
-        ", ".join(commits),
+        ", ".join([commit.value for commit in commits]),
     )
 
     if library_dir is None:
@@ -231,7 +231,7 @@ def load_repositories(
     )
     if commits is None or len(commits) == 0:
         commit = auth_repo.head_commit_sha()
-        if commit is None:
+        if commit.value is None:
             return
         commits = [commit]
     if auth_repo.path in _repositories_dict:
@@ -260,7 +260,7 @@ def _load_repositories(
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit_sha()
-        if auth_repo_head_commit is None:
+        if auth_repo_head_commit.value is None:
             taf_logger.info(
                 "Authentication repository does not exist - cannot load target repositories"
             )
@@ -270,7 +270,7 @@ def _load_repositories(
     taf_logger.debug(
         "Loading {}'s target repositories at revisions {}",
         auth_repo.path,
-        ", ".join(commits),
+        ", ".join([commit.value for commit in commits]),
     )
 
     if library_dir is None:
@@ -421,7 +421,7 @@ def get_repositories_paths_by_custom_data(
 ) -> Optional[List[str]]:
     if not commit:
         commit = auth_repo.head_commit_sha()
-        if commit is None:
+        if commit.value is None:
             raise TAFError(
                 "Could not get repositories. Commit is not specified and head commit could not be determined"
             )
@@ -613,7 +613,7 @@ def _get_repositories(
     repositories_msg = (
         "Included authentication repositories" if load_auth else "Repositories"
     )
-    if commit is None:
+    if commit.value is None:
         commit = auth_repo.head_commit_sha()
     taf_logger.debug(
         "Auth repo {}: finding {}repositories defined at commit {}",
@@ -730,14 +730,14 @@ def _initialize_repository(
 def load_dependencies_json(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> Optional[Dict]:
-    if commit is None:
+    if commit.value is None:
         branch = auth_repo.default_branch
         if branch is None:
             raise TAFError(
                 "Could not load dependencies. Commit is not specified and default branch could not be determined"
             )
         commit = auth_repo.top_commit_of_branch(branch)
-        if commit is None:
+        if commit.value is None:
             raise TAFError(
                 "Could not load dependencies. Commit is not specified and head commit could not be determined"
             )
@@ -752,14 +752,14 @@ def load_dependencies_json(
 def load_repositories_json(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> Optional[Dict]:
-    if commit is None:
+    if commit.value is None:
         branch = auth_repo.default_branch
         if branch is None:
             raise TAFError(
                 "Could not load repositories. Commit is not specified and default branch could not be determined"
             )
         commit = auth_repo.top_commit_of_branch(branch)
-        if commit is None:
+        if commit.value is None:
             raise TAFError(
                 "Could not load repositories. Commit is not specified and head commit could not be determined"
             )

@@ -3,6 +3,7 @@ from logging import DEBUG, ERROR
 from typing import Dict, Optional
 import click
 from taf.api.targets import register_target_files
+from taf.models.types import Commitish
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.utils._git import check_if_clean_and_synced
@@ -148,7 +149,7 @@ def add_dependency(
 
     if dependency.is_git_repository:
         branch_name, out_of_band_commit = _determine_out_of_band_data(
-            dependency, branch_name, out_of_band_commit, no_prompt
+            dependency, branch_name, Commitish(out_of_band_commit), no_prompt
         )
     else:
         if not no_prompt and not click.confirm(
@@ -270,7 +271,7 @@ def remove_dependency(
 def _determine_out_of_band_data(
     dependency: GitRepository,
     branch_name: str,
-    out_of_band_commit: str,
+    out_of_band_commit: Commitish,
     no_prompt: Optional[bool] = False,
 ):
     """

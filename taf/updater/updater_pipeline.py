@@ -13,6 +13,7 @@ from taf.git import GitError
 from taf.git import GitRepository
 from taf.constants import INFO_JSON_PATH
 
+from taf.models.types import Commitish
 import taf.settings as settings
 import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
@@ -117,23 +118,23 @@ class UpdateState:
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
-    fetched_commits_per_target_repos_branches: Dict[str, Dict[str, List[str]]] = field(
-        factory=dict
-    )
-    validated_commits_per_target_repos_branches: Dict[str, Dict[str, str]] = field(
-        factory=dict
-    )
-    additional_commits_per_target_repos_branches: Dict[
-        str, Dict[str, List[str]]
+    fetched_commits_per_target_repos_branches: Dict[
+        str, Dict[str, List[Commitish]]
     ] = field(factory=dict)
-    validated_auth_commits: List[str] = field(factory=list)
+    validated_commits_per_target_repos_branches: Dict[
+        str, Dict[str, Commitish]
+    ] = field(factory=dict)
+    additional_commits_per_target_repos_branches: Dict[
+        str, Dict[str, List[Commitish]]
+    ] = field(factory=dict)
+    validated_auth_commits: List[Commitish] = field(factory=list)
     temp_root: TempPartition = field(default=None)
     update_handler: GitUpdater = field(default=None)
     clean_check_data: Dict[str, str] = field(factory=dict)
     last_validated_data_per_repositories: Dict[str, Dict[str, str]] = field(
         factory=dict
     )
-    all_targets_auth_commits: List[str] = field(factory=list)
+    all_targets_auth_commits: List[Commitish] = field(factory=list)
     is_partially_updated: bool = field(default=False)
 
 
@@ -197,7 +198,7 @@ def combine_statuses(current_status, new_status):
 
 
 def format_commit(commit):
-    return commit[:10]
+    return Commitish(hash=commit[:10])
 
 
 class Pipeline:
@@ -228,6 +229,9 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
+                import pdb
+
+                pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:
@@ -771,16 +775,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 # validate the top commit of the user's auth repo
                 # if it's not in the remote repo -> fail early
                 default_branch = self.state.validation_auth_repo.default_branch
-                users_head_sha = self.state.users_auth_repo.top_commit_of_branch(
+                users_head_commit = self.state.users_auth_repo.top_commit_of_branch(
                     default_branch
                 )
                 if not _check_if_commit_on_branch(
-                    self.state.validation_auth_repo, users_head_sha, default_branch
+                    self.state.validation_auth_repo, users_head_commit, default_branch
                 ):
                     error_msg = (
                         f"The newest commit of repository {self.state.users_auth_repo.name} is no longer "
                         f"on branch {default_branch} of the remote repository. This could "
-                        "either mean that there was an unauthorized push to the remote "
+                        "either mean that    there was an unauthorized push to the remote "
                         "or an invalid modification of the local repository."
                     )
                     # this is always an error, force or no force
@@ -819,7 +823,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
                     if (
                         self.state.last_validated_commit
-                        and users_head_sha != self.state.last_validated_commit
+                        and users_head_commit != self.state.last_validated_commit
                     ):
                         if not _check_if_commit_on_branch(
                             self.state.users_auth_repo,
@@ -830,12 +834,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             if self.force:
                                 _clear_lvc()
                                 taf_logger.warning(
-                                    f"{self.state.users_auth_repo.name}: Last validated commit {users_head_sha} is not in repository {self.state.users_auth_repo.name} "
+                                    f"{self.state.users_auth_repo.name}: Last validated commit {users_head_commit} is not in repository {self.state.users_auth_repo.name} "
                                     "Running the validation from the first commit."
                                 )
                             else:
                                 raise UpdateFailedError(
-                                    f"{self.state.users_auth_repo.name}: Last validated commit {users_head_sha} is not in repository {self.state.users_auth_repo.name} "
+                                    f"{self.state.users_auth_repo.name}: Last validated commit {users_head_commit} is not in repository {self.state.users_auth_repo.name} "
                                     "\nRun the updater with the --force flag to run the validation from the first commit"
                                 )
                         else:
@@ -852,7 +856,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             # if the user's head commit is not newer or equal to the last validated commit
                             # that could meant that the user manually removed some commits from the local
                             # repository
-                            if users_head_sha not in commits_since:
+                            if users_head_commit not in commits_since:
                                 if self.force:
                                     _clear_lvc()
                                     taf_logger.warning(
@@ -1099,6 +1103,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
+            import pdb
+
+            pdb.set_trace()
             self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
@@ -2154,7 +2161,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
 
 def _check_if_commit_on_branch(repo, commit, branch, include_remotes=True):
     try:
-        repo.commit_exists(commit_sha=commit)
+        repo.commit_exists(commit=commit)
     except GitError:
         return False
 

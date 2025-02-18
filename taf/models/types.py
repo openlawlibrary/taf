@@ -14,7 +14,7 @@ from taf.models.validators import (
 )
 
 
-@attrs.define
+@attrs.frozen
 class Commitish:
     hash: str
     tag: Optional[str] = None
@@ -26,7 +26,9 @@ class Commitish:
     def __eq__(self, other):
         return self.value == other.value
 
-    @property
+    def __hash__(self):
+        return self.value.__hash__()
+
     def __str__(self):
         return self.value
 
