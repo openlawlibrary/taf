@@ -134,7 +134,7 @@ class GitUpdater(FetcherInterface):
         We have to presume that the initial metadata is correct though (or at least
         the initial root.json).
         """
-        last_validated_commit = Commitish(
+        last_validated_commit = Commitish.from_hash(
             settings.last_validated_commit.get(self.repository_name)
         )
 

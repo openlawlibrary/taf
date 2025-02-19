@@ -198,7 +198,7 @@ def combine_statuses(current_status, new_status):
 
 
 def format_commit(commit):
-    return Commitish(hash=commit[:10])
+    return Commitish.from_hash(hash=commit[:10])
 
 
 class Pipeline:

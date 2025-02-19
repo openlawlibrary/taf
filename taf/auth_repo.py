@@ -232,9 +232,9 @@ class AuthenticationRepository(GitRepository):
     def get_target(
         self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
-        if commit.value is None:
+        if commit is None:
             commit = self.head_commit_sha()
-        if commit.value is None:
+        if commit is None:
             return None
         target_path = get_target_path(target_name)
         if safely:
@@ -245,9 +245,9 @@ class AuthenticationRepository(GitRepository):
     def get_metadata(
         self, role: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
-        if commit.value is None:
+        if commit is None:
             commit = self.head_commit_sha()
-        if commit.value is None:
+        if commit is None:
             return None
         metadata_path = get_role_metadata_path(role)
         if safely:
@@ -259,7 +259,7 @@ class AuthenticationRepository(GitRepository):
         self, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
         head_commit = commit or self.head_commit_sha()
-        if head_commit.value is None:
+        if head_commit is None:
             return None
         if safely:
             return self.safely_get_json(head_commit, INFO_JSON_PATH)
@@ -390,7 +390,7 @@ class AuthenticationRepository(GitRepository):
             if commit_id in last_validated_target_commits:
                 last_validated_target_commits.pop(commit_id)
 
-            traversed_commits.append(Commitish(commit_id))
+            traversed_commits.append(Commitish.from_hash(commit_id))
             if not len(last_validated_target_commits):
                 break
         traversed_commits.reverse()

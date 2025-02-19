@@ -21,7 +21,11 @@ class Commitish:
 
     @property
     def value(self) -> str:
-        return self.taf if self.tag else self.hash
+        return self.tag if self.tag else self.hash
+
+    @classmethod
+    def from_hash(cls, hash: Optional[str]):
+        return cls(hash) if hash is not None else None
 
     def __eq__(self, other):
         return self.value == other.value

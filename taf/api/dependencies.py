@@ -21,7 +21,11 @@ from taf.yubikey.yubikey_manager import PinManager
 
 
 def _add_to_dependencies(
-    auth_repo, branch_name, dependency_name, out_of_band_commit, custom
+    auth_repo: AuthenticationRepository,
+    branch_name: str,
+    dependency_name: str,
+    out_of_band_commit: Commitish,
+    custom: dict,
 ):
 
     # add to dependencies.json or update the entry
@@ -35,7 +39,7 @@ def _add_to_dependencies(
     if dependency_name in dependencies:
         print(f"{dependency_name} already added to dependencies.json. Overwriting")
     dependencies[dependency_name] = {
-        "out-of-band-authentication": out_of_band_commit,
+        "out-of-band-authentication": out_of_band_commit.value,
         "branch": branch_name,
     }
     if custom:
@@ -64,7 +68,7 @@ def add_dependency(
     pin_manager: PinManager,
     dependency_name: str,
     branch_name: str,
-    out_of_band_commit: str,
+    out_of_band_hash: str,
     keystore: str,
     dependency_path: Optional[str] = None,
     dependency_url: Optional[str] = None,
@@ -87,7 +91,7 @@ def add_dependency(
         path: Path to the authentication repository.
         dependency_name: Name of the dependency.
         branch_name: Name of the branch which contains the out-of-band authentication commit.
-        out_of_band_commit: SHA of out-of-band authentication commit.
+        out_of_band_hash: SHA of out-of-band authentication commit.
         keystore: Location of the keystore files.
         dependency_path (optional): Path to the dependency repository which is to be added. Can be omitted if dependency_name
         library_dir (optional): Path to the library's root directory. Determined based on the authentication repository's path if not provided.
@@ -147,9 +151,10 @@ def add_dependency(
             taf_logger.error(f"Dependency clone failed due to error {e}.")
             return
 
+    out_of_band_commit = Commitish.from_hash(out_of_band_hash)
     if dependency.is_git_repository:
         branch_name, out_of_band_commit = _determine_out_of_band_data(
-            dependency, branch_name, Commitish(out_of_band_commit), no_prompt
+            dependency, branch_name, out_of_band_commit, no_prompt
         )
     else:
         if not no_prompt and not click.confirm(

@@ -389,7 +389,7 @@ class GitRepository:
                 )
             latest_commit_id = branch_obj.target
         else:
-            if self.head_commit_sha().value is None:
+            if self.head_commit_sha() is None:
                 raise GitError(
                     self,
                     message=f"Error occurred while getting commits of branch {branch}. No HEAD reference",
@@ -398,7 +398,8 @@ class GitRepository:
 
         sort = pygit2.GIT_SORT_REVERSE if reverse else pygit2.GIT_SORT_NONE
         commits = [
-            Commitish(commit.id.hex) for commit in repo.walk(latest_commit_id, sort)
+            Commitish.from_hash(commit.id.hex)
+            for commit in repo.walk(latest_commit_id, sort)
         ]
         self._log_debug(
             f"found the following commits: {', '.join([commit.value for commit in commits])}"
@@ -418,7 +419,7 @@ class GitRepository:
             exceptions.GitError: An error occurred with provided commit SHA
         """
 
-        if since_commit.value is None:
+        if since_commit is None:
             try:
                 return self.all_commits_on_branch(branch=branch, reverse=reverse)
             except GitError as e:
@@ -438,7 +439,7 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
-            if self.head_commit_sha().value is None:
+            if self.head_commit_sha() is None:
                 return []
             latest_commit_id = repo[repo.head.target].id
 
@@ -447,7 +448,7 @@ class GitRepository:
 
         commits: List[Commitish] = []
         for commit in repo.walk(latest_commit_id):
-            commit = Commitish(commit.id.hex)
+            commit = Commitish.from_hash(commit.id.hex)
             if commit == since_commit:
                 break
             commits.insert(0, commit)
@@ -662,7 +663,7 @@ class GitRepository:
         Check if file paths are known to git
         """
         repo = self.pygit_repo
-        if commit.value is None:
+        if commit is None:
             commit = self.head_commit_sha()
 
         pygit_commit = repo[commit.hash]
@@ -800,7 +801,7 @@ class GitRepository:
             # repo does not exist
             old_head = None
 
-        if old_head.value is None:
+        if old_head is None:
             self._log_debug(f"cloning {self.name}")
             self._log_debug(f"old head sha is {old_head}")
             self.clone(**kwargs)
@@ -922,7 +923,7 @@ class GitRepository:
                 break
 
         return bool(unpushed_commits), [
-            Commitish(commit.id) for commit in unpushed_commits
+            Commitish.from_hash(commit.id) for commit in unpushed_commits
         ]
 
     def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> str:
@@ -979,7 +980,7 @@ class GitRepository:
         for comm in repo.walk(repo_commit_id):
             hex = comm.id.hex
             if hex != commit.hash:
-                return Commitish(hex)
+                return Commitish.from_hash(hex)
         return None
 
     def create_local_branch_from_remote_tracking(self, branch, remote="origin"):
@@ -1093,7 +1094,7 @@ class GitRepository:
         first_commit = self._git(
             f"rev-list --max-parents=0 {branch}", error_if_not_exists=False
         )
-        return Commitish(first_commit.strip()) if first_commit else None
+        return Commitish.from_hash(first_commit.strip()) if first_commit else None
 
     def get_last_branch_by_committer_date(self) -> Optional[str]:
         """Find the latest branch based on committer date. Should only be used for
@@ -1125,7 +1126,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         try:
-            return Commitish(repo.revparse_single("HEAD").id.hex)
+            return Commitish.from_hash(repo.revparse_single("HEAD").id.hex)
         except Exception:
             return None
 
@@ -1251,7 +1252,7 @@ class GitRepository:
         if last_commit:
             last_commit = last_commit.split("\t", 1)[0]
             # in some cases (e.g. upstream is defined the result might contain a warning line)
-            return Commitish(last_commit.split()[-1])
+            return Commitish.from_hash(last_commit.split()[-1])
         return None
 
     def get_merge_base(self, branch1: str, branch2: str) -> str:
@@ -1346,7 +1347,7 @@ class GitRepository:
 
     def list_commit_shas(self, branch: Optional[str] = None) -> List[Commitish]:
         branch = branch or self.default_branch
-        return [Commitish(commit.id) for commit in self.list_commits(branch)]
+        return [Commitish.from_hash(commit.id) for commit in self.list_commits(branch)]
 
     def list_n_commits(
         self,
@@ -1369,7 +1370,7 @@ class GitRepository:
             start_commit_id = repo[repo.head.target].id
         commits = itertools.islice(repo.walk(start_commit_id), number + 1)
         return [
-            Commitish(commit.hex)
+            Commitish.from_hash(commit.hex)
             for commit in commits
             if commit.hex != start_commit.hash
         ]
@@ -1699,10 +1700,10 @@ class GitRepository:
 
         branch = repo.branches.get(branch_name)
         if branch is not None:
-            return Commitish(branch.target.hex)
+            return Commitish.from_hash(branch.target.hex)
         # a reference like HEAD
         try:
-            return Commitish(repo.revparse_single(branch_name).id.hex)
+            return Commitish.from_hash(repo.revparse_single(branch_name).id.hex)
         except Exception:
             return None
 
