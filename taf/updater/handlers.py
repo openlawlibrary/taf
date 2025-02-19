@@ -143,7 +143,7 @@ class GitUpdater(FetcherInterface):
         )
 
         # insert the current one at the beginning of the list
-        if last_validated_commit.value is not None:
+        if last_validated_commit is not None:
             commits_since.insert(0, last_validated_commit)
 
         self.commits = commits_since

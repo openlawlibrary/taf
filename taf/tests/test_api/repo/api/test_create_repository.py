@@ -78,55 +78,55 @@ def test_create_repository_when_no_delegations_with_test_flag(
     validate_repository(repo_path)
 
 
-# def test_create_repository_when_delegations(
-#     auth_repo_path: Path,
-#     with_delegations_no_yubikeys_path: str,
-#     keystore_delegations: str,
-#     pin_manager: PinManager,
-# ):
-#     repo_path = str(auth_repo_path)
-#     create_repository(
-#         str(auth_repo_path),
-#         pin_manager,
-#         roles_key_infos=with_delegations_no_yubikeys_path,
-#         keystore=keystore_delegations,
-#         commit=True,
-#     )
+def test_create_repository_when_delegations(
+    auth_repo_path: Path,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
+    pin_manager: PinManager,
+):
+    repo_path = str(auth_repo_path)
+    create_repository(
+        str(auth_repo_path),
+        pin_manager,
+        roles_key_infos=with_delegations_no_yubikeys_path,
+        keystore=keystore_delegations,
+        commit=True,
+    )
 
-#     auth_repo = AuthenticationRepository(path=auth_repo_path)
-#     _check_repo_initialization_successful(auth_repo, is_targets_initialized=False)
-#     targets_roles = auth_repo.get_all_targets_roles()
-#     for role in ("targets", "delegated_role", "inner_role"):
-#         assert role in targets_roles
-#     validate_repository(repo_path)
+    auth_repo = AuthenticationRepository(path=auth_repo_path)
+    _check_repo_initialization_successful(auth_repo, is_targets_initialized=False)
+    targets_roles = auth_repo.get_all_targets_roles()
+    for role in ("targets", "delegated_role", "inner_role"):
+        assert role in targets_roles
+    validate_repository(repo_path)
 
 
-# def test_create_repository_when_add_repositories_json(
-#     auth_repo_path: Path,
-#     with_delegations_no_yubikeys_path: str,
-#     keystore_delegations: str,
-#     repositories_json_template: Dict,
-#     mirrors_json_path: Path,
-#     pin_manager: PinManager,
-# ):
-#     repo_path = str(auth_repo_path)
-#     namespace = auth_repo_path.parent.name
-#     copy_repositories_json(repositories_json_template, namespace, auth_repo_path)
-#     copy_mirrors_json(mirrors_json_path, auth_repo_path)
+def test_create_repository_when_add_repositories_json(
+    auth_repo_path: Path,
+    with_delegations_no_yubikeys_path: str,
+    keystore_delegations: str,
+    repositories_json_template: Dict,
+    mirrors_json_path: Path,
+    pin_manager: PinManager,
+):
+    repo_path = str(auth_repo_path)
+    namespace = auth_repo_path.parent.name
+    copy_repositories_json(repositories_json_template, namespace, auth_repo_path)
+    copy_mirrors_json(mirrors_json_path, auth_repo_path)
 
-#     create_repository(
-#         repo_path,
-#         pin_manager,
-#         roles_key_infos=with_delegations_no_yubikeys_path,
-#         keystore=keystore_delegations,
-#         commit=True,
-#     )
+    create_repository(
+        repo_path,
+        pin_manager,
+        roles_key_infos=with_delegations_no_yubikeys_path,
+        keystore=keystore_delegations,
+        commit=True,
+    )
 
-#     auth_repo = AuthenticationRepository(path=auth_repo_path)
-#     _check_repo_initialization_successful(auth_repo, is_targets_initialized=True)
-#     targets_roles = auth_repo.get_all_targets_roles()
-#     for role in ("targets", "delegated_role", "inner_role"):
-#         assert role in targets_roles
-#     check_if_targets_signed(auth_repo, "targets", "repositories.json", "mirrors.json")
-#     # we are not validating target repositories, just the authentication repository
-#     validate_repository(repo_path, excluded_target_globs="*")
+    auth_repo = AuthenticationRepository(path=auth_repo_path)
+    _check_repo_initialization_successful(auth_repo, is_targets_initialized=True)
+    targets_roles = auth_repo.get_all_targets_roles()
+    for role in ("targets", "delegated_role", "inner_role"):
+        assert role in targets_roles
+    check_if_targets_signed(auth_repo, "targets", "repositories.json", "mirrors.json")
+    # we are not validating target repositories, just the authentication repository
+    validate_repository(repo_path, excluded_target_globs="*")

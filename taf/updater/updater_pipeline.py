@@ -229,9 +229,6 @@ class Pipeline:
                         raise UpdateFailedError(message)
 
             except Exception as e:
-                import pdb
-
-                pdb.set_trace()
                 self.handle_error(e)
                 break
             except KeyboardInterrupt as e:
@@ -1103,9 +1100,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
         try:
-            import pdb
-
-            pdb.set_trace()
             self.state.users_target_repositories = (
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,

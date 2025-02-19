@@ -213,9 +213,9 @@ class GitRepository:
     @property
     def initial_commit(self) -> str:
         return (
-            self._git(
+            Commitish.from_hash(self._git(
                 "rev-list --max-parents=0 HEAD", error_if_not_exists=False
-            ).strip()
+            ).strip())
             if self.is_git_repository
             else None
         )
@@ -955,7 +955,7 @@ class GitRepository:
             "-m",
             message,
         )
-        return self._git("rev-parse HEAD")
+        return Commitish.from_hash(self._git("rev-parse HEAD"))
 
     def commit_exists(self, commit: Commitish) -> str:
         return self._git(f"rev-parse {commit.value}")

@@ -716,7 +716,7 @@ def _update_target_repos(
                 f"Repository {repo_path} does not have the HEAD reference"
             )
             return
-        data = {"commit": target_repo.head_commit_sha()}
+        data = {"commit": target_repo.head_commit_sha().value}
         if add_branch:
             data["branch"] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name
