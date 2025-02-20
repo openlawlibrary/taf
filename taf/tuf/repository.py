@@ -186,6 +186,8 @@ class MetadataRepository(Repository):
         return self._snapshot_info
 
     def add_key_name(self, key_name, key_id, overwrite=False):
+        # make sure _keys_name_mappings is initialized
+        self.keys_name_mappings
         if overwrite or not key_id in self.keys_name_mappings:
             self._keys_name_mappings[key_id] = key_name
 
@@ -814,6 +816,14 @@ class MetadataRepository(Repository):
                     raise TAFError(f"Could not determine parent of role {role}")
                 parents.add(parent)
         return parents
+
+    def find_role_containing_key_of_role(self, role_name: str) -> Optional[str]:
+        if role_name in MAIN_ROLES:
+            return Root.type
+        parent_roles = list(self.find_parents_of_roles([role_name]))
+        if parent_roles:
+            return parent_roles[0]
+        return None
 
     def get_delegations_of_role(self, role_name: str) -> Dict:
         """
@@ -1728,6 +1738,25 @@ class MetadataRepository(Repository):
         for target_file, role in files_to_roles.items():
             roles_targets.setdefault(role, []).append(target_file)
         return roles_targets
+
+    def set_key_names(self, new_key_names):
+        parent_roles_keys = defaultdict(list)
+        for key_id, key_name in new_key_names.items():
+            roles_of_key = self.find_keysid_roles([key_id], check_threshold=False)
+            for role in roles_of_key:
+                role_containing_key = self.find_role_containing_key_of_role(role)
+                parent_roles_keys[role_containing_key].append((key_id, key_name, role))
+                self.add_key_name(key_name, key_id, overwrite=True)
+
+        for role_name, keys_data in parent_roles_keys.items():
+            with self.edit(role_name) as role_obj:
+                for key_data in keys_data:
+                    key_id, key_name, keys_role = key_data
+                    role_obj.revoke_key(key_id, keys_role)
+                    public_key_pem, _ = self.get_public_key_of_keyid(key_id)
+                    public_key = get_sslib_key_from_value(public_key_pem)
+                    public_key.unrecognized_fields["name"] = key_name
+                    role_obj.add_key(public_key, keys_role)
 
     def sync_snapshot_with_roles(self, roles: List[str]) -> None:
         """

@@ -14,6 +14,7 @@ MESSAGES = {
         "add-roles": "Add new roles {roles}",
         "add-signing-key": "Add new signing key to role {role}",
         "remove-role-paths": "Remove delegations {paths} from role {role}",
+        "add-key-names": "Add key names",
     }
 }
 

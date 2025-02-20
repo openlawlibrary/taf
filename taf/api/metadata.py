@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+import json
 from logging import ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_error
+from taf.keys import get_sslib_key_from_value
+from taf.tuf.keys import _get_legacy_keyid
 from taf.yubikey.yubikey_manager import PinManager
 from tuf.api.metadata import Snapshot, Timestamp
 
@@ -11,8 +14,76 @@ from taf.exceptions import TAFError
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.tuf.repository import MetadataRepository as TUFRepository
-from taf.log import taf_logger
+from taf.log import Path, taf_logger
 from taf.auth_repo import AuthenticationRepository
+
+
+@log_on_error(
+    ERROR,
+    "An error occurred while adding key names: {e!r}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=False,
+)
+def add_key_names(
+    path: str,
+    keys_description: Path,
+    pin_manager: PinManager,
+    keystore: Optional[str] = None,
+    commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    update_snapshot_and_timestamp: Optional[bool] = True,
+):
+    if not keys_description.is_file():
+        raise TAFError(f"{keys_description} does not exist")
+
+    commit_msg = commit_msg or git_commit_message("add-key-names")
+
+    keys_description = json.loads(keys_description.read_text())
+    key_names_mapping = keys_description.get("yubikeys")
+
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    parent_roles = set()
+    keys_name_mappings: dict = {}
+    for key_name, key_data in key_names_mapping.items():
+        scheme = key_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
+        if "public" in key_data:
+            pub_key = key_data["public"]
+            ssl_pub_key = get_sslib_key_from_value(pub_key, scheme=scheme)
+            roles_of_key = auth_repo.find_keys_roles(
+                [ssl_pub_key], check_threshold=False
+            )
+            key_id = _get_legacy_keyid(ssl_pub_key)
+            keys_name_mappings[key_id] = key_name
+        elif "keyid" in key_data:
+            key_id = key_data["keyid"]
+            roles_of_key = auth_repo.find_keysid_roles([key_id], check_threshold=False)
+            keys_name_mappings[key_id] = key_name
+        # map the roles to the roles that contain their keys
+        auth_repo.add_key_name(key_name, key_id, overwrite=True)
+        for role_of_key in roles_of_key:
+            role_containing_key = auth_repo.find_role_containing_key_of_role(
+                role_of_key
+            )
+            if role_containing_key is not None:
+                parent_roles.add(role_containing_key)
+
+    with manage_repo_and_signers(
+        auth_repo,
+        parent_roles,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=update_snapshot_and_timestamp,
+        commit=commit,
+        commit_msg=commit_msg,
+        push=push,
+    ):
+        auth_repo.set_key_names(keys_name_mappings)
+        if update_snapshot_and_timestamp:
+            auth_repo.update_snapshot_and_timestamp()
 
 
 @log_on_error(
