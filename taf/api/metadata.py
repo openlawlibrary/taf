@@ -1,10 +1,8 @@
 from datetime import datetime, timezone
-import json
 from logging import ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_error
-from taf.keys import get_sslib_key_from_value
-from taf.tuf.keys import _get_legacy_keyid
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.yubikey.yubikey_manager import PinManager
 from tuf.api.metadata import Snapshot, Timestamp
 
@@ -29,6 +27,7 @@ def add_key_names(
     path: str,
     keys_description: Path,
     pin_manager: PinManager,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     keystore: Optional[str] = None,
     commit: Optional[bool] = True,
     commit_msg: Optional[str] = None,
@@ -40,29 +39,16 @@ def add_key_names(
         raise TAFError(f"{keys_description} does not exist")
 
     commit_msg = commit_msg or git_commit_message("add-key-names")
-
-    keys_description_data = json.loads(keys_description.read_text())
-    key_names_mapping = keys_description_data.get("yubikeys")
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    if not keys_name_mappings:
+        raise TAFError(f"{keys_description} is not a valid keys description json file")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    auth_repo.add_key_names(keys_name_mappings)
     parent_roles = set()
-    keys_name_mappings: dict = {}
-    for key_name, key_data in key_names_mapping.items():
-        scheme = key_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-        if "public" in key_data:
-            pub_key = key_data["public"]
-            ssl_pub_key = get_sslib_key_from_value(pub_key, scheme=scheme)
-            roles_of_key = auth_repo.find_keys_roles(
-                [ssl_pub_key], check_threshold=False
-            )
-            key_id = _get_legacy_keyid(ssl_pub_key)
-            keys_name_mappings[key_id] = key_name
-        elif "keyid" in key_data:
-            key_id = key_data["keyid"]
-            roles_of_key = auth_repo.find_keysid_roles([key_id], check_threshold=False)
-            keys_name_mappings[key_id] = key_name
+    for key_id in keys_name_mappings:
+        roles_of_key = auth_repo.find_keysid_roles([key_id], check_threshold=False)
         # map the roles to the roles that contain their keys
-        auth_repo.add_key_name(key_name, key_id, overwrite=True)
         for role_of_key in roles_of_key:
             role_containing_key = auth_repo.find_role_containing_key_of_role(
                 role_of_key
@@ -171,6 +157,7 @@ def update_metadata_expiration_date(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_snapshot_and_timestamp: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -200,6 +187,8 @@ def update_metadata_expiration_date(
     """
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     if start_date is None:
         start_date = datetime.now()
 
@@ -260,6 +249,7 @@ def update_snapshot_and_timestamp(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_expiration_dates: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Update expiration snapshot and timestamp
@@ -283,6 +273,8 @@ def update_snapshot_and_timestamp(
     """
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     with manage_repo_and_signers(
         auth_repo,

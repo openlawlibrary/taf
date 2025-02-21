@@ -70,8 +70,10 @@ def add_repo_command():
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit, pin_manager):
+    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit, pin_manager, keys_description):
 
         config_data = {}
         if config_file:
@@ -107,6 +109,7 @@ def add_repo_command():
                 prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
                 should_create_new_role=True,
+                keys_description=keys_description,
             )
         else:
             add_target_repo(
@@ -122,6 +125,7 @@ def add_repo_command():
                 prompt_for_keys=prompt_for_keys,
                 commit=not no_commit,
                 should_create_new_role=False,
+                keys_description=keys_description,
             )
     return add_repo
 
@@ -176,14 +180,17 @@ def remove_repo_command():
     @click.argument("target-name")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def remove_repo(path, target_name, keystore, prompt_for_keys, pin_manager):
+    def remove_repo(path, target_name, keystore, prompt_for_keys, pin_manager, keys_description):
         remove_target_repo(
             path=path,
             pin_manager=pin_manager,
             target_name=target_name,
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,
+            keys_description=keys_description,
         )
     return remove_repo
 
@@ -214,7 +221,7 @@ def sign_targets_command():
                 scheme=scheme,
                 update_snapshot_and_timestamp=True,
                 prompt_for_keys=prompt_for_keys,
-                commit=not no_commit
+                commit=not no_commit,
             )
         except TAFError as e:
             click.echo()
@@ -276,7 +283,8 @@ def update_and_sign_command():
                     keystore=keystore,
                     scheme=scheme,
                     prompt_for_keys=prompt_for_keys,
-                    commit=not no_commit
+                    commit=not no_commit,
+                    keys_description=keys_description,
                 )
         except TAFError as e:
             click.echo()

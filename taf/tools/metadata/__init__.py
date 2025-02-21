@@ -74,8 +74,10 @@ def update_expiration_dates_command():
     @click.option("--start-date", default=datetime.datetime.now(), type=ISO_DATE, help="Date to which the interval is added")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager):
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager, keys_description):
         if not len(role):
             print("Specify at least one role")
             return
@@ -88,7 +90,8 @@ def update_expiration_dates_command():
             scheme=scheme,
             start_date=start_date,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys
+            prompt_for_keys=prompt_for_keys,
+            keys_description=keys_description,
         )
     return update_expiration_dates
 

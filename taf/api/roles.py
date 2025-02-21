@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.api.api_workflow import manage_repo_and_signers, transactional_execution
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.tuf.keys import get_sslib_key_from_value
 from taf.api.utils._git import check_if_clean_and_synced
 from taf.exceptions import KeystoreError, TAFError
@@ -59,6 +60,7 @@ def add_role(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     skip_prompt: Optional[bool] = False,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Add a new delegated target role and update and sign metadata files.
@@ -92,6 +94,9 @@ def add_role(
         auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     elif auth_repo.pin_manager is None:
         auth_repo.pin_manager = pin_manager
+
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     if not parent_role:
         parent_role = "targets"
@@ -164,6 +169,7 @@ def add_role_paths(
     auth_path: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Adds additional delegated target paths to the specified role. That means that
@@ -190,6 +196,9 @@ def add_role_paths(
         auth_repo = AuthenticationRepository(path=auth_path, pin_manger=pin_manager)
     elif auth_repo.pin_manager is None:
         auth_repo.pin_manager = pin_manager
+
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     parent_role = auth_repo.find_delegated_roles_parent(delegated_role)
     if all(
@@ -238,6 +247,7 @@ def add_roles(
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Add new target roles and sign all metadata files given information stored in roles_key_infos
@@ -260,6 +270,9 @@ def add_roles(
     """
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
+
     roles_keys_data_new = _initialize_roles_and_keystore_for_existing_repo(
         path,
         auth_repo,
@@ -344,6 +357,7 @@ def add_signing_key(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     commit_msg: Optional[str] = None,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Add a new signing key to the listed roles. Update root metadata if one or more roles is one of the main TUF roles,
@@ -375,6 +389,8 @@ def add_signing_key(
     roles_keys = {role: [pub_key] for role in roles}
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     with manage_repo_and_signers(
         auth_repo,
@@ -424,6 +440,7 @@ def revoke_signing_key(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     commit_msg: Optional[str] = None,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Revoke signing key. Update root metadata if one or more roles is one of the main TUF roles,
@@ -448,6 +465,8 @@ def revoke_signing_key(
     """
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     roles_to_update = roles or auth_repo.find_keysid_roles([key_id])
 
@@ -497,6 +516,7 @@ def rotate_signing_key(
     push: Optional[bool] = True,
     revoke_commit_msg: Optional[str] = None,
     add_commit_msg: Optional[str] = None,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Rotate signing key. Remove it from one or more roles and add a new signing key.
@@ -528,6 +548,8 @@ def rotate_signing_key(
         pub_key_path, prompt_for_keys=prompt_for_keys, scheme=scheme
     )
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     roles = roles or auth_repo.find_keysid_roles([key_id])
 
     with transactional_execution(auth_repo):
@@ -940,6 +962,7 @@ def remove_role(
     auth_repo: Optional[AuthenticationRepository] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Remove a delegated target role and update and sign metadata files.

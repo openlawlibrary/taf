@@ -185,6 +185,10 @@ class MetadataRepository(Repository):
         """
         return self._snapshot_info
 
+    def add_key_names(self, keys_keys_name_mappings: Dict) -> None:
+        for key_id, key_name in keys_keys_name_mappings.items():
+            self.add_key_name(key_name, key_id, overwrite=True)
+
     def add_key_name(self, key_name, key_id, overwrite=False):
         # make sure _keys_name_mappings is initialized
         self.keys_name_mappings
