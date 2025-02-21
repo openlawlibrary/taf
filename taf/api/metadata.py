@@ -41,8 +41,8 @@ def add_key_names(
 
     commit_msg = commit_msg or git_commit_message("add-key-names")
 
-    keys_description = json.loads(keys_description.read_text())
-    key_names_mapping = keys_description.get("yubikeys")
+    keys_description_data = json.loads(keys_description.read_text())
+    key_names_mapping = keys_description_data.get("yubikeys")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
     parent_roles = set()
@@ -72,7 +72,7 @@ def add_key_names(
 
     with manage_repo_and_signers(
         auth_repo,
-        parent_roles,
+        list(parent_roles),
         keystore,
         scheme,
         prompt_for_keys,

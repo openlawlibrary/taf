@@ -9,14 +9,9 @@ from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
 
 
-
 def add_key_names_command():
-    @click.command(
-    help=(
-        "If key names are not specified when creating repositories or adding a new role, "
-        "this command can be used to specify names of keys given a name-public key mapping."
-        )
-    )
+    @click.command(help="""If key names are not specified when creating repositories or adding a new role, "
+        "this command can be used to specify names of keys given a name-public key mapping.""")
     @find_repository
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--keys-description", required=True, type=click.Path(exists=True), help="A dictionary containing information about the "
