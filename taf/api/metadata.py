@@ -39,11 +39,21 @@ def add_key_names(
         raise TAFError(f"{keys_description} does not exist")
 
     commit_msg = commit_msg or git_commit_message("add-key-names")
+
     keys_name_mappings = read_keys_name_mapping(keys_description)
     if not keys_name_mappings:
         raise TAFError(f"{keys_description} is not a valid keys description json file")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    existing_mapping = auth_repo.keys_name_mappings
+    for key_id, key_name in dict(keys_name_mappings).items():
+        if key_id in existing_mapping and key_name == keys_name_mappings[key_id]:
+            keys_name_mappings.pop(key_id)
+
+    if not len(keys_name_mappings):
+        taf_logger.log("NOTICE", "All names already added to the repository")
+        return
+
     auth_repo.add_key_names(keys_name_mappings)
     parent_roles = set()
     for key_id in keys_name_mappings:
