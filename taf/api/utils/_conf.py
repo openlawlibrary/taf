@@ -70,9 +70,12 @@ def read_keys_name_mapping(keys_description: Optional[Union[str, Path]]) -> Dict
         scheme = key_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
         if "public" in key_data:
             pub_key = key_data["public"]
-            ssl_pub_key = get_sslib_key_from_value(pub_key, scheme=scheme)
-            key_id = _get_legacy_keyid(ssl_pub_key)
-            keys_name_mappings[key_id] = key_name
+            try:
+                ssl_pub_key = get_sslib_key_from_value(pub_key, scheme=scheme)
+                key_id = _get_legacy_keyid(ssl_pub_key)
+                keys_name_mappings[key_id] = key_name
+            except ValueError:
+                taf_logger.log("NOTICE", f"Invalid public key {key_name}")
         elif "keyid" in key_data:
             key_id = key_data["keyid"]
             keys_name_mappings[key_id] = key_name

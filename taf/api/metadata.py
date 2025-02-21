@@ -18,7 +18,7 @@ from taf.auth_repo import AuthenticationRepository
 
 @log_on_error(
     ERROR,
-    "An error occurred while adding key names: {e!r}",
+    "An error occurred while adding key names: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=False,
