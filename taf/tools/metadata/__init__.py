@@ -1,11 +1,26 @@
 import click
-from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates
+from pathlib import Path
+from taf.api.metadata import update_metadata_expiration_date, check_expiration_dates, add_key_names
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, find_repository
 from taf.tools.repo import pin_managed
 from taf.utils import ISO_DATE_PARAM_TYPE as ISO_DATE
 import datetime
+
+
+def add_key_names_command():
+    @click.command(help="""If key names are not specified when creating repositories or adding a new role, "
+        "this command can be used to specify names of keys given a name-public key mapping.""")
+    @find_repository
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--keys-description", required=True, type=click.Path(exists=True), help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores the needed information")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @pin_managed
+    def addding_key_names(path, keys_description, keystore, pin_manager):
+        add_key_names(path=path, keys_description=Path(keys_description), keystore=keystore, pin_manager=pin_manager)
+    return addding_key_names
 
 
 def check_expiration_dates_command():
@@ -59,8 +74,10 @@ def update_expiration_dates_command():
     @click.option("--start-date", default=datetime.datetime.now(), type=ISO_DATE, help="Date to which the interval is added")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager):
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager, keys_description):
         if not len(role):
             print("Specify at least one role")
             return
@@ -73,11 +90,13 @@ def update_expiration_dates_command():
             scheme=scheme,
             start_date=start_date,
             commit=not no_commit,
-            prompt_for_keys=prompt_for_keys
+            prompt_for_keys=prompt_for_keys,
+            keys_description=keys_description,
         )
     return update_expiration_dates
 
 
 def attach_to_group(group):
+    group.add_command(add_key_names_command(), name="add-key-names")
     group.add_command(check_expiration_dates_command(), name='check-expiration-dates')
     group.add_command(update_expiration_dates_command(), name='update-expiration-dates')

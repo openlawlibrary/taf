@@ -49,9 +49,11 @@ def add_dependency_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores this information")
     @click.pass_context
     @pin_managed
-    def add(ctx, dependency_name, path, branch_name, dependency_url, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit, pin_manager):
+    def add(ctx, dependency_name, path, branch_name, dependency_url, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit, pin_manager, keys_description):
         custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
@@ -65,6 +67,7 @@ def add_dependency_command():
             custom=custom,
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
+            keys_description=keys_description,
         )
     return add
 
@@ -87,8 +90,10 @@ def remove_dependency_command():
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
+    @click.option("--keys-description", help="A dictionary containing information about the "
+                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def remove(dependency_name, path, keystore, prompt_for_keys, no_commit, pin_manager):
+    def remove(dependency_name, path, keystore, prompt_for_keys, no_commit, pin_manager, keys_description):
         remove_dependency(
             path=path,
             pin_manager=pin_manager,
@@ -96,6 +101,7 @@ def remove_dependency_command():
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
+            keys_description=keys_description,
         )
     return remove
 
