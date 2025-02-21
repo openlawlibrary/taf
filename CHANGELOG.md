@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a command for setting names of keys ([594])
+- Add an option to specify names of keys using an external file ([594])
 - Implement adaptive timeout for Git clone operations ([592])
 - Check if repository is synced with remote before running API functions ([592])
 - Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Fix wrong default branch assignment for target repos [(593)]
 
+[594]: https://github.com/openlawlibrary/taf/pull/594
 [593]: https://github.com/openlawlibrary/taf/pull/593
 [592]: https://github.com/openlawlibrary/taf/pull/592
 [583]: https://github.com/openlawlibrary/taf/pull/583
