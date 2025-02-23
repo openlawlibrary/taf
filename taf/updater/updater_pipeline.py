@@ -2154,9 +2154,7 @@ def _update_tuf_current_revision(git_fetcher, updater, auth_repo_name):
 
 
 def _check_if_commit_on_branch(repo, commit, branch, include_remotes=True):
-    try:
-        repo.commit_exists(commit=commit)
-    except GitError:
+    if not repo.commit_exists(commit=commit):
         return False
 
     try:

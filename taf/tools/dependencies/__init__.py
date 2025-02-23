@@ -59,7 +59,7 @@ def add_dependency_command():
             dependency_name=dependency_name,
             branch_name=branch_name,
             dependency_url=dependency_url,
-            out_of_band_commit=out_of_band_commit,
+            out_of_band_hash=out_of_band_commit,
             dependency_path=dependency_path,
             keystore=keystore,
             custom=custom,

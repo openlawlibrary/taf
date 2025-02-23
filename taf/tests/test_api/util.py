@@ -19,7 +19,7 @@ def check_target_file(
     target_content = targets[auth_repo_head_sha][target_repo_name]
     branch = target_repo.default_branch
     return (
-        target_repo_head_sha == target_content["commit"]
+        target_repo_head_sha.value == target_content["commit"]
         and branch == target_content["branch"]
     )
 

@@ -443,7 +443,7 @@ class GitRepository:
                 return []
             latest_commit_id = repo[repo.head.target].id
 
-        if repo.descendant_of(since_commit, latest_commit_id):
+        if repo.descendant_of(since_commit.hash, latest_commit_id):
             return []
 
         commits: List[Commitish] = []
@@ -869,7 +869,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         try:
-            if commit.value is not None:
+            if commit is not None:
                 pygit_commit = repo[commit.hash]
             else:
                 pygit_commit = repo.revparse_single("HEAD")
@@ -926,7 +926,7 @@ class GitRepository:
             Commitish.from_hash(commit.id) for commit in unpushed_commits
         ]
 
-    def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> str:
+    def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> Commitish:
         if not paths_to_commit:
             self._git("add -A")
         else:
@@ -936,7 +936,7 @@ class GitRepository:
         except GitError:
             try:
                 run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
-                return self._git("rev-parse HEAD")
+                return Commitish(self._git("rev-parse HEAD"))
             except subprocess.CalledProcessError as e:
                 raise GitError(
                     repo=self, message=f"could not commit changes due to:\n{e}", error=e
@@ -957,8 +957,11 @@ class GitRepository:
         )
         return Commitish.from_hash(self._git("rev-parse HEAD"))
 
-    def commit_exists(self, commit: Commitish) -> str:
-        return self._git(f"rev-parse {commit.value}")
+    def commit_exists(self, commit: Commitish) -> bool:
+        try:
+            return bool(self._git(f"rev-parse {commit.value}"))
+        except GitError:
+            return False
 
     def commits_on_branch_and_not_other(
         self, branch1: str, branch2: str
@@ -968,7 +971,7 @@ class GitRepository:
         a commit from another branch. For example, to find only commits
         on a speculative branch and not on the main branch.
         """
-        merge_base = self.get_merge_base(branch1, branch2)
+        merge_base = Commitish.from_hash(self.get_merge_base(branch1, branch2))
         commits = self.all_commits_since_commit(merge_base, branch1, reverse=False)
 
         return commits
@@ -976,7 +979,7 @@ class GitRepository:
     def commit_before_commit(self, commit: Commitish) -> Optional[Commitish]:
         repo = self.pygit_repo
 
-        repo_commit_id = repo.get(commit).id
+        repo_commit_id = repo.get(commit.hash).id
         for comm in repo.walk(repo_commit_id):
             hex = comm.id.hex
             if hex != commit.hash:
@@ -1047,10 +1050,6 @@ class GitRepository:
 
         pygit_commit = repo.get(commit.hash)
         return pygit_commit.message
-
-    def get_commit_sha(self, behind_head: str) -> str:
-        """Get commit sha of HEAD~{behind_head}"""
-        return self._git("rev-parse HEAD~{}", behind_head)
 
     def get_default_branch(self, url: Optional[str] = None) -> str:
         """Get the default branch of the repository. If url is provided, return the
