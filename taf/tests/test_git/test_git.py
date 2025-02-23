@@ -1,4 +1,5 @@
 import datetime
+import json
 from taf.models.types import Commitish
 import pytest
 import tempfile
@@ -19,6 +20,7 @@ def test_get_head_commit_sha(repository):
     assert commit.hash
     assert commit.value
 
+
 def test_head_commit_sha_when_no_repo():
     with tempfile.TemporaryDirectory() as tmpdirname:
         repo = GitRepository(path=tmpdirname)
@@ -36,7 +38,9 @@ def test_clone_from_local(repository: GitRepository, clone_repository: GitReposi
     assert len(commits)
 
 
-def test_branch_unpushed_commits(repository: GitRepository, clone_repository: GitRepository):
+def test_branch_unpushed_commits(
+    repository: GitRepository, clone_repository: GitRepository
+):
     clone_repository.clone_from_disk(repository.path, keep_remote=True)
     branch = clone_repository.branches()[0]
     clone_repository.reset_num_of_commits(1, True)
@@ -62,15 +66,15 @@ def test_is_git_repository_root_non_bare(repository: GitRepository):
     assert repository.is_git_repository_root
 
 
-
-
 def test_all_commits_since_commit_when_repo_empty(empty_repository: GitRepository):
     all_commits_empty = empty_repository.all_commits_since_commit()
     assert isinstance(all_commits_empty, list)
     assert len(all_commits_empty) == 0
 
 
-def test_get_last_remote_commit(origin_repo: GitRepository, clone_repository: GitRepository):
+def test_get_last_remote_commit(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
     clone_repository.urls = [origin_repo.path]
     clone_repository.clone()
     clone_repository.commit_empty("test commit1")
@@ -88,7 +92,9 @@ def test_get_last_remote_commit(origin_repo: GitRepository, clone_repository: Gi
     assert last_remote_on_origin == top_commit
 
 
-def test_reset_to_commit_when_reset_remote_tracking(origin_repo: GitRepository, clone_repository: GitRepository):
+def test_reset_to_commit_when_reset_remote_tracking(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
     # reset to commit is also expected to update the remote tracking branch by default
     clone_repository.urls = [origin_repo.path]
     clone_repository.clone()
@@ -100,7 +106,9 @@ def test_reset_to_commit_when_reset_remote_tracking(origin_repo: GitRepository, 
     )
 
 
-def test_reset_to_commit_when_not_reset_remote_tracking(origin_repo: GitRepository, clone_repository: GitRepository):
+def test_reset_to_commit_when_not_reset_remote_tracking(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
     clone_repository.urls = [origin_repo.path]
     clone_repository.clone()
     top_commit = clone_repository.head_commit_sha()
@@ -160,7 +168,15 @@ def test_all_commits_on_branch(repository: GitRepository):
     commit5 = repository.commit_empty("test commit5")
     commit6 = repository.commit_empty("test commit")
     all_commits_on_new_branch = repository.all_commits_on_branch(branch=branch_name)
-    for commit in (initial_commit, commit1, commit2, commit3, commit4, commit5, commit6):
+    for commit in (
+        initial_commit,
+        commit1,
+        commit2,
+        commit3,
+        commit4,
+        commit5,
+        commit6,
+    ):
         assert commit in all_commits_on_new_branch
 
 
@@ -171,7 +187,9 @@ def test_all_commits_since_commit(repository: GitRepository):
     all_commits_since_commit = repository.all_commits_since_commit(commit1)
     assert len(all_commits_since_commit) == 2
     assert all_commits_since_commit == [commit2, commit3]
-    all_commits_since_commit_reverse = repository.all_commits_since_commit(commit1, reverse=False)
+    all_commits_since_commit_reverse = repository.all_commits_since_commit(
+        commit1, reverse=False
+    )
     assert len(all_commits_since_commit_reverse) == 2
     assert all_commits_since_commit_reverse == [commit3, commit2]
 
@@ -205,7 +223,9 @@ def test_commit_on_branch_an_not_other(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     commit2 = repository.commit_empty("test commit2")
     commit3 = repository.commit_empty("test commit3")
-    all_commits = repository.commits_on_branch_and_not_other(branch_name, repository.default_branch)
+    all_commits = repository.commits_on_branch_and_not_other(
+        branch_name, repository.default_branch
+    )
     assert len(all_commits) == 3
     for commit in (commit1, commit2, commit3):
         assert commit in all_commits
@@ -226,8 +246,99 @@ def test_get_commit_date(repository: GitRepository):
 
 def test_get_first_commit_on_branch(repository: GitRepository):
     repository.commit_empty("test commit1")
-    assert repository.get_first_commit_on_branch(repository.default_branch) == repository.initial_commit
+    assert (
+        repository.get_first_commit_on_branch(repository.default_branch)
+        == repository.initial_commit
+    )
     branch = "new-branch"
     repository.create_branch(branch)
     assert repository.get_first_commit_on_branch(branch) == repository.initial_commit
 
+
+def test_get_last_remote_commit(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    assert clone_repository.get_last_remote_commit() == origin_repo.head_commit_sha()
+
+
+def test_list_files_at_revision(repository: GitRepository):
+    test1 = "test_file1"
+    test2 = "test_file2"
+    dir_path = repository.path / "test"
+    dir_path.mkdir()
+    (dir_path / test1).touch()
+    (dir_path / test2).touch()
+    commit = repository.commit("test commit")
+    files_at_revision = repository.list_files_at_revision(commit, "test")
+    assert set(files_at_revision) == {test1, test2}
+
+
+def test_list_changed_files_at_revision(repository: GitRepository):
+    test1 = "test_file1"
+    test2 = "test_file2"
+    dir_path = repository.path / "test"
+    dir_path.mkdir()
+    (dir_path / test1).touch()
+    (dir_path / test2).touch()
+    commit = repository.commit("test commit")
+    files_at_revision = repository.list_changed_files_at_revision(commit)
+    assert set(files_at_revision) == {f"test/{test1}", f"test/{test2}"}
+
+
+def test_list_commits(repository: GitRepository):
+    initial_commit = repository.initial_commit
+    commit1 = repository.commit_empty("test commit1")
+    commit2 = repository.commit_empty("test commit2")
+    commit3 = repository.commit_empty("test commit3")
+    all_commits = repository.list_commits()
+    for commit in (initial_commit, commit1, commit2, commit3):
+        assert commit in all_commits
+
+
+def test_list_n_commits(repository: GitRepository):
+    repository.commit_empty("test commit1")
+    commit2 = repository.commit_empty("test commit2")
+    commit3 = repository.commit_empty("test commit3")
+    all_commits = repository.list_n_commits(number=2)
+    for commit in (commit2, commit3):
+        assert commit in all_commits
+
+
+def test_merge_commit(repository: GitRepository):
+    branch = "new-branch"
+    repository.create_branch(branch)
+    num_of_commits = len(repository.all_commits_on_branch(branch))
+    commit1 = repository.commit_empty("test commit1")
+    repository.merge_commit(commit1, branch)
+    assert len(repository.all_commits_on_branch(branch)) == num_of_commits + 1
+
+
+def test_reset_to_commit(repository: GitRepository):
+    commit1 = repository.commit_empty("test commit1")
+    commit2 = repository.commit_empty("test commit2")
+    assert repository.head_commit_sha() == commit2
+    repository.reset_to_commit(commit1)
+    assert repository.head_commit_sha() == commit1
+
+
+def test_safely_get_json(repository: GitRepository):
+    test_file = "test.json"
+    (repository.path / test_file).write_text(json.dumps({"test1": "test1"}))
+    commit1 = repository.commit("test")
+    (repository.path / test_file).write_text(json.dumps({"test2": "test2"}))
+    commit2 = repository.commit("test")
+    file1 = repository.safely_get_json(commit1, test_file)
+    assert "test1" in file1
+    file2 = repository.safely_get_json(commit2, test_file)
+    assert "test2" in file2
+
+
+def test_top_commit_of_branch(repository: GitRepository):
+    branch = "new-branch"
+    repository.create_and_checkout_branch(branch)
+    commit1 = repository.commit_empty("test commit1")
+    assert repository.top_commit_of_branch(branch) == commit1
+    commit2 = repository.commit_empty("test commit2")
+    assert repository.top_commit_of_branch(branch) == commit2

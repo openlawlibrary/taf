@@ -213,9 +213,11 @@ class GitRepository:
     @property
     def initial_commit(self) -> str:
         return (
-            Commitish.from_hash(self._git(
-                "rev-list --max-parents=0 HEAD", error_if_not_exists=False
-            ).strip())
+            Commitish.from_hash(
+                self._git(
+                    "rev-list --max-parents=0 HEAD", error_if_not_exists=False
+                ).strip()
+            )
             if self.is_git_repository
             else None
         )
@@ -926,7 +928,9 @@ class GitRepository:
             Commitish.from_hash(commit.id) for commit in unpushed_commits
         ]
 
-    def commit(self, message: str, paths_to_commit: Optional[List[str]] = None) -> Commitish:
+    def commit(
+        self, message: str, paths_to_commit: Optional[List[str]] = None
+    ) -> Commitish:
         if not paths_to_commit:
             self._git("add -A")
         else:
@@ -971,7 +975,7 @@ class GitRepository:
         a commit from another branch. For example, to find only commits
         on a speculative branch and not on the main branch.
         """
-        merge_base = Commitish.from_hash(self.get_merge_base(branch1, branch2))
+        merge_base = self.get_merge_base(branch1, branch2)
         commits = self.all_commits_since_commit(merge_base, branch1, reverse=False)
 
         return commits
@@ -1254,13 +1258,13 @@ class GitRepository:
             return Commitish.from_hash(last_commit.split()[-1])
         return None
 
-    def get_merge_base(self, branch1: str, branch2: str) -> str:
+    def get_merge_base(self, branch1: str, branch2: str) -> Commitish:
         """Finds the best common ancestor between two branches"""
         repo = self.pygit_repo
 
         commit1 = self.top_commit_of_branch(branch1)
         commit2 = self.top_commit_of_branch(branch2)
-        return repo.merge_base(commit1.hash, commit2.hash).hex
+        return Commitish.from_hash(repo.merge_base(commit1.hash, commit2.hash).hex)
 
     def get_tracking_branch(
         self, branch: Optional[str] = "", strip_remote: Optional[bool] = False
@@ -1320,7 +1324,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit1 = repo.get(commit.hash)
-        pygit_commit2 = self.commit_before_commit(pygit_commit1)
+        pygit_commit2 = self.commit_before_commit(commit).hash
         if pygit_commit2 is not None:
             pygit_commit2 = repo.get(pygit_commit2)
 
@@ -1333,7 +1337,7 @@ class GitRepository:
             file_names.add(delta.old_file.path)
         return list(file_names)
 
-    def list_commits(self, branch: Optional[str] = "") -> List[pygit2.Commit]:
+    def list_commits(self, branch: Optional[str] = "") -> List[Commitish]:
         repo = self.pygit_repo
 
         if branch:
@@ -1342,11 +1346,10 @@ class GitRepository:
         else:
             latest_commit_id = repo[repo.head.target].id
 
-        return [commit for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)]
-
-    def list_commit_shas(self, branch: Optional[str] = None) -> List[Commitish]:
-        branch = branch or self.default_branch
-        return [Commitish.from_hash(commit.id) for commit in self.list_commits(branch)]
+        return [
+            Commitish.from_hash(commit.hex)
+            for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)
+        ]
 
     def list_n_commits(
         self,
@@ -1371,7 +1374,7 @@ class GitRepository:
         return [
             Commitish.from_hash(commit.hex)
             for commit in commits
-            if commit.hex != start_commit.hash
+            if commit.hex != start_commit_id
         ]
 
     def list_modified_files(
