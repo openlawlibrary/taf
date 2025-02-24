@@ -22,8 +22,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
+[595]: https://github.com/openlawlibrary/taf/pull/595
 [593]: https://github.com/openlawlibrary/taf/pull/593
 [592]: https://github.com/openlawlibrary/taf/pull/592
 [583]: https://github.com/openlawlibrary/taf/pull/583
