@@ -22,7 +22,7 @@ def check_last_validated_commit(
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     head_sha = client_auth_repo.head_commit_sha()
     last_validated_data = client_auth_repo.last_validated_data
-    assert last_validated_data[client_auth_repo.name] == head_sha
+    assert last_validated_data[client_auth_repo.name] == head_sha.value
     if not excluded_targets:
         assert (
             client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]

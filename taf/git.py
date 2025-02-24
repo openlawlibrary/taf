@@ -473,6 +473,8 @@ class GitRepository:
                     )
                 return
             self._git("remote add {} {}", upstream_name, upstream_url)
+            if self._remotes:
+                self._remotes.append(upstream_name)
         except GitError as e:
             if "already exists" not in str(e):
                 raise
@@ -571,8 +573,8 @@ class GitRepository:
         repo = self.pygit_repo
 
         try:
-            commit = repo[commit.hash]
-            repo.branches.local.create(branch_name, commit.hash)
+            pygit2_commit = repo[commit.hash]
+            repo.branches.local.create(branch_name,pygit2_commit)
             branch = repo.lookup_branch(branch_name)
             ref = repo.lookup_reference(branch.name)
             repo.checkout(ref)
@@ -581,7 +583,7 @@ class GitRepository:
             raise
         finally:
             self._log_info(
-                f"Created a new branch {branch_name} from branching off of {commit.hash}"
+                f"Created a new branch {branch_name} from branching off of {commit}"
             )
 
     def branch_local_name(self, remote_branch_name: str) -> Optional[str]:

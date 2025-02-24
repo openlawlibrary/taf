@@ -38,6 +38,40 @@ def test_clone_from_local(repository: GitRepository, clone_repository: GitReposi
     assert len(commits)
 
 
+def test_branches(repository: GitRepository):
+    assert repository.branches() == [repository.default_branch]
+    branch1 = "branch1"
+    branch2 = "branch2"
+    repository.create_branch(branch1)
+    assert set(repository.branches()) == {repository.default_branch, branch1}
+    repository.create_branch(branch2)
+    assert set(repository.branches()) == {repository.default_branch, branch1, branch2}
+
+
+def test_branch_exists(repository: GitRepository):
+    assert repository.branch_exists(repository.default_branch)
+    branch1 = "branch1"
+    assert not repository.branch_exists(branch1)
+    repository.create_branch(branch1)
+    assert repository.branch_exists(branch1)
+
+
+def test_branch_off_commit(repository: GitRepository):
+    commit1 = repository.commit_empty("commit 1")
+    commit2 = repository.commit_empty("commit 2")
+    assert repository.head_commit_sha() == commit2
+    branch_name = "new_branch"
+    repository.branch_off_commit(branch_name, commit1)
+    assert repository.top_commit_of_branch(branch_name) == commit1
+
+
+def test_branch_local_name(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    remote = clone_repository.remotes[0]
+    assert clone_repository.branch_local_name(f"{remote}/test") == "test"
+
+
 def test_branch_unpushed_commits(
     repository: GitRepository, clone_repository: GitRepository
 ):
@@ -342,3 +376,17 @@ def test_top_commit_of_branch(repository: GitRepository):
     assert repository.top_commit_of_branch(branch) == commit1
     commit2 = repository.commit_empty("test commit2")
     assert repository.top_commit_of_branch(branch) == commit2
+
+
+def test_remotes(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    assert clone_repository.remotes == ["origin"]
+
+
+def test_add_remote(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [origin_repo.path]
+    clone_repository.clone()
+    assert clone_repository.remotes == ["origin"]
+    clone_repository.add_remote("origin2", "https://test.com")
+    assert clone_repository.remotes == ["origin", "origin2"]
