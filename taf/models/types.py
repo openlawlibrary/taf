@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from typing import Iterator, List, Optional, Dict
 import attrs
 
@@ -41,6 +42,13 @@ class Commitish:
 
     def __str__(self):
         return self.value
+
+    def __repr__(self):
+        return f'Commitish("{self.value}")'
+
+    def to_json(self):
+        """Serialize as a plain string instead of an object."""
+        return json.dumps(str(self))
 
 
 @attrs.define

@@ -68,7 +68,8 @@ def library_with_dependencies(origin_dir, pin_manager, request):
     (root_auth_repo.path / TARGETS_DIRECTORY_NAME).mkdir(parents=True, exist_ok=True)
 
     params = {
-        f"commit{i + 1}": commit for i, commit in enumerate(initial_commits.values())
+        f"commit{i + 1}": commit.value
+        for i, commit in enumerate(initial_commits.values())
     }
     params.update(
         {f"name{i + 1}": dep["name"] for i, dep in enumerate(dependencies_config)}

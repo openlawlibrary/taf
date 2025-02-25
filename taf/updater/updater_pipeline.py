@@ -109,7 +109,7 @@ class UpdateState:
     errors: Optional[List[Exception]] = field(default=None)
     warnings: Optional[List[Exception]] = field(default=None)
     targets_data: Dict[str, Any] = field(factory=dict)
-    last_validated_commit: str = field(factory=str)
+    last_validated_commit: Commitish = field(factory=str)
     last_validated_data: str = field(factory=dict)
     temp_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
     users_target_repositories: Dict[str, "GitRepository"] = field(factory=dict)
@@ -418,8 +418,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.target_repo_classes = update_config.target_repo_classes
         self.target_factory = update_config.target_factory
         self.only_validate = update_config.only_validate
-        self.validate_from_commit = update_config.validate_from_commit
-        self.out_of_band_authentication = update_config.out_of_band_authentication
+        self.validate_from_commit = Commitish.from_hash(
+            update_config.validate_from_commit
+        )
+        self.out_of_band_authentication = Commitish.from_hash(
+            update_config.out_of_band_authentication
+        )
         self.checkout = update_config.checkout
         self.bare = update_config.bare
         self.excluded_target_globs = update_config.excluded_target_globs
@@ -544,9 +548,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
             ] = self.validate_from_commit
-            self.state.last_validated_commit = Commitish.from_hash(
-                self.validate_from_commit
-            )
+            self.state.last_validated_commit = self.validate_from_commit
 
     def check_if_local_repositories_clean(self):
         try:

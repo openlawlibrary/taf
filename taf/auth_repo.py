@@ -349,8 +349,8 @@ class AuthenticationRepository(GitRepository):
         set_last_validated_commit: Optional[bool] = True,
     ):
         last_validated_data = self.last_validated_data or {}
-        last_validated_data[repo_name] = commit
-        last_validated_data[self.LAST_VALIDATED_KEY] = commit
+        last_validated_data[repo_name] = commit.value
+        last_validated_data[self.LAST_VALIDATED_KEY] = commit.value
         last_data_str = json.dumps(last_validated_data, indent=4)
         self._log_debug(f"setting last validated data to: {last_data_str}")
         if set_last_validated_commit and self.name == repo_name:
