@@ -498,7 +498,10 @@ def _get_deduplicated_target_or_auth_repositories(
     raise_error_if_no_urls: Optional[bool] = False,
 ):
     if commits is None:
-        commits = [auth_repo.head_commit_sha()]
+        head_commit = auth_repo.head_commit_sha()
+        if not head_commit:
+            return {}
+        commits = [head_commit]
 
     if load_auth:
         if auth_repo.path in _dependencies_dict and all(

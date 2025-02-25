@@ -72,6 +72,7 @@ def test_branch_local_name(origin_repo: GitRepository, clone_repository: GitRepo
     remote = clone_repository.remotes[0]
     assert clone_repository.branch_local_name(f"{remote}/test") == "test"
 
+
 def test_branch_unpushed_commits(
     repository: GitRepository, clone_repository: GitRepository
 ):
@@ -398,7 +399,9 @@ def test_checkout_branch(repository: GitRepository):
     repository.get_current_branch() == branch
 
 
-def test_if_clean_and_synced_when_dirty_index(origin_repo: GitRepository, clone_repository: GitRepository):
+def test_if_clean_and_synced_when_dirty_index(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
     clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     assert clone_repository.check_if_clean_and_synced()
@@ -406,7 +409,9 @@ def test_if_clean_and_synced_when_dirty_index(origin_repo: GitRepository, clone_
     assert not clone_repository.check_if_clean_and_synced()
 
 
-def test_if_clean_and_synced_when_additional_commit(origin_repo: GitRepository, clone_repository: GitRepository):
+def test_if_clean_and_synced_when_additional_commit(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
     clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     assert clone_repository.check_if_clean_and_synced()
@@ -414,7 +419,9 @@ def test_if_clean_and_synced_when_additional_commit(origin_repo: GitRepository, 
     assert not clone_repository.check_if_clean_and_synced()
 
 
-def test_if_clean_and_synced_when_remote_commit(origin_repo: GitRepository, clone_repository: GitRepository):
+def test_if_clean_and_synced_when_remote_commit(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
     clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     assert clone_repository.check_if_clean_and_synced()
@@ -428,6 +435,7 @@ def test_if_clean_and_synced_when_remote_commit(origin_repo: GitRepository, clon
 
 def test_checkout_paths(repository: GitRepository):
     head_commit = repository.head_commit_sha()
+    assert head_commit
     updated_file = repository.path / "test1.txt"
     old_text = updated_file.read_text()
     new_text = "some updated text"
