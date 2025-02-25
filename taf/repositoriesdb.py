@@ -251,7 +251,7 @@ def _load_repositories(
     commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
     excluded_target_globs: Optional[List[str]] = None,
-    raise_error_if_no_urls: bool = False,
+    raise_error_if_no_urls: Optional[bool] = False,
 ) -> Dict:
 
     repositories = {}
@@ -467,7 +467,7 @@ def get_repositories_paths_by_custom_data(
 
 def get_deduplicated_auth_repositories(
     auth_repo: AuthenticationRepository,
-    commits: List[Commitish],
+    commits: Optional[List[Commitish]],
 ) -> Dict[str, AuthenticationRepository]:
     return _get_deduplicated_target_or_auth_repositories(auth_repo, commits, True)
 
@@ -491,7 +491,7 @@ def get_deduplicated_repositories(
 
 def _get_deduplicated_target_or_auth_repositories(
     auth_repo: AuthenticationRepository,
-    commits: List[Commitish],
+    commits: Optional[List[Commitish]],
     load_auth: Optional[bool] = False,
     excluded_target_globs: Optional[List[str]] = None,
     library_dir: Optional[str] = None,

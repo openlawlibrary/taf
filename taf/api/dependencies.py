@@ -25,7 +25,7 @@ def _add_to_dependencies(
     branch_name: str,
     dependency_name: str,
     out_of_band_commit: Commitish,
-    custom: dict,
+    custom: Optional[Dict],
 ):
 
     # add to dependencies.json or update the entry

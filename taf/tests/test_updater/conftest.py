@@ -2,6 +2,8 @@ import enum
 import os
 import re
 import uuid
+
+from taf.models.types import Commitish
 import pytest
 import inspect
 import random
@@ -652,7 +654,7 @@ def remove_commits_from_auth_repo(
     auth_repo.reset_num_of_commits(num_of_commits, hard=True)
 
 
-def reset_to_commit(auth_repo: AuthenticationRepository, commit: str):
+def reset_to_commit(auth_repo: AuthenticationRepository, commit: Commitish):
     auth_repo.reset_to_commit(commit, hard=True)
 
 
@@ -676,12 +678,14 @@ def replace_with_old_last_validated_commit_format(auth_repo: AuthenticationRepos
 def revert_last_validated_commit(auth_repo: AuthenticationRepository):
     older_commit = auth_repo.all_commits_on_branch(auth_repo.default_branch)[-2]
     auth_repo.set_last_validated_of_repo(
-        auth_repo.name, older_commit.hash, set_last_validated_commit=True
+        auth_repo.name, older_commit, set_last_validated_commit=True
     )
     assert auth_repo.last_validated_commit == older_commit.hash
 
 
-def set_last_commit_of_auth_repo(auth_repo: AuthenticationRepository, commit: str):
+def set_last_commit_of_auth_repo(
+    auth_repo: AuthenticationRepository, commit: Commitish
+):
     auth_repo.set_last_validated_of_repo(
         auth_repo.name, commit, set_last_validated_commit=True
     )

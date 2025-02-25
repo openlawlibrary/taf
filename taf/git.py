@@ -211,7 +211,7 @@ class GitRepository:
             return False
 
     @property
-    def initial_commit(self) -> str:
+    def initial_commit(self) -> Commitish:
         return (
             Commitish.from_hash(
                 self._git(
@@ -376,7 +376,7 @@ class GitRepository:
 
     def all_commits_on_branch(
         self, branch: Optional[str] = None, reverse: Optional[bool] = True
-    ) -> List[str]:
+    ) -> List[Commitish]:
         """Returns a list of all commits on the specified branch.
         If branch is None, all commits on the currently checked out branch will be returned
         """
@@ -574,7 +574,7 @@ class GitRepository:
 
         try:
             pygit2_commit = repo[commit.hash]
-            repo.branches.local.create(branch_name,pygit2_commit)
+            repo.branches.local.create(branch_name, pygit2_commit)
             branch = repo.lookup_branch(branch_name)
             ref = repo.lookup_reference(branch.name)
             repo.checkout(ref)
@@ -648,7 +648,9 @@ class GitRepository:
         repo = self.pygit_repo
 
         pygit_commit = repo.get(commit.hash)
-        repo.checkout_tree(pygit_commit, paths=list(args))
+        repo.checkout_tree(
+            pygit_commit, paths=list(args), strategy=pygit2.GIT_CHECKOUT_FORCE
+        )
 
     def checkout_orphan_branch(self, branch_name: str) -> None:
         """Creates orphan branch"""
@@ -666,15 +668,18 @@ class GitRepository:
         """
         Check if file paths are known to git
         """
+        existing_files: list = []
+        non_existing: list = []
         repo = self.pygit_repo
+
         if commit is None:
             commit = self.head_commit_sha()
 
+        if commit is None:
+            return existing_files, non_existing
+
         pygit_commit = repo[commit.hash]
         tree = pygit_commit.tree  # Get the tree of that commit
-
-        existing_files = []
-        non_existing = []
 
         for file_path in file_paths:
             try:
@@ -942,7 +947,7 @@ class GitRepository:
         except GitError:
             try:
                 run("git", "-C", str(self.path), "commit", "--quiet", "-m", message)
-                return Commitish(self._git("rev-parse HEAD"))
+                return Commitish.from_hash(self._git("rev-parse HEAD"))
             except subprocess.CalledProcessError as e:
                 raise GitError(
                     repo=self, message=f"could not commit changes due to:\n{e}", error=e
@@ -950,7 +955,7 @@ class GitRepository:
         else:
             raise NothingToCommitError(repo=self, message="No changes to commit")
 
-    def commit_empty(self, message: str) -> None:
+    def commit_empty(self, message: str) -> Commitish:
         run(
             "git",
             "-C",
@@ -1260,12 +1265,14 @@ class GitRepository:
             return Commitish.from_hash(last_commit.split()[-1])
         return None
 
-    def get_merge_base(self, branch1: str, branch2: str) -> Commitish:
+    def get_merge_base(self, branch1: str, branch2: str) -> Optional[Commitish]:
         """Finds the best common ancestor between two branches"""
         repo = self.pygit_repo
 
         commit1 = self.top_commit_of_branch(branch1)
         commit2 = self.top_commit_of_branch(branch2)
+        if commit1 is None or commit2 is None:
+            return None
         return Commitish.from_hash(repo.merge_base(commit1.hash, commit2.hash).hex)
 
     def get_tracking_branch(
@@ -1325,12 +1332,12 @@ class GitRepository:
     def list_changed_files_at_revision(self, commit: Commitish) -> List[str]:
         repo = self.pygit_repo
 
-        pygit_commit1 = repo.get(commit.hash)
-        pygit_commit2 = self.commit_before_commit(commit).hash
-        if pygit_commit2 is not None:
-            pygit_commit2 = repo.get(pygit_commit2)
+        commit1 = repo.get(commit.hash)
+        commit_before_commit = self.commit_before_commit(commit)
+        if commit_before_commit is not None:
+            commit2 = repo.get(commit_before_commit.hash)
 
-        diff = repo.diff(pygit_commit1, pygit_commit2)
+        diff = repo.diff(commit1, commit2)
 
         file_names = set()
         for patch in diff:
@@ -1340,6 +1347,13 @@ class GitRepository:
         return list(file_names)
 
     def list_commits(self, branch: Optional[str] = "") -> List[Commitish]:
+
+        return [
+            Commitish.from_hash(commit.hex)
+            for commit in self.list_pygit_commits(branch)
+        ]
+
+    def list_pygit_commits(self, branch: Optional[str] = "") -> List[pygit2.Commit]:
         repo = self.pygit_repo
 
         if branch:
@@ -1348,10 +1362,7 @@ class GitRepository:
         else:
             latest_commit_id = repo[repo.head.target].id
 
-        return [
-            Commitish.from_hash(commit.hex)
-            for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)
-        ]
+        return [commit for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)]
 
     def list_n_commits(
         self,

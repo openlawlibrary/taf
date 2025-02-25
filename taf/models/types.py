@@ -14,10 +14,14 @@ from taf.models.validators import (
 )
 
 
-@attrs.frozen
+@attrs.define
 class Commitish:
     hash: str
     tag: Optional[str] = None
+
+    def __init__(self, hash, tag=None):
+        self.hash = hash
+        self.tag = tag
 
     @property
     def value(self) -> str:

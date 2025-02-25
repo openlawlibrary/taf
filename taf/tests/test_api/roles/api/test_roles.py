@@ -19,7 +19,7 @@ def test_add_role_when_target_is_parent(
     roles_keystore: str,
     pin_manager: PinManager,
 ):
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     ROLE_NAME = "new_role"
     PATHS = ["some-path1", "some-path2"]
     PARENT_NAME = "targets"
@@ -37,7 +37,7 @@ def test_add_role_when_target_is_parent(
         push=False,
         skip_prompt=True,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("add-role", role=ROLE_NAME)
     check_new_role(auth_repo, ROLE_NAME, PATHS, roles_keystore, PARENT_NAME)
@@ -48,7 +48,7 @@ def test_add_role_when_delegated_role_is_parent(
     roles_keystore: str,
     pin_manager: PinManager,
 ):
-    initial_commits_num = len(auth_repo_with_delegations.list_commits())
+    initial_commits_num = len(auth_repo_with_delegations.list_pygit_commits())
     ROLE_NAME = "new_inner_role"
     PATHS = ["inner-path1", "inner-path2"]
     PARENT_NAME = "delegated_role"
@@ -66,7 +66,7 @@ def test_add_role_when_delegated_role_is_parent(
         push=False,
         skip_prompt=True,
     )
-    commits = auth_repo_with_delegations.list_commits()
+    commits = auth_repo_with_delegations.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("add-role", role=ROLE_NAME)
     check_new_role(
@@ -80,7 +80,7 @@ def test_add_multiple_roles(
     roles_keystore: str,
     add_roles_config_json_input: str,
 ):
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     add_roles(
         path=str(auth_repo.path),
         pin_manager=pin_manager,
@@ -90,7 +90,7 @@ def test_add_multiple_roles(
     )
     # with_delegations_no_yubikeys_path specification contains delegated_role and inner_role
     # definitions, so these two roles should get added to the repository
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     new_roles = ["delegated_role"]
     assert commits[0].message.strip() == git_commit_message(
@@ -107,7 +107,7 @@ def test_add_role_paths(
     roles_keystore: str,
     pin_manager: PinManager,
 ):
-    initial_commits_num = len(auth_repo_with_delegations.list_commits())
+    initial_commits_num = len(auth_repo_with_delegations.list_pygit_commits())
     NEW_PATHS = ["some-path3"]
     ROLE_NAME = "delegated_role"
     add_role_paths(
@@ -119,7 +119,7 @@ def test_add_role_paths(
         push=False,
     )
 
-    commits = auth_repo_with_delegations.list_commits()
+    commits = auth_repo_with_delegations.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "add-role-paths", paths=", ".join(NEW_PATHS), role=ROLE_NAME
@@ -134,7 +134,7 @@ def test_remove_role_paths(
     roles_keystore: str,
     pin_manager: PinManager,
 ):
-    initial_commits_num = len(auth_repo_with_delegations.list_commits())
+    initial_commits_num = len(auth_repo_with_delegations.list_pygit_commits())
     REMOVED_PATHS = ["dir2/path1"]
     ROLE_NAME = "delegated_role"
     remove_paths(
@@ -145,7 +145,7 @@ def test_remove_role_paths(
         push=False,
     )
 
-    commits = auth_repo_with_delegations.list_commits()
+    commits = auth_repo_with_delegations.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "remove-role-paths", paths=", ".join(REMOVED_PATHS), role=ROLE_NAME
@@ -157,7 +157,7 @@ def test_remove_role_paths(
 
 # TODO enable when remove role is reimplemented
 # def test_remove_role_when_no_targets(auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str):
-#     initial_commits_num = len(auth_repo_with_delegations.list_commits())
+#     initial_commits_num = len(auth_repo_with_delegations.list_pygit_commits())
 #     ROLE_NAME = "inner_role"
 #     remove_role(
 #         path=str(auth_repo_with_delegations.path),
@@ -165,7 +165,7 @@ def test_remove_role_paths(
 #         keystore=roles_keystore,
 #         push=False,
 #     )
-#     commits = auth_repo_with_delegations.list_commits()
+#     commits = auth_repo_with_delegations.list_pygit_commits()
 #     assert len(commits) == initial_commits_num + 1
 #     assert commits[0].message.strip() == git_commit_message(
 #         "remove-role", role=ROLE_NAME
@@ -173,7 +173,7 @@ def test_remove_role_paths(
 
 
 # def test_remove_role_when_remove_targets(auth_repo_with_delegations: AuthenticationRepository, roles_keystore: str):
-#     initial_commits_num = len(auth_repo_with_delegations.list_commits())
+#     initial_commits_num = len(auth_repo_with_delegations.list_pygit_commits())
 #     ROLE_NAME = "delegated_role"
 #     # add target files which match the delegated role's paths
 #     # one is a glob dir1/*
@@ -194,7 +194,7 @@ def test_remove_role_paths(
 #     check_if_targets_signed(
 #         auth_repo_with_delegations, ROLE_NAME, f"dir1/{FILENAME1}", f"dir2/{FILENAME2}"
 #     )
-#     commits = auth_repo_with_delegations.list_commits()
+#     commits = auth_repo_with_delegations.list_pygit_commits()
 #     assert len(commits) == initial_commits_num + 1
 #     remove_role(
 #         path=str(auth_repo_with_delegations.path),
@@ -203,7 +203,7 @@ def test_remove_role_paths(
 #         push=False,
 #         remove_targets=True,
 #     )
-#     commits = auth_repo_with_delegations.list_commits()
+#     commits = auth_repo_with_delegations.list_pygit_commits()
 #     assert len(commits) == initial_commits_num + 2
 #     assert commits[0].message.strip() == git_commit_message(
 #         "remove-role", role=ROLE_NAME
@@ -213,7 +213,7 @@ def test_remove_role_paths(
 
 
 # def test_remove_role_when_keep_targets(auth_repo: AuthenticationRepository, roles_keystore: str):
-#     initial_commits_num = len(auth_repo.list_commits())
+#     initial_commits_num = len(auth_repo.list_pygit_commits())
 #     ROLE_NAME = "new_role"
 #     # add target file which matches the delegated role's paths
 #     FILENAME = "some-path2"
@@ -223,7 +223,7 @@ def test_remove_role_paths(
 #     file_path.write_text("test")
 #     register_target_files(auth_repo.path, roles_keystore, write=True, push=False)
 #     check_if_targets_signed(auth_repo, ROLE_NAME, FILENAME)
-#     commits = auth_repo.list_commits()
+#     commits = auth_repo.list_pygit_commits()
 #     assert len(commits) == initial_commits_num + 1
 #     remove_role(
 #         path=str(auth_repo.path),
@@ -232,7 +232,7 @@ def test_remove_role_paths(
 #         push=False,
 #         remove_targets=False,
 #     )
-#     commits = auth_repo.list_commits()
+#     commits = auth_repo.list_pygit_commits()
 #     assert len(commits) == initial_commits_num + 2
 #     assert commits[0].message.strip() == git_commit_message(
 #         "remove-role", role=ROLE_NAME
@@ -255,7 +255,7 @@ def test_add_signing_key(
     auth_repo: AuthenticationRepository, roles_keystore: str, pin_manager: PinManager
 ):
     auth_repo = AuthenticationRepository(path=auth_repo.path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     # for testing purposes, add targets signing key to timestamp and snapshot roles
     pub_key_path = Path(roles_keystore, "targets1.pub")
     COMMIT_MSG = "Add new timestamp and snapshot signing key"
@@ -268,7 +268,7 @@ def test_add_signing_key(
         push=False,
         commit_msg=COMMIT_MSG,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == COMMIT_MSG
     timestamp_keys_infos = list_keys_of_role(str(auth_repo.path), "timestamp")
@@ -283,7 +283,7 @@ def test_revoke_signing_key(
     auth_repo = AuthenticationRepository(path=auth_repo.path)
     targest_keyids = auth_repo.get_keyids_of_role("targets")
     key_to_remove = targest_keyids[-1]
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
     assert len(targets_keys_infos) == 2
     COMMIT_MSG = "Revoke a targets key"
@@ -295,7 +295,7 @@ def test_revoke_signing_key(
         push=False,
         commit_msg=COMMIT_MSG,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     targets_keys_infos = list_keys_of_role(str(auth_repo.path), "targets")
     assert len(targets_keys_infos) == 1

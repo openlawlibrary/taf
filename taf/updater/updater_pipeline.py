@@ -537,12 +537,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
             ] = last_validated_commit
-            self.state.last_validated_commit = Commitish.from_hash(last_validated_commit)
+            self.state.last_validated_commit = Commitish.from_hash(
+                last_validated_commit
+            )
         elif self.validate_from_commit:
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
             ] = self.validate_from_commit
-            self.state.last_validated_commit = Commitish.from_hash(self.validate_from_commit)
+            self.state.last_validated_commit = Commitish.from_hash(
+                self.validate_from_commit
+            )
 
     def check_if_local_repositories_clean(self):
         try:
@@ -857,12 +861,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                 if self.force:
                                     _clear_lvc()
                                     taf_logger.warning(
-                                        f"{self.state.users_auth_repo.name}: Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                        f"{self.state.users_auth_repo.name}: Top commit of repository {self.state.users_auth_repo.name} {users_head_commit} is not equal to or newer than the last successful commit. "
                                         "Running the validation from the first commit."
                                     )
                                 else:
                                     raise UpdateFailedError(
-                                        f"Top commit of repository {self.state.users_auth_repo.name} {users_head_sha} is not equal to or newer than the last successful commit. "
+                                        f"Top commit of repository {self.state.users_auth_repo.name} {users_head_commit} is not equal to or newer than the last successful commit. "
                                         "\nRun the updater with the --force flag to run the validation from the first commit"
                                     )
 
@@ -1510,7 +1514,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             ].get(last_validated_target_auth_commit, {})
                         )
                         previous_branch = current_head_commit_and_branch.get("branch")
-                        previous_commit = Commitish.from_hash(current_head_commit_and_branch.get("commit"))
+                        previous_commit = Commitish.from_hash(
+                            current_head_commit_and_branch.get("commit")
+                        )
                         if previous_commit is not None and previous_branch is None:
                             previous_branch = repository.default_branch
                     else:
@@ -1841,7 +1847,13 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _merge_commit(self, repository: AuthenticationRepository, branch: str, commit_to_merge: Commitish, is_last_branch: bool):
+    def _merge_commit(
+        self,
+        repository: AuthenticationRepository,
+        branch: str,
+        commit_to_merge: Commitish,
+        is_last_branch: bool,
+    ):
         """Merge the specified commit into the given branch and check out the branch.
         If the repository cannot contain unauthenticated commits, check out the merged commit.
         """
@@ -2236,5 +2248,5 @@ def _format_commits(commits: List[Commitish]) -> str:
     elif len(commits) == 2:
         formatted_commits = f"{commits[0]} and {commits[1]}"
     else:
-        formatted_commits = commits[0]
+        formatted_commits = commits[0].hash
     return formatted_commits

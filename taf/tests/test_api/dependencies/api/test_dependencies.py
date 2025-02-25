@@ -34,7 +34,7 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
     pin_manager,
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     child_repository = AuthenticationRepository(path=child_repo_path)
 
     with pytest.raises(TAFError):
@@ -48,7 +48,7 @@ def test_add_dependency_when_on_filesystem_invalid_commit(
             no_prompt=True,
             push=False,
         )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num
 
 
@@ -59,7 +59,7 @@ def test_add_dependency_when_on_filesystem(
     pin_manager,
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     child_repository = AuthenticationRepository(path=child_repo_path)
 
     add_dependency(
@@ -72,7 +72,7 @@ def test_add_dependency_when_on_filesystem(
         no_prompt=True,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "add-dependency", dependency_name=child_repository.name
@@ -91,7 +91,7 @@ def test_add_dependency_when_not_on_filesystem(
     parent_repo_path, keystore_delegations, pin_manager
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     branch_name = "main"
     out_of_band_hash = "66d7f48e972f9fa25196523f469227dfcd85c994"
     add_dependency(
@@ -104,7 +104,7 @@ def test_add_dependency_when_not_on_filesystem(
         no_prompt=True,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "add-dependency", dependency_name=DEPENDENCY_NAME
@@ -123,7 +123,7 @@ def test_remove_dependency(
     parent_repo_path, child_repo_path, keystore_delegations, pin_manager
 ):
     auth_repo = AuthenticationRepository(path=parent_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     child_repository = AuthenticationRepository(path=child_repo_path)
 
     remove_dependency(
@@ -133,7 +133,7 @@ def test_remove_dependency(
         keystore=keystore_delegations,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "remove-dependency", dependency_name=child_repository.name

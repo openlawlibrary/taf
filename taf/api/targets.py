@@ -18,6 +18,7 @@ from taf.exceptions import TAFError
 from taf.git import GitRepository
 from taf.messages import git_commit_message
 
+from taf.models.types import Commitish
 import taf.repositoriesdb as repositoriesdb
 from taf.log import taf_logger
 from taf.auth_repo import AuthenticationRepository
@@ -192,7 +193,7 @@ def _add_target_repository_to_repositories_json(
 
 def export_targets_history(
     path: str,
-    commit: Optional[str] = None,
+    commit: Optional[Commitish] = None,
     output: Optional[str] = None,
     target_repos: Optional[List[str]] = None,
 ) -> None:
@@ -711,12 +712,13 @@ def _update_target_repos(
         return
     target_repo = GitRepository(path=target_repo_path)
     if target_repo.is_git_repository:
-        if target_repo.head_commit_sha() is None:
+        head_commit_sha = target_repo.head_commit_sha()
+        if head_commit_sha is None:
             taf_logger.warning(
                 f"Repository {repo_path} does not have the HEAD reference"
             )
             return
-        data = {"commit": target_repo.head_commit_sha().value}
+        data = {"commit": head_commit_sha.value}
         if add_branch:
             data["branch"] = target_repo.get_current_branch()
         target_repo_name = target_repo_path.name

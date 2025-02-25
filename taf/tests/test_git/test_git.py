@@ -49,6 +49,7 @@ def test_branches(repository: GitRepository):
 
 
 def test_branch_exists(repository: GitRepository):
+    assert repository.default_branch
     assert repository.branch_exists(repository.default_branch)
     branch1 = "branch1"
     assert not repository.branch_exists(branch1)
@@ -66,11 +67,10 @@ def test_branch_off_commit(repository: GitRepository):
 
 
 def test_branch_local_name(origin_repo: GitRepository, clone_repository: GitRepository):
-    clone_repository.urls = [origin_repo.path]
+    clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     remote = clone_repository.remotes[0]
     assert clone_repository.branch_local_name(f"{remote}/test") == "test"
-
 
 def test_branch_unpushed_commits(
     repository: GitRepository, clone_repository: GitRepository
@@ -109,13 +109,14 @@ def test_all_commits_since_commit_when_repo_empty(empty_repository: GitRepositor
 def test_get_last_remote_commit(
     origin_repo: GitRepository, clone_repository: GitRepository
 ):
-    clone_repository.urls = [origin_repo.path]
+    clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     clone_repository.commit_empty("test commit1")
     top_commit = clone_repository.commit_empty("test commit2")
     clone_repository.push()
     initial_commit = clone_repository.initial_commit
     clone_repository.reset_to_commit(initial_commit)
+    assert clone_repository.default_branch
     assert (
         clone_repository.top_commit_of_branch(clone_repository.default_branch)
         == initial_commit
@@ -130,7 +131,7 @@ def test_reset_to_commit_when_reset_remote_tracking(
     origin_repo: GitRepository, clone_repository: GitRepository
 ):
     # reset to commit is also expected to update the remote tracking branch by default
-    clone_repository.urls = [origin_repo.path]
+    clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     initial_commit = clone_repository.initial_commit
     clone_repository.reset_to_commit(initial_commit)
@@ -143,8 +144,9 @@ def test_reset_to_commit_when_reset_remote_tracking(
 def test_reset_to_commit_when_not_reset_remote_tracking(
     origin_repo: GitRepository, clone_repository: GitRepository
 ):
-    clone_repository.urls = [origin_repo.path]
+    clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
+    assert clone_repository.default_branch
     top_commit = clone_repository.head_commit_sha()
     initial_commit = clone_repository.initial_commit
     clone_repository.reset_to_commit(initial_commit, reset_remote_tracking=False)
@@ -257,6 +259,7 @@ def test_commit_on_branch_an_not_other(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     commit2 = repository.commit_empty("test commit2")
     commit3 = repository.commit_empty("test commit3")
+    assert repository.default_branch
     all_commits = repository.commits_on_branch_and_not_other(
         branch_name, repository.default_branch
     )
@@ -287,14 +290,6 @@ def test_get_first_commit_on_branch(repository: GitRepository):
     branch = "new-branch"
     repository.create_branch(branch)
     assert repository.get_first_commit_on_branch(branch) == repository.initial_commit
-
-
-def test_get_last_remote_commit(
-    origin_repo: GitRepository, clone_repository: GitRepository
-):
-    clone_repository.urls = [origin_repo.path]
-    clone_repository.clone()
-    assert clone_repository.get_last_remote_commit() == origin_repo.head_commit_sha()
 
 
 def test_list_files_at_revision(repository: GitRepository):
@@ -364,8 +359,10 @@ def test_safely_get_json(repository: GitRepository):
     (repository.path / test_file).write_text(json.dumps({"test2": "test2"}))
     commit2 = repository.commit("test")
     file1 = repository.safely_get_json(commit1, test_file)
+    assert file1
     assert "test1" in file1
     file2 = repository.safely_get_json(commit2, test_file)
+    assert file2
     assert "test2" in file2
 
 
@@ -379,14 +376,62 @@ def test_top_commit_of_branch(repository: GitRepository):
 
 
 def test_remotes(origin_repo: GitRepository, clone_repository: GitRepository):
-    clone_repository.urls = [origin_repo.path]
+    clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     assert clone_repository.remotes == ["origin"]
 
 
 def test_add_remote(origin_repo: GitRepository, clone_repository: GitRepository):
-    clone_repository.urls = [origin_repo.path]
+    clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     assert clone_repository.remotes == ["origin"]
     clone_repository.add_remote("origin2", "https://test.com")
     assert clone_repository.remotes == ["origin", "origin2"]
+
+
+def test_checkout_branch(repository: GitRepository):
+    assert repository.get_current_branch() == repository.default_branch
+    branch = "new-branch"
+    repository.create_branch(branch)
+    assert repository.get_current_branch() == repository.default_branch
+    repository.checkout_branch(branch)
+    repository.get_current_branch() == branch
+
+
+def test_if_clean_and_synced_when_dirty_index(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.check_if_clean_and_synced()
+    (clone_repository.path / "test").touch()
+    assert not clone_repository.check_if_clean_and_synced()
+
+
+def test_if_clean_and_synced_when_additional_commit(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.check_if_clean_and_synced()
+    clone_repository.commit_empty("test")
+    assert not clone_repository.check_if_clean_and_synced()
+
+
+def test_if_clean_and_synced_when_remote_commit(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.check_if_clean_and_synced()
+    clone_repository.commit_empty("test")
+    assert not clone_repository.check_if_clean_and_synced()
+    clone_repository.push()
+    assert clone_repository.check_if_clean_and_synced()
+    clone_repository.reset_num_of_commits(1)
+    assert not clone_repository.check_if_clean_and_synced()
+
+
+def test_checkout_paths(repository: GitRepository):
+    head_commit = repository.head_commit_sha()
+    updated_file = repository.path / "test1.txt"
+    old_text = updated_file.read_text()
+    new_text = "some updated text"
+    updated_file.write_text(new_text)
+    assert repository.get_file(head_commit, "test1.txt") == old_text
+    repository.checkout_paths(head_commit, "test1.txt")
+    assert updated_file.read_text() == old_text

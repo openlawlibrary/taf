@@ -25,7 +25,7 @@ def _check_repo_initialization_successful(
     for role in ("root", "targets", "snapshot", "timestamp"):
         assert (metadata_dir / f"{role}.json").is_file() is True
 
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     if is_targets_initialized:
         assert targets_dir.is_dir() is True
         assert len(commits) == 2

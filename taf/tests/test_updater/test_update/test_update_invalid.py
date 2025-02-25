@@ -1,3 +1,4 @@
+from taf.models.types import Commitish
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
@@ -94,7 +95,7 @@ def test_update_invalid_repo_target_in_indeterminate_state(
 def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir):
     clone_repositories(origin_auth_repo, client_dir)
 
-    invalid_commit_sha = "66d7f48e972f9fa25196523f469227dfcd85c994"
+    invalid_commit_sha = Commitish.from_hash("66d7f48e972f9fa25196523f469227dfcd85c994")
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(

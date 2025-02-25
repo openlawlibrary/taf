@@ -404,7 +404,7 @@ class AuthenticationRepository(GitRepository):
         default_branch: Optional[str] = None,
         excluded_target_globs: Optional[List[str]] = None,
         last_commits_per_repos: Optional[Dict[Commitish, List]] = None,
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    ) -> Dict[str, Dict[Commitish, Dict[str, Any]]]:
         """
         Return a dictionary where each target repository has associated authentication commits,
         and for each authentication commit, there's a dictionary of the branch, commit and custom data.
@@ -422,7 +422,7 @@ class AuthenticationRepository(GitRepository):
         }
 
         """
-        repositories_commits: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        repositories_commits: Dict[str, Dict[Commitish, Dict[str, Any]]] = {}
         targets = self.targets_at_revisions(
             commits,
             target_repos=target_repos,

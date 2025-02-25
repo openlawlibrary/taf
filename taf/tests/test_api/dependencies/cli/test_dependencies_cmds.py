@@ -52,9 +52,10 @@ def test_dependencies_add_cmd_expect_success(
         (parent_auth_repo.path / "targets" / "dependencies.json").read_text()
     )
     dependencies = dependencies_json["dependencies"][DEPENDENCY_NAME]
-    assert (
-        child_auth_repo.head_commit_sha().hash in dependencies["out-of-band-authentication"]
-    )
+
+    child_head_commit = child_auth_repo.head_commit_sha()
+    assert child_head_commit
+    assert child_head_commit.hash in dependencies["out-of-band-authentication"]
     assert child_auth_repo.default_branch in dependencies["branch"]
 
 
