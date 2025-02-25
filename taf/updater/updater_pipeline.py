@@ -197,8 +197,8 @@ def combine_statuses(current_status, new_status):
     return current_status
 
 
-def format_commit(commit):
-    return Commitish.from_hash(hash=commit[:10])
+def format_commit(commit: Commitish):
+    return Commitish.from_hash(hash=commit.hash[:10])
 
 
 class Pipeline:
@@ -512,10 +512,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.clear_repositories_db()
         return UpdateStatus.SUCCESS
 
-    def _get_last_validated_commit(self, repo_name):
-        return self.state.last_validated_data.get(
-            repo_name, self.state.last_validated_commit
-        )
+    def _get_last_validated_commit(self, repo_name) -> Commitish:
+        if repo_name in self.state.last_validated_data:
+            return Commitish.from_hash(self.state.last_validated_data[repo_name])
+        return self.state.last_validated_commit
 
     def _set_last_validated_commit(self):
         if self.operation == OperationType.CLONE:
@@ -537,12 +537,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
             ] = last_validated_commit
-            self.state.last_validated_commit = last_validated_commit
+            self.state.last_validated_commit = Commitish.from_hash(last_validated_commit)
         elif self.validate_from_commit:
             settings.last_validated_commit[
                 self.state.validation_auth_repo.name
             ] = self.validate_from_commit
-            self.state.last_validated_commit = self.validate_from_commit
+            self.state.last_validated_commit = Commitish.from_hash(self.validate_from_commit)
 
     def check_if_local_repositories_clean(self):
         try:
@@ -1061,7 +1061,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return UpdateStatus.SUCCESS
 
     def set_auth_commit_for_target_repos(self):
-
         last_commits_per_repos = {
             repo_name: self._get_last_validated_commit(repo_name)
             for repo_name in self.state.users_target_repositories
@@ -1498,7 +1497,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     current_branch = current_targets_data.get(
                         "branch", repository.default_branch
                     )
-                    current_commit = current_targets_data["commit"]
+                    current_commit = Commitish.from_hash(current_targets_data["commit"])
                     if not len(
                         self.state.last_validated_data_per_repositories[repository.name]
                     ):
@@ -1511,7 +1510,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             ].get(last_validated_target_auth_commit, {})
                         )
                         previous_branch = current_head_commit_and_branch.get("branch")
-                        previous_commit = current_head_commit_and_branch.get("commit")
+                        previous_commit = Commitish.from_hash(current_head_commit_and_branch.get("commit"))
                         if previous_commit is not None and previous_branch is None:
                             previous_branch = repository.default_branch
                     else:
@@ -1668,7 +1667,7 @@ but commit not on branch {current_branch}"
                             and not self.no_upstream
                         ):
                             raise UpdateFailedError(
-                                f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join(additional_commits)} on branch {branch}"
+                                f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join([commit.value for commit in additional_commits])} on branch {branch}"
                             )
 
                         # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
@@ -1829,8 +1828,8 @@ but commit not on branch {current_branch}"
             # some might have been omitted if the update was run with --exclude-target
             last_validated_data = self.state.last_validated_data or {}
             for repo in self.state.users_target_repositories.keys():
-                last_validated_data[repo] = last_commit
-            last_validated_data[self.state.users_auth_repo.name] = last_commit
+                last_validated_data[repo] = last_commit.value
+            last_validated_data[self.state.users_auth_repo.name] = last_commit.value
             self.state.users_auth_repo.set_last_validated_data(
                 last_validated_data,
                 set_last_validated_commit=not bool(self.excluded_target_globs),
@@ -1842,7 +1841,7 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
-    def _merge_commit(self, repository, branch, commit_to_merge, is_last_branch):
+    def _merge_commit(self, repository: AuthenticationRepository, branch: str, commit_to_merge: Commitish, is_last_branch: bool):
         """Merge the specified commit into the given branch and check out the branch.
         If the repository cannot contain unauthenticated commits, check out the merged commit.
         """
@@ -2037,7 +2036,7 @@ but commit not on branch {current_branch}"
                         f"Repository {repo_name}: found commits succeeding the last authenticated commit on branch {branch_name}: {formatted_commits}.\nThese commits were not merged into {branch_name}"
                     )
                     taf_logger.debug(
-                        f"Repository {repo_name}: all commits: {','.join(additional_commits)}"
+                        f"Repository {repo_name}: all commits: {','.join([commit.value for commit in additional_commits])}"
                     )
 
     def check_pre_push_hook(self):
@@ -2227,7 +2226,7 @@ def _find_next_value(value, values_list):
     return None
 
 
-def _format_commits(commits: List[Any]) -> str:
+def _format_commits(commits: List[Commitish]) -> str:
     """
     Utility function to format the commits in a readable way.
     """

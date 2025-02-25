@@ -26,15 +26,15 @@ def check_last_validated_commit(
     if not excluded_targets:
         assert (
             client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]
-            == head_sha
+            == head_sha.value
         )
 
     if all_target_repositories and excluded_targets:
         for target_repo in all_target_repositories:
             if target_repo not in excluded_targets:
-                assert last_validated_data[target_repo.name] == head_sha
+                assert last_validated_data[target_repo.name] == head_sha.value
             else:
-                assert last_validated_data.get(target_repo.name) != head_sha
+                assert last_validated_data.get(target_repo.name) != head_sha.value
 
 
 def check_if_commits_match(
@@ -75,7 +75,7 @@ def check_if_last_validated_commit_exists(client_auth_repo, should_exist):
         assert last_validated_commit is None
     else:
         assert (
-            client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
+            client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch).value
             == last_validated_commit
         )
 
