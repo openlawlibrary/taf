@@ -1274,7 +1274,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         current_branch = last_validated_commit_data.get(
             "branch", repository.default_branch
         )
-        last_validated_commit = last_validated_commit_data["commit"]
+        last_validated_commit = Commitish.from_hash(
+            last_validated_commit_data["commit"]
+        )
 
         try:
             top_commit_of_branch = repository.top_commit_of_remote_branch(

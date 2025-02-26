@@ -1,5 +1,7 @@
 import os
 import shutil
+
+from taf.models.types import Commitish
 import pytest
 from pathlib import Path
 from freezegun import freeze_time
@@ -438,7 +440,7 @@ def verify_client_repos_state(
 
         # Extract commit SHA from the target file in the client repo
         target_commit_info = client_auth_repo.get_target(repo_name)
-        target_commit_sha = (
+        target_commit_sha = Commitish.from_hash(
             target_commit_info.get("commit") if target_commit_info else None
         )
 
@@ -491,13 +493,14 @@ def verify_partial_targets_update(
         # Use the get method to safely access the "commit" key
         expected_commit_sha = target.get("commit") if target else None
 
+        expected_commit = Commitish.from_hash(expected_commit_sha)
         # Ensure expected_commit_sha is not None before proceeding
         assert (
-            expected_commit_sha is not None
+            expected_commit is not None
         ), f"Commit SHA for {repo_name} is missing in the auth repo"
 
         assert (
-            client_commit == expected_commit_sha
+            client_commit == expected_commit
         ), f"Target repo {repo_name} should have the same top commit as specified in the client's auth repo"
 
 
