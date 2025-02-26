@@ -98,7 +98,8 @@ def manage_repo_and_signers(
         elif not no_commit_warning:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
-    except PushFailedError:
+    except PushFailedError as e:
+        taf_logger.error(e)
         raise
     except Exception as e:
         taf_logger.error(f"An error occurred: {e}")

@@ -1098,7 +1098,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         self.state.targets_data_by_auth_commits = (
             self.state.users_auth_repo.targets_data_by_auth_commits(
-                all_auth_commits, last_commits_per_repos=last_commits_per_repos
+                all_auth_commits,
+                target_repos=self.state.users_target_repositories,
+                last_commits_per_repos=last_commits_per_repos,
             )
         )
 
@@ -1341,7 +1343,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
         self.state.targets_data_by_auth_commits = (
             self.state.users_auth_repo.targets_data_by_auth_commits(
-                self.state.all_targets_auth_commits
+                self.state.all_targets_auth_commits,
+                target_repos=self.state.users_target_repositories,
             )
         )
 
@@ -1805,7 +1808,6 @@ but commit not on branch {current_branch}"
             return UpdateStatus.FAILED
 
     def merge_auth_commits(self):
-
         """Determines which commits needs to be merged into the specified branch and
         merge it.
         """

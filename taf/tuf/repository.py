@@ -11,7 +11,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import shutil
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from securesystemslib.exceptions import StorageError
 from cryptography.hazmat.primitives import serialization
 
@@ -69,6 +69,40 @@ MAIN_ROLES = ["root", "targets", "snapshot", "timestamp"]
 DISABLE_KEYS_CACHING = False
 HASH_FUNCTION = "sha256"
 HASH_ALGS = ["sha256", "sha512"]
+
+
+class FakeDelegatedRole:
+    """A fake role to bypass validation checks in Delegations."""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {}
+
+
+class EmptyDelegations(Delegations):
+    """Extended version of Delegations that allows empty roles by inserting and removing fake data.
+    Needed for backwards compatibility with old TAF.
+    Implements a to_dict that returns this:
+    "delegations": {
+        "keys": {},
+        "roles": []
+    }
+    """
+
+    def __init__(self):
+        """Initialize with fake data to bypass the validation in Delegations."""
+        super().__init__(
+            keys={}, roles={"placeholder": FakeDelegatedRole()}
+        )  # Insert fake role
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return the dict representation of self, ensuring 'roles' is always an empty list."""
+        res_dict = super().to_dict()
+
+        # Remove the placeholder role
+        if "roles" in res_dict:
+            res_dict["roles"] = []
+
+        return res_dict
 
 
 def get_role_metadata_path(role: str) -> str:
@@ -568,7 +602,7 @@ class MetadataRepository(Repository):
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
-        targets = Targets()
+        targets = Targets(delegations=EmptyDelegations())
         target_roles = {"targets": targets}
         delegations_per_parent: Dict[str, Dict] = defaultdict(dict)
         for role in RolesIterator(roles_keys_data.roles.targets):
@@ -585,7 +619,7 @@ class MetadataRepository(Repository):
                 terminating=role.terminating,
                 keyids=list(public_keys[role.name].keys()),
             )
-            delegated_metadata = Targets()
+            delegated_metadata = Targets(delegations=EmptyDelegations())
             target_roles[role.name] = delegated_metadata
             delegations_per_parent[parent][role.name] = delegated_role
             sn.meta[f"{role.name}.json"] = MetaFile(1)
@@ -595,6 +629,7 @@ class MetadataRepository(Repository):
             delegated_keys = {}
             for delegated_role_name in role_data:
                 delegated_keys.update(public_keys[delegated_role_name])
+
             delegations = Delegations(roles=role_data, keys=delegated_keys)
             parent_obj.delegations = delegations
 
@@ -692,7 +727,7 @@ class MetadataRepository(Repository):
                 parent_obj.delegations.keys.update(keys_data)
 
             for role_data in parents_roles_data:
-                new_role_signed = Targets()
+                new_role_signed = Targets(delegations=EmptyDelegations())
                 self._set_default_expiration_date(new_role_signed)
                 new_role_signed.version = (
                     0  # `close` will bump to initial valid verison 1
