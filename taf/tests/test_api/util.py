@@ -5,17 +5,20 @@ from taf.git import GitRepository
 from typing import List
 import taf.repositoriesdb as repositoriesdb
 
+from taf.models.types import Commitish
+
 
 def check_target_file(
     target_repo_path: Path,
     target_repo_name: str,
     auth_repo: AuthenticationRepository,
-    auth_repo_head_sha: Optional[str] = None,
+    auth_repo_head_sha: Optional[Commitish] = None,
 ):
     if auth_repo_head_sha is None:
-        auth_repo_head_sha = auth_repo.head_commit_sha()
+        auth_repo_head_sha = auth_repo.head_commit()
     target_repo = GitRepository(path=target_repo_path)
-    target_repo_head_sha = target_repo.head_commit_sha()
+    target_repo_head_sha = target_repo.head_commit()
+    assert target_repo_head_sha
     repositoriesdb.load_repositories(auth_repo)
     target_repos = {
         target_repo_name: repositoriesdb.get_repository(auth_repo, target_repo_name)
@@ -26,7 +29,7 @@ def check_target_file(
     target_content = targets[auth_repo_head_sha][target_repo_name]
     branch = target_repo.default_branch
     return (
-        target_repo_head_sha == target_content["commit"]
+        target_repo_head_sha.value == target_content["commit"]
         and branch == target_content["branch"]
     )
 

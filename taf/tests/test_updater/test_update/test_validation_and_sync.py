@@ -49,13 +49,13 @@ def test_auth_repo_not_in_sync(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    assert client_auth_repo.head_commit_sha() != origin_auth_repo.head_commit_sha()
+    assert client_auth_repo.head_commit() != origin_auth_repo.head_commit()
 
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    client_auth_commit = client_auth_repo.head_commit_sha()
-    assert client_auth_commit == origin_auth_repo.head_commit_sha()
+    client_auth_commit = client_auth_repo.head_commit()
+    assert client_auth_commit == origin_auth_repo.head_commit()
 
     update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
     verify_client_repos_state(client_dir, origin_auth_repo)
@@ -95,8 +95,8 @@ def test_target_repo_not_in_sync(origin_auth_repo, client_dir):
 
     for target_name in origin_target_repos:
         assert (
-            origin_target_repos[target_name].head_commit_sha()
-            != client_target_repos[target_name].head_commit_sha()
+            origin_target_repos[target_name].head_commit()
+            != client_target_repos[target_name].head_commit()
         )
 
     setup_manager.add_task(pull_all_target_repos, kwargs={"client_dir": client_dir})
@@ -104,8 +104,8 @@ def test_target_repo_not_in_sync(origin_auth_repo, client_dir):
 
     for target_name in origin_target_repos:
         assert (
-            origin_target_repos[target_name].head_commit_sha()
-            == client_target_repos[target_name].head_commit_sha()
+            origin_target_repos[target_name].head_commit()
+            == client_target_repos[target_name].head_commit()
         )
 
     # Run the updater to update repositories
@@ -146,12 +146,12 @@ def test_auth_repo_not_in_sync_partial(origin_auth_repo, client_dir):
     setup_manager.add_task(update_timestamp_metadata_invalid_signature)
     setup_manager.execute_tasks()
 
-    assert client_auth_repo.head_commit_sha() != origin_auth_repo.head_commit_sha()
+    assert client_auth_repo.head_commit() != origin_auth_repo.head_commit()
 
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    assert client_auth_repo.head_commit_sha() == origin_auth_repo.head_commit_sha()
+    assert client_auth_repo.head_commit() == origin_auth_repo.head_commit()
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
@@ -198,8 +198,8 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
 
     for target_name in origin_target_repos:
         assert (
-            origin_target_repos[target_name].head_commit_sha()
-            != client_target_repos[target_name].head_commit_sha()
+            origin_target_repos[target_name].head_commit()
+            != client_target_repos[target_name].head_commit()
         )
 
     setup_manager.add_task(pull_all_target_repos, kwargs={"client_dir": client_dir})
@@ -207,8 +207,8 @@ def test_target_repo_not_in_sync_partial(origin_auth_repo, client_dir):
 
     for target_name in origin_target_repos:
         assert (
-            origin_target_repos[target_name].head_commit_sha()
-            == client_target_repos[target_name].head_commit_sha()
+            origin_target_repos[target_name].head_commit()
+            == client_target_repos[target_name].head_commit()
         )
 
     update_invalid_repos_and_check_if_repos_exist(
@@ -261,7 +261,7 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     client_target_repos = list(client_target_repos.values())
     reverted_repo = client_target_repos[0]  # target1
     updated_repo = client_target_repos[1]  # target2
-    old_commit = reverted_repo.head_commit_sha()
+    old_commit = reverted_repo.head_commit()
 
     setup_manager.add_task(add_valid_target_commits)
 
@@ -276,10 +276,8 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    updated_repo.head_commit_sha() == origin_target_repos[
-        updated_repo.name
-    ].head_commit_sha()
-    reverted_repo.head_commit_sha() != old_commit
+    updated_repo.head_commit() == origin_target_repos[updated_repo.name].head_commit()
+    reverted_repo.head_commit() != old_commit
 
     update_and_check_commit_shas(
         OperationType.UPDATE, origin_auth_repo, client_dir, force=True

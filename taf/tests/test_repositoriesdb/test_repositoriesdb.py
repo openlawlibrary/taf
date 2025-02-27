@@ -18,7 +18,7 @@ def test_load_repositories_when_no_delegations(target_repos, auth_repo_with_targ
         _check_repositories_dict(
             target_repos,
             auth_repo_with_targets,
-            auth_repo_with_targets.head_commit_sha(),
+            auth_repo_with_targets.head_commit(),
         )
 
 
@@ -27,7 +27,7 @@ def test_load_repositories_only_load_targets(target_repos, auth_repo_with_target
         _check_repositories_dict(
             target_repos,
             auth_repo_with_targets,
-            auth_repo_with_targets.head_commit_sha(),
+            auth_repo_with_targets.head_commit(),
             only_load_targets=True,
         )
 
@@ -38,7 +38,7 @@ def test_load_repositories_of_roles(target_repos, auth_repo_with_targets):
         _check_repositories_dict(
             target_repos,
             auth_repo_with_targets,
-            auth_repo_with_targets.head_commit_sha(),
+            auth_repo_with_targets.head_commit(),
             roles=roles,
         )
 

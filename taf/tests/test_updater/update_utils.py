@@ -1,5 +1,7 @@
 import os
 import shutil
+
+from taf.models.types import Commitish
 import pytest
 from pathlib import Path
 from freezegun import freeze_time
@@ -20,21 +22,21 @@ def check_last_validated_commit(
 ):
     # check if last validated commit is created and the saved commit is correct
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
-    head_sha = client_auth_repo.head_commit_sha()
+    head_sha = client_auth_repo.head_commit()
     last_validated_data = client_auth_repo.last_validated_data
-    assert last_validated_data[client_auth_repo.name] == head_sha
+    assert last_validated_data[client_auth_repo.name] == head_sha.value
     if not excluded_targets:
         assert (
             client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]
-            == head_sha
+            == head_sha.value
         )
 
     if all_target_repositories and excluded_targets:
         for target_repo in all_target_repositories:
             if target_repo not in excluded_targets:
-                assert last_validated_data[target_repo.name] == head_sha
+                assert last_validated_data[target_repo.name] == head_sha.value
             else:
-                assert last_validated_data.get(target_repo.name) != head_sha
+                assert last_validated_data.get(target_repo.name) != head_sha.value
 
 
 def check_if_commits_match(
@@ -75,7 +77,7 @@ def check_if_last_validated_commit_exists(client_auth_repo, should_exist):
         assert last_validated_commit is None
     else:
         assert (
-            client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch)
+            client_auth_repo.top_commit_of_branch(client_auth_repo.default_branch).value
             == last_validated_commit
         )
 
@@ -434,11 +436,11 @@ def verify_client_repos_state(
     # check if the target repositoies are in sync with the auth repo
 
     for repo_name, client_repo in client_target_repos.items():
-        client_commit = client_repo.head_commit_sha()
+        client_commit = client_repo.head_commit()
 
         # Extract commit SHA from the target file in the client repo
         target_commit_info = client_auth_repo.get_target(repo_name)
-        target_commit_sha = (
+        target_commit_sha = Commitish.from_hash(
             target_commit_info.get("commit") if target_commit_info else None
         )
 
@@ -462,8 +464,8 @@ def verify_partial_auth_update(
     # Ensure the last validated commit exists in the client's auth repo
     check_last_validated_commit(client_auth_repo.path)
 
-    client_head_sha = client_auth_repo.head_commit_sha()
-    assert client_head_sha != origin_auth_repo.head_commit_sha()
+    client_head_sha = client_auth_repo.head_commit()
+    assert client_head_sha != origin_auth_repo.head_commit()
     assert client_head_sha in origin_auth_repo.all_commits_on_branch()
 
 
@@ -477,8 +479,8 @@ def verify_partial_targets_update(
         origin_auth_repo, library_dir=client_dir
     )
     for repo_name, client_repo in client_target_repos.items():
-        client_commit = client_repo.head_commit_sha()
-        origin_commit = origin_auth_repo.head_commit_sha()
+        client_commit = client_repo.head_commit()
+        origin_commit = origin_auth_repo.head_commit()
 
         # Ensure the client repository commit is different from the origin repo commit
         assert (
@@ -491,13 +493,14 @@ def verify_partial_targets_update(
         # Use the get method to safely access the "commit" key
         expected_commit_sha = target.get("commit") if target else None
 
+        expected_commit = Commitish.from_hash(expected_commit_sha)
         # Ensure expected_commit_sha is not None before proceeding
         assert (
-            expected_commit_sha is not None
+            expected_commit is not None
         ), f"Commit SHA for {repo_name} is missing in the auth repo"
 
         assert (
-            client_commit == expected_commit_sha
+            client_commit == expected_commit
         ), f"Target repo {repo_name} should have the same top commit as specified in the client's auth repo"
 
 

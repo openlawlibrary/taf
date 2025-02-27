@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add Commitish model ([596])
+- Aadd tests for part of the git module ([596])
 - Implement adaptive timeout for Git clone operations ([592])
 - Check if repository is synced with remote before running API functions ([592])
 - Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
+[596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
 [593]: https://github.com/openlawlibrary/taf/pull/593
 [592]: https://github.com/openlawlibrary/taf/pull/592

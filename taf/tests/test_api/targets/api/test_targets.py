@@ -27,7 +27,7 @@ def test_register_targets_when_file_added(
     keystore_delegations: str,
 ):
     repo_path = library / "auth"
-    initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
     FILENAME = "test.txt"
     # add a new file to the targets directory, check if it was signed
     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
@@ -40,7 +40,7 @@ def test_register_targets_when_file_added(
         push=False,
     )
     check_if_targets_signed(auth_repo_when_add_repositories_json, "targets", FILENAME)
-    commits = auth_repo_when_add_repositories_json.list_commits()
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
@@ -52,7 +52,7 @@ def test_register_targets_when_file_removed(
     keystore_delegations: str,
 ):
     repo_path = library / "auth"
-    initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
     FILENAME = "test.txt"
     # add a new file to the targets directory, check if it was signed
     file_path = repo_path / TARGETS_DIRECTORY_NAME / FILENAME
@@ -74,7 +74,7 @@ def test_register_targets_when_file_removed(
     )
     signed_target_files = auth_repo_when_add_repositories_json.get_signed_target_files()
     assert FILENAME not in signed_target_files
-    commits = auth_repo_when_add_repositories_json.list_commits()
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 2
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
@@ -86,7 +86,7 @@ def test_update_target_repos_from_repositories_json(
     keystore_delegations: str,
 ):
     repo_path = library / "auth"
-    initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
     namespace = library.name
     update_target_repos_from_repositories_json(
         str(repo_path),
@@ -102,7 +102,7 @@ def test_update_target_repos_from_repositories_json(
         assert check_target_file(
             target_repo_path, target_repo_name, auth_repo_when_add_repositories_json
         )
-    commits = auth_repo_when_add_repositories_json.list_commits()
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
@@ -114,7 +114,7 @@ def test_add_target_repository_when_not_on_filesystem(
     keystore_delegations: str,
 ):
     repo_path = str(library / "auth")
-    initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
     namespace = library.name
     target_repo_name = f"{namespace}/target4"
     add_target_repo(
@@ -136,7 +136,7 @@ def test_add_target_repository_when_not_on_filesystem(
     assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
-    commits = auth_repo_when_add_repositories_json.list_commits()
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 2
     assert commits[0].message.strip() == git_commit_message(
         "add-target", target_name=target_repo_name
@@ -154,7 +154,7 @@ def test_add_target_repository_when_on_filesystem(
     keystore_delegations: str,
 ):
     repo_path = str(library / "auth")
-    initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
     namespace = library.name
     target_repo_name = f"{namespace}/new_target"
     add_target_repo(
@@ -176,7 +176,7 @@ def test_add_target_repository_when_on_filesystem(
     assert repositories_json is not None
     repositories = repositories_json["repositories"]
     assert target_repo_name in repositories
-    commits = auth_repo_when_add_repositories_json.list_commits()
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 2
     assert commits[0].message.strip() == git_commit_message(
         "add-target", target_name=target_repo_name
@@ -193,7 +193,7 @@ def test_add_target_repository_when_on_filesystem(
 #     keystore_delegations: str,
 # ):
 #     repo_path = str(library / "auth")
-#     initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+#     initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
 #     namespace = library.name
 #     target_repo_name = f"{namespace}/target4"
 #     repositories_json = repositoriesdb.load_repositories_json(
@@ -217,7 +217,7 @@ def test_add_target_repository_when_on_filesystem(
 #     assert repositories_json is not None
 #     repositories = repositories_json["repositories"]
 #     assert target_repo_name not in repositories
-#     commits = auth_repo_when_add_repositories_json.list_commits()
+#     commits = auth_repo_when_add_repositories_json.list_pygit_commits()
 #     # this function is expected to commit twice
 #     assert len(commits) == initial_commits_num + 2
 #     assert commits[1].message.strip() == git_commit_message(
@@ -238,7 +238,7 @@ def test_add_target_repository_when_on_filesystem(
 #     keystore_delegations: str,
 # ):
 #     repo_path = str(library / "auth")
-#     initial_commits_num = len(auth_repo_when_add_repositories_json.list_commits())
+#     initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
 #     namespace = library.name
 #     target_repo_name = f"{namespace}/new_target"
 #     repositories_json = repositoriesdb.load_repositories_json(
@@ -262,7 +262,7 @@ def test_add_target_repository_when_on_filesystem(
 #     assert repositories_json is not None
 #     repositories = repositories_json["repositories"]
 #     assert target_repo_name not in repositories
-#     commits = auth_repo_when_add_repositories_json.list_commits()
+#     commits = auth_repo_when_add_repositories_json.list_pygit_commits()
 #     # this function is expected to commit twice
 #     assert len(commits) == initial_commits_num + 2
 #     assert commits[1].message.strip() == git_commit_message(

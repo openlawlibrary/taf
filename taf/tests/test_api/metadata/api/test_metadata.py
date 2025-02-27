@@ -65,7 +65,7 @@ def test_update_root_metadata(
     # targets should not be updated
     auth_repo_path = auth_repo_expired.path
     auth_repo = AuthenticationRepository(path=auth_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     roles = [Root.type]
     INTERVAL = 180
     timestamp_version = auth_repo_expired.timestamp().version
@@ -78,7 +78,7 @@ def test_update_root_metadata(
         keystore=keystore_delegations,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "update-expiration-dates", roles=",".join(roles)
@@ -128,7 +128,7 @@ def test_update_snapshot_metadata(
     # targets should not be updated
     auth_repo_path = auth_repo_expired.path
     auth_repo = AuthenticationRepository(path=auth_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     roles = [Snapshot.type]
     INTERVAL = 7
     timestamp_version = auth_repo_expired.timestamp().version
@@ -141,7 +141,7 @@ def test_update_snapshot_metadata(
         keystore=keystore_delegations,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "update-expiration-dates", roles=",".join(roles)
@@ -160,7 +160,7 @@ def test_update_timestamp_metadata(
     # targets should not be updated
     auth_repo_path = auth_repo_expired.path
     auth_repo = AuthenticationRepository(path=auth_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     roles = [Timestamp.type]
     INTERVAL = 1
     timestamp_version = auth_repo_expired.timestamp().version
@@ -173,7 +173,7 @@ def test_update_timestamp_metadata(
         keystore=keystore_delegations,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "update-expiration-dates", roles=",".join(roles)
@@ -192,7 +192,7 @@ def test_update_multiple_roles_metadata(
     # targets should not be updated
     auth_repo_path = auth_repo_expired.path
     auth_repo = AuthenticationRepository(path=auth_repo_path)
-    initial_commits_num = len(auth_repo.list_commits())
+    initial_commits_num = len(auth_repo.list_pygit_commits())
     roles = [Targets.type, "delegated_role", "inner_role"]
     INTERVAL = 365
     timestamp_version = auth_repo_expired.timestamp().version
@@ -205,7 +205,7 @@ def test_update_multiple_roles_metadata(
         keystore=keystore_delegations,
         push=False,
     )
-    commits = auth_repo.list_commits()
+    commits = auth_repo.list_pygit_commits()
     assert len(commits) == initial_commits_num + 1
     assert commits[0].message.strip() == git_commit_message(
         "update-expiration-dates", roles=",".join(roles)
