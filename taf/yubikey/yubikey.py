@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
-from taf.tuf.keys import get_sslib_key_from_value
+from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.yubikey.yubikey_manager import PinManager
 from ykman.device import list_all_devices
 from yubikit.core.smartcard import SmartCardConnection
@@ -231,10 +231,26 @@ def export_yk_certificate(certs_dir, key: SSlibKey, serial: str):
         f.write(export_piv_x509(serial=serial))
 
 
-def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True, serial=None):
+def get_and_validate_pin(
+    key_name,
+    pin_confirm=True,
+    pin_repeat=True,
+    serial=None,
+    key_id_pins=None,
+    public_key=None,
+):
     valid_pin = False
+
+    if key_id_pins and public_key:
+        key_id = _get_legacy_keyid(public_key)
+        pin = key_id_pins.get(key_id)
+    else:
+        pin = None
+
     while not valid_pin:
-        pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        if not pin:
+            pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+
         valid_pin, retries = is_valid_pin(pin, serial)
         if not valid_pin and not retries:
             raise InvalidPINError("No retries left. YubiKey locked.")
@@ -243,6 +259,7 @@ def get_and_validate_pin(key_name, pin_confirm=True, pin_repeat=True, serial=Non
                 f"Incorrect PIN. Do you want to try again? {retries} retires left."
             ):
                 raise InvalidPINError("PIN input cancelled")
+        pin = None
     return pin
 
 
@@ -294,6 +311,7 @@ def _read_and_check_single_yubikey(
     prompt_message,
     retrying,
     yubikeys_to_skip,
+    key_id_pins,
 ):
 
     if retrying:
@@ -352,7 +370,14 @@ def _read_and_check_single_yubikey(
         if creating_new_key:
             pin = get_pin_for(key_name, pin_confirm, pin_repeat)
         else:
-            pin = get_and_validate_pin(key_name, pin_confirm, pin_repeat, serial_num)
+            pin = get_and_validate_pin(
+                key_name,
+                pin_confirm,
+                pin_repeat,
+                serial_num,
+                key_id_pins=key_id_pins,
+                public_key=public_key,
+            )
 
         pin_manager.add_pin(serial_num, pin)
 
@@ -375,6 +400,7 @@ def _read_and_check_yubikeys(
     retrying,
     hide_already_loaded_message,
     hide_threshold_message,
+    key_id_pins,
 ):
     if retrying:
         if prompt_message is None:
@@ -420,7 +446,12 @@ def _read_and_check_yubikeys(
 
             if pin_manager.get_pin(serial_num) is None:
                 pin = get_and_validate_pin(
-                    key_name, pin_confirm, pin_repeat, serial_num
+                    key_name,
+                    pin_confirm,
+                    pin_repeat,
+                    serial_num,
+                    key_id_pins=key_id_pins,
+                    public_key=public_key,
                 )
                 pin_manager.add_pin(serial_num, pin)
 
@@ -594,10 +625,15 @@ def yubikey_prompt(
     hide_already_loaded_message=False,
     hide_threshold_message=False,
     yubikeys_to_skip=None,
+    key_id_pins=None,
 ):
 
     retry_counter = 0
     yubikeys = None
+
+    if key_id_pins is None:
+        key_id_pins = {}
+
     while True:
         retrying = retry_counter > 0
         if registering_new_key or creating_new_key:
@@ -613,6 +649,7 @@ def yubikey_prompt(
                 prompt_message,
                 retrying,
                 yubikeys_to_skip,
+                key_id_pins,
             )
             if yubikey:
                 yubikeys = [yubikey]
@@ -628,6 +665,7 @@ def yubikey_prompt(
                 retrying,
                 hide_already_loaded_message,
                 hide_threshold_message,
+                key_id_pins,
             )
 
         if not yubikeys and not retry_on_failure:

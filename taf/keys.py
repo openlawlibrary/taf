@@ -208,6 +208,7 @@ def _load_yubikeys(
     key_names: List[str],
     retry_on_failure: bool,
     hide_threshold_message: bool,
+    key_id_pins: Optional[Dict] = None
 ):
     """
     Loads YubiKeys for a specified role using given key names and manages the interaction process.
@@ -226,6 +227,7 @@ def _load_yubikeys(
         retry_on_failure=retry_on_failure,
         hide_already_loaded_message=True,
         hide_threshold_message=hide_threshold_message,
+        key_id_pins=key_id_pins,
     )
 
     loaded_keyids = [signer.public_key.keyid for signer in signers_yubikeys]
@@ -257,6 +259,7 @@ def load_signers(
     keystore: Optional[str] = None,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
+    key_id_pins: Optional[Dict] = None,
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
@@ -334,6 +337,7 @@ def load_signers(
                 key_names=key_names,
                 retry_on_failure=use_yubikey_for_signing_confirmed,
                 hide_threshold_message=hide_threshold_message,
+                key_id_pins=key_id_pins,
             )
             signers_yubikeys.extend(loaded_signers)
             if loaded_keys:

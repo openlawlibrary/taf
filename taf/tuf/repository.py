@@ -149,6 +149,9 @@ class MetadataRepository(Repository):
 
     @property
     def keys_name_mappings(self):
+        """
+        Key id to key name
+        """
         try:
             if self._keys_name_mappings is None:
                 self._keys_name_mappings = self.load_key_names()
@@ -156,6 +159,15 @@ class MetadataRepository(Repository):
             # repository does not exist yet, so no metadata files
             self._keys_name_mappings = {}
         return self._keys_name_mappings
+
+    @property
+    def keys_name_mappings_reverse(self):
+        """
+        Key name to key id
+        """
+        if not self.keys_name_mappings:
+            return None
+        return {value: key for key, value in self.keys_name_mappings.items()}
 
     @property
     def metadata_path(self) -> Path:
@@ -856,6 +868,15 @@ class MetadataRepository(Repository):
         for num in range(threshold - num_of_keys_without_name, threshold):
             key_names.append(num + 1)
         return key_names
+
+    def get_key_ids_of_key_names(self, key_names: List[str]):
+        key_name_keys = {}
+        reverse_mapping = self.keys_name_mappings_reverse
+        for key_name in key_names:
+            if key_name in reverse_mapping:
+                keyid = reverse_mapping[key_name]
+                key_name_keys[key_name] = keyid
+        return key_name_keys
 
     def get_keyids_of_role(self, role_name: str) -> List:
         """
