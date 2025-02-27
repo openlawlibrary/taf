@@ -143,6 +143,21 @@ def is_run_from_python_executable() -> bool:
     return getattr(sys, "frozen", False)
 
 
+def read_extra_args(kwargs, extra_args_name) -> Dict:
+    i = 0
+
+    ret: Dict = {}
+    args = kwargs.get(extra_args_name)
+    while i < len(args):
+        if args[i].startswith("--"):
+            name = args[i][2:]  # Strip "--"
+            if i + 1 < len(args) and not args[i + 1].startswith("--"):
+                ret[name] = args[i + 1]
+                i += 1  # Skip the value in the next iteration
+        i += 1
+    return ret
+
+
 def read_input_dict(value):
     if value is None:
         return {}

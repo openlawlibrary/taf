@@ -208,7 +208,7 @@ def _load_yubikeys(
     key_names: List[str],
     retry_on_failure: bool,
     hide_threshold_message: bool,
-    key_id_pins: Optional[Dict] = None
+    key_id_pins: Optional[Dict] = None,
 ):
     """
     Loads YubiKeys for a specified role using given key names and manages the interaction process.

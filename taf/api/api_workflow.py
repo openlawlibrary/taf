@@ -1,20 +1,18 @@
-from collections import defaultdict
 from contextlib import contextmanager
 import functools
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-import click
 from taf.api.utils._conf import find_keystore, read_keys_name_mapping
 from taf.api.yubikey import get_yk_roles
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import PushFailedError, TAFError
 from taf.keys import load_signers
-from taf.log import taf_logger
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
+from taf.utils import read_extra_args
 from taf.yubikey.yubikey_manager import manage_pins
 
 
@@ -73,7 +71,7 @@ def key_management(
                             all_roles.append(role)
 
             if not all_roles:
-                taf_logger.error(f"No roles specified")
+                taf_logger.error("No roles specified")
                 raise TAFError("No roles specified")
 
             taf_logger.info(f"Loading keys of roles {', '.join(all_roles)}")
@@ -81,49 +79,8 @@ def key_management(
             with manage_pins() as pin_manager:
 
                 auth_repo.pin_manager = pin_manager
-                pin_args: Dict[str, str] = {}
-                i = 0
-
-                pins = kwargs.get("pins")
-                while i < len(pins):
-                    if pins[i].startswith("--"):
-                        key = pins[i][2:]  # Strip "--"
-                        if i + 1 < len(pins) and not pins[i + 1].startswith("--"):
-                            pin_args[key] = pins[i + 1]
-                            i += 1  # Skip the value in the next iteration
-                    i += 1
-
-                key_id_pins: Dict = {}
-                if pin_args:
-
-                    key_name_key_ids = auth_repo.get_key_ids_of_key_names(
-                        pin_args.keys()
-                    )
-                    for key_name, key_id in key_name_key_ids.items():
-                        if key_name in pin_args:
-                            key_id_pins[key_id] = pin_args[key_name]
-
-                    if len(key_id_pins) != len(pin_args):
-                        all_roles = auth_repo.get_all_roles()
-                        for key_name, key_pin in pin_args.items():
-                            for role_name in all_roles:
-                                if role_name == key_name:
-                                    key_ids = auth_repo.get_key_ids_of_role(role_name)
-                                    if len(key_ids) == 1:
-                                        key_id_pins[key_ids[0]] = key_pin
-
-                    if len(key_id_pins) != len(pin_args):
-                        not_existing_names = [
-                            key_name
-                            for key_name in pin_args
-                            if key_name not in key_id_pins
-                        ]
-                        taf_logger.error(
-                            f"Keys {', '.join(not_existing_names)} not defined"
-                        )
-                        raise TAFError(
-                            f"Keys {', '.join(not_existing_names)} not defined"
-                        )
+                pin_args: Dict[str, str] = read_extra_args(kwargs, "pin")
+                key_id_pins = _map_keynames_to_keyids(auth_repo, pin_args)
 
                 # Load signers for required roles
                 for role in all_roles:
@@ -142,6 +99,33 @@ def key_management(
         return wrapper
 
     return decorator
+
+
+def _map_keynames_to_keyids(auth_repo, pin_args):
+    key_id_pins: Dict = {}
+    if not pin_args:
+        return key_id_pins
+
+    key_name_key_ids = auth_repo.get_key_ids_of_key_names(pin_args.keys())
+    for key_name, key_id in key_name_key_ids.items():
+        if key_name in pin_args:
+            key_id_pins[key_id] = pin_args[key_name]
+
+    if len(key_id_pins) != len(pin_args):
+        all_roles = auth_repo.get_all_roles()
+        for key_name, key_pin in pin_args.items():
+            for role_name in all_roles:
+                if role_name == key_name:
+                    key_ids = auth_repo.get_key_ids_of_role(role_name)
+                    if len(key_ids) == 1:
+                        key_id_pins[key_ids[0]] = key_pin
+
+    if len(key_id_pins) != len(pin_args):
+        not_existing_names = [
+            key_name for key_name in pin_args if key_name not in key_id_pins
+        ]
+        taf_logger.error(f"Keys {', '.join(not_existing_names)} not defined")
+        raise TAFError(f"Keys {', '.join(not_existing_names)} not defined")
 
 
 @contextmanager
