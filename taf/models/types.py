@@ -26,7 +26,7 @@ class Commitish:
 
     @classmethod
     def from_hash(cls, hash: Optional[str]):
-        return cls(hash) if hash is not None else None # type: ignore
+        return cls(hash) if hash is not None else None  # type: ignore
 
     def __eq__(self, other):
         if other is None:

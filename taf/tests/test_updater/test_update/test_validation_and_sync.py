@@ -276,9 +276,7 @@ def test_mixed_target_repo_states(origin_auth_repo, client_dir):
     setup_manager.add_task(pull_client_auth_repo, kwargs={"client_dir": client_dir})
     setup_manager.execute_tasks()
 
-    updated_repo.head_commit() == origin_target_repos[
-        updated_repo.name
-    ].head_commit()
+    updated_repo.head_commit() == origin_target_repos[updated_repo.name].head_commit()
     reverted_repo.head_commit() != old_commit
 
     update_and_check_commit_shas(
