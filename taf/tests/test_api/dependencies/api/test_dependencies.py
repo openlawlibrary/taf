@@ -82,7 +82,7 @@ def test_add_dependency_when_on_filesystem(
     dependencies = dependencies_json["dependencies"]
     assert child_repository.name in dependencies
     assert dependencies[child_repository.name] == {
-        "out-of-band-authentication": child_repository.head_commit_sha().value,
+        "out-of-band-authentication": child_repository.head_commit().value,
         "branch": child_repository.default_branch,
     }
 

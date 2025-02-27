@@ -15,7 +15,7 @@ def test_initial_commit(repository):
 
 
 def test_get_head_commit_sha(repository):
-    commit = repository.head_commit_sha()
+    commit = repository.head_commit()
     assert type(commit) == Commitish
     assert commit.hash
     assert commit.value
@@ -28,7 +28,7 @@ def test_head_commit_sha_when_no_repo():
             GitError,
             match=f"Repo {repo.name}: The path '{repo.path.as_posix()}' is not a Git repository.",
         ):
-            repo.head_commit_sha() is not None
+            repo.head_commit() is not None
 
 
 def test_clone_from_local(repository: GitRepository, clone_repository: GitRepository):
@@ -60,7 +60,7 @@ def test_branch_exists(repository: GitRepository):
 def test_branch_off_commit(repository: GitRepository):
     commit1 = repository.commit_empty("commit 1")
     commit2 = repository.commit_empty("commit 2")
-    assert repository.head_commit_sha() == commit2
+    assert repository.head_commit() == commit2
     branch_name = "new_branch"
     repository.branch_off_commit(branch_name, commit1)
     assert repository.top_commit_of_branch(branch_name) == commit1
@@ -148,7 +148,7 @@ def test_reset_to_commit_when_not_reset_remote_tracking(
     clone_repository.urls = [str(origin_repo.path)]
     clone_repository.clone()
     assert clone_repository.default_branch
-    top_commit = clone_repository.head_commit_sha()
+    top_commit = clone_repository.head_commit()
     initial_commit = clone_repository.initial_commit
     clone_repository.reset_to_commit(initial_commit, reset_remote_tracking=False)
     assert (
@@ -245,7 +245,7 @@ def test_checkout_commit(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     repository.commit_empty("test commit2")
     repository.checkout_commit(commit1)
-    assert repository.head_commit_sha() == commit1
+    assert repository.head_commit() == commit1
 
 
 def test_commit_exists(repository: GitRepository):
@@ -348,9 +348,9 @@ def test_merge_commit(repository: GitRepository):
 def test_reset_to_commit(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     commit2 = repository.commit_empty("test commit2")
-    assert repository.head_commit_sha() == commit2
+    assert repository.head_commit() == commit2
     repository.reset_to_commit(commit1)
-    assert repository.head_commit_sha() == commit1
+    assert repository.head_commit() == commit1
 
 
 def test_safely_get_json(repository: GitRepository):
@@ -434,7 +434,7 @@ def test_if_clean_and_synced_when_remote_commit(
 
 
 def test_checkout_paths(repository: GitRepository):
-    head_commit = repository.head_commit_sha()
+    head_commit = repository.head_commit()
     assert head_commit
     updated_file = repository.path / "test1.txt"
     old_text = updated_file.read_text()

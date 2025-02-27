@@ -483,7 +483,7 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    origin_top_commit = origin_auth_repo.head_commit_sha()
+    origin_top_commit = origin_auth_repo.head_commit()
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(
@@ -526,7 +526,7 @@ def test_update_with_targets_repo_having_a_local_branch_not_on_remote_origin_exp
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    origin_top_commit = origin_auth_repo.head_commit_sha()
+    origin_top_commit = origin_auth_repo.head_commit()
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)

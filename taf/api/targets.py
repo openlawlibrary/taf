@@ -267,7 +267,7 @@ def list_targets(
         None
     """
     auth_repo = AuthenticationRepository(path=path)
-    head_commit = auth_repo.head_commit_sha()
+    head_commit = auth_repo.head_commit()
     if head_commit is None:
         taf_logger.log("NOTICE", "Repository is empty")
         return {}
@@ -716,7 +716,7 @@ def _update_target_repos(
         return
     target_repo = GitRepository(path=target_repo_path)
     if target_repo.is_git_repository:
-        head_commit_sha = target_repo.head_commit_sha()
+        head_commit_sha = target_repo.head_commit()
         if head_commit_sha is None:
             taf_logger.warning(
                 f"Repository {repo_path} does not have the HEAD reference"

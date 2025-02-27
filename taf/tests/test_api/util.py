@@ -15,9 +15,9 @@ def check_target_file(
     auth_repo_head_sha: Optional[Commitish] = None,
 ):
     if auth_repo_head_sha is None:
-        auth_repo_head_sha = auth_repo.head_commit_sha()
+        auth_repo_head_sha = auth_repo.head_commit()
     target_repo = GitRepository(path=target_repo_path)
-    target_repo_head_sha = target_repo.head_commit_sha()
+    target_repo_head_sha = target_repo.head_commit()
     assert target_repo_head_sha
     repositoriesdb.load_repositories(auth_repo)
     target_repos = {

@@ -567,7 +567,7 @@ def add_valid_target_commits(
     add_if_empty: bool = True,
 ):
     for target_repo in target_repos:
-        if not add_if_empty and target_repo.head_commit_sha() is None:
+        if not add_if_empty and target_repo.head_commit() is None:
             continue
         update_target_repository(target_repo, "Update target files")
     sign_target_repositories(
@@ -702,7 +702,7 @@ def swap_last_two_commits(auth_repo: AuthenticationRepository):
     auth_repo._git("rebase -Xtheirs --onto HEAD~2 HEAD~1 HEAD")
     auth_repo._git("cherry-pick -Xtheirs ORIG_HEAD~1")
     auth_repo._git(
-        "update-ref refs/heads/{} {}", current_branch, auth_repo.head_commit_sha()
+        "update-ref refs/heads/{} {}", current_branch, auth_repo.head_commit()
     )
     auth_repo._git("checkout --quiet {}", current_branch)
 
@@ -833,7 +833,7 @@ def remove_commits(
 def checkout_detached_head(repo_path: str):
     """Checks out the repository to a detached HEAD state."""
     repo = GitRepository(path=Path(repo_path))
-    head_commit_sha = repo.head_commit_sha()
+    head_commit_sha = repo.head_commit()
     if head_commit_sha:
         repo.checkout_commit(head_commit_sha)
 
@@ -846,7 +846,7 @@ def create_index_lock_in_repo(repo_path: str):
 
 
 def set_head_commit(auth_repo: AuthenticationRepository):
-    last_valid_commit = auth_repo.head_commit_sha()
+    last_valid_commit = auth_repo.head_commit()
     if last_valid_commit is not None:
         auth_repo.set_last_validated_of_repo(
             auth_repo.name, last_valid_commit, set_last_validated_commit=True

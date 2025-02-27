@@ -391,7 +391,7 @@ class GitRepository:
                 )
             latest_commit_id = branch_obj.target
         else:
-            if self.head_commit_sha() is None:
+            if self.head_commit() is None:
                 raise GitError(
                     self,
                     message=f"Error occurred while getting commits of branch {branch}. No HEAD reference",
@@ -441,7 +441,7 @@ class GitRepository:
                 return []
             latest_commit_id = branch_obj.target
         else:
-            if self.head_commit_sha() is None:
+            if self.head_commit() is None:
                 return []
             latest_commit_id = repo[repo.head.target].id
 
@@ -673,7 +673,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         if commit is None:
-            commit = self.head_commit_sha()
+            commit = self.head_commit()
 
         if commit is None:
             return existing_files, non_existing
@@ -805,7 +805,7 @@ class GitRepository:
         Return old and new HEAD.
         """
         try:
-            old_head = self.head_commit_sha()
+            old_head = self.head_commit()
         except GitError:
             # repo does not exist
             old_head = None
@@ -835,7 +835,7 @@ class GitRepository:
                     raise FetchException(f"{self.path}: {str(e)}")
                 pass
 
-        new_head = self.head_commit_sha()
+        new_head = self.head_commit()
 
         return old_head, new_head
 
@@ -1131,7 +1131,7 @@ class GitRepository:
     def has_remote(self) -> bool:
         return len(self.remotes) > 0
 
-    def head_commit_sha(self) -> Optional[Commitish]:
+    def head_commit(self) -> Optional[Commitish]:
         """Finds sha of the commit to which the current HEAD points"""
         repo = self.pygit_repo
 

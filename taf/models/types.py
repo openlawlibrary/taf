@@ -15,14 +15,10 @@ from taf.models.validators import (
 )
 
 
-@attrs.define
+@attrs.frozen
 class Commitish:
     hash: str
     tag: Optional[str] = None
-
-    def __init__(self, hash, tag=None):
-        self.hash = hash
-        self.tag = tag
 
     @property
     def value(self) -> str:

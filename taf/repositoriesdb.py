@@ -52,7 +52,7 @@ def check_if_repositories_json_exists(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
 ) -> bool:
     if commit is None:
-        commit = auth_repo.head_commit_sha()
+        commit = auth_repo.head_commit()
         if commit is None:
             raise GitError(
                 auth_repo,
@@ -94,7 +94,7 @@ def _load_dependencies(
 
     dependencies = {}
     if commits is None:
-        auth_repo_head_commit = auth_repo.head_commit_sha()
+        auth_repo_head_commit = auth_repo.head_commit()
         if auth_repo_head_commit is None:
             taf_logger.info(
                 "Authentication repository does not exist - cannot load included authentication repositories"
@@ -230,7 +230,7 @@ def load_repositories(
         raise_error_if_no_urls=raise_error_if_no_urls,
     )
     if commits is None or len(commits) == 0:
-        commit = auth_repo.head_commit_sha()
+        commit = auth_repo.head_commit()
         if commit is None:
             return
         commits = [commit]
@@ -259,7 +259,7 @@ def _load_repositories(
         excluded_target_globs = []
 
     if commits is None:
-        auth_repo_head_commit = auth_repo.head_commit_sha()
+        auth_repo_head_commit = auth_repo.head_commit()
         if auth_repo_head_commit is None:
             taf_logger.info(
                 "Authentication repository does not exist - cannot load target repositories"
@@ -420,7 +420,7 @@ def get_repositories_paths_by_custom_data(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None, **custom
 ) -> Optional[List[str]]:
     if not commit:
-        commit = auth_repo.head_commit_sha()
+        commit = auth_repo.head_commit()
         if commit is None:
             raise TAFError(
                 "Could not get repositories. Commit is not specified and head commit could not be determined"
@@ -498,7 +498,7 @@ def _get_deduplicated_target_or_auth_repositories(
     raise_error_if_no_urls: Optional[bool] = False,
 ):
     if commits is None:
-        head_commit = auth_repo.head_commit_sha()
+        head_commit = auth_repo.head_commit()
         if not head_commit:
             return {}
         commits = [head_commit]
@@ -617,7 +617,7 @@ def _get_repositories(
         "Included authentication repositories" if load_auth else "Repositories"
     )
     if commit is None:
-        commit = auth_repo.head_commit_sha()
+        commit = auth_repo.head_commit()
     taf_logger.debug(
         "Auth repo {}: finding {}repositories defined at commit {}",
         auth_repo.path,

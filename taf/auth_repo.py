@@ -154,7 +154,7 @@ class AuthenticationRepository(GitRepository):
             if branch is not None:
                 commit = self.top_commit_of_branch(branch)
             else:
-                commit = self.head_commit_sha()
+                commit = self.head_commit()
             targets_data = self.get_metadata("targets", commit)
             if targets_data is None:
                 return False
@@ -233,7 +233,7 @@ class AuthenticationRepository(GitRepository):
         self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
         if commit is None:
-            commit = self.head_commit_sha()
+            commit = self.head_commit()
         if commit is None:
             return None
         target_path = get_target_path(target_name)
@@ -246,7 +246,7 @@ class AuthenticationRepository(GitRepository):
         self, role: str, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
         if commit is None:
-            commit = self.head_commit_sha()
+            commit = self.head_commit()
         if commit is None:
             return None
         metadata_path = get_role_metadata_path(role)
@@ -258,7 +258,7 @@ class AuthenticationRepository(GitRepository):
     def get_info_json(
         self, commit: Optional[Commitish] = None, safely: bool = True
     ) -> Optional[Dict]:
-        head_commit = commit or self.head_commit_sha()
+        head_commit = commit or self.head_commit()
         if head_commit is None:
             return None
         if safely:

@@ -25,7 +25,7 @@ def repo_urls(target_repos):
 def test_load_repositories_with_mirrors(
     target_repos, auth_repo_with_targets, repo_urls
 ):
-    commit = auth_repo_with_targets.head_commit_sha()
+    commit = auth_repo_with_targets.head_commit()
     with load_repositories(auth_repo_with_targets):
         for target_repo in target_repos:
             loaded_repos_dict = repositoriesdb._repositories_dict[

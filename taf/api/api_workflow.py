@@ -14,7 +14,7 @@ from taf.constants import METADATA_DIRECTORY_NAME
 
 @contextmanager
 def transactional_execution(auth_repo):
-    initial_commit = auth_repo.head_commit_sha()
+    initial_commit = auth_repo.head_commit()
     try:
         yield
     except PushFailedError:

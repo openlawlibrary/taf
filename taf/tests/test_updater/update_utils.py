@@ -22,7 +22,7 @@ def check_last_validated_commit(
 ):
     # check if last validated commit is created and the saved commit is correct
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
-    head_sha = client_auth_repo.head_commit_sha()
+    head_sha = client_auth_repo.head_commit()
     last_validated_data = client_auth_repo.last_validated_data
     assert last_validated_data[client_auth_repo.name] == head_sha.value
     if not excluded_targets:
@@ -436,7 +436,7 @@ def verify_client_repos_state(
     # check if the target repositoies are in sync with the auth repo
 
     for repo_name, client_repo in client_target_repos.items():
-        client_commit = client_repo.head_commit_sha()
+        client_commit = client_repo.head_commit()
 
         # Extract commit SHA from the target file in the client repo
         target_commit_info = client_auth_repo.get_target(repo_name)
@@ -464,8 +464,8 @@ def verify_partial_auth_update(
     # Ensure the last validated commit exists in the client's auth repo
     check_last_validated_commit(client_auth_repo.path)
 
-    client_head_sha = client_auth_repo.head_commit_sha()
-    assert client_head_sha != origin_auth_repo.head_commit_sha()
+    client_head_sha = client_auth_repo.head_commit()
+    assert client_head_sha != origin_auth_repo.head_commit()
     assert client_head_sha in origin_auth_repo.all_commits_on_branch()
 
 
@@ -479,8 +479,8 @@ def verify_partial_targets_update(
         origin_auth_repo, library_dir=client_dir
     )
     for repo_name, client_repo in client_target_repos.items():
-        client_commit = client_repo.head_commit_sha()
-        origin_commit = origin_auth_repo.head_commit_sha()
+        client_commit = client_repo.head_commit()
+        origin_commit = origin_auth_repo.head_commit()
 
         # Ensure the client repository commit is different from the origin repo commit
         assert (
