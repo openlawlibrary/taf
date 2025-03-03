@@ -31,6 +31,8 @@ class Commitish:
     def __eq__(self, other):
         if other is None:
             return False
+        if isinstance(other, str):
+            other = Commitish(other)
         return self.value == other.value
 
     def __hash__(self):
