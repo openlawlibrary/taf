@@ -14,7 +14,7 @@ from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.auth_repo import AuthenticationRepository
 from taf.log import taf_logger
-from taf.tools.cli import catch_cli_exception, find_repository
+from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 
 from taf.api.roles import add_role_paths
 from taf.tools.repo import pin_managed
@@ -65,16 +65,12 @@ def add_roles_command():
     """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
+    @common_repo_edit_options
     @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file.")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def add_roles(config_file, path, scheme, keystore, no_commit, prompt_for_keys, pin_manager, keys_description):
+    def add_roles(config_file, path, scheme, keystore, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
         add_multiple_roles(
             path=path,
             pin_manager=pin_manager,
@@ -84,6 +80,7 @@ def add_roles_command():
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return add_roles
 
@@ -118,29 +115,26 @@ def add_role_paths_command():
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys, pin_manager, keys_description):
+    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
         if not delegated_path:
             print("Specify at least one path")
             return
 
         add_role_paths(
+            path=path,
             paths=delegated_path,
             pin_manager=pin_manager,
             delegated_role=role,
             keystore=keystore,
             commit=not no_commit,
-            auth_path=path,
             prompt_for_keys=prompt_for_keys,
             push=not no_commit,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return adding_role_paths
 
@@ -157,16 +151,12 @@ def remove_role_command():
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys, pin_manager, keys_description):
+    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
         remove_role(
             path=path,
             pin_manager=pin_manager,
@@ -177,6 +167,7 @@ def remove_role_command():
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return remove
 
@@ -185,16 +176,12 @@ def remove_paths_command():
     @click.command(help="""Remove paths from delegated role""")
     @find_repository
     @catch_cli_exception(handle=TAFError)
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--delegated-path", multiple=True, help="A list of paths to be removed")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description):
+    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
         if not delegated_path:
             print("Specify at least one role")
             return
@@ -208,6 +195,7 @@ def remove_paths_command():
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return remove_delegated_paths
 
@@ -224,17 +212,13 @@ def add_signing_key_command():
         """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys the new key should be added")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description):
+    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
         if not role:
             print("Specify at least one role")
             return
@@ -249,6 +233,7 @@ def add_signing_key_command():
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return adding_signing_key
 
@@ -259,17 +244,13 @@ def revoke_signing_key_command():
         """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
+    @common_repo_edit_options
     @click.argument("keyid")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles from which to remove the key. If unspecified, the key is removed from all roles by default.")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description):
+    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
 
         revoke_signing_key(
             path=path,
@@ -280,7 +261,8 @@ def revoke_signing_key_command():
             scheme=scheme,
             commit=not no_commit,
             prompt_for_keys=prompt_for_keys,
-            keys_description=keys_description
+            keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return revoke_key
 
@@ -295,15 +277,15 @@ def rotate_signing_key_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles from which to remove the key. Remove from all by default")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
+    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores this information")
+    @click.option("--no-remote-check", is_flag=True, help="Whether to skip the check if there are any remote changes. Can be used when the SSH key requires a passphrase")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
     @pin_managed
-    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager, keys_description):
+    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager, keys_description, no_remote_check):
         rotate_signing_key(
             path=path,
             pin_manager=pin_manager,
@@ -316,6 +298,7 @@ def rotate_signing_key_command():
             revoke_commit_msg=revoke_commit_msg,
             add_commit_msg=add_commit_msg,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return rotate_key
 

@@ -1,7 +1,7 @@
 import click
 from taf.api.dependencies import add_dependency, remove_dependency
 from taf.exceptions import TAFError
-from taf.tools.cli import catch_cli_exception, find_repository, process_custom_command_line_args
+from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository, process_custom_command_line_args
 from taf.tools.repo import pin_managed
 
 
@@ -41,19 +41,15 @@ def add_dependency_command():
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("dependency_name")
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--branch-name", default=None, help="Name of the branch which contains the out-of-band commit")
     @click.option("--dependency-url", default=None, help="URL from which the dependency should be cloned if not already on disk")
     @click.option("--out-of-band-commit", default=None, help="Out-of-band commit SHA")
     @click.option("--dependency-path", default=None, help="Dependency's filesystem path")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @click.pass_context
     @pin_managed
-    def add(ctx, dependency_name, path, branch_name, dependency_url, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit, pin_manager, keys_description):
+    def add(ctx, dependency_name, path, branch_name, dependency_url, out_of_band_commit, dependency_path, keystore, prompt_for_keys, no_commit, pin_manager, keys_description, no_remote_check):
         custom = process_custom_command_line_args(ctx)
         add_dependency(
             path=path,
@@ -68,6 +64,7 @@ def add_dependency_command():
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check
         )
     return add
 
@@ -86,14 +83,10 @@ def remove_dependency_command():
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("dependency-name")
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def remove(dependency_name, path, keystore, prompt_for_keys, no_commit, pin_manager, keys_description):
+    def remove(dependency_name, path, keystore, prompt_for_keys, no_commit, pin_manager, keys_description, no_remote_check):
         remove_dependency(
             path=path,
             pin_manager=pin_manager,
@@ -102,6 +95,7 @@ def remove_dependency_command():
             prompt_for_keys=prompt_for_keys,
             commit=not no_commit,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check
         )
     return remove
 

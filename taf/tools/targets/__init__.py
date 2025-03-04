@@ -13,7 +13,7 @@ from taf.api.targets import (
 )
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
-from taf.tools.cli import catch_cli_exception, find_repository
+from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
 from taf.log import taf_logger
 from taf.tools.repo import pin_managed
 
@@ -61,19 +61,15 @@ def add_repo_command():
         `namespace1\\repo1`, the target's path will be set to `E:\\examples\\root\\namespace1\\repo1`.""")
     @find_repository
     @catch_cli_exception(handle=TAFError)
+    @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("target-name")
     @click.option("--target-path", default=None, help="Target repository's filesystem path")
     @click.option("--role", default="targets", help="Signing role of the corresponding target file. Can be a new role, in which case it will be necessary to provide additional information")
     @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file containing information about the new role and/or targets custom data.")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit, pin_manager, keys_description):
+    def add_repo(path, target_path, target_name, role, config_file, keystore, prompt_for_keys, scheme, no_commit, pin_manager, keys_description, no_remote_check):
 
         config_data = {}
         if config_file:
@@ -110,6 +106,7 @@ def add_repo_command():
                 commit=not no_commit,
                 should_create_new_role=True,
                 keys_description=keys_description,
+                skip_remote_check=no_remote_check,
             )
         else:
             add_target_repo(
@@ -126,6 +123,7 @@ def add_repo_command():
                 commit=not no_commit,
                 should_create_new_role=False,
                 keys_description=keys_description,
+                skip_remote_check=no_remote_check,
             )
     return add_repo
 
@@ -175,15 +173,12 @@ def list_targets_command():
 def remove_repo_command():
     @click.command(help="Remove a target repository (from repsoitories.json and target file) and sign")
     @find_repository
+    @common_repo_edit_options
     @catch_cli_exception(handle=TAFError)
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.argument("target-name")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the "
-                  "keys or a path to a json file which stores this information")
     @pin_managed
-    def remove_repo(path, target_name, keystore, prompt_for_keys, pin_manager, keys_description):
+    def remove_repo(path, target_name, keystore, prompt_for_keys, pin_manager, keys_description, no_remote_check):
         remove_target_repo(
             path=path,
             pin_manager=pin_manager,
@@ -191,6 +186,7 @@ def remove_repo_command():
             keystore=keystore,
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
+            skip_remote_check=no_remote_check,
         )
     return remove_repo
 
@@ -204,11 +200,11 @@ def sign_targets_command():
         by manually entering the key or by using a Yubikey.""")
     @find_repository
     @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
-    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores the needed information")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
+    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores this information")
+    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--no-commit", is_flag=True, default=False, help="Indicates that the changes should not be committed automatically")
     @pin_managed
     def sign(path, keystore, keys_description, scheme, prompt_for_keys, no_commit, pin_manager):

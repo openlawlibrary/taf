@@ -25,6 +25,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.yubikey.yubikey_manager import PinManager
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding target repository", logger=taf_logger)
 @log_on_error(
@@ -34,7 +35,6 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_target_repo(
     path: str,
     pin_manager: PinManager,
@@ -129,6 +129,7 @@ def add_target_repo(
         # delegated to another target role
         taf_logger.info("Role already exists")
         add_role_paths(
+            path=auth_repo.path,
             paths=[target_name],
             pin_manager=pin_manager,
             delegated_role=role,
@@ -430,6 +431,7 @@ def register_target_files(
             auth_repo.update_snapshot_and_timestamp()
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing target repository", logger=taf_logger)
 @log_on_error(
@@ -439,7 +441,6 @@ def register_target_files(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def remove_target_repo(
     path: str,
     pin_manager: PinManager,
@@ -561,6 +562,7 @@ def _save_top_commit_of_repo_to_target(
     _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
@@ -570,7 +572,6 @@ def _save_top_commit_of_repo_to_target(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def update_target_repos_from_repositories_json(
     path: str,
     pin_manager: PinManager,
@@ -627,6 +628,7 @@ def update_target_repos_from_repositories_json(
     )
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
@@ -636,7 +638,6 @@ def update_target_repos_from_repositories_json(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def update_and_sign_targets(
     path: str,
     pin_manager: PinManager,

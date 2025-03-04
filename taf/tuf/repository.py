@@ -866,7 +866,7 @@ class MetadataRepository(Repository):
             num_of_keys_without_name = threshold
 
         for num in range(threshold - num_of_keys_without_name, threshold):
-            key_names.append(num + 1)
+            key_names.append(f"{role_name}{num + 1}")
         return key_names
 
     def get_key_ids_of_key_names(self, key_names: List[str]):

@@ -47,6 +47,7 @@ def _add_to_dependencies(
     Path(dependencies_path).write_text(json.dumps(dependencies_json, indent=4))
 
 
+@check_if_clean_and_synced
 @log_on_start(
     DEBUG, "Adding or updating dependency {dependency_name:s}", logger=taf_logger
 )
@@ -58,7 +59,6 @@ def _add_to_dependencies(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_dependency(
     path: str,
     pin_manager: PinManager,
@@ -185,6 +185,7 @@ def add_dependency(
     )
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
 @log_on_error(
@@ -194,7 +195,6 @@ def add_dependency(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def remove_dependency(
     path: str,
     pin_manager: PinManager,

@@ -23,6 +23,7 @@ from taf.auth_repo import AuthenticationRepository
     on_exceptions=TAFError,
     reraise=False,
 )
+@check_if_clean_and_synced
 def add_key_names(
     path: str,
     keys_description: Path,

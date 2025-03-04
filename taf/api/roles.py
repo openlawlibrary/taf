@@ -34,6 +34,7 @@ from securesystemslib.signer._key import SSlibKey
 from taf.yubikey.yubikey_manager import PinManager
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Adding a new role {role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new role", logger=taf_logger)
 @log_on_error(
@@ -43,7 +44,6 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_role(
     path: str,
     pin_manager: PinManager,
@@ -150,6 +150,7 @@ def add_role(
         auth_repo.do_timestamp()
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Adding new paths to role {delegated_role:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new paths to role", logger=taf_logger)
 @log_on_error(
@@ -160,13 +161,13 @@ def add_role(
     reraise=True,
 )
 def add_role_paths(
+    path: str,
     paths: List[str],
     pin_manager: PinManager,
     delegated_role: str,
     keystore: str,
     commit: Optional[bool] = True,
     auth_repo: Optional[AuthenticationRepository] = None,
-    auth_path: Optional[str] = None,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     keys_description: Optional[str] = None,
@@ -193,7 +194,7 @@ def add_role_paths(
     """
 
     if auth_repo is None:
-        auth_repo = AuthenticationRepository(path=auth_path, pin_manger=pin_manager)
+        auth_repo = AuthenticationRepository(path=path, pin_manger=pin_manager)
     elif auth_repo.pin_manager is None:
         auth_repo.pin_manager = pin_manager
 
@@ -228,6 +229,7 @@ def add_role_paths(
         auth_repo.update_snapshot_and_timestamp()
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Adding new roles", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding new roles", logger=taf_logger)
 @log_on_error(
@@ -237,7 +239,6 @@ def add_role_paths(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_roles(
     path: str,
     pin_manager: PinManager,
@@ -335,6 +336,7 @@ def add_roles(
         auth_repo.do_timestamp()
 
 
+@check_if_clean_and_synced
 @log_on_start(NOTICE, "Adding a new signing key", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding a new signing key", logger=taf_logger)
 @log_on_error(
@@ -344,7 +346,6 @@ def add_roles(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_signing_key(
     path: str,
     pin_manager: PinManager,
@@ -419,6 +420,7 @@ def add_signing_key(
             auth_repo.update_snapshot_and_timestamp()
 
 
+@check_if_clean_and_synced
 @log_on_start(NOTICE, "Revoking signing key", logger=taf_logger)
 @log_on_end(DEBUG, "Finished revoking signing key", logger=taf_logger)
 @log_on_error(
@@ -428,7 +430,6 @@ def add_signing_key(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def revoke_signing_key(
     path: str,
     pin_manager: PinManager,
@@ -504,6 +505,15 @@ def revoke_signing_key(
 
 
 @check_if_clean_and_synced
+@log_on_start(DEBUG, "Rotating signing key {key_id:s}", logger=taf_logger)
+@log_on_end(DEBUG, "Finished rotating signing key", logger=taf_logger)
+@log_on_error(
+    ERROR,
+    "An error occurred while rotating a signing key {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=True,
+)
 def rotate_signing_key(
     path: str,
     pin_manager: PinManager,
