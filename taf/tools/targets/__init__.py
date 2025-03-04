@@ -14,6 +14,7 @@ from taf.api.targets import (
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import TAFError
 from taf.tools.cli import catch_cli_exception, common_repo_edit_options, find_repository
+from taf.models.types import Commitish
 from taf.log import taf_logger
 from taf.tools.repo import pin_managed
 
@@ -145,7 +146,7 @@ def export_history_command():
     @click.option("--output", default=None, help="File to which the resulting json will be written. If not provided, the output will be printed to console")
     @click.option("--repo", multiple=True, help="Target repository whose historical data should be collected")
     def export_history(path, commit, output, repo):
-        export_targets_history(path, commit, output, repo)
+        export_targets_history(path, Commitish.from_commit(commit), output, repo)
     return export_history
 
 

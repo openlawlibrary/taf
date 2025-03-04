@@ -167,7 +167,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
     # Get the authentication repository status
     print()
     auth_repo = AuthenticationRepository(path=path)
-    head_commit = auth_repo.head_commit_sha()
+    head_commit = auth_repo.head_commit()
     if head_commit is None:
         print("Repository is empty")
         return

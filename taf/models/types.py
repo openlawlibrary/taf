@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 from typing import Iterator, List, Optional, Dict
 import attrs
 
@@ -12,6 +13,38 @@ from taf.models.validators import (
     role_number_validator,
     role_paths_validator,
 )
+
+
+@attrs.frozen
+class Commitish:
+    hash: str
+    tag: Optional[str] = None
+
+    @property
+    def value(self) -> str:
+        return self.tag if self.tag else self.hash
+
+    @classmethod
+    def from_hash(cls, hash: Optional[str]):
+        return cls(hash) if hash is not None else None  # type: ignore
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.value == other.value
+
+    def __hash__(self):
+        return self.value.__hash__()
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return f'Commitish("{self.value}")'
+
+    def to_json(self):
+        """Serialize as a plain string instead of an object."""
+        return json.dumps(str(self))
 
 
 @attrs.define

@@ -10,6 +10,7 @@ from taf.git import GitRepository
 from securesystemslib.storage import FilesystemBackend
 
 from securesystemslib.exceptions import StorageError
+from taf.models.types import Commitish
 
 git_repos_cache: Dict[str, GitRepository] = {}
 
@@ -64,7 +65,7 @@ class GitStorageBackend(FilesystemBackend):
     Extends TUF's FilesystemBackend.
     """
 
-    commit: Optional[str] = None
+    commit: Optional[Commitish] = None
 
     def __new__(cls, *args, **kwargs):
         # Bypass singleton

@@ -4,6 +4,7 @@ import tempfile
 from functools import wraps
 from pathlib import Path
 
+from taf.models.types import Commitish
 from tuf.ngclient._internal import trusted_metadata_set
 from taf.exceptions import GitError
 from taf.log import taf_logger
@@ -61,19 +62,19 @@ class GitUpdater(FetcherInterface):
     """
 
     @property
-    def current_commit(self):
+    def current_commit(self) -> Commitish:
         return self.commits[self.current_commit_index]
 
     @property
-    def previous_commit(self):
+    def previous_commit(self) -> Commitish:
         return self.commits[self.current_commit_index - 1]
 
     @property
-    def metadata_dir(self):
+    def metadata_dir(self) -> str:
         return str(self.metadata_dir_path)
 
     @property
-    def targets_dir(self):
+    def targets_dir(self) -> str:
         return str(self.validation_auth_repo.path / "targets")
 
     def __init__(self, auth_urls, repository_directory, repository_name):
@@ -133,7 +134,9 @@ class GitUpdater(FetcherInterface):
         We have to presume that the initial metadata is correct though (or at least
         the initial root.json).
         """
-        last_validated_commit = settings.last_validated_commit.get(self.repository_name)
+        last_validated_commit = Commitish.from_hash(
+            settings.last_validated_commit.get(self.repository_name)
+        )
 
         commits_since = self.validation_auth_repo.all_commits_since_commit(
             last_validated_commit

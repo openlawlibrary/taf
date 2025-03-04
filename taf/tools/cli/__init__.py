@@ -5,7 +5,7 @@ from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
-from taf.exceptions import InvalidRepositoryError, RepositoryNotCleanError, TAFError
+from taf.exceptions import InvalidRepositoryError, RepositoryNotCleanError, RepositoryNotSynced, TAFError
 from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository
@@ -19,7 +19,7 @@ def catch_cli_exception(
     print_error=False,
     remove_dir_on_error=False,
     skip_cleanup=False,
-    errors_to_always_print=[RepositoryNotCleanError],
+    errors_to_always_print=[RepositoryNotCleanError, RepositoryNotSynced],
 ):
     if not func:
         return partial(

@@ -5,6 +5,8 @@ from taf.log import taf_logger
 from taf.exceptions import GitError
 import os.path
 
+from taf.models.types import Commitish
+
 
 class PyGitRepository:
     def __init__(
@@ -67,13 +69,13 @@ class PyGitRepository:
         """
         self.repo.free()
 
-    def get_file(self, commit, path, raw=False):
+    def get_file(self, commit: Commitish, path, raw=False):
         """
         for the given commit string,
         return the string contents of the blob at the
         given path, if it exists, otherwise raise GitError
         """
-        obj = self.repo.get(commit)
+        obj = self.repo.get(commit.hash)
         blob = self._get_blob_at_path(obj, path)
         if blob is None:
             raise GitError(
@@ -109,13 +111,13 @@ class PyGitRepository:
                 )
         return results
 
-    def list_files_at_revision(self, commit, path):
+    def list_files_at_revision(self, commit: Commitish, path: str):
         """
         for the given commit string,
         return a list of all file paths that are
         descendents of the path string.
         """
-        obj = self.repo.get(commit)
+        obj = self.repo.get(commit.hash)
         root = self._get_object_at_path(obj, path)
         if root is None:
             raise GitError(

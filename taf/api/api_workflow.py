@@ -130,7 +130,7 @@ def _map_keynames_to_keyids(auth_repo, pin_args):
 
 @contextmanager
 def transactional_execution(auth_repo):
-    initial_commit = auth_repo.head_commit_sha()
+    initial_commit = auth_repo.head_commit()
     try:
         yield
     except PushFailedError:
@@ -214,7 +214,8 @@ def manage_repo_and_signers(
         elif not no_commit_warning:
             taf_logger.log("NOTICE", "\nPlease commit manually\n")
 
-    except PushFailedError:
+    except PushFailedError as e:
+        taf_logger.error(e)
         raise
     except Exception as e:
         taf_logger.error(f"An error occurred: {e}")
