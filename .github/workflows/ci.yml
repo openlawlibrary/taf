@@ -38,7 +38,7 @@ jobs:
 
     env:
       ARTIFACT_NAME: benchmark-results${{ matrix.python-version }}
-      BRANCH_NAME: 'renatav/performance-tests'
+      BRANCH_NAME: 'renatav/performance-tests' # needs to be changed to master before merging
       BENCHMARKS_DIR: '/home/runner/work/taf/taf/.benchmarks/'
       ARTIFACT_PATH: '/home/runner/work/taf/taf/.benchmarks/archive.zip'
 

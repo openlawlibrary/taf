@@ -20,5 +20,4 @@ If you want to cause failure in the case of regression, also add "–-benchmark-
 
 To compare two already stored results, the standalone command "pytest-benchmark compare" followed by the paths of the files you wish to compare can do that. Unlike the previous method, these files do not need to be stored in any specific folder.
 
-
 For further options, see https://pytest-benchmark.readthedocs.io/en/latest/usage.html
