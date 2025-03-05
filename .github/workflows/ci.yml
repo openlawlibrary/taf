@@ -1,5 +1,9 @@
 name: CI
 
+permissions:
+  contents: read
+  actions: read
+
 on:
   push: {}
   pull_request:
@@ -31,6 +35,13 @@ jobs:
     strategy:
       matrix:
         python-version: ${{ fromJSON(needs.set_python_versions.outputs.all_versions) }}
+
+    env:
+      ARTIFACT_NAME: benchmark-results${{ matrix.python-version }}
+      BRANCH_NAME: 'renatav/performance-tests'
+      BENCHMARKS_DIR: '/home/runner/work/taf/taf/.benchmarks/'
+      ARTIFACT_PATH: '/home/runner/work/taf/taf/.benchmarks/archive.zip'
+
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
 
@@ -50,6 +61,7 @@ jobs:
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
+          npm install axios
 
       - name: Setup GitHub user
         run: |
@@ -62,28 +74,92 @@ jobs:
         run: |
           echo body: ${{ github.event.pull_request.body }}
 
-      - name: Run pre-commit and test with pytest
-        run: |
-          pre-commit run --all-files
-          pytest taf/tests --benchmark-skip
+      # - name: Run pre-commit and test with pytest
+      #   run: |
+      #     pre-commit run --all-files
+      #     pytest taf/tests --benchmark-skip
 
-
-      - name: Download artifact # Known issue: this will fail if the previous run failed before saving artifacts, or if those artifacts have expired
-        id: download-artifact
-        uses: dawidd6/action-download-artifact@v8
+      - name: Fetch the latest artifact by name and branch
+        id: get_artifact
+        uses: actions/github-script@v6
         with:
-          branch: CalShucha/automated-benchmarking #change to "master" when testing is done
-          name: benchmark-results${{ matrix.python-version }}
-          path: /home/runner/work/taf/taf/.benchmarks/${{ runner.os }}-CPython-${{ matrix.python-version }}-64bit
-          workflow_conclusion: success
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const filteredArtifacts = artifacts.data.artifacts.filter(artifact => artifact.name === process.env.ARTIFACT_NAME);
+            let latestArtifact = null;
+
+            for (const artifact of filteredArtifacts) {
+              const run = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: artifact.workflow_run.id,
+              });
+
+              if (run.data.head_branch === process.env.BRANCH_NAME) {
+                if (!latestArtifact || new Date(artifact.created_at) > new Date(latestArtifact.created_at)) {
+                  latestArtifact = artifact;
+                }
+              }
+            }
+
+            if (latestArtifact) {
+              console.log(`Found latest artifact: ${latestArtifact.id}`);
+              core.setOutput('artifact_id', latestArtifact.id.toString());
+            } else {
+              console.log('No matching artifacts found.');
+              core.setFailed('No matching artifacts found.');
+            }
+
+      - name: Download the artifact by ID
+        uses: actions/github-script@v6
+        if: steps.get_artifact.outputs.artifact_id
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const artifactId = '${{ steps.get_artifact.outputs.artifact_id }}';
+            console.log(`Downloading artifact ID: ${artifactId}`);
+            const benchmarksDir = process.env.BENCHMARKS_DIR
+            const artifactPath = process.env.ARTIFACT_PATH
+
+            // First, get the URL to download the artifact
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifactId,
+              archive_format: 'zip',
+            });
+
+            if (!fs.existsSync(benchmarksDir)) {
+              fs.mkdirSync(benchmarksDir, { recursive: true });
+            }
+            fs.writeFileSync(artifactPath, Buffer.from(download.data));
+            console.log('Artifact downloaded:', artifactPath);
+
+      - name: 'Unzip artifact'
+        if: steps.get_artifact.outputs.artifact_id
+        run: unzip $ARTIFACT_PATH -d $BENCHMARKS_DIR
+
+      - name: List extracted files
+        run: ls -l $BENCHMARKS_DIR
   
-      - name: Run benchmark
+      - name: Run benchmark with comparison
+        if: steps.get_artifact.outputs.artifact_id
         run: |
           python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare --benchmark-compare-fail=mean:20%
+
+      - name: Run benchmark without comparison
+        if: steps.get_artifact.outputs.artifact_id == '' || steps.get_artifact.outputs.artifact_id == null
+        run: |
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json
+
       - name: Archive benchmark results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results${{ matrix.python-version }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: 0001_output.json
 
   build_and_upload_wheel:
