@@ -1,9 +1,5 @@
 name: CI
 
-permissions:
-  contents: read
-  actions: read
-
 on:
   push: {}
   pull_request:
@@ -38,7 +34,7 @@ jobs:
 
     env:
       ARTIFACT_NAME: benchmark-results${{ matrix.python-version }}
-      BRANCH_NAME: 'renatav/performance-tests' # needs to be changed to master before merging
+      BRANCH_NAME: 'master' # needs to be changed to master before merging
       BENCHMARKS_DIR: '/home/runner/work/taf/taf/.benchmarks/'
       ARTIFACT_PATH: '/home/runner/work/taf/taf/.benchmarks/archive.zip'
 
@@ -61,18 +57,22 @@ jobs:
           mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
-          npm install axios
 
       - name: Setup GitHub user
         run: |
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
 
+      - name: Run pre-commit and test with pytest
+        run: |
+          pre-commit run --all-files
+          pytest taf/tests
+
       - name: Set Benchmark Threshold from File
         run: |
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          CURRENT_BRANCH=${GITHUB_REF#refs/heads/}
 
-          THRESHOLD=$(jq --arg branch "$BRANCH_NAME" '.[$branch]' ./benchmark_thresholds.json)
+          THRESHOLD=$(jq --arg branch "$CURRENT_BRANCH" '.[$branch]' ./benchmark_thresholds.json)
 
           if [ "$THRESHOLD" == "null" ]; then
             THRESHOLD=10  # Default threshold if not specified
@@ -85,7 +85,7 @@ jobs:
 
       - name: Fetch the latest artifact by name and branch
         id: get_artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #@v7.01
         with:
           script: |
             const artifacts = await github.rest.actions.listArtifactsForRepo({
@@ -114,11 +114,11 @@ jobs:
               core.setOutput('artifact_id', latestArtifact.id.toString());
             } else {
               console.log('No matching artifacts found.');
-              core.setFailed('No matching artifacts found.');
+              core.setOutput('artifact_id', '');
             }
 
       - name: Download the artifact by ID
-        uses: actions/github-script@v6
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #@v7.01
         if: steps.get_artifact.outputs.artifact_id
         with:
           script: |
@@ -148,6 +148,7 @@ jobs:
         run: unzip $ARTIFACT_PATH -d $BENCHMARKS_DIR
 
       - name: List extracted files
+        if: steps.get_artifact.outputs.artifact_id
         run: ls -l $BENCHMARKS_DIR
   
       - name: Run benchmark with comparison
@@ -160,8 +161,14 @@ jobs:
         run: |
           python -m pytest --benchmark-only --benchmark-json=0001_output.json
 
+      # Use a step to extract the branch name from github.ref
+      - name: Extract Branch Name
+        id: extract_branch
+        run: echo "::set-output name=branch::$(echo ${GITHUB_REF#refs/heads/})"
+
       - name: Archive benchmark results
-        uses: actions/upload-artifact@v4
+        if: steps.extract_branch.outputs.branch == env.BRANCH_NAME
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #@v4.6.1
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: 0001_output.json
