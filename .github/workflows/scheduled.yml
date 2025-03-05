@@ -1,0 +1,38 @@
+name: Scheduled Benchmark Tests
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every 90 days
+    - cron: '0 0 */90 * *'
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11, 3.12]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-benchmark
+          # Add any other dependencies your project requires
+
+      - name: Run Benchmark Tests
+        run: |
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v2
+        with:
+          name: benchmark-results-${{ matrix.python-version }}
+          path: 0001_output.json
