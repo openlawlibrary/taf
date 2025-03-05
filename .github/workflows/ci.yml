@@ -68,16 +68,20 @@ jobs:
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
 
-
-      - name: test pull request reading
-        if: contains(github.event.pull_request.body, 'test') 
+      - name: Set Benchmark Threshold from File
         run: |
-          echo body: ${{ github.event.pull_request.body }}
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
 
-      # - name: Run pre-commit and test with pytest
-      #   run: |
-      #     pre-commit run --all-files
-      #     pytest taf/tests --benchmark-skip
+          THRESHOLD=$(jq --arg branch "$BRANCH_NAME" '.[$branch]' ./benchmark_thresholds.json)
+
+          if [ "$THRESHOLD" == "null" ]; then
+            THRESHOLD=10  # Default threshold if not specified
+          fi
+          echo "BENCHMARK_THRESHOLD=$THRESHOLD" >> $GITHUB_ENV
+          echo "Using benchmark threshold: $THRESHOLD"
+
+      - name: Display Benchmark Threshold
+        run: echo "Benchmark Threshold is $BENCHMARK_THRESHOLD"
 
       - name: Fetch the latest artifact by name and branch
         id: get_artifact
@@ -149,7 +153,7 @@ jobs:
       - name: Run benchmark with comparison
         if: steps.get_artifact.outputs.artifact_id
         run: |
-          python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare --benchmark-compare-fail=mean:20%
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare --benchmark-compare-fail=mean:${BENCHMARK_THRESHOLD}%
 
       - name: Run benchmark without comparison
         if: steps.get_artifact.outputs.artifact_id == '' || steps.get_artifact.outputs.artifact_id == null
