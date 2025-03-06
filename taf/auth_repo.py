@@ -16,7 +16,7 @@ from taf.tuf.repository import (
     get_role_metadata_path,
     get_target_path,
 )
-from taf.constants import INFO_JSON_PATH
+from taf.constants import INFO_JSON_PATH, LOG_DIR_NAME, TARGETS_DIRECTORY_NAME
 from taf.yubikey.yubikey_manager import PinManager
 
 
@@ -139,6 +139,16 @@ class AuthenticationRepository(GitRepository):
         certs_dir = self.path / "certs"
         certs_dir.mkdir(parents=True, exist_ok=True)
         return str(certs_dir)
+
+    @property
+    def log_dir(self) -> Path:
+        """
+        Location inside the targets directory where dependencies update data is stored
+        """
+        log_dir_path = self.path / TARGETS_DIRECTORY_NAME / LOG_DIR_NAME
+        if not log_dir_path.is_dir():
+            log_dir_path.mkdir(parents=True)
+        return log_dir_path
 
     @property
     def dependencies(self) -> Dict:
