@@ -456,7 +456,7 @@ class AuthenticationRepository(GitRepository):
     def sorted_commits_and_branches_per_repositories(
         self,
         commits: List[Commitish],
-        target_repos: Dict[str, GitRepository],
+        target_repos: Optional[Dict[str, GitRepository]] = None,
         custom_fns: Optional[Dict[str, Callable]] = None,
         excluded_target_globs: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
@@ -532,7 +532,7 @@ class AuthenticationRepository(GitRepository):
     def targets_at_revisions(
         self,
         commits,
-        target_repos,
+        target_repos=None,
         last_commits_per_repos=None,
     ):
         targets = defaultdict(dict)
@@ -587,15 +587,19 @@ class AuthenticationRepository(GitRepository):
                     if target_name not in repositories_at_revision:
                         # we only care about repositories
                         continue
-                    if target_repos and target_name not in target_repos.keys():
+                    if (
+                        target_repos is not None
+                        and target_name not in target_repos.keys()
+                    ):
                         # if specific target repositories are specified, skip all other
                         # repositories
                         continue
                     target_content = self.safely_get_json(
                         commit, get_target_path(target_name)
                     )
-
-                    default_branch = target_repos[target_name].default_branch
+                    default_branch = None
+                    if target_repos is not None:
+                        default_branch = target_repos[target_name].default_branch
                     if target_content is not None:
                         target_commit = target_content.pop("commit")
                         target_branch = target_content.pop("branch", default_branch)
