@@ -25,8 +25,16 @@ class Commitish:
         return self.tag if self.tag else self.hash
 
     @classmethod
-    def from_hash(cls, hash: Optional[str]):
-        return cls(hash) if hash is not None else None  # type: ignore
+    def from_hash(cls, hash: Optional[Commitish | str]):
+        """
+        Initialize cls from `hash`.
+        If `hash` is already `Commitish`, returns self
+        """
+        if hash is None:
+            return None
+        if isinstance(hash, str):
+            return cls(hash)  # type: ignore
+        return hash  # type: ignore
 
     def __eq__(self, other):
         if other is None:
