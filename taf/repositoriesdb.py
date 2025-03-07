@@ -811,7 +811,10 @@ def repositories_loaded(auth_repo: AuthenticationRepository) -> bool:
     )
 
 
-def get_all_auth_repos(auth_repo: AuthenticationRepository, auth_repos_list: list):
+def get_all_auth_repos(
+    auth_repo: AuthenticationRepository,
+    auth_repos_list: Optional[list] = None,
+):
     """
     Recursively iterate through dependencies and add all auth repos to a list.
     """
@@ -829,3 +832,5 @@ def get_all_auth_repos(auth_repo: AuthenticationRepository, auth_repos_list: lis
     if len(auth_repos) != 0:
         for auth_repo in auth_repos:
             get_all_auth_repos(auth_repo, auth_repos_list)
+
+    return auth_repos_list
