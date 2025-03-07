@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Integrate benchmark tests into CI ([597])
 - Add Commitish model ([596])
 - Aadd tests for part of the git module ([596])
 - Implement adaptive timeout for Git clone operations ([592])
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
+[597]: https://github.com/openlawlibrary/taf/pull/597
 [596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
 [593]: https://github.com/openlawlibrary/taf/pull/593
