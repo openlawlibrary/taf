@@ -809,3 +809,28 @@ def repositories_loaded(auth_repo: AuthenticationRepository) -> bool:
         len(repositories_at_commit)
         for repositories_at_commit in all_repositories.values()
     )
+
+
+def get_all_auth_repos(
+    auth_repo: AuthenticationRepository,
+    auth_repos_list: Optional[list] = None,
+):
+    """
+    Recursively iterate through dependencies and add all auth repos to a list.
+    """
+    if auth_repos_list is None:
+        auth_repos_list = []
+
+    # If current repo is not in the list, add it:
+    if not any(auth_repo.path == repo.path for repo in auth_repos_list):
+        auth_repos_list.append(auth_repo)
+    # Load dependencies and iterate recursively:
+    load_dependencies(auth_repo)
+    auth_repos = list(
+        get_deduplicated_auth_repositories(auth_repo, commits=None).values()
+    )
+    if len(auth_repos) != 0:
+        for auth_repo in auth_repos:
+            get_all_auth_repos(auth_repo, auth_repos_list)
+
+    return auth_repos_list
