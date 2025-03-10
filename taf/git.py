@@ -794,6 +794,7 @@ class GitRepository:
                         if branch in local_branch_names:
                             self.set_upstream(str(branch))
 
+    # TODO test this
     def clone_or_pull(
         self,
         branches: Optional[List[str]] = None,
@@ -1140,6 +1141,7 @@ class GitRepository:
         except Exception:
             return None
 
+    # TODO test fetch and fetch from disk
     def fetch(
         self,
         fetch_all: Optional[bool] = False,
@@ -1170,14 +1172,6 @@ class GitRepository:
             self.create_local_branch_from_remote_tracking(branch, temp_remote_name)
 
         repo.remotes.delete(temp_remote_name)
-
-    def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
-        """Returns path of the workree where the branch is checked out, or None if not checked out in any worktree"""
-        worktrees = self.list_worktrees()
-        for path, _, _branch_name in worktrees.values():
-            if _branch_name == branch_name:
-                return path
-        return None
 
     def find_first_branch_matching_pattern(
         self,

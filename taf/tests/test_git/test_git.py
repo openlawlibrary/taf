@@ -1,5 +1,6 @@
 import datetime
 import json
+from pygit2 import AlreadyExistsError
 from taf.models.types import Commitish
 import pytest
 import tempfile
@@ -29,6 +30,52 @@ def test_head_commit_sha_when_no_repo():
             match=f"Repo {repo.name}: The path '{repo.path.as_posix()}' is not a Git repository.",
         ):
             repo.head_commit() is not None
+
+
+def test_clone(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.is_git_repository
+
+
+def test_create_branch(repository: GitRepository):
+    head_commit = repository.head_commit()
+    assert head_commit
+    branch_name = "new-branch"
+    repository.create_branch(branch_name)
+    assert repository.branch_exists(branch_name)
+    with pytest.raises(AlreadyExistsError):
+        repository.create_branch(branch_name)
+
+
+def test_commit(repository: GitRepository):
+    commits_num = len(repository.all_commits_on_branch())
+    msg = "test message"
+    with pytest.raises(NothingToCommitError):
+        repository.commit(msg)
+    (repository.path / "test_file").touch()
+    commit = repository.commit(msg)
+    assert len(repository.all_commits_on_branch()) == commits_num + 1
+    assert repository.get_commit_message(commit).strip() == msg
+
+
+def test_commit_empty(repository: GitRepository):
+    commits_num = len(repository.all_commits_on_branch())
+    msg = "test message"
+    commit = repository.commit_empty(msg)
+    assert len(repository.all_commits_on_branch()) == commits_num + 1
+    assert repository.get_commit_message(commit).strip() == msg
+
+
+def test_create_and_checkout_branch(repository: GitRepository):
+    head_commit = repository.head_commit()
+    assert head_commit
+    branch_name = "new-branch"
+    repository.create_and_checkout_branch(branch_name)
+    assert repository.branch_exists(branch_name)
+    all_commits_on_branch = repository.all_commits_on_branch(branch_name)
+    assert head_commit in all_commits_on_branch
+    assert repository.get_current_branch() == branch_name
 
 
 def test_clone_from_local(repository: GitRepository, clone_repository: GitRepository):
@@ -162,25 +209,6 @@ def test_detached_head(repository: GitRepository):
     assert repository.initial_commit
     repository.checkout_commit(repository.initial_commit)
     assert repository.is_detached_head
-
-
-def test_commit(repository: GitRepository):
-    commits_num = len(repository.all_commits_on_branch())
-    msg = "test message"
-    with pytest.raises(NothingToCommitError):
-        repository.commit(msg)
-    (repository.path / "test_file").touch()
-    commit = repository.commit(msg)
-    assert len(repository.all_commits_on_branch()) == commits_num + 1
-    assert repository.get_commit_message(commit).strip() == msg
-
-
-def test_commit_empty(repository: GitRepository):
-    commits_num = len(repository.all_commits_on_branch())
-    msg = "test message"
-    commit = repository.commit_empty(msg)
-    assert len(repository.all_commits_on_branch()) == commits_num + 1
-    assert repository.get_commit_message(commit).strip() == msg
 
 
 def test_all_commits_on_branch(repository: GitRepository):
@@ -443,3 +471,108 @@ def test_checkout_paths(repository: GitRepository):
     assert repository.get_file(head_commit, "test1.txt") == old_text
     repository.checkout_paths(head_commit, "test1.txt")
     assert updated_file.read_text() == old_text
+
+
+def test_checkout_orphan_branch(repository: GitRepository):
+    head_commit = repository.head_commit()
+    assert head_commit
+    branch_name = "new-orphan-branch"
+    repository.checkout_orphan_branch(branch_name)
+    repository.commit_empty("test")
+    repository.commit_empty("test")
+    assert repository.branch_exists(branch_name)
+    all_commits_on_orphan = repository.all_commits_on_branch(branch_name)
+    assert head_commit not in all_commits_on_orphan
+
+
+def test_check_files_exist(repository: GitRepository):
+    existing_expected = {"test1.txt", "test2.txt"}
+    missing_expected = {"test5.txt"}
+    existing_actual, missing_actual = repository.check_files_exist(
+        ["test1.txt", "test2.txt", "test5.txt"]
+    )
+    assert existing_expected == set(existing_actual)
+    assert missing_expected == set(missing_actual)
+
+
+def test_clean(repository: GitRepository):
+    assert not repository.something_to_commit()
+    (repository.path / "test").touch()
+    assert repository.something_to_commit()
+    repository.clean()
+    assert not repository.something_to_commit()
+
+
+def test_clean_and_reset(repository: GitRepository):
+    assert not repository.something_to_commit()
+    (repository.path / "test").touch()
+    updated_file = repository.path / "test1.txt"
+    old_text = updated_file.read_text()
+    new_text = "some updated text"
+    updated_file.write_text(new_text)
+    assert repository.something_to_commit()
+    repository.clean_and_reset()
+    assert not repository.something_to_commit()
+    assert updated_file.read_text() == old_text
+
+
+def test_create_local_branch_from_remote_tracking(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
+    branch_name = "new_branch"
+    origin_repo.create_branch(branch_name)
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.is_git_repository
+    local_branches = clone_repository.branches(remote=False)
+    assert branch_name not in local_branches
+    clone_repository.create_local_branch_from_remote_tracking(branch_name)
+    local_branches = clone_repository.branches(remote=False)
+    assert branch_name in local_branches
+
+
+def test_delete_local_branch(repository: GitRepository):
+    branch_name = "new_branch"
+    repository.create_branch(branch_name)
+    branch_name in repository.branches(remote=False)
+    repository.delete_branch(branch_name)
+    branch_name not in repository.branches(remote=False)
+
+
+def test_diff_between_revisions(repository: GitRepository):
+    head_commit = repository.head_commit()
+    (repository.path / "test_file").touch()
+    (repository.path / "test1.txt").write_text("updated text")
+    (repository.path / "test2.txt").unlink()
+    commit = repository.commit("test")
+    diff = repository.diff_between_revisions(head_commit, commit)
+    # TODO can parse diff and make this nicer
+    assert diff == "M\ttest1.txt\nD\ttest2.txt\nA\ttest_file"
+
+
+def test_has_remote(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.has_remote()
+
+
+def test_find_first_branch_matching_pattern(repository: GitRepository):
+    def _pattern_func(branch_name):
+        return branch_name.startswith("test/")
+
+    def _pattern_func_no_match(branch_name):
+        return branch_name.startswith("doesntexist")
+
+    repository.create_branch("test/branch1")
+    repository.commit_empty("test1")
+    repository.create_branch("test/branch2")
+    repository.commit_empty("test2")
+    repository.create_branch("test3")
+    branch = repository.find_first_branch_matching_pattern(
+        repository.default_branch, _pattern_func
+    )
+    assert branch == "test/branch2"
+    branch = repository.find_first_branch_matching_pattern(
+        repository.default_branch, _pattern_func_no_match
+    )
+    assert branch is None
