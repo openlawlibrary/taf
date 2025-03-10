@@ -3,6 +3,7 @@ from logging import DEBUG, ERROR
 from typing import Dict, Optional
 import click
 from taf.api.targets import register_target_files
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.models.types import Commitish
 import taf.repositoriesdb as repositoriesdb
 from logdecorator import log_on_end, log_on_error, log_on_start
@@ -51,6 +52,7 @@ def _add_to_dependencies(
     Path(dependencies_path).write_text(json.dumps(dependencies_json, indent=4))
 
 
+@check_if_clean_and_synced
 @log_on_start(
     DEBUG, "Adding or updating dependency {dependency_name:s}", logger=taf_logger
 )
@@ -62,7 +64,6 @@ def _add_to_dependencies(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_dependency(
     path: str,
     pin_manager: PinManager,
@@ -79,6 +80,7 @@ def add_dependency(
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
     no_prompt: Optional[bool] = False,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Add a dependency (an authentication repository) to dependencies.json or update it if it was already added to this file.
@@ -115,6 +117,8 @@ def add_dependency(
         raise TAFError("Authentication repository's path not provided")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     if not auth_repo.is_git_repository_root:
         taf_logger.error(f"{path} is not a git repository!")
         return
@@ -187,6 +191,7 @@ def add_dependency(
     )
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Remove dependency {dependency_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing dependency", logger=taf_logger)
 @log_on_error(
@@ -196,7 +201,6 @@ def add_dependency(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def remove_dependency(
     path: str,
     pin_manager: PinManager,
@@ -206,6 +210,7 @@ def remove_dependency(
     prompt_for_keys: Optional[bool] = False,
     commit: Optional[bool] = True,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Remove a dependency (an authentication repository) from dependencies.json
@@ -229,6 +234,8 @@ def remove_dependency(
         raise TAFError("Authentication repository's path not provided")
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     if not auth_repo.is_git_repository_root:
         print(f"{path} is not a git repository!")
         return
