@@ -25,9 +25,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+- Fix setting names of keys when not stored in metadata files ([603])
 - Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
+
+[603]: https://github.com/openlawlibrary/taf/pull/603
 [599]: https://github.com/openlawlibrary/taf/pull/599
 [596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
