@@ -17,9 +17,9 @@ def taf_command_loader(name):
         else:
             raise RuntimeError(f"Unknown command: {name}")
     try:
-        import ykman
+        import ykman  # noqa: F401
 
-        return f"taf.tools.yubikey.attach_to_group"
+        return "taf.tools.yubikey.attach_to_group"
     except ImportError:
         pass
 
