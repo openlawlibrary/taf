@@ -413,10 +413,7 @@ def _read_and_check_yubikeys(
                     # print(f"The inserted YubiKey is not a valid {role} key")
                     continue
 
-            if taf_repo.keys_name_mappings:
-                key_name = taf_repo.keys_name_mappings.get(public_key.keyid)
-            else:
-                key_name = key_names[index]
+            key_name = taf_repo.keys_name_mappings.get(public_key.keyid)
 
             if pin_manager.get_pin(serial_num) is None:
                 pin = get_and_validate_pin(
