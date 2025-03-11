@@ -546,8 +546,26 @@ def test_diff_between_revisions(repository: GitRepository):
     (repository.path / "test2.txt").unlink()
     commit = repository.commit("test")
     diff = repository.diff_between_revisions(head_commit, commit)
-    # TODO can parse diff and make this nicer
-    assert diff == "M\ttest1.txt\nD\ttest2.txt\nA\ttest_file"
+    modified_files = []
+    deleted_files = []
+    added_files = []
+
+    # Split the diff output into lines and process each line
+    for line in diff.split("\n"):
+        if line.startswith("M"):
+            modified_files.append(line[2:])
+        elif line.startswith("D"):
+            deleted_files.append(line[2:])
+        elif line.startswith("A"):
+            added_files.append(line[2:])
+
+    # Expected lists
+    expected_modified = ["test1.txt"]
+    expected_deleted = ["test2.txt"]
+    expected_added = ["test_file"]
+    assert modified_files == expected_modified
+    assert deleted_files == expected_deleted
+    assert added_files == expected_added
 
 
 def test_has_remote(origin_repo: GitRepository, clone_repository: GitRepository):
@@ -576,3 +594,67 @@ def test_find_first_branch_matching_pattern(repository: GitRepository):
         repository.default_branch, _pattern_func_no_match
     )
     assert branch is None
+
+
+def test_fetch(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    branch1 = "branch1"
+    branch2 = "branch2"
+    origin_repo.create_branch(branch1)
+    origin_repo.create_branch(branch2)
+    clone_repository.fetch()
+    branches = clone_repository.branches(all=True)
+    assert branch1 not in branches and branch2 not in branches
+    assert f"origin/{branch1}" in branches and f"origin/{branch2}" in branches
+
+
+def test_fetch_from_local(repository: GitRepository, clone_repository: GitRepository):
+    clone_repository.clone_from_disk(repository.path)
+    branch1 = "branch1"
+    branch2 = "branch2"
+    repository.create_branch(branch1)
+    repository.create_branch(branch2)
+    clone_repository.fetch_from_disk(repository.path, [branch1, branch2])
+    branches = clone_repository.branches(all=True)
+    assert branch1 in branches and branch2 in branches
+
+
+def test_get_merge_base(repository: GitRepository):
+    branch = "new-branch"
+    head_commit = repository.head_commit()
+    repository.create_and_checkout_branch(branch)
+    repository.commit_empty("test 1")
+    repository.commit_empty("test 2")
+    assert head_commit == repository.get_merge_base(repository.default_branch, branch)
+
+
+def test_get_tracking_branch(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    default_branch = clone_repository.default_branch
+    assert (
+        clone_repository.get_tracking_branch(default_branch)
+        == f"origin/{default_branch}"
+    )
+    assert (
+        clone_repository.get_tracking_branch(default_branch, strip_remote=True)
+        == default_branch
+    )
+
+
+def test_is_remote_branch(origin_repo: GitRepository, clone_repository: GitRepository):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    assert clone_repository.is_remote_branch(
+        f"origin/{clone_repository.default_branch}"
+    )
+    assert not clone_repository.is_remote_branch(
+        f"origin2/{clone_repository.default_branch}"
+    )
+
+
+def test_list_modified_files(repository: GitRepository):
+    pass
