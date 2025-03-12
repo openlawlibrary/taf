@@ -1141,7 +1141,6 @@ class GitRepository:
         except Exception:
             return None
 
-    # TODO test fetch and fetch from disk
     def fetch(
         self,
         fetch_all: Optional[bool] = False,
