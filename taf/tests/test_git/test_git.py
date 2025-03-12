@@ -541,11 +541,13 @@ def test_delete_local_branch(repository: GitRepository):
 
 def test_diff_between_revisions(repository: GitRepository):
     head_commit = repository.head_commit()
+    assert head_commit
     (repository.path / "test_file").touch()
     (repository.path / "test1.txt").write_text("updated text")
     (repository.path / "test2.txt").unlink()
     commit = repository.commit("test")
-    diff = repository.diff_between_revisions(head_commit, commit)
+    assert commit
+    diff = repository.diff_between_revisions(head_commit.value, commit.value)
     modified_files = []
     deleted_files = []
     added_files = []
@@ -586,12 +588,14 @@ def test_find_first_branch_matching_pattern(repository: GitRepository):
     repository.create_branch("test/branch2")
     repository.commit_empty("test2")
     repository.create_branch("test3")
+    default_branch = repository.default_branch
+    assert default_branch
     branch = repository.find_first_branch_matching_pattern(
-        repository.default_branch, _pattern_func
+        default_branch, _pattern_func
     )
     assert branch == "test/branch2"
     branch = repository.find_first_branch_matching_pattern(
-        repository.default_branch, _pattern_func_no_match
+        default_branch, _pattern_func_no_match
     )
     assert branch is None
 
@@ -623,10 +627,13 @@ def test_fetch_from_local(repository: GitRepository, clone_repository: GitReposi
 def test_get_merge_base(repository: GitRepository):
     branch = "new-branch"
     head_commit = repository.head_commit()
+    assert head_commit
     repository.create_and_checkout_branch(branch)
     repository.commit_empty("test 1")
     repository.commit_empty("test 2")
-    assert head_commit == repository.get_merge_base(repository.default_branch, branch)
+    default_branch = repository.default_branch
+    assert default_branch
+    assert head_commit == repository.get_merge_base(default_branch, branch)
 
 
 def test_get_tracking_branch(
@@ -654,7 +661,3 @@ def test_is_remote_branch(origin_repo: GitRepository, clone_repository: GitRepos
     assert not clone_repository.is_remote_branch(
         f"origin2/{clone_repository.default_branch}"
     )
-
-
-def test_list_modified_files(repository: GitRepository):
-    pass
