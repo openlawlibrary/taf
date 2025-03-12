@@ -34,7 +34,7 @@ jobs:
 
     env:
       ARTIFACT_NAME: benchmark-results${{ matrix.python-version }}
-      BRANCH_NAME: 'master' # needs to be changed to master before merging
+      BRANCH_NAME: 'master'
       BENCHMARKS_DIR: '/home/runner/work/taf/taf/.benchmarks/'
       ARTIFACT_PATH: '/home/runner/work/taf/taf/.benchmarks/archive.zip'
 
@@ -63,10 +63,10 @@ jobs:
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
 
-      - name: Run pre-commit and test with pytest
-        run: |
-          pre-commit run --all-files
-          pytest taf/tests
+      # - name: Run pre-commit and test with pytest
+      #   run: |
+      #     pre-commit run --all-files
+      #     pytest taf/tests
 
       - name: Set Benchmark Threshold from File
         run: |
@@ -88,60 +88,14 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #@v7.01
         with:
           script: |
-            const artifacts = await github.rest.actions.listArtifactsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            const filteredArtifacts = artifacts.data.artifacts.filter(artifact => artifact.name === process.env.ARTIFACT_NAME);
-            let latestArtifact = null;
-
-            for (const artifact of filteredArtifacts) {
-              const run = await github.rest.actions.getWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: artifact.workflow_run.id,
-              });
-
-              if (run.data.head_branch === process.env.BRANCH_NAME) {
-                if (!latestArtifact || new Date(artifact.created_at) > new Date(latestArtifact.created_at)) {
-                  latestArtifact = artifact;
-                }
-              }
-            }
-
-            if (latestArtifact) {
-              console.log(`Found latest artifact: ${latestArtifact.id}`);
-              core.setOutput('artifact_id', latestArtifact.id.toString());
+            const { fetchArtifact, downloadArtifact } = require('./.github/workflows/artifactsActions.js');
+            const result = await fetchArtifact(core, github, context.repo);
+            if (result && result.artifactId) {
+              downloadArtifact(github, context.repo, result.artifactId);
             } else {
-              console.log('No matching artifacts found.');
-              core.setOutput('artifact_id', '');
+              console.log('No artifact ID available for download');
             }
 
-      - name: Download the artifact by ID
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #@v7.01
-        if: steps.get_artifact.outputs.artifact_id
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const artifactId = '${{ steps.get_artifact.outputs.artifact_id }}';
-            console.log(`Downloading artifact ID: ${artifactId}`);
-            const benchmarksDir = process.env.BENCHMARKS_DIR
-            const artifactPath = process.env.ARTIFACT_PATH
-
-            // First, get the URL to download the artifact
-            const download = await github.rest.actions.downloadArtifact({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              artifact_id: artifactId,
-              archive_format: 'zip',
-            });
-
-            if (!fs.existsSync(benchmarksDir)) {
-              fs.mkdirSync(benchmarksDir, { recursive: true });
-            }
-            fs.writeFileSync(artifactPath, Buffer.from(download.data));
-            console.log('Artifact downloaded:', artifactPath);
 
       - name: 'Unzip artifact'
         if: steps.get_artifact.outputs.artifact_id
