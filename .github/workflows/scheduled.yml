@@ -1,0 +1,47 @@
+name: Scheduled Benchmark Tests
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every 90 days
+    - cron: '0 0 */90 * *'
+
+jobs:
+  upload_benchmark_artifacts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:  ['3.8', '3.9', '3.10', '3.11', '3.12']
+    
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b #@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip, setuptools, and wheel
+        run: |
+          pip install --upgrade pip setuptools wheel
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          pip install wheel  # Ensure wheel is installed
+          pip install -e .[ci,test]
+
+      - name: Setup GitHub user
+        run: |
+          git config --global user.name oll-bot
+          git config --global user.email developers@openlawlib.org
+
+      - name: Run Benchmark Tests
+        run: |
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #@v4.6.1
+        with:
+          name: benchmark-results-${{ matrix.python-version }}
+          path: 0001_output.json

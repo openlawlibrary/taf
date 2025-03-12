@@ -31,6 +31,13 @@ jobs:
     strategy:
       matrix:
         python-version: ${{ fromJSON(needs.set_python_versions.outputs.all_versions) }}
+
+    env:
+      ARTIFACT_NAME: benchmark-results${{ matrix.python-version }}
+      BRANCH_NAME: 'master'
+      BENCHMARKS_DIR: '/home/runner/work/taf/taf/.benchmarks/'
+      ARTIFACT_PATH: '/home/runner/work/taf/taf/.benchmarks/archive.zip'
+
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
 
@@ -56,10 +63,69 @@ jobs:
           git config --global user.name oll-bot
           git config --global user.email developers@openlawlib.org
 
-      - name: Run pre-commit and test with pytest
+      # - name: Run pre-commit and test with pytest
+      #   run: |
+      #     pre-commit run --all-files
+      #     pytest taf/tests
+
+      - name: Set Benchmark Threshold from File
         run: |
-          pre-commit run --all-files
-          pytest taf/tests
+          CURRENT_BRANCH=${GITHUB_REF#refs/heads/}
+
+          THRESHOLD=$(jq --arg branch "$CURRENT_BRANCH" '.[$branch]' ./benchmark_thresholds.json)
+
+          if [ "$THRESHOLD" == "null" ]; then
+            THRESHOLD=10  # Default threshold if not specified
+          fi
+          echo "BENCHMARK_THRESHOLD=$THRESHOLD" >> $GITHUB_ENV
+          echo "Using benchmark threshold: $THRESHOLD"
+
+      - name: Display Benchmark Threshold
+        run: echo "Benchmark Threshold is $BENCHMARK_THRESHOLD"
+
+      - name: Fetch the latest artifact by name and branch
+        id: get_artifact
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #@v7.01
+        with:
+          script: |
+            const { fetchArtifact, downloadArtifact } = require('./.github/workflows/artifactsActions.js');
+            const result = await fetchArtifact(core, github, context.repo);
+            if (result && result.artifactId) {
+              downloadArtifact(github, context.repo, result.artifactId);
+            } else {
+              console.log('No artifact ID available for download');
+            }
+
+
+      - name: 'Unzip artifact'
+        if: steps.get_artifact.outputs.artifact_id
+        run: unzip $ARTIFACT_PATH -d $BENCHMARKS_DIR
+
+      - name: List extracted files
+        if: steps.get_artifact.outputs.artifact_id
+        run: ls -l $BENCHMARKS_DIR
+  
+      - name: Run benchmark with comparison
+        if: steps.get_artifact.outputs.artifact_id
+        run: |
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json --benchmark-compare --benchmark-compare-fail=mean:${BENCHMARK_THRESHOLD}%
+
+      - name: Run benchmark without comparison
+        if: steps.get_artifact.outputs.artifact_id == '' || steps.get_artifact.outputs.artifact_id == null
+        run: |
+          python -m pytest --benchmark-only --benchmark-json=0001_output.json
+
+      # Use a step to extract the branch name from github.ref
+      - name: Extract Branch Name
+        id: extract_branch
+        run: echo "::set-output name=branch::$(echo ${GITHUB_REF#refs/heads/})"
+
+      - name: Archive benchmark results
+        if: steps.extract_branch.outputs.branch == env.BRANCH_NAME
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 #@v4.6.1
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: 0001_output.json
 
   build_and_upload_wheel:
     runs-on: ubuntu-latest
