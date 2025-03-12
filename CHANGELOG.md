@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Implement get all auth repos logic ([599])
 - Integrate benchmark tests into CI ([597])
 - Add Commitish model ([596])
 - Aadd tests for part of the git module ([596])
@@ -25,9 +26,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+- Fix setting names of keys when not stored in metadata files ([603])
 - Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
+[603]: https://github.com/openlawlibrary/taf/pull/603
+[599]: https://github.com/openlawlibrary/taf/pull/599
 [597]: https://github.com/openlawlibrary/taf/pull/597
 [596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
