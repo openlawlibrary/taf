@@ -26,6 +26,8 @@ The 'GitUpdater' updater is designed in such a way that for each new call it
 loads data from a most recent commit.
 """
 import copy
+import datetime
+import json
 from logging import ERROR
 
 from typing import Dict, Tuple, Any
@@ -244,6 +246,12 @@ class UpdateConfig:
         metadata={
             "docs": "Flag to skip comparison with remote repositories upstream. Optional."
         },
+    )
+    sign: bool = field(
+        default=False,
+        metadata={
+            "docs": "Flag to write update date to target files and sign. Applicable when updating a repository that has dependencies."
+        }
     )
 
     def __attrs_post_init__(self):
@@ -469,6 +477,10 @@ def _process_repo_update(
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
                 auth_repo, commits
             ).values()
+
+            current_time = datetime.datetime.now()
+            formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
+
             outputs, errors = _update_dependencies(update_config, child_auth_repos)
             if len(errors):
                 errors = "\n".join(errors)
@@ -495,6 +507,31 @@ def _process_repo_update(
                 _process_repo_update(
                     child_config, output, visited, repos_update_data, transient_data
                 )
+                if update_config.sign:
+                    dependency_name = output.auth_repo_name
+                    dependency_log_path = auth_repo.log_dir / f"{dependency_name}.json"
+                    dependency_target_dir = dependency_log_path.parent
+                    if not dependency_target_dir.is_dir():
+                        dependency_target_dir.mkdir()
+                    target_content = {
+                        "branch": output.users_auth_repo.default_branch,
+                        "commit": output.commits_data.after_pull.value,
+                        "update_time": formatted_time,
+                    }
+                    repos_data = []
+                    for repo_name, repo_data in output.targets_data.items():
+                        commits_data = {}
+                        repo_content = {
+                            "name": repo_name,
+                            "commits": commits_data,
+                        }
+                        for branch, branch_data in repo_data["commits"].items():
+                            if branch_data["after_pull"]:
+                                commits_data[branch] = branch_data["after_pull"][0]["commit"]
+
+                        repos_data.append(repo_content)
+                    target_content["targets"] =  repos_data
+                    dependency_log_path.write_text(json.dumps(target_content, indent=4))
 
         # do not call the handlers if only validating the repositories
         # if a handler fails and we are in the development mode, revert the update

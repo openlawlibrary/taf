@@ -245,15 +245,16 @@ def update_repo_command():
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
+    @click.option("--sign", is_flag=True, default=False, help="Write update date to target files and sign. Applicable when updating a repository that has dependencies")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity, sign):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
 
         if profile:
             start_profiling()
 
-        config = UpdateConfig(
-            operation=OperationType.UPDATE,
+        config = UpdConfig(
+            operation=OpeaterationType.UPDATE,
             path=path,
             library_dir=library_dir,
             expected_repo_type=UpdateType(expected_repo_type),
@@ -263,6 +264,7 @@ def update_repo_command():
             force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
+            sign=sign,
         )
 
         _call_updater(config, format_output)
