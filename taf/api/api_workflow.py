@@ -101,7 +101,15 @@ def key_management(
     return decorator
 
 
-def _map_keynames_to_keyids(auth_repo, pin_args):
+def _map_keynames_to_keyids(
+    auth_repo: AuthenticationRepository,
+    pin_args: Dict
+) -> Dict:
+    """
+    Finds key ids based on key names and inserts
+    key id and key pin, if specified via pin_args,
+    into a dictionary.
+    """
     key_id_pins: Dict = {}
     if not pin_args:
         return key_id_pins
@@ -126,6 +134,7 @@ def _map_keynames_to_keyids(auth_repo, pin_args):
         ]
         taf_logger.error(f"Keys {', '.join(not_existing_names)} not defined")
         raise TAFError(f"Keys {', '.join(not_existing_names)} not defined")
+    return key_id_pins
 
 
 @contextmanager
