@@ -794,6 +794,7 @@ class GitRepository:
                         if branch in local_branch_names:
                             self.set_upstream(str(branch))
 
+    # TODO test this
     def clone_or_pull(
         self,
         branches: Optional[List[str]] = None,
@@ -1171,14 +1172,6 @@ class GitRepository:
 
         repo.remotes.delete(temp_remote_name)
 
-    def find_worktree_path_by_branch(self, branch_name: str) -> Optional[Path]:
-        """Returns path of the workree where the branch is checked out, or None if not checked out in any worktree"""
-        worktrees = self.list_worktrees()
-        for path, _, _branch_name in worktrees.values():
-            if _branch_name == branch_name:
-                return path
-        return None
-
     def find_first_branch_matching_pattern(
         self,
         traverse_branch_name: str,
@@ -1298,6 +1291,10 @@ class GitRepository:
             self._git("remote add origin {}", self.urls[0])
 
     def is_remote_branch(self, branch_name: str) -> bool:
+        """
+        Checks if the name of the specified branch is a valid remote branch name
+        Does not check if the branch exists
+        """
         for remote in self.remotes:
             if branch_name.startswith(remote + "/"):
                 return True
@@ -1421,22 +1418,6 @@ class GitRepository:
         return [
             untracked_file for untracked_file in untracked_files if len(untracked_file)
         ]
-
-    def list_worktrees(self) -> Dict[Path, Tuple[Path, str, str]]:
-        """
-        Returns a dictionary containing information about repository's worktrees:
-        {
-            "worktree1_path: (worktree1_path, worktree1_commit, worktree1_branch),
-            "worktree2_path: (worktree2_path, worktree2_commit, worktree2_branch),
-            ...
-        }
-        """
-        worktrees_list = self._git("worktree list")
-        worktrees = [w.split() for w in worktrees_list.splitlines() if w]
-        return {
-            Path(wt[0]): (Path(wt[0]), wt[1], wt[2].replace("[", "").replace("]", ""))
-            for wt in worktrees
-        }
 
     def merge_commit(
         self,

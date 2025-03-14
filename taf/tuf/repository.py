@@ -241,6 +241,12 @@ class MetadataRepository(Repository):
         if overwrite or not key_id in self.keys_name_mappings:
             self._keys_name_mappings[key_id] = key_name
 
+    def add_default_names_of_role(self, role_name):
+        key_names = self.get_key_names_of_role(role_name)
+        key_ids = self.get_keyids_of_role(role_name)
+        for key_name, key_id in zip(key_names, key_ids):
+            self.add_key_name(key_name, key_id)
+
     def all_target_files(self) -> Set:
         """
         Return a set of relative paths of all files inside the targets
@@ -889,7 +895,7 @@ class MetadataRepository(Repository):
         keys_name_mapping = self.keys_name_mappings
         key_names = []
         num_of_keys_without_name = 0
-        threshold = self.get_role_threshold(role_name)
+        number = len(self.get_keyids_of_role(role_name))
         if keys_name_mapping:
             key_ids = self.get_keyids_of_role(role_name)
             for key_id in key_ids:
@@ -898,9 +904,12 @@ class MetadataRepository(Repository):
                 else:
                     num_of_keys_without_name += 1
         else:
-            num_of_keys_without_name = threshold
+            num_of_keys_without_name = number
 
-        for num in range(threshold - num_of_keys_without_name, threshold):
+        if not len(key_names) and number == 1:
+            return [role_name]
+
+        for num in range(number - num_of_keys_without_name, number):
             key_names.append(f"{role_name}{num + 1}")
         return key_names
 

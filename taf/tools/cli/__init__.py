@@ -5,7 +5,12 @@ from functools import partial, wraps
 from logging import ERROR
 from logdecorator import log_on_error
 
-from taf.exceptions import InvalidRepositoryError, RepositoryNotCleanError, RepositoryNotSynced, TAFError
+from taf.exceptions import (
+    InvalidRepositoryError,
+    RepositoryNotCleanError,
+    RepositoryNotSynced,
+    TAFError,
+)
 from taf.log import taf_logger
 from taf.repository_utils import find_valid_repository
 from taf.git import GitRepository

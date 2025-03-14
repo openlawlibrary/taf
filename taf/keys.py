@@ -293,6 +293,7 @@ def load_signers(
     prompt_for_yubikey = True
     use_yubikey_for_signing_confirmed = False
 
+    taf_repo.add_default_names_of_role(role)
     key_names = taf_repo.get_key_names_of_role(role)
     initial_yk_load_attempt = True
     hide_threshold_message = False
