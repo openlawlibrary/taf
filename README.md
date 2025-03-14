@@ -139,6 +139,28 @@ pip install taf
 taf
 ```
 
+## Related Projects
+
+There are projects which share similar ideas to TAF.
+
+### gittuf
+
+[gittuf](https://github.com/gittuf/gittuf) is a security layer for Git repositories. gittuf enables
+a security policy to be specified for a Git repository, such that any user who has read access to
+the repository may verify compliance with it. While similar in goals, gittuf differs from TAF in its
+architecture and intended use case.
+
+TAF relies on a multi-repository architecture: TUF metadata resides in an authentication repository,
+which is used to validate the changes made to any number of target repositories. For detailed
+information on TAF's architecture, see [the TAF architecture document](docs/architecture.md). TAF is
+intended to verify changes to an archive consisting of any number of Git repositories.
+
+gittuf relies on a Reference State Log (RSL) that encodes a log of repository activity, as well as
+security policy, loosely based on TUF metadata. This log is then used to enable the validation of
+every commit in the protected repository. For detailed information on gittuf's architecture, see
+[the gittuf design document](https://github.com/gittuf/gittuf/blob/main/docs/design-document.md).
+gittuf may be used to verify changes to any single Git repository (multi-repository support is
+in progress).
 
 ## Acknowledgements
 
