@@ -259,7 +259,6 @@ def get_and_validate_pin(
                 f"Incorrect PIN. Do you want to try again? {retries} retires left."
             ):
                 raise InvalidPINError("PIN input cancelled")
-        pin = None
     return pin
 
 
