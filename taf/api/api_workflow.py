@@ -102,8 +102,7 @@ def key_management(
 
 
 def _map_keynames_to_keyids(
-    auth_repo: AuthenticationRepository,
-    pin_args: Dict
+    auth_repo: AuthenticationRepository, pin_args: Dict
 ) -> Dict:
     """
     Finds key ids based on key names and inserts
