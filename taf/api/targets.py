@@ -12,6 +12,7 @@ from taf.api.roles import (
     add_role_paths,
     remove_paths,
 )
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.api.utils._git import check_if_clean_and_synced
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME, TARGETS_DIRECTORY_NAME
 from taf.exceptions import TAFError
@@ -25,6 +26,7 @@ from taf.auth_repo import AuthenticationRepository
 from taf.yubikey.yubikey_manager import PinManager
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Adding target repository {target_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished adding target repository", logger=taf_logger)
 @log_on_error(
@@ -34,7 +36,6 @@ from taf.yubikey.yubikey_manager import PinManager
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def add_target_repo(
     path: str,
     pin_manager: PinManager,
@@ -54,6 +55,7 @@ def add_target_repo(
     commit: Optional[bool] = True,
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Add a new target repository by adding it to repositories.json, creating a delegation (if targets is not
@@ -84,6 +86,8 @@ def add_target_repo(
         None
     """
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     if library_dir is None:
         library_dir = str(auth_repo.path.parent.parent)
@@ -126,6 +130,7 @@ def add_target_repo(
         # delegated to another target role
         taf_logger.info("Role already exists")
         add_role_paths(
+            path=auth_repo.path,
             paths=[target_name],
             pin_manager=pin_manager,
             delegated_role=role,
@@ -372,6 +377,9 @@ def register_target_files(
     elif auth_repo.pin_manager is None:
         auth_repo.pin_manager = pin_manager
 
+    keys_name_mappings = read_keys_name_mapping(roles_key_infos)
+    auth_repo.add_key_names(keys_name_mappings)
+
     added_targets_data, removed_targets_data = auth_repo.get_all_target_files_state()
     if not added_targets_data and not removed_targets_data:
         taf_logger.log("NOTICE", "No updated targets")
@@ -424,6 +432,7 @@ def register_target_files(
             auth_repo.update_snapshot_and_timestamp()
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Removing target repository {target_name:s}", logger=taf_logger)
 @log_on_end(DEBUG, "Finished removing target repository", logger=taf_logger)
 @log_on_error(
@@ -433,7 +442,6 @@ def register_target_files(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def remove_target_repo(
     path: str,
     pin_manager: PinManager,
@@ -442,6 +450,7 @@ def remove_target_repo(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Remove target repository from repositories.json, remove delegation, and target files and
@@ -460,6 +469,8 @@ def remove_target_repo(
         None
     """
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     tarets_updated = _remove_from_repositories_json(auth_repo, target_name)
 
@@ -552,6 +563,7 @@ def _save_top_commit_of_repo_to_target(
     _update_target_repos(auth_repo_path, targets_dir, target_repo_path, add_branch)
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
@@ -561,7 +573,6 @@ def _save_top_commit_of_repo_to_target(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def update_target_repos_from_repositories_json(
     path: str,
     pin_manager: PinManager,
@@ -618,6 +629,7 @@ def update_target_repos_from_repositories_json(
     )
 
 
+@check_if_clean_and_synced
 @log_on_start(DEBUG, "Updating target files", logger=taf_logger)
 @log_on_end(DEBUG, "Finished updating target files", logger=taf_logger)
 @log_on_error(
@@ -627,7 +639,6 @@ def update_target_repos_from_repositories_json(
     on_exceptions=TAFError,
     reraise=True,
 )
-@check_if_clean_and_synced
 def update_and_sign_targets(
     path: str,
     pin_manager: PinManager,
@@ -661,6 +672,9 @@ def update_and_sign_targets(
     """
     repo_path = Path(path).resolve()
     auth_repo = AuthenticationRepository(path=repo_path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(roles_key_infos)
+    auth_repo.add_key_names(keys_name_mappings)
+
     if library_dir is None:
         library_dir = str(repo_path.parent.parent)  # Ensure this uses the Path object
     repositoriesdb.load_repositories(auth_repo)

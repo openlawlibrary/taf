@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from logging import ERROR
 from typing import Dict, List, Optional, Tuple
 from logdecorator import log_on_error
+from taf.api.utils._conf import read_keys_name_mapping
 from taf.yubikey.yubikey_manager import PinManager
 from tuf.api.metadata import Snapshot, Timestamp
 
@@ -11,8 +12,75 @@ from taf.exceptions import TAFError
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.messages import git_commit_message
 from taf.tuf.repository import MetadataRepository as TUFRepository
-from taf.log import taf_logger
+from taf.log import Path, taf_logger
 from taf.auth_repo import AuthenticationRepository
+
+
+@log_on_error(
+    ERROR,
+    "An error occurred while adding key names: {e}",
+    logger=taf_logger,
+    on_exceptions=TAFError,
+    reraise=False,
+)
+@check_if_clean_and_synced
+def add_key_names(
+    path: str,
+    keys_description: Path,
+    pin_manager: PinManager,
+    scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
+    keystore: Optional[str] = None,
+    commit: Optional[bool] = True,
+    commit_msg: Optional[str] = None,
+    prompt_for_keys: Optional[bool] = False,
+    push: Optional[bool] = True,
+    update_snapshot_and_timestamp: Optional[bool] = True,
+):
+    if not keys_description.is_file():
+        raise TAFError(f"{keys_description} does not exist")
+
+    commit_msg = commit_msg or git_commit_message("add-key-names")
+
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    if not keys_name_mappings:
+        raise TAFError(f"{keys_description} is not a valid keys description json file")
+
+    auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    existing_mapping = auth_repo.keys_name_mappings
+    for key_id, key_name in dict(keys_name_mappings).items():
+        if key_id in existing_mapping and key_name == keys_name_mappings[key_id]:
+            keys_name_mappings.pop(key_id)
+
+    if not len(keys_name_mappings):
+        taf_logger.log("NOTICE", "All names already added to the repository")
+        return
+
+    auth_repo.add_key_names(keys_name_mappings)
+    parent_roles = set()
+    for key_id in keys_name_mappings:
+        roles_of_key = auth_repo.find_keysid_roles([key_id], check_threshold=False)
+        # map the roles to the roles that contain their keys
+        for role_of_key in roles_of_key:
+            role_containing_key = auth_repo.find_role_containing_key_of_role(
+                role_of_key
+            )
+            if role_containing_key is not None:
+                parent_roles.add(role_containing_key)
+
+    with manage_repo_and_signers(
+        auth_repo,
+        list(parent_roles),
+        keystore,
+        scheme,
+        prompt_for_keys,
+        load_snapshot_and_timestamp=update_snapshot_and_timestamp,
+        commit=commit,
+        commit_msg=commit_msg,
+        push=push,
+    ):
+        auth_repo.set_key_names(keys_name_mappings)
+        if update_snapshot_and_timestamp:
+            auth_repo.update_snapshot_and_timestamp()
 
 
 @log_on_error(
@@ -100,6 +168,7 @@ def update_metadata_expiration_date(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_snapshot_and_timestamp: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Update expiration dates of the specified roles and all other roles that need
@@ -129,6 +198,8 @@ def update_metadata_expiration_date(
     """
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
     if start_date is None:
         start_date = datetime.now()
 
@@ -189,6 +260,7 @@ def update_snapshot_and_timestamp(
     prompt_for_keys: Optional[bool] = False,
     push: Optional[bool] = True,
     update_expiration_dates: Optional[bool] = True,
+    keys_description: Optional[str] = None,
 ) -> None:
     """
     Update expiration snapshot and timestamp
@@ -212,6 +284,8 @@ def update_snapshot_and_timestamp(
     """
 
     auth_repo = AuthenticationRepository(path=path, pin_manager=pin_manager)
+    keys_name_mappings = read_keys_name_mapping(keys_description)
+    auth_repo.add_key_names(keys_name_mappings)
 
     with manage_repo_and_signers(
         auth_repo,

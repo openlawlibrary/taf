@@ -1,15 +1,139 @@
 from contextlib import contextmanager
+import functools
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
-from taf.api.utils._conf import find_keystore
+from taf.api.utils._conf import find_keystore, read_keys_name_mapping
+from taf.api.yubikey import get_yk_roles
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import PushFailedError, TAFError
 from taf.keys import load_signers
-from taf.log import taf_logger
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
+from taf.log import taf_logger
+from taf.utils import read_extra_args
+from taf.yubikey.yubikey_manager import manage_pins
+
+
+def key_management(
+    roles: Optional[List[str]] = None,
+    roles_fn: Optional[Callable[[Dict[str, str]], List[str]]] = None,
+) -> Callable:
+    """
+    Decorator that:
+    - Captures dynamic PIN arguments
+    - Ensures necessary signers are loaded.
+    - Cleans up PIN manager
+    - Reads key name mappings if `keys_description` is provided.
+
+    Parameters:
+    - path (str): Path to the authentication repository.
+    - roles (Optional[List[str]]): List of predefined roles to be loaded.
+    - roles_fn (Optional[Callable[[Dict[str, str]], List[str]]]): Function that determines roles to be loaded.
+    - keystore_path (Optional[str]): Path to the keystore.
+    - keys_description (Optional[str]): Path to a key description file.
+
+    Returns:
+    - Callable: Decorated function with authentication management.
+    """
+    roles = roles or []
+
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            path: Path = kwargs.pop("path")
+            auth_repo = AuthenticationRepository(path=path)
+
+            keystore_path = kwargs.get("keystore")
+            keys_description = kwargs.get("keys_description")
+
+            if keys_description:
+                keys_name_mappings = read_keys_name_mapping(keys_description)
+                auth_repo.add_key_names(keys_name_mappings)
+
+            all_roles = list(roles)
+            if callable(roles_fn):
+                roles_to_update = roles_fn()
+                if isinstance(roles_to_update, list):
+                    all_roles.extend(roles_to_update)
+                else:
+                    taf_logger.error("roles_fn must return a list")
+                    raise TAFError("roles_fn must return a list")
+
+            all_roles = list(set(all_roles))
+            if not all_roles:
+                # determine roles based on the inserted yubikeys
+                roles_per_yks = get_yk_roles(path)
+                for yk_roles in roles_per_yks.values():
+                    for role in yk_roles:
+                        if role not in all_roles:
+                            all_roles.append(role)
+
+            if not all_roles:
+                taf_logger.error("No roles specified")
+                raise TAFError("No roles specified")
+
+            taf_logger.info(f"Loading keys of roles {', '.join(all_roles)}")
+
+            with manage_pins() as pin_manager:
+
+                auth_repo.pin_manager = pin_manager
+                pin_args: Dict[str, str] = read_extra_args(kwargs, "pin")
+                key_id_pins = _map_keynames_to_keyids(auth_repo, pin_args)
+
+                # Load signers for required roles
+                for role in all_roles:
+                    if not auth_repo.check_if_keys_loaded(role):
+                        keystore_signers, yubikey_signers = load_signers(
+                            auth_repo,
+                            role,
+                            keystore=keystore_path,
+                            key_id_pins=key_id_pins,
+                        )
+                        auth_repo.add_signers_to_cache({role: keystore_signers})
+                        auth_repo.add_signers_to_cache({role: yubikey_signers})
+
+            return func(auth_repo, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _map_keynames_to_keyids(
+    auth_repo: AuthenticationRepository, pin_args: Dict
+) -> Dict:
+    """
+    Finds key ids based on key names and inserts
+    key id and key pin, if specified via pin_args,
+    into a dictionary.
+    """
+    key_id_pins: Dict = {}
+    if not pin_args:
+        return key_id_pins
+
+    key_name_key_ids = auth_repo.get_key_ids_of_key_names(pin_args.keys())
+    for key_name, key_id in key_name_key_ids.items():
+        if key_name in pin_args:
+            key_id_pins[key_id] = pin_args[key_name]
+
+    if len(key_id_pins) != len(pin_args):
+        all_roles = auth_repo.get_all_roles()
+        for key_name, key_pin in pin_args.items():
+            for role_name in all_roles:
+                if role_name == key_name:
+                    key_ids = auth_repo.get_key_ids_of_role(role_name)
+                    if len(key_ids) == 1:
+                        key_id_pins[key_ids[0]] = key_pin
+
+    if len(key_id_pins) != len(pin_args):
+        not_existing_names = [
+            key_name for key_name in pin_args if key_name not in key_id_pins
+        ]
+        taf_logger.error(f"Keys {', '.join(not_existing_names)} not defined")
+        raise TAFError(f"Keys {', '.join(not_existing_names)} not defined")
+    return key_id_pins
 
 
 @contextmanager

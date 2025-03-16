@@ -107,10 +107,10 @@ def export_yk_certificate(
         return
 
 
-@log_on_start(DEBUG, "Listing roles of the inserted YubiKey", logger=taf_logger)
+@log_on_start(DEBUG, "Listing roles of inserted YubiKesy", logger=taf_logger)
 @log_on_error(
     ERROR,
-    "An error occurred while listing roles of the inserted YubiKey: {e}",
+    "An error occurred while listing roles of inserted YubiKeys: {e}",
     logger=taf_logger,
     on_exceptions=TAFError,
     reraise=True,

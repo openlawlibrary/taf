@@ -183,6 +183,9 @@ class MetadataRepository(Repository):
 
     @property
     def keys_name_mappings(self):
+        """
+        Key id to key name
+        """
         try:
             if self._keys_name_mappings is None:
                 self._keys_name_mappings = self.load_key_names()
@@ -190,6 +193,15 @@ class MetadataRepository(Repository):
             # repository does not exist yet, so no metadata files
             self._keys_name_mappings = {}
         return self._keys_name_mappings
+
+    @property
+    def keys_name_mappings_reverse(self):
+        """
+        Key name to key id
+        """
+        if not self.keys_name_mappings:
+            return None
+        return {value: key for key, value in self.keys_name_mappings.items()}
 
     @property
     def metadata_path(self) -> Path:
@@ -219,7 +231,13 @@ class MetadataRepository(Repository):
         """
         return self._snapshot_info
 
+    def add_key_names(self, keys_keys_name_mappings: Dict) -> None:
+        for key_id, key_name in keys_keys_name_mappings.items():
+            self.add_key_name(key_name, key_id, overwrite=True)
+
     def add_key_name(self, key_name, key_id, overwrite=False):
+        # make sure _keys_name_mappings is initialized
+        self.keys_name_mappings
         if overwrite or not key_id in self.keys_name_mappings:
             self._keys_name_mappings[key_id] = key_name
 
@@ -856,6 +874,14 @@ class MetadataRepository(Repository):
                 parents.add(parent)
         return parents
 
+    def find_role_containing_key_of_role(self, role_name: str) -> Optional[str]:
+        if role_name in MAIN_ROLES:
+            return Root.type
+        parent_roles = list(self.find_parents_of_roles([role_name]))
+        if parent_roles:
+            return parent_roles[0]
+        return None
+
     def get_delegations_of_role(self, role_name: str) -> Dict:
         """
         Return a dictionary of delegated roles of the specified target role
@@ -886,6 +912,15 @@ class MetadataRepository(Repository):
         for num in range(number - num_of_keys_without_name, number):
             key_names.append(f"{role_name}{num + 1}")
         return key_names
+
+    def get_key_ids_of_key_names(self, key_names: List[str]):
+        key_name_keys = {}
+        reverse_mapping = self.keys_name_mappings_reverse
+        for key_name in key_names:
+            if key_name in reverse_mapping:
+                keyid = reverse_mapping[key_name]
+                key_name_keys[key_name] = keyid
+        return key_name_keys
 
     def get_keyids_of_role(self, role_name: str) -> List:
         """
@@ -1772,6 +1807,25 @@ class MetadataRepository(Repository):
         for target_file, role in files_to_roles.items():
             roles_targets.setdefault(role, []).append(target_file)
         return roles_targets
+
+    def set_key_names(self, new_key_names):
+        parent_roles_keys = defaultdict(list)
+        for key_id, key_name in new_key_names.items():
+            roles_of_key = self.find_keysid_roles([key_id], check_threshold=False)
+            for role in roles_of_key:
+                role_containing_key = self.find_role_containing_key_of_role(role)
+                parent_roles_keys[role_containing_key].append((key_id, key_name, role))
+                self.add_key_name(key_name, key_id, overwrite=True)
+
+        for role_name, keys_data in parent_roles_keys.items():
+            with self.edit(role_name) as role_obj:
+                for key_data in keys_data:
+                    key_id, key_name, keys_role = key_data
+                    role_obj.revoke_key(key_id, keys_role)
+                    public_key_pem, _ = self.get_public_key_of_keyid(key_id)
+                    public_key = get_sslib_key_from_value(public_key_pem)
+                    public_key.unrecognized_fields["name"] = key_name
+                    role_obj.add_key(public_key, keys_role)
 
     def sync_snapshot_with_roles(self, roles: List[str]) -> None:
         """

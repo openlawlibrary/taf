@@ -111,6 +111,7 @@ def test_add_role_paths(
     NEW_PATHS = ["some-path3"]
     ROLE_NAME = "delegated_role"
     add_role_paths(
+        path=auth_repo_with_delegations.path,
         auth_repo=auth_repo_with_delegations,
         pin_manager=pin_manager,
         paths=NEW_PATHS,

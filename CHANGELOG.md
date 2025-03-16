@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning][semver].
 - Implement get all auth repos logic ([599])
 - Add Commitish model ([596])
 - Aadd tests for part of the git module ([596])
+- Add a command for setting names of keys ([594])
+- Add an option to specify names of keys using an external file ([594])
 - Implement adaptive timeout for Git clone operations ([592])
 - Check if repository is synced with remote before running API functions ([592])
-- Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib [(583)]
-- Implement iteration over all inserted YubiKeys during metadata signing [(583)]
-- Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage [(583)]
+- Add key names from config files to metadata during repository setup, following updates to TUF and securesystemslib ([583])
+- Implement iteration over all inserted YubiKeys during metadata signing ([583])
+- Implement a `PinManager` class to allow secure pin reuse across API functions and eliminated insecure global pin storage ([583])
 
 ### Changed
 
@@ -36,6 +38,7 @@ and this project adheres to [Semantic Versioning][semver].
 [599]: https://github.com/openlawlibrary/taf/pull/599
 [596]: https://github.com/openlawlibrary/taf/pull/596
 [595]: https://github.com/openlawlibrary/taf/pull/595
+[594]: https://github.com/openlawlibrary/taf/pull/594
 [593]: https://github.com/openlawlibrary/taf/pull/593
 [592]: https://github.com/openlawlibrary/taf/pull/592
 [583]: https://github.com/openlawlibrary/taf/pull/583
@@ -44,14 +47,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Improved Git error messaging to provide clearer troubleshooting instructions for remote operations [(588)]
+- Improved Git error messaging to provide clearer troubleshooting instructions for remote operations ([588])
 
 ### Changed
 
 
 ### Fixed
 
-- Fixed loading from repositories cache [(590)]
+- Fixed loading from repositories cache ([590])
 
 [590]: https://github.com/openlawlibrary/taf/pull/590
 [588]: https://github.com/openlawlibrary/taf/pull/588
@@ -61,12 +64,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
-- Added benchmark testing for test_clone_valid_happy_path [(584)]
-- Implement removal and rotation of keys [(561)]
+- Added benchmark testing for test_clone_valid_happy_path ([584])
+- Implement removal and rotation of keys ([561])
 
 ### Changed
 
-- Transition to the newest version of TUF [(561)]
+- Transition to the newest version of TUF ([561])
 
 ### Fixed
 
@@ -108,7 +111,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 - Add tests for `get_last_remote_commit` and `reset_to_commit` ([573])
 - Remove unused optional parameter from _yk_piv_ctrl ([572])
-- Implement full partial update. Store last validated commit per repo ([559)])
+- Implement full partial update. Store last validated commit per repo ([559]))
 
 ### Changed
 
@@ -531,8 +534,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Split tests into separate packages [(353)]
-- Minor add/remove target repository improvements [(351)]
+- Split tests into separate packages ([353])
+- Minor add/remove target repository improvements ([351])
 - Bump `cattrs` ([349])
 - Improve CLI error handling ([346])
 - Update signing keys loading. Add a flag for specifying if the user will be asked to manually enter a key ([346])
@@ -544,8 +547,8 @@ and this project adheres to [Semantic Versioning][semver].
 ### Fixed
 
 - Fix list targets in case when the target repo is not up to date with remote ([357])
-- Fix repositories.json update when adding new target repository [(351)]
-- Fix error when keystore path is not provided [(351)]
+- Fix repositories.json update when adding new target repository ([351])
+- Fix error when keystore path is not provided ([351])
 - Make it possible to execute commands that don't require yubikey without installing yubikey-manager ([342])
 - Fix commits per repositories function when same target commits are on different branches ([337])
 - Add missing `write` flag to `taf targets sign` ([329])

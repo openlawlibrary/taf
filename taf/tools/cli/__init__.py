@@ -125,3 +125,34 @@ def process_custom_command_line_args(ctx):
         else {}
     )
     return custom
+
+
+def common_repo_edit_options(func):
+    """
+    Decorator to add common options to Click command functions.
+    """
+    func = click.option(
+        "--keystore", default=None, help="Location of the keystore files"
+    )(func)
+    func = click.option(
+        "--no-commit",
+        is_flag=True,
+        default=False,
+        help="Indicates that the changes should not be committed automatically",
+    )(func)
+    func = click.option(
+        "--prompt-for-keys",
+        is_flag=True,
+        default=False,
+        help="Whether to ask the user to enter their key if not located inside the keystore directory",
+    )(func)
+    func = click.option(
+        "--keys-description",
+        help="A dictionary containing information about the keys or a path to a json file which stores this information",
+    )(func)
+    func = click.option(
+        "--no-remote-check",
+        is_flag=True,
+        help="Whether to skip the check if there are any remote changes. Can be used when the SSH key requires a passphrase",
+    )(func)
+    return func
