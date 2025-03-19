@@ -203,7 +203,8 @@ def manage_repo_and_signers(
                 keystore_path = find_keystore(auth_repo.path)
             else:
                 keystore_path = Path(keystore)
-            for role in roles_to_load:
+            sorted_roles_to_load = sorted(roles_to_load, key=role_priority)
+            for role in sorted_roles_to_load:
                 if not auth_repo.check_if_keys_loaded(role):
                     keystore_signers, yubikey_signers = load_signers(
                         auth_repo,
@@ -239,3 +240,29 @@ def manage_repo_and_signers(
             auth_repo.restore([str(path) for path in paths_to_reset_on_error])
 
         raise TAFError from e
+
+
+def role_priority(role):
+    """
+    Return a numeric priority for the given role. This can be used as a sort order key.
+    Example: sorted(roles, key=role_priority)
+
+    The order is:
+    0. root
+    1. targets
+    2. (delegated roles)
+    3. snapshot
+    4. timestamp
+
+    Anything not explicitly listed is considered a "delegated role."
+    """
+    if role == "root":
+        return 0
+    elif role == "targets":
+        return 1
+    elif role == "snapshot":
+        return 3
+    elif role == "timestamp":
+        return 4
+    else:
+        return 2
