@@ -27,12 +27,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix sort order in `manage_repo_and_signers` ([612])
 - Optionally include yubikey cli group. Ensures that CLI can be used without ykman ([604])
 - Fix setting names of keys when not stored in metadata files ([603])
 - Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
-
+[612]: https://github.com/openlawlibrary/taf/pull/612
 [604]: https://github.com/openlawlibrary/taf/pull/604
 [603]: https://github.com/openlawlibrary/taf/pull/603
 [599]: https://github.com/openlawlibrary/taf/pull/599
