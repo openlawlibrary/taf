@@ -1268,8 +1268,7 @@ class MetadataRepository(Repository):
 
     def get_key_names_from_metadata(self, parent_role: str) -> Optional[dict]:
         """
-        Return length and signing scheme of the specified key id.
-        This data is specified in metadata files (root or a target role that has delegations)
+        Return key names from metadata files of a parent role (root or a target role that has delegations)
         """
         try:
             metadata = json.loads(
