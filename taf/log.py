@@ -4,8 +4,6 @@ import logging
 from typing import Dict
 from pathlib import Path
 
-# import tuf.log
-# import tuf.exceptions
 from loguru import logger as taf_logger
 import taf.settings as settings
 
@@ -44,7 +42,6 @@ def formatter(record):
 def disable_console_logging():
     try:
         taf_logger.remove(console_loggers["log"])
-        # disable_tuf_console_logging()
     except ValueError:
         # will be raised if this is called twice
         pass
@@ -53,26 +50,9 @@ def disable_console_logging():
 def disable_file_logging():
     try:
         taf_logger.remove(file_loggers["log"])
-        # disable_tuf_console_logging()
     except ValueError:
         # will be raised if this is called twice
         pass
-
-
-# def disable_tuf_console_logging():
-#     try:
-#         tuf.log.set_console_log_level(logging.CRITICAL)
-#     except securesystemslib.exceptions.Error:
-#         pass
-
-
-# def disable_tuf_file_logging():
-#     if tuf.log.file_handler is not None:
-#         tuf.log.disable_file_logging()
-#     else:
-#         logging.getLogger("tuf").setLevel(logging.CRITICAL)
-#     logging.getLogger("securesystemslib_keys").setLevel(logging.CRITICAL)
-#     logging.getLogger("securesystemslib_util").setLevel(logging.CRITICAL)
 
 
 def _get_log_location():
@@ -91,10 +71,6 @@ def initialize_logger_handlers():
         console_loggers["log"] = taf_logger.add(
             sys.stdout, format=formatter, level=VERBOSITY_LEVELS[settings.VERBOSITY]
         )
-        # tuf.log.set_console_log_level(logging.ERROR)
-    # else:
-    # if console logging is disable, remove tuf console logger
-    # disable_tuf_console_logging()
 
     if settings.ENABLE_FILE_LOGGING:
         log_location = _get_log_location()
