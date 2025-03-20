@@ -76,7 +76,12 @@ def initialize_logger_handlers():
         log_location = _get_log_location()
         log_path = str(log_location / settings.LOG_FILENAME)
         file_loggers["log"] = taf_logger.add(
-            log_path, format=_FILE_FORMAT_STRING, level=settings.FILE_LOGGING_LEVEL
+            log_path,
+            format=_FILE_FORMAT_STRING,
+            level=settings.FILE_LOGGING_LEVEL,
+            rotation="30 MB",
+            retention=5,
+            compression="zip",
         )
 
         if settings.SEPARATE_ERRORS:
@@ -85,14 +90,20 @@ def initialize_logger_handlers():
                 error_log_path,
                 format=_FILE_FORMAT_STRING,
                 level=settings.ERROR_LOGGING_LEVEL,
+                rotation="30 MB",
+                retention=5,
+                compression="zip",
             )
-    #     try:
-    #         tuf.log.set_filehandler_log_level(settings.FILE_LOGGING_LEVEL)
-    #     except tuf.exceptions.Error:
-    #         pass
-    # else:
-    # # if file logging is disabled, also disable tuf file logging
-    # disable_tuf_file_logging()
+
+        debug_log_path = str(log_location / settings.DEBUG_LOG_FILENAME)
+        file_loggers["debug"] = taf_logger.add(
+            debug_log_path,
+            format=_FILE_FORMAT_STRING,
+            level=settings.DEBUG_LOGGING_LEVEL,
+            rotation="30 MB",
+            retention=5,
+            compression="zip",
+        )
 
 
 initialize_logger_handlers()
