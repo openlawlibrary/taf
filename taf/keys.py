@@ -218,6 +218,10 @@ def _load_yubikeys(
             - list of YkSigner instances representing the signers initialized from the loaded YubiKeys.
             - list of key names that were successfully loaded.
     """
+    taf_logger.debug(
+        f"Attempting to load YubiKeys for role '{role}' with key names: {key_names}"
+    )
+
     signers_yubikeys: List = []
     yubikeys = yk.yubikey_prompt(
         key_names=key_names,
@@ -229,11 +233,19 @@ def _load_yubikeys(
         hide_threshold_message=hide_threshold_message,
         key_id_pins=key_id_pins,
     )
+    taf_logger.debug(
+        f"yubikey_prompt returned: {yubikeys if yubikeys else 'No YubiKeys loaded'}"
+    )
 
     loaded_keyids = [signer.public_key.keyid for signer in signers_yubikeys]
+    taf_logger.debug(f"Currently loaded keyids for {role}: {loaded_keyids}")
+
     loaded_key_names = []
     for public_key, serial_num, key_name in yubikeys:
         if public_key is not None and public_key.keyid not in loaded_keyids:
+            taf_logger.debug(
+                f"Found YubiKey: Serial={serial_num}, key_name='{key_name}', keyid={public_key.keyid}"
+            )
             signer = YkSigner(
                 public_key,
                 serial_num,
@@ -409,6 +421,9 @@ def setup_roles_keys(
                         users_yubikeys_details[key_name] = UserKeyData(**key_data)
 
     if role.is_yubikey:
+        taf_logger.debug(
+            f"Setting up YubiKey-based role '{role.name}' requiring {role.number} key(s)."
+        )
         yubikey_keys, yubikey_signers = _setup_yubikey_roles_keys(
             auth_repo, yubikey_ids, users_yubikeys_details, role, certs_dir, key_size
         )
@@ -492,6 +507,9 @@ def _setup_yubikey_roles_keys(
             if key_name in users_yubikeys_details:
                 key_scheme = users_yubikeys_details[key_name].scheme
             key_scheme = key_scheme or role.scheme
+            taf_logger.debug(
+                f"Preparing to set up YubiKey for role '{role.name}', key_name='{key_name}'."
+            )
             public_key, serial_num = _setup_yubikey(
                 auth_repo,
                 role.name,
@@ -511,6 +529,9 @@ def _setup_yubikey_roles_keys(
     if loaded_keys_num < role.number:
         if loaded_keys_num < role.threshold:
             print(f"Threshold of role {role.name} is {role.threshold}")
+        taf_logger.debug(
+            f"Only loaded {loaded_keys_num} out of {role.number} needed key(s) for '{role.name}'. Checking if threshold is met..."
+        )
 
         _load_remaining_keys_of_role(
             auth_repo,
@@ -533,7 +554,6 @@ def _setup_keystore_key(
     password: Optional[str],
     skip_prompt: Optional[bool],
 ) -> Tuple[CryptoSigner, str]:
-    # if keystore exists, load the keys
     generate_new_keys = keystore is None
     signer = None
 
@@ -566,7 +586,6 @@ def _setup_keystore_key(
                         reused_key_name = input(
                             "Enter name of an existing keystore file: "
                         )
-                        # copy existing private and public keys to the new files
                         Path(keystore, key_name).write_bytes(
                             Path(keystore, reused_key_name).read_bytes()
                         )
@@ -609,8 +628,15 @@ def _setup_yubikey(
     yubikeys_to_skip: Optional[List] = None,
 ) -> Tuple[Dict, str]:
     print(f"Registering keys for {key_name}")
+    taf_logger.debug(
+        f"Starting YubiKey setup for role '{role_name}', key '{key_name}'. Checking if user wants to reuse an existing key."
+    )
     while True:
         use_existing = click.confirm("Do you want to reuse already set up Yubikey?")
+        taf_logger.debug(
+            f"User chose to {'reuse' if use_existing else 'generate a new'} YubiKey for '{key_name}'."
+        )
+
         if not use_existing:
             if not click.confirm(
                 "WARNING - this will delete everything from the inserted key. Proceed?"
@@ -637,7 +663,7 @@ def _setup_yubikey(
                 )
 
             if certs_dir is not None:
-                # check if already exporeted
+                # check if already exported
                 if len(auth_repo.yubikey_store.get_roles_of_key(serial_num)) == 1:
                     # this is the first time that this key is being used (can only be used once per role)
                     yk.export_yk_certificate(certs_dir, key, serial=serial_num)
@@ -654,10 +680,14 @@ def _load_remaining_keys_of_role(
     signers: List,
 ):
     """
-    If a a yubikey's public key was specified, meaning that it can be added as a
+    If a yubikey's public key was specified, meaning that it can be added as a
     verification key without being inserted, but the total number of signing
     keys is smaller than the threshold
     """
+    taf_logger.debug(
+        f"{loaded_keys_num} key(s) loaded so far for role '{role.name}' (threshold {role.threshold}). "
+        f"Attempting to load more with known YubiKeys."
+    )
     while loaded_keys_num < role.threshold:
         loaded_keys = []
         for key_name, public_key in yk_with_public_key.items():
