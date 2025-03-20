@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add log rotation and log size limit ([613])
+- Add yubikey debug logging statements ([613])
 - Implement get all auth repos logic ([599])
 - Add Commitish model ([596])
 - Aadd tests for part of the git module ([596])
@@ -33,6 +35,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Ensure that every target role has a delegations attribute [(595)]
 - Fix wrong default branch assignment for target repos [(593)]
 
+[613]: https://github.com/openlawlibrary/taf/pull/613
 [612]: https://github.com/openlawlibrary/taf/pull/612
 [604]: https://github.com/openlawlibrary/taf/pull/604
 [603]: https://github.com/openlawlibrary/taf/pull/603
