@@ -42,8 +42,11 @@ def key_management(
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            path: Path = kwargs.pop("path")
-            auth_repo = AuthenticationRepository(path=path)
+            if kwargs.get("auth_repo") is not None:
+                auth_repo = kwargs.get("auth_repo")
+            else:
+                path: Path = kwargs.pop("path")
+                auth_repo = AuthenticationRepository(path=path)
 
             keystore_path = kwargs.get("keystore")
             keys_description = kwargs.get("keys_description")
