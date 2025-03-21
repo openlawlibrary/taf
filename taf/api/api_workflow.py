@@ -14,6 +14,8 @@ from taf.constants import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
 from taf.utils import read_extra_args
 from taf.yubikey.yubikey_manager import manage_pins
+from taf.yubikey.yubikey import get_serial_nums, get_piv_public_key_tuf
+from taf.tuf.keys import _get_legacy_keyid
 
 
 def key_management(
@@ -82,17 +84,42 @@ def key_management(
             with manage_pins() as pin_manager:
 
                 auth_repo.pin_manager = pin_manager
-                pin_args: Dict[str, str] = read_extra_args(kwargs, "pin")
-                key_id_pins = _map_keynames_to_keyids(auth_repo, pin_args)
 
+                key_id_pins = None
+                if kwargs.get("extra_pin_args") is not None:
+                    pin_args: Dict[str, str] = read_extra_args(kwargs, "extra_pin_args")
+                    key_id_pins = _map_keynames_to_keyids(auth_repo, pin_args)
+
+                if kwargs.get("key_pin") is not None:
+                    serial_nums = get_serial_nums()
+                    if len(serial_nums) == 0:
+                        taf_logger.error("No Yubikeys found")
+                        raise TAFError(
+                            "Passed in a --key-pin but no YubiKeys inserted. Please insert a YubiKey and try again."
+                        )
+                    if len(serial_nums) > 1:
+                        taf_logger.error("Multiple Yubikeys found")
+                        raise TAFError(
+                            "Passed in a --key-pin but multiple YubiKeys inserted. Please insert only one YubiKey and try again."
+                        )
+
+                    serial_num = serial_nums[0]
+                    public_key = get_piv_public_key_tuf(serial=serial_num)
+                    keyid = _get_legacy_keyid(public_key)
+                    key_id_pins = {keyid: kwargs.get("key_pin")}
+
+                use_yubikeys_to_sign = len(key_id_pins) > 0
+
+                sorted_roles = sorted(all_roles, key=role_priority)
                 # Load signers for required roles
-                for role in all_roles:
+                for role in sorted_roles:
                     if not auth_repo.check_if_keys_loaded(role):
                         keystore_signers, yubikey_signers = load_signers(
                             auth_repo,
                             role,
                             keystore=keystore_path,
                             key_id_pins=key_id_pins,
+                            use_yubikeys_to_sign=use_yubikeys_to_sign,
                         )
                         auth_repo.add_signers_to_cache({role: keystore_signers})
                         auth_repo.add_signers_to_cache({role: yubikey_signers})
