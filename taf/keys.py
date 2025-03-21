@@ -272,6 +272,7 @@ def load_signers(
     scheme: Optional[str] = DEFAULT_RSA_SIGNATURE_SCHEME,
     prompt_for_keys: Optional[bool] = False,
     key_id_pins: Optional[Dict] = None,
+    use_yubikeys_to_sign: bool = False,
 ) -> Tuple[List[Dict], List[Dict]]:
     """
     Load role's signing keys. Make sure that at least the threshold of keys was
@@ -303,7 +304,6 @@ def load_signers(
     if keystore is not None:
         keystore_files = get_keystore_keys_of_role(keystore, role)
     prompt_for_yubikey = True
-    use_yubikey_for_signing_confirmed = False
 
     taf_repo.add_default_names_of_role(role)
     key_names = taf_repo.get_key_names_of_role(role)
@@ -324,10 +324,7 @@ def load_signers(
                 num_of_signatures += 1
                 continue
         if num_of_signatures >= threshold:
-            if (
-                use_yubikey_for_signing_confirmed
-                and not taf_repo.pin_manager.auto_continue
-            ):
+            if use_yubikeys_to_sign and not taf_repo.pin_manager.auto_continue:
                 if not click.confirm(
                     f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
                 ):
@@ -343,18 +340,18 @@ def load_signers(
         # in case of yubikeys, instead of asking for a particular key, ask to insert all
         # that can be used to sign the current role, but either read the name from the
         # metadata, or assign a role + counter name
-        if initial_yk_load_attempt or use_yubikey_for_signing_confirmed:
+        if initial_yk_load_attempt or use_yubikeys_to_sign:
             loaded_signers, loaded_keys = _load_yubikeys(
                 taf_repo=taf_repo,
                 role=role,
                 key_names=key_names,
-                retry_on_failure=use_yubikey_for_signing_confirmed,
+                retry_on_failure=use_yubikeys_to_sign,
                 hide_threshold_message=hide_threshold_message,
                 key_id_pins=key_id_pins,
             )
             signers_yubikeys.extend(loaded_signers)
             if loaded_keys:
-                use_yubikey_for_signing_confirmed = True
+                use_yubikeys_to_sign = True
                 num_of_loaded_keys = len(loaded_keys)
                 for loaded_key in loaded_keys:
                     key_names.remove(loaded_key)
@@ -363,9 +360,9 @@ def load_signers(
                     num_of_signatures += num_of_loaded_keys
                     continue
 
-        if prompt_for_yubikey:
+        if prompt_for_yubikey and not use_yubikeys_to_sign:
             if click.confirm(f"Sign {role} using YubiKey(s)?"):
-                use_yubikey_for_signing_confirmed = True
+                use_yubikeys_to_sign = True
                 prompt_for_yubikey = False
                 continue
 
