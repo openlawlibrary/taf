@@ -33,3 +33,10 @@ and a reviewer will take a look.
 
 Whenever submitting code, please make sure to adhere to generally accepted
 Python coding standards, such as [PEP-8](https://peps.python.org/pep-0008/).
+
+## Licensing
+
+Please ensure that you have read the license that TAF is licensed under, the
+GNU Affero General Public License, version 3. By submitting a contribution
+to TAF, you agree to the license and understand that your code will be made
+a part of the TAF project.
