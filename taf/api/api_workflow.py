@@ -123,8 +123,8 @@ def key_management(
                         )
                         auth_repo.add_signers_to_cache({role: keystore_signers})
                         auth_repo.add_signers_to_cache({role: yubikey_signers})
-
-            return func(auth_repo, *args, **kwargs)
+                kwargs["auth_repo"] = auth_repo
+                return func(*args, **kwargs)
 
         return wrapper
 
