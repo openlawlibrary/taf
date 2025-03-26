@@ -108,7 +108,7 @@ def key_management(
                     keyid = _get_legacy_keyid(public_key)
                     key_id_pins = {keyid: kwargs.get("key_pin")}
 
-                use_yubikeys_to_sign = len(key_id_pins) > 0
+                use_yubikeys_to_sign = key_id_pins is not None
 
                 sorted_roles = sorted(all_roles, key=role_priority)
                 # Load signers for required roles
