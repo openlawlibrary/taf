@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- `key_management` decorator fixes ([#617])
+
+[617]: https://github.com/openlawlibrary/taf/pull/617
 
 ## [0.35.0a1] - 03/17/2025
 
