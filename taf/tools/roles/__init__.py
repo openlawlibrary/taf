@@ -39,27 +39,32 @@ def add_roles_command():
 
     Example JSON structure:
     {
-      "yubikeys": {
+        "yubikeys": {
             "user1": {
-                "public": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA95lvROpv0cjcXM4xBYe1\nhNYajb/lfM+57UhTteJsTsUgFefLKJmvXLZ7gFVroHTRzMeU0UvCaEWAxFWJiPOr\nxYBOtClSiPs4e0a/safLKDX0zBwT776CqA/EJ/P6+rPc2E2fawmq1k8RzalJj+0W\nz/xr9fKyMpZU7RQjJmuLcyqfUYTdnZHADn0CDM54gBZ4dYDGGQ70Pjmc1otq4jzh\nI390O4W9Gj9yXd6SyxW2Wpj2CI3g4J0pLl2c2Wjf7Jd4PVNxLGAFOU2YLoI4F3Ri\nsACFUWjfT7p6AagSPStzIMik1YfLq+qFUlhn3KbNMAY9afkvdbTPWT+vajjsoc4c\nOAex1y/uZ2npn/5Q0lT7gMH/JxB3GmAYHCew5W6GmO2mRfNO3J8A+hqS3nKGEbfR\ncb7V176O/tdRM0HguIWAuV75khrCpGLx/fZNAMFf3Q9p0iJsx9p6gCAHERi5e4BJ\nSCBkbtVGGsQ7JM7ptSiLLgi79hIXWehZFUIjuU7a2y4xAgMBAAE=\n-----END PUBLIC KEY-----",
+                "public": "<public_key>",
                 "scheme": "rsa-pkcs1v15-sha256",
                 "present": false
             },
             "userYK": {
                 "scheme": "rsa-pkcs1v15-sha256"
             }
-    },
-    roles: {
-        "name": {
-            "parent_role": "targets",
-            "patsh": ["/delegated_path_inside_targets1", "/delegated_path_inside_targets2"],
-            "keys_number": 2,
-            "threshold": 1,
-            "yubikey": true,
-            "scheme": "rsa-pkcs1v15-sha256"
-            "yubikeys": [
-                "user1", "userYK"
-            ]
+        },
+        "roles": {
+            "<role name>": {
+                "parent_role": "targets",
+                "paths": [
+                    "</delegated_path_inside_targets1>",
+                    "</delegated_path_inside_targets2>"
+                ],
+                "number": 2,
+                "threshold": 1,
+                "yubikey": true,
+                "scheme": "rsa-pkcs1v15-sha256",
+                "yubikeys": [
+                    "user1",
+                    "userYK"
+                ]
+            }
         }
     }
     """)
