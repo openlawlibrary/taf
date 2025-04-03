@@ -39,33 +39,33 @@ def add_roles_command():
 
     Example JSON structure:
     {
-        "yubikeys": {
-            "user1": {
-                "public": "<public_key>",
-                "scheme": "rsa-pkcs1v15-sha256",
-                "present": false
-            },
-            "userYK": {
-                "scheme": "rsa-pkcs1v15-sha256"
-            }
+    "yubikeys": {
+        "user1": {
+        "public": "<public_key>",
+        "scheme": "rsa-pkcs1v15-sha256",
+        "present": false
         },
-        "roles": {
-            "<role name>": {
-                "parent_role": "targets",
-                "paths": [
-                    "</delegated_path_inside_targets1>",
-                    "</delegated_path_inside_targets2>"
-                ],
-                "number": 2,
-                "threshold": 1,
-                "yubikey": true,
-                "scheme": "rsa-pkcs1v15-sha256",
-                "yubikeys": [
-                    "user1",
-                    "userYK"
-                ]
-            }
+        "userYK": {
+        "scheme": "rsa-pkcs1v15-sha256"
         }
+    },
+    "roles": {
+        "<role name>": {
+        "parent_role": "targets",
+        "paths": [
+            "</delegated_path_inside_targets1>",
+            "</delegated_path_inside_targets2>"
+        ],
+        "number": 2,
+        "threshold": 1,
+        "yubikey": true,
+        "scheme": "rsa-pkcs1v15-sha256",
+        "yubikeys": [
+            "user1",
+            "userYK"
+        ]
+        }
+    }
     }
     """)
     @find_repository

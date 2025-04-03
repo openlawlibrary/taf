@@ -112,6 +112,10 @@ def _from_crypto(pub: RSAPublicKey, scheme=DEFAULT_RSA_SIGNATURE_SCHEME) -> SSli
     if not isinstance(pub, RSAPublicKey):
         raise ValueError(f"keytype '{type(pub)}' not supported")
     key = SSlibKey.from_crypto(pub, scheme=scheme)
+    # FIXME: include the 'keyid_hash_algorithms' entry in the key portion
+    # for legacy taf support purposes once ready to transition current authentication
+    # repositories metadata over to new taf, we can safely remove the field
+    key.unrecognized_fields["keyid_hash_algorithms"] = ["sha256", "sha512"]
     key.keyid = _get_legacy_keyid(key)
     return key
 
