@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `keyid_hash_algorithms` to metadata keys ([#621])
+
 ### Changed
 
 ### Fixed
 
 - `key_management` decorator fixes ([#617])
 
+[621]: https://github.com/openlawlibrary/taf/pull/621
 [617]: https://github.com/openlawlibrary/taf/pull/617
 
 ## [0.35.0a1] - 03/17/2025
