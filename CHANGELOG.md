@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.35.0a2] - 04/03/2025
+
+### Added
+
 - Add `keyid_hash_algorithms` to metadata keys ([#621])
 
 ### Changed
@@ -1495,7 +1503,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...HEAD
+[0.35.0a1]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...v0.35.0a2
 [0.35.0a1]: https://github.com/openlawlibrary/taf/compare/v0.34.1...v0.35.0a1
 [0.34.1]: https://github.com/openlawlibrary/taf/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/openlawlibrary/taf/compare/v0.33.2...v0.34.0
