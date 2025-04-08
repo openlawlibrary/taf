@@ -13,17 +13,21 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix YubiKey key prompt when incorrect pin entered ([627])
+
+[627]: https://github.com/openlawlibrary/taf/pull/627
+
 ## [0.35.0a2] - 04/03/2025
 
 ### Added
 
-- Add `keyid_hash_algorithms` to metadata keys ([#621])
+- Add `keyid_hash_algorithms` to metadata keys ([621])
 
 ### Changed
 
 ### Fixed
 
-- `key_management` decorator fixes ([#617])
+- `key_management` decorator fixes ([617])
 
 [621]: https://github.com/openlawlibrary/taf/pull/621
 [617]: https://github.com/openlawlibrary/taf/pull/617
@@ -54,8 +58,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix sort order in `manage_repo_and_signers` ([612])
 - Optionally include yubikey cli group. Ensures that CLI can be used without ykman ([604])
 - Fix setting names of keys when not stored in metadata files ([603])
-- Ensure that every target role has a delegations attribute [(595)]
-- Fix wrong default branch assignment for target repos [(593)]
+- Ensure that every target role has a delegations attribute [595]
+- Fix wrong default branch assignment for target repos [593]
 
 [613]: https://github.com/openlawlibrary/taf/pull/613
 [612]: https://github.com/openlawlibrary/taf/pull/612

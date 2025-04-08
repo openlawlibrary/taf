@@ -280,7 +280,7 @@ def rotate_signing_key_command():
     @catch_cli_exception(handle=TAFError)
     @click.argument("keyid")
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--role", multiple=True, help="A list of roles from which to remove the key. Remove from all by default")
+    @click.option("--role", multiple=True, help="A list of roles from which to rotate the key. Rotate from all by default")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")

@@ -275,6 +275,7 @@ def get_and_validate_pin(
             ):
                 taf_logger.debug("User cancelled PIN input.")
                 raise InvalidPINError("PIN input cancelled")
+            pin = None
     return pin
 
 
