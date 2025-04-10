@@ -527,6 +527,7 @@ def rotate_signing_key(
     revoke_commit_msg: Optional[str] = None,
     add_commit_msg: Optional[str] = None,
     keys_description: Optional[str] = None,
+    commit: Optional[bool] = True,
 ) -> None:
     """
     Rotate signing key. Remove it from one or more roles and add a new signing key.
@@ -570,7 +571,7 @@ def rotate_signing_key(
             roles=roles,
             keystore=keystore,
             scheme=scheme,
-            commit=True,
+            commit=commit,
             prompt_for_keys=prompt_for_keys,
             push=False,
             commit_msg=revoke_commit_msg,
@@ -583,7 +584,7 @@ def rotate_signing_key(
             pub_key=pub_key,
             keystore=keystore,
             scheme=scheme,
-            commit=True,
+            commit=commit,
             prompt_for_keys=prompt_for_keys,
             push=push,
             commit_msg=add_commit_msg,
