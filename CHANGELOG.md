@@ -11,10 +11,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Make pin interactive in `taf yubikey check-pin` ([634])
+- Standardize `--commit-msg` parameter to commands ([634])
+- Make `[y/N]` a hidden prompt and not a `click.confirm` prompt on role threshold reached ([634])
+
 ### Fixed
 
 - Fix YubiKey key prompt when incorrect pin entered ([627])
 
+[634]: https://github.com/openlawlibrary/taf/pull/634
 [627]: https://github.com/openlawlibrary/taf/pull/627
 
 ## [0.35.0a2] - 04/03/2025
