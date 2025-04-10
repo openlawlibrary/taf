@@ -185,8 +185,9 @@ def remove_paths_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--delegated-path", multiple=True, help="A list of paths to be removed")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
         if not delegated_path:
             print("Specify at least one role")
             return
@@ -201,6 +202,7 @@ def remove_paths_command():
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
+            commit_msg=commit_msg,
         )
     return remove_delegated_paths
 
@@ -222,8 +224,9 @@ def add_signing_key_command():
     @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys the new key should be added")
     @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
         if not role:
             print("Specify at least one role")
             return
@@ -239,6 +242,7 @@ def add_signing_key_command():
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
+            commit_msg=commit_msg,
         )
     return adding_signing_key
 
@@ -254,8 +258,9 @@ def revoke_signing_key_command():
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
     @click.option("--role", multiple=True, help="A list of roles from which to remove the key. If unspecified, the key is removed from all roles by default.")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
 
         revoke_signing_key(
             path=path,
@@ -268,6 +273,7 @@ def revoke_signing_key_command():
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
+            commit_msg=commit_msg,
         )
     return revoke_key
 
@@ -285,12 +291,9 @@ def rotate_signing_key_command():
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
     @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
-    @click.option("--prompt-for-keys", is_flag=True, default=False, help="Whether to ask the user to enter their key if not located inside the keystore directory")
-    @click.option("--keys-description", help="A dictionary containing information about the keys or a path to a json file which stores this information")
-    @click.option("--no-remote-check", is_flag=True, help="Whether to skip the check if there are any remote changes. Can be used when the SSH key requires a passphrase")
-    @click.option("--keystore", default=None, help="Location of the keystore files")
+    @common_repo_edit_options
     @pin_managed
-    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager, keys_description, no_remote_check):
+    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager, keys_description, no_remote_check, no_commit):
         rotate_signing_key(
             path=path,
             pin_manager=pin_manager,
@@ -304,6 +307,7 @@ def rotate_signing_key_command():
             add_commit_msg=add_commit_msg,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
+            commit=not no_commit
         )
     return rotate_key
 

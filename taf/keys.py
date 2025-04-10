@@ -11,6 +11,7 @@ from taf.models.models import TAFKey
 from taf.models.types import TargetsRole, MainRoles, UserKeyData
 from taf.tuf.repository import MetadataRepository as TUFRepository, is_auth_repo
 from taf.api.utils._conf import find_keystore
+from taf.utils import secret_yes_no_prompt
 from taf.tuf.keys import (
     YkSigner,
     _get_legacy_keyid,
@@ -325,8 +326,9 @@ def load_signers(
                 continue
         if num_of_signatures >= threshold:
             if use_yubikeys_to_sign and not taf_repo.pin_manager.auto_continue:
-                if not click.confirm(
-                    f"Threshold of {role} keys reached. Do you want to load more {role} keys?"
+                if not secret_yes_no_prompt(
+                    f"Threshold of {role} keys reached. "
+                    f"Do you want to load more {role} keys? [y/N]"
                 ):
                     break
                 else:

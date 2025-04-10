@@ -383,6 +383,26 @@ def safely_move_file(src, dst, overwrite=False):
             raise
 
 
+def secret_yes_no_prompt(message: str) -> bool:
+    """
+    Ask user a yes/no question about loading more keys in a "hidden" manner.
+    The user must type y or n explicitly. Any other input will re-prompt.
+    """
+    while True:
+        response = click.prompt(
+            message,
+            hide_input=True,
+            show_default=False,
+            type=str,
+        )
+        response = response.strip().lower()
+
+        if response in ("y", "n"):
+            return response == "y"
+        else:
+            click.echo("Invalid input. Please type 'y' or 'n'.")
+
+
 def to_tuf_datetime_format(start_date, interval):
     """Used to convert datetime to format used while writing metadata:
     e.g. "2020-05-29T21:59:34Z",

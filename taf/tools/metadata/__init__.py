@@ -16,8 +16,9 @@ def add_key_names_command():
     @find_repository
     @common_repo_edit_options
     @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def addding_key_names(path, keys_description, keystore, pin_manager, no_commit, no_remote_check, prompt_for_keys):
+    def adding_key_names(path, keys_description, keystore, pin_manager, no_commit, no_remote_check, prompt_for_keys, commit_msg):
         if not keys_description or Path(keys_description).is_file():
             taf_logger.error("Provide a path to an existing keys-description file")
 
@@ -28,8 +29,9 @@ def add_key_names_command():
             commit=not no_commit,
             skip_remote_check=no_remote_check,
             prompt_for_keys=prompt_for_keys,
+            commit_msg=commit_msg,
         )
-    return addding_key_names
+    return adding_key_names
 
 
 def check_expiration_dates_command():
@@ -81,8 +83,9 @@ def update_expiration_dates_command():
     @click.option("--interval", default=None, type=int, help="Number of days added to the start date")
     @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
     @click.option("--start-date", default=datetime.datetime.now(), type=ISO_DATE, help="Date to which the interval is added")
+    @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def update_expiration_dates(path, role, interval, keystore, scheme, start_date, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
         if not len(role):
             print("Specify at least one role")
             return
@@ -98,6 +101,7 @@ def update_expiration_dates_command():
             prompt_for_keys=prompt_for_keys,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
+            commit_msg=commit_msg,
         )
     return update_expiration_dates
 

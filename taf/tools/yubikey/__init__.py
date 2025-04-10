@@ -1,5 +1,4 @@
 import click
-import json
 from taf.api.yubikey import (
     export_yk_certificate,
     export_yk_public_pem,
@@ -11,29 +10,31 @@ from taf.exceptions import YubikeyError
 from taf.repository_utils import find_valid_repository
 from taf.tools.cli import catch_cli_exception
 from taf.tools.repo import pin_managed
-from taf.yubikey.yubikey import list_connected_yubikeys
+from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
 
 
 def check_pin_command():
     @click.command(help="Checks if the specified pin is valid")
-    @click.argument("pin")
-    @click.option("--serial", help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted")
+    @click.option("--pin", default=None, help="PIN to be checked")
+    @click.option("--serial", default=None, type=int, help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted")
     @catch_cli_exception(handle=YubikeyError)
     def check_pin(pin, serial):
-        # TODO entering a pin like this seems very insecure
-        # is this still needed?
         try:
-            from taf.yubikey.yubikey import is_valid_pin
+            from taf.yubikey.yubikey import is_valid_pin, get_and_validate_pin
 
-            valid, retries = is_valid_pin(pin, serial=serial)
-            inserted = True
-        except YubikeyError as e:
-            print(e)
-            valid = False
-            inserted = False
-            retries = None
-        print(json.dumps({"pin": valid, "retries": retries, "inserted": inserted}))
-
+            if serial is None and len(list_all_devices()) > 1:
+                click.echo("More than one YubiKey is inserted. Please specify the serial number of the YubiKey to be used")
+                return
+            name = serial or "YubiKey"
+            if pin is None:
+                get_and_validate_pin(name, serial=serial)
+            else:
+                is_valid, retries = is_valid_pin(pin, serial=serial)
+                if not is_valid:
+                    click.echo(f"Invalid PIN. You have {retries} retries left")
+        except Exception as e:
+            click.echo(f"Error: {e}")
+            return
     return check_pin
 
 
