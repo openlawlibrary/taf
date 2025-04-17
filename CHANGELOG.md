@@ -17,8 +17,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix yk imports ([641])
 - Fix YubiKey key prompt when incorrect pin entered ([627])
 
+[641]: https://github.com/openlawlibrary/taf/pull/641
 [634]: https://github.com/openlawlibrary/taf/pull/634
 [627]: https://github.com/openlawlibrary/taf/pull/627
 
