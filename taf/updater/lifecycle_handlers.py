@@ -107,6 +107,8 @@ def _handle_event(
     )
 
     def _execute_scripts(repos_and_data, lifecycle_stage, event):
+        if not settings.run_scripts:
+            return repos_and_data
         scripts_rel_path = _get_script_path(lifecycle_stage, event)
         # this will update data
         for script_repo, script_data in repos_and_data.items():
