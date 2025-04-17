@@ -74,9 +74,9 @@ def get_config(library_root, config_name=CONFIG_NAME):
 
 
 def get_persistent_data(library_root, persistent_file=PERSISTENT_FILE_NAME):
-    if not Path(library_root).is_dir():
+    if not Path(library_root, ".taf").is_dir():
         return {}
-    persistent_file = Path(library_root, PERSISTENT_FILE_NAME)
+    persistent_file = Path(library_root, ".taf", PERSISTENT_FILE_NAME)
     if not persistent_file.is_file():
         persistent_file.touch()
 
