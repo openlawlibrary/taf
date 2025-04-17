@@ -17,8 +17,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Pin `pyscard` to `2.2.1` ([639])
 - Fix YubiKey key prompt when incorrect pin entered ([627])
 
+[639]: https://github.com/openlawlibrary/taf/pull/639
 [634]: https://github.com/openlawlibrary/taf/pull/634
 [627]: https://github.com/openlawlibrary/taf/pull/627
 
