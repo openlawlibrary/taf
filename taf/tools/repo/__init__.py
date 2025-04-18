@@ -178,7 +178,8 @@ def clone_repo_command():
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps, verbosity):
+    @click.option("--run-scripts/--no-run-scripts", default=False, help="Run the auxiliary lifecycle handler scripts.")
+    def clone(path, url, library_dir, from_fs, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, bare, upstream, no_deps, verbosity, run_scripts):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
         if profile:
@@ -197,6 +198,7 @@ def clone_repo_command():
             bare=bare,
             no_upstream=not upstream,
             no_deps=no_deps,
+            run_scripts=run_scripts,
         )
 
         _call_updater(config, format_output)
@@ -245,7 +247,8 @@ def update_repo_command():
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies.")
     @click.option("--upstream/--no-upstream", default=False, help="Skips comparison with remote repositories upstream")
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity):
+    @click.option("--run-scripts/--no-run-scripts", default=False, help="Run the auxiliary lifecycle handler scripts.")
+    def update(path, library_dir, expected_repo_type, scripts_root_dir, profile, format_output, exclude_target, strict, no_deps, force, upstream, verbosity, run_scripts):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
 
@@ -263,6 +266,7 @@ def update_repo_command():
             force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
+            run_scripts=run_scripts,
         )
 
         _call_updater(config, format_output)

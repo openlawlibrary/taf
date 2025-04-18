@@ -245,6 +245,10 @@ class UpdateConfig:
             "docs": "Flag to skip comparison with remote repositories upstream. Optional."
         },
     )
+    run_scripts: bool = field(
+        default=False,
+        metadata={"docs": "Run the auxiliary lifecycle handler scripts. Optional."},
+    )
 
     def __attrs_post_init__(self):
         if self.operation == OperationType.CLONE:
@@ -284,6 +288,7 @@ def clone_repository(config: UpdateConfig):
         None
     """
     settings.strict = config.strict
+    settings.run_scripts = config.run_scripts
 
     if config.remote_url is None:
         raise UpdateFailedError(
@@ -323,6 +328,7 @@ def update_repository(config: UpdateConfig):
         None
     """
     settings.strict = config.strict
+    settings.run_scripts = config.run_scripts
 
     # if path is not specified, name should be read from info.json
     # which is available after the remote repository is cloned and validated

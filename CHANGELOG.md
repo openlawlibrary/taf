@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `--run-scripts` flag to explicitly execute lifecycle handler scripts ([636])
+
 ### Changed
 
 - Make pin interactive in `taf yubikey check-pin` ([634])
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix YubiKey key prompt when incorrect pin entered ([627])
 
 [641]: https://github.com/openlawlibrary/taf/pull/641
+[636]: https://github.com/openlawlibrary/taf/pull/636
 [639]: https://github.com/openlawlibrary/taf/pull/639
 [634]: https://github.com/openlawlibrary/taf/pull/634
 [627]: https://github.com/openlawlibrary/taf/pull/627
