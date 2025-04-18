@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 from taf.api.utils._conf import find_keystore, read_keys_name_mapping
-from taf.api.yubikey import get_yk_roles
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import PushFailedError, TAFError
@@ -13,8 +12,6 @@ from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
 from taf.utils import read_extra_args
-from taf.yubikey.yubikey_manager import manage_pins
-from taf.yubikey.yubikey import get_serial_nums, get_piv_public_key_tuf
 from taf.tuf.keys import _get_legacy_keyid
 
 
@@ -39,6 +36,8 @@ def key_management(
     Returns:
     - Callable: Decorated function with authentication management.
     """
+    from taf.yubikey.yubikey_manager import manage_pins
+
     roles = roles or []
 
     def decorator(func: Callable) -> Callable:
@@ -73,6 +72,8 @@ def key_management_context(
     Context manager that does the same as the key_management decorator,
     returning the auth_repo instance instead of decorating a function.
     """
+    from taf.yubikey.yubikey_manager import manage_pins
+
     roles = roles or []
     if kwargs.get("auth_repo") is not None:
         auth_repo = kwargs.pop("auth_repo")
@@ -103,6 +104,9 @@ def _setup_auth_repo_and_signers(
 
     Returns the auth_repo instance.
     """
+    from taf.api.yubikey import get_yk_roles
+    import taf.yubikey.yubikey as yk
+
     keystore_path = kwargs.get("keystore")
     keys_description = kwargs.get("keys_description")
 
@@ -136,7 +140,7 @@ def _setup_auth_repo_and_signers(
         key_id_pins = _map_keynames_to_keyids(auth_repo, pin_args)
 
     if kwargs.get("key_pin") is not None:
-        serial_nums = get_serial_nums()
+        serial_nums = yk.get_serial_nums()
         if len(serial_nums) == 0:
             taf_logger.error("No Yubikeys found")
             raise TAFError(
@@ -148,7 +152,7 @@ def _setup_auth_repo_and_signers(
                 "Passed in a --key-pin but multiple YubiKeys inserted. Please insert only one YubiKey and try again."
             )
         serial_num = serial_nums[0]
-        public_key = get_piv_public_key_tuf(serial=serial_num)
+        public_key = yk.get_piv_public_key_tuf(serial=serial_num)
         keyid = _get_legacy_keyid(public_key)
         key_id_pins = {keyid: kwargs.get("key_pin")}
 
