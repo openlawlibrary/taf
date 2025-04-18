@@ -5,6 +5,7 @@ from typing import List, Optional
 
 TARGETS_DIRECTORY_NAME = "targets"
 METADATA_DIRECTORY_NAME = "metadata"
+LOG_DIR_NAME = "log"
 
 
 DEFAULT_RSA_SIGNATURE_SCHEME = "rsa-pkcs1v15-sha256"

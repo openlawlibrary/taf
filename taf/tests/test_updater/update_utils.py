@@ -257,6 +257,7 @@ def update_and_check_commit_shas(
     no_upstream=False,
     skip_check_last_validated=False,
     num_of_commits_to_remove=None,
+    sign=False,
 ):
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
@@ -282,6 +283,7 @@ def update_and_check_commit_shas(
         bare=bare,
         force=force,
         no_upstream=no_upstream,
+        sign=sign,
     )
 
     if operation == OperationType.CLONE:
@@ -510,6 +512,7 @@ def update_and_validate_repositories(
     client_dir,
     invalid_target_names=None,
     excluded_target_globs=None,
+    sign=False,
 ):
     if invalid_target_names is None:
         invalid_target_names = []
@@ -532,6 +535,7 @@ def update_and_validate_repositories(
             origin_root_repo,
             client_dir,
             excluded_target_globs=excluded_target_globs,
+            sign=sign,
         )
     except UpdateFailedError as e:
         if any(
