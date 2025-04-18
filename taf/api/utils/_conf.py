@@ -6,17 +6,17 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 
-def find_taf_directory(auth_repo_path: Union[Path, str]) -> Optional[Path]:
+def find_taf_directory(path: Union[Path, str]) -> Optional[Path]:
     """Look for the .taf directory within the archive root.
 
     Args:
-        auth_repo_path (Path): The path to the authentication repository.
+        path (Path): The current path to do the lookup.
 
     Returns:
         Optional[Path]: The path to the .taf directory if found, otherwise None.
     """
     # Check the parent directory of the authentication repository
-    current_dir = Path(auth_repo_path).absolute().parent
+    current_dir = Path(path).absolute().parent
     while current_dir != current_dir.root:
         taf_directory = current_dir / ".taf"
         if taf_directory.exists() and taf_directory.is_dir():
@@ -24,7 +24,7 @@ def find_taf_directory(auth_repo_path: Union[Path, str]) -> Optional[Path]:
         current_dir = current_dir.parent
 
     # If not found, check the archive root
-    archive_root = Path(auth_repo_path).parent.parent
+    archive_root = Path(path).parent.parent
     current_dir = archive_root
     while current_dir != current_dir.root:
         taf_directory = current_dir / ".taf"
@@ -32,9 +32,7 @@ def find_taf_directory(auth_repo_path: Union[Path, str]) -> Optional[Path]:
             return taf_directory
         current_dir = current_dir.parent
 
-    taf_logger.debug(
-        f"No .taf directory found starting from {Path(auth_repo_path).parent}"
-    )
+    taf_logger.debug(f"No .taf directory found starting from {Path(path).parent}")
     return None
 
 
