@@ -35,7 +35,7 @@ tests_require = [
     "pytest-benchmark==4.0.0",
 ]
 
-yubikey_require = ["yubikey-manager==5.5.*"]
+yubikey_require = ["yubikey-manager==5.5.*", 'pyscard==2.2.1; python_version >= "3.9"']
 
 
 kwargs = {
