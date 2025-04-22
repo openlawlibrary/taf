@@ -1,4 +1,5 @@
 import datetime
+import os
 from contextlib import contextmanager
 from functools import wraps
 from getpass import getpass
@@ -13,6 +14,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
+from taf.api.utils._conf import find_taf_directory
 from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.yubikey.yubikey_manager import PinManager
 from ykman.device import list_all_devices
@@ -30,6 +32,7 @@ from yubikit.piv import (
     InvalidPinError,
 )
 
+from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
@@ -279,6 +282,44 @@ def get_and_validate_pin(
     return pin
 
 
+def get_pin_from_env(
+    public_key: Optional[str], serial_num: int, taf_dir: Optional[Path]
+) -> Optional[str]:
+    """Get PIN from environment variable."""
+    from taf.auth_repo import AuthenticationRepository
+
+    breakpoint()
+    pin = os.environ.get(f"{serial_num}_PIN")
+    if pin is not None:
+        return pin
+
+    try:
+        if taf_dir is None:
+            raise FileNotFoundError(
+                "No .taf directory found in the current working directory."
+            )
+        cfg = load_config(taf_dir / "config.toml")
+    except FileNotFoundError as e:
+        taf_logger.debug(f"No config file found, skipping PIN from env. {str(e)}")
+        return None
+
+    root_auth_repo_name = f"{cfg.root.org}/{cfg.root.name}"
+    archive_dir = taf_dir.parent
+    root_auth_repo = AuthenticationRepository(path=archive_dir / root_auth_repo_name)
+    if not root_auth_repo.is_git_repository:
+        taf_logger.debug(
+            f"{root_auth_repo_name} is not a valid authentication repository."
+        )
+        return None
+
+    keys_mapping = root_auth_repo.get_target("keys-mapping.json")
+    if keys_mapping is None:
+        taf_logger.debug("No keys mapping found, skipping PIN from env.")
+        return None
+
+    return pin
+
+
 @raise_yubikey_err("Cannot get public key in TUF format.")
 def get_piv_public_key_tuf(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None
@@ -390,10 +431,21 @@ def _read_and_check_single_yubikey(
             taf_logger.debug(f"Public key not valid for role='{role}'.")
             return None
 
+    # env_path = os.environ.get("TAF_ENV_PATH")
+    # if env_path is None:
+    taf_dir = find_taf_directory(Path().cwd())
+    #     env_path = found_env_path / "taf.env" if found_env_path else None
+
+    pin = None
     if pin_manager.get_pin(serial_num) is None:
         if creating_new_key:
             pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-        else:
+            # elif env_path is not None:
+            # load_dotenv(env_path)
+            taf_logger.debug(f"Attempting to load key pin from environment variables")
+        pin = get_pin_from_env(public_key, serial_num, taf_dir)
+
+        if pin is None:
             pin = get_and_validate_pin(
                 key_name,
                 pin_confirm,
@@ -484,6 +536,7 @@ def _read_and_check_yubikeys(
                     serial_num,
                     key_id_pins=key_id_pins,
                     public_key=public_key,
+                    env_path=env_path,
                 )
                 pin_manager.add_pin(serial_num, pin)
 
