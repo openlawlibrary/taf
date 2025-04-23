@@ -283,7 +283,7 @@ def get_and_validate_pin(
 
 
 def get_pin_from_env(
-    public_key: Optional[str], serial_num: int, taf_dir: Optional[Path]
+    public_key: Optional[SSlibKey], serial_num: int, taf_dir: Optional[Path]
 ) -> Optional[str]:
     """Get PIN from environment variable."""
     from taf.auth_repo import AuthenticationRepository
@@ -303,6 +303,10 @@ def get_pin_from_env(
         taf_logger.debug(f"No config file found, skipping PIN from env. {str(e)}")
         return None
 
+    if public_key is None:
+        taf_logger.debug("No public key provided, skipping PIN from env.")
+        return None
+
     root_auth_repo_name = f"{cfg.root.org}/{cfg.root.name}"
     archive_dir = taf_dir.parent
     root_auth_repo = AuthenticationRepository(path=archive_dir / root_auth_repo_name)
@@ -317,6 +321,7 @@ def get_pin_from_env(
         taf_logger.debug("No keys mapping found, skipping PIN from env.")
         return None
 
+    public_key_pem = public_key.keyval["public"]
     return pin
 
 
@@ -508,6 +513,9 @@ def _read_and_check_yubikeys(
     yubikeys = []
     invalid_keys = []
     all_loaded = True
+
+    taf_dir = find_taf_directory(Path().cwd())
+
     for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
             all_loaded = False
@@ -527,17 +535,18 @@ def _read_and_check_yubikeys(
             taf_logger.debug(
                 f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}'."
             )
-
+            pin = None
             if pin_manager.get_pin(serial_num) is None:
-                pin = get_and_validate_pin(
-                    key_name,
-                    pin_confirm,
-                    pin_repeat,
-                    serial_num,
-                    key_id_pins=key_id_pins,
-                    public_key=public_key,
-                    env_path=env_path,
-                )
+                pin = get_pin_from_env(public_key, serial_num, taf_dir)
+                if pin is None:
+                    pin = get_and_validate_pin(
+                        key_name,
+                        pin_confirm,
+                        pin_repeat,
+                        serial_num,
+                        key_id_pins=key_id_pins,
+                        public_key=public_key,
+                    )
                 pin_manager.add_pin(serial_num, pin)
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
