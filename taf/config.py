@@ -67,7 +67,7 @@ class TafConfig:
 
         root_tbl = mapping.get("root", {})
         root: Optional[RootConfig] = (
-            RootConfig(
+            RootConfig(  # type: ignore[call-arg]
                 name=root_tbl["name"],
                 org=root_tbl["org"],
                 hash=root_tbl["hash"],
@@ -76,7 +76,7 @@ class TafConfig:
             else None
         )
 
-        return cls(shallow=shallow, root=root)
+        return cls(shallow=shallow, root=root)  # type: ignore[call-arg]
 
     def to_mapping(self) -> dict[str, Any]:
         """Round-trip back to a JSON-serialisable mapping."""
@@ -105,9 +105,12 @@ def load_config(config_path: str | Path | None = None) -> TafConfig:
     """
     from taf.api.utils._conf import find_taf_directory  # lazy import to avoid cycles
 
-    candidate: Path
+    base = find_taf_directory(Path.cwd())
+    if base is None:
+        raise FileNotFoundError("TAF directory not found")
+
     if config_path is None:
-        candidate = Path(find_taf_directory(Path.cwd()), "config.toml")
+        candidate = base / "config.toml"
     else:
         candidate = Path(config_path).expanduser().resolve()
 
