@@ -336,19 +336,21 @@ def get_pin_from_env(
         )
         return None
 
-    public_key_pem = public_key.keyval["public"]
+    return _pin_from_keys_mapping(public_key, raw_mapping)
 
-    km = KeysMapping.from_dict(raw_mapping)
-    key_name = km.find_name_by_public(public_key_pem)
 
+def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]:
+    """
+    Return the PIN stored in <KEY_NAME>_PIN, where <KEY_NAME> is the entry in
+    keys-mapping.json that matches `public_key`. If no match or no env var,
+    return None.
+    """
+    key_name = KeysMapping.from_dict(mapping).find_name_by_public(
+        public_key.keyval["public"]
+    )
     if key_name:
-        env_var = f"{to_env_var_upper(key_name)}_PIN"
-        pin = os.environ.get(env_var)
-
-    if pin is not None:
-        taf_logger.debug(f"Found PIN for key_name={key_name} in env.")
-
-    return pin
+        return os.getenv(f"{to_env_var_upper(key_name)}_PIN")
+    return None
 
 
 @raise_yubikey_err("Cannot get public key in TUF format.")
