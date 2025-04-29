@@ -320,7 +320,7 @@ def get_pin_from_env(
     if public_key is None:
         taf_logger.debug("No public key provided, skipping PIN from env.")
         return None
-    root_auth_repo_name = f"{cfg.root.org}/{cfg.root.name}"
+    root_auth_repo_name = cfg.root.name
     archive_dir = taf_dir.parent
     root_auth_repo = AuthenticationRepository(path=(archive_dir / root_auth_repo_name))
     if not root_auth_repo.is_git_repository:
