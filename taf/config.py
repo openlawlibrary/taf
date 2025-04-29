@@ -37,7 +37,7 @@ class RootConfig:
 
     name: str
     org: str
-    hash: str
+    hash: Optional[str]
 
 
 @attrs.define(slots=True, frozen=True, kw_only=True)
@@ -70,7 +70,7 @@ class TafConfig:
             RootConfig(  # type: ignore[call-arg]
                 name=root_tbl["name"],
                 org=root_tbl["org"],
-                hash=root_tbl["hash"],
+                hash=root_tbl.get("hash"),
             )
             if root_tbl
             else None
