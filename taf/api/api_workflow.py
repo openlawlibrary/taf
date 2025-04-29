@@ -158,6 +158,7 @@ def _setup_auth_repo_and_signers(
 
     use_yubikeys_to_sign = key_id_pins is not None
     sorted_roles = sorted(all_roles, key=role_priority)
+    auth_repo.pin_manager.auto_continue = True
 
     for role in sorted_roles:
         if not auth_repo.check_if_keys_loaded(role):
