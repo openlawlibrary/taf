@@ -1,5 +1,8 @@
 import json
+
+from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
+from taf.config import load_config
 from taf.tuf.keys import get_sslib_key_from_value, _get_legacy_keyid
 from taf.log import taf_logger
 from pathlib import Path
@@ -48,6 +51,32 @@ def find_keystore(path: Union[str, Path]) -> Optional[Path]:
     return None
 
 
+def _build_keys_name_mapping(raw_mapping: Dict) -> Dict[str, str]:
+    """
+    Internal helper to turn a raw key_name -> key_data mapping into the
+    legacy key_id -> key_name mapping used elsewhere.
+    """
+    keys_name_mappings: Dict[str, str] = {}
+
+    for key_name, key_data in raw_mapping.items():
+        scheme = key_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
+
+        if "public" in key_data:
+            pub_key = key_data["public"]
+            try:
+                ssl_pub_key = get_sslib_key_from_value(pub_key, scheme=scheme)
+                key_id = _get_legacy_keyid(ssl_pub_key)
+                keys_name_mappings[key_id] = key_name
+            except ValueError:
+                taf_logger.log("NOTICE", f"Invalid public key {key_name}")
+
+        elif "keyid" in key_data:
+            key_id = key_data["keyid"]
+            keys_name_mappings[key_id] = key_name
+
+    return keys_name_mappings
+
+
 def read_keys_name_mapping(keys_description: Optional[Union[str, Path]]) -> Dict:
     keys_name_mappings: Dict = {}
     if keys_description is None:
@@ -64,18 +93,32 @@ def read_keys_name_mapping(keys_description: Optional[Union[str, Path]]) -> Dict
 
     key_names_mapping = keys_description_data.get("yubikeys")
 
-    for key_name, key_data in key_names_mapping.items():
-        scheme = key_data.get("scheme", DEFAULT_RSA_SIGNATURE_SCHEME)
-        if "public" in key_data:
-            pub_key = key_data["public"]
-            try:
-                ssl_pub_key = get_sslib_key_from_value(pub_key, scheme=scheme)
-                key_id = _get_legacy_keyid(ssl_pub_key)
-                keys_name_mappings[key_id] = key_name
-            except ValueError:
-                taf_logger.log("NOTICE", f"Invalid public key {key_name}")
-        elif "keyid" in key_data:
-            key_id = key_data["keyid"]
-            keys_name_mappings[key_id] = key_name
+    return _build_keys_name_mapping(key_names_mapping) if key_names_mapping else {}
 
-    return keys_name_mappings
+
+def read_keys_name_mapping_from_auth(auth_repo: AuthenticationRepository) -> Dict:
+    """
+    Read the keys name mapping from the authentication repository.
+    """
+    taf_dir = find_taf_directory(auth_repo.path)
+    if taf_dir is None:
+        return {}
+
+    try:
+        cfg = load_config(taf_dir / "config.toml")
+        if cfg.root is None:
+            raise FileNotFoundError("No root authentication repository found.")
+    except FileNotFoundError:
+        return {}
+
+    root_auth_repo_name = cfg.root.name
+    archive_dir = taf_dir.parent
+    root_auth_repo = AuthenticationRepository(path=(archive_dir / root_auth_repo_name))
+    if not root_auth_repo.is_git_repository:
+        taf_logger.debug(
+            f"{root_auth_repo_name} is not a valid authentication repository."
+        )
+        return {}
+
+    raw_mapping = root_auth_repo.get_keys_mapping() or {}
+    return _build_keys_name_mapping(raw_mapping)

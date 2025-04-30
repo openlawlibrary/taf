@@ -3,7 +3,7 @@ import functools
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from taf.api.utils._conf import find_keystore, read_keys_name_mapping
+from taf.api.utils._conf import find_keystore, read_keys_name_mapping_from_auth
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import PushFailedError, TAFError
@@ -11,7 +11,6 @@ from taf.keys import load_signers
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
 from taf.log import taf_logger
-from taf.utils import read_extra_args
 from taf.tuf.keys import _get_legacy_keyid
 
 
@@ -97,9 +96,9 @@ def _setup_auth_repo_and_signers(
     """
     Extracts the common logic for initializing the auth_repo:
       - Get an existing auth_repo from kwargs or create a new one using the provided path.
-      - Read key name mappings if a keys_description is provided.
+      - Read key name mappings
       - Determine the complete list of roles, using roles and roles_fn.
-      - Process extra PIN arguments or a single key_pin.
+      - Process a single key_pin.
       - Load signers for each role.
 
     Returns the auth_repo instance.
@@ -108,11 +107,9 @@ def _setup_auth_repo_and_signers(
     import taf.yubikey.yubikey as yk
 
     keystore_path = kwargs.get("keystore")
-    keys_description = kwargs.get("keys_description")
 
-    if keys_description:
-        keys_name_mappings = read_keys_name_mapping(keys_description)
-        auth_repo.add_key_names(keys_name_mappings)
+    keys_name_mappings = read_keys_name_mapping_from_auth(auth_repo)
+    auth_repo.add_key_names(keys_name_mappings)
 
     all_roles = list(roles or [])
     if callable(roles_fn):
@@ -135,9 +132,6 @@ def _setup_auth_repo_and_signers(
     taf_logger.info(f"Loading keys of roles {', '.join(all_roles)}")
 
     key_id_pins = None
-    if kwargs.get("extra_pin_args") is not None:
-        pin_args: Dict[str, str] = read_extra_args(kwargs, "extra_pin_args")
-        key_id_pins = _map_keynames_to_keyids(auth_repo, pin_args)
 
     if kwargs.get("key_pin") is not None:
         serial_nums = yk.get_serial_nums()
