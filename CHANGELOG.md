@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Unified YubiKey PIN lookup - read key pins from env vars ([643])
 - Add `--run-scripts` flag to explicitly execute lifecycle handler scripts ([636])
 
 ### Changed
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Pin `pyscard` to `2.2.1` ([639])
 - Fix YubiKey key prompt when incorrect pin entered ([627])
 
+[643]: https://github.com/openlawlibrary/taf/pull/643
 [641]: https://github.com/openlawlibrary/taf/pull/641
 [636]: https://github.com/openlawlibrary/taf/pull/636
 [639]: https://github.com/openlawlibrary/taf/pull/639
