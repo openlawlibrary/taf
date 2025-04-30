@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from taf.api.utils._conf import find_taf_directory
 from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.yubikey.yubikey_manager import PinManager
-from taf.yubikey.types import KeysMapping
+from taf.models.types import KeysMapping
 from ykman.device import list_all_devices
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
