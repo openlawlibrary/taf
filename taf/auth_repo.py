@@ -16,7 +16,7 @@ from taf.tuf.repository import (
     get_role_metadata_path,
     get_target_path,
 )
-from taf.constants import INFO_JSON_PATH
+from taf.constants import INFO_JSON_PATH, KEYS_MAPPING_PATH
 from taf.yubikey.yubikey_manager import PinManager
 
 
@@ -265,6 +265,17 @@ class AuthenticationRepository(GitRepository):
             return self.safely_get_json(head_commit, INFO_JSON_PATH)
         else:
             return self.get_json(head_commit, INFO_JSON_PATH)
+
+    def get_keys_mapping(
+        self, commit: Optional[Commitish] = None, safely: bool = True
+    ) -> Optional[Dict]:
+        head_commit = commit or self.head_commit()
+        if head_commit is None:
+            return None
+        if safely:
+            return self.safely_get_json(head_commit, KEYS_MAPPING_PATH)
+        else:
+            return self.get_json(head_commit, KEYS_MAPPING_PATH)
 
     def get_metadata_path(self, role):
         return self.path / METADATA_DIRECTORY_NAME / f"{role}.json"

@@ -329,7 +329,7 @@ def get_pin_from_env(
         )
         return None
 
-    raw_mapping = root_auth_repo.get_target("keys-mapping.json")
+    raw_mapping = root_auth_repo.get_keys_mapping()
     if raw_mapping is None:
         taf_logger.debug(
             f"No keys mapping found for root auth repo {root_auth_repo}, skipping PIN from env."
