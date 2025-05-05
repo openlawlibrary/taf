@@ -1,11 +1,12 @@
+import click
 import datetime
+import os
 from contextlib import contextmanager
 from functools import wraps
 from getpass import getpass
 from pathlib import Path
 from typing import Callable, Optional
 
-import click
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -13,8 +14,10 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
+from taf.api.utils._conf import find_taf_directory
 from taf.tuf.keys import _get_legacy_keyid, get_sslib_key_from_value
 from taf.yubikey.yubikey_manager import PinManager
+from taf.models.types import KeysMapping
 from ykman.device import list_all_devices
 from yubikit.core.smartcard import SmartCardConnection
 from ykman.piv import (
@@ -30,6 +33,7 @@ from yubikit.piv import (
     InvalidPinError,
 )
 
+from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
@@ -279,6 +283,76 @@ def get_and_validate_pin(
     return pin
 
 
+def get_pin_from_env(
+    public_key: Optional[SSlibKey], serial_num: int, taf_dir: Optional[Path]
+) -> Optional[str]:
+    """Get PIN from environment variables.
+    The PIN is stored in an environment variable named after either:
+
+    i) the serial number of the YubiKey, or
+    ii) the key name in uppercase, with hyphens replaced by underscores.
+
+    For example, If the serial number is "123456", the environment variable would be "123456_PIN".
+    Moreover, if the key name is "my-key", the environment variable
+    would be "MY_KEY_PIN".
+    If the key name is not found in the environment variables, the function
+    returns None.
+    """
+    from taf.auth_repo import AuthenticationRepository
+
+    pin = os.environ.get(f"{serial_num}_PIN")
+    if pin is not None:
+        return pin
+
+    try:
+        if taf_dir is None:
+            raise FileNotFoundError(
+                "No .taf directory found in the current working directory."
+            )
+        cfg = load_config(taf_dir / "config.toml")
+        if cfg.root is None:
+            raise FileNotFoundError("No root authentication repository found.")
+        taf_logger.debug(f"Config loaded: {cfg}")
+    except FileNotFoundError as e:
+        taf_logger.debug(f"No config file found, skipping PIN from env. {str(e)}")
+        return None
+
+    if public_key is None:
+        taf_logger.debug("No public key provided, skipping PIN from env.")
+        return None
+    root_auth_repo_name = cfg.root.name
+    archive_dir = taf_dir.parent
+    root_auth_repo = AuthenticationRepository(path=(archive_dir / root_auth_repo_name))
+    if not root_auth_repo.is_git_repository:
+        taf_logger.debug(
+            f"{root_auth_repo_name} is not a valid authentication repository."
+        )
+        return None
+
+    raw_mapping = root_auth_repo.get_keys_mapping()
+    if raw_mapping is None:
+        taf_logger.debug(
+            f"No keys mapping found for root auth repo {root_auth_repo}, skipping PIN from env."
+        )
+        return None
+
+    return _pin_from_keys_mapping(public_key, raw_mapping)
+
+
+def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]:
+    """
+    Return the PIN stored in <KEY_NAME>_PIN, where <KEY_NAME> is the entry in
+    keys-mapping.json that matches `public_key`. If no match or no env var,
+    return None.
+    """
+    key_name = KeysMapping.from_dict(mapping).find_name_by_public(
+        public_key.keyval["public"]
+    )
+    if key_name:
+        return os.getenv(f"{to_env_var_upper(key_name)}_PIN")
+    return None
+
+
 @raise_yubikey_err("Cannot get public key in TUF format.")
 def get_piv_public_key_tuf(
     scheme=DEFAULT_RSA_SIGNATURE_SCHEME, serial=None
@@ -390,10 +464,16 @@ def _read_and_check_single_yubikey(
             taf_logger.debug(f"Public key not valid for role='{role}'.")
             return None
 
+    pin = None
     if pin_manager.get_pin(serial_num) is None:
         if creating_new_key:
             pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-        else:
+            taf_logger.debug("Attempting to load key pin from environment variables")
+
+        taf_dir = find_taf_directory(Path().cwd())
+        pin = get_pin_from_env(public_key, serial_num, taf_dir)
+
+        if pin is None:
             pin = get_and_validate_pin(
                 key_name,
                 pin_confirm,
@@ -456,6 +536,9 @@ def _read_and_check_yubikeys(
     yubikeys = []
     invalid_keys = []
     all_loaded = True
+
+    taf_dir = find_taf_directory(Path().cwd())
+
     for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
             all_loaded = False
@@ -475,16 +558,18 @@ def _read_and_check_yubikeys(
             taf_logger.debug(
                 f"Potential YubiKey with serial={serial_num}, associated key_name='{key_name}'."
             )
-
+            pin = None
             if pin_manager.get_pin(serial_num) is None:
-                pin = get_and_validate_pin(
-                    key_name,
-                    pin_confirm,
-                    pin_repeat,
-                    serial_num,
-                    key_id_pins=key_id_pins,
-                    public_key=public_key,
-                )
+                pin = get_pin_from_env(public_key, serial_num, taf_dir)
+                if pin is None:
+                    pin = get_and_validate_pin(
+                        key_name,
+                        pin_confirm,
+                        pin_repeat,
+                        serial_num,
+                        key_id_pins=key_id_pins,
+                        public_key=public_key,
+                    )
                 pin_manager.add_pin(serial_num, pin)
 
             # when reusing the same yubikey, public key will already be in the public keys dictionary
@@ -743,3 +828,8 @@ def yk_secrets_handler(prompt, pin_manager, serial_num):
     if prompt == "pin":
         return pin_manager.get_pin(serial_num)
     raise YubikeyError(f"Invalid prompt {prompt}")
+
+
+def to_env_var_upper(key_name):
+    """Convert key name to uppercase and replace '-' with '_' for environment variable."""
+    return key_name.upper().replace("-", "_")

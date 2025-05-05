@@ -49,9 +49,12 @@ def export_yk_public_pem(
             return
 
         for serial in serials:
-            pub_key_pem = yk.export_piv_pub_key(serial=serial).decode("utf-8")
+            pub_key = yk.get_piv_public_key_tuf(serial=serial)
+            keyid = yk._get_legacy_keyid(pub_key)
+            pub_key_pem = pub_key.keyval["public"]
             if path is None:
                 print(f"Serial: {serial}")
+                print(f"Key id: {keyid}")
                 print(pub_key_pem)
             else:
                 if not path.endswith(".pub"):
