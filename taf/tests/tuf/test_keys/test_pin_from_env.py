@@ -24,7 +24,7 @@ def clean_env():
 
 def test_pin_found():
     pem = "-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----"
-    os.environ["MY_KEY_PIN"] = "123456"
+    os.environ["PIN_MY_KEY"] = "123456"
 
     mapping = {
         "my-key": {

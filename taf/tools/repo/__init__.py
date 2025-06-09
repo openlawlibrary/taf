@@ -298,9 +298,12 @@ def validate_repo_command():
     @click.option("--no-targets", is_flag=True, default=False, help="Skips target repository validation and validates only authentication repositories")
     @click.option("--no-deps", is_flag=True, default=False, help="Optionally disables updating of dependencies")
     @click.option("-v", "--verbosity", count=True, help="Displays varied levels of logging information based on verbosity level")
-    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity):
+    @click.option("--profile", is_flag=True, help="Flag used to run profiler and generate .prof file")
+    def validate(path, library_dir, from_commit, from_latest, exclude_target, strict, no_targets, no_deps, verbosity, profile):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
+        if profile:
+            start_profiling()
         auth_repo = AuthenticationRepository(path=path)
         bare = auth_repo.is_bare_repository
         if from_latest:
