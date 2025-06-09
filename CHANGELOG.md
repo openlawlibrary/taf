@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [0.35.0] - 06/09/2025
+
+### Added
+
+- Fix PIN lookup ([650])
 - Unified YubiKey PIN lookup - read key pins from env vars ([643])
 - Add `--run-scripts` flag to explicitly execute lifecycle handler scripts ([636])
 
@@ -25,6 +34,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Pin `pyscard` to `2.2.1` ([639])
 - Fix YubiKey key prompt when incorrect pin entered ([627])
 
+[650]: https://github.com/openlawlibrary/taf/pull/650
 [643]: https://github.com/openlawlibrary/taf/pull/643
 [641]: https://github.com/openlawlibrary/taf/pull/641
 [636]: https://github.com/openlawlibrary/taf/pull/636
@@ -1522,8 +1532,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...HEAD
-[0.35.0a1]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...v0.35.0a2
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...v0.35.0
+[0.35.0a2]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...v0.35.0a2
 [0.35.0a1]: https://github.com/openlawlibrary/taf/compare/v0.34.1...v0.35.0a1
 [0.34.1]: https://github.com/openlawlibrary/taf/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/openlawlibrary/taf/compare/v0.33.2...v0.34.0
