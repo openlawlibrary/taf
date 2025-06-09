@@ -292,15 +292,15 @@ def get_pin_from_env(
     i) the serial number of the YubiKey, or
     ii) the key name in uppercase, with hyphens replaced by underscores.
 
-    For example, If the serial number is "123456", the environment variable would be "123456_PIN".
+    For example, If the serial number is "123456", the environment variable would be "PIN_123456".
     Moreover, if the key name is "my-key", the environment variable
-    would be "MY_KEY_PIN".
+    would be "PIN_MY_KEY".
     If the key name is not found in the environment variables, the function
     returns None.
     """
     from taf.auth_repo import AuthenticationRepository
 
-    pin = os.environ.get(f"{serial_num}_PIN")
+    pin = os.environ.get(f"PIN_{serial_num}")
     if pin is not None:
         return pin
 
@@ -341,7 +341,7 @@ def get_pin_from_env(
 
 def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]:
     """
-    Return the PIN stored in <KEY_NAME>_PIN, where <KEY_NAME> is the entry in
+    Return the PIN stored in PIN_<KEY_NAME>, where <KEY_NAME> is the entry in
     keys-mapping.json that matches `public_key`. If no match or no env var,
     return None.
     """
@@ -349,7 +349,7 @@ def _pin_from_keys_mapping(public_key: SSlibKey, mapping: dict) -> Optional[str]
         public_key.keyval["public"]
     )
     if key_name:
-        return os.getenv(f"{to_env_var_upper(key_name)}_PIN")
+        return os.getenv(f"PIN_{to_env_var_upper(key_name)}")
     return None
 
 
