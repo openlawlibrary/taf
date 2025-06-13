@@ -64,6 +64,8 @@ kwargs = {
         'pygit2==1.14.*; python_version >= "3.11"',
         "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
+        "tomli==2.0.*",
+        "pyscard==2.2.1",
     ],
     "extras_require": {
         "ci": ci_require,
