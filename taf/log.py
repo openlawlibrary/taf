@@ -14,7 +14,12 @@ console_loggers: Dict = {}
 file_loggers: Dict = {}
 
 NOTICE = 25
-taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
+
+try:
+    taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
+except ValueError:
+    # If the level already exists, we can ignore this error.
+    pass
 
 VERBOSITY_LEVELS = {
     0: "NOTICE",  # Default
