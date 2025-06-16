@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.35.1] - 06/13/2025
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix `taf.log` NOTICE log initialization ([#652])
+- Add missing `tomli` dependency and pin `pyscard` ([#652])
+
+[652]: https://github.com/openlawlibrary/taf/pull/652
+
 ## [0.35.0] - 06/09/2025
 
 ### Added
@@ -1532,7 +1545,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.1...HEAD
+[0.35.1]: https://github.com/openlawlibrary/taf/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...v0.35.0
 [0.35.0a2]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...v0.35.0a2
 [0.35.0a1]: https://github.com/openlawlibrary/taf/compare/v0.34.1...v0.35.0a1

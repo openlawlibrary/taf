@@ -1,4 +1,5 @@
 import logging
+import os
 
 # Set a directory that should be used for all temporary files. If this
 # is None, then the system default will be used. The system default
@@ -53,6 +54,9 @@ FILE_LOGGING_LEVEL = logging.INFO
 ERROR_LOGGING_LEVEL = logging.WARNING
 
 DEBUG_LOGGING_LEVEL = logging.DEBUG
+
+# If True, the log files will be rotated automatically when they reach a certain size.
+AUTO_ROTATE_LOGS = os.environ.get("TAF_AUTO_ROTATE_LOGS", True)
 
 # Location of the log files. It can be specified by setting LOGS_LOCATION
 # and by setting an environment variable called TAF_LOG.
