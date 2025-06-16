@@ -1282,6 +1282,29 @@ class GitRepository:
         except GitError:
             return None
 
+    def set_tracking_branch(
+        self,
+        branch: str,
+        remote: Optional[str] = "origin",
+        strip_remote: Optional[bool] = False,
+    ) -> Optional[str]:
+        """
+        Set the tracking branch for the specified branch.
+        If the branch does not exist, it will be created.
+        If the remote is not specified, it will default to 'origin'.
+        """
+        if not self.branch_exists(branch):
+            self.create_branch(branch)
+        tracking_branch = f"{remote}/{branch}"
+        try:
+            self._git(f"branch --set-upstream-to={tracking_branch} {branch}")
+            if strip_remote:
+                tracking_branch = branch
+            return tracking_branch
+        except GitError as e:
+            self._log_error(f"Failed to set tracking branch: {e}")
+        return None
+
     def init_repo(self, bare: Optional[bool] = False) -> None:
         if self.path.is_dir():
             self.path.mkdir(exist_ok=True, parents=True)
@@ -1646,12 +1669,14 @@ class GitRepository:
         return bool(uncommitted_changes)
 
     def synced_with_remote(
-        self, branch: Optional[str] = None, url: Optional[str] = None
+        self,
+        branch: Optional[str] = None,
+        url: Optional[str] = None,
+        add_tracking_branch: Optional[bool] = False,
     ) -> bool:
         """Checks if local branch is synced with its remote branch"""
         # check if the latest local commit matches
         # the latest remote commit on the specified branch
-
         if not self.has_remote():
             raise NoRemoteError(self)
         if url:
@@ -1675,8 +1700,10 @@ class GitRepository:
             )
 
         tracking_branch = self.get_tracking_branch(branch_name, strip_remote=True)
-        if not tracking_branch:
+        if not tracking_branch and not add_tracking_branch:
             return False
+        else:
+            tracking_branch = self.set_tracking_branch(branch_name, strip_remote=True)
         try:
             local_commit = self.top_commit_of_branch(branch_name)
         except GitError as e:
