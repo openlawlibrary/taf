@@ -107,7 +107,7 @@ jobs:
 
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
-    # if: github.event_name == 'release'
+    if: github.event_name == 'release'
 
     strategy:
       matrix:
