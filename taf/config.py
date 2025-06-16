@@ -14,21 +14,10 @@ print(cfg.root.org)                     # -> "some-repo-law-org"
 
 from __future__ import annotations
 
-import importlib
-import sys
+import attrs
+import tomli as toml  # type: ignore[import-untyped]
 from pathlib import Path
 from typing import Any, Mapping, Optional
-
-import attrs
-
-_BACKEND_NAME = "tomllib" if sys.version_info >= (3, 11) else "tomli"
-try:
-    toml: Any = importlib.import_module(_BACKEND_NAME)  # type: ignore
-except ModuleNotFoundError as exc:
-    raise ImportError(
-        "Neither the standard-library `tomllib` (Python >= 3.11) or the "
-        "third - party `tomli` package is installed - cannot parse TOML."
-    ) from exc
 
 
 @attrs.define(slots=True, frozen=True, kw_only=True)

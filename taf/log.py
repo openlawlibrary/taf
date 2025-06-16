@@ -81,7 +81,7 @@ def initialize_logger_handlers():
         log_location = _get_log_location()
         log_path = str(log_location / settings.LOG_FILENAME)
         if settings.AUTO_ROTATE_LOGS:
-            taf_logger.add(
+            file_loggers["log"] = taf_logger.add(
                 log_path,
                 format=_FILE_FORMAT_STRING,
                 level=settings.FILE_LOGGING_LEVEL,
@@ -89,9 +89,8 @@ def initialize_logger_handlers():
                 retention=5,
                 compression="zip",
             )
-
         else:
-            taf_logger.add(
+            file_loggers["log"] = taf_logger.add(
                 log_path,
                 format=_FILE_FORMAT_STRING,
                 level=settings.FILE_LOGGING_LEVEL,
