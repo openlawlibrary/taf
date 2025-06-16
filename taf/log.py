@@ -80,35 +80,56 @@ def initialize_logger_handlers():
     if settings.ENABLE_FILE_LOGGING:
         log_location = _get_log_location()
         log_path = str(log_location / settings.LOG_FILENAME)
-        file_loggers["log"] = taf_logger.add(
-            log_path,
-            format=_FILE_FORMAT_STRING,
-            level=settings.FILE_LOGGING_LEVEL,
-            rotation="30 MB",
-            retention=5,
-            compression="zip",
-        )
-
-        if settings.SEPARATE_ERRORS:
-            error_log_path = str(log_location / settings.ERROR_LOG_FILENAME)
-            file_loggers["error"] = taf_logger.add(
-                error_log_path,
+        if settings.AUTO_ROTATE_LOGS:
+            taf_logger.add(
+                log_path,
                 format=_FILE_FORMAT_STRING,
-                level=settings.ERROR_LOGGING_LEVEL,
-                rotation="30 MB",
+                level=settings.FILE_LOGGING_LEVEL,
+                rotation="150 MB",
                 retention=5,
                 compression="zip",
             )
 
+        else:
+            taf_logger.add(
+                log_path,
+                format=_FILE_FORMAT_STRING,
+                level=settings.FILE_LOGGING_LEVEL,
+            )
+
+        if settings.SEPARATE_ERRORS:
+            error_log_path = str(log_location / settings.ERROR_LOG_FILENAME)
+            if settings.AUTO_ROTATE_LOGS:
+                file_loggers["error"] = taf_logger.add(
+                    error_log_path,
+                    format=_FILE_FORMAT_STRING,
+                    level=settings.ERROR_LOGGING_LEVEL,
+                    rotation="150 MB",
+                    retention=5,
+                    compression="zip",
+                )
+            else:
+                file_loggers["error"] = taf_logger.add(
+                    error_log_path,
+                    format=_FILE_FORMAT_STRING,
+                    level=settings.ERROR_LOGGING_LEVEL,
+                )
         debug_log_path = str(log_location / settings.DEBUG_LOG_FILENAME)
-        file_loggers["debug"] = taf_logger.add(
-            debug_log_path,
-            format=_FILE_FORMAT_STRING,
-            level=settings.DEBUG_LOGGING_LEVEL,
-            rotation="30 MB",
-            retention=5,
-            compression="zip",
-        )
+        if settings.AUTO_ROTATE_LOGS:
+            file_loggers["debug"] = taf_logger.add(
+                debug_log_path,
+                format=_FILE_FORMAT_STRING,
+                level=settings.DEBUG_LOGGING_LEVEL,
+                rotation="150 MB",
+                retention=5,
+                compression="zip",
+            )
+        else:
+            file_loggers["debug"] = taf_logger.add(
+                debug_log_path,
+                format=_FILE_FORMAT_STRING,
+                level=settings.DEBUG_LOGGING_LEVEL,
+            )
 
 
 initialize_logger_handlers()
