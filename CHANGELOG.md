@@ -21,8 +21,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Fix missing `log` file handler
-- Fix toml import for newer python (>= 3.11) ([#])
+- Fix missing `log` file handler ([#655])
+- Fix toml import for newer python (>= 3.11) ([#655])
+
+[655]: https://github.com/openlawlibrary/taf/pull/655
 
 ## [0.35.1] - 06/13/2025
 
