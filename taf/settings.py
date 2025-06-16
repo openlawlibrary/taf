@@ -56,7 +56,11 @@ ERROR_LOGGING_LEVEL = logging.WARNING
 DEBUG_LOGGING_LEVEL = logging.DEBUG
 
 # If True, the log files will be rotated automatically when they reach a certain size.
-AUTO_ROTATE_LOGS = os.environ.get("TAF_AUTO_ROTATE_LOGS", True)
+AUTO_ROTATE_LOGS = os.environ.get("TAF_AUTO_ROTATE_LOGS", "1").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 # Location of the log files. It can be specified by setting LOGS_LOCATION
 # and by setting an environment variable called TAF_LOG.
