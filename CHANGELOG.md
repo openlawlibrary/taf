@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.35.2] - 06/16/2025
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix missing `log` file handler
+- Fix toml import for newer python (>= 3.11) ([#])
+
 ## [0.35.1] - 06/13/2025
 
 ### Added
@@ -1548,7 +1559,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.2...HEAD
+[0.35.2]: https://github.com/openlawlibrary/taf/compare/v0.35.1...v0.35.2
 [0.35.1]: https://github.com/openlawlibrary/taf/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...v0.35.0
 [0.35.0a2]: https://github.com/openlawlibrary/taf/compare/v0.35.0a1...v0.35.0a2
