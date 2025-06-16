@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add `add_tracking_branch` configuration parameter to `synced_with_remote` ([#653])
+
 ### Changed
 
 ### Fixed
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix `taf.log` NOTICE log initialization ([#652])
 - Add missing `tomli` dependency and pin `pyscard` ([#652])
 
+[653]: https://github.com/openlawlibrary/taf/pull/653
 [652]: https://github.com/openlawlibrary/taf/pull/652
 
 ## [0.35.0] - 06/09/2025
