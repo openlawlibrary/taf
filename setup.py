@@ -35,7 +35,7 @@ tests_require = [
     "pytest-benchmark==4.0.0",
 ]
 
-yubikey_require = ["yubikey-manager==5.5.*"]
+yubikey_require = ["yubikey-manager==5.5.*", "pyscard==2.2.1; python_version >= '3.9'",]
 
 
 kwargs = {
@@ -65,7 +65,6 @@ kwargs = {
         "pyOpenSSL==24.2.*",
         "logdecorator==2.*",
         "tomli==2.0.*",
-        "pyscard==2.2.1; python_version >= '3.9'",
     ],
     "extras_require": {
         "ci": ci_require,
