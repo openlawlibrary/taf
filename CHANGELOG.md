@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.35.3] - 06/23/2025
+
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix pyscard in setup.py ([#656])
+
+[655]: https://github.com/openlawlibrary/taf/pull/655
+
 ## [0.35.2] - 06/16/2025
 
 ### Added
@@ -1561,7 +1575,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.3...HEAD
+[0.35.3]: https://github.com/openlawlibrary/taf/compare/v0.35.2...v0.35.3
 [0.35.2]: https://github.com/openlawlibrary/taf/compare/v0.35.1...v0.35.2
 [0.35.1]: https://github.com/openlawlibrary/taf/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/openlawlibrary/taf/compare/v0.35.0a2...v0.35.0
