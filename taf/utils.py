@@ -11,6 +11,7 @@ import tempfile
 import shutil
 import uuid
 import sys
+from io import BytesIO
 from getpass import getpass
 from functools import wraps
 from pathlib import Path
@@ -444,6 +445,9 @@ def get_file_details(
     # Getting the file hashes
     file_hashes = {}
     with storage_backend.get(filepath) as fileobj:
+        original_content = fileobj.read()
+        normalized_content = normalize_line_endings(original_content)
+        fileobj = BytesIO(normalized_content)
         for algorithm in hash_algorithms:
             digest_object = digest_fileobject(fileobj, algorithm)
             file_hashes.update({algorithm: digest_object.hexdigest()})

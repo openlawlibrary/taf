@@ -382,7 +382,7 @@ def register_target_files(
 
     added_targets_data, removed_targets_data = auth_repo.get_all_target_files_state()
     if not added_targets_data and not removed_targets_data:
-        taf_logger.log("NOTICE", "No updated targets")
+        taf_logger.log("NOTICE", "No added or removed targets")
         return False
 
     all_updated_targets = list(added_targets_data.keys()) if added_targets_data else []
