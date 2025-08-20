@@ -1,3 +1,5 @@
+import pytest
+import sys
 from pathlib import Path
 
 from taf.constants import TARGETS_DIRECTORY_NAME
@@ -18,6 +20,26 @@ from taf.yubikey.yubikey_manager import PinManager
 
 
 AUTH_REPO_NAME = "auth"
+
+
+def normalize_to_windows_file_line_endings(file_path):
+    """Utility function to normalize file line endings to Windows style (CRLF)."""
+    with open(file_path, "rb") as open_file:
+        content = open_file.read()
+    replaced_content = normalize_windows_line_endings(content)
+    if replaced_content != content:
+        with open(file_path, "wb") as open_file:
+            open_file.write(replaced_content)
+
+
+def normalize_windows_line_endings(file_content):
+    """Normalize line endings to Windows style (CRLF)."""
+    WINDOWS_LINE_ENDING = b"\n"
+    UNIX_LINE_ENDING = b"\r\n"
+    replaced_content = file_content.replace(
+        WINDOWS_LINE_ENDING, UNIX_LINE_ENDING
+    ).rstrip(UNIX_LINE_ENDING)
+    return replaced_content
 
 
 def test_register_targets_when_file_added(
@@ -74,6 +96,75 @@ def test_register_targets_when_file_removed(
     )
     signed_target_files = auth_repo_when_add_repositories_json.get_signed_target_files()
     assert FILENAME not in signed_target_files
+    commits = auth_repo_when_add_repositories_json.list_pygit_commits()
+    assert len(commits) == initial_commits_num + 2
+    assert commits[0].message.strip() == git_commit_message("update-targets")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="This test is only for Windows.")
+def test_register_targets_when_file_modified_and_line_endings_are_touched(
+    auth_repo_when_add_repositories_json: AuthenticationRepository,
+    pin_manager: PinManager,
+    library: Path,
+    keystore_delegations: str,
+):
+    repo_path = library / "auth"
+    initial_commits_num = len(auth_repo_when_add_repositories_json.list_pygit_commits())
+
+    dir1_file_path = repo_path / TARGETS_DIRECTORY_NAME / "dir1" / "path1"
+    dir1_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dir1_file_path.write_text("test\ntest")
+    dir2_file_path = repo_path / TARGETS_DIRECTORY_NAME / "dir2" / "path2"
+    dir2_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dir2_file_path.write_text("test\ntest")
+
+    register_target_files(
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
+    )
+    # change the file content
+    dir2_file_path.write_text("test modified\ntest modified")
+    # convert test_txt_filepath to unix style endings
+    normalize_to_windows_file_line_endings(str(dir1_file_path))
+    normalize_to_windows_file_line_endings(str(dir2_file_path))
+
+    expected_delegated_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "delegated_role"
+    ).version
+    expected_inner_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "inner_role"
+    ).version
+    register_target_files(
+        repo_path,
+        pin_manager,
+        keystore_delegations,
+        update_snapshot_and_timestamp=True,
+        push=False,
+    )
+
+    actual_delegated_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "delegated_role"
+    ).version
+    actual_inner_role_version = auth_repo_when_add_repositories_json._signed_obj(
+        "inner_role"
+    ).version
+
+    check_if_targets_signed(
+        auth_repo_when_add_repositories_json, "inner_role", "dir2/path2"
+    )
+    # verify that other delegated role was not touched
+    # even though we've used CRLF
+    assert (
+        expected_delegated_role_version == actual_delegated_role_version
+    ), "Expected delegated_role to not be updated, but it was"
+    # verify "inner_role" signed
+    assert (
+        expected_inner_role_version + 1 == actual_inner_role_version
+    ), "Expected inner_role to be updated, but it was not"
+
     commits = auth_repo_when_add_repositories_json.list_pygit_commits()
     assert len(commits) == initial_commits_num + 2
     assert commits[0].message.strip() == git_commit_message("update-targets")
