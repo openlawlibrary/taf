@@ -1,5 +1,3 @@
-import pytest
-import sys
 from pathlib import Path
 
 from taf.constants import TARGETS_DIRECTORY_NAME
@@ -101,7 +99,6 @@ def test_register_targets_when_file_removed(
     assert commits[0].message.strip() == git_commit_message("update-targets")
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="This test is only for Windows.")
 def test_register_targets_when_file_modified_and_line_endings_are_touched(
     auth_repo_when_add_repositories_json: AuthenticationRepository,
     pin_manager: PinManager,
