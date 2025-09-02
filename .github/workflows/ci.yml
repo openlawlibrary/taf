@@ -8,11 +8,10 @@ on:
     types: [created]
 
 env:
-  VERSIONS: "['3.8', '3.9', '3.10', '3.11', '3.12']"
-  LAST_VERSION: '3.12'
+  VERSIONS: "['3.9', '3.10', '3.11', '3.12']"
+  LAST_VERSION: "3.12"
 
 jobs:
-
   set_python_versions:
     runs-on: ubuntu-latest
     outputs:
