@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.35.5]  - 09/02/2025
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fix(logging): pass on `KeyError` when disabling logging ([#663])
+
+[663]: https://github.com/openlawlibrary/taf/pull/663
+
 ## [0.35.4] - 08/14/2025
 
 ### Added
@@ -1587,7 +1599,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.5...HEAD
+[0.35.5]: https://github.com/openlawlibrary/taf/compare/v0.35.4...v0.35.5
 [0.35.4]: https://github.com/openlawlibrary/taf/compare/v0.35.3...v0.35.4
 [0.35.3]: https://github.com/openlawlibrary/taf/compare/v0.35.2...v0.35.3
 [0.35.2]: https://github.com/openlawlibrary/taf/compare/v0.35.1...v0.35.2

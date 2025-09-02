@@ -17,7 +17,7 @@ NOTICE = 25
 
 try:
     taf_logger.level("NOTICE", no=NOTICE, color="<yellow>", icon="!")
-except ValueError:
+except (KeyError, ValueError):
     # If the level already exists, we can ignore this error.
     pass
 
@@ -47,7 +47,7 @@ def formatter(record):
 def disable_console_logging():
     try:
         taf_logger.remove(console_loggers["log"])
-    except ValueError:
+    except (KeyError, ValueError):
         # will be raised if this is called twice
         pass
 
@@ -55,7 +55,7 @@ def disable_console_logging():
 def disable_file_logging():
     try:
         taf_logger.remove(file_loggers["log"])
-    except ValueError:
+    except (KeyError, ValueError):
         # will be raised if this is called twice
         pass
 
