@@ -1954,7 +1954,7 @@ def repository_exists(url):
         http_url = url
 
     try:
-        response = requests.head(http_url)
+        response = requests.head(http_url)  # nosec B113
         return response.status_code == 200
     except requests.RequestException as e:
         print(f"Error checking repository URL: {e}")

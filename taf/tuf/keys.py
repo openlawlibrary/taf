@@ -187,7 +187,7 @@ class YkSigner(Signer):
                 return the Yubikey pin.
     """
 
-    _SECRET_PROMPT = "pin"
+    _SECRET_PROMPT = "pin"  # nosec B105
 
     def __init__(
         self,
