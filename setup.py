@@ -36,8 +36,8 @@ tests_require = [
 ]
 
 yubikey_require = [
-    "yubikey-manager==5.5.*",
-    "pyscard==2.2.1; python_version >= '3.9'",
+    "yubikey-manager==5.8.*",
+    "pyscard==2.3.*; python_version >= '3.9'",
 ]
 
 
