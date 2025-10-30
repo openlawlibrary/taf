@@ -50,6 +50,14 @@ jobs:
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
 
+      - name: check swig version
+        run: swig -version
+
+      - name: Install SWIG 4.3.1
+        uses: mmomtchev/setup-swig@v5
+        with:
+          version: "4.3.1"
+
       - name: Setup GitHub user
         run: |
           git config --global user.name oll-bot
@@ -103,7 +111,6 @@ jobs:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
 
-
   build-and-test-executables:
     needs: [set_python_versions, run_tests]
     if: github.event_name == 'release'
@@ -114,7 +121,6 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #@v4
 
