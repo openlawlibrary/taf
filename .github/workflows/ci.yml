@@ -45,10 +45,10 @@ jobs:
       - name: check swig version
         run: swig -version
 
-      - name: Install SWIG 4.1.1
+      - name: Install SWIG 3.0.12
         uses: mmomtchev/setup-swig@v5
         with:
-          version: "4.1.1"
+          version: "3.0.12"
 
       - name: check swig version
         run: swig -version
