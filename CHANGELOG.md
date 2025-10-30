@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.36.0]
+
+### Added
+
+### Changed
+
+- Bump `pyscard` and `yubikey-manager` dependencies ([#666])
+
+### Fixed
+
+[666]: https://github.com/openlawlibrary/taf/pull/666
+
 ## [0.35.5]  - 09/02/2025
 
 ### Added
@@ -1599,7 +1611,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.35.5...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/openlawlibrary/taf/compare/v0.35.5...v0.36.0
 [0.35.5]: https://github.com/openlawlibrary/taf/compare/v0.35.4...v0.35.5
 [0.35.4]: https://github.com/openlawlibrary/taf/compare/v0.35.3...v0.35.4
 [0.35.3]: https://github.com/openlawlibrary/taf/compare/v0.35.2...v0.35.3
