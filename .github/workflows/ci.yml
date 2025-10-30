@@ -45,10 +45,10 @@ jobs:
       - name: check swig version
         run: swig -version
 
-      - name: Install SWIG 4.3.1
+      - name: Install SWIG 4.1
         uses: mmomtchev/setup-swig@v5
         with:
-          version: "3.0"
+          version: "4.1"
 
       - name: check swig version
         run: swig -version
@@ -56,8 +56,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov swig3.0 libpcsclite-dev
-          mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
+          sudo apt-get install libhdf5-serial-dev zlib1g-dev libatlas-base-dev lcov libpcsclite-dev # swig3.0
+          # mkdir -p ~/bin/ && ln -s /usr/bin/swig3.0 ~/bin/swig && export PATH=~/bin/:$PATH
           pip install wheel  # Ensure wheel is installed
           pip install -e .[ci,test,yubikey]
 
