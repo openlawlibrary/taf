@@ -7,9 +7,9 @@ from taf.api.utils._conf import (
     build_keys_name_mapping,
     find_keystore,
     find_taf_directory,
-    load_config,
 )
 from taf.auth_repo import AuthenticationRepository
+from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import PushFailedError, TAFError
 from taf.keys import load_signers
