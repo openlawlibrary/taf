@@ -10,8 +10,8 @@ from taf.utils import read_input_dict
 def init(
     path: Optional[str] = None,
     keystore: Optional[str] = None,
-    roles_key_infos: Optional[str] = None,\
-    skip_keygen: Optional[bool] = False
+    roles_key_infos: Optional[str] = None,
+    skip_keygen: Optional[bool] = False,
 ):
     # Determine the directory path
     if path:

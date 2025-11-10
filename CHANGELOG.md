@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add skip-keygen flag to taf init command ([668])
+
 ### Changed
 
 ### Fixed
+
+[668]: https://github.com/openlawlibrary/taf/pull/668
 
 ## [0.36.0]
 
