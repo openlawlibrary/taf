@@ -9,14 +9,20 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add skip-keygen flag to taf init command ([668])
+
 ### Changed
 
 ### Fixed
 
--Correctly set additiona commits when cloning
+-Correctly set additional commits when cloning
+
+- fix: resolve circular import in `taf/api/utils/_conf.py` ([667])
+
 
 [670]: https://github.com/openlawlibrary/taf/pull/670
-
+[668]: https://github.com/openlawlibrary/taf/pull/668
+[667]: https://github.com/openlawlibrary/taf/pull/667
 
 ## [0.36.0]
 
