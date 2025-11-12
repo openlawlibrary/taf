@@ -3,8 +3,13 @@ import functools
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from taf.api.utils._conf import find_keystore, read_keys_name_mapping_from_auth
+from taf.api.utils._conf import (
+    build_keys_name_mapping,
+    find_keystore,
+    find_taf_directory,
+)
 from taf.auth_repo import AuthenticationRepository
+from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
 from taf.exceptions import PushFailedError, TAFError
 from taf.keys import load_signers
@@ -85,6 +90,34 @@ def key_management_context(
         auth_repo.pin_manager = pin_manager
         auth_repo = _setup_auth_repo_and_signers(auth_repo, roles, roles_fn, **kwargs)
         yield auth_repo
+
+
+def read_keys_name_mapping_from_auth(auth_repo: AuthenticationRepository) -> Dict:
+    """
+    Read the keys name mapping from the authentication repository.
+    """
+    taf_dir = find_taf_directory(auth_repo.path)
+    if taf_dir is None:
+        return {}
+
+    try:
+        cfg = load_config(taf_dir / "config.toml")
+        if cfg.root is None:
+            raise FileNotFoundError("No root authentication repository found.")
+    except FileNotFoundError:
+        return {}
+
+    root_auth_repo_name = cfg.root.name
+    archive_dir = taf_dir.parent
+    root_auth_repo = AuthenticationRepository(path=(archive_dir / root_auth_repo_name))
+    if not root_auth_repo.is_git_repository:
+        taf_logger.debug(
+            f"{root_auth_repo_name} is not a valid authentication repository."
+        )
+        return {}
+
+    raw_mapping = root_auth_repo.get_keys_mapping() or {}
+    return build_keys_name_mapping(raw_mapping)
 
 
 def _setup_auth_repo_and_signers(
