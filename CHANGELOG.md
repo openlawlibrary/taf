@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+-Correctly set additiona commits when cloning
+
+[670]: https://github.com/openlawlibrary/taf/pull/670
+
+
 ## [0.36.0]
 
 ### Added
