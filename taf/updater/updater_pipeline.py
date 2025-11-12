@@ -1687,11 +1687,14 @@ but commit not on branch {current_branch}"
                         # that does not necessarily mean that the local repository is not up to date with the remote
                         # pull could've been run manually
                         # check where the current local head is
-                        branch_current_head = repository.top_commit_of_branch(branch)
-                        if branch_current_head in additional_commits:
-                            additional_commits = additional_commits[
-                                additional_commits.index(branch_current_head) + 1 :
-                            ]
+                        if self.state.existing_repo:
+                            branch_current_head = repository.top_commit_of_branch(
+                                branch
+                            )
+                            if branch_current_head in additional_commits:
+                                additional_commits = additional_commits[
+                                    additional_commits.index(branch_current_head) + 1 :
+                                ]
                     self.state.additional_commits_per_target_repos_branches[
                         repository.name
                     ][branch] = additional_commits

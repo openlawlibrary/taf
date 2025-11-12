@@ -15,8 +15,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+-Correctly set additional commits when cloning
+
 - fix: resolve circular import in `taf/api/utils/_conf.py` ([667])
 
+
+[670]: https://github.com/openlawlibrary/taf/pull/670
 [668]: https://github.com/openlawlibrary/taf/pull/668
 [667]: https://github.com/openlawlibrary/taf/pull/667
 
