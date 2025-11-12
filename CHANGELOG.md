@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- fix: resolve circular import in `taf/api/utils/_conf.py` ([667])
+
+[667]: https://github.com/openlawlibrary/taf/pull/667
+
 ## [0.36.0]
 
 ### Added
