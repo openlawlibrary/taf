@@ -11,6 +11,7 @@ def init(
     path: Optional[str] = None,
     keystore: Optional[str] = None,
     roles_key_infos: Optional[str] = None,
+    skip_keygen: Optional[bool] = False,
 ):
     # Determine the directory path
     if path:
@@ -42,7 +43,7 @@ def init(
     )
     should_generate_keys = False
     keystore_path = Path(keystore) if keystore else None
-    if not keystore:
+    if not keystore and not skip_keygen:
         # Prompt the user if they want to run the generate_keys function
         while True:
             use_keystore = (
