@@ -1688,7 +1688,9 @@ but commit not on branch {current_branch}"
                         # pull could've been run manually
                         # check where the current local head is
                         if self.state.existing_repo:
-                            branch_current_head = repository.top_commit_of_branch(branch)
+                            branch_current_head = repository.top_commit_of_branch(
+                                branch
+                            )
                             if branch_current_head in additional_commits:
                                 additional_commits = additional_commits[
                                     additional_commits.index(branch_current_head) + 1 :
