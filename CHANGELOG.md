@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
 
 ### Added
@@ -14,6 +13,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+## [0.36.2]
+
+### Added
+
+### Changed
+
+- Delete `name` unrecognized field from `MetadataRepository` metadata repository ([#673])
+
+### Fixed
+
+[#673]: https://github.com/openlawlibrary/taf/pull/673
 
 ## [0.36.1]
 
@@ -1630,7 +1640,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.36.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.36.2...HEAD
+[0.36.2]: https://github.com/openlawlibrary/taf/compare/v0.36.1...v0.36.2
 [0.36.1]: https://github.com/openlawlibrary/taf/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/openlawlibrary/taf/compare/v0.35.5...v0.36.0
 [0.35.5]: https://github.com/openlawlibrary/taf/compare/v0.35.4...v0.35.5
