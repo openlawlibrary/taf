@@ -740,6 +740,7 @@ class GitRepository:
         joined_params = " ".join(params)
 
         cloned = False
+        clone_error_msg = ""
         for url in self.urls:
             self._log_info(f"trying to clone from {url}")
             try:
@@ -752,15 +753,16 @@ class GitRepository:
                     timeout=60,
                     error_if_not_exists=False,
                 )
-            except GitError as e:
+            except Exception as e:
                 self._log_debug(f"could not clone from {url} due to {e}")
+                clone_error_msg = str(e)
             else:
                 self._log_info(f"successfully cloned from {url}")
                 cloned = True
                 break
 
         if not cloned:
-            self.raise_git_access_error(CloneRepoException)
+            self.raise_git_access_error(CloneRepoException, operation="clone", error_msg=clone_error_msg)
 
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
@@ -1156,8 +1158,8 @@ class GitRepository:
                 self._git(
                     "fetch {} {}", remote, branch, log_error=True, reraise_error=True
                 )
-        except GitError:
-            self.raise_git_access_error(operation="fetch")
+        except Exception as e:
+            self.raise_git_access_error(operation="fetch", error_msg=str(e))
 
     def fetch_from_disk(self, local_repo_path, branches):
 
@@ -1488,8 +1490,8 @@ class GitRepository:
         """Pull current branch"""
         try:
             self._git("pull", log_error=True, reraise_error=True)
-        except GitError:
-            self.raise_git_access_error(operation="pull")
+        except Exception as e:
+            self.raise_git_access_error(operation="pull", error_msg=str(e))
 
     def push(
         self,
@@ -1529,7 +1531,7 @@ class GitRepository:
             raise PushFailedError(self, message=f"Push operation failed: {e}")
 
     def raise_git_access_error(
-        self, error_cls=GitAccessDeniedException, operation=None
+        self, error_cls=GitAccessDeniedException, operation=None, error_msg=""
     ):
         hosts = {extract_hostname(url) for url in self.urls}
         unknown_hosts = [host for host in hosts if not is_host_known(host)]
@@ -1541,13 +1543,13 @@ class GitRepository:
             uses_ssh = any(url.startswith("git@") for url in self.urls)
             if uses_ssh:
                 raise error_cls(
-                    self, operation=operation, message=_clone_or_pull_error_message
+                    self, operation=operation, message=_clone_or_pull_error_message if error_msg == "" else error_msg
                 )
             else:
                 raise error_cls(
                     self,
                     operation=operation,
-                    message=_clone_or_pull_error_message_no_ssh,
+                    message=_clone_or_pull_error_message_no_ssh if error_msg == "" else error_msg,
                 )
         raise error_cls(self)
 
