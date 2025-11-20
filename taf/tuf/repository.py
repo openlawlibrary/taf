@@ -619,10 +619,6 @@ class MetadataRepository(Repository):
                 self.signer_cache[role.name][key_id] = signer
             for public_key in public_keys[role.name].values():
                 key_id = _get_legacy_keyid(public_key)
-                if key_id in self.keys_name_mappings:
-                    public_key.unrecognized_fields["name"] = self.keys_name_mappings[
-                        key_id
-                    ]
                 root.add_key(public_key, role.name)
             root.roles[role.name].threshold = role.threshold
 
