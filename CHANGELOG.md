@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add option to specify paths ignored during repo cleanup ([675])
+
 ### Changed
 
 ### Fixed
+
+[675]: https://github.com/openlawlibrary/taf/pull/675
 
 ## [0.36.2]
 
@@ -19,11 +23,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Delete `name` unrecognized field from `MetadataRepository` metadata repository ([#673])
+- Delete `name` unrecognized field from `MetadataRepository` metadata repository ([673])
 
 ### Fixed
 
-[#673]: https://github.com/openlawlibrary/taf/pull/673
+[673]: https://github.com/openlawlibrary/taf/pull/673
 
 ## [0.36.1]
 

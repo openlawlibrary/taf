@@ -691,18 +691,22 @@ class GitRepository:
 
         return existing_files, non_existing
 
-    def clean(self):
-        self._git("clean -fd")
+    def clean(self, excluded_paths=None):
+        if excluded_paths:
+            exclude = " ".join(f"--exclude {p}" for p in excluded_paths)
+        else:
+            exclude = ""
+        self._git(f"clean -fd {exclude}")
 
     def cleanup(self):
         if self._pygit is not None:
             self._pygit.cleanup()
             self._pygit = None
 
-    def clean_and_reset(self):
+    def clean_and_reset(self, excluded_paths=None):
         """Cleans the untracked files and resets the HEAD to the latest commit."""
         try:
-            self.clean()
+            self.clean(excluded_paths=excluded_paths)
             self.reset_to_head()
         except GitError as e:
             raise GitError(
