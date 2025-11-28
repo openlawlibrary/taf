@@ -292,38 +292,38 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.prepare_for_auth_update_and_check_last_validated_commit,
                     RunMode.ALL,
-                    self.should_update_auth_repos,
+                    self.should_update_repos,
                 ),
                 (
                     self.run_tuf_updater,
                     RunMode.ALL,
-                    self.should_update_auth_repos,
+                    self.should_update_repos,
                 ),  # should be done regardless of flags
                 (
                     self.validate_out_of_band_and_update_type,
                     RunMode.ALL,
-                    self.should_update_auth_repos,
+                    self.should_update_repos,
                 ),  # auth repo
                 (
                     self.validate_last_validated_commit,
                     RunMode.ALL,
-                    self.should_update_auth_repos,
+                    self.should_update_repos,
                 ),
                 (
                     self.clone_or_fetch_users_auth_repo,
                     RunMode.UPDATE,
-                    self.should_update_auth_repos,
+                    self.should_update_repos,
                 ),  # auth repo
                 # should_validate_target_repos
                 (
                     self.load_target_repositories,
                     RunMode.ALL,
-                    self.should_run_step_default,
+                    self.should_update_repos,
                 ),
                 (
                     self.check_if_previous_update_partial,
                     RunMode.ALL,
-                    self.should_run_step_default,
+                    self.should_update_repos,
                 ),
                 (
                     self.set_auth_commit_for_target_repos,
@@ -383,12 +383,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.merge_auth_commits,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_update_repos,
                 ),  # merge fetched commits
                 (
                     self.remove_temp_repositories,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_update_repos,
                 ),  # only removes auth repo with --no-targets
                 (
                     self.set_target_repositories_data,
@@ -400,7 +400,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     RunMode.ALL,
                     self.should_validate_target_repos,
                 ),  # skipped with no-targets; prints all other commits that exist but are not merged
-                (self.check_pre_push_hook, RunMode.ALL, self.should_update_auth_repos),
+                (self.check_pre_push_hook, RunMode.ALL, self.should_update_repos),
                 (self.finish_update, RunMode.ALL, self.should_run_step_default),
             ],
             run_mode=(
@@ -433,6 +433,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state = UpdateState()
         self.state.targets_data = {}
         self._output = None
+        self.should_update = True
 
     @property
     def output(self):
@@ -446,10 +447,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return True
 
     def should_update_auth_repos(self):
+        auth_repo = AuthenticationRepository(path=self.auth_path)
+        local_head = auth_repo.head_commit()
+        remote_head = auth_repo.get_last_remote_commit()
+        if local_head == remote_head:
+            self.state.event = Event.UNCHANGED
+            self.should_update = False
+            return False
+        self.should_update = True
         return True
 
+    def should_update_repos(self):
+        return self.should_update
+
     def should_validate_target_repos(self):
-        if self.no_targets:
+        if self.no_targets or not self.should_update_repos():
             return False
         if self.no_upstream:
             # check if self.state.event has changed.
