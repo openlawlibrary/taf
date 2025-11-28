@@ -1683,18 +1683,6 @@ but commit not on branch {current_branch}"
                                 f"Target repository {repository.name} does not allow unauthenticated commits, but contains commit(s) {', '.join([commit.value for commit in additional_commits])} on branch {branch}"
                             )
 
-                        # these commits include all commits newer than last authenticated commit (if unauthenticated commits are allowed)
-                        # that does not necessarily mean that the local repository is not up to date with the remote
-                        # pull could've been run manually
-                        # check where the current local head is
-                        if self.state.existing_repo:
-                            branch_current_head = repository.top_commit_of_branch(
-                                branch
-                            )
-                            if branch_current_head in additional_commits:
-                                additional_commits = additional_commits[
-                                    additional_commits.index(branch_current_head) + 1 :
-                                ]
                     self.state.additional_commits_per_target_repos_branches[
                         repository.name
                     ][branch] = additional_commits
