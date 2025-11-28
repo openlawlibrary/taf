@@ -9,6 +9,7 @@ import uuid
 import pygit2
 import subprocess
 import logging
+import time
 from collections import OrderedDict
 from functools import partial, reduce
 from pathlib import Path
@@ -1151,20 +1152,31 @@ class GitRepository:
         branch: Optional[str] = None,
         remote: Optional[str] = "origin",
     ) -> None:
-        try:
-            if fetch_all:
-                self._git("fetch --all", log_error=True, reraise_error=True)
-            else:
-                if branch is None:
-                    branch = ""
-                self._git(
-                    "fetch {} {}", remote, branch, log_error=True, reraise_error=True
+        max_retries = 5
+        for attempt in range(max_retries + 1):
+            try:
+                if fetch_all:
+                    self._git("fetch --all", log_error=True, reraise_error=True)
+                else:
+                    if branch is None:
+                        branch = ""
+                    self._git(
+                        "fetch {} {}",
+                        remote,
+                        branch,
+                        log_error=True,
+                        reraise_error=True,
+                    )
+            except Exception as e:
+                if attempt == max_retries:
+                    self.raise_git_access_error(operation="fetch", error_msg=str(e))
+                delay = 2**attempt
+                self._log_warning(
+                    f"Connection error - retrying fetch in {delay} seconds."
                 )
-        except GitError:
-            self.raise_git_access_error(operation="fetch")
+                time.sleep(delay)
 
     def fetch_from_disk(self, local_repo_path, branches):
-
         repo = self.pygit_repo
         temp_remote_name = f"temp_{uuid.uuid4().hex[:8]}"
         repo.remotes.create(temp_remote_name, local_repo_path)
@@ -1533,7 +1545,7 @@ class GitRepository:
             raise PushFailedError(self, message=f"Push operation failed: {e}")
 
     def raise_git_access_error(
-        self, error_cls=GitAccessDeniedException, operation=None
+        self, error_cls=GitAccessDeniedException, operation=None, error_msg=""
     ):
         hosts = {extract_hostname(url) for url in self.urls}
         unknown_hosts = [host for host in hosts if not is_host_known(host)]
@@ -1545,13 +1557,19 @@ class GitRepository:
             uses_ssh = any(url.startswith("git@") for url in self.urls)
             if uses_ssh:
                 raise error_cls(
-                    self, operation=operation, message=_clone_or_pull_error_message
+                    self,
+                    operation=operation,
+                    message=_clone_or_pull_error_message
+                    if error_msg == ""
+                    else error_msg,
                 )
             else:
                 raise error_cls(
                     self,
                     operation=operation,
-                    message=_clone_or_pull_error_message_no_ssh,
+                    message=_clone_or_pull_error_message_no_ssh
+                    if error_msg == ""
+                    else error_msg,
                 )
         raise error_cls(self)
 
