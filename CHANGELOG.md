@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix unauthenticated commits list ([679])
+
+[679]: https://github.com/openlawlibrary/taf/pull/679
 [675]: https://github.com/openlawlibrary/taf/pull/675
 
 ## [0.36.2]
