@@ -15,7 +15,7 @@ packages = find_packages()
 
 ci_require = [
     "bandit>=1.6.0",
-    "black>=19.3b0",
+    "black==22.12.0",
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",

@@ -16,14 +16,21 @@ from taf.yubikey.yubikey import list_connected_yubikeys, list_all_devices
 def check_pin_command():
     @click.command(help="Checks if the specified pin is valid")
     @click.option("--pin", default=None, help="PIN to be checked")
-    @click.option("--serial", default=None, type=int, help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted")
+    @click.option(
+        "--serial",
+        default=None,
+        type=int,
+        help="Serial number of a YubiKey. Has to be provided if more than one YK is inserted",
+    )
     @catch_cli_exception(handle=YubikeyError)
     def check_pin(pin, serial):
         try:
             from taf.yubikey.yubikey import is_valid_pin, get_and_validate_pin
 
             if serial is None and len(list_all_devices()) > 1:
-                click.echo("More than one YubiKey is inserted. Please specify the serial number of the YubiKey to be used")
+                click.echo(
+                    "More than one YubiKey is inserted. Please specify the serial number of the YubiKey to be used"
+                )
                 return
             name = serial or "YubiKey"
             if pin is None:
@@ -35,13 +42,12 @@ def check_pin_command():
         except Exception as e:
             click.echo(f"Error: {e}")
             return
+
     return check_pin
 
 
 def export_pub_key_command():
-    @click.command(
-        help="Export public keys of the inserted YubiKeys"
-    )
+    @click.command(help="Export public keys of the inserted YubiKeys")
     @click.option(
         "--output",
         help="File to which the exported public key will be written. The result will be written to the console if path is not specified",
@@ -54,9 +60,7 @@ def export_pub_key_command():
 
 
 def get_roles_command():
-    @click.command(
-        help="List roles the inserted YubiKey is allowed to sign."
-    )
+    @click.command(help="List roles the inserted YubiKey is allowed to sign.")
     @catch_cli_exception(handle=YubikeyError, print_error=True)
     @click.option(
         "--path",
@@ -78,9 +82,7 @@ def get_roles_command():
 
 
 def export_certificate_command():
-    @click.command(
-        help="Export certificates of the inserted YubiKeys"
-    )
+    @click.command(help="Export certificates of the inserted YubiKeys")
     @click.option(
         "--output",
         help="File to which the exported certificate key will be written. The result will be written to the user's home directory by default",
@@ -97,6 +99,7 @@ def list_key_command():
     @catch_cli_exception(handle=YubikeyError)
     def list_keys():
         list_connected_yubikeys()
+
     return list_keys
 
 
@@ -133,10 +136,10 @@ def setup_test_key_command():
 
 
 def attach_to_group(group):
-    group.add_command(check_pin_command(), name='check-pin')
-    group.add_command(export_pub_key_command(), name='export-pub-key')
-    group.add_command(get_roles_command(), name='get-roles')
-    group.add_command(export_certificate_command(), name='export-certificate')
-    group.add_command(list_key_command(), name='list-key')
-    group.add_command(setup_signing_key_command(), name='setup-signing-key')
-    group.add_command(setup_test_key_command(), name='setup-test-key')
+    group.add_command(check_pin_command(), name="check-pin")
+    group.add_command(export_pub_key_command(), name="export-pub-key")
+    group.add_command(get_roles_command(), name="get-roles")
+    group.add_command(export_certificate_command(), name="export-certificate")
+    group.add_command(list_key_command(), name="list-key")
+    group.add_command(setup_signing_key_command(), name="setup-signing-key")
+    group.add_command(setup_test_key_command(), name="setup-test-key")
