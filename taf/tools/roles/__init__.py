@@ -21,7 +21,8 @@ from taf.tools.repo import pin_managed
 
 
 def add_roles_command():
-    @click.command(help="""
+    @click.command(
+        help="""
     Add new delegated target roles. Allows optional specification of each role's properties through a JSON configuration file.
 
     Configuration file (JSON) can specify:
@@ -67,15 +68,38 @@ def add_roles_command():
         }
     }
     }
-    """)
+    """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
-    @click.option("--config-file", type=click.Path(exists=True), help="Path to the JSON configuration file.")
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option(
+        "--config-file",
+        type=click.Path(exists=True),
+        help="Path to the JSON configuration file.",
+    )
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--scheme",
+        default=DEFAULT_RSA_SIGNATURE_SCHEME,
+        help="A signature scheme used for signing",
+    )
     @pin_managed
-    def add_roles(config_file, path, scheme, keystore, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def add_roles(
+        config_file,
+        path,
+        scheme,
+        keystore,
+        no_commit,
+        prompt_for_keys,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+    ):
         add_multiple_roles(
             path=path,
             pin_manager=pin_manager,
@@ -87,16 +111,23 @@ def add_roles_command():
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
         )
+
     return add_roles
 
 
 def export_roles_description_command():
-    @click.command(help="""
+    @click.command(
+        help="""
         Export roles-description.json file based on the
-        """)
+        """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
     @click.option("--output", default=None, help="Output file path")
     @click.option("--keystore", default=None, help="Location of the keystore files")
     @pin_managed
@@ -116,15 +147,35 @@ def export_roles_description_command():
 
 
 def add_role_paths_command():
-    @click.command(help="Add a new delegated target role, specifying which paths are delegated to the new role. Its parent role, number of signing keys and signatures threshold can also be defined. Update and sign all metadata files and commit.")
+    @click.command(
+        help="Add a new delegated target role, specifying which paths are delegated to the new role. Its parent role, number of signing keys and signatures threshold can also be defined. Update and sign all metadata files and commit."
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @common_repo_edit_options
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--delegated-path", multiple=True, help="Paths associated with the delegated role")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--delegated-path",
+        multiple=True,
+        help="Paths associated with the delegated role",
+    )
     @pin_managed
-    def adding_role_paths(role, path, delegated_path, keystore, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def adding_role_paths(
+        role,
+        path,
+        delegated_path,
+        keystore,
+        no_commit,
+        prompt_for_keys,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+    ):
         if not delegated_path:
             print("Specify at least one path")
             return
@@ -141,6 +192,7 @@ def add_role_paths_command():
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
         )
+
     return adding_role_paths
 
 
@@ -148,20 +200,45 @@ def add_role_paths_command():
 # this is a TUF bug (or better said, caused by using a newer version of the updater and old repository_tool)
 # it will be addressed when we transition to metadata API
 def remove_role_command():
-    @click.command(help="""Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
+    @click.command(
+        help="""Remove a delegated target role, and, optionally, its targets (depending on the remove-targets parameter).
         If targets should also be deleted, target files are remove and their corresponding entires are removed
         from repositoires.json. If targets should not get removed, the target files are signed using the
         removed role's parent role
-        """)
+        """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
     @common_repo_edit_options
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
-    @click.option("--remove-targets/--no-remove-targets", default=True, help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--scheme",
+        default=DEFAULT_RSA_SIGNATURE_SCHEME,
+        help="A signature scheme used for signing",
+    )
+    @click.option(
+        "--remove-targets/--no-remove-targets",
+        default=True,
+        help="Should targets delegated to this role also be removed. If not removed, they are signed by the parent role",
+    )
     @pin_managed
-    def remove(role, path, keystore, scheme, remove_targets, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check):
+    def remove(
+        role,
+        path,
+        keystore,
+        scheme,
+        remove_targets,
+        no_commit,
+        prompt_for_keys,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+    ):
         remove_role(
             path=path,
             pin_manager=pin_manager,
@@ -174,6 +251,7 @@ def remove_role_command():
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
         )
+
     return remove
 
 
@@ -182,12 +260,33 @@ def remove_paths_command():
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--delegated-path", multiple=True, help="A list of paths to be removed")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--delegated-path", multiple=True, help="A list of paths to be removed"
+    )
+    @click.option(
+        "--scheme",
+        default=DEFAULT_RSA_SIGNATURE_SCHEME,
+        help="A signature scheme used for signing",
+    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def remove_delegated_paths(path, delegated_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
+    def remove_delegated_paths(
+        path,
+        delegated_path,
+        keystore,
+        scheme,
+        no_commit,
+        prompt_for_keys,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+        commit_msg,
+    ):
         if not delegated_path:
             print("Specify at least one role")
             return
@@ -204,11 +303,13 @@ def remove_paths_command():
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
         )
+
     return remove_delegated_paths
 
 
 def add_signing_key_command():
-    @click.command(help="""
+    @click.command(
+        help="""
         Add a new signing key. This will make it possible to a sign metadata files
         corresponding to the specified roles with another key. Although private keys are
         used for signing, key identifiers are calculated based on the public keys. This
@@ -216,17 +317,46 @@ def add_signing_key_command():
         a new signing key. Public key can be loaded from a file, in which case it is
         necessary to specify its path as the pub_key parameter's value. If this option
         is not used when calling this command, the key can be directly entered later.
-        """)
+        """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--role", multiple=True, help="A list of roles to whose list of signing keys the new key should be added")
-    @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--role",
+        multiple=True,
+        help="A list of roles to whose list of signing keys the new key should be added",
+    )
+    @click.option(
+        "--pub-key-path",
+        default=None,
+        help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
+    )
+    @click.option(
+        "--scheme",
+        default=DEFAULT_RSA_SIGNATURE_SCHEME,
+        help="A signature scheme used for signing",
+    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def adding_signing_key(path, role, pub_key_path, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
+    def adding_signing_key(
+        path,
+        role,
+        pub_key_path,
+        keystore,
+        scheme,
+        no_commit,
+        prompt_for_keys,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+        commit_msg,
+    ):
         if not role:
             print("Specify at least one role")
             return
@@ -244,23 +374,50 @@ def add_signing_key_command():
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
         )
+
     return adding_signing_key
 
 
 def revoke_signing_key_command():
-    @click.command(help="""
+    @click.command(
+        help="""
         Revoke a signing key.
-        """)
+        """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
     @click.argument("keyid")
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--role", multiple=True, help="A list of roles from which to remove the key. If unspecified, the key is removed from all roles by default.")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--role",
+        multiple=True,
+        help="A list of roles from which to remove the key. If unspecified, the key is removed from all roles by default.",
+    )
+    @click.option(
+        "--scheme",
+        default=DEFAULT_RSA_SIGNATURE_SCHEME,
+        help="A signature scheme used for signing",
+    )
     @click.option("--commit-msg", default=None, help="Commit message")
     @pin_managed
-    def revoke_key(path, role, keyid, keystore, scheme, no_commit, prompt_for_keys, pin_manager, keys_description, no_remote_check, commit_msg):
+    def revoke_key(
+        path,
+        role,
+        keyid,
+        keystore,
+        scheme,
+        no_commit,
+        prompt_for_keys,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+        commit_msg,
+    ):
 
         revoke_signing_key(
             path=path,
@@ -275,25 +432,60 @@ def revoke_signing_key_command():
             skip_remote_check=no_remote_check,
             commit_msg=commit_msg,
         )
+
     return revoke_key
 
 
 def rotate_signing_key_command():
-    @click.command(help="""
+    @click.command(
+        help="""
         Rotate a signing key.
-        """)
+        """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("keyid")
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
-    @click.option("--role", multiple=True, help="A list of roles from which to rotate the key. Rotate from all by default")
-    @click.option("--pub-key-path", default=None, help="Path to the public key corresponding to the private key which should be registered as the role's signing key")
-    @click.option("--scheme", default=DEFAULT_RSA_SIGNATURE_SCHEME, help="A signature scheme used for signing")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--role",
+        multiple=True,
+        help="A list of roles from which to rotate the key. Rotate from all by default",
+    )
+    @click.option(
+        "--pub-key-path",
+        default=None,
+        help="Path to the public key corresponding to the private key which should be registered as the role's signing key",
+    )
+    @click.option(
+        "--scheme",
+        default=DEFAULT_RSA_SIGNATURE_SCHEME,
+        help="A signature scheme used for signing",
+    )
     @click.option("--revoke-commit-msg", default=None, help="Revoke key commit message")
-    @click.option("--add-commit-msg", default=None, help="Add new signing key commit message")
+    @click.option(
+        "--add-commit-msg", default=None, help="Add new signing key commit message"
+    )
     @common_repo_edit_options
     @pin_managed
-    def rotate_key(path, role, keyid, pub_key_path, keystore, scheme, prompt_for_keys, revoke_commit_msg, add_commit_msg, pin_manager, keys_description, no_remote_check, no_commit):
+    def rotate_key(
+        path,
+        role,
+        keyid,
+        pub_key_path,
+        keystore,
+        scheme,
+        prompt_for_keys,
+        revoke_commit_msg,
+        add_commit_msg,
+        pin_manager,
+        keys_description,
+        no_remote_check,
+        no_commit,
+    ):
         rotate_signing_key(
             path=path,
             pin_manager=pin_manager,
@@ -307,37 +499,45 @@ def rotate_signing_key_command():
             add_commit_msg=add_commit_msg,
             keys_description=keys_description,
             skip_remote_check=no_remote_check,
-            commit=not no_commit
+            commit=not no_commit,
         )
+
     return rotate_key
 
 
 def list_keys_command():
-    @click.command(help="""
+    @click.command(
+        help="""
         List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
         include additional information read from these certificates, like name or organization.
-        """)
+        """
+    )
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")
-    @click.option("--path", default=".", help="Authentication repository's location. If not specified, set to the current directory")
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
     def list_keys(role, path):
         key_infos = list_keys_of_role(
             path=path,
             role=role,
         )
         print("\n".join(key_infos))
+
     return list_keys
 
 
 def attach_to_group(group):
 
-    group.add_command(add_roles_command(), name='add')
-    group.add_command(add_role_paths_command(), name='add-role-paths')
-    group.add_command(remove_paths_command(), name='remove-paths')
+    group.add_command(add_roles_command(), name="add")
+    group.add_command(add_role_paths_command(), name="add-role-paths")
+    group.add_command(remove_paths_command(), name="remove-paths")
     # group.add_command(remove_role_command(), name='remove')
-    group.add_command(add_signing_key_command(), name='add-signing-key')
-    group.add_command(revoke_signing_key_command(), name='revoke-key')
-    group.add_command(rotate_signing_key_command(), name='rotate-key')
-    group.add_command(list_keys_command(), name='list-keys')
+    group.add_command(add_signing_key_command(), name="add-signing-key")
+    group.add_command(revoke_signing_key_command(), name="revoke-key")
+    group.add_command(rotate_signing_key_command(), name="rotate-key")
+    group.add_command(list_keys_command(), name="list-keys")
     group.add_command(export_roles_description_command(), name="export-description")
