@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning][semver].
 ### Added
 
 - Add option to specify paths ignored during repo cleanup ([675])
+- Add retry logic for git fetch ([678])
 
 ### Changed
 
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 [679]: https://github.com/openlawlibrary/taf/pull/679
 [675]: https://github.com/openlawlibrary/taf/pull/675
+[678]: https://github.com/openlawlibrary/taf/pull/678
 
 ## [0.36.2]
 
