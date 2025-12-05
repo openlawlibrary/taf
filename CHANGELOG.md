@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Attempt to remove `index.lock` if branch checkout fails ([684])
+
+[684]: https://github.com/openlawlibrary/taf/pull/684
+
 ## [0.36.3]
 
 ### Added
