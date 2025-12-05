@@ -63,7 +63,7 @@ WRONG_UPDATE_TYPE_TEST_REPO = r"Update of (\w+\/\w+) failed due to error: Reposi
 WRONG_UPDATE_TYPE_OFFICIAL_REPO = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) is not a test repository, but update was called with the \"--expected-repo-type\" test$"
 METADATA_EXPIRED = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision [0-9a-f]+ due to error: .+ is expired"
 NO_INFO_JSON = "Update of repository failed due to error: Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
-UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repository (\w+\/\w+) should contain only committed changes\. \nPlease update the repository at (.+) manually and try again\."
+UNCOMMITTED_CHANGES = r"Update of (\w+\/\w+) failed due to error: Repositories (\w+\/\w+) have uncommitted changes\. Commit and push or use --force to revert and run the command again\."
 UPDATE_ERROR_PATTERN = r"Update of (\w+\/\w+) failed due to error: Validation of authentication repository (\w+\/\w+) failed at revision ([0-9a-f]+) due to error: .*"
 FORCED_UPDATE_PATTERN = r"Update of (\w+\/\w+) failed due to error: Repositories ([\w/,\s-]+) have uncommitted changes. Commit and push or use --force to revert and run the command again."
 BEHIND_LVC_PATTERN = r"Update of (\w+\/\w+) failed due to error: Top commit of repository \1 ([0-9a-f]{40}) is not equal to or newer than the last successful commit."
@@ -640,6 +640,19 @@ def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     for target_repo in target_repos.values():
         index_lock = Path(client_dir, target_repo.name, ".git", "index.lock")
         index_lock.touch()
+        break
+
+
+def create_file_without_committing(
+    auth_repo: AuthenticationRepository, client_dir: Path
+):
+    # Create an `index.lock` file, indicating that an incomplete git operation took place
+    # index.lock is created by git when a git operation is interrupted.
+    target_repos = load_target_repositories(auth_repo)
+
+    for target_repo in target_repos.values():
+        new_file = Path(client_dir, target_repo.name, "new_file")
+        new_file.touch()
         break
 
 
