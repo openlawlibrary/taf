@@ -118,12 +118,12 @@ class UpdateState:
     target_branches_data_from_auth_repo: Dict = field(factory=dict)
     targets_data_by_auth_commits: Dict = field(factory=dict)
     old_heads_per_target_repos_branches: Dict[str, Dict[str, str]] = field(factory=dict)
-    fetched_commits_per_target_repos_branches: Dict[str, Dict[str, List[Commitish]]] = (
-        field(factory=dict)
-    )
-    validated_commits_per_target_repos_branches: Dict[str, Dict[str, Commitish]] = (
-        field(factory=dict)
-    )
+    fetched_commits_per_target_repos_branches: Dict[
+        str, Dict[str, List[Commitish]]
+    ] = field(factory=dict)
+    validated_commits_per_target_repos_branches: Dict[
+        str, Dict[str, Commitish]
+    ] = field(factory=dict)
     additional_commits_per_target_repos_branches: Dict[
         str, Dict[str, List[Commitish]]
     ] = field(factory=dict)
@@ -538,16 +538,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 users_auth_repo.name
             )
 
-            settings.last_validated_commit[self.state.validation_auth_repo.name] = (
-                last_validated_commit
-            )
+            settings.last_validated_commit[
+                self.state.validation_auth_repo.name
+            ] = last_validated_commit
             self.state.last_validated_commit = Commitish.from_hash(
                 last_validated_commit
             )
         elif self.validate_from_commit:
-            settings.last_validated_commit[self.state.validation_auth_repo.name] = (
-                self.validate_from_commit
-            )
+            settings.last_validated_commit[
+                self.state.validation_auth_repo.name
+            ] = self.validate_from_commit
             self.state.last_validated_commit = self.validate_from_commit
 
     def check_if_local_repositories_clean(self):
@@ -721,9 +721,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.validation_auth_repo.clone(bare=True)
             self.state.validation_auth_repo.fetch(fetch_all=True)
 
-            settings.validation_repo_path[self.state.validation_auth_repo.name] = (
-                self.state.validation_auth_repo.path
-            )
+            settings.validation_repo_path[
+                self.state.validation_auth_repo.name
+            ] = self.state.validation_auth_repo.path
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -743,9 +743,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.operation = OperationType.CLONE
 
             def _clear_lvc():
-                settings.last_validated_commit[self.state.validation_auth_repo.name] = (
-                    None
-                )
+                settings.last_validated_commit[
+                    self.state.validation_auth_repo.name
+                ] = None
                 self.state.last_validated_commit = None
 
             self.state.auth_commits_since_last_validated = None
@@ -1071,9 +1071,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             repo_name: self._get_last_validated_commit(repo_name)
             for repo_name in self.state.users_target_repositories
         }
-        last_commits_per_repos[self.state.users_auth_repo.name] = (
-            self._get_last_validated_commit(self.state.users_auth_repo.name)
-        )
+        last_commits_per_repos[
+            self.state.users_auth_repo.name
+        ] = self._get_last_validated_commit(self.state.users_auth_repo.name)
 
         last_validated_commits = list(set(last_commits_per_repos.values()))
 
@@ -1968,10 +1968,12 @@ but commit not on branch {current_branch}"
                         ).get(branch)
                         branch_data[branch]["new"] = [commit_info]
                         branch_data[branch]["after_pull"] = [commit_info]
-                        branch_data[branch]["unauthenticated"] = (
-                            self.state.additional_commits_per_target_repos_branches.get(
-                                repo_name, {}
-                            ).get(branch, [])
+                        branch_data[branch][
+                            "unauthenticated"
+                        ] = self.state.additional_commits_per_target_repos_branches.get(
+                            repo_name, {}
+                        ).get(
+                            branch, []
                         )
                         if old_head is not None:
                             branch_data[branch]["before_pull"] = old_head
