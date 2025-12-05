@@ -288,7 +288,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.clone_auth_to_temp,
                     RunMode.ALL,
                     self.should_update_auth_repos,
-                ),  # should be done regardless of flags
+                ),
                 (
                     self.prepare_for_auth_update_and_check_last_validated_commit,
                     RunMode.ALL,
@@ -298,7 +298,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.run_tuf_updater,
                     RunMode.ALL,
                     self.should_update_repos,
-                ),  # should be done regardless of flags
+                ),
                 (
                     self.validate_out_of_band_and_update_type,
                     RunMode.ALL,
@@ -447,14 +447,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         return True
 
     def should_update_auth_repos(self):
-        auth_repo = AuthenticationRepository(path=self.auth_path)
-        local_head = auth_repo.head_commit()
-        remote_head = auth_repo.get_last_remote_commit()
-        if local_head == remote_head:
-            self.state.event = Event.UNCHANGED
-            self.should_update = False
-            return False
-        self.should_update = True
+        if self.operation == OperationType.CLONE:
+            return True
+        else:
+            auth_repo = AuthenticationRepository(path=self.auth_path)
+            local_head = auth_repo.head_commit()
+            remote_head = auth_repo.get_last_remote_commit()
+            last_validated_commit = auth_repo.last_validated_commit
+            if local_head == remote_head:
+                if remote_head.hash == last_validated_commit:
+                    self.state.event = Event.UNCHANGED
+                    self.should_update = False
+                    return False
         return True
 
     def should_update_repos(self):
