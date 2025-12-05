@@ -1887,19 +1887,45 @@ but commit not on branch {current_branch}"
             try:
                 repository.checkout_branch(branch, raise_anyway=True)
             except GitError as e:
-                # two scenarios:
-                # current git repository is in an inconsistent state:
-                # - .git/index.lock exists (git partial update got applied)
-                # should get addressed in https://github.com/openlawlibrary/taf/issues/210
-                taf_logger.error(
-                    "Could not checkout branch {} during commit merge. Error {}",
-                    branch,
-                    e,
-                )
-                raise UpdateFailedError(
-                    f"Repository {repository.name} should contain only committed changes. \n"
-                    f"Please update the repository at {repository.path} manually and try again."
-                )
+                # check for stale index lock
+                index_lock = repository.path / ".git" / "index.lock"
+
+                if index_lock.exists():
+                    taf_logger.warning(
+                        "Stale index.lock detected in {}. Attempting recovery.",
+                        repository.name,
+                    )
+                    try:
+                        index_lock.unlink()
+                        # hard reset to clean partial state
+                        repository.reset_to_head()
+                        repository.checkout_branch(branch, raise_anyway=True)
+                        taf_logger.info(
+                            "Recovery succeeded for {}. Branch {} checked out.",
+                            repository.name,
+                            branch,
+                        )
+                    except Exception as recovery_error:
+                        taf_logger.error(
+                            "Recovery attempt failed in {} after index.lock removal: {}",
+                            repository.name,
+                            recovery_error,
+                        )
+                        raise UpdateFailedError(
+                            f"Could not checkout branch {repository.name} during commit merge.\n"
+                            f"Please update the repository at {repository.path} manually and try again."
+                        )
+                else:
+                    taf_logger.error(
+                        "Could not checkout branch {} during commit merge. Error {}",
+                        branch,
+                        e,
+                    )
+                    raise UpdateFailedError(
+                        f"Could not checkout branch {repository.name} during commit merge.\n"
+                        f"Please update the repository at {repository.path} manually and try again."
+                    )
+
         elif not local_branch_exists:
             repository.create_local_branch_from_remote_tracking(branch)
 

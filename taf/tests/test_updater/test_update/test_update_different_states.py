@@ -11,6 +11,7 @@ from taf.tests.test_updater.conftest import (
     add_file_to_target_repo_without_committing,
     add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
+    create_index_lock,
     create_new_target_repo_branch,
     remove_commits,
     remove_commits_from_auth_repo,
@@ -545,6 +546,33 @@ def test_update_with_targets_repo_having_a_local_branch_not_on_remote_origin_exp
         LVC_NOT_IN_REPO_PATTERN,
         True,
     )
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_invalid_repo_target_in_indeterminate_state(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    create_index_lock(origin_auth_repo, client_dir)
 
     update_and_check_commit_shas(
         OperationType.UPDATE,

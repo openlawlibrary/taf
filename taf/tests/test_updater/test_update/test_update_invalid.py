@@ -9,7 +9,7 @@ from taf.tests.test_updater.conftest import (
     SetupManager,
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
-    create_index_lock,
+    create_file_without_committing,
     set_last_commit_of_auth_repo,
     update_expiration_dates,
     update_timestamp_metadata_invalid_signature,
@@ -72,7 +72,7 @@ def test_update_invalid_repo_target_in_indeterminate_state(
         client_dir,
     )
 
-    create_index_lock(origin_auth_repo, client_dir)
+    create_file_without_committing(origin_auth_repo, client_dir)
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
