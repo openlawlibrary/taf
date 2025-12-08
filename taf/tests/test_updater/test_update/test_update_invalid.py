@@ -64,7 +64,7 @@ def test_update_invalid_target_repositories_contain_unsigned_commits(
     ],
     indirect=True,
 )
-def test_update_invalid_repo_target_in_indeterminate_state(
+def test_update_invalid_repo_target_wuth_uncommitted_changes(
     origin_auth_repo, client_dir
 ):
     clone_repositories(
