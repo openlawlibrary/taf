@@ -429,11 +429,15 @@ class GitRepository:
                 self._log_warning(str(e))
                 return []
 
-        try:
-            self.commit_exists(commit=since_commit)
-        except GitError as e:
-            self._log_warning(f"Commit {since_commit} not found in local repository.")
-            raise e
+        if not self.commit_exists(commit=since_commit):
+            self._log_warning(
+                f"Commit {since_commit.hash} not found in local repository."
+            )
+            raise GitError(
+                repo=self,
+                message=f"Commit {since_commit.hash} not found in local repository.",
+            )
+
         repo = self.pygit_repo
 
         if branch:
@@ -974,10 +978,11 @@ class GitRepository:
         )
         return Commitish.from_hash(self._git("rev-parse HEAD"))
 
-    def commit_exists(self, commit: Commitish) -> bool:
+    def commit_exists(repo, commit: Commitish) -> bool:
         try:
-            return bool(self._git(f"rev-parse {commit.value}"))
-        except GitError:
+            obj = repo.pygit_repo.revparse_single(commit.hash)
+            return isinstance(obj, pygit2.Commit)
+        except KeyError:
             return False
 
     def commits_on_branch_and_not_other(
