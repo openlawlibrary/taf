@@ -978,9 +978,9 @@ class GitRepository:
         )
         return Commitish.from_hash(self._git("rev-parse HEAD"))
 
-    def commit_exists(repo, commit: Commitish) -> bool:
+    def commit_exists(self, commit: Commitish) -> bool:
         try:
-            obj = repo.pygit_repo.revparse_single(commit.hash)
+            obj = self.pygit_repo.revparse_single(commit.hash)
             return isinstance(obj, pygit2.Commit)
         except KeyError:
             return False
