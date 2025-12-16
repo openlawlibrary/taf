@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix `commit_exists` ([689])
 - Attempt to remove `index.lock` if branch checkout fails ([684])
 
+[689]: https://github.com/openlawlibrary/taf/pull/689
 [684]: https://github.com/openlawlibrary/taf/pull/684
 
 ## [0.36.3]
