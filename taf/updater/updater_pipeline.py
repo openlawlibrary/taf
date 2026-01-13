@@ -787,7 +787,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     error_msg = (
                         f"The newest commit of repository {self.state.users_auth_repo.name} is no longer "
                         f"on branch {default_branch} of the remote repository. This could "
-                        "either mean that    there was an unauthorized push to the remote "
+                        f"either mean that there was an unauthorized push to the remote ({self.state.validation_auth_repo.urls[0]}) "
                         "or an invalid modification of the local repository."
                     )
                     # this is always an error, force or no force
