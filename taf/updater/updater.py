@@ -632,6 +632,7 @@ def validate_repository(
     no_targets=False,
     no_deps=False,
 ):
+    update_from_filesystem = settings.update_from_filesystem
     settings.strict = strict
 
     auth_path = Path(auth_path).resolve()
@@ -680,3 +681,4 @@ def validate_repository(
             f"Validation of repository {auth_repo_name or ''} failed due to error: {e}"
         )
     settings.last_validated_commit = {}
+    settings.update_from_filesystem = update_from_filesystem
