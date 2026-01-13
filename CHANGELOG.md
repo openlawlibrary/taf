@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Git: add branch fast forward ([#691])
+
 ### Changed
 
 ### Fixed
@@ -17,7 +19,8 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix `commit_exists` ([689])
 - Attempt to remove `index.lock` if branch checkout fails ([684])
 
-[693]: https://github.com/openlawlibrary/taf/pull/693
+[693]: https://github.com/openlawlibrary/taf/pull/6930
+[691]: https://github.com/openlawlibrary/taf/pull/691
 [689]: https://github.com/openlawlibrary/taf/pull/689
 [684]: https://github.com/openlawlibrary/taf/pull/684
 

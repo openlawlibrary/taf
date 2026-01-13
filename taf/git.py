@@ -1250,6 +1250,20 @@ class GitRepository:
                         return branch_name
         return None
 
+    def force_move_branch(self, branch, into_commit) -> bool:
+        """Force move branch into commit"""
+        try:
+            self._git(f"branch -f {branch} {into_commit}")
+        except GitError as e:
+            taf_logger.error(f"Failed to force move branch due to error {str(e)}")
+            return False
+        except Exception as e:
+            taf_logger.debug(
+                f"Unexpected error occurred while force moving branch: {str(e)}"
+            )
+            return False
+        return True
+
     def get_current_branch(self, full_name: Optional[bool] = False) -> str:
         """Return current branch."""
         repo = self.pygit_repo
@@ -1564,17 +1578,19 @@ class GitRepository:
                 raise error_cls(
                     self,
                     operation=operation,
-                    message=_clone_or_pull_error_message
-                    if error_msg == ""
-                    else error_msg,
+                    message=(
+                        _clone_or_pull_error_message if error_msg == "" else error_msg
+                    ),
                 )
             else:
                 raise error_cls(
                     self,
                     operation=operation,
-                    message=_clone_or_pull_error_message_no_ssh
-                    if error_msg == ""
-                    else error_msg,
+                    message=(
+                        _clone_or_pull_error_message_no_ssh
+                        if error_msg == ""
+                        else error_msg
+                    ),
                 )
         raise error_cls(self)
 
