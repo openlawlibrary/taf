@@ -94,6 +94,35 @@ def test_get_repositories_paths_by_custom_data(target_repos, auth_repo_with_targ
         assert paths == [repo.name]
 
 
+def test_filter_repositories(target_repos, auth_repo_with_targets):
+    with load_repositories(auth_repo_with_targets):
+        repo_types = ("type1", "type2", "type3")
+        for repo_type, repo in zip(repo_types, target_repos):
+            filter_exp =  f"repo['type']=='{repo_type}'"
+            repos = repositoriesdb.get_repositories_by_expression(
+                auth_repo_with_targets, filter_expr=filter_exp
+            )
+            assert len(repos) == 1
+            assert repos[0].name == repo.name
+
+
+def test_get_repositories_names_by_expression(target_repos, auth_repo_with_targets):
+    repo_types = ("type1", "type2", "type3")
+    for repo_type, repo in zip(repo_types, target_repos):
+        filter_exp =  f"repo['type']=='{repo_type}'"
+        names = repositoriesdb.get_repository_names_by_expression(
+            auth_repo_with_targets, filter_expr=filter_exp
+        )
+        assert names == [repo.name]
+
+    filter_exp =  f"repo['type'] in ('type1', 'type2')"
+    names = repositoriesdb.get_repository_names_by_expression(
+        auth_repo_with_targets, filter_expr=filter_exp
+    )
+    assert len(names) == 2
+    assert names == ['test_repositoriesdb/target1', 'test_repositoriesdb/target2']
+
+
 def _check_repositories_dict(
     target_repos, auth_repo, *commits, roles=None, only_load_targets=False
 ):

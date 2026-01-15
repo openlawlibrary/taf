@@ -416,6 +416,81 @@ def _get_target_default_branch(
     return default_branch
 
 
+def get_repositories_by_expression(
+    auth_repo: AuthenticationRepository,
+    commit: Optional[Commitish] = None,
+    filter_expr: Optional[str] = None,
+) -> Optional[List[str]]:
+    """
+    Filter repositories using a Python expression.
+
+    Args:
+        auth_repo: Authentication repository
+        commit: Commit to use
+        filter_expr: Python expression where 'repo' is the repository's custom data
+                    e.g., "repo['type'] == 'html'"
+                          "repo.get('serve') == 'latest'"
+                          "repo['type'] == 'html' and repo.get('serve') == 'historical'"
+    """
+    if not commit:
+        commit = auth_repo.head_commit()
+        if commit is None:
+            raise TAFError(
+                "Could not get repositories. Commit is not specified and head commit could not be determined"
+            )
+
+    taf_logger.debug(
+        "Auth repo {}: filtering repositories by expression: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+
+    repositories = get_repositories(auth_repo=auth_repo, commit=commit)
+    if not repositories:
+        return None
+
+    # If no filter, return all
+    if not filter_expr:
+        return repositories
+
+    # Safe namespace for eval
+    safe_globals = {"__builtins__": {}}
+
+    def _matches_filter(repo):
+        try:
+            custom_data = repo.custom
+            # Evaluate filter expression with custom data as 'repo'
+            return eval(filter_expr, safe_globals, {"repo": custom_data})
+        except Exception as e:
+            taf_logger.debug(
+                "Auth repo {}: filter failed for {}: {}",
+                auth_repo.path,
+                repo.name,
+                e,
+            )
+            return False
+
+    repos = list(filter(_matches_filter, repositories.values()))
+
+    if len(repos):
+        filtered_repos = {
+            repo.name: repo for repo in repos
+        }
+        taf_logger.debug(
+            "Auth repo {}: found the following names {}", auth_repo.path, filtered_repos.keys()
+        )
+        return repos
+
+    taf_logger.error(
+        "Auth repo {}: no repositories matched filter: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+    raise RepositoriesNotFoundError(
+        f"No repositories matched filter: {filter_expr}"
+    )
+
+
 def get_repositories_paths_by_custom_data(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None, **custom
 ) -> Optional[List[str]]:
@@ -464,6 +539,81 @@ def get_repositories_paths_by_custom_data(
         f"Repositories associated with custom data {custom} not found"
     )
 
+
+def get_repository_names_by_expression(
+    auth_repo: AuthenticationRepository,
+    commit: Optional[Commitish] = None,
+    filter_expr: Optional[str] = None,
+) -> Optional[List[str]]:
+    """
+    Get repository names filtered by a Python expression.
+
+    Args:
+        auth_repo: Authentication repository
+        commit: Commit to use
+        filter_expr: Python expression where 'repo' is the repository's custom data
+                    e.g., "repo['type'] == 'html'"
+                          "repo.get('serve') == 'latest'"
+                          "repo['type'] == 'html' and repo.get('serve') == 'historical'"
+
+    Returns:
+        List of repository names matching the filter, or None if no repositories found
+    """
+    if not commit:
+        commit = auth_repo.head_commit()
+        if commit is None:
+            raise TAFError(
+                "Could not get repositories. Commit is not specified and head commit could not be determined"
+            )
+
+    taf_logger.debug(
+        "Auth repo {}: filtering repositories by expression: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+
+    repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
+    if repositories is None:
+        return None
+    repositories = repositories["repositories"]
+    if repositories is None:
+        return None
+
+    targets = _targets_of_roles(auth_repo, commit)
+
+    # Safe namespace for eval
+    safe_globals = {"__builtins__": {}}
+
+    def _matches_filter(name):
+        try:
+            custom_data = _get_custom_data(repositories[name], targets.get(name))
+            # Evaluate filter expression with custom data as 'repo'
+            return eval(filter_expr, safe_globals, {"repo": custom_data})
+        except Exception as e:
+            taf_logger.debug(
+                "Auth repo {}: filter failed for {}: {}",
+                auth_repo.path,
+                name,
+                e,
+            )
+            return False
+
+    names = list(filter(_matches_filter, repositories)) if filter_expr else list(repositories)
+
+    if len(names):
+        taf_logger.debug(
+            "Auth repo {}: found the following names {}", auth_repo.path, names
+        )
+        return names
+
+    taf_logger.error(
+        "Auth repo {}: no repositories matched filter: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+    raise RepositoriesNotFoundError(
+        f"No repositories matched filter: {filter_expr}"
+    )
 
 def get_deduplicated_auth_repositories(
     auth_repo: AuthenticationRepository,

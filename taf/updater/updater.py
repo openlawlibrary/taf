@@ -213,6 +213,12 @@ class UpdateConfig:
             "docs": "Globs specifying target repositories to exclude from validation and update. Optional."
         },
     )
+    filter_expr: str = field(
+        default=None,
+        metadata={
+            "docs": "Python expression to filter repositories by custom data. Item available as 'item'. Example: \"item['type'] == 'html'\". Repositories not matching are excluded. Optional."
+        },
+    )
     strict: bool = field(
         default=False,
         metadata={"docs": "Whether update fails if a warning is raised. Optional."},
@@ -627,6 +633,7 @@ def validate_repository(
     library_dir=None,
     validate_from_commit=None,
     excluded_target_globs=None,
+    filter_exp=None,
     strict=False,
     bare=False,
     no_targets=False,
