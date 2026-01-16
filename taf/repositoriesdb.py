@@ -473,11 +473,11 @@ def get_repositories_by_expression(
     repos = list(filter(_matches_filter, repositories.values()))
 
     if len(repos):
-        filtered_repos = {
-            repo.name: repo for repo in repos
-        }
+        filtered_repos = {repo.name: repo for repo in repos}
         taf_logger.debug(
-            "Auth repo {}: found the following names {}", auth_repo.path, filtered_repos.keys()
+            "Auth repo {}: found the following names {}",
+            auth_repo.path,
+            filtered_repos.keys(),
         )
         return repos
 
@@ -486,9 +486,7 @@ def get_repositories_by_expression(
         auth_repo.path,
         filter_expr,
     )
-    raise RepositoriesNotFoundError(
-        f"No repositories matched filter: {filter_expr}"
-    )
+    raise RepositoriesNotFoundError(f"No repositories matched filter: {filter_expr}")
 
 
 def get_repositories_paths_by_custom_data(
@@ -598,7 +596,11 @@ def get_repository_names_by_expression(
             )
             return False
 
-    names = list(filter(_matches_filter, repositories)) if filter_expr else list(repositories)
+    names = (
+        list(filter(_matches_filter, repositories))
+        if filter_expr
+        else list(repositories)
+    )
 
     if len(names):
         taf_logger.debug(
@@ -611,9 +613,8 @@ def get_repository_names_by_expression(
         auth_repo.path,
         filter_expr,
     )
-    raise RepositoriesNotFoundError(
-        f"No repositories matched filter: {filter_expr}"
-    )
+    raise RepositoriesNotFoundError(f"No repositories matched filter: {filter_expr}")
+
 
 def get_deduplicated_auth_repositories(
     auth_repo: AuthenticationRepository,
