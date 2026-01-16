@@ -53,11 +53,10 @@ def common_update_options(f):
         help="Enable/disable strict mode - return an error if warnings are raised.",
     )(f)
     f = click.option(
-        "--filter",
-        "filter_expr",
+        "--exclude-filter",
         default=None,
-        help="Filter repositories using Python expression. Item is available as 'item'. Example: \"item['type'] == 'html'\"",
-    )
+        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
+    )(f)
     return f
 
 
@@ -286,7 +285,7 @@ def clone_repo_command():
         profile,
         format_output,
         exclude_target,
-        filter,
+        exclude_filter,
         strict,
         bare,
         upstream,
@@ -308,7 +307,7 @@ def clone_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
-            filter_expr=filter,
+            exclude_filter=exclude_filter,
             strict=strict,
             bare=bare,
             no_upstream=not upstream,
@@ -401,7 +400,7 @@ def update_repo_command():
         profile,
         format_output,
         exclude_target,
-        filter,
+        exclude_filter,
         strict,
         no_deps,
         force,
@@ -422,7 +421,7 @@ def update_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
-            filter_expr=filter,
+            exclude_filter=exclude_filter,
             strict=strict,
             force=force,
             no_upstream=not upstream,
@@ -511,7 +510,7 @@ def validate_repo_command():
         from_commit,
         from_latest,
         exclude_target,
-        filter,
+        exclude_filter,
         strict,
         no_targets,
         no_deps,
@@ -531,7 +530,7 @@ def validate_repo_command():
             library_dir,
             from_commit,
             exclude_target,
-            filter,
+            exclude_filter,
             strict,
             bare,
             no_targets,

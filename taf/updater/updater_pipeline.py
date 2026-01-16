@@ -314,6 +314,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     RunMode.UPDATE,
                     self.should_update_auth_repos,
                 ),  # auth repo
+                (
+                    self.set_excluded_targets,
+                    RunMode.ALL,
+                    self.should_run_step_default
+                ),
                 # should_validate_target_repos
                 (
                     self.load_target_repositories,
@@ -427,6 +432,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.checkout = update_config.checkout
         self.bare = update_config.bare
         self.excluded_target_globs = update_config.excluded_target_globs
+        self.exclude_filter = update_config.exclude_filter
         self.no_targets = update_config.no_targets
         self.no_upstream = update_config.no_upstream
         self.force = update_config.force
@@ -1103,6 +1109,20 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 last_commits_per_repos=last_commits_per_repos,
             )
         )
+
+    def set_excluded_targets(self):
+        self.excluded_target_globs = list(self.excluded_target_globs)
+        if self.exclude_filter:
+            import pdb; pdb.set_trace()
+            excluded_repo_names = repositoriesdb.get_repository_names_by_expression(self.state.users_auth_repo, self.exclude_filter)
+            if excluded_repo_names:
+                self.excluded_target_globs.extend(excluded_repo_names)
+
+        last_validated_data = self.state.users_auth_repo.last_validated_data
+        if last_validated_data:
+            all_repositories = repositoriesdb.load_repositories_json(self.state.users_auth_repo).get("repositories", {})
+            skipped_repositories = [repository for repository in all_repositories if repository not in last_validated_data]
+            self.excluded_target_globs.extend(skipped_repositories)
 
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
