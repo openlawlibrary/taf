@@ -1,6 +1,5 @@
 """TUF metadata repository"""
 
-
 from fnmatch import fnmatch
 from functools import reduce
 import json

@@ -92,6 +92,7 @@ def test_update_when_clone_with_excluded_update_all(origin_auth_repo, client_dir
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
+        excluded_target_globs=["*/target_same*"],
     )
 
 
@@ -140,6 +141,7 @@ def test_update_after_update_with_exclude(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
+        excluded_target_globs=["*/target_same*"],
     )
     verify_repos_exist(client_dir, origin_auth_repo)
 
@@ -237,8 +239,11 @@ def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
         client_dir,
         no_upstream=False,
         expected_repo_type=expected_repo_type,
+        excluded_target_globs=["*/target_same*"],
     )
-    verify_repos_exist(client_dir, origin_auth_repo)
+    verify_repos_exist(
+        client_dir, origin_auth_repo, excluded=["target_same1", "target_same2"]
+    )
 
 
 @pytest.mark.parametrize(

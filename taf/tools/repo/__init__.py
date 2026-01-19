@@ -392,6 +392,15 @@ def update_repo_command():
         default=False,
         help="Run the auxiliary lifecycle handler scripts.",
     )
+    @click.option(
+        "--sync-all",
+        is_flag=True,
+        default=False,
+        help=(
+            "Update all repositories, including those previously excluded. "
+            "This ignores stored exclusion rules for this update."
+        ),
+    )
     def update(
         path,
         library_dir,
@@ -407,6 +416,7 @@ def update_repo_command():
         upstream,
         verbosity,
         run_scripts,
+        sync_all,
     ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
@@ -427,6 +437,7 @@ def update_repo_command():
             no_upstream=not upstream,
             no_deps=no_deps,
             run_scripts=run_scripts,
+            sync_all=sync_all,
         )
 
         _call_updater(config, format_output)

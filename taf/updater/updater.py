@@ -25,6 +25,7 @@ That is why the idea is to call refresh multiple times, until the last commit is
 The 'GitUpdater' updater is designed in such a way that for each new call it
 loads data from a most recent commit.
 """
+
 import copy
 from logging import ERROR
 
@@ -254,6 +255,15 @@ class UpdateConfig:
     run_scripts: bool = field(
         default=False,
         metadata={"docs": "Run the auxiliary lifecycle handler scripts. Optional."},
+    )
+    sync_all: bool = field(
+        default=False,
+        metadata={
+            "docs": (
+                "Clone all repositories, including those previously excluded. "
+                "This ignores stored exclusion rules for this update."
+            )
+        },
     )
 
     def __attrs_post_init__(self):

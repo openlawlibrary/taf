@@ -12,7 +12,7 @@ import json
 from taf import repositoriesdb
 from taf.auth_repo import AuthenticationRepository, Optional
 from taf.git import GitRepository
-from taf.exceptions import UpdateFailedError
+from taf.exceptions import RepositoriesNotFoundError, UpdateFailedError
 from taf.updater.types.update import OperationType, UpdateType
 from taf.updater.updater import UpdateConfig, clone_repository, update_repository
 
@@ -257,6 +257,7 @@ def update_and_check_commit_shas(
     no_upstream=False,
     skip_check_last_validated=False,
     num_of_commits_to_remove=None,
+    exclude_filter=None,
 ):
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
@@ -279,6 +280,7 @@ def update_and_check_commit_shas(
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
         excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
         bare=bare,
         force=force,
         no_upstream=no_upstream,
@@ -298,6 +300,18 @@ def update_and_check_commit_shas(
     )
 
     excluded_targets = []
+    excluded_target_globs = excluded_target_globs or []
+
+    if exclude_filter:
+        try:
+            excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
+                origin_auth_repo, filter_expr=exclude_filter
+            )
+            if excluded_repo_names:
+                excluded_target_globs.extend(excluded_repo_names)
+        except RepositoriesNotFoundError:
+            pass
+
     repositoriesdb.clear_repositories_db()
     all_target_repositories = load_target_repositories(origin_auth_repo, clients_dir)
     if excluded_target_globs:
@@ -305,22 +319,14 @@ def update_and_check_commit_shas(
             clients_auth_repo_path.parent
         )
         for target_repo in all_target_repositories.values():
-            target_skipped = False
             for excluded_target_glob in excluded_target_globs:
                 if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
                     excluded_targets.append(target_repo)
-                    if (
-                        operation == OperationType.CLONE
-                        or target_repo in clients_auth_repo.last_validated_data
-                    ):
-                        assert not target_repo.path.is_dir()
-                    else:
-                        # already cloned, but excluded in this updated
+                    if target_repo.name in clients_auth_repo.last_validated_data:
                         assert target_repo.path.is_dir()
-                    target_skipped = True
+                    else:
+                        assert not target_repo.path.is_dir()
                     break
-            if not target_skipped:
-                assert target_repo.path.is_dir()
 
         assert len(excluded_targets) > 0
         # all target repositories + auth repo + auth repo conf dir - skipped repos
@@ -348,6 +354,7 @@ def update_invalid_repos_and_check_if_repos_exist(
     excluded_target_globs=None,
     strict=False,
     no_upstream=False,
+    sync_all=False,
 ):
 
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
@@ -370,6 +377,7 @@ def update_invalid_repos_and_check_if_repos_exist(
         excluded_target_globs=excluded_target_globs,
         strict=strict,
         no_upstream=no_upstream,
+        sync_all=sync_all,
     )
 
     def _update_expect_error():
