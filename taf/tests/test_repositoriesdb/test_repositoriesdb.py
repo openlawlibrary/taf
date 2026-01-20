@@ -146,7 +146,7 @@ def test_filter_repositories(target_repos, auth_repo_with_targets):
                 auth_repo_with_targets, filter_expr=filter_exp
             )
             assert len(repos) == 1
-            assert repos[0].name == repo.name
+            assert repo.name in repos
 
 
 def test_get_repositories_names_by_expression(target_repos, auth_repo_with_targets):
