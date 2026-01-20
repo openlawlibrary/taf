@@ -1,3 +1,4 @@
+import pytest
 import taf.repositoriesdb as repositoriesdb
 import taf.settings as settings
 from taf.tests.test_repositoriesdb.conftest import load_repositories
@@ -92,6 +93,48 @@ def test_get_repositories_paths_by_custom_data(target_repos, auth_repo_with_targ
             auth_repo_with_targets, type=repo_type
         )
         assert paths == [repo.name]
+
+
+def test_dangerous_filter_expressions_are_blocked():
+    """Test that dangerous filter expressions raise ValueError."""
+
+    dangerous_expressions = [
+        "__import__('os').system('echo pwned')",
+        "().__class__.__bases__[0].__subclasses__()",
+        "repo.__class__.__init__.__globals__",
+        "[__import__('os') for x in [1]][0]",
+        "(lambda: __import__('os').system('ls'))()",
+        "exec('print(1)')",
+        "compile('print(1)', '<string>', 'exec')",
+        "globals()",
+        "locals()",
+        "__import__('subprocess').run(['ls'])",
+    ]
+
+    for expr in dangerous_expressions:
+        with pytest.raises(ValueError):
+            repositoriesdb._validate_filter_expression(expr)
+
+
+def test_safe_filter_expressions_are_allowed():
+    """Test that safe filter expressions do not raise errors."""
+
+    safe_expressions = [
+        "repo['type'] == 'html'",
+        "repo['type'] != 'html'",
+        "repo.get('serve') == 'latest'",
+        "repo.get('serve') == 'historical'",
+        "not repo.get('archived')",
+        "repo['type'] == 'html' and repo['serve'] == 'latest'",
+        "repo['type'] == 'html' or repo.get('archived')",
+        "repo.get('nonexistent', 'default') == 'default'",
+        "'type' in repo",
+        "repo.get('archived') is None",
+    ]
+
+    for expr in safe_expressions:
+        # Should not raise
+        repositoriesdb._validate_filter_expression(expr)
 
 
 def test_filter_repositories(target_repos, auth_repo_with_targets):

@@ -1,3 +1,4 @@
+import ast
 import json
 from typing import Callable, Dict, List, Optional, Type
 import fnmatch
@@ -432,6 +433,7 @@ def get_repositories_by_expression(
                           "repo.get('serve') == 'latest'"
                           "repo['type'] == 'html' and repo.get('serve') == 'historical'"
     """
+    _validate_filter_expression(filter_expr)
     if not commit:
         commit = auth_repo.head_commit()
         if commit is None:
@@ -460,7 +462,8 @@ def get_repositories_by_expression(
         try:
             custom_data = repo.custom
             # Evaluate filter expression with custom data as 'repo'
-            return eval(filter_expr, safe_globals, {"repo": custom_data})
+            # Safe: validated via AST + restricted namespace with no builtins
+            return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
         except Exception as e:
             taf_logger.debug(
                 "Auth repo {}: filter failed for {}: {}",
@@ -557,6 +560,7 @@ def get_repository_names_by_expression(
     Returns:
         List of repository names matching the filter, or None if no repositories found
     """
+    _validate_filter_expression(filter_expr)
     if not commit:
         commit = auth_repo.head_commit()
         if commit is None:
@@ -586,7 +590,8 @@ def get_repository_names_by_expression(
         try:
             custom_data = _get_custom_data(repositories[name], targets.get(name))
             # Evaluate filter expression with custom data as 'repo'
-            return eval(filter_expr, safe_globals, {"repo": custom_data})
+            # Safe: validated via AST + restricted namespace with no builtins
+            return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
         except Exception as e:
             taf_logger.debug(
                 "Auth repo {}: filter failed for {}: {}",
@@ -985,3 +990,94 @@ def get_all_auth_repos(
             get_all_auth_repos(auth_repo, auth_repos_list)
 
     return auth_repos_list
+
+
+def _validate_filter_expression(filter_expr: str) -> None:
+    """
+    Validate that the filter expression only uses safe operations.
+    Raises ValueError if unsafe operations detected.
+    """
+    try:
+        tree = ast.parse(filter_expr, mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid Python expression: {e}")
+
+    # Dangerous attribute names that could be used for introspection/escape
+    dangerous_attrs = {
+        "__class__",
+        "__bases__",
+        "__subclasses__",
+        "__mro__",
+        "__globals__",
+        "__builtins__",
+        "__init__",
+        "__code__",
+        "__import__",
+        "__dict__",
+        "__func__",
+        "__self__",
+        "func_globals",
+        "func_code",
+        "gi_frame",
+        "gi_code",
+    }
+
+    # Define allowed node types
+    safe_nodes = (
+        ast.Expression,
+        ast.Compare,
+        ast.BoolOp,
+        ast.UnaryOp,
+        ast.Name,
+        ast.Constant,
+        ast.Subscript,
+        ast.Index,
+        ast.Load,
+        ast.Store,
+        ast.Call,
+        ast.Attribute,
+        ast.List,
+        ast.Tuple,
+        ast.Dict,
+        # Comparison operators
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+        ast.Is,
+        ast.IsNot,
+        ast.In,
+        ast.NotIn,
+        # Boolean operators
+        ast.And,
+        ast.Or,
+        ast.Not,
+    )
+
+    # Check all nodes in the AST
+    for node in ast.walk(tree):
+        # Check node type
+        if not isinstance(node, safe_nodes):
+            raise ValueError(
+                f"Unsafe operation in filter expression: {node.__class__.__name__}. "
+                f"Only comparisons, boolean operations, and attribute access are allowed."
+            )
+
+        # Check for dangerous attribute access
+        if isinstance(node, ast.Attribute):
+            if node.attr in dangerous_attrs:
+                raise ValueError(f"Dangerous attribute access not allowed: {node.attr}")
+
+    # Check function calls - only allow dict methods
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if not (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("get", "keys", "values", "items")
+            ):
+                raise ValueError(
+                    "Function calls not allowed in filter expressions "
+                    "(except dict methods like .get())"
+                )
