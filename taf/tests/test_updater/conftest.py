@@ -10,7 +10,7 @@ import random
 import shutil
 import string
 import json
-from typing import Optional
+from typing import Any, Optional
 from functools import partial
 from freezegun import freeze_time
 from pathlib import Path
@@ -187,7 +187,7 @@ class RepositoryConfig:
         name: str,
         allow_unauthenticated_commits: bool = False,
         is_empty: bool = False,
-        custom: dict = None,
+        custom: Optional[dict[str, Any]] = None,
     ):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits

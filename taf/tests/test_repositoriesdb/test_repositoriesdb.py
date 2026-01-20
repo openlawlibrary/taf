@@ -158,7 +158,7 @@ def test_get_repositories_names_by_expression(target_repos, auth_repo_with_targe
         )
         assert names == [repo.name]
 
-    filter_exp = f"repo['type'] in ('type1', 'type2')"
+    filter_exp = "repo['type'] in ('type1', 'type2')"
     names = repositoriesdb.get_repository_names_by_expression(
         auth_repo_with_targets, filter_expr=filter_exp
     )

@@ -419,9 +419,9 @@ def _get_target_default_branch(
 
 def get_repositories_by_expression(
     auth_repo: AuthenticationRepository,
+    filter_expr: str,
     commit: Optional[Commitish] = None,
-    filter_expr: Optional[str] = None,
-) -> Optional[List[str]]:
+) -> dict[str, GitRepository]:
     """
     Filter repositories using a Python expression.
 
@@ -447,16 +447,19 @@ def get_repositories_by_expression(
         filter_expr,
     )
 
+    filtered_repos: dict = dict()
+
     repositories = get_repositories(auth_repo=auth_repo, commit=commit)
+
     if not repositories:
-        return None
+        return filtered_repos
 
     # If no filter, return all
     if not filter_expr:
         return repositories
 
     # Safe namespace for eval
-    safe_globals = {"__builtins__": {}}
+    safe_globals: dict = {"__builtins__": {}}
 
     def _matches_filter(repo):
         try:
@@ -482,14 +485,14 @@ def get_repositories_by_expression(
             auth_repo.path,
             filtered_repos.keys(),
         )
-        return repos
+        return filtered_repos
 
-    taf_logger.error(
+    taf_logger.info(
         "Auth repo {}: no repositories matched filter: {}",
         auth_repo.path,
         filter_expr,
     )
-    raise RepositoriesNotFoundError(f"No repositories matched filter: {filter_expr}")
+    return filtered_repos
 
 
 def get_repositories_paths_by_custom_data(
@@ -543,9 +546,9 @@ def get_repositories_paths_by_custom_data(
 
 def get_repository_names_by_expression(
     auth_repo: AuthenticationRepository,
+    filter_expr: str,
     commit: Optional[Commitish] = None,
-    filter_expr: Optional[str] = None,
-) -> Optional[List[str]]:
+) -> List[str]:
     """
     Get repository names filtered by a Python expression.
 
@@ -558,9 +561,12 @@ def get_repository_names_by_expression(
                           "repo['type'] == 'html' and repo.get('serve') == 'historical'"
 
     Returns:
-        List of repository names matching the filter, or None if no repositories found
+        List of repository names matching the filter
     """
     _validate_filter_expression(filter_expr)
+
+    filtered_names: list = []
+
     if not commit:
         commit = auth_repo.head_commit()
         if commit is None:
@@ -576,15 +582,16 @@ def get_repository_names_by_expression(
 
     repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
     if repositories is None:
-        return None
+        return filtered_names
+
     repositories = repositories["repositories"]
     if repositories is None:
-        return None
+        return filtered_names
 
     targets = _targets_of_roles(auth_repo, commit)
 
     # Safe namespace for eval
-    safe_globals = {"__builtins__": {}}
+    safe_globals: dict = {"__builtins__": {}}
 
     def _matches_filter(name):
         try:
@@ -601,24 +608,24 @@ def get_repository_names_by_expression(
             )
             return False
 
-    names = (
+    filtered_names = (
         list(filter(_matches_filter, repositories))
         if filter_expr
         else list(repositories)
     )
 
-    if len(names):
+    if len(filtered_names):
         taf_logger.debug(
-            "Auth repo {}: found the following names {}", auth_repo.path, names
+            "Auth repo {}: found the following names {}", auth_repo.path, filtered_names
         )
-        return names
+        return filtered_names
 
-    taf_logger.error(
+    taf_logger.info(
         "Auth repo {}: no repositories matched filter: {}",
         auth_repo.path,
         filter_expr,
     )
-    raise RepositoriesNotFoundError(f"No repositories matched filter: {filter_expr}")
+    return filtered_names
 
 
 def get_deduplicated_auth_repositories(
@@ -997,6 +1004,8 @@ def _validate_filter_expression(filter_expr: str) -> None:
     Validate that the filter expression only uses safe operations.
     Raises ValueError if unsafe operations detected.
     """
+    if not filter_expr:
+        return
     try:
         tree = ast.parse(filter_expr, mode="eval")
     except SyntaxError as e:

@@ -20,7 +20,6 @@ import taf.repositoriesdb as repositoriesdb
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import (
     MissingInfoJsonError,
-    RepositoriesNotFoundError,
     UpdateFailedError,
     MultipleRepositoriesNotCleanError,
 )
@@ -1115,16 +1114,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         else:
             self.excluded_target_globs = list(self.excluded_target_globs)
             if self.exclude_filter:
-                try:
-                    excluded_repo_names = (
-                        repositoriesdb.get_repository_names_by_expression(
-                            self.state.users_auth_repo, filter_expr=self.exclude_filter
-                        )
-                    )
-                    if excluded_repo_names:
-                        self.excluded_target_globs.extend(excluded_repo_names)
-                except RepositoriesNotFoundError:
-                    pass
+                excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
+                    self.state.users_auth_repo, filter_expr=self.exclude_filter
+                )
+                if excluded_repo_names:
+                    self.excluded_target_globs.extend(excluded_repo_names)
 
             last_validated_data = self.state.users_auth_repo.last_validated_data
             if last_validated_data:
