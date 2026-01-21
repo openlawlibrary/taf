@@ -10,7 +10,7 @@ import random
 import shutil
 import string
 import json
-from typing import Optional
+from typing import Any, Optional
 from functools import partial
 from freezegun import freeze_time
 from pathlib import Path
@@ -187,10 +187,14 @@ class RepositoryConfig:
         name: str,
         allow_unauthenticated_commits: bool = False,
         is_empty: bool = False,
+        custom: Optional[dict[str, Any]] = None,
     ):
         self.name = name
         self.allow_unauthenticated_commits = allow_unauthenticated_commits
         self.is_empty = is_empty
+        custom = custom or {}
+        custom["allow-unauthenticated-commits"] = allow_unauthenticated_commits
+        self.custom = custom
 
 
 @pytest.fixture
@@ -227,6 +231,7 @@ def origin_auth_repo(
             f"{test_name}/{targets_config['name']}",
             targets_config.get("allow_unauthenticated_commits", False),
             targets_config.get("is_empty", False),
+            targets_config.get("custom"),
         )
         for targets_config in targets_config_list
     ]

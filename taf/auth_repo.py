@@ -184,9 +184,8 @@ class AuthenticationRepository(GitRepository):
         were simultaneously updated.
         """
         last_validated_data = {}
-        last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
-        if last_validated_path.is_file():
-            data = last_validated_path.read_text().strip()
+        data = self.get_last_validated_file_content()
+        if data is not None:
             try:
                 last_validated_data = json.loads(data)
             except json.decoder.JSONDecodeError:
@@ -228,6 +227,12 @@ class AuthenticationRepository(GitRepository):
                         self._log_debug(
                             "Not pushing to the default branch, skipping last_validated_commit update."
                         )
+
+    def get_last_validated_file_content(self):
+        last_validated_path = Path(self.conf_dir, self.LAST_VALIDATED_FILENAME)
+        if last_validated_path.is_file():
+            return last_validated_path.read_text().strip()
+        return None
 
     def get_target(
         self, target_name: str, commit: Optional[Commitish] = None, safely: bool = True

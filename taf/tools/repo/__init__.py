@@ -52,6 +52,11 @@ def common_update_options(f):
         default=False,
         help="Enable/disable strict mode - return an error if warnings are raised.",
     )(f)
+    f = click.option(
+        "--exclude-filter",
+        default=None,
+        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
+    )(f)
     return f
 
 
@@ -280,6 +285,7 @@ def clone_repo_command():
         profile,
         format_output,
         exclude_target,
+        exclude_filter,
         strict,
         bare,
         upstream,
@@ -301,6 +307,7 @@ def clone_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
+            exclude_filter=exclude_filter,
             strict=strict,
             bare=bare,
             no_upstream=not upstream,
@@ -385,6 +392,15 @@ def update_repo_command():
         default=False,
         help="Run the auxiliary lifecycle handler scripts.",
     )
+    @click.option(
+        "--sync-all",
+        is_flag=True,
+        default=False,
+        help=(
+            "Update all repositories, including those previously excluded. "
+            "This ignores stored exclusion rules for this update."
+        ),
+    )
     def update(
         path,
         library_dir,
@@ -393,12 +409,14 @@ def update_repo_command():
         profile,
         format_output,
         exclude_target,
+        exclude_filter,
         strict,
         no_deps,
         force,
         upstream,
         verbosity,
         run_scripts,
+        sync_all,
     ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
@@ -413,11 +431,13 @@ def update_repo_command():
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
             excluded_target_globs=exclude_target,
+            exclude_filter=exclude_filter,
             strict=strict,
             force=force,
             no_upstream=not upstream,
             no_deps=no_deps,
             run_scripts=run_scripts,
+            sync_all=sync_all,
         )
 
         _call_updater(config, format_output)
@@ -501,6 +521,7 @@ def validate_repo_command():
         from_commit,
         from_latest,
         exclude_target,
+        exclude_filter,
         strict,
         no_targets,
         no_deps,
@@ -520,6 +541,7 @@ def validate_repo_command():
             library_dir,
             from_commit,
             exclude_target,
+            exclude_filter,
             strict,
             bare,
             no_targets,

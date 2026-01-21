@@ -15,9 +15,9 @@ from taf.tests.test_updater.conftest import (
     [
         {
             "targets_config": [
-                {"name": "target_same1"},
-                {"name": "target_same2"},
-                {"name": "target_different"},
+                {"name": "target_same1", "custom": {"type": "html"}},
+                {"name": "target_same2", "custom": {"type": "xml"}},
+                {"name": "target_different", "custom": {"random": "value"}},
             ],
         },
     ],
@@ -41,3 +41,34 @@ def test_clone_with_excluded_targets(origin_auth_repo, client_dir):
     verify_repos_exist(
         client_dir, origin_auth_repo, excluded=["target_same1", "target_same2"]
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target_same1", "custom": {"type": "html"}},
+                {"name": "target_same2", "custom": {"type": "xml"}},
+                {"name": "target_different", "custom": {"random": "value"}},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_clone_with_filter(origin_auth_repo, client_dir):
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    is_test_repo = origin_auth_repo.is_test_repo
+    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+        exclude_filter="repo['type'] == 'html'",
+    )
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["target_same1"])

@@ -1,3 +1,4 @@
+import ast
 import json
 from typing import Callable, Dict, List, Optional, Type
 import fnmatch
@@ -416,6 +417,84 @@ def _get_target_default_branch(
     return default_branch
 
 
+def get_repositories_by_expression(
+    auth_repo: AuthenticationRepository,
+    filter_expr: str,
+    commit: Optional[Commitish] = None,
+) -> dict[str, GitRepository]:
+    """
+    Filter repositories using a Python expression.
+
+    Args:
+        auth_repo: Authentication repository
+        commit: Commit to use
+        filter_expr: Python expression where 'repo' is the repository's custom data
+                    e.g., "repo['type'] == 'html'"
+                          "repo.get('serve') == 'latest'"
+                          "repo['type'] == 'html' and repo.get('serve') == 'historical'"
+    """
+    _validate_filter_expression(filter_expr)
+    if not commit:
+        commit = auth_repo.head_commit()
+        if commit is None:
+            raise TAFError(
+                "Could not get repositories. Commit is not specified and head commit could not be determined"
+            )
+
+    taf_logger.debug(
+        "Auth repo {}: filtering repositories by expression: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+
+    filtered_repos: dict = dict()
+
+    repositories = get_repositories(auth_repo=auth_repo, commit=commit)
+
+    if not repositories:
+        return filtered_repos
+
+    # If no filter, return all
+    if not filter_expr:
+        return repositories
+
+    # Safe namespace for eval
+    safe_globals: dict = {"__builtins__": {}}
+
+    def _matches_filter(repo):
+        try:
+            custom_data = repo.custom
+            # Evaluate filter expression with custom data as 'repo'
+            # Safe: validated via AST + restricted namespace with no builtins
+            return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
+        except Exception as e:
+            taf_logger.debug(
+                "Auth repo {}: filter failed for {}: {}",
+                auth_repo.path,
+                repo.name,
+                e,
+            )
+            return False
+
+    repos = list(filter(_matches_filter, repositories.values()))
+
+    if len(repos):
+        filtered_repos = {repo.name: repo for repo in repos}
+        taf_logger.debug(
+            "Auth repo {}: found the following names {}",
+            auth_repo.path,
+            filtered_repos.keys(),
+        )
+        return filtered_repos
+
+    taf_logger.info(
+        "Auth repo {}: no repositories matched filter: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+    return filtered_repos
+
+
 def get_repositories_paths_by_custom_data(
     auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None, **custom
 ) -> Optional[List[str]]:
@@ -463,6 +542,90 @@ def get_repositories_paths_by_custom_data(
     raise RepositoriesNotFoundError(
         f"Repositories associated with custom data {custom} not found"
     )
+
+
+def get_repository_names_by_expression(
+    auth_repo: AuthenticationRepository,
+    filter_expr: str,
+    commit: Optional[Commitish] = None,
+) -> List[str]:
+    """
+    Get repository names filtered by a Python expression.
+
+    Args:
+        auth_repo: Authentication repository
+        commit: Commit to use
+        filter_expr: Python expression where 'repo' is the repository's custom data
+                    e.g., "repo['type'] == 'html'"
+                          "repo.get('serve') == 'latest'"
+                          "repo['type'] == 'html' and repo.get('serve') == 'historical'"
+
+    Returns:
+        List of repository names matching the filter
+    """
+    _validate_filter_expression(filter_expr)
+
+    filtered_names: list = []
+
+    if not commit:
+        commit = auth_repo.head_commit()
+        if commit is None:
+            raise TAFError(
+                "Could not get repositories. Commit is not specified and head commit could not be determined"
+            )
+
+    taf_logger.debug(
+        "Auth repo {}: filtering repositories by expression: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+
+    repositories = auth_repo.get_json(commit, REPOSITORIES_JSON_PATH)
+    if repositories is None:
+        return filtered_names
+
+    repositories = repositories["repositories"]
+    if repositories is None:
+        return filtered_names
+
+    targets = _targets_of_roles(auth_repo, commit)
+
+    # Safe namespace for eval
+    safe_globals: dict = {"__builtins__": {}}
+
+    def _matches_filter(name):
+        try:
+            custom_data = _get_custom_data(repositories[name], targets.get(name))
+            # Evaluate filter expression with custom data as 'repo'
+            # Safe: validated via AST + restricted namespace with no builtins
+            return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
+        except Exception as e:
+            taf_logger.debug(
+                "Auth repo {}: filter failed for {}: {}",
+                auth_repo.path,
+                name,
+                e,
+            )
+            return False
+
+    filtered_names = (
+        list(filter(_matches_filter, repositories))
+        if filter_expr
+        else list(repositories)
+    )
+
+    if len(filtered_names):
+        taf_logger.debug(
+            "Auth repo {}: found the following names {}", auth_repo.path, filtered_names
+        )
+        return filtered_names
+
+    taf_logger.info(
+        "Auth repo {}: no repositories matched filter: {}",
+        auth_repo.path,
+        filter_expr,
+    )
+    return filtered_names
 
 
 def get_deduplicated_auth_repositories(
@@ -834,3 +997,96 @@ def get_all_auth_repos(
             get_all_auth_repos(auth_repo, auth_repos_list)
 
     return auth_repos_list
+
+
+def _validate_filter_expression(filter_expr: str) -> None:
+    """
+    Validate that the filter expression only uses safe operations.
+    Raises ValueError if unsafe operations detected.
+    """
+    if not filter_expr:
+        return
+    try:
+        tree = ast.parse(filter_expr, mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid Python expression: {e}")
+
+    # Dangerous attribute names that could be used for introspection/escape
+    dangerous_attrs = {
+        "__class__",
+        "__bases__",
+        "__subclasses__",
+        "__mro__",
+        "__globals__",
+        "__builtins__",
+        "__init__",
+        "__code__",
+        "__import__",
+        "__dict__",
+        "__func__",
+        "__self__",
+        "func_globals",
+        "func_code",
+        "gi_frame",
+        "gi_code",
+    }
+
+    # Define allowed node types
+    safe_nodes = (
+        ast.Expression,
+        ast.Compare,
+        ast.BoolOp,
+        ast.UnaryOp,
+        ast.Name,
+        ast.Constant,
+        ast.Subscript,
+        ast.Index,
+        ast.Load,
+        ast.Store,
+        ast.Call,
+        ast.Attribute,
+        ast.List,
+        ast.Tuple,
+        ast.Dict,
+        # Comparison operators
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+        ast.Is,
+        ast.IsNot,
+        ast.In,
+        ast.NotIn,
+        # Boolean operators
+        ast.And,
+        ast.Or,
+        ast.Not,
+    )
+
+    # Check all nodes in the AST
+    for node in ast.walk(tree):
+        # Check node type
+        if not isinstance(node, safe_nodes):
+            raise ValueError(
+                f"Unsafe operation in filter expression: {node.__class__.__name__}. "
+                f"Only comparisons, boolean operations, and attribute access are allowed."
+            )
+
+        # Check for dangerous attribute access
+        if isinstance(node, ast.Attribute):
+            if node.attr in dangerous_attrs:
+                raise ValueError(f"Dangerous attribute access not allowed: {node.attr}")
+
+    # Check function calls - only allow dict methods
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if not (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("get", "keys", "values", "items")
+            ):
+                raise ValueError(
+                    "Function calls not allowed in filter expressions "
+                    "(except dict methods like .get())"
+                )

@@ -2,9 +2,13 @@
     "repositories": {
         {% for target in targets_data %}
         "{{ target.name }}": {
+            {% if target.custom %}
             "custom": {
-                "allow-unauthenticated-commits": {{ target.allow_unauthenticated_commits | lower }}
+                {% for key, value in target.custom.items() %}
+                "{{ key }}": {{ value | tojson }}{% if not loop.last %},{% endif %}
+                {% endfor %}
             }
+            {% endif %}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
     }

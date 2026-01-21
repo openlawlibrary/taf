@@ -2,7 +2,6 @@
 
 """
 
-
 from typing import Optional, Tuple, Union
 
 from pathlib import Path
