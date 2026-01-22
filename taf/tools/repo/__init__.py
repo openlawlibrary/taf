@@ -515,6 +515,11 @@ def validate_repo_command():
         is_flag=True,
         help="Flag used to run profiler and generate .prof file",
     )
+    @click.option(
+        "--exclude-filter",
+        default=None,
+        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
+    )
     def validate(
         path,
         library_dir,
