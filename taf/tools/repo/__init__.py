@@ -499,6 +499,11 @@ def validate_repo_command():
         help="Skips target repository validation and validates only authentication repositories",
     )
     @click.option(
+        "--upstream/--no-upstream",
+        default=False,
+        help="Skips comparison with remote repositories upstream",
+    )
+    @click.option(
         "--no-deps",
         is_flag=True,
         default=False,
@@ -532,6 +537,7 @@ def validate_repo_command():
         no_deps,
         verbosity,
         profile,
+        upstream,
     ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
@@ -551,6 +557,7 @@ def validate_repo_command():
             bare,
             no_targets,
             no_deps,
+            not upstream,
         )
 
     return validate
