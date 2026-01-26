@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Add the missing `exclude-filter` option to the validate command
+
+[697]: https://github.com/openlawlibrary/taf/pull/697
+
 ## [0.37.0]
 
 ### Added

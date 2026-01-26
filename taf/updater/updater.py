@@ -648,6 +648,7 @@ def validate_repository(
     bare=False,
     no_targets=False,
     no_deps=False,
+    no_upstream=True,
 ):
     update_from_filesystem = settings.update_from_filesystem
     settings.strict = strict
@@ -682,6 +683,7 @@ def validate_repository(
             expected_repo_type=expected_repo_type,
             update_from_filesystem=True,
             only_validate=True,
+            no_upstream=no_upstream,
         )
         updater_pipeline = AuthenticationRepositoryUpdatePipeline(config)
         updater_pipeline.run()
