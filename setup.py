@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 PACKAGE_NAME = "taf"
-VERSION = "0.37.0"
+VERSION = "0.37.1"
 AUTHOR = "Open Law Library"
 AUTHOR_EMAIL = "info@openlawlib.org"
 DESCRIPTION = "Implementation of archival authentication"
@@ -24,7 +24,7 @@ ci_require = [
 
 executable_require = ["lxml"]
 
-dev_require = ["bandit>=1.6.0", "black>=19.3b0", "pre-commit>=1.18.3"]
+dev_require = ["bandit>=1.6.0", "black==22.12.0", "pre-commit>=1.18.3"]
 
 tests_require = [
     "pytest==8.*",

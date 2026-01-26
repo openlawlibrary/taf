@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
 
 ### Added
@@ -13,7 +14,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Add the missing `exclude-filter` option to the validate command
+
+## [0.37.1]
+
+### Added
+
+- Raise validation error when there are additional comments if the `--upstream` flag is provided ([697])
+
+### Changed
+
+### Fixed
+
+- Add the missing `exclude-filter` option to the validate command ([697])
 
 [697]: https://github.com/openlawlibrary/taf/pull/697
 
@@ -1682,7 +1694,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.0...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.1...HEAD
+[0.37.1]: https://github.com/openlawlibrary/platform/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/openlawlibrary/taf/compare/v0.36.3...v0.37.0
 [0.36.3]: https://github.com/openlawlibrary/taf/compare/v0.36.2...v0.36.3
 [0.36.2]: https://github.com/openlawlibrary/taf/compare/v0.36.1...v0.36.2
