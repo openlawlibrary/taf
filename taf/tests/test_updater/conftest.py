@@ -222,15 +222,17 @@ def origin_auth_repo(
     is_test_repo = request.param.get("is_test_repo", False)
     date = request.param.get("data")
     setup_type = request.param.get("setup_type", SetupState.ALL_FILES_INITIALLY)
+    # When parametrizing tests, there are unsupported symbols added "[" and "]"
+    clean_test_name = test_name.replace("[", "_").replace("]", "")
     targets_config = [
         RepositoryConfig(
-            f"{test_name}/{targets_config['name']}",
+            f"{clean_test_name}/{targets_config['name']}",
             targets_config.get("allow_unauthenticated_commits", False),
             targets_config.get("is_empty", False),
         )
         for targets_config in targets_config_list
     ]
-    repo_name = f"{test_name}/auth"
+    repo_name = f"{clean_test_name}/auth"
 
     if date is not None:
         with freeze_time(date):
