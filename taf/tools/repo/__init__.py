@@ -4,7 +4,7 @@ import click
 import json
 
 from taf import settings
-from taf.api.repository import create_repository, taf_status
+from taf.api.repository import create_repository, taf_status, reset_repository
 from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import TAFError, UpdateFailedError
 from taf.log import initialize_logger_handlers, taf_logger
@@ -576,6 +576,81 @@ def validate_repo_command():
     return validate
 
 
+def reset_repo_command():
+    @click.command(
+        help="""
+        Resets an authentication repository which is already on the file system
+        and its target repositories (which are also expected to be on the file system)
+        to a specified snapshot in the past.
+
+        Snapshot is determined by auth repo commitish specified in --commit flag
+        (if omitted, defalts to last validated commit).
+        If --lvc flag is defined, last validated commit will be overriden by commit specified
+        in --comit flag if reset is successful.
+        If --force flag is set, any uncommited changes or unstaged files will be removed,
+        else an error will be raised if there are any those.
+        """
+    )
+    @find_repository
+    @catch_cli_exception(handle=UpdateFailedError)
+    @click.option(
+        "--path",
+        default=".",
+        help="Authentication repository's location. If not specified, set to the current directory",
+    )
+    @click.option(
+        "--commit",
+        default=None, 
+        help="Commitish of auth repo commit to reset to. "
+        "Defaults to last validated commit."
+    )
+    @click.option(
+        "--lvc",
+        is_flag=True,
+        default=False,
+        help="Reset last validated commit to the commitish specified in --commit flag"
+        "if that commitish is an ancestor of the current last validated commit"
+    )
+    @click.option(
+        "--force", is_flag=True, default=False, help="Force Reset repositories"
+    )
+    @click.option(
+        "-v",
+        "--verbosity",
+        count=True,
+        help="Displays varied levels of logging information based on verbosity level",
+    )
+    @click.option(
+        "--profile",
+        is_flag=True,
+        help="Flag used to run profiler and generate .prof file",
+    )
+    def reset(
+        path,
+        commit,
+        lvc,
+        force,
+        verbosity,
+        profile,
+    ):
+        settings.VERBOSITY = verbosity
+        initialize_logger_handlers()
+        if profile:
+            start_profiling()
+        auth_repo = AuthenticationRepository(path=path)
+        bare = auth_repo.is_bare_repository
+        
+        try:
+            reset_successful = reset_repository(auth_repo, commit, force, lvc)
+            if not reset_successful:
+                sys.exit(1)
+        except Exception as e:
+            click.echo()
+            click.echo(f"Error: {e}")
+            click.echo()
+        
+    return reset
+
 def latest_commit_and_branch_command():
     @click.command(
         help="""Fetch and print the last validated commit hash and the default branch.
@@ -629,6 +704,7 @@ def attach_to_group(group):
     group.add_command(clone_repo_command(), name="clone")
     group.add_command(update_repo_command(), name="update")
     group.add_command(validate_repo_command(), name="validate")
+    group.add_command(reset_repo_command(), name="reset")
     group.add_command(
         latest_commit_and_branch_command(), name="latest-commit-and-branch"
     )

@@ -24,6 +24,7 @@ from taf.tuf.repository import METADATA_DIRECTORY_NAME
 from taf.utils import ensure_pre_push_hook
 from taf.log import taf_logger
 from taf.yubikey.yubikey_manager import PinManager
+from taf.models.types import Commitish
 
 
 @log_on_start(
@@ -191,3 +192,98 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
         for dep_repo in dependencies.values():
             print(f"{indent_str}- {dep_repo.name}")
             taf_status(str(dep_repo.path), library_dir, indent + 3)
+
+
+def reset_repository(
+    auth_repo: AuthenticationRepository, commit: str, force: bool, lvc: bool
+):
+    # Check specified commit:
+    last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
+
+    if commit is None:
+        auth_commit = last_validated_commit
+    else:
+        auth_commit = auth_repo.resolve_commit(commit)
+
+    if auth_commit is None:
+        print(
+            f"An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
+        )
+        return False
+
+    current_branch = auth_repo.get_current_branch()
+
+    # Check if commit on current branch
+    if not auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(
+        auth_commit, current_branch
+    ):
+        print(
+            f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
+        )
+        return False
+
+    if not force:
+        # Check if there are uncommited changes or unstaged files
+        if auth_repo.something_to_commit():
+            print(
+                f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
+            )
+            return False
+    else:
+        # Remove uncommited changes and untracked files if any
+        auth_repo.clean_and_reset()
+
+    # Reset to the specified commit
+    auth_repo.reset_to_commit(auth_commit, hard=True)
+    print(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
+
+    should_override_lvc = lvc and auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(
+        auth_commit, last_validated_commit
+    )
+    if should_override_lvc:
+        # Override LVC
+        auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
+        print(
+            f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {auth_repo.name}"
+        )
+
+    # Load corresponding target repos and their commits
+    repositoriesdb.load_repositories(auth_repo)
+    target_repos = repositoriesdb.get_deduplicated_repositories(auth_repo)
+
+    # For each target repo:
+    for repo_name, repo in target_repos.items():
+        target_commit = Commitish.from_hash(auth_repo.get_target(repo_name)["commit"])
+        # Find proper branch and check it out
+        current_target_repo_branch = repo.get_current_branch()
+        if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
+            target_commit, current_target_repo_branch
+        ):
+            print(
+                f"{repo_name} commit {target_commit} not found on current branch ({current_target_repo_branch})."
+            )
+            return False
+
+        if not force:
+            # Check if there are uncommited changes or unstaged files
+            if repo.something_to_commit():
+                print(
+                    f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
+                )
+                return False
+        else:
+            # Remove uncommited changes and untracked files if any
+            auth_repo.clean_and_reset()
+
+        # Reset to the specified commit
+        repo.reset_to_commit(target_commit, hard=True)
+        print(f"{repo_name} successfully reset to commit {target_commit.hash}")
+
+        if should_override_lvc:
+            # Override LVC
+            auth_repo.set_last_validated_of_repo(repo_name, auth_commit, True)
+            print(
+                f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {repo_name}"
+            )
+
+    return True
