@@ -985,6 +985,21 @@ class GitRepository:
         except KeyError:
             return False
 
+    def is_commit_an_ancestor_of_a_commit_or_branch(
+        self, commit: Commitish, commit_hash_or_branch_name: str
+    ) -> bool:
+        """
+        Check if a specified commit is an ancestor of another commit or branch.
+        """
+        try:
+            output = self._git(f"merge-base --is-ancestor {commit.hash} {commit_hash_or_branch_name}")
+            return True if output == "" else False
+        except:
+            print(
+                f"An error occured during ancestor check for commit {commit.hash} and branch/commit {commit_hash_or_branch_name}."
+            )
+            return False
+
     def commits_on_branch_and_not_other(
         self, branch1: str, branch2: str
     ) -> List[Commitish]:
@@ -1148,6 +1163,17 @@ class GitRepository:
 
         try:
             return Commitish.from_hash(repo.revparse_single("HEAD").id.hex)
+        except Exception:
+            return None
+
+    def resolve_commit(self, commitish: str) -> Commitish:
+        """
+        Resolves commitish string to a Commitish object with proper hash.
+        """
+        try:
+            return Commitish.from_hash(
+                self.pygit_repo.revparse_single(commitish).id.hex
+            )
         except Exception:
             return None
 
