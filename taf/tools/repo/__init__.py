@@ -587,7 +587,7 @@ def reset_repo_command():
     )
     @click.option(
         "--commit",
-        default=None, 
+        default=None,
         help="Commitish of auth repo commit to reset to. "
         "Defaults to last validated commit."
     )
@@ -625,8 +625,7 @@ def reset_repo_command():
         if profile:
             start_profiling()
         auth_repo = AuthenticationRepository(path=path)
-        bare = auth_repo.is_bare_repository
-        
+
         try:
             reset_successful = reset_repository(auth_repo, commit, force, lvc)
             if not reset_successful:
@@ -635,8 +634,9 @@ def reset_repo_command():
             click.echo()
             click.echo(f"Error: {e}")
             click.echo()
-        
+
     return reset
+
 
 def latest_commit_and_branch_command():
     @click.command(

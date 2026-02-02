@@ -18,7 +18,10 @@ from taf.updater.types.update import OperationType
 from taf.models.types import Commitish
 from pathlib import Path
 
-def prepare_repo_for_reset(origin_auth_repo: AuthenticationRepository, client_dir: Path) -> AuthenticationRepository:
+
+def prepare_repo_for_reset(
+    origin_auth_repo: AuthenticationRepository, client_dir: Path
+) -> AuthenticationRepository:
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -38,7 +41,7 @@ def prepare_repo_for_reset(origin_auth_repo: AuthenticationRepository, client_di
     )
 
     assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
-    
+
     return client_auth_repo
 
 
@@ -59,13 +62,15 @@ def test_reset_repo_happy_path(origin_auth_repo, client_dir, lvc):
     all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
     if lvc:
         assert client_auth_repo.last_validated_commit != commit_to_reset_to.hash
-    
+
     target_commits = {}
     for target_name in all_target_repositories:
-        target_commits[target_name] = Commitish.from_hash(client_auth_repo.get_target(target_name, commit_to_reset_to)['commit'])
-    
+        target_commits[target_name] = Commitish.from_hash(
+            client_auth_repo.get_target(target_name, commit_to_reset_to)["commit"]
+        )
+
     result = reset_repository(client_auth_repo, commit_to_reset_to.hash, False, lvc)
-    
+
     assert result is True
     assert client_auth_repo.head_commit() == commit_to_reset_to
     for target_name, target_repo in all_target_repositories.items():
@@ -73,7 +78,7 @@ def test_reset_repo_happy_path(origin_auth_repo, client_dir, lvc):
     if lvc:
         assert client_auth_repo.last_validated_commit == commit_to_reset_to.hash
 
-    
+
 @pytest.mark.parametrize(
     "origin_auth_repo",
     [
@@ -83,7 +88,9 @@ def test_reset_repo_happy_path(origin_auth_repo, client_dir, lvc):
     ],
     indirect=True,
 )
-def test_reset_repo_commit_flag_missing_lvc_is_none_expect_fail(origin_auth_repo, client_dir):
+def test_reset_repo_commit_flag_missing_lvc_is_none_expect_fail(
+    origin_auth_repo, client_dir
+):
     client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
     client_setup_manager = SetupManager(client_auth_repo)
     client_setup_manager.add_task(remove_last_validated_commit)
@@ -102,10 +109,14 @@ def test_reset_repo_commit_flag_missing_lvc_is_none_expect_fail(origin_auth_repo
     indirect=True,
 )
 @pytest.mark.parametrize("commit", [None, "not_None"])
-def test_reset_repo_auth_repo_has_untracked_file_expect_fail(origin_auth_repo, client_dir, commit):
+def test_reset_repo_auth_repo_has_untracked_file_expect_fail(
+    origin_auth_repo, client_dir, commit
+):
     # TODO: check exception handling and catch specific printouts
     client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
-    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    commit_to_reset_to = (
+        client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    )
     add_file_to_repository(client_auth_repo, "test")
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
@@ -121,9 +132,13 @@ def test_reset_repo_auth_repo_has_untracked_file_expect_fail(origin_auth_repo, c
     indirect=True,
 )
 @pytest.mark.parametrize("commit", [None, "not_None"])
-def test_reset_repo_auth_repo_has_uncommitted_changes_expect_fail(origin_auth_repo, client_dir, commit):
+def test_reset_repo_auth_repo_has_uncommitted_changes_expect_fail(
+    origin_auth_repo, client_dir, commit
+):
     client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
-    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    commit_to_reset_to = (
+        client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    )
     setup_manager = SetupManager(client_auth_repo)
     setup_manager.add_task(update_auth_repo_without_committing)
     setup_manager.execute_tasks()
@@ -141,15 +156,19 @@ def test_reset_repo_auth_repo_has_uncommitted_changes_expect_fail(origin_auth_re
     indirect=True,
 )
 @pytest.mark.parametrize("commit", [None, "not_None"])
-def test_reset_repo_target_repo_has_untracked_file_expect_fail(origin_auth_repo, client_dir, commit):
+def test_reset_repo_target_repo_has_untracked_file_expect_fail(
+    origin_auth_repo, client_dir, commit
+):
     client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
-    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    commit_to_reset_to = (
+        client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    )
     all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
     target_repo = next(iter(all_target_repositories.values()))
     add_file_to_repository(target_repo, "test")
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
-    
+
 
 @pytest.mark.parametrize(
     "origin_auth_repo",
@@ -161,11 +180,17 @@ def test_reset_repo_target_repo_has_untracked_file_expect_fail(origin_auth_repo,
     indirect=True,
 )
 @pytest.mark.parametrize("commit", [None, "not_None"])
-def test_reset_repo_target_repo_has_uncommitted_changes_expect_fail(origin_auth_repo, client_dir, commit):
+def test_reset_repo_target_repo_has_uncommitted_changes_expect_fail(
+    origin_auth_repo, client_dir, commit
+):
     client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
-    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    commit_to_reset_to = (
+        client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
+    )
     setup_manager = SetupManager(client_auth_repo)
-    setup_manager.add_task(update_target_repo_without_committing, kwargs={"target_name": "target1"})
+    setup_manager.add_task(
+        update_target_repo_without_committing, kwargs={"target_name": "target1"}
+    )
     setup_manager.execute_tasks()
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
