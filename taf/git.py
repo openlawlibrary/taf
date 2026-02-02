@@ -992,11 +992,13 @@ class GitRepository:
         Check if a specified commit is an ancestor of another commit or branch.
         """
         try:
-            output = self._git(f"merge-base --is-ancestor {commit.hash} {commit_hash_or_branch_name}")
+            output = self._git(
+                f"merge-base --is-ancestor {commit.hash} {commit_hash_or_branch_name}"
+            )
             return True if output == "" else False
-        except:
+        except Exception as e:
             print(
-                f"An error occured during ancestor check for commit {commit.hash} and branch/commit {commit_hash_or_branch_name}."
+                f"An error occured during ancestor check for commit {commit.hash} and branch/commit {commit_hash_or_branch_name}. Error message: {e}"
             )
             return False
 
@@ -1166,7 +1168,7 @@ class GitRepository:
         except Exception:
             return None
 
-    def resolve_commit(self, commitish: str) -> Commitish:
+    def resolve_commit(self, commitish: str) -> Optional[Commitish]:
         """
         Resolves commitish string to a Commitish object with proper hash.
         """
