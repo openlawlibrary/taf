@@ -207,7 +207,7 @@ def reset_repository(
 
     if auth_commit is None:
         print(
-            f"An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
+            "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
         )
         return False
 
@@ -253,7 +253,12 @@ def reset_repository(
 
     # For each target repo:
     for repo_name, repo in target_repos.items():
-        target_commit = Commitish.from_hash(auth_repo.get_target(repo_name)["commit"])
+        target = auth_repo.get_target(repo_name)
+        if target is None:
+            print(f"Error, target {repo_name} could not be loaded!")
+            return False
+
+        target_commit = Commitish.from_hash(target["commit"])
         # Find proper branch and check it out
         current_target_repo_branch = repo.get_current_branch()
         if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
