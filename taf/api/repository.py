@@ -195,10 +195,11 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
 
 
 def reset_repository(
-    auth_repo: AuthenticationRepository, commit: str, force: bool, lvc: bool
+    auth_repo: AuthenticationRepository, commit: str, lvc: bool, force: bool
 ):
     # Check specified commit:
     last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
+    bare = auth_repo.is_bare_repository
 
     if commit is None:
         auth_commit = last_validated_commit
@@ -222,19 +223,20 @@ def reset_repository(
         )
         return False
 
-    if not force:
-        # Check if there are uncommited changes or unstaged files
-        if auth_repo.something_to_commit():
-            print(
-                f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
-            )
-            return False
-    else:
-        # Remove uncommited changes and untracked files if any
-        auth_repo.clean_and_reset()
+    if not bare:
+        if not force:
+            # Check if there are uncommited changes or unstaged files
+            if auth_repo.something_to_commit():
+                print(
+                    f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
+                )
+                return False
+        else:
+            # Remove uncommited changes and untracked files if any
+            auth_repo.clean_and_reset()
 
     # Reset to the specified commit
-    auth_repo.reset_to_commit(auth_commit, hard=True)
+    auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
     print(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
 
     should_override_lvc = lvc and auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(
@@ -258,30 +260,37 @@ def reset_repository(
             print(f"Error, target {repo_name} could not be loaded!")
             return False
 
+        target_branch = target["branch"]
         target_commit = Commitish.from_hash(target["commit"])
-        # Find proper branch and check it out
-        current_target_repo_branch = repo.get_current_branch()
+        
         if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
-            target_commit, current_target_repo_branch
+            target_commit, target_branch
         ):
             print(
-                f"{repo_name} commit {target_commit} not found on current branch ({current_target_repo_branch})."
+                f"{repo_name} commit {target_commit} not found on current branch ({target_branch})."
             )
             return False
 
-        if not force:
-            # Check if there are uncommited changes or unstaged files
-            if repo.something_to_commit():
-                print(
-                    f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
-                )
-                return False
+        if not bare:
+            if not force:
+                # Check if there are uncommited changes or unstaged files
+                if repo.something_to_commit():
+                    print(
+                        f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
+                    )
+                    return False
+            else:
+                # Remove uncommited changes and untracked files if any
+                auth_repo.clean_and_reset()
+                
+            # Find proper branch and check it out
+            repo.checkout_branch(target_branch)
         else:
-            # Remove uncommited changes and untracked files if any
-            auth_repo.clean_and_reset()
+            # Checkout is not possible in bare repo, set HEAD to the target branch instead
+            repo._git(f"symbolic-ref HEAD refs/heads/{target_branch}")
 
         # Reset to the specified commit
-        repo.reset_to_commit(target_commit, hard=True)
+        repo.reset_to_commit(target_commit, hard=False if bare else True)
         print(f"{repo_name} successfully reset to commit {target_commit.hash}")
 
         if should_override_lvc:
