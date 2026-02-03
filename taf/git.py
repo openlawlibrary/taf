@@ -1706,7 +1706,8 @@ class GitRepository:
         self._git(f"update-ref refs/remotes/origin/{branch_name} {commit}")
 
     def reset_to_head(self) -> None:
-        self._git("reset --hard HEAD")
+        mode = "--soft" if self.is_bare_repository else "--hard"
+        self._git(f"reset {mode} HEAD")
 
     def safely_get_json(self, commit: Commitish, path: str) -> Optional[Dict]:
         try:

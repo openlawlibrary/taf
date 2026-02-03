@@ -640,7 +640,7 @@ def reset_repo_command():
         auth_repo = AuthenticationRepository(path=path)
 
         try:
-            reset_successful = reset_repository(auth_repo, commit, force, lvc)
+            reset_successful = reset_repository(auth_repo, commit, lvc, force)
             if not reset_successful:
                 sys.exit(1)
         except Exception as e:

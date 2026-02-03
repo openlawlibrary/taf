@@ -20,7 +20,7 @@ from pathlib import Path
 
 
 def prepare_repo_for_reset(
-    origin_auth_repo: AuthenticationRepository, client_dir: Path
+    origin_auth_repo: AuthenticationRepository, client_dir: Path, bare=False
 ) -> AuthenticationRepository:
     clone_repositories(
         origin_auth_repo,
@@ -38,6 +38,7 @@ def prepare_repo_for_reset(
         origin_auth_repo,
         client_dir,
         force=True,
+        bare=bare,
     )
 
     assert not len(update_output["auth_repos"][client_auth_repo.name]["warnings"])
@@ -55,9 +56,10 @@ def prepare_repo_for_reset(
     indirect=True,
 )
 @pytest.mark.parametrize("lvc", [True, False])
-def test_reset_repo_happy_path(origin_auth_repo, client_dir, lvc):
+@pytest.mark.parametrize("bare", [True, False])
+def test_reset_repo_happy_path(origin_auth_repo, client_dir, lvc, bare):
     # Set up a scenario where repositories
-    client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
+    client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir, bare)
     commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2]
     all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
     if lvc:
@@ -69,7 +71,7 @@ def test_reset_repo_happy_path(origin_auth_repo, client_dir, lvc):
             client_auth_repo.get_target(target_name, commit_to_reset_to)["commit"]
         )
 
-    result = reset_repository(client_auth_repo, commit_to_reset_to.hash, False, lvc)
+    result = reset_repository(client_auth_repo, commit_to_reset_to.hash, lvc, False)
 
     assert result is True
     assert client_auth_repo.head_commit() == commit_to_reset_to
