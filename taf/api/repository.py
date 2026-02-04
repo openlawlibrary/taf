@@ -262,7 +262,7 @@ def reset_repository(
 
         target_branch = target["branch"]
         target_commit = Commitish.from_hash(target["commit"])
-        
+
         if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
             target_commit, target_branch
         ):
@@ -282,7 +282,7 @@ def reset_repository(
             else:
                 # Remove uncommited changes and untracked files if any
                 auth_repo.clean_and_reset()
-                
+
             # Find proper branch and check it out
             repo.checkout_branch(target_branch)
         else:

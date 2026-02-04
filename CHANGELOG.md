@@ -10,15 +10,21 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Implement taf repo reset ([703])
+
 ### Changed
 
 ### Fixed
+
+- Fix reset to commit bug ([703])
+
+[703]: https://github.com/openlawlibrary/taf/pull/703
 
 ## [0.37.3]
 
 ### Added
 
--  Support writing structured clone/update results to a JSON file ([705])
+- Support writing structured clone/update results to a JSON file ([705])
 
 ### Changed
 
