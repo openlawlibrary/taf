@@ -1663,7 +1663,7 @@ class GitRepository:
             self.update_branch_refs(branch, commit)
 
         if hard:
-            self._git(f"reset {flag} HEAD")
+            self._git(f"reset {flag} {commit.hash}")
 
     def restore(self, file_paths: List[str]) -> None:
         if not file_paths:
