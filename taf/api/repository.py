@@ -196,25 +196,34 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
 
 def reset_repository(
     auth_repo: AuthenticationRepository, commit: str, lvc: bool, force: bool
-):
-    # Check specified commit:
-    last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
+) -> bool:
+    """
+    Resets auth and target repos to a snapshot in the past.
+    Arguments:
+        auth_repo: authentication repository
+        commit: auth commit to reset to
+        lvc: override last validated commit
+        force: forcefully reset (clean repositories if dirty)
+    """
     bare = auth_repo.is_bare_repository
 
+    # Handle auth repo:
+    # Check specified commit:
+    last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
     if commit is None:
         auth_commit = last_validated_commit
     else:
         auth_commit = auth_repo.resolve_commit(commit)
 
+    # Fail early if auth commit is not resolved properly or LVC is invalid:
     if auth_commit is None:
         print(
             "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
         )
         return False
 
+    # Fail early if commit is not on the branch:
     current_branch = auth_repo.get_current_branch()
-
-    # Check if commit on current branch
     if not auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(
         auth_commit, current_branch
     ):
@@ -223,81 +232,98 @@ def reset_repository(
         )
         return False
 
-    if not bare:
-        if not force:
-            # Check if there are uncommited changes or unstaged files
-            if auth_repo.something_to_commit():
-                print(
-                    f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
-                )
-                return False
-        else:
-            # Remove uncommited changes and untracked files if any
-            auth_repo.clean_and_reset()
+    # Fail early if there are uncommited changes or unstaged files:
+    if not bare and not force:
+        if auth_repo.something_to_commit():
+            print(
+                f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
+            )
+            return False
 
-    # Reset to the specified commit
-    auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
-    print(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
-
-    should_override_lvc = lvc and auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(
-        auth_commit, last_validated_commit
-    )
-    if should_override_lvc:
-        # Override LVC
-        auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
-        print(
-            f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {auth_repo.name}"
-        )
-
+    # Handle target repos:
     # Load corresponding target repos and their commits
     repositoriesdb.load_repositories(auth_repo)
     target_repos = repositoriesdb.get_deduplicated_repositories(auth_repo)
 
-    # For each target repo:
+    # Perform checks for each target repo:
     for repo_name, repo in target_repos.items():
-        target = auth_repo.get_target(repo_name)
+        target = auth_repo.get_target(repo_name, auth_commit)
+        # Fail early if target repo can't be loaded:
         if target is None:
             print(f"Error, target {repo_name} could not be loaded!")
+            return False
+
+        if not bare and not force:
+            # Fail early if there are uncommited changes or unstaged files
+            if repo.something_to_commit():
+                print(
+                    f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
+                )
+                return False
+
+    # All checks passed, reset repositories:
+    if force and not bare:
+        # Remove uncommited changes and untracked files if any
+        auth_repo.clean_and_reset()
+    # Reset to the specified commit
+    auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
+    print(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
+
+    should_override_lvc = _should_override_lvc(
+        lvc, auth_repo, auth_commit, last_validated_commit.hash
+    )
+
+    # Override LVC:
+    if should_override_lvc:
+        auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
+        print(
+            f"Last validated commit successfully overridden to {auth_commit.hash} for repository {auth_repo.name}"
+        )
+
+    # Reset target repos:
+    for repo_name, repo in target_repos.items():
+        target = auth_repo.get_target(repo_name, auth_commit)
+        if target is None:
+            print(f"Target repository {repo_name} could not be loaded, aborting reset.")
             return False
 
         target_branch = target["branch"]
         target_commit = Commitish.from_hash(target["commit"])
 
-        if not repo.is_commit_an_ancestor_of_a_commit_or_branch(
-            target_commit, target_branch
-        ):
-            print(
-                f"{repo_name} commit {target_commit} not found on current branch ({target_branch})."
-            )
-            return False
-
-        if not bare:
-            if not force:
-                # Check if there are uncommited changes or unstaged files
-                if repo.something_to_commit():
-                    print(
-                        f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
-                    )
-                    return False
-            else:
+        if bare:
+            # Set HEAD to the target branch, since checkout is not possible in bare repo:
+            repo._git(f"symbolic-ref HEAD refs/heads/{target_branch}")
+        else:
+            if force:
                 # Remove uncommited changes and untracked files if any
                 auth_repo.clean_and_reset()
-
-            # Find proper branch and check it out
             repo.checkout_branch(target_branch)
-        else:
-            # Checkout is not possible in bare repo, set HEAD to the target branch instead
-            repo._git(f"symbolic-ref HEAD refs/heads/{target_branch}")
 
         # Reset to the specified commit
         repo.reset_to_commit(target_commit, hard=False if bare else True)
         print(f"{repo_name} successfully reset to commit {target_commit.hash}")
 
+        # Override LVC:
         if should_override_lvc:
-            # Override LVC
             auth_repo.set_last_validated_of_repo(repo_name, auth_commit, True)
             print(
                 f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {repo_name}"
             )
 
     return True
+
+
+def _should_override_lvc(
+    lvc_flag: bool,
+    auth_repo: AuthenticationRepository,
+    auth_commit: Commitish,
+    lvc: str,
+):
+    if lvc_flag:
+        if not auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(auth_commit, lvc):
+            print(
+                "Specified commit is not the ancestor of last validated commit. Last validated commit will not be overriden."
+            )
+        else:
+            return True
+    return False

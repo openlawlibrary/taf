@@ -97,8 +97,10 @@ def test_reset_repo_commit_flag_missing_lvc_is_none_expect_fail(
     client_setup_manager = SetupManager(client_auth_repo)
     client_setup_manager.add_task(remove_last_validated_commit)
     client_setup_manager.execute_tasks()
+    commit_before_reset = client_auth_repo.head_commit()
     result = reset_repository(client_auth_repo, None, False, False)
     assert result is False
+    assert commit_before_reset == client_auth_repo.head_commit()
 
 
 @pytest.mark.parametrize(
@@ -120,8 +122,10 @@ def test_reset_repo_auth_repo_has_untracked_file_expect_fail(
         client_auth_repo.all_commits_on_branch()[-2] if commit is not None else None
     )
     add_file_to_repository(client_auth_repo, "test")
+    commit_before_reset = client_auth_repo.head_commit()
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
+    assert commit_before_reset == client_auth_repo.head_commit()
 
 
 @pytest.mark.parametrize(
@@ -144,8 +148,10 @@ def test_reset_repo_auth_repo_has_uncommitted_changes_expect_fail(
     setup_manager = SetupManager(client_auth_repo)
     setup_manager.add_task(update_auth_repo_without_committing)
     setup_manager.execute_tasks()
+    commit_before_reset = client_auth_repo.head_commit()
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
+    assert commit_before_reset == client_auth_repo.head_commit()
 
 
 @pytest.mark.parametrize(
@@ -168,8 +174,10 @@ def test_reset_repo_target_repo_has_untracked_file_expect_fail(
     all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
     target_repo = next(iter(all_target_repositories.values()))
     add_file_to_repository(target_repo, "test")
+    commit_before_reset = client_auth_repo.head_commit()
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
+    assert commit_before_reset == client_auth_repo.head_commit()
 
 
 @pytest.mark.parametrize(
@@ -194,5 +202,7 @@ def test_reset_repo_target_repo_has_uncommitted_changes_expect_fail(
         update_target_repo_without_committing, kwargs={"target_name": "target1"}
     )
     setup_manager.execute_tasks()
+    commit_before_reset = client_auth_repo.head_commit()
     result = reset_repository(client_auth_repo, commit_to_reset_to, False, False)
     assert result is False
+    assert commit_before_reset == client_auth_repo.head_commit()
