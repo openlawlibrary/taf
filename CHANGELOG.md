@@ -10,9 +10,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+-  Support writing structured clone/update results to a JSON file
+
 ### Changed
 
 ### Fixed
+
+[705]: https://github.com/openlawlibrary/taf/pull/705
 
 ## [0.37.2]
 
