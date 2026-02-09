@@ -27,6 +27,7 @@ loads data from a most recent commit.
 """
 
 import copy
+import signal
 from logging import ERROR
 
 from typing import Dict, Tuple, Any
@@ -343,29 +344,45 @@ def update_repository(config: UpdateConfig):
     Returns:
         None
     """
-    settings.strict = config.strict
-    settings.run_scripts = config.run_scripts
 
-    # if path is not specified, name should be read from info.json
-    # which is available after the remote repository is cloned and validated
+    # --- Graceful Ctrl+C / SIGTERM handling ---
+    interrupted = {"flag": False}
 
-    auth_repo = GitRepository(path=config.path)
-    if not config.path.is_dir() or not auth_repo.is_git_repository:
-        raise UpdateFailedError(
-            f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
-        )
+    def _handle_interrupt(signum, frame):
+        interrupted["flag"] = True
+        raise UpdateFailedError("Update interrupted by user (Ctrl+C)")
 
-    taf_logger.info(f"Updating repository {auth_repo.name}")
+    old_sigint = signal.signal(signal.SIGINT, _handle_interrupt)
+    old_sigterm = signal.signal(signal.SIGTERM, _handle_interrupt)
 
-    if config.remote_url is None:
-        config.remote_url = auth_repo.get_remote_url()
+    try:
+        # --- BEGIN ORIGINAL UNMODIFIED LOGIC ---
+        settings.strict = config.strict
+        settings.run_scripts = config.run_scripts
+
+        auth_repo = GitRepository(path=config.path)
+        if not config.path.is_dir() or not auth_repo.is_git_repository:
+            raise UpdateFailedError(
+                f"{config.path} is not a Git repository. Run 'taf repo clone' instead"
+            )
+
+        taf_logger.info(f"Updating repository {auth_repo.name}")
+
         if config.remote_url is None:
-            raise UpdateFailedError("URL cannot be determined. Please specify it")
+            config.remote_url = auth_repo.get_remote_url()
+            if config.remote_url is None:
+                raise UpdateFailedError("URL cannot be determined. Please specify it")
 
-    if auth_repo.is_bare_repository:
-        # Handle updates for bare repositories
-        config.bare = True
-    return _update_or_clone_repository(config)
+        if auth_repo.is_bare_repository:
+            config.bare = True
+
+        return _update_or_clone_repository(config)
+        # --- END ORIGINAL LOGIC ---
+
+    finally:
+        # Restore original handlers so we do not break global signal behavior
+        signal.signal(signal.SIGINT, old_sigint)
+        signal.signal(signal.SIGTERM, old_sigterm)
 
 
 def _update_or_clone_repository(config: UpdateConfig):
