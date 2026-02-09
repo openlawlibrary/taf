@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 import click
 import json
@@ -57,10 +58,15 @@ def common_update_options(f):
         default=None,
         help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
     )(f)
+    f = click.option(
+        "--result-file",
+        type=click.Path(dir_okay=False, writable=True, path_type=str),
+        help="Path to a JSON file where structured results will be written.",
+    )(f)
     return f
 
 
-def _call_updater(config, format_output):
+def _call_updater(config, format_output, result_file):
     """
     A helper function which calls update or clone repository
     """
@@ -69,6 +75,11 @@ def _call_updater(config, format_output):
             updater_output = clone_repository(config)
         else:
             updater_output = update_repository(config)
+
+        if result_file:
+            result_file_path = Path(result_file)
+            result_file_path.parent.mkdir(parents=True, exist_ok=True)
+            result_file_path.write_text(json.dumps(updater_output))
 
         successful = updater_output["event"] == "event/succeeded"
         if format_output:
@@ -292,6 +303,7 @@ def clone_repo_command():
         no_deps,
         verbosity,
         run_scripts,
+        result_file,
     ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
@@ -315,7 +327,7 @@ def clone_repo_command():
             run_scripts=run_scripts,
         )
 
-        _call_updater(config, format_output)
+        _call_updater(config, format_output, result_file)
 
     return clone
 
@@ -417,6 +429,7 @@ def update_repo_command():
         verbosity,
         run_scripts,
         sync_all,
+        result_file,
     ):
         settings.VERBOSITY = verbosity
         initialize_logger_handlers()
@@ -440,7 +453,7 @@ def update_repo_command():
             sync_all=sync_all,
         )
 
-        _call_updater(config, format_output)
+        _call_updater(config, format_output, result_file)
 
     return update
 
