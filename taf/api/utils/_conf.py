@@ -17,21 +17,18 @@ def find_taf_directory(path: Union[Path, str]) -> Optional[Path]:
         Optional[Path]: The path to the .taf directory if found, otherwise None.
     """
     # Check the parent directory of the authentication repository
+    breakpoint()
+    # TODO: add tests
     current_dir = Path(path).absolute()
-    while current_dir != current_dir.root:
+    while True:
         taf_directory = current_dir / ".taf"
         if taf_directory.exists() and taf_directory.is_dir():
             return taf_directory
-        current_dir = current_dir.parent
 
-    # If not found, check the archive root
-    archive_root = Path(path).parent.parent
-    current_dir = archive_root
-    while current_dir != current_dir.root:
-        taf_directory = current_dir / ".taf"
-        if taf_directory.exists() and taf_directory.is_dir():
-            return taf_directory
-        current_dir = current_dir.parent
+        parent = current_dir.parent
+        if parent == current_dir:
+            break
+        current_dir = parent
 
     taf_logger.debug(f"No .taf directory found starting from {Path(path)}")
     return None
