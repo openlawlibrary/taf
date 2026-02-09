@@ -10,7 +10,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
--  Support writing structured clone/update results to a JSON file
+### Changed
+
+### Fixed
+
+## [0.37.3]
+
+### Added
+
+-  Support writing structured clone/update results to a JSON file ([705])
 
 ### Changed
 
@@ -1709,8 +1717,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.2...HEAD
-[0.37.1]: https://github.com/openlawlibrary/platform/compare/v0.37.1...v0.37.2
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.3...HEAD
+[0.37.3]: https://github.com/openlawlibrary/taf/compare/v0.37.2...v0.37.3
+[0.37.2]: https://github.com/openlawlibrary/platform/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/openlawlibrary/platform/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/openlawlibrary/taf/compare/v0.36.3...v0.37.0
 [0.36.3]: https://github.com/openlawlibrary/taf/compare/v0.36.2...v0.36.3
