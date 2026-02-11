@@ -217,7 +217,7 @@ def reset_repository(
 
     # Fail early if auth commit is not resolved properly or LVC is invalid:
     if auth_commit is None:
-        print(
+        taf_logger.error(
             "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
         )
         return False
@@ -227,7 +227,7 @@ def reset_repository(
     if not auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(
         auth_commit, current_branch
     ):
-        print(
+        taf_logger.error(
             f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
         )
         return False
@@ -235,7 +235,7 @@ def reset_repository(
     # Fail early if there are uncommited changes or unstaged files:
     if not bare and not force:
         if auth_repo.something_to_commit():
-            print(
+            taf_logger.error(
                 f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
             )
             return False
@@ -250,13 +250,13 @@ def reset_repository(
         target = auth_repo.get_target(repo_name, auth_commit)
         # Fail early if target repo can't be loaded:
         if target is None:
-            print(f"Error, target {repo_name} could not be loaded!")
+            taf_logger.error(f"Error, target {repo_name} could not be loaded!")
             return False
 
         if not bare and not force:
             # Fail early if there are uncommited changes or unstaged files
             if repo.something_to_commit():
-                print(
+                taf_logger.error(
                     f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
                 )
                 return False
@@ -267,7 +267,7 @@ def reset_repository(
         auth_repo.clean_and_reset()
     # Reset to the specified commit
     auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
-    print(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
+    taf_logger.info(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
 
     should_override_lvc = _should_override_lvc(
         lvc, auth_repo, auth_commit, last_validated_commit.hash
@@ -276,7 +276,7 @@ def reset_repository(
     # Override LVC:
     if should_override_lvc:
         auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
-        print(
+        taf_logger.info(
             f"Last validated commit successfully overridden to {auth_commit.hash} for repository {auth_repo.name}"
         )
 
@@ -284,7 +284,9 @@ def reset_repository(
     for repo_name, repo in target_repos.items():
         target = auth_repo.get_target(repo_name, auth_commit)
         if target is None:
-            print(f"Target repository {repo_name} could not be loaded, aborting reset.")
+            taf_logger.error(
+                f"Target repository {repo_name} could not be loaded, aborting reset."
+            )
             return False
 
         target_branch = target["branch"]
@@ -301,12 +303,14 @@ def reset_repository(
 
         # Reset to the specified commit
         repo.reset_to_commit(target_commit, hard=False if bare else True)
-        print(f"{repo_name} successfully reset to commit {target_commit.hash}")
+        taf_logger.info(
+            f"{repo_name} successfully reset to commit {target_commit.hash}"
+        )
 
         # Override LVC:
         if should_override_lvc:
             auth_repo.set_last_validated_of_repo(repo_name, auth_commit, True)
-            print(
+            taf_logger.info(
                 f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {repo_name}"
             )
 
