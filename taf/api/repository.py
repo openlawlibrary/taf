@@ -195,7 +195,7 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
 
 
 def reset_repository(
-    auth_repo: AuthenticationRepository, commit: str, lvc: bool, force: bool
+    auth_repo: AuthenticationRepository, commit: str, override_lvc: bool, force: bool
 ) -> bool:
     """
     Resets auth and target repos to a snapshot in the past.
@@ -276,7 +276,7 @@ def reset_repository(
     taf_logger.info(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
 
     should_override_lvc = _should_override_lvc(
-        lvc, auth_repo, auth_commit, last_validated_commit.hash
+        override_lvc, auth_repo, auth_commit, last_validated_commit.hash
     )
 
     # Override LVC:

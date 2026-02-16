@@ -601,7 +601,7 @@ def reset_repo_command():
     @click.option(
         "--commit",
         default=None,
-        help="Commitish of auth repo commit to reset to. "
+        help="Auth repo commit to reset to. "
         "Defaults to last validated commit."
     )
     @click.option(
