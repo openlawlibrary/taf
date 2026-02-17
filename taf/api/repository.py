@@ -205,121 +205,130 @@ def reset_repository(
         lvc: override last validated commit
         force: forcefully reset (clean repositories if dirty)
     """
-    bare = auth_repo.is_bare_repository
+    try:
+        bare = auth_repo.is_bare_repository
 
-    # Handle auth repo:
-    # Check specified commit:
-    last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
-    if commit is None:
-        auth_commit = last_validated_commit
-    else:
-        auth_commit = auth_repo.resolve_commit(commit)
+        # Handle auth repo:
+        # Check specified commit:
+        last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
+        if commit is None:
+            auth_commit = last_validated_commit
+        else:
+            auth_commit = auth_repo.resolve_commit(commit)
 
-    # Fail early if auth commit is not resolved properly or LVC is invalid:
-    if auth_commit is None:
-        raise ResetFailedError(
-            "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
-        )
-
-    # Fail early if there are uncommited changes or unstaged files:
-    if not bare and not force:
-        if auth_repo.something_to_commit():
+        # Fail early if auth commit is not resolved properly or LVC is invalid:
+        if auth_commit is None:
             raise ResetFailedError(
-                f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
+                "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
             )
 
-    # Fail early if repo is in detached head state:
-    if auth_repo.is_detached_head:
-        if not force:
-            raise ResetFailedError(
-                f"{auth_repo.name} is in detached head state. Fix the state manually or run reset with force flag."
-            )
-
-    # Handle target repos:
-    # Load corresponding target repos and their commits
-    repositoriesdb.load_repositories(auth_repo)
-    target_repos = repositoriesdb.get_deduplicated_repositories(auth_repo)
-
-    # Perform checks for each target repo:
-    for repo_name, repo in target_repos.items():
-        target = auth_repo.get_target(repo_name, auth_commit)
-        # Fail early if target repo can't be loaded:
-        if target is None:
-            raise ResetFailedError(f"Error, target {repo_name} could not be loaded!")
-
+        # Fail early if there are uncommited changes or unstaged files:
         if not bare and not force:
-            # Fail early if there are uncommited changes or unstaged files
-            if repo.something_to_commit():
+            if auth_repo.something_to_commit():
                 raise ResetFailedError(
-                    f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
+                    f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
                 )
 
-    # If repo is in detached head and force flag is set, reset it to the specified commit
-    # This check is put at the last place since it modifies the state of the repository and there might be
-    # target repo changes that would lead to early failure and therefore exit before these changes
-    if auth_repo.is_detached_head:
-        auth_repo.reset_to_commit(auth_commit, hard=True)
-    # Fail early if commit is not on the branch:
-    current_branch = auth_repo.get_current_branch()
-    if auth_commit not in auth_repo.all_commits_on_branch(current_branch):
-        taf_logger.error()
-        raise ResetFailedError(
-            f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
-        )
+        # Fail early if repo is in detached head state:
+        if auth_repo.is_detached_head:
+            if not force:
+                raise ResetFailedError(
+                    f"{auth_repo.name} is in detached head state. Fix the state manually or run reset with force flag."
+                )
 
-    # All checks passed, reset repositories:
-    if force and not bare:
-        # Remove uncommited changes and untracked files if any
-        auth_repo.clean_and_reset()
-    # Reset to the specified commit
-    auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
-    taf_logger.info(f"{auth_repo.name} successfully reset to commit {auth_commit.hash}")
+        # Handle target repos:
+        # Load corresponding target repos and their commits
+        repositoriesdb.load_repositories(auth_repo)
+        target_repos = repositoriesdb.get_deduplicated_repositories(auth_repo)
 
-    should_override_lvc = _should_override_lvc(
-        override_lvc, auth_repo, auth_commit, last_validated_commit.hash
-    )
+        # Perform checks for each target repo:
+        for repo_name, repo in target_repos.items():
+            target = auth_repo.get_target(repo_name, auth_commit)
+            # Fail early if target repo can't be loaded:
+            if target is None:
+                raise ResetFailedError(
+                    f"Error, target {repo_name} could not be loaded!"
+                )
 
-    # Override LVC:
-    if should_override_lvc:
-        auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
-        taf_logger.info(
-            f"Last validated commit successfully overridden to {auth_commit.hash} for repository {auth_repo.name}"
-        )
+            if not bare and not force:
+                # Fail early if there are uncommited changes or unstaged files
+                if repo.something_to_commit():
+                    raise ResetFailedError(
+                        f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
+                    )
 
-    # Reset target repos:
-    for repo_name, repo in target_repos.items():
-        target = auth_repo.get_target(repo_name, auth_commit)
-        if target is None:
+        # If repo is in detached head and force flag is set, reset it to the specified commit
+        # This check is put at the last place since it modifies the state of the repository and there might be
+        # target repo changes that would lead to early failure and therefore exit before these changes
+        if auth_repo.is_detached_head:
+            auth_repo.reset_to_commit(auth_commit, hard=True)
+        # Fail early if commit is not on the branch:
+        current_branch = auth_repo.get_current_branch()
+        if auth_commit not in auth_repo.all_commits_on_branch(current_branch):
+            taf_logger.error()
             raise ResetFailedError(
-                f"Target repository {repo_name} could not be loaded, aborting reset."
+                f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
             )
 
-        target_branch = target["branch"]
-        target_commit = Commitish.from_hash(target["commit"])
-
-        if bare:
-            # Set HEAD to the target branch, since checkout is not possible in bare repo:
-            repo._git(f"symbolic-ref HEAD refs/heads/{target_branch}")
-        else:
-            if force:
-                # Remove uncommited changes and untracked files if any
-                auth_repo.clean_and_reset()
-            repo.checkout_branch(target_branch)
-
+        # All checks passed, reset repositories:
+        if force and not bare:
+            # Remove uncommited changes and untracked files if any
+            auth_repo.clean_and_reset()
         # Reset to the specified commit
-        repo.reset_to_commit(target_commit, hard=False if bare else True)
+        auth_repo.reset_to_commit(auth_commit, hard=False if bare else True)
         taf_logger.info(
-            f"{repo_name} successfully reset to commit {target_commit.hash}"
+            f"{auth_repo.name} successfully reset to commit {auth_commit.hash}"
+        )
+
+        should_override_lvc = _should_override_lvc(
+            override_lvc, auth_repo, auth_commit, last_validated_commit.hash
         )
 
         # Override LVC:
         if should_override_lvc:
-            auth_repo.set_last_validated_of_repo(repo_name, auth_commit, True)
+            auth_repo.set_last_validated_of_repo(auth_repo.name, auth_commit, True)
             taf_logger.info(
-                f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {repo_name}"
+                f"Last validated commit successfully overridden to {auth_commit.hash} for repository {auth_repo.name}"
             )
 
-    return True
+        # Reset target repos:
+        for repo_name, repo in target_repos.items():
+            target = auth_repo.get_target(repo_name, auth_commit)
+            if target is None:
+                raise ResetFailedError(
+                    f"Target repository {repo_name} could not be loaded, aborting reset."
+                )
+
+            target_branch = target["branch"]
+            target_commit = Commitish.from_hash(target["commit"])
+
+            if bare:
+                # Set HEAD to the target branch, since checkout is not possible in bare repo:
+                repo._git(f"symbolic-ref HEAD refs/heads/{target_branch}")
+            else:
+                if force:
+                    # Remove uncommited changes and untracked files if any
+                    auth_repo.clean_and_reset()
+                repo.checkout_branch(target_branch)
+
+            # Reset to the specified commit
+            repo.reset_to_commit(target_commit, hard=False if bare else True)
+            taf_logger.info(
+                f"{repo_name} successfully reset to commit {target_commit.hash}"
+            )
+
+            # Override LVC:
+            if should_override_lvc:
+                auth_repo.set_last_validated_of_repo(repo_name, auth_commit, True)
+                taf_logger.info(
+                    f"Last validated commit successfully overridden to value {auth_commit.hash} for repository {repo_name}"
+                )
+
+        return True
+    except Exception as e:
+        raise ResetFailedError(
+            f"Reset of repository {auth_repo.name or ''} failed due to error: {e}"
+        )
 
 
 def _should_override_lvc(
