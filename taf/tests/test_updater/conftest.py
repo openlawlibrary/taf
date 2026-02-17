@@ -80,6 +80,9 @@ TARGET_COMMIT_MISMATCH_PATTERN = (
     r"([0-9a-f]{40}) committed on (\d{4}-\d{2}-\d{2}): data repository (\w+\/\w+) was "
     r"supposed to be at commit ([0-9a-f]{40}) but (repo was at|commit not on branch) (\w+)"
 )
+INVALID_AUTH_COMMIT_RESET_ERROR = "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
+UNCOMMITTED_CHANGES_RESET_PATTERN = r"There are uncommited changes in ([A-Za-z0-9_\-\[\]]+/[A-Za-z0-9_\-\[\]]+)\. Please commit/stash changes or run reset with force flag."
+DETACHED_HEAD_RESET_PATTERN = r"(\w+\/\w+) is in detached head state. Fix the state manually or run reset with force flag."
 
 
 # Disable console logging for all tests

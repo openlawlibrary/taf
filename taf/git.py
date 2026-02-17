@@ -1168,10 +1168,12 @@ class GitRepository:
         except Exception:
             return None
 
-    def resolve_commit(self, commitish: str) -> Optional[Commitish]:
+    def resolve_commit(self, commitish: str | Commitish) -> Optional[Commitish]:
         """
         Resolves commitish string to a Commitish object with proper hash.
         """
+        if isinstance(commitish, Commitish):
+            return commitish
         try:
             return Commitish.from_hash(
                 self.pygit_repo.revparse_single(commitish).id.hex

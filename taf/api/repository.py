@@ -16,7 +16,7 @@ from taf.api.roles import (
 from taf.api.targets import list_targets, register_target_files
 
 from taf.auth_repo import AuthenticationRepository
-from taf.exceptions import TAFError
+from taf.exceptions import TAFError, ResetFailedError
 from taf.keys import load_sorted_keys_of_new_roles
 import taf.repositoriesdb as repositoriesdb
 from taf.api.utils._conf import find_keystore
@@ -217,34 +217,23 @@ def reset_repository(
 
     # Fail early if auth commit is not resolved properly or LVC is invalid:
     if auth_commit is None:
-        taf_logger.error(
+        raise ResetFailedError(
             "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
         )
-        return False
 
     # Fail early if there are uncommited changes or unstaged files:
     if not bare and not force:
         if auth_repo.something_to_commit():
-            taf_logger.error(
+            raise ResetFailedError(
                 f"There are uncommited changes in {auth_repo.name}. Please commit/stash changes or run reset with force flag."
             )
-            return False
-    
+
     # Fail early if repo is in detached head state:
     if auth_repo.is_detached_head:
         if not force:
-            taf_logger.error(
+            raise ResetFailedError(
                 f"{auth_repo.name} is in detached head state. Fix the state manually or run reset with force flag."
             )
-            return False
-
-    # Fail early if commit is not on the branch:
-    current_branch = auth_repo.get_current_branch()
-    if auth_commit not in  auth_repo.all_commits_on_branch(current_branch):
-        taf_logger.error(
-            f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
-        )
-        return False
 
     # Handle target repos:
     # Load corresponding target repos and their commits
@@ -256,16 +245,27 @@ def reset_repository(
         target = auth_repo.get_target(repo_name, auth_commit)
         # Fail early if target repo can't be loaded:
         if target is None:
-            taf_logger.error(f"Error, target {repo_name} could not be loaded!")
-            return False
+            raise ResetFailedError(f"Error, target {repo_name} could not be loaded!")
 
         if not bare and not force:
             # Fail early if there are uncommited changes or unstaged files
             if repo.something_to_commit():
-                taf_logger.error(
+                raise ResetFailedError(
                     f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
                 )
-                return False
+
+    # If repo is in detached head and force flag is set, reset it to the specified commit
+    # This check is put at the last place since it modifies the state of the repository and there might be
+    # target repo changes that would lead to early failure and therefore exit before these changes
+    if auth_repo.is_detached_head:
+        auth_repo.reset_to_commit(auth_commit, hard=True)
+    # Fail early if commit is not on the branch:
+    current_branch = auth_repo.get_current_branch()
+    if auth_commit not in auth_repo.all_commits_on_branch(current_branch):
+        taf_logger.error()
+        raise ResetFailedError(
+            f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
+        )
 
     # All checks passed, reset repositories:
     if force and not bare:
@@ -290,10 +290,9 @@ def reset_repository(
     for repo_name, repo in target_repos.items():
         target = auth_repo.get_target(repo_name, auth_commit)
         if target is None:
-            taf_logger.error(
+            raise ResetFailedError(
                 f"Target repository {repo_name} could not be loaded, aborting reset."
             )
-            return False
 
         target_branch = target["branch"]
         target_commit = Commitish.from_hash(target["commit"])
