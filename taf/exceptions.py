@@ -242,5 +242,9 @@ class ValidationFailedError(TAFError):
     pass
 
 
+class ResetFailedError(TAFError):
+    pass
+
+
 class YubikeyError(TAFError):
     pass
