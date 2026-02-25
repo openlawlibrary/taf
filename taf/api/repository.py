@@ -1,7 +1,7 @@
 import json
 from logging import ERROR, INFO
 import shutil
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.git import GitRepository
@@ -195,7 +195,11 @@ def taf_status(path: str, library_dir: Optional[str] = None, indent: int = 0) ->
 
 
 def reset_repository(
-    auth_repo: AuthenticationRepository, commit: str, override_lvc: bool, force: bool
+    auth_repo: AuthenticationRepository,
+    commit: str,
+    override_lvc: bool,
+    force: bool,
+    excluded_target_globs: Optional[List[str]] = None,
 ) -> bool:
     """
     Resets auth and target repos to a snapshot in the past.
@@ -223,8 +227,12 @@ def reset_repository(
             )
 
         # Load corresponding target repos and their commits
-        repositoriesdb.load_repositories(auth_repo)
-        target_repos = repositoriesdb.get_deduplicated_repositories(auth_repo)
+        repositoriesdb.load_repositories(
+            auth_repo, excluded_target_globs=excluded_target_globs
+        )
+        target_repos = repositoriesdb.get_deduplicated_repositories(
+            auth_repo, excluded_target_globs=excluded_target_globs
+        )
 
         _perform_checks(auth_repo, auth_commit, bare, force, target_repos)
 
@@ -328,6 +336,13 @@ def _perform_checks(
                     f"There are uncommited changes in {repo.name}. Please commit/stash changes or run reset with force flag."
                 )
 
+        # Fail early if repo is in detached head state:
+        if repo.is_detached_head:
+            if not force:
+                raise ResetFailedError(
+                    f"{repo.name} is in detached head state. Fix the state manually or run reset with force flag."
+                )
+
     # If repo is in detached head and force flag is set, reset it to the specified commit
     # This check is put at the last place since it modifies the state of the repository and there might be
     # target repo changes that would lead to early failure and therefore exit before these changes
@@ -336,10 +351,15 @@ def _perform_checks(
     # Fail early if commit is not on the branch:
     current_branch = auth_repo.get_current_branch()
     if auth_commit not in auth_repo.all_commits_on_branch(current_branch):
-        taf_logger.error()
-        raise ResetFailedError(
-            f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
-        )
+        if not force:
+            raise ResetFailedError(
+                f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
+            )
+        else:
+            try:
+                auth_repo.reset_to_commit(auth_commit, hard=True)
+            except Exception as e:
+                raise ResetFailedError(e)
 
 
 def _should_override_lvc(
