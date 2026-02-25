@@ -1,7 +1,7 @@
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
-    TARGET_MISSMATCH_PATTERN,
+    LVC_NOT_IN_REPO_PATTERN,
     SetupManager,
     add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
@@ -135,13 +135,23 @@ def test_update_after_update_with_exclude(origin_auth_repo, client_dir):
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
-
+    breakpoint()
+    
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        LVC_NOT_IN_REPO_PATTERN,
+        True,
+    )
+    
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
         excluded_target_globs=["*/target_same*"],
+        force=True
     )
     verify_repos_exist(client_dir, origin_auth_repo)
 
@@ -194,7 +204,7 @@ def test_update_after_update_with_exclude_with_invalid_commits(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        TARGET_MISSMATCH_PATTERN,
+        LVC_NOT_IN_REPO_PATTERN,
         True,
     )
     verify_repos_exist(client_dir, origin_auth_repo)
@@ -286,6 +296,17 @@ def test_full_update_after_partial_update(origin_auth_repo, client_dir):
         client_auth_repo.last_validated_commit
         != client_auth_repo.last_validated_data[client_auth_repo.name]
     )
+    
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        LVC_NOT_IN_REPO_PATTERN,
+        True,
+        no_upstream=True,
+        expected_repo_type=expected_repo_type,
+    )
+    
     # this should update the skipped repos
     # no upstream is set to True to make sure
     # that it is correctly detected that the previous update
@@ -296,6 +317,7 @@ def test_full_update_after_partial_update(origin_auth_repo, client_dir):
         client_dir,
         no_upstream=True,
         expected_repo_type=expected_repo_type,
+        force=True
     )
 
     assert (

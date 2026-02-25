@@ -53,7 +53,7 @@ def test_update_valid_when_several_updates(origin_auth_repo, client_dir):
         client_dir,
         skip_check_last_validated=True,
     )
-    assert update_output["changed"]
+    assert not update_output["changed"]
     update_output = update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
