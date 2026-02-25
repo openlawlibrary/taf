@@ -28,6 +28,7 @@ from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from tuf.ngclient.updater import Updater
 from taf.log import taf_logger
+from taf.api.repository import reset_repository
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 
@@ -212,6 +213,7 @@ class Pipeline:
         self.state.errors = []
         self.state.warnings = []
         for step, step_run_mode, should_run_fn in self.steps:
+            print(f"{step}, {step_run_mode}, {should_run_fn()}")
             try:
                 if (
                     step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
@@ -285,6 +287,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_run_step_default,
                 ),  # run only when want to updatae; valaidation doesn't change repop sstate; merge will fail without this
                 (
+                    self.reset_to_last_validated_commit,
+                    RunMode.UPDATE,
+                    self.should_run_step_default, 
+                ),
+                (
+                    self.check_if_repo_is_synced_with_remote,
+                    RunMode.UPDATE,
+                    self.should_run_if_locally_consistent, 
+                ),
+                (
                     self.clone_auth_to_temp,
                     RunMode.ALL,
                     self.should_update_auth_repos,
@@ -322,13 +334,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.set_excluded_targets,
                     RunMode.ALL,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),
                 # should_validate_target_repos
                 (
                     self.load_target_repositories,
                     RunMode.ALL,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),
                 (
                     self.set_auth_commit_for_target_repos,
@@ -388,12 +400,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.merge_auth_commits,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),  # merge fetched commits
                 (
                     self.remove_temp_repositories,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),  # only removes auth repo with --no-targets
                 (
                     self.set_target_repositories_data,
@@ -440,6 +452,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state = UpdateState()
         self.state.targets_data = {}
         self._output = None
+        self.local_repos_consistent = False
+        self.repos_synced_with_remote = False
 
     @property
     def output(self):
@@ -451,12 +465,21 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def should_run_step_default(self):
         return True
+    
+    def should_run_if_upstream(self):
+        return not self.no_upstream
+    
+    def should_run_if_locally_consistent(self):
+        return self.local_repos_consistent
 
     def should_update_auth_repos(self):
-        return True
+        return not self.repos_synced_with_remote
+    
+    def should_run_if_not_synced(self):
+        return not self.repos_synced_with_remote
 
     def should_validate_target_repos(self):
-        if self.no_targets:
+        if self.no_targets or self.repos_synced_with_remote:
             return False
         if self.no_upstream:
             # check if self.state.event has changed.
@@ -633,6 +656,56 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
+    def reset_to_last_validated_commit(self):
+        if self.operation == OperationType.CLONE:
+            return UpdateStatus.SUCCESS
+        taf_logger.info(
+            f" Resetting to lvc"
+        )
+        try:
+            auth_repo = AuthenticationRepository(path=self.auth_path)
+            taf_logger.info(
+                f"{auth_repo.name}: Resetting to lvc"
+            )
+            if auth_repo.last_validated_commit is not None:
+                try:
+                    reset_result = reset_repository(auth_repo, auth_repo.last_validated_commit, False, self.force, self.excluded_target_globs)
+                    if reset_result:
+                        # Detached head special case:
+                        if not auth_repo.is_detached_head:
+                            self.local_repos_consistent = True
+                            return UpdateStatus.SUCCESS
+                # Don't fail the pipeline if reset fails
+                except:
+                    pass
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+        
+    def check_if_repo_is_synced_with_remote(self):
+        if self.operation == OperationType.CLONE:
+            return UpdateStatus.SUCCESS
+        taf_logger.info(
+            f" check_if_repo_is_synced_with_remote"
+        )
+        try:
+            auth_repo = AuthenticationRepository(path=self.auth_path)
+            taf_logger.info(
+                f"{auth_repo.name}: Checking if synced with remote"
+            )
+            local_head = auth_repo.head_commit()
+            remote_head = auth_repo.get_last_remote_commit()
+            if local_head == remote_head:
+                self.state.event = Event.UNCHANGED
+                self.repos_synced_with_remote = True
+                return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+            
+    
     def check_if_previous_update_partial(self):
         """
         Check if the previous update was a partial update
@@ -744,6 +817,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def prepare_for_auth_update_and_check_last_validated_commit(self):
+        # breakpoint()
         try:
             if self.operation == OperationType.CLONE_OR_UPDATE:
                 if (
@@ -1046,6 +1120,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def validate_last_validated_commit(self):
+        # breakpoint()
         # last validated commit was already validated against the remote repo before the update was initiated
         # so just check if it was manually set to a commit that follows the last valid commit
         if (
@@ -1864,6 +1939,7 @@ but commit not on branch {current_branch}"
         """Determines which commits needs to be merged into the specified branch and
         merge it.
         """
+        # breakpoint()
         taf_logger.info(
             f"{self.state.auth_repo_name}: Merging commit into auth repo..."
         )

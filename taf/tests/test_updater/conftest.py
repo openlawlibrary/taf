@@ -707,7 +707,7 @@ def revert_last_validated_commit(auth_repo: AuthenticationRepository):
     assert auth_repo.last_validated_commit == older_commit.hash
 
 
-def set_last_commit_of_auth_repo(
+def set_last_validated_commit_of_auth_repo(
     auth_repo: AuthenticationRepository, commit: Commitish
 ):
     auth_repo.set_last_validated_of_repo(
