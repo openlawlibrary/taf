@@ -434,3 +434,66 @@ def test_reset_repo_auth_repo_detached_head_expect_fail(origin_auth_repo, client
     client_auth_repo.checkout_commit(all_commits[-1])
     with pytest.raises(ResetFailedError, match=DETACHED_HEAD_RESET_PATTERN):
         reset_repository(client_auth_repo, commit_to_reset_to, False, False)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_force_reset_repo_target_repo_detached_head_expect_success(
+    origin_auth_repo, client_dir
+):
+    client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
+    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2]
+
+    all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
+    target_commits = {}
+    for target_name, target_repo in all_target_repositories.items():
+        target_commits[target_name] = Commitish.from_hash(
+            client_auth_repo.get_target(target_name, commit_to_reset_to)["commit"]
+        )
+        if "target1" in target_name:
+            all_target_commits = target_repo.all_commits_on_branch()
+            target_repo.checkout_commit(all_target_commits[-1])
+            assert target_repo.is_detached_head
+
+    result = reset_repository(client_auth_repo, commit_to_reset_to, False, True)
+    assert_reset_successful(
+        result,
+        client_auth_repo,
+        commit_to_reset_to,
+        all_target_repositories,
+        target_commits,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_reset_repo_target_repo_detached_head_expect_fail(origin_auth_repo, client_dir):
+    client_auth_repo = prepare_repo_for_reset(origin_auth_repo, client_dir)
+    commit_to_reset_to = client_auth_repo.all_commits_on_branch()[-2]
+
+    all_target_repositories = load_target_repositories(client_auth_repo, client_dir)
+    target_commits = {}
+    for target_name, target_repo in all_target_repositories.items():
+        target_commits[target_name] = Commitish.from_hash(
+            client_auth_repo.get_target(target_name, commit_to_reset_to)["commit"]
+        )
+        if "target1" in target_name:
+            all_target_commits = target_repo.all_commits_on_branch()
+            target_repo.checkout_commit(all_target_commits[-1])
+            assert target_repo.is_detached_head
+    with pytest.raises(ResetFailedError, match=DETACHED_HEAD_RESET_PATTERN):
+        reset_repository(client_auth_repo, commit_to_reset_to, False, False)

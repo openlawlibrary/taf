@@ -23,11 +23,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Reset: Handle excluded_target_globs and detached head target ([711])
 - Fix traverse taf directory ([708])
 - Fix reset to commit bug ([703])
 
 [703]: https://github.com/openlawlibrary/taf/pull/703
 [708]: https://github.com/openlawlibrary/taf/pull/708
+[711]: https://github.com/openlawlibrary/taf/pull/711
 
 ## [0.37.3]
 
