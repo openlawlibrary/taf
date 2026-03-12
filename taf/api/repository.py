@@ -214,7 +214,11 @@ def reset_repository(
 
         # Handle auth repo:
         # Check specified commit:
-        last_validated_commit = Commitish.from_hash(auth_repo.last_validated_commit)
+        last_validated_commit = (
+            Commitish.from_hash(auth_repo.last_validated_data[auth_repo.name])
+            if auth_repo.last_validated_data
+            else None
+        )
         if commit is None:
             auth_commit = last_validated_commit
         else:
@@ -247,7 +251,10 @@ def reset_repository(
         )
 
         should_override_lvc = _should_override_lvc(
-            override_lvc, auth_repo, auth_commit, last_validated_commit.hash
+            override_lvc,
+            auth_repo,
+            auth_commit,
+            last_validated_commit.hash if last_validated_commit else None,
         )
 
         # Override LVC:
@@ -366,8 +373,10 @@ def _should_override_lvc(
     lvc_flag: bool,
     auth_repo: AuthenticationRepository,
     auth_commit: Commitish,
-    lvc: str,
+    lvc: str | None,
 ) -> bool:
+    if lvc is None:
+        return False
     if lvc_flag:
         if not auth_repo.is_commit_an_ancestor_of_a_commit_or_branch(auth_commit, lvc):
             print(
