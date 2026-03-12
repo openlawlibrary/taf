@@ -1378,6 +1378,12 @@ class GitRepository:
         if self.urls is not None and len(self.urls):
             self._git("remote add origin {}", self.urls[0])
 
+    def is_path_ignored(self, path: str) -> bool:
+        """
+        Checks if the given path is ignored by gitignore rules.
+        """
+        return self.pygit_repo.path_is_ignored(path)
+
     def is_remote_branch(self, branch_name: str) -> bool:
         """
         Checks if the name of the specified branch is a valid remote branch name
