@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Use auth repo's last validated commit for reset and partial updates ([713])
+
 ### Fixed
 
 - Reset: Handle excluded_target_globs and detached head target ([711])
@@ -30,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 [703]: https://github.com/openlawlibrary/taf/pull/703
 [708]: https://github.com/openlawlibrary/taf/pull/708
 [711]: https://github.com/openlawlibrary/taf/pull/711
+[713]: https://github.com/openlawlibrary/taf/pull/713
 
 ## [0.37.3]
 
