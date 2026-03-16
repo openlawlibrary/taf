@@ -9,11 +9,18 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- Add a method for checking if a path is ignore ([714])
+- Reset: Handle excluded_target_globs and detached head target ([711])
+- Fix reset to commit bug ([703])
 - Implement taf repo reset ([703])
 
 ### Changed
 
 ### Fixed
+
+[714]: https://github.com/openlawlibrary/taf/pull/714
+[711]: https://github.com/openlawlibrary/taf/pull/711
+[703]: https://github.com/openlawlibrary/taf/pull/703
 
 ## [0.37.4]
 
@@ -23,13 +30,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Reset: Handle excluded_target_globs and detached head target ([711])
 - Fix traverse taf directory ([708])
-- Fix reset to commit bug ([703])
 
-[703]: https://github.com/openlawlibrary/taf/pull/703
+
 [708]: https://github.com/openlawlibrary/taf/pull/708
-[711]: https://github.com/openlawlibrary/taf/pull/711
+
 
 ## [0.37.3]
 
