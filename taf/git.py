@@ -1331,7 +1331,10 @@ class GitRepository:
         commit2 = self.top_commit_of_branch(branch2)
         if commit1 is None or commit2 is None:
             return None
-        return Commitish.from_hash(repo.merge_base(commit1.hash, commit2.hash).hex)
+        merge_base = repo.merge_base(commit1.hash, commit2.hash)
+        if merge_base is None:
+            return None
+        return Commitish.from_hash(merge_base.hex)
 
     def get_tracking_branch(
         self, branch: Optional[str] = "", strip_remote: Optional[bool] = False

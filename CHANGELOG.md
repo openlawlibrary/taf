@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+- A minor `get_merge_base` fix. Return `None` if not found instead of raising an error ([715])
 - Add a method for checking if a path is ignore ([714])
 - Reset: Handle excluded_target_globs and detached head target ([711])
 - Fix reset to commit bug ([703])
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+[715]: https://github.com/openlawlibrary/taf/pull/715
 [714]: https://github.com/openlawlibrary/taf/pull/714
 [711]: https://github.com/openlawlibrary/taf/pull/711
 [703]: https://github.com/openlawlibrary/taf/pull/703
