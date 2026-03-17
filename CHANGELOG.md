@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+### Fixed
+
+
+## [0.37.5]
+
+### Added
+
 - A minor `get_merge_base` fix. Return `None` if not found instead of raising an error ([715])
 - Add a method for checking if a path is ignore ([714])
 - Reset: Handle excluded_target_globs and detached head target ([711])
@@ -1741,7 +1750,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.5...HEAD
+[0.37.5]: https://github.com/openlawlibrary/taf/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/openlawlibrary/taf/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/openlawlibrary/taf/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/openlawlibrary/platform/compare/v0.37.1...v0.37.2
