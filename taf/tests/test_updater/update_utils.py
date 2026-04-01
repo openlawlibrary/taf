@@ -7,7 +7,6 @@ from pathlib import Path
 from freezegun import freeze_time
 from collections import defaultdict
 from datetime import datetime
-import fnmatch
 import json
 from taf import repositoriesdb
 from taf.auth_repo import AuthenticationRepository, Optional
@@ -425,13 +424,16 @@ def verify_excluded_lvc_entries(
     client_dir: Path, origin_auth_repo: AuthenticationRepository, excluded: list
 ):
     client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
-    assert client_auth_repo.last_validated_data["exclude_filter"] is not None
+    last_validated_data = client_auth_repo.last_validated_data
+    assert last_validated_data is not None
+    if last_validated_data.get("exclude_filter") is not None:
+        assert last_validated_data["exclude_filter"]
     client_target_repos = load_target_repositories(
         client_auth_repo, library_dir=client_dir
     )
     for repo in client_target_repos.values():
         if repo.name.split("/")[-1] in excluded:
-            assert client_auth_repo.last_validated_data[repo.name] is None
+            assert last_validated_data[repo.name] is None
 
 
 def verify_repo_empty(

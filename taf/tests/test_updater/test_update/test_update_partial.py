@@ -1,9 +1,7 @@
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
-    TARGET_MISSMATCH_PATTERN,
     SetupManager,
-    add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
     pull_all_target_repos,
     pull_client_auth_repo,

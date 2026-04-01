@@ -1,7 +1,7 @@
 import json
 from logging import ERROR, INFO
 import shutil
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 import click
 from logdecorator import log_on_end, log_on_error, log_on_start
 from taf.git import GitRepository
@@ -229,7 +229,9 @@ def reset_repository(
                 "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
             )
 
-        exclude_filter = auth_repo.last_validated_data.get("exclude_filter")
+        last_validated_data = auth_repo.last_validated_data
+        if last_validated_data is not None:
+            exclude_filter = last_validated_data.get("exclude_filter")
         # Load corresponding target repos and their commits
         repositoriesdb.load_repositories(auth_repo, exclude_filter=exclude_filter)
         target_repos = repositoriesdb.get_deduplicated_repositories(

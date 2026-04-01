@@ -12,10 +12,12 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 - Use auth repo's last validated commit for reset and partial updates ([713])
+- Change excluded target repos handling ([719])
 
 ### Fixed
 
 [713]: https://github.com/openlawlibrary/taf/pull/713
+[719]: https://github.com/openlawlibrary/taf/pull/719
 
 ## [0.37.6]
 
