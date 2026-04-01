@@ -417,7 +417,6 @@ class AuthenticationRepository(GitRepository):
         commits: List[Commitish],
         target_repos: Dict[str, GitRepository],
         custom_fns: Optional[Dict[str, Callable]] = None,
-        excluded_target_globs: Optional[List[str]] = None,
         last_commits_per_repos: Optional[Dict[Commitish, List]] = None,
     ) -> Dict[str, Dict[Commitish, Dict[str, Any]]]:
         """
@@ -443,14 +442,8 @@ class AuthenticationRepository(GitRepository):
             target_repos=target_repos,
             last_commits_per_repos=last_commits_per_repos,
         )
-        excluded_target_globs = excluded_target_globs or []
         for commit in commits:
             for target_path, target_data in targets[commit].items():
-                if any(
-                    fnmatch.fnmatch(target_path, excluded_target_glob)
-                    for excluded_target_glob in excluded_target_globs
-                ):
-                    continue
 
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
@@ -474,7 +467,6 @@ class AuthenticationRepository(GitRepository):
         commits: List[Commitish],
         target_repos: Optional[Dict[str, GitRepository]] = None,
         custom_fns: Optional[Dict[str, Callable]] = None,
-        excluded_target_globs: Optional[List[str]] = None,
     ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return a dictionary consisting of branches and commits belonging
         to it for every target repository:
@@ -505,18 +497,8 @@ class AuthenticationRepository(GitRepository):
         repositories_commits: Dict = defaultdict(dict)
         targets = self.targets_at_revisions(commits, target_repos=target_repos)
         previous_commits: Dict = {}
-        skipped_targets = []
-        excluded_target_globs = excluded_target_globs or []
         for commit in commits:
             for target_path, target_data in targets[commit].items():
-                if target_path in skipped_targets:
-                    continue
-                if any(
-                    fnmatch.fnmatch(target_path, excluded_target_glob)
-                    for excluded_target_glob in excluded_target_globs
-                ):
-                    skipped_targets.append(target_path)
-                    continue
                 target_branch = target_data.get("branch")
                 target_commit = target_data.get("commit")
                 previous_data = previous_commits.get(target_path)

@@ -199,7 +199,6 @@ def reset_repository(
     commit: str,
     override_lvc: bool,
     force: bool,
-    excluded_target_globs: Optional[List[str]] = None,
 ) -> bool:
     """
     Resets auth and target repos to a snapshot in the past.
@@ -230,12 +229,11 @@ def reset_repository(
                 "An error occured during auth repo commit check - make sure you either have a valid last validated commit or specify a commitish via --commit flag."
             )
 
+        exclude_filter = auth_repo.last_validated_data.get("exclude_filter")
         # Load corresponding target repos and their commits
-        repositoriesdb.load_repositories(
-            auth_repo, excluded_target_globs=excluded_target_globs
-        )
+        repositoriesdb.load_repositories(auth_repo, exclude_filter=exclude_filter)
         target_repos = repositoriesdb.get_deduplicated_repositories(
-            auth_repo, excluded_target_globs=excluded_target_globs
+            auth_repo, exclude_filter=exclude_filter
         )
 
         _perform_checks(auth_repo, auth_commit, bare, force, target_repos)
