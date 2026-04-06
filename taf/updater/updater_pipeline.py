@@ -306,6 +306,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_update_auth_repos,
                 ),  # auth repo
                 (
+                    self.check_if_previous_update_partial,
+                    RunMode.ALL,
+                    self.should_run_step_default,
+                ),
+                (
                     self.validate_last_validated_commit,
                     RunMode.ALL,
                     self.should_update_auth_repos,
@@ -319,11 +324,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 # should_validate_target_repos
                 (
                     self.load_target_repositories,
-                    RunMode.ALL,
-                    self.should_run_step_default,
-                ),
-                (
-                    self.check_if_previous_update_partial,
                     RunMode.ALL,
                     self.should_run_step_default,
                 ),
@@ -635,7 +635,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         Check if the previous update was a partial update
         """
 
-        def _previous_update_partial():
+        def _previous_update_partial() -> bool:
             if not self.state.users_auth_repo.last_validated_commit:
                 return True
 
@@ -661,7 +661,14 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
             return len(last_validated_commits) > 1
 
-        self.state.is_partially_updated = _previous_update_partial()
+        is_partial = _previous_update_partial()
+        self.state.is_partially_updated = is_partial
+        if is_partial:
+            self.state.last_validated_commit = (
+                self.state.users_auth_repo.last_validated_data.get(
+                    self.state.users_auth_repo.name
+                )
+            )
 
     def _check_if_target_repos_clean(self, target_repos, branches_per_repo):
         dirty_index_repos = []

@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Use auth repo's last validated commit for reset and partial updates ([713])
+
 ### Fixed
+
+[713]: https://github.com/openlawlibrary/taf/pull/713
 
 ## [0.37.6]
 
@@ -50,13 +54,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+
 ### Fixed
 
 - Fix traverse taf directory ([708])
 
 
 [708]: https://github.com/openlawlibrary/taf/pull/708
-
 
 ## [0.37.3]
 
