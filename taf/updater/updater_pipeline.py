@@ -1119,48 +1119,53 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def set_excluded_targets(self):
-        if self.sync_all:
-            self.excluded_target_names = []
-            return UpdateStatus.SUCCESS
-
-        if self.operation == OperationType.CLONE:
-            if not self.exclude_filter:
+        try:
+            if self.sync_all:
+                self.excluded_target_names = []
                 return UpdateStatus.SUCCESS
-        else:
-            # Load exclude_filter from last_validated_data saved by a previous clone/update
+
+            if self.operation == OperationType.CLONE:
+                if not self.exclude_filter:
+                    return UpdateStatus.SUCCESS
+            else:
+                # Load exclude_filter from last_validated_data saved by a previous clone/update
+                last_validated_data = self.state.users_auth_repo.last_validated_data
+                self.exclude_filter = last_validated_data.get("exclude_filter") or None
+
+            if self.exclude_filter:
+                excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
+                    self.state.users_auth_repo, filter_expr=self.exclude_filter
+                )
+                if excluded_repo_names:
+                    self.excluded_target_names.extend(excluded_repo_names)
+
             last_validated_data = self.state.users_auth_repo.last_validated_data
-            self.exclude_filter = last_validated_data.get("exclude_filter") or None
+            if last_validated_data:
+                if len(last_validated_data) == 1:
+                    # check if old last validated format
+                    # not a json file, just one commit
+                    raise UpdateFailedError(
+                        f"Failure to set excluded targets for repo {self.state.users_auth_repo.name} - "
+                        "last_validated_commit file is in old format which is not supported anymore. "
+                        "Please delete the file and re-run the command."
+                    )
 
-        if self.exclude_filter:
-            excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
-                self.state.users_auth_repo, filter_expr=self.exclude_filter
-            )
-            if excluded_repo_names:
-                self.excluded_target_names.extend(excluded_repo_names)
-
-        last_validated_data = self.state.users_auth_repo.last_validated_data
-        if last_validated_data:
-            if len(last_validated_data) == 1:
-                # check if old last validated format
-                # not a json file, just one commit
-                raise UpdateFailedError(
-                    f"Failure to set excluded targets for repo {self.state.users_auth_repo.name} - \
-                      last_validated_commit file is in old format which is not supported anymore. \
-                      Please delete the file and re-run the command."
+            if self.operation == OperationType.CLONE:
+                # Save exclude_filter and set excluded targets to None
+                last_validated_data["exclude_filter"] = self.exclude_filter
+                if self.excluded_target_names:
+                    for repo_name in self.excluded_target_names:
+                        last_validated_data[repo_name] = None
+                self.state.last_validated_data = last_validated_data
+                self.state.users_auth_repo.set_last_validated_data(
+                    last_validated_data, set_last_validated_commit=False
                 )
 
-        if self.operation == OperationType.CLONE:
-            # Save exclude_filter and set excluded targets to None
-            last_validated_data["exclude_filter"] = self.exclude_filter
-            if self.excluded_target_names:
-                for repo_name in self.excluded_target_names:
-                    last_validated_data[repo_name] = None
-            self.state.last_validated_data = last_validated_data
-            self.state.users_auth_repo.set_last_validated_data(
-                last_validated_data, set_last_validated_commit=False
-            )
-
-            return UpdateStatus.SUCCESS
+                return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
