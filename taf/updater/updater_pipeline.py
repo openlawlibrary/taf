@@ -2186,6 +2186,7 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
             current_commit = _update_tuf_current_revision(
                 git_fetcher, updater, auth_repo_name
             )
+            del updater
             if current_commit is not None:
                 last_validated_commit = current_commit
     except UpdateFailedError as e:

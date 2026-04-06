@@ -9,11 +9,44 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Added
 
+### Changed
+
+- Use auth repo's last validated commit for reset and partial updates ([713])
+
+### Fixed
+
+[713]: https://github.com/openlawlibrary/taf/pull/713
+
+## [0.37.6]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Delete TUF Updater after each commit iteration as an attempt to fix file lock errors on Windows  [718]
+
+[718]: https://github.com/openlawlibrary/taf/pull/718
+
+## [0.37.5]
+
+### Added
+
+- A minor `get_merge_base` fix. Return `None` if not found instead of raising an error ([715])
+- Add a method for checking if a path is ignore ([714])
+- Reset: Handle excluded_target_globs and detached head target ([711])
+- Fix reset to commit bug ([703])
 - Implement taf repo reset ([703])
 
 ### Changed
 
 ### Fixed
+
+[715]: https://github.com/openlawlibrary/taf/pull/715
+[714]: https://github.com/openlawlibrary/taf/pull/714
+[711]: https://github.com/openlawlibrary/taf/pull/711
+[703]: https://github.com/openlawlibrary/taf/pull/703
 
 ## [0.37.4]
 
@@ -21,18 +54,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
-- Use auth repo's last validated commit for reset and partial updates ([713])
 
 ### Fixed
 
-- Reset: Handle excluded_target_globs and detached head target ([711])
 - Fix traverse taf directory ([708])
-- Fix reset to commit bug ([703])
 
-[703]: https://github.com/openlawlibrary/taf/pull/703
+
 [708]: https://github.com/openlawlibrary/taf/pull/708
-[711]: https://github.com/openlawlibrary/taf/pull/711
-[713]: https://github.com/openlawlibrary/taf/pull/713
 
 ## [0.37.3]
 
@@ -1737,7 +1765,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.6...HEAD
+[0.37.6]:https://github.com/openlawlibrary/taf/compare/v0.37.5...v0.37.6
+[0.37.5]: https://github.com/openlawlibrary/taf/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/openlawlibrary/taf/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/openlawlibrary/taf/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/openlawlibrary/platform/compare/v0.37.1...v0.37.2
