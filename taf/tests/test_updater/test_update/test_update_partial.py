@@ -19,7 +19,6 @@ from taf.tests.test_updater.update_utils import (
     verify_repos_exist,
 )
 from taf.updater.types.update import OperationType
-from taf.updater.updater import UpdateConfig, update_repository
 from taf.models.types import Commitish
 
 
