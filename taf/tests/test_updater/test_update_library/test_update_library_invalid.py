@@ -51,7 +51,6 @@ def test_update_with_invalid_dependency_repo(
         origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=None,
     )
     # Invalidate one of the authentication repositories in dependencies
     dependency_auth_repo = library_with_dependencies["namespace11/auth"]["auth_repo"]
@@ -101,7 +100,6 @@ def test_update_invalid_target_repo(
         origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=None,
     )
     # Invalidate one of the target repositories
     dependency_auth_repo = library_with_dependencies["namespace21/auth"]["auth_repo"]
@@ -154,7 +152,6 @@ def test_update_all_except_invalid(
         origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=None,
     )
     # Invalidate one of the target repositories of a referenced authentication repository
     dependency_auth_repo = library_with_dependencies["namespace31/auth"]["auth_repo"]

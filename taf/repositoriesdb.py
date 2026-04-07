@@ -1,7 +1,6 @@
 import ast
 import json
 from typing import Callable, Dict, List, Optional, Type
-import fnmatch
 from pathlib import Path
 from taf.auth_repo import AuthenticationRepository
 from taf.constants import TARGETS_DIRECTORY_NAME
@@ -185,7 +184,7 @@ def load_repositories(
     only_load_targets: bool = True,
     commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     raise_error_if_no_urls: bool = False,
 ) -> None:
     """
@@ -227,7 +226,7 @@ def load_repositories(
         only_load_targets=only_load_targets,
         commits=commits,
         roles=roles,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
         raise_error_if_no_urls=raise_error_if_no_urls,
     )
     if commits is None or len(commits) == 0:
@@ -251,13 +250,11 @@ def _load_repositories(
     only_load_targets: bool = True,
     commits: Optional[List[Commitish]] = None,
     roles: Optional[List[str]] = None,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     raise_error_if_no_urls: Optional[bool] = False,
 ) -> Dict:
 
     repositories = {}
-    if excluded_target_globs is None:
-        excluded_target_globs = []
 
     if commits is None:
         auth_repo_head_commit = auth_repo.head_commit()
@@ -280,7 +277,11 @@ def _load_repositories(
     if roles is not None and len(roles):
         only_load_targets = True
 
-    skipped_targets = []
+    skipped_targets = (
+        get_repository_names_by_expression(auth_repo, filter_expr=exclude_filter)
+        if exclude_filter
+        else []
+    )
     mirrors = load_mirrors_json(auth_repo, commits[-1])
     for commit in commits:
         commit_repositories: Dict = {}
@@ -301,12 +302,6 @@ def _load_repositories(
             if name in skipped_targets:
                 continue
             if name not in targets and only_load_targets:
-                continue
-            if any(
-                fnmatch.fnmatch(name, excluded_target_glob)
-                for excluded_target_glob in excluded_target_globs
-            ):
-                skipped_targets.append(name)
                 continue
             custom = _get_custom_data(repo_data, targets.get(name))
             urls = _get_urls(mirrors, name, repo_data, raise_error_if_no_urls)
@@ -596,6 +591,8 @@ def get_repository_names_by_expression(
     def _matches_filter(name):
         try:
             custom_data = _get_custom_data(repositories[name], targets.get(name))
+            # Add special case for repo['name'] filter expressions
+            custom_data["name"] = name
             # Evaluate filter expression with custom data as 'repo'
             # Safe: validated via AST + restricted namespace with no builtins
             return eval(filter_expr, safe_globals, {"repo": custom_data})  # nosec B307
@@ -638,7 +635,7 @@ def get_deduplicated_auth_repositories(
 def get_deduplicated_repositories(
     auth_repo: AuthenticationRepository,
     commits: Optional[List[Commitish]] = None,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls=False,
 ) -> Dict[str, GitRepository]:
@@ -646,7 +643,7 @@ def get_deduplicated_repositories(
         auth_repo,
         commits,
         False,
-        excluded_target_globs,
+        exclude_filter,
         library_dir,
         raise_error_if_no_urls,
     )
@@ -656,7 +653,7 @@ def _get_deduplicated_target_or_auth_repositories(
     auth_repo: AuthenticationRepository,
     commits: Optional[List[Commitish]],
     load_auth: Optional[bool] = False,
-    excluded_target_globs: Optional[List[str]] = None,
+    exclude_filter: Optional[str] = None,
     library_dir: Optional[str] = None,
     raise_error_if_no_urls: Optional[bool] = False,
 ):
@@ -685,7 +682,7 @@ def _get_deduplicated_target_or_auth_repositories(
                 auth_repo.path: _load_repositories(
                     auth_repo=auth_repo,
                     commits=commits,
-                    excluded_target_globs=excluded_target_globs,
+                    exclude_filter=exclude_filter,
                     library_dir=library_dir,
                     raise_error_if_no_urls=raise_error_if_no_urls,
                 )

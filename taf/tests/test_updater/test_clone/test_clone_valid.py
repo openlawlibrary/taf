@@ -16,6 +16,7 @@ from taf.tests.test_updater.update_utils import (
     clone_client_target_repos_without_updater,
     update_and_check_commit_shas,
     verify_repos_exist,
+    verify_excluded_lvc_entries,
 )
 from taf.updater.types.update import OperationType, UpdateType
 
@@ -221,20 +222,20 @@ def test_clone_valid_when_root_version_skipped(origin_auth_repo, client_dir):
 
 
 @pytest.mark.parametrize(
-    "origin_auth_repo, excluded_target_globs",
+    "origin_auth_repo, exclude_filter",
     [
         (
             {
                 "targets_config": [{"name": "target1"}, {"name": "target2"}],
             },
-            ["*/target1"],
+            "'target1' in repo['name']",
         )
     ],
     indirect=["origin_auth_repo"],
 )
 def test_valid_clone_when_exclude_target(
     origin_auth_repo,
-    excluded_target_globs,
+    exclude_filter,
     client_dir,
 ):
     update_and_check_commit_shas(
@@ -242,8 +243,9 @@ def test_valid_clone_when_exclude_target(
         origin_auth_repo,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
     )
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded=["target1"])
 
 
 @pytest.mark.parametrize(

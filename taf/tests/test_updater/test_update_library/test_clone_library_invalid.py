@@ -56,7 +56,6 @@ def test_clone_with_invalid_dependency_repo(
             origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
         )
 
 
@@ -105,7 +104,6 @@ def test_clone_invalid_target_repo(
             origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
         )
 
 
@@ -151,5 +149,4 @@ def test_clone_with_invalid_root_repo(
             origin_dir,
             client_dir,
             expected_repo_type=UpdateType.EITHER,
-            excluded_target_globs=None,
         )

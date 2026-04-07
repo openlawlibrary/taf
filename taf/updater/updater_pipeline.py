@@ -2,7 +2,6 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 import functools
-import json
 from pathlib import Path
 import re
 import shutil
@@ -320,7 +319,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     RunMode.UPDATE,
                     self.should_update_auth_repos,
                 ),  # auth repo
-                (self.set_excluded_targets, RunMode.ALL, self.should_run_step_default),
+                (
+                    self.set_excluded_targets,
+                    RunMode.ALL,
+                    self.should_run_step_default,
+                ),
                 # should_validate_target_repos
                 (
                     self.load_target_repositories,
@@ -428,7 +431,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
         self.checkout = update_config.checkout
         self.bare = update_config.bare
-        self.excluded_target_globs = update_config.excluded_target_globs or []
+        self.excluded_target_names = []
         self.exclude_filter = update_config.exclude_filter
         self.sync_all = update_config.sync_all
         self.no_targets = update_config.no_targets
@@ -504,12 +507,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.state.users_auth_repo,
                     library_dir=self.library_dir,
                     only_load_targets=True,
-                    excluded_target_globs=self.excluded_target_globs,
+                    exclude_filter=self.exclude_filter,
                     raise_error_if_no_urls=True,
                 )
                 target_repositories = repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
-                    excluded_target_globs=self.excluded_target_globs,
+                    exclude_filter=self.exclude_filter,
                     raise_error_if_no_urls=True,
                 )
                 self.state.repos_on_disk = {
@@ -1116,42 +1119,53 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
 
     def set_excluded_targets(self):
-        if self.sync_all:
-            self.excluded_target_globs = []
-        else:
-            self.excluded_target_globs = list(self.excluded_target_globs)
+        try:
+            if self.sync_all:
+                self.excluded_target_names = []
+                return UpdateStatus.SUCCESS
+
+            if self.operation == OperationType.CLONE:
+                if not self.exclude_filter:
+                    return UpdateStatus.SUCCESS
+            else:
+                # Load exclude_filter from last_validated_data saved by a previous clone/update
+                last_validated_data = self.state.users_auth_repo.last_validated_data
+                self.exclude_filter = last_validated_data.get("exclude_filter") or None
+
             if self.exclude_filter:
                 excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
                     self.state.users_auth_repo, filter_expr=self.exclude_filter
                 )
                 if excluded_repo_names:
-                    self.excluded_target_globs.extend(excluded_repo_names)
+                    self.excluded_target_names.extend(excluded_repo_names)
 
             last_validated_data = self.state.users_auth_repo.last_validated_data
             if last_validated_data:
                 if len(last_validated_data) == 1:
                     # check if old last validated format
                     # not a json file, just one commit
-                    last_validated_file_content = (
-                        self.state.users_auth_repo.get_last_validated_file_content()
+                    raise UpdateFailedError(
+                        f"Failure to set excluded targets for repo {self.state.users_auth_repo.name} - "
+                        "last_validated_commit file is in old format which is not supported anymore. "
+                        "Please delete the file and re-run the command."
                     )
-                    try:
-                        json.loads(last_validated_file_content)
-                    except json.decoder.JSONDecodeError:
-                        return UpdateStatus.SUCCESS
 
-                all_repositories = repositoriesdb.load_repositories_json(
-                    self.state.users_auth_repo
+            if self.operation == OperationType.CLONE:
+                # Save exclude_filter and set excluded targets to None
+                last_validated_data["exclude_filter"] = self.exclude_filter
+                if self.excluded_target_names:
+                    for repo_name in self.excluded_target_names:
+                        last_validated_data[repo_name] = None
+                self.state.last_validated_data = last_validated_data
+                self.state.users_auth_repo.set_last_validated_data(
+                    last_validated_data, set_last_validated_commit=False
                 )
-                if all_repositories is not None:
-                    all_repositories = all_repositories.get("repositories")
-                    skipped_repositories = [
-                        repository
-                        for repository in all_repositories
-                        if repository not in last_validated_data
-                    ]
-                    self.excluded_target_globs.extend(skipped_repositories)
-            return UpdateStatus.SUCCESS
+
+                return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
     def load_target_repositories(self):
         taf_logger.debug(f"{self.state.auth_repo_name}: Loading target repositories...")
@@ -1160,7 +1174,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 repositoriesdb.get_deduplicated_repositories(
                     self.state.users_auth_repo,
                     self.state.auth_commits_since_last_validated[-1::],
-                    excluded_target_globs=self.excluded_target_globs,
+                    exclude_filter=self.exclude_filter,
                     library_dir=self.library_dir,
                     raise_error_if_no_urls=not self.only_validate,
                 )
@@ -1211,7 +1225,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         )
         try:
 
-            self.state.repos_not_on_disk = {}
             self.state.repos_not_on_disk = {}
 
             def clone_repo_to_temp(temp_repo, users_repo):
@@ -1884,7 +1897,7 @@ but commit not on branch {current_branch}"
             last_validated_data[self.state.users_auth_repo.name] = last_commit.value
             self.state.users_auth_repo.set_last_validated_data(
                 last_validated_data,
-                set_last_validated_commit=not bool(self.excluded_target_globs),
+                set_last_validated_commit=not bool(self.excluded_target_names),
             )
 
             return self.state.update_status

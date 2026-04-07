@@ -7,7 +7,6 @@ from pathlib import Path
 from freezegun import freeze_time
 from collections import defaultdict
 from datetime import datetime
-import fnmatch
 import json
 from taf import repositoriesdb
 from taf.auth_repo import AuthenticationRepository, Optional
@@ -18,22 +17,22 @@ from taf.updater.updater import UpdateConfig, clone_repository, update_repositor
 
 
 def check_last_validated_commit(
-    clients_auth_repo_path, all_target_repositories=None, excluded_targets=None
+    clients_auth_repo_path, all_target_repositories=None, excluded_target_names=None
 ):
     # check if last validated commit is created and the saved commit is correct
     client_auth_repo = AuthenticationRepository(path=clients_auth_repo_path)
     head_sha = client_auth_repo.head_commit()
     last_validated_data = client_auth_repo.last_validated_data
     assert last_validated_data[client_auth_repo.name] == head_sha.value
-    if not excluded_targets:
+    if not excluded_target_names:
         assert (
             client_auth_repo.last_validated_data[client_auth_repo.LAST_VALIDATED_KEY]
             == head_sha.value
         )
 
-    if all_target_repositories and excluded_targets:
+    if all_target_repositories and excluded_target_names:
         for target_repo in all_target_repositories:
-            if target_repo not in excluded_targets:
+            if target_repo.name not in excluded_target_names:
                 assert last_validated_data[target_repo.name] == head_sha.value
             else:
                 assert last_validated_data.get(target_repo.name) != head_sha.value
@@ -42,15 +41,19 @@ def check_last_validated_commit(
 def check_if_commits_match(
     client_repositories,
     origin_dir,
+    auth_repo,
     start_head_shas=None,
-    excluded_target_globs=None,
+    exclude_filter=None,
 ):
-    excluded_target_globs = excluded_target_globs or []
+    excluded_repo_names = (
+        repositoriesdb.get_repository_names_by_expression(
+            auth_repo, filter_expr=exclude_filter
+        )
+        if exclude_filter
+        else []
+    )
     for repo_name, client_repo in client_repositories.items():
-        if any(
-            fnmatch.fnmatch(repo_name, excluded_target_glob)
-            for excluded_target_glob in excluded_target_globs
-        ):
+        if repo_name in excluded_repo_names:
             continue
         origin_repo = GitRepository(origin_dir, repo_name)
         for branch in origin_repo.branches():
@@ -87,7 +90,7 @@ def clone_full_library(
     origin_dir,
     client_dir,
     expected_repo_type=UpdateType.EITHER,
-    excluded_target_globs=None,
+    exclude_filter=None,
 ):
     origin_root_repo = library_dict["root/auth"]["auth_repo"]
 
@@ -124,7 +127,7 @@ def clone_full_library(
         check_last_validated_commit(client_dir / repos["auth_repo"].name)
 
     check_if_commits_match(
-        repositories, origin_dir, start_head_shas, excluded_target_globs
+        repositories, origin_dir, repos["auth_repo"], start_head_shas, exclude_filter
     )
 
 
@@ -153,7 +156,7 @@ def clone_repositories(
     origin_auth_repo,
     clients_dir,
     expected_repo_type=UpdateType.EITHER,
-    excluded_target_globs=None,
+    exclude_filter=None,
 ):
 
     # there is a cleanup issue caused by a file being in use
@@ -168,7 +171,7 @@ def clone_repositories(
         path=None,
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
     )
 
     with freeze_time(_get_valid_update_time(origin_auth_repo.path)):
@@ -224,7 +227,7 @@ def _get_head_commit_shas(client_repos, num_of_commits_to_remove=None):
 def load_target_repositories(
     auth_repo,
     library_dir=None,
-    excluded_target_globs=None,
+    exclude_filter=None,
     commits=None,
     only_load_targets=False,
 ):
@@ -236,7 +239,7 @@ def load_target_repositories(
         auth_repo,
         library_dir=library_dir,
         only_load_targets=only_load_targets,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
         commits=commits,
     )
     return repositoriesdb.get_deduplicated_repositories(
@@ -251,14 +254,15 @@ def update_and_check_commit_shas(
     clients_dir,
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
-    excluded_target_globs=None,
+    exclude_filter=None,
     force=False,
     bare=False,
     no_upstream=False,
     skip_check_last_validated=False,
     num_of_commits_to_remove=None,
-    exclude_filter=None,
 ):
+    if operation == OperationType.UPDATE:
+        exclude_filter = None
     client_repos = load_target_repositories(origin_auth_repo, clients_dir)
     client_repos = {
         repo_name: repo
@@ -279,7 +283,6 @@ def update_and_check_commit_shas(
         path=str(clients_auth_repo_path) if auth_repo_name_exists else None,
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=excluded_target_globs,
         exclude_filter=exclude_filter,
         bare=bare,
         force=force,
@@ -295,49 +298,50 @@ def update_and_check_commit_shas(
     check_if_commits_match(
         client_repos,
         origin_root_dir,
+        origin_auth_repo,
         start_head_shas,
-        excluded_target_globs,
+        exclude_filter,
     )
 
-    excluded_targets = []
-    excluded_target_globs = excluded_target_globs or []
+    excluded_repo_names = []
+    if operation == OperationType.UPDATE:
+        exclude_filter = clients_auth_repo.last_validated_data.get("exclude_filter")
 
     if exclude_filter:
         try:
             excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
                 origin_auth_repo, filter_expr=exclude_filter
             )
-            if excluded_repo_names:
-                excluded_target_globs.extend(excluded_repo_names)
         except RepositoriesNotFoundError:
             pass
 
     repositoriesdb.clear_repositories_db()
     all_target_repositories = load_target_repositories(origin_auth_repo, clients_dir)
-    if excluded_target_globs:
+    if excluded_repo_names:
         total_dirs_count = count_subdirectories_in_directory(
             clients_auth_repo_path.parent
         )
         for target_repo in all_target_repositories.values():
-            for excluded_target_glob in excluded_target_globs:
-                if fnmatch.fnmatch(target_repo.name, excluded_target_glob):
-                    excluded_targets.append(target_repo)
-                    if target_repo.name in clients_auth_repo.last_validated_data:
-                        assert target_repo.path.is_dir()
-                    else:
-                        assert not target_repo.path.is_dir()
-                    break
+            if (
+                target_repo.name in clients_auth_repo.last_validated_data
+                and target_repo.name not in excluded_repo_names
+            ):
+                assert target_repo.path.is_dir()
+            else:
+                assert not target_repo.path.is_dir()
+            break
 
-        assert len(excluded_targets) > 0
+        assert len(excluded_repo_names) > 0
         # all target repositories + auth repo + auth repo conf dir - skipped repos
         if operation == OperationType.CLONE:
             assert total_dirs_count == len(all_target_repositories) + 2 - len(
-                excluded_targets
+                excluded_repo_names
             )
-
     if not skip_check_last_validated:
         check_last_validated_commit(
-            clients_auth_repo_path, all_target_repositories.values(), excluded_targets
+            clients_auth_repo_path,
+            all_target_repositories.values(),
+            excluded_repo_names,
         )
 
     return update_ret
@@ -351,7 +355,7 @@ def update_invalid_repos_and_check_if_repos_exist(
     expect_partial_update,
     expected_repo_type=UpdateType.EITHER,
     auth_repo_name_exists=True,
-    excluded_target_globs=None,
+    exclude_filter=None,
     strict=False,
     no_upstream=False,
     sync_all=False,
@@ -374,7 +378,7 @@ def update_invalid_repos_and_check_if_repos_exist(
         path=str(clients_auth_repo_path) if auth_repo_name_exists else None,
         library_dir=str(clients_dir),
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=excluded_target_globs,
+        exclude_filter=exclude_filter,
         strict=strict,
         no_upstream=no_upstream,
         sync_all=sync_all,
@@ -414,6 +418,22 @@ def verify_repos_exist(
             assert not repo.is_git_repository
         else:
             assert repo.path.is_dir()
+
+
+def verify_excluded_lvc_entries(
+    client_dir: Path, origin_auth_repo: AuthenticationRepository, excluded: list
+):
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    last_validated_data = client_auth_repo.last_validated_data
+    assert last_validated_data is not None
+    if last_validated_data.get("exclude_filter") is not None:
+        assert last_validated_data["exclude_filter"]
+    client_target_repos = load_target_repositories(
+        client_auth_repo, library_dir=client_dir
+    )
+    for repo in client_target_repos.values():
+        if repo.name.split("/")[-1] in excluded:
+            assert last_validated_data[repo.name] is None
 
 
 def verify_repo_empty(
@@ -517,7 +537,7 @@ def update_and_validate_repositories(
     origin_dir,
     client_dir,
     invalid_target_names=None,
-    excluded_target_globs=None,
+    exclude_filter=None,
 ):
     if invalid_target_names is None:
         invalid_target_names = []
@@ -539,7 +559,7 @@ def update_and_validate_repositories(
             OperationType.UPDATE,
             origin_root_repo,
             client_dir,
-            excluded_target_globs=excluded_target_globs,
+            exclude_filter=exclude_filter,
         )
     except UpdateFailedError as e:
         if any(
@@ -564,6 +584,7 @@ def update_and_validate_repositories(
                 check_if_commits_match(
                     {auth_repo_name: auth_repo, target_repo.name: target_repo},
                     origin_dir,
+                    auth_repo,
                     start_head_shas,
                 )
             else:

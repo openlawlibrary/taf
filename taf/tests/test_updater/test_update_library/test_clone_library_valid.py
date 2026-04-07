@@ -41,5 +41,4 @@ def test_clone_repository_with_dependencies(
         origin_dir,
         client_dir,
         expected_repo_type=UpdateType.EITHER,
-        excluded_target_globs=None,
     )

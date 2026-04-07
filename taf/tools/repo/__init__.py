@@ -43,20 +43,10 @@ def common_update_options(f):
         help="Return formatted output which includes information on if build was successful and error message if it was raised",
     )(f)
     f = click.option(
-        "--exclude-target",
-        multiple=True,
-        help="Globs defining which target repositories should be ignored during update.",
-    )(f)
-    f = click.option(
         "--strict",
         is_flag=True,
         default=False,
         help="Enable/disable strict mode - return an error if warnings are raised.",
-    )(f)
-    f = click.option(
-        "--exclude-filter",
-        default=None,
-        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
     )(f)
     f = click.option(
         "--result-file",
@@ -286,6 +276,11 @@ def clone_repo_command():
         default=False,
         help="Run the auxiliary lifecycle handler scripts.",
     )
+    @click.option(
+        "--exclude-filter",
+        default=None,
+        help="Exclude repositories matching Python expression. Repo available as 'repo'. Example: \"repo['type'] == 'html'\"",
+    )
     def clone(
         path,
         url,
@@ -295,7 +290,6 @@ def clone_repo_command():
         scripts_root_dir,
         profile,
         format_output,
-        exclude_target,
         exclude_filter,
         strict,
         bare,
@@ -318,7 +312,6 @@ def clone_repo_command():
             update_from_filesystem=from_fs,
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
-            excluded_target_globs=exclude_target,
             exclude_filter=exclude_filter,
             strict=strict,
             bare=bare,
@@ -420,8 +413,6 @@ def update_repo_command():
         scripts_root_dir,
         profile,
         format_output,
-        exclude_target,
-        exclude_filter,
         strict,
         no_deps,
         force,
@@ -443,8 +434,6 @@ def update_repo_command():
             library_dir=library_dir,
             expected_repo_type=UpdateType(expected_repo_type),
             scripts_root_dir=scripts_root_dir,
-            excluded_target_globs=exclude_target,
-            exclude_filter=exclude_filter,
             strict=strict,
             force=force,
             no_upstream=not upstream,
@@ -494,12 +483,6 @@ def validate_repo_command():
         help="Use the last validated commit as the starting point.",
     )
     @click.option(
-        "--exclude-target",
-        multiple=True,
-        help="globs defining which target repositories should be "
-        "ignored during update.",
-    )
-    @click.option(
         "--strict",
         is_flag=True,
         default=False,
@@ -543,7 +526,6 @@ def validate_repo_command():
         library_dir,
         from_commit,
         from_latest,
-        exclude_target,
         exclude_filter,
         strict,
         no_targets,
@@ -564,7 +546,6 @@ def validate_repo_command():
             path,
             library_dir,
             from_commit,
-            exclude_target,
             exclude_filter,
             strict,
             bare,
@@ -601,15 +582,14 @@ def reset_repo_command():
     @click.option(
         "--commit",
         default=None,
-        help="Auth repo commit to reset to. "
-        "Defaults to last validated commit."
+        help="Auth repo commit to reset to. " "Defaults to last validated commit.",
     )
     @click.option(
         "--lvc",
         is_flag=True,
         default=False,
         help="Reset last validated commit to the commitish specified in --commit flag"
-        "if that commitish is an ancestor of the current last validated commit"
+        "if that commitish is an ancestor of the current last validated commit",
     )
     @click.option(
         "--force", is_flag=True, default=False, help="Force Reset repositories"

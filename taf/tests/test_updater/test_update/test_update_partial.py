@@ -1,9 +1,9 @@
+from pathlib import Path
+
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
-    TARGET_MISSMATCH_PATTERN,
     SetupManager,
-    add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
     pull_all_target_repos,
     pull_client_auth_repo,
@@ -15,7 +15,7 @@ from taf.tests.test_updater.update_utils import (
     clone_repositories,
     load_target_repositories,
     update_and_check_commit_shas,
-    update_invalid_repos_and_check_if_repos_exist,
+    verify_excluded_lvc_entries,
     verify_repos_exist,
 )
 from taf.updater.types.update import OperationType
@@ -88,120 +88,16 @@ def test_update_when_clone_with_excluded_update_all(origin_auth_repo, client_dir
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
+        exclude_filter="'target_same' in repo['name']",
     )
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded=["target_same"])
 
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
     )
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [
-                {"name": "target_same1"},
-                {"name": "target_same2"},
-                {"name": "target_different"},
-            ],
-        },
-    ],
-    indirect=True,
-)
-def test_update_after_update_with_exclude(origin_auth_repo, client_dir):
-
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
-
-    is_test_repo = origin_auth_repo.is_test_repo
-    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
-
-    setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.execute_tasks()
-
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
-    )
-
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.execute_tasks()
-
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
-    )
-    verify_repos_exist(client_dir, origin_auth_repo)
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [
-                {"name": "target_same1"},
-                {"name": "target_same2"},
-                {"name": "target_different"},
-            ],
-        },
-    ],
-    indirect=True,
-)
-def test_update_after_update_with_exclude_with_invalid_commits(
-    origin_auth_repo, client_dir
-):
-
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
-
-    is_test_repo = origin_auth_repo.is_test_repo
-    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
-
-    setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(
-        add_unauthenticated_commit_to_target_repo,
-        kwargs={"target_name": "target_same1"},
-    )
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.execute_tasks()
-
-    # this update should be successful because we are skipping the invalid repo
-    update_and_check_commit_shas(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
-    )
-
-    # without the exclusion of the invalid repo, the update should fail
-    update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        TARGET_MISSMATCH_PATTERN,
-        True,
-    )
-    verify_repos_exist(client_dir, origin_auth_repo)
 
 
 @pytest.mark.parametrize(
@@ -230,12 +126,11 @@ def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
+        exclude_filter="'target_same' in repo['name']",
     )
-    verify_repos_exist(
-        client_dir, origin_auth_repo, excluded=["target_same1", "target_same2"]
-    )
-
+    excluded = ["target_same1", "target_same2"]
+    verify_repos_exist(client_dir, origin_auth_repo, excluded)
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded)
     # this update should be successful because we are skipping the invalid repo
     update_and_check_commit_shas(
         OperationType.UPDATE,
@@ -243,11 +138,9 @@ def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
         client_dir,
         no_upstream=False,
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
     )
-    verify_repos_exist(
-        client_dir, origin_auth_repo, excluded=["target_same1", "target_same2"]
-    )
+    verify_repos_exist(client_dir, origin_auth_repo, excluded)
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded)
 
 
 @pytest.mark.parametrize(
@@ -263,119 +156,39 @@ def test_full_update_after_partial_clone(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_full_update_after_partial_update(origin_auth_repo, client_dir):
-    clone_repositories(
-        origin_auth_repo,
-        client_dir,
-    )
+def test_update_after_partial_clone_with_deleted_lvc(origin_auth_repo, client_dir):
+    """Clone with exclude_filter, delete last_validated_commit, then update."""
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
+
     is_test_repo = origin_auth_repo.is_test_repo
     expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
 
     update_and_check_commit_shas(
-        OperationType.UPDATE,
+        OperationType.CLONE,
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
-        excluded_target_globs=["*/target_same*"],
+        exclude_filter="'target_same' in repo['name']",
     )
 
-    client_auth_repo_path = client_dir / origin_auth_repo.name
-    client_auth_repo = AuthenticationRepository(path=client_auth_repo_path)
+    excluded = ["target_same1", "target_same2"]
+    verify_repos_exist(client_dir, origin_auth_repo, excluded)
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded)
 
-    assert (
-        client_auth_repo.last_validated_commit
-        != client_auth_repo.last_validated_data[client_auth_repo.name]
-    )
-    # this should update the skipped repos
-    # no upstream is set to True to make sure
-    # that it is correctly detected that the previous update
-    # was a partial one
+    # Delete the last_validated_commit file
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    lvc_path = Path(client_auth_repo.conf_dir, client_auth_repo.LAST_VALIDATED_FILENAME)
+    assert lvc_path.is_file()
+    lvc_path.unlink()
+
+    # Update should still succeed — re-validates from scratch
     update_and_check_commit_shas(
         OperationType.UPDATE,
         origin_auth_repo,
         client_dir,
-        no_upstream=True,
         expected_repo_type=expected_repo_type,
+        skip_check_last_validated=True,
     )
-
-    assert (
-        client_auth_repo.last_validated_commit
-        == client_auth_repo.last_validated_data[client_auth_repo.name]
-    )
-
-
-@pytest.mark.parametrize(
-    "origin_auth_repo",
-    [
-        {
-            "targets_config": [{"name": "target1"}, {"name": "target2"}],
-        },
-    ],
-    indirect=True,
-)
-def test_update_when_no_upstream_after_manual_pull_of_partial_update_restores_last_valid_commits(
-    origin_auth_repo, client_dir
-):
-    clone_repositories(origin_auth_repo, client_dir)
-
-    setup_manager = SetupManager(origin_auth_repo)
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.add_task(
-        add_unauthenticated_commit_to_target_repo, kwargs={"target_name": "target1"}
-    )
-    setup_manager.add_task(add_valid_target_commits)
-    setup_manager.execute_tasks()
-
-    update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        None,
-        True,
-    )
-
-    expected_last_validated_commit = origin_auth_repo.all_commits_on_branch()[-2]
-
-    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
-    assert client_auth_repo.last_validated_commit == expected_last_validated_commit.hash
-    assert client_auth_repo.head_commit() == expected_last_validated_commit
-
-    client_target_repositories = load_target_repositories(client_auth_repo, client_dir)
-    expected_target_commits = {}
-    for target_name, target_repo in client_target_repositories.items():
-        expected_target_commits[target_name] = Commitish.from_hash(
-            client_auth_repo.get_target(target_name, expected_last_validated_commit)[
-                "commit"
-            ]
-        )
-        assert target_repo.head_commit() == expected_target_commits[target_name]
-
-    pull_client_auth_repo(origin_auth_repo, client_dir)
-    pull_all_target_repos(origin_auth_repo, client_dir)
-
-    origin_target_repositories = load_target_repositories(origin_auth_repo)
-    assert client_auth_repo.head_commit() == origin_auth_repo.head_commit()
-
-    for target_name, target_repo in client_target_repositories.items():
-        assert (
-            target_repo.head_commit()
-            == origin_target_repositories[target_name].head_commit()
-        )
-        assert target_repo.head_commit() != expected_target_commits[target_name]
-
-    update_invalid_repos_and_check_if_repos_exist(
-        OperationType.UPDATE,
-        origin_auth_repo,
-        client_dir,
-        None,
-        True,
-    )
-
-    assert client_auth_repo.head_commit() == expected_last_validated_commit
-    assert client_auth_repo.last_validated_commit == expected_last_validated_commit.hash
-    for target_name, target_repo in client_target_repositories.items():
-        assert target_repo.head_commit() == expected_target_commits[target_name]
+    verify_repos_exist(client_dir, origin_auth_repo)

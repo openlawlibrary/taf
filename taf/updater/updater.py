@@ -208,12 +208,6 @@ class UpdateConfig:
         default=None,
         metadata={"docs": "List of URLs to clone repositories from. Optional."},
     )
-    excluded_target_globs: list = field(
-        default=None,
-        metadata={
-            "docs": "Globs specifying target repositories to exclude from validation and update. Optional."
-        },
-    )
     exclude_filter: str = field(
         default=None,
         metadata={
@@ -275,6 +269,7 @@ class UpdateConfig:
                     self.library_dir = Path(".").resolve()
 
         if self.operation == OperationType.UPDATE:
+            self.exclude_filter = None
             if self.path is None:
                 self.path = Path(".").resolve()
             if self.library_dir is None:
@@ -523,7 +518,7 @@ def _process_repo_update(
         # so that it's easy to try again after fixing the handler
         if (
             not update_config.only_validate
-            and not update_config.excluded_target_globs
+            and not update_config.exclude_filter
             and not update_config.no_targets
         ):
             _execute_repo_handlers(
@@ -642,7 +637,6 @@ def validate_repository(
     auth_path,
     library_dir=None,
     validate_from_commit=None,
-    excluded_target_globs=None,
     exclude_filter=None,
     strict=False,
     bare=False,
@@ -674,7 +668,6 @@ def validate_repository(
             path=auth_path,
             library_dir=library_dir,
             validate_from_commit=validate_from_commit,
-            excluded_target_globs=excluded_target_globs,
             exclude_filter=exclude_filter,
             strict=strict,
             bare=bare,
