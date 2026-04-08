@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+### Fixed
+
+## [0.38.0]
+
+### Added
+
+### Changed
+
 - Use auth repo's last validated commit for reset and partial updates ([713])
 - Change excluded target repos handling ([719])
 
@@ -1767,8 +1775,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.37.6...HEAD
-[0.37.6]:https://github.com/openlawlibrary/taf/compare/v0.37.5...v0.37.6
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/openlawlibrary/taf/compare/v0.37.6...v0.38.0
+[0.37.6]: https://github.com/openlawlibrary/taf/compare/v0.37.5...v0.37.6
 [0.37.5]: https://github.com/openlawlibrary/taf/compare/v0.37.4...v0.37.5
 [0.37.4]: https://github.com/openlawlibrary/taf/compare/v0.37.3...v0.37.4
 [0.37.3]: https://github.com/openlawlibrary/taf/compare/v0.37.2...v0.37.3
