@@ -213,7 +213,6 @@ class Pipeline:
         self.state.errors = []
         self.state.warnings = []
         for step, step_run_mode, should_run_fn in self.steps:
-            print(f"{step}, {step_run_mode}, {should_run_fn()}")
             try:
                 if (
                     step_run_mode == RunMode.ALL or step_run_mode == self.run_mode
@@ -669,7 +668,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             )
             if auth_repo.last_validated_commit is not None:
                 try:
-                    reset_result = reset_repository(auth_repo, auth_repo.last_validated_commit, False, self.force, self.excluded_target_globs)
+                    reset_result = reset_repository(auth_repo, auth_repo.last_validated_commit, False, self.force)
                     if reset_result:
                         # Detached head special case:
                         if not auth_repo.is_detached_head:
