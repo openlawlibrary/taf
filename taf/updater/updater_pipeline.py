@@ -281,11 +281,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_run_step_default,
                 ),
                 (
-                    self.check_if_local_repositories_clean,
-                    RunMode.UPDATE,
-                    self.should_run_step_default,
-                ),
-                (
                     self.check_if_local_repos_match_lvc,
                     RunMode.UPDATE,
                     self.should_run_step_default,
@@ -294,6 +289,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.check_if_repo_is_synced_with_remote,
                     RunMode.UPDATE,
                     self.should_run_if_locally_consistent,
+                ),
+                (
+                    self.check_if_local_repositories_clean,
+                    RunMode.UPDATE,
+                    self.should_update_auth_repos,
                 ),
                 (
                     self.clone_auth_to_temp,
@@ -656,10 +656,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def check_if_local_repos_match_lvc(self):
         """
-        Check if the local auth repo and all target repos on disk have their HEAD
-        at the commit recorded in last_validated_data. If so, set local_repos_consistent=True
-        so that check_if_repo_is_synced_with_remote can run and potentially skip
-        the full update when there are no upstream changes.
+        Check if the local auth repo and target repos on disk still match the
+        state recorded in last_validated_data. If they do, set
+        local_repos_consistent=True so that check_if_repo_is_synced_with_remote
+        can potentially skip the full update when there are no upstream changes.
 
         If lvc data is missing, or any repo's HEAD does not match, we leave
         local_repos_consistent=False and the full update runs unconditionally.
@@ -667,41 +667,53 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             self.local_repos_consistent = False
 
-            if self.operation == OperationType.CLONE:
-                return UpdateStatus.SUCCESS
-
             if not self.state.existing_repo:
                 return UpdateStatus.SUCCESS
 
-            last_validated_data = self.state.users_auth_repo.last_validated_data
-            if not last_validated_data:
-                return UpdateStatus.SUCCESS
-
-            lvc_auth = last_validated_data.get(self.state.users_auth_repo.name)
-            if not lvc_auth or self.state.users_auth_repo.is_detached_head:
-                return UpdateStatus.SUCCESS
-
-            auth_head = self.state.users_auth_repo.head_commit()
-            if auth_head is None or auth_head != lvc_auth:
-                return UpdateStatus.SUCCESS
-
             auth_repo = self.state.users_auth_repo
+            self.state.last_validated_data = auth_repo.last_validated_data or {}
+
+            if not self.state.last_validated_data or auth_repo.is_detached_head:
+                return UpdateStatus.SUCCESS
+
+            auth_lvc = self.state.last_validated_data.get(auth_repo.name)
+            if (
+                auth_lvc is None
+                or auth_repo.head_commit() != Commitish.from_hash(auth_lvc)
+            ):
+                return UpdateStatus.SUCCESS
+
+            for repo_name, lvc_entry in self.state.last_validated_data.items():
+                if (
+                    repo_name in {auth_repo.name, auth_repo.LAST_VALIDATED_KEY, "exclude_filter"}
+                    or lvc_entry is None
+                    or repo_name in self.state.repos_on_disk
+                ):
+                    continue
+
+                if auth_repo.get_target(repo_name, Commitish.from_hash(lvc_entry)):
+                    return UpdateStatus.SUCCESS
+
             for repo_name, repo in self.state.repos_on_disk.items():
-                lvc_entry = last_validated_data.get(repo_name)
+                lvc_entry = self.state.last_validated_data.get(repo_name)
                 if lvc_entry is None:
-                    # repo was excluded from a previous partial update — skip it
+                    # repo was excluded from a previous partial update
                     continue
-                target_data = auth_repo.get_target(
-                    repo_name, Commitish.from_hash(lvc_entry)
-                )
+
+                if repo.is_detached_head:
+                    return UpdateStatus.SUCCESS
+
+                target_data = auth_repo.get_target(repo_name, Commitish.from_hash(lvc_entry))
                 if not target_data:
-                    continue
-                expected_commit = target_data["commit"]
-                actual_commit = repo.head_commit()
-                if actual_commit is None or actual_commit.value != expected_commit:
+                    return UpdateStatus.SUCCESS
+
+                branch = target_data.get("branch", repo.default_branch)
+                branch_commit = repo.top_commit_of_branch(branch)
+                if branch_commit is None or branch_commit.value != target_data["commit"]:
                     return UpdateStatus.SUCCESS
 
             self.local_repos_consistent = True
+            return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -710,9 +722,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def check_if_repo_is_synced_with_remote(self):
         if self.operation == OperationType.CLONE:
             return UpdateStatus.SUCCESS
-        taf_logger.info(
-            f" check_if_repo_is_synced_with_remote"
-        )
+
         try:
             auth_repo = AuthenticationRepository(path=self.auth_path)
             taf_logger.info(
@@ -1366,6 +1376,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
 
             self.state.old_heads_per_target_repos_branches = defaultdict(dict)
+
+            if self.local_repos_consistent and not self.state.is_partially_updated:
+                return UpdateStatus.SUCCESS
+
             is_initial_state_in_sync = True
             # if last validated commit was not manually modified (set to a newer commit)
             # target repositories data that is extracted to them (commit and branch)

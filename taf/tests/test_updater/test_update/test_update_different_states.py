@@ -52,6 +52,10 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
     assert client_auth_repo.something_to_commit()
 
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(update_expiration_dates)
+    origin_setup_manager.execute_tasks()
+
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
@@ -75,6 +79,9 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
 
     assert client_auth_repo.something_to_commit()
+
+    origin_setup_manager.add_task(update_expiration_dates)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -120,6 +127,10 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
     target1 = GitRepository(path=(client_auth_repo_path.parent / "target1"))
     assert target1.something_to_commit()
 
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
+
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
@@ -145,6 +156,9 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
 
     assert target1.something_to_commit()
+
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -191,6 +205,10 @@ def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
     )
 
     assert has_unpushed
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(update_expiration_dates)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -247,6 +265,10 @@ def test_update_unpushed_commits_target_repo(origin_auth_repo, client_dir):
         client_target_repo.default_branch
     )
     assert has_unpushed
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(

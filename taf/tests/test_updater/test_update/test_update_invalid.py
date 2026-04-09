@@ -76,6 +76,10 @@ def test_update_invalid_repo_target_wuth_uncommitted_changes(
 
     create_file_without_committing(origin_auth_repo, client_dir)
 
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
         origin_auth_repo,
