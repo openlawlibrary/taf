@@ -585,9 +585,8 @@ def reset_repo_command():
         help="Auth repo commit to reset to. " "Defaults to last validated commit.",
     )
     @click.option(
-        "--lvc",
-        is_flag=True,
-        default=False,
+        "--lvc/--no-lvc",
+        default=True,
         help="Reset last validated commit to the commitish specified in --commit flag"
         "if that commitish is an ancestor of the current last validated commit",
     )

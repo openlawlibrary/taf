@@ -299,7 +299,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.clone_auth_to_temp,
                     RunMode.ALL,
                     self.should_update_auth_repos,
-                ),  # should be done regardless of flags
+                ),
                 (
                     self.prepare_for_auth_update_and_check_last_validated_commit,
                     RunMode.ALL,
@@ -309,7 +309,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.run_tuf_updater,
                     RunMode.ALL,
                     self.should_update_auth_repos,
-                ),  # should be done regardless of flags
+                ),
                 (
                     self.validate_out_of_band_and_update_type,
                     RunMode.ALL,
@@ -671,6 +671,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 return UpdateStatus.SUCCESS
 
             auth_repo = self.state.users_auth_repo
+            taf_logger.info(
+                f"{auth_repo.name}: Checking if local state is consistent with last validated data"
+            )
             self.state.last_validated_data = auth_repo.last_validated_data or {}
 
             if not self.state.last_validated_data or auth_repo.is_detached_head:
@@ -720,7 +723,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             return UpdateStatus.FAILED
 
     def check_if_repo_is_synced_with_remote(self):
-        if self.operation == OperationType.CLONE:
+        if self.operation == OperationType.CLONE or not self.no_upstream:
             return UpdateStatus.SUCCESS
 
         try:
@@ -942,7 +945,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             _clear_lvc()
                         else:
                             raise UpdateFailedError(
-                                f"{error_msg}\nRun the updater with the --force flag to run the validation from the first commit"
+                                f"{error_msg}\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                             )
 
                     if (
@@ -964,7 +967,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             else:
                                 raise UpdateFailedError(
                                     f"{self.state.users_auth_repo.name}: Last validated commit {users_head_commit} is not in repository {self.state.users_auth_repo.name} "
-                                    "\nRun the updater with the --force flag to run the validation from the first commit"
+                                    "\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                                 )
                         else:
                             commits_since = (
@@ -990,7 +993,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                 else:
                                     raise UpdateFailedError(
                                         f"Top commit of repository {self.state.users_auth_repo.name} {users_head_commit} is not equal to or newer than the last successful commit. "
-                                        "\nRun the updater with the --force flag to run the validation from the first commit"
+                                        "\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                                     )
 
         except Exception as e:
