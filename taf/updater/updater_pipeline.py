@@ -28,7 +28,6 @@ from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
 from tuf.ngclient.updater import Updater
 from taf.log import taf_logger
-from taf.api.repository import reset_repository
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
 
@@ -463,16 +462,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def should_run_step_default(self):
         return True
-    
+
     def should_run_if_upstream(self):
         return not self.no_upstream
-    
+
     def should_run_if_locally_consistent(self):
         return self.local_repos_consistent
 
     def should_update_auth_repos(self):
         return not self.repos_synced_with_remote
-    
+
     def should_run_if_not_synced(self):
         return not self.repos_synced_with_remote
 
@@ -680,15 +679,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 return UpdateStatus.SUCCESS
 
             auth_lvc = self.state.last_validated_data.get(auth_repo.name)
-            if (
-                auth_lvc is None
-                or auth_repo.head_commit() != Commitish.from_hash(auth_lvc)
+            if auth_lvc is None or auth_repo.head_commit() != Commitish.from_hash(
+                auth_lvc
             ):
                 return UpdateStatus.SUCCESS
 
             for repo_name, lvc_entry in self.state.last_validated_data.items():
                 if (
-                    repo_name in {auth_repo.name, auth_repo.LAST_VALIDATED_KEY, "exclude_filter"}
+                    repo_name
+                    in {auth_repo.name, auth_repo.LAST_VALIDATED_KEY, "exclude_filter"}
                     or lvc_entry is None
                     or repo_name in self.state.repos_on_disk
                 ):
@@ -706,13 +705,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 if repo.is_detached_head:
                     return UpdateStatus.SUCCESS
 
-                target_data = auth_repo.get_target(repo_name, Commitish.from_hash(lvc_entry))
+                target_data = auth_repo.get_target(
+                    repo_name, Commitish.from_hash(lvc_entry)
+                )
                 if not target_data:
                     return UpdateStatus.SUCCESS
 
                 branch = target_data.get("branch", repo.default_branch)
                 branch_commit = repo.top_commit_of_branch(branch)
-                if branch_commit is None or branch_commit.value != target_data["commit"]:
+                if (
+                    branch_commit is None
+                    or branch_commit.value != target_data["commit"]
+                ):
                     return UpdateStatus.SUCCESS
 
             self.local_repos_consistent = True
@@ -728,9 +732,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         try:
             auth_repo = AuthenticationRepository(path=self.auth_path)
-            taf_logger.info(
-                f"{auth_repo.name}: Checking if synced with remote"
-            )
+            taf_logger.info(f"{auth_repo.name}: Checking if synced with remote")
             local_head = auth_repo.head_commit()
             remote_head = auth_repo.get_last_remote_commit()
             if local_head == remote_head:
@@ -741,8 +743,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
-            
-    
+
     def check_if_previous_update_partial(self):
         """
         Check if the previous update was a partial update

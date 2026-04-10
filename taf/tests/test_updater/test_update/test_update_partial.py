@@ -5,21 +5,17 @@ from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
     add_valid_target_commits,
-    pull_all_target_repos,
-    pull_client_auth_repo,
     set_head_commit,
     update_target_repo_without_committing,
 )
 from taf.tests.test_updater.update_utils import (
     UpdateType,
     clone_repositories,
-    load_target_repositories,
     update_and_check_commit_shas,
     verify_excluded_lvc_entries,
     verify_repos_exist,
 )
 from taf.updater.types.update import OperationType
-from taf.models.types import Commitish
 
 
 @pytest.mark.parametrize(
