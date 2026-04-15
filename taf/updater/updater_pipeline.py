@@ -759,7 +759,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             # Reset could not be completed (e.g. LVC commit not on default branch or
             # not in local repo). Leave local_repos_consistent=False so the updater
             # runs full validation from the beginning, which will fix the state.
-            taf_logger.debug(
+            taf_logger.info(
                 f"{self.state.users_auth_repo.name}: Reset to last validated commit failed, "
                 f"proceeding with full validation. Reason: {e}"
             )
