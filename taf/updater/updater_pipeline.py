@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from attr import attrs, define, field
 
+from taf.api.repository import reset_repository
 from taf.git import GitError
 from taf.git import GitRepository
 from taf.constants import INFO_JSON_PATH
@@ -21,6 +22,7 @@ from taf.exceptions import (
     MissingInfoJsonError,
     UpdateFailedError,
     MultipleRepositoriesNotCleanError,
+    ResetFailedError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
@@ -285,6 +287,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_run_step_default,
                 ),
                 (
+                    self.reset_if_not_consistent_with_lvc,
+                    RunMode.UPDATE,
+                    self.should_reset_if_not_locally_consistent,
+                ),
+                (
                     self.check_if_repo_is_synced_with_remote,
                     RunMode.UPDATE,
                     self.should_run_if_locally_consistent,
@@ -468,6 +475,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
     def should_run_if_locally_consistent(self):
         return self.local_repos_consistent
+
+    def should_reset_if_not_locally_consistent(self):
+        return not self.local_repos_consistent and self.force
 
     def should_update_auth_repos(self):
         return not self.repos_synced_with_remote
@@ -725,6 +735,36 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
+
+    def reset_if_not_consistent_with_lvc(self):
+        """
+        If local repos do not match the state recorded in last_validated_data and
+        the updater was called with --force, reset auth and target repos to the last
+        validated commit
+        """
+        try:
+            auth_repo = self.state.users_auth_repo
+            taf_logger.info(
+                f"{auth_repo.name}: Local state is inconsistent with last validated commit. "
+                "Resetting."
+            )
+            reset_repository(
+                auth_repo=auth_repo,
+                commit=None,
+                override_lvc=False,
+                force=True,
+            )
+            self.local_repos_consistent = True
+        except ResetFailedError as e:
+            # Reset could not be completed (e.g. LVC commit not on default branch or
+            # not in local repo). Leave local_repos_consistent=False so the updater
+            # runs full validation from the beginning, which will fix the state.
+            taf_logger.debug(
+                f"{self.state.users_auth_repo.name}: Reset to last validated commit failed, "
+                f"proceeding with full validation. Reason: {e}"
+            )
+
+        return UpdateStatus.SUCCESS
 
     def check_if_repo_is_synced_with_remote(self):
         if self.operation == OperationType.CLONE or not self.no_upstream:

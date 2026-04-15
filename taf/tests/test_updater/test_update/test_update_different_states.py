@@ -602,3 +602,43 @@ def test_update_invalid_repo_target_in_indeterminate_state(
         client_dir,
         force=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_force_resets_target_repo_not_consistent_with_lvc(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    client_target_repo = GitRepository(path=client_auth_repo_path.parent / "target1")
+    expected_commit = client_target_repo.head_commit()
+
+    # Roll target1 back one commit - local state no longer matches LVC
+    client_target_repo.reset_num_of_commits(1, hard=True)
+    assert client_target_repo.head_commit() != expected_commit
+
+    # No new commits on origin - update with --force should reset the target
+    # back to LVC and complete as a no-op
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+    assert client_target_repo.head_commit() == expected_commit
