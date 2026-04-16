@@ -666,7 +666,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
         is_partial = _previous_update_partial()
         self.state.is_partially_updated = is_partial
-        if is_partial:
+        if is_partial and not self.only_validate and not self.validate_from_commit:
             self.state.last_validated_commit = (
                 self.state.users_auth_repo.last_validated_data.get(
                     self.state.users_auth_repo.name
