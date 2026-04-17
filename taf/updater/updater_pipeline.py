@@ -305,11 +305,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.should_update_auth_repos,
                 ),  # auth repo
                 (
-                    self.check_if_previous_update_partial,
-                    RunMode.ALL,
-                    self.should_run_step_default,
-                ),
-                (
                     self.validate_last_validated_commit,
                     RunMode.ALL,
                     self.should_update_auth_repos,
@@ -327,6 +322,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 # should_validate_target_repos
                 (
                     self.load_target_repositories,
+                    RunMode.ALL,
+                    self.should_run_step_default,
+                ),
+                (
+                    self.check_if_previous_update_partial,
                     RunMode.ALL,
                     self.should_run_step_default,
                 ),
@@ -639,39 +639,38 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         """
 
         def _previous_update_partial() -> bool:
-            if not self.state.users_auth_repo.last_validated_commit:
-                return True
+            last_validated_data = self.state.users_auth_repo.last_validated_data
+            auth_repo_last_validated_commit = (
+                self.state.users_auth_repo.last_validated_commit
+            )
 
             # validate from last_validated_commit if last_validated_data does not exist
             # (if last_validated_data was deleted)
-            if not self.state.users_auth_repo.last_validated_data:
-                return True
             if (
-                self.state.users_auth_repo.last_validated_commit
-                != self.state.users_auth_repo.last_validated_data.get(
-                    self.state.users_auth_repo.name
-                )
+                not last_validated_data
+                or not auth_repo_last_validated_commit
             ):
                 return True
 
-            last_validated_commits = set()
-            for repo_name in self.state.users_target_repositories:
-                if self.state.users_auth_repo.last_validated_data:
-                    if repo_name not in self.state.users_auth_repo.last_validated_data:
-                        return True
-                    last_validated_commits.add(
-                        self.state.users_auth_repo.last_validated_data[repo_name]
-                    )
-            return len(last_validated_commits) > 1
-
-        is_partial = _previous_update_partial()
-        self.state.is_partially_updated = is_partial
-        if is_partial and not self.only_validate and not self.validate_from_commit:
-            self.state.last_validated_commit = (
-                self.state.users_auth_repo.last_validated_data.get(
-                    self.state.users_auth_repo.name
-                )
+            auth_repo_commit = last_validated_data.get(
+                self.state.users_auth_repo.name
             )
+            if (
+                auth_repo_commit is None
+                or auth_repo_commit != auth_repo_last_validated_commit
+            ):
+                return True
+
+            for repo_name in self.state.users_target_repositories:
+                if repo_name in self.excluded_target_names:
+                    continue
+                if repo_name not in last_validated_data:
+                    return True
+                if last_validated_data[repo_name] != auth_repo_commit:
+                    return True
+            return False
+
+        self.state.is_partially_updated = _previous_update_partial()
 
     def _check_if_target_repos_clean(self, target_repos, branches_per_repo):
         dirty_index_repos = []
