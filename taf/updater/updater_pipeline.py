@@ -639,6 +639,9 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         """
 
         def _previous_update_partial() -> bool:
+            if self.operation == OperationType.CLONE:
+                return False
+
             last_validated_data = self.state.users_auth_repo.last_validated_data
             auth_repo_last_validated_commit = (
                 self.state.users_auth_repo.last_validated_commit
@@ -646,15 +649,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
 
             # validate from last_validated_commit if last_validated_data does not exist
             # (if last_validated_data was deleted)
-            if (
-                not last_validated_data
-                or not auth_repo_last_validated_commit
-            ):
+            if not last_validated_data or not auth_repo_last_validated_commit:
                 return True
 
-            auth_repo_commit = last_validated_data.get(
-                self.state.users_auth_repo.name
-            )
+            auth_repo_commit = last_validated_data.get(self.state.users_auth_repo.name)
             if (
                 auth_repo_commit is None
                 or auth_repo_commit != auth_repo_last_validated_commit
@@ -1896,7 +1894,6 @@ but commit not on branch {current_branch}"
             last_validated_data[self.state.users_auth_repo.name] = last_commit.value
             self.state.users_auth_repo.set_last_validated_data(
                 last_validated_data,
-                set_last_validated_commit=not bool(self.excluded_target_names),
             )
 
             return self.state.update_status
