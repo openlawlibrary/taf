@@ -11,7 +11,7 @@ from taf.tests.test_updater.conftest import (
     add_unauthenticated_commits_to_all_target_repos,
     add_valid_target_commits,
     create_file_without_committing,
-    set_last_commit_of_auth_repo,
+    set_last_validated_commit_of_auth_repo,
     update_expiration_dates,
     update_timestamp_metadata_invalid_signature,
     replace_with_old_last_validated_commit_format,
@@ -66,7 +66,7 @@ def test_update_invalid_target_repositories_contain_unsigned_commits(
     ],
     indirect=True,
 )
-def test_update_invalid_repo_target_wuth_uncommitted_changes(
+def test_update_with_uncommitted_target_changes_and_upstream_updates_fails(
     origin_auth_repo, client_dir
 ):
     clone_repositories(
@@ -75,6 +75,10 @@ def test_update_invalid_repo_target_wuth_uncommitted_changes(
     )
 
     create_file_without_committing(origin_auth_repo, client_dir)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
 
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
@@ -101,7 +105,7 @@ def test_update_with_invalid_last_validated_commit(origin_auth_repo, client_dir)
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(
-        set_last_commit_of_auth_repo, kwargs={"commit": invalid_commit_sha}
+        set_last_validated_commit_of_auth_repo, kwargs={"commit": invalid_commit_sha}
     )
     clients_setup_manager.execute_tasks()
 

@@ -16,7 +16,7 @@ from taf.tests.test_updater.conftest import (
     remove_commits,
     remove_commits_from_auth_repo,
     reset_to_commit,
-    set_last_commit_of_auth_repo,
+    set_last_validated_commit_of_auth_repo,
     update_auth_repo_without_committing,
     update_expiration_dates,
     update_target_repo_without_committing,
@@ -38,7 +38,9 @@ from taf.updater.types.update import OperationType
     ],
     indirect=True,
 )
-def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
+def test_update_with_dirty_auth_repo_and_upstream_auth_changes_requires_force(
+    origin_auth_repo, client_dir
+):
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -51,6 +53,10 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
     setup_manager.add_task(update_auth_repo_without_committing)
     setup_manager.execute_tasks()
     assert client_auth_repo.something_to_commit()
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(update_expiration_dates)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -76,6 +82,9 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
 
     assert client_auth_repo.something_to_commit()
 
+    origin_setup_manager.add_task(update_expiration_dates)
+    origin_setup_manager.execute_tasks()
+
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
         OperationType.UPDATE,
@@ -103,7 +112,9 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
+def test_update_with_dirty_target_repo_and_upstream_target_changes_requires_force(
+    origin_auth_repo, client_dir
+):
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -119,6 +130,10 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
 
     target1 = GitRepository(path=(client_auth_repo_path.parent / "target1"))
     assert target1.something_to_commit()
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -145,6 +160,9 @@ def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
     setup_manager.execute_tasks()
 
     assert target1.something_to_commit()
+
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -191,6 +209,10 @@ def test_update_unpushed_commits_auth_repo(origin_auth_repo, client_dir):
     )
 
     assert has_unpushed
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(update_expiration_dates)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -247,6 +269,10 @@ def test_update_unpushed_commits_target_repo(origin_auth_repo, client_dir):
         client_target_repo.default_branch
     )
     assert has_unpushed
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
 
     # the update should fail without the force flag
     update_invalid_repos_and_check_if_repos_exist(
@@ -313,7 +339,7 @@ def test_update_valid_when_detached_head(origin_auth_repo, client_dir):
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(reset_to_commit, kwargs={"commit": all_commits[-2]})
     clients_setup_manager.add_task(
-        set_last_commit_of_auth_repo, kwargs={"commit": all_commits[-2]}
+        set_last_validated_commit_of_auth_repo, kwargs={"commit": all_commits[-2]}
     )
     clients_setup_manager.execute_tasks()
 
@@ -488,7 +514,7 @@ def test_update_with_last_validated_commit_not_in_local_repo(
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(
-        set_last_commit_of_auth_repo, kwargs={"commit": origin_top_commit}
+        set_last_validated_commit_of_auth_repo, kwargs={"commit": origin_top_commit}
     )
     clients_setup_manager.add_task(remove_commits_from_auth_repo)
     clients_setup_manager.execute_tasks()
@@ -532,7 +558,7 @@ def test_update_with_targets_repo_having_a_local_branch_not_on_remote_origin_exp
     client_auth_repo = AuthenticationRepository(client_dir, origin_auth_repo.name)
     clients_setup_manager = SetupManager(client_auth_repo)
     clients_setup_manager.add_task(
-        set_last_commit_of_auth_repo, kwargs={"commit": origin_top_commit}
+        set_last_validated_commit_of_auth_repo, kwargs={"commit": origin_top_commit}
     )
     clients_setup_manager.add_task(
         create_new_target_repo_branch, kwargs={"target_name": "target1"}
@@ -580,3 +606,43 @@ def test_update_invalid_repo_target_in_indeterminate_state(
         client_dir,
         force=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_force_resets_target_repo_not_consistent_with_lvc(
+    origin_auth_repo, client_dir
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    origin_setup_manager = SetupManager(origin_auth_repo)
+    origin_setup_manager.add_task(add_valid_target_commits)
+    origin_setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(OperationType.UPDATE, origin_auth_repo, client_dir)
+
+    client_auth_repo_path = client_dir / origin_auth_repo.name
+    client_target_repo = GitRepository(path=client_auth_repo_path.parent / "target1")
+    expected_commit = client_target_repo.head_commit()
+
+    # Roll target1 back one commit - local state no longer matches LVC
+    client_target_repo.reset_num_of_commits(1, hard=True)
+    assert client_target_repo.head_commit() != expected_commit
+
+    # No new commits on origin - update with --force should reset the target
+    # back to LVC and complete as a no-op
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        force=True,
+    )
+
+    assert client_target_repo.head_commit() == expected_commit

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from attr import attrs, define, field
 
+from taf.api.repository import reset_repository
 from taf.git import GitError
 from taf.git import GitRepository
 from taf.constants import INFO_JSON_PATH
@@ -21,6 +22,7 @@ from taf.exceptions import (
     MissingInfoJsonError,
     UpdateFailedError,
     MultipleRepositoriesNotCleanError,
+    ResetFailedError,
 )
 from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
@@ -278,17 +280,32 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.set_existing_target_repositories,
                     RunMode.UPDATE,
                     self.should_run_step_default,
-                ),  # specify extra method here and runner will call to check if we can have it here
+                ),
+                (
+                    self.check_if_local_repos_match_lvc,
+                    RunMode.UPDATE,
+                    self.should_run_step_default,
+                ),
+                (
+                    self.reset_if_not_consistent_with_lvc,
+                    RunMode.UPDATE,
+                    self.should_reset_if_not_locally_consistent,
+                ),
+                (
+                    self.check_if_repo_is_synced_with_remote,
+                    RunMode.UPDATE,
+                    self.should_run_if_locally_consistent,
+                ),
                 (
                     self.check_if_local_repositories_clean,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
-                ),  # run only when want to updatae; valaidation doesn't change repop sstate; merge will fail without this
+                    self.should_update_auth_repos,
+                ),
                 (
                     self.clone_auth_to_temp,
                     RunMode.ALL,
                     self.should_update_auth_repos,
-                ),  # should be done regardless of flags
+                ),
                 (
                     self.prepare_for_auth_update_and_check_last_validated_commit,
                     RunMode.ALL,
@@ -298,7 +315,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     self.run_tuf_updater,
                     RunMode.ALL,
                     self.should_update_auth_repos,
-                ),  # should be done regardless of flags
+                ),
                 (
                     self.validate_out_of_band_and_update_type,
                     RunMode.ALL,
@@ -322,13 +339,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.set_excluded_targets,
                     RunMode.ALL,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),
-                # should_validate_target_repos
                 (
                     self.load_target_repositories,
                     RunMode.ALL,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),
                 (
                     self.set_auth_commit_for_target_repos,
@@ -388,12 +404,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 (
                     self.merge_auth_commits,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),  # merge fetched commits
                 (
                     self.remove_temp_repositories,
                     RunMode.UPDATE,
-                    self.should_run_step_default,
+                    self.should_run_if_not_synced,
                 ),  # only removes auth repo with --no-targets
                 (
                     self.set_target_repositories_data,
@@ -440,6 +456,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         self.state = UpdateState()
         self.state.targets_data = {}
         self._output = None
+        self.local_repos_consistent = True
+        self.repos_synced_with_remote = False
 
     @property
     def output(self):
@@ -452,11 +470,23 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
     def should_run_step_default(self):
         return True
 
+    def should_run_if_upstream(self):
+        return not self.no_upstream
+
+    def should_run_if_locally_consistent(self):
+        return self.local_repos_consistent
+
+    def should_reset_if_not_locally_consistent(self):
+        return not self.local_repos_consistent and self.force
+
     def should_update_auth_repos(self):
-        return True
+        return not self.repos_synced_with_remote
+
+    def should_run_if_not_synced(self):
+        return not self.repos_synced_with_remote
 
     def should_validate_target_repos(self):
-        if self.no_targets:
+        if self.no_targets or self.repos_synced_with_remote:
             return False
         if self.no_upstream:
             # check if self.state.event has changed.
@@ -628,6 +658,127 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     dirty_index_repos, unpushed_commits_repos_and_branches
                 )
             return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def check_if_local_repos_match_lvc(self):
+        """
+        Check if the local auth repo and target repos on disk still match the
+        state recorded in last_validated_data. If they do, set
+        local_repos_consistent=True so that check_if_repo_is_synced_with_remote
+        can potentially skip the full update when there are no upstream changes.
+
+        If lvc data is missing, or any repo's HEAD does not match, we leave
+        local_repos_consistent=False and the full update runs unconditionally.
+        """
+        try:
+            self.local_repos_consistent = False
+
+            if not self.state.existing_repo:
+                return UpdateStatus.SUCCESS
+
+            auth_repo = self.state.users_auth_repo
+            taf_logger.info(
+                f"{auth_repo.name}: Checking if local state is consistent with last validated data"
+            )
+            self.state.last_validated_data = auth_repo.last_validated_data or {}
+
+            if not self.state.last_validated_data or auth_repo.is_detached_head:
+                return UpdateStatus.SUCCESS
+
+            auth_lvc = self.state.last_validated_data.get(auth_repo.name)
+            if auth_lvc is None or auth_repo.head_commit() != Commitish.from_hash(
+                auth_lvc
+            ):
+                return UpdateStatus.SUCCESS
+
+            for repo_name, lvc_entry in self.state.last_validated_data.items():
+                if (
+                    repo_name
+                    in {auth_repo.name, auth_repo.LAST_VALIDATED_KEY, "exclude_filter"}
+                    or lvc_entry is None
+                    or repo_name in self.state.repos_on_disk
+                ):
+                    continue
+
+                if auth_repo.get_target(repo_name, Commitish.from_hash(lvc_entry)):
+                    return UpdateStatus.SUCCESS
+
+            for repo_name, repo in self.state.repos_on_disk.items():
+                lvc_entry = self.state.last_validated_data.get(repo_name)
+                if lvc_entry is None:
+                    # repo was excluded from a previous partial update
+                    continue
+
+                if repo.is_detached_head:
+                    return UpdateStatus.SUCCESS
+
+                target_data = auth_repo.get_target(
+                    repo_name, Commitish.from_hash(lvc_entry)
+                )
+                if not target_data:
+                    return UpdateStatus.SUCCESS
+
+                branch = target_data.get("branch", repo.default_branch)
+                branch_commit = repo.top_commit_of_branch(branch)
+                if (
+                    branch_commit is None
+                    or branch_commit.value != target_data["commit"]
+                ):
+                    return UpdateStatus.SUCCESS
+
+            self.local_repos_consistent = True
+            return UpdateStatus.SUCCESS
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
+
+    def reset_if_not_consistent_with_lvc(self):
+        """
+        If local repos do not match the state recorded in last_validated_data and
+        the updater was called with --force, reset auth and target repos to the last
+        validated commit
+        """
+        try:
+            auth_repo = self.state.users_auth_repo
+            taf_logger.info(
+                f"{auth_repo.name}: Local state is inconsistent with last validated commit. "
+                "Resetting."
+            )
+            reset_repository(
+                auth_repo=auth_repo,
+                commit=None,
+                override_lvc=False,
+                force=True,
+            )
+            self.local_repos_consistent = True
+        except ResetFailedError as e:
+            # Reset could not be completed (e.g. LVC commit not on default branch or
+            # not in local repo). Leave local_repos_consistent=False so the updater
+            # runs full validation from the beginning, which will fix the state.
+            taf_logger.info(
+                f"{self.state.users_auth_repo.name}: Reset to last validated commit failed, "
+                f"proceeding with full validation. Reason: {e}"
+            )
+
+        return UpdateStatus.SUCCESS
+
+    def check_if_repo_is_synced_with_remote(self):
+        if self.operation == OperationType.CLONE or not self.no_upstream:
+            return UpdateStatus.SUCCESS
+
+        try:
+            auth_repo = AuthenticationRepository(path=self.auth_path)
+            taf_logger.info(f"{auth_repo.name}: Checking if synced with remote")
+            local_head = auth_repo.head_commit()
+            remote_head = auth_repo.get_last_remote_commit()
+            if local_head == remote_head:
+                self.state.event = Event.UNCHANGED
+                self.repos_synced_with_remote = True
+                return UpdateStatus.SUCCESS
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -835,7 +986,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             _clear_lvc()
                         else:
                             raise UpdateFailedError(
-                                f"{error_msg}\nRun the updater with the --force flag to run the validation from the first commit"
+                                f"{error_msg}\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                             )
 
                     if (
@@ -857,7 +1008,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                             else:
                                 raise UpdateFailedError(
                                     f"{self.state.users_auth_repo.name}: Last validated commit {users_head_commit} is not in repository {self.state.users_auth_repo.name} "
-                                    "\nRun the updater with the --force flag to run the validation from the first commit"
+                                    "\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                                 )
                         else:
                             commits_since = (
@@ -883,7 +1034,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                                 else:
                                     raise UpdateFailedError(
                                         f"Top commit of repository {self.state.users_auth_repo.name} {users_head_commit} is not equal to or newer than the last successful commit. "
-                                        "\nRun the updater with the --force flag to run the validation from the first commit"
+                                        "\nRun 'taf repo reset' to sync your local repositories, or run the updater with the --force flag to validate from the first commit"
                                     )
 
         except Exception as e:
@@ -1269,6 +1420,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
 
             self.state.old_heads_per_target_repos_branches = defaultdict(dict)
+
+            if self.local_repos_consistent and not self.state.is_partially_updated:
+                return UpdateStatus.SUCCESS
+
             is_initial_state_in_sync = True
             # if last validated commit was not manually modified (set to a newer commit)
             # target repositories data that is extracted to them (commit and branch)

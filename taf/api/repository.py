@@ -219,7 +219,11 @@ def reset_repository(
             else None
         )
         if commit is None:
-            auth_commit = last_validated_commit
+            auth_commit = (
+                auth_repo.resolve_commit(last_validated_commit)
+                if last_validated_commit
+                else None
+            )
         else:
             auth_commit = auth_repo.resolve_commit(commit)
 
@@ -355,18 +359,12 @@ def _perform_checks(
     # target repo changes that would lead to early failure and therefore exit before these changes
     if auth_repo.is_detached_head:
         auth_repo.reset_to_commit(auth_commit, hard=True)
-    # Fail early if commit is not on the branch:
-    current_branch = auth_repo.get_current_branch()
-    if auth_commit not in auth_repo.all_commits_on_branch(current_branch):
-        if not force:
-            raise ResetFailedError(
-                f"Auth repo commit {auth_commit.hash} not found on current branch ({current_branch})."
-            )
-        else:
-            try:
-                auth_repo.reset_to_commit(auth_commit, hard=True)
-            except Exception as e:
-                raise ResetFailedError(e)
+    # Fail early if commit is not on the default branch:
+    default_branch = auth_repo.get_default_branch()
+    if auth_commit not in auth_repo.all_commits_on_branch(default_branch):
+        raise ResetFailedError(
+            f"Auth repo commit {auth_commit.hash} not found on branch ({default_branch})."
+        )
 
 
 def _should_override_lvc(
