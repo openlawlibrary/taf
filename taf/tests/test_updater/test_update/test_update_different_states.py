@@ -38,7 +38,9 @@ from taf.updater.types.update import OperationType
     ],
     indirect=True,
 )
-def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
+def test_update_with_dirty_auth_repo_and_upstream_auth_changes_requires_force(
+    origin_auth_repo, client_dir
+):
     clone_repositories(
         origin_auth_repo,
         client_dir,
@@ -110,7 +112,9 @@ def test_update_valid_dirty_index_auth_repo(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_valid_dirty_index_target_repo(origin_auth_repo, client_dir):
+def test_update_with_dirty_target_repo_and_upstream_target_changes_requires_force(
+    origin_auth_repo, client_dir
+):
     clone_repositories(
         origin_auth_repo,
         client_dir,
