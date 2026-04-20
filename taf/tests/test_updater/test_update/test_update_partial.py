@@ -277,7 +277,10 @@ def test_last_validated_commit_set_on_exclude_not_updated_on_partial_error(
     client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
     lvc_data = client_auth_repo.last_validated_data
     assert client_auth_repo.LAST_VALIDATED_KEY in lvc_data
-    assert lvc_data[client_auth_repo.LAST_VALIDATED_KEY] == client_auth_repo.head_commit().hash
+    assert (
+        lvc_data[client_auth_repo.LAST_VALIDATED_KEY]
+        == client_auth_repo.head_commit().hash
+    )
 
     # Sandwich target_xml2: valid → unsigned → valid again, so there is an unsigned commit
     setup_manager.add_task(add_valid_target_commits)
@@ -287,7 +290,9 @@ def test_last_validated_commit_set_on_exclude_not_updated_on_partial_error(
     setup_manager.add_task(add_valid_target_commits)
     setup_manager.execute_tasks()
 
-    client_target_repos = load_target_repositories(origin_auth_repo, library_dir=client_dir)
+    client_target_repos = load_target_repositories(
+        origin_auth_repo, library_dir=client_dir
+    )
     client_xml1 = next(
         repo for name, repo in client_target_repos.items() if "target_xml1" in name
     )
