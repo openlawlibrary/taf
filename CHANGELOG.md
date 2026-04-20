@@ -11,7 +11,13 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Rework partial-update check so updates with excluded targets are not considered partial ([724])
+
 ### Fixed
+
+- Enable `--exclude-filter` for validation ([724])
+
+[724]: https://github.com/openlawlibrary/taf/pull/724
 
 ## [0.38.0]
 

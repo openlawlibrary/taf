@@ -269,7 +269,8 @@ class UpdateConfig:
                     self.library_dir = Path(".").resolve()
 
         if self.operation == OperationType.UPDATE:
-            self.exclude_filter = None
+            if not self.only_validate:
+                self.exclude_filter = None
             if self.path is None:
                 self.path = Path(".").resolve()
             if self.library_dir is None:

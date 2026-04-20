@@ -425,7 +425,11 @@ def verify_excluded_lvc_entries(
 ):
     client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
     last_validated_data = client_auth_repo.last_validated_data
+    head_commit = client_auth_repo.head_commit()
+
     assert last_validated_data is not None
+    assert head_commit is not None
+    assert client_auth_repo.last_validated_commit == head_commit.hash
     if last_validated_data.get("exclude_filter") is not None:
         assert last_validated_data["exclude_filter"]
     client_target_repos = load_target_repositories(

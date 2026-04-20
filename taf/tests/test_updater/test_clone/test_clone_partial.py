@@ -73,3 +73,4 @@ def test_clone_with_filter(origin_auth_repo, client_dir):
         exclude_filter="repo['type'] == 'html'",
     )
     verify_repos_exist(client_dir, origin_auth_repo, excluded=["target_same1"])
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded=["target_same1"])
