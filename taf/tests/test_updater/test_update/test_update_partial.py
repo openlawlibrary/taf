@@ -188,3 +188,51 @@ def test_update_after_partial_clone_with_deleted_lvc(origin_auth_repo, client_di
         skip_check_last_validated=True,
     )
     verify_repos_exist(client_dir, origin_auth_repo)
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [
+                {"name": "target_html", "custom": {"type": "html"}},
+                {"name": "target_xml", "custom": {"type": "xml"}},
+            ],
+        },
+    ],
+    indirect=True,
+)
+def test_update_after_clone_with_html_filter_remove_exclude_from_lvc(
+    origin_auth_repo, client_dir
+):
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(add_valid_target_commits)
+    setup_manager.execute_tasks()
+
+    is_test_repo = origin_auth_repo.is_test_repo
+    expected_repo_type = UpdateType.TEST if is_test_repo else UpdateType.OFFICIAL
+
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+        exclude_filter="repo['type'] == 'html'",
+    )
+    verify_repos_exist(client_dir, origin_auth_repo, excluded=["target_html"])
+    verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded=["target_html"])
+
+    # Remove exclude_filter from LVC so the next update includes all repos
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    lvc_data = client_auth_repo.last_validated_data
+    lvc_data.pop("exclude_filter", None)
+    client_auth_repo.set_last_validated_data(lvc_data, set_last_validated_commit=False)
+
+    # Update should now clone and validate all repos, including html
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=expected_repo_type,
+    )
+    verify_repos_exist(client_dir, origin_auth_repo)
