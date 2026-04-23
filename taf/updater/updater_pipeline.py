@@ -1278,7 +1278,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 # Load exclude_filter from last_validated_data saved by a previous clone/update
                 last_validated_data = self.state.users_auth_repo.last_validated_data
-                self.exclude_filter = last_validated_data.get("exclude_filter") or None
+                # exclude filter can be specified if running local validation
+                if not self.exclude_filter:
+                    self.exclude_filter = (
+                        last_validated_data.get("exclude_filter") or None
+                    )
 
             if self.exclude_filter:
                 excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
