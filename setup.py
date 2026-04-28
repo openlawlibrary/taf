@@ -15,7 +15,7 @@ packages = find_packages()
 
 ci_require = [
     "bandit>=1.6.0",
-    "black==22.12.0",
+    "black==26.3.1",
     "coverage==4.5.3",
     "pre-commit>=1.18.3",
     "pytest-cov==2.7.1",
@@ -24,7 +24,7 @@ ci_require = [
 
 executable_require = ["lxml"]
 
-dev_require = ["bandit>=1.6.0", "black==22.12.0", "pre-commit>=1.18.3"]
+dev_require = ["bandit>=1.6.0", "black==26.3.1", "pre-commit>=1.18.3"]
 
 tests_require = [
     "pytest==8.*",
