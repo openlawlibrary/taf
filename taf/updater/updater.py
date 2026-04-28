@@ -339,6 +339,7 @@ def update_repository(config: UpdateConfig):
     Returns:
         None
     """
+    repositoriesdb.clear_repositories_db()
     settings.strict = config.strict
     settings.run_scripts = config.run_scripts
 
@@ -645,6 +646,7 @@ def validate_repository(
     no_deps=False,
     no_upstream=True,
 ):
+    repositoriesdb.clear_repositories_db()
     update_from_filesystem = settings.update_from_filesystem
     settings.strict = strict
 

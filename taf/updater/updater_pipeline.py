@@ -659,6 +659,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
             return UpdateStatus.SUCCESS
         except Exception as e:
+            taf_logger.error(
+                "{}: Failed to set excluded targets with exclude_filter {}: {}",
+                self.state.users_auth_repo.name,
+                repr(self.exclude_filter),
+                e,
+            )
             self.state.errors.append(e)
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
@@ -674,11 +680,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         local_repos_consistent=False and the full update runs unconditionally.
         """
         try:
-            self.local_repos_consistent = False
-
             if not self.state.existing_repo:
                 return UpdateStatus.SUCCESS
 
+            self.local_repos_consistent = False
             auth_repo = self.state.users_auth_repo
             taf_logger.info(
                 f"{auth_repo.name}: Checking if local state is consistent with last validated data"
@@ -763,6 +768,10 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 f"{self.state.users_auth_repo.name}: Reset to last validated commit failed, "
                 f"proceeding with full validation. Reason: {e}"
             )
+        except Exception as e:
+            self.state.errors.append(e)
+            self.state.event = Event.FAILED
+            return UpdateStatus.FAILED
 
         return UpdateStatus.SUCCESS
 
@@ -1278,7 +1287,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             else:
                 # Load exclude_filter from last_validated_data saved by a previous clone/update
                 last_validated_data = self.state.users_auth_repo.last_validated_data
-                self.exclude_filter = last_validated_data.get("exclude_filter") or None
+                # exclude filter can be specified if running local validation
+                if not self.exclude_filter:
+                    self.exclude_filter = (
+                        last_validated_data.get("exclude_filter") or None
+                    )
 
             if self.exclude_filter:
                 excluded_repo_names = repositoriesdb.get_repository_names_by_expression(

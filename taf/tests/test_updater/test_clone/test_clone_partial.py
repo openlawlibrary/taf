@@ -16,8 +16,8 @@ from taf.tests.test_updater.conftest import (
     [
         {
             "targets_config": [
-                {"name": "target_same1", "custom": {"type": "html"}},
-                {"name": "target_same2", "custom": {"type": "xml"}},
+                {"name": "target_same1", "custom": {"type": "type1"}},
+                {"name": "target_same2", "custom": {"type": "type2"}},
                 {"name": "target_different", "custom": {"random": "value"}},
             ],
         },
@@ -49,8 +49,8 @@ def test_clone_with_excluded_targets(origin_auth_repo, client_dir):
     [
         {
             "targets_config": [
-                {"name": "target_same1", "custom": {"type": "html"}},
-                {"name": "target_same2", "custom": {"type": "xml"}},
+                {"name": "target_same1", "custom": {"type": "type1"}},
+                {"name": "target_same2", "custom": {"type": "type2"}},
                 {"name": "target_different", "custom": {"random": "value"}},
             ],
         },
@@ -70,7 +70,7 @@ def test_clone_with_filter(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         expected_repo_type=expected_repo_type,
-        exclude_filter="repo['type'] == 'html'",
+        exclude_filter="repo['type'] == 'type1'",
     )
     verify_repos_exist(client_dir, origin_auth_repo, excluded=["target_same1"])
     verify_excluded_lvc_entries(client_dir, origin_auth_repo, excluded=["target_same1"])

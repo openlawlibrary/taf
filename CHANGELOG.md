@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
 
 ### Added
@@ -12,6 +13,21 @@ and this project adheres to [Semantic Versioning][semver].
 ### Changed
 
 ### Fixed
+
+
+## [0.38.2]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Do not overwrite exclude filter when running local validation ([727])
+- Clear cached repositories before update and validation flows so exclude filters do not reuse stale repository state ([727])
+- Allow set literals in exclude_filter expressions ([727])
+
+[727]: https://github.com/openlawlibrary/taf/pull/727
 
 
 ## [0.38.1]
@@ -1793,7 +1809,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.1...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.2...HEAD
+[0.38.2]: https://github.com/openlawlibrary/taf/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/openlawlibrary/taf/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/openlawlibrary/taf/compare/v0.37.6...v0.38.0
 [0.37.6]: https://github.com/openlawlibrary/taf/compare/v0.37.5...v0.37.6

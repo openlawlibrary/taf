@@ -120,16 +120,17 @@ def test_safe_filter_expressions_are_allowed():
     """Test that safe filter expressions do not raise errors."""
 
     safe_expressions = [
-        "repo['type'] == 'html'",
-        "repo['type'] != 'html'",
+        "repo['type'] == 'type1'",
+        "repo['type'] != 'type1'",
         "repo.get('serve') == 'latest'",
         "repo.get('serve') == 'historical'",
         "not repo.get('archived')",
-        "repo['type'] == 'html' and repo['serve'] == 'latest'",
-        "repo['type'] == 'html' or repo.get('archived')",
+        "repo['type'] == 'type1' and repo['serve'] == 'latest'",
+        "repo['type'] == 'type1' or repo.get('archived')",
         "repo.get('nonexistent', 'default') == 'default'",
         "'type' in repo",
         "repo.get('archived') is None",
+        "repo['type'] in {'type1', 'type2'}",
     ]
 
     for expr in safe_expressions:
