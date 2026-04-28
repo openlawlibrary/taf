@@ -23,9 +23,11 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Do not overwrite exclude filter when running local validation
+- Do not overwrite exclude filter when running local validation ([727])
+- Clear cached repositories before update and validation flows so exclude filters do not reuse stale repository state ([727])
+- Allow set literals in exclude_filter expressions ([727])
 
-[724]: https://github.com/openlawlibrary/taf/pull/724
+[727]: https://github.com/openlawlibrary/taf/pull/727
 
 
 ## [0.38.1]

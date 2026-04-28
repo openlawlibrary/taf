@@ -30,6 +30,8 @@ from taf.models.types import Commitish
 
 _repositories_dict: Dict = {}
 _dependencies_dict: Dict = {}
+
+
 REPOSITORIES_JSON_NAME = "repositories.json"
 DEPENDENCIES_JSON_NAME = "dependencies.json"
 MIRRORS_JSON_NAME = "mirrors.json"
@@ -190,9 +192,10 @@ def load_repositories(
     """
     Creates target repositories by reading repositories.json and targets.json files
     at the specified revisions, given an authentication repo.
-    If the the commits are not specified, targets will be created based on the HEAD pointer
+    If the commits are not specified, targets will be created based on the HEAD pointer
     of the authentication repository. It is possible to specify git repository class that
     will be created per target.
+
     Args:
         auth_repo: the authentication repository
         target_classes: a single git repository class, or a dictionary whose keys are
@@ -216,6 +219,9 @@ def load_repositories(
         roles: a list of roles whose repositories should be loaded. The repositories linked to a specific
         role are determined based on its targets, so there is no need to set only_load_targets to True.
         If only_load_targets is True and roles is not set, all roles will be taken into consideration.
+        exclude_filter: an optional Python expression string evaluated against each repository's
+        custom metadata. Repositories for which the expression is truthy are excluded from the
+        loaded set.
     """
     global _repositories_dict
     new_reps = _load_repositories(
@@ -761,7 +767,8 @@ def get_auth_repositories(
 
 
 def get_repositories(
-    auth_repo: AuthenticationRepository, commit: Optional[Commitish] = None
+    auth_repo: AuthenticationRepository,
+    commit: Optional[Commitish] = None,
 ) -> Dict[str, GitRepository]:
     return _get_repositories(auth_repo, commit)
 
@@ -1003,6 +1010,9 @@ def _validate_filter_expression(filter_expr: str) -> None:
     """
     if not filter_expr:
         return
+
+    taf_logger.debug("Validating filter Python expression: {}", filter_expr)
+
     try:
         tree = ast.parse(filter_expr, mode="eval")
     except SyntaxError as e:
@@ -1044,6 +1054,7 @@ def _validate_filter_expression(filter_expr: str) -> None:
         ast.Attribute,
         ast.List,
         ast.Tuple,
+        ast.Set,
         ast.Dict,
         # Comparison operators
         ast.Eq,
@@ -1087,3 +1098,5 @@ def _validate_filter_expression(filter_expr: str) -> None:
                     "Function calls not allowed in filter expressions "
                     "(except dict methods like .get())"
                 )
+
+    taf_logger.debug("Validated safe filter expression: {}", filter_expr)

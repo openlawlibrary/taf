@@ -249,6 +249,39 @@ def test_valid_clone_when_exclude_target(
 
 
 @pytest.mark.parametrize(
+    "origin_auth_repo, exclude_filter",
+    [
+        (
+            {
+                "targets_config": [
+                    {"name": "target_type1", "custom": {"type": "type1"}},
+                    {"name": "target_type2", "custom": {"type": "type2"}},
+                    {"name": "target_type3", "custom": {"type": "type3"}},
+                ],
+            },
+            "repo['type'] in {'type1', 'type2'}",
+        )
+    ],
+    indirect=["origin_auth_repo"],
+)
+def test_valid_clone_when_exclude_target_with_set_literal(
+    origin_auth_repo,
+    exclude_filter,
+    client_dir,
+):
+    update_and_check_commit_shas(
+        OperationType.CLONE,
+        origin_auth_repo,
+        client_dir,
+        expected_repo_type=UpdateType.EITHER,
+        exclude_filter=exclude_filter,
+    )
+    verify_excluded_lvc_entries(
+        client_dir, origin_auth_repo, excluded=["target_type1", "target_type2"]
+    )
+
+
+@pytest.mark.parametrize(
     "origin_auth_repo, existing_target_repositories",
     [
         (
