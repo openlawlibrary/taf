@@ -174,7 +174,12 @@ class GitRepository:
     @property
     def is_detached_head(self) -> bool:
         repo = self.pygit_repo
-        return repo.head_is_detached
+        try:
+            return repo.head_is_detached
+        except AttributeError:
+            raise PygitError(
+                "pygit2 repository is unavailable; cannot determine HEAD state"
+            )
 
     @property
     def is_git_repository(self) -> bool:
@@ -238,11 +243,11 @@ class GitRepository:
     @property
     def is_bare_repository(self) -> bool:
         if self._is_bare_repo is None:
-            if self.pygit_repo is not None:
+            try:
                 self._is_bare_repo = self.pygit_repo.is_bare
-            else:
-                raise GitError(
-                    "Cannot determine if repository is a bare repository. Cannot instantiate pygit repository"
+            except AttributeError:
+                raise PygitError(
+                    "pygit2 repository is unavailable; cannot determine if repository is bare"
                 )
 
         return self._is_bare_repo
@@ -384,7 +389,12 @@ class GitRepository:
         repo = self.pygit_repo
 
         if branch:
-            branch_obj = repo.branches.get(branch)
+            try:
+                branch_obj = repo.branches.get(branch)
+            except AttributeError:
+                raise PygitError(
+                    f"pygit2 repository is unavailable; cannot list commits on branch {branch}"
+                )
             if branch_obj is None:
                 raise GitError(
                     self,
@@ -490,12 +500,17 @@ class GitRepository:
         """Returns all branches."""
         repo = self.pygit_repo
 
-        if all:
-            branches = set(repo.branches)
-        elif remote:
-            branches = set(repo.branches.remote)
-        else:
-            branches = set(repo.branches.local)
+        try:
+            if all:
+                branches = set(repo.branches)
+            elif remote:
+                branches = set(repo.branches.remote)
+            else:
+                branches = set(repo.branches.local)
+        except AttributeError:
+            raise PygitError(
+                "pygit2 repository is unavailable; cannot list branches"
+            )
 
         if strip_remote:
             remotes = self.remotes
@@ -552,7 +567,12 @@ class GitRepository:
         """
         repo = self.pygit_repo
 
-        branch = repo.branches.get(branch_name)
+        try:
+            branch = repo.branches.get(branch_name)
+        except AttributeError:
+            raise PygitError(
+                f"pygit2 repository is unavailable; cannot check if branch {branch_name} exists"
+            )
         # this git command should return the branch's name if it exists
         # empty string otherwise
         if branch is not None:
@@ -1450,11 +1470,16 @@ class GitRepository:
     def list_pygit_commits(self, branch: Optional[str] = "") -> List[pygit2.Commit]:
         repo = self.pygit_repo
 
-        if branch:
-            branch_obj = repo.branches.get(branch)
-            latest_commit_id = branch_obj.target
-        else:
-            latest_commit_id = repo[repo.head.target].id
+        try:
+            if branch:
+                branch_obj = repo.branches.get(branch)
+                latest_commit_id = branch_obj.target
+            else:
+                latest_commit_id = repo[repo.head.target].id
+        except AttributeError:
+            raise PygitError(
+                "pygit2 repository is unavailable; cannot list pygit commits"
+            )
 
         return [commit for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)]
 
