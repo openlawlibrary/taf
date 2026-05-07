@@ -122,10 +122,8 @@ def setup_signing_key_command():
 
 
 def setup_test_key_command():
-    @click.command(
-        help="""Copies the specified key onto the inserted YubiKey
-        WARNING - this will reset the inserted key."""
-    )
+    @click.command(help="""Copies the specified key onto the inserted YubiKey
+        WARNING - this will reset the inserted key.""")
     @click.argument("key-path")
     @catch_cli_exception(handle=YubikeyError)
     @pin_managed

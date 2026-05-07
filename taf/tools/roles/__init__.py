@@ -21,8 +21,7 @@ from taf.tools.repo import pin_managed
 
 
 def add_roles_command():
-    @click.command(
-        help="""
+    @click.command(help="""
     Add new delegated target roles. Allows optional specification of each role's properties through a JSON configuration file.
 
     Configuration file (JSON) can specify:
@@ -68,8 +67,7 @@ def add_roles_command():
         }
     }
     }
-    """
-    )
+    """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
@@ -116,11 +114,9 @@ def add_roles_command():
 
 
 def export_roles_description_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Export roles-description.json file based on the
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.option(
@@ -308,8 +304,7 @@ def remove_paths_command():
 
 
 def add_signing_key_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Add a new signing key. This will make it possible to a sign metadata files
         corresponding to the specified roles with another key. Although private keys are
         used for signing, key identifiers are calculated based on the public keys. This
@@ -317,8 +312,7 @@ def add_signing_key_command():
         a new signing key. Public key can be loaded from a file, in which case it is
         necessary to specify its path as the pub_key parameter's value. If this option
         is not used when calling this command, the key can be directly entered later.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
@@ -379,11 +373,9 @@ def add_signing_key_command():
 
 
 def revoke_signing_key_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Revoke a signing key.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @common_repo_edit_options
@@ -437,11 +429,9 @@ def revoke_signing_key_command():
 
 
 def rotate_signing_key_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Rotate a signing key.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("keyid")
@@ -506,12 +496,10 @@ def rotate_signing_key_command():
 
 
 def list_keys_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         List all keys of the specified role. If certs directory exists and contains certificates exported from YubiKeys,
         include additional information read from these certificates, like name or organization.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("role")

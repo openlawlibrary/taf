@@ -6,7 +6,6 @@ from taf.exceptions import NothingToCommitError
 from taf.utils import on_rm_error
 from taf.tests.conftest import TEST_DATA_REPOS_PATH
 
-
 TEST_DIR = Path(TEST_DATA_REPOS_PATH, "test-git")
 REPO_NAME = "repository"
 CLONE_REPO_NAME = "repository2"

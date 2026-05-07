@@ -8,7 +8,6 @@ import pytest
 
 from securesystemslib.exceptions import UnverifiedSignatureError
 
-
 # Test data to sign
 _DATA = b"DATA"
 _NOT_DATA = b"NOT DATA"

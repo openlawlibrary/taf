@@ -10,7 +10,6 @@ from taf.api.metadata import check_expiration_dates, update_metadata_expiration_
 from tuf.api.metadata import Root, Snapshot, Timestamp, Targets
 from taf.yubikey.yubikey_manager import PinManager
 
-
 AUTH_REPO_NAME = "auth"
 
 
