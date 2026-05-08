@@ -56,7 +56,6 @@ from tuf.repository import Repository
 
 from securesystemslib.signer import CryptoSigner
 
-
 logger = logging.getLogger(__name__)
 
 # TODO remove this, use from constants or remove from constants
@@ -721,9 +720,9 @@ class MetadataRepository(Repository):
                         key_id = _get_legacy_keyid(public_key)
                         keys_data[key_id] = public_key
                         if key_id in self.keys_name_mappings:
-                            public_key.unrecognized_fields[
-                                "name"
-                            ] = self.keys_name_mappings[key_id]
+                            public_key.unrecognized_fields["name"] = (
+                                self.keys_name_mappings[key_id]
+                            )
 
                     for signer in signers[role_data.name]:
                         public_key = signer.public_key

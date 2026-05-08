@@ -46,7 +46,6 @@ from taf.yubikey.yubikey_manager import PinManager
 
 from tuf.api.metadata import Timestamp
 
-
 KEYS_DESCRIPTION = str(TEST_INIT_DATA_PATH / "keys.json")
 
 

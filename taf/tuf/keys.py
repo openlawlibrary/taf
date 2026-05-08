@@ -1,6 +1,4 @@
-"""TUF metadata key functions.
-
-"""
+"""TUF metadata key functions."""
 
 from typing import Optional, Tuple, Union
 

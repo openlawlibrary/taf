@@ -15,7 +15,6 @@ from taf.git import GitRepository
 from taf.log import taf_logger
 from taf.models.types import Commitish
 
-
 # Target repositories db
 
 # {

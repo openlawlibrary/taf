@@ -2,7 +2,6 @@ import attrs
 import datetime
 from typing import List, Optional
 
-
 TARGETS_DIRECTORY_NAME = "targets"
 METADATA_DIRECTORY_NAME = "metadata"
 

@@ -112,8 +112,7 @@ def start_profiling():
 
 
 def create_repo_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         \b
         Create a new authentication repository at the specified location by registering
         signing keys and generating initial metadata files. Information about the roles
@@ -154,8 +153,7 @@ def create_repo_command():
 
         If the test flag is set, a special target file will be created. This means that when
         calling the updater, it'll be necessary to use the --authenticate-test-repo flag.
-        """
-    )
+        """)
     @catch_cli_exception(handle=TAFError, remove_dir_on_error=True)
     @click.argument(
         "path",
@@ -195,8 +193,7 @@ def create_repo_command():
 
 
 def clone_repo_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Validate and clone authentication repositories and target repositories. URL of the
         remote authentication repository must be specified when calling this command. If the remote repository's URL is a file system path, the --from-fs flag must be used.
 
@@ -228,8 +225,7 @@ def clone_repo_command():
         The update can be performed in strict or non-strict mode. Strict mode is enabled by specifying
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
-        """
-    )
+        """)
     @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @click.argument("url")
     @common_update_options
@@ -326,8 +322,7 @@ def clone_repo_command():
 
 
 def update_repo_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Update and validate local authentication repositories and target repositories.
 
         If the authentication repository and the target repositories are in the same root directory,
@@ -357,8 +352,7 @@ def update_repo_command():
         The update can be performed in strict or non-strict mode. Strict mode is enabled by specifying
         --strict, which will raise errors during the update if any warnings are found. By default, --strict
         is disabled.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=UpdateFailedError, skip_cleanup=True)
     @common_update_options
@@ -448,16 +442,14 @@ def update_repo_command():
 
 
 def validate_repo_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Validates an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system).
         Does not clone repositories, fetch changes or merge commits.
 
         Validation can be in strict or no-strict mode. Strict mode is set by specifying --strict, which will raise errors
         during validate if any/all warnings are found. By default, --strict is disabled.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=UpdateFailedError)
     @click.option(
@@ -558,8 +550,7 @@ def validate_repo_command():
 
 
 def reset_repo_command():
-    @click.command(
-        help="""
+    @click.command(help="""
         Resets an authentication repository which is already on the file system
         and its target repositories (which are also expected to be on the file system)
         to a specified snapshot in the past.
@@ -570,8 +561,7 @@ def reset_repo_command():
         in --comit flag if reset is successful.
         If --force flag is set, any uncommited changes or unstaged files will be removed,
         else an error will be raised if there are any those.
-        """
-    )
+        """)
     @find_repository
     @catch_cli_exception(handle=UpdateFailedError)
     @click.option(

@@ -16,7 +16,6 @@ from taf.tests.test_api.util import (
 )
 from taf.yubikey.yubikey_manager import PinManager
 
-
 AUTH_REPO_NAME = "auth"
 
 

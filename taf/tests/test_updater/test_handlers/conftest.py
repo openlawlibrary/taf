@@ -4,7 +4,6 @@ from taf.tests.conftest import TEST_DATA_PATH
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 
-
 HANDLERS_DATA_INPUT_DIR = TEST_DATA_PATH / "handler_inputs"
 TYPES_DIR = TEST_DATA_PATH / "types"
 UPDATE_TYPES_DIR = TYPES_DIR / "update"

@@ -107,8 +107,7 @@ def add_dependency_command():
 
 
 def remove_dependency_command():
-    @click.command(
-        help="""Remove a dependency from dependencies.json.
+    @click.command(help="""Remove a dependency from dependencies.json.
         Update and sign targets metadata, snapshot and timestamp using yubikeys or keys loaded from the specified keystore location.
 
         `taf dependencies remove --path auth-path dependency-name --keystore keystore-path`
@@ -117,8 +116,7 @@ def remove_dependency_command():
 
         `taf dependencies remove dependency-name --keystore keystore-path`
 
-        if inside an authentication repository"""
-    )
+        if inside an authentication repository""")
     @find_repository
     @catch_cli_exception(handle=TAFError)
     @click.argument("dependency-name")
