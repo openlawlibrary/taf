@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import uuid
-import pygit2
 import subprocess
 import logging
 import time
@@ -33,7 +32,16 @@ from taf.exceptions import (
 from taf.log import NOTICE, taf_logger
 from taf.utils import run
 from typing import Callable, Dict, List, Optional, Tuple, Union
-from .pygit import PyGitRepository
+
+try:
+    import pygit2
+    from .pygit import PyGitRepository
+
+    PYGIT2_AVAILABLE = True
+except ImportError:
+    pygit2 = None
+    PyGitRepository = None
+    PYGIT2_AVAILABLE = False
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -113,6 +121,8 @@ class GitRepository:
 
     @property
     def pygit(self):
+        if not PYGIT2_AVAILABLE:
+            raise PygitError("pygit2 is not installed")
         if self._pygit is None:
             if not self.is_git_repository:
                 raise GitError(
@@ -174,12 +184,7 @@ class GitRepository:
     @property
     def is_detached_head(self) -> bool:
         repo = self.pygit_repo
-        try:
-            return repo.head_is_detached
-        except AttributeError:
-            raise PygitError(
-                "pygit2 repository is unavailable; cannot determine HEAD state"
-            )
+        return repo.head_is_detached
 
     @property
     def is_git_repository(self) -> bool:
@@ -243,12 +248,7 @@ class GitRepository:
     @property
     def is_bare_repository(self) -> bool:
         if self._is_bare_repo is None:
-            try:
-                self._is_bare_repo = self.pygit_repo.is_bare
-            except AttributeError:
-                raise PygitError(
-                    "pygit2 repository is unavailable; cannot determine if repository is bare"
-                )
+            self._is_bare_repo = self.pygit_repo.is_bare
 
         return self._is_bare_repo
 
@@ -389,12 +389,7 @@ class GitRepository:
         repo = self.pygit_repo
 
         if branch:
-            try:
-                branch_obj = repo.branches.get(branch)
-            except AttributeError:
-                raise PygitError(
-                    f"pygit2 repository is unavailable; cannot list commits on branch {branch}"
-                )
+            branch_obj = repo.branches.get(branch)
             if branch_obj is None:
                 raise GitError(
                     self,
@@ -500,17 +495,12 @@ class GitRepository:
         """Returns all branches."""
         repo = self.pygit_repo
 
-        try:
-            if all:
-                branches = set(repo.branches)
-            elif remote:
-                branches = set(repo.branches.remote)
-            else:
-                branches = set(repo.branches.local)
-        except AttributeError:
-            raise PygitError(
-                "pygit2 repository is unavailable; cannot list branches"
-            )
+        if all:
+            branches = set(repo.branches)
+        elif remote:
+            branches = set(repo.branches.remote)
+        else:
+            branches = set(repo.branches.local)
 
         if strip_remote:
             remotes = self.remotes
@@ -567,12 +557,7 @@ class GitRepository:
         """
         repo = self.pygit_repo
 
-        try:
-            branch = repo.branches.get(branch_name)
-        except AttributeError:
-            raise PygitError(
-                f"pygit2 repository is unavailable; cannot check if branch {branch_name} exists"
-            )
+        branch = repo.branches.get(branch_name)
         # this git command should return the branch's name if it exists
         # empty string otherwise
         if branch is not None:
@@ -802,6 +787,8 @@ class GitRepository:
         keep_remote=False,
         branches=None,
     ) -> None:
+        if not PYGIT2_AVAILABLE:
+            raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
@@ -1470,16 +1457,11 @@ class GitRepository:
     def list_pygit_commits(self, branch: Optional[str] = "") -> List[pygit2.Commit]:
         repo = self.pygit_repo
 
-        try:
-            if branch:
-                branch_obj = repo.branches.get(branch)
-                latest_commit_id = branch_obj.target
-            else:
-                latest_commit_id = repo[repo.head.target].id
-        except AttributeError:
-            raise PygitError(
-                "pygit2 repository is unavailable; cannot list pygit commits"
-            )
+        if branch:
+            branch_obj = repo.branches.get(branch)
+            latest_commit_id = branch_obj.target
+        else:
+            latest_commit_id = repo[repo.head.target].id
 
         return [commit for commit in repo.walk(latest_commit_id, pygit2.GIT_SORT_NONE)]
 

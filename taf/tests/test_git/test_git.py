@@ -4,7 +4,8 @@ from pygit2 import AlreadyExistsError
 from taf.models.types import Commitish
 import pytest
 import tempfile
-from taf.exceptions import GitError, NothingToCommitError
+from taf.exceptions import GitError, NothingToCommitError, PygitError
+import taf.git as git_module
 from taf.git import GitRepository
 
 
@@ -30,6 +31,14 @@ def test_head_commit_sha_when_no_repo():
             match=f"Repo {repo.name}: The path '{repo.path.as_posix()}' is not a Git repository.",
         ):
             repo.head_commit() is not None
+
+
+def test_pygit_requires_pygit2(monkeypatch, repository):
+    monkeypatch.setattr(git_module, "PYGIT2_AVAILABLE", False)
+    repo = GitRepository(path=repository.path, default_branch=repository.default_branch)
+
+    with pytest.raises(PygitError, match="pygit2 is not installed"):
+        _ = repo.pygit
 
 
 def test_clone(origin_repo: GitRepository, clone_repository: GitRepository):
@@ -83,6 +92,14 @@ def test_clone_from_local(repository: GitRepository, clone_repository: GitReposi
     assert clone_repository.is_git_repository
     commits = clone_repository.all_commits_on_branch()
     assert len(commits)
+
+
+def test_clone_from_disk_requires_pygit2(monkeypatch, tmp_path):
+    monkeypatch.setattr(git_module, "PYGIT2_AVAILABLE", False)
+    repo = GitRepository(path=tmp_path / "clone", default_branch="main")
+
+    with pytest.raises(PygitError, match="pygit2 is not installed"):
+        repo.clone_from_disk(tmp_path / "source")
 
 
 def test_branches(repository: GitRepository):
