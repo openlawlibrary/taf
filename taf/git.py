@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import uuid
-import pygit2
 import subprocess
 import logging
 import time
@@ -33,7 +32,16 @@ from taf.exceptions import (
 from taf.log import NOTICE, taf_logger
 from taf.utils import run
 from typing import Callable, Dict, List, Optional, Tuple, Union
-from .pygit import PyGitRepository
+
+try:
+    import pygit2
+    from .pygit import PyGitRepository
+
+    PYGIT2_AVAILABLE = True
+except ImportError:
+    pygit2 = None
+    PyGitRepository = None
+    PYGIT2_AVAILABLE = False
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -113,6 +121,8 @@ class GitRepository:
 
     @property
     def pygit(self):
+        if not PYGIT2_AVAILABLE:
+            raise PygitError("pygit2 is not installed")
         if self._pygit is None:
             if not self.is_git_repository:
                 raise GitError(
@@ -238,12 +248,7 @@ class GitRepository:
     @property
     def is_bare_repository(self) -> bool:
         if self._is_bare_repo is None:
-            if self.pygit_repo is not None:
-                self._is_bare_repo = self.pygit_repo.is_bare
-            else:
-                raise GitError(
-                    "Cannot determine if repository is a bare repository. Cannot instantiate pygit repository"
-                )
+            self._is_bare_repo = self.pygit_repo.is_bare
 
         return self._is_bare_repo
 
@@ -782,6 +787,8 @@ class GitRepository:
         keep_remote=False,
         branches=None,
     ) -> None:
+        if not PYGIT2_AVAILABLE:
+            raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
         if not self.is_git_repository:
