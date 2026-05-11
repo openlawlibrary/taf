@@ -40,7 +40,7 @@ try:
     PYGIT2_AVAILABLE = True
 except ImportError:
     pygit2 = None
-    PyGitRepository = None
+    PyGitRepository = None  # type: ignore[assignment]
     PYGIT2_AVAILABLE = False
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"

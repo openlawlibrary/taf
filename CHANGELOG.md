@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Raise `PygitError` instead of `AttributeError` when pygit2 is unavailable ([732])
+
+[732]: https://github.com/openlawlibrary/taf/pull/732
+
 
 ## [0.38.2]
 
