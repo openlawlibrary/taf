@@ -31,16 +31,17 @@ from taf.exceptions import (
 )
 from taf.log import NOTICE, taf_logger
 from taf.utils import run
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+_PyGitRepositoryClass: Any = None
 
 try:
     import pygit2
-    from .pygit import PyGitRepository
+    from .pygit import PyGitRepository as _PyGitRepositoryClass
 
     PYGIT2_AVAILABLE = True
 except ImportError:
     pygit2 = None
-    PyGitRepository = None  # type: ignore[assignment]
     PYGIT2_AVAILABLE = False
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -130,7 +131,9 @@ class GitRepository:
                     message=f"The path '{self.path.as_posix()}' is not a Git repository.",
                 )
             try:
-                self._pygit = PyGitRepository(self)
+                if _PyGitRepositoryClass is None:
+                    raise PygitError("PyGitRepository is unavailable")
+                self._pygit = _PyGitRepositoryClass(self)
                 if not self._pygit:
                     raise PygitError("PyGitRepository instance is None")
 
