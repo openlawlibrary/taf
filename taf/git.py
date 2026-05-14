@@ -1615,7 +1615,7 @@ class GitRepository:
     def raise_git_access_error(
         self, error_cls=GitAccessDeniedException, operation=None, error_msg=""
     ):
-        hosts = {extract_hostname(url) for url in self.urls}
+        hosts = {h for h in (extract_hostname(url) for url in self.urls) if h is not None}
         unknown_hosts = [host for host in hosts if not is_host_known(host)]
         if len(unknown_hosts):
             message = _no_hosts_error_format.format(hostname=",".join(unknown_hosts))
