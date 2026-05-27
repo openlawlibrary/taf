@@ -23,10 +23,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
-- Guard out-of-band authentication check against empty commits list to prevent `IndexError` when TUF validation fails with no valid commits
-- Include expected and actual commit hashes in out-of-band authentication mismatch error message
+- Include expected and actual commit hashes in out-of-band authentication mismatch error message ([739])
 - Raise `PygitError` instead of `AttributeError` when pygit2 is unavailable ([732])
 
+[739]: https://github.com/openlawlibrary/taf/pull/739
 [732]: https://github.com/openlawlibrary/taf/pull/732
 
 
