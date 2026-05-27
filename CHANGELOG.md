@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+
+## [0.38.3]
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Guard out-of-band authentication check against empty commits list to prevent `IndexError` when TUF validation fails with no valid commits
+- Include expected and actual commit hashes in out-of-band authentication mismatch error message
 - Raise `PygitError` instead of `AttributeError` when pygit2 is unavailable ([732])
 
 [732]: https://github.com/openlawlibrary/taf/pull/732
@@ -1813,7 +1824,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.2...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.3...HEAD
+[0.38.3]: https://github.com/openlawlibrary/taf/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/openlawlibrary/taf/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/openlawlibrary/taf/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/openlawlibrary/taf/compare/v0.37.6...v0.38.0
