@@ -1170,12 +1170,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             if (
                 self.out_of_band_authentication is not None
                 and self.state.users_auth_repo.last_validated_commit is None
+                and self.state.auth_commits_since_last_validated
                 and self.state.auth_commits_since_last_validated[0]
                 != self.out_of_band_authentication
             ):
                 raise UpdateFailedError(
                     f"First commit of repository {self.state.auth_repo_name} does not match "
-                    "out of band authentication commit"
+                    f"out of band authentication commit. "
+                    f"Expected: {self.out_of_band_authentication}, "
+                    f"actual: {self.state.auth_commits_since_last_validated[0]}"
                 )
 
             if self.expected_repo_type != UpdateType.EITHER:
