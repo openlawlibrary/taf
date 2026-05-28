@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix false out-of-band authentication failures on update and clone
+
 
 ## [0.38.3]
 
