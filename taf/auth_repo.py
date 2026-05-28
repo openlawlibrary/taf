@@ -169,11 +169,9 @@ class AuthenticationRepository(GitRepository):
         Last validated commit across the entire set of repositories, including authentication and target repositories.
         It is only validated if the update process does not skip any repository
         """
-        try:
-            if self.last_validated_data is not None:
-                return self.last_validated_data[self.LAST_VALIDATED_KEY]
-        except KeyError:
-            return None
+        data = self.last_validated_data
+        if data is not None:
+            return data.get(self.LAST_VALIDATED_KEY) or data.get(self.name)
         return None
 
     @property
