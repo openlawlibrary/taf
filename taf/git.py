@@ -802,11 +802,18 @@ class GitRepository:
         repo = self.pygit_repo
 
         if not keep_remote:
-            self.remove_remote("origin")
             if remote_url is not None:
-                self.add_remote("origin", remote_url)
                 if fetch_remote:
+                    # Remove origin (which deletes refs/remotes/origin/*) then re-add and
+                    # fetch from the real remote to get up-to-date remote tracking refs.
+                    self.remove_remote("origin")
+                    self.add_remote("origin", remote_url)
                     self.fetch()
+                else:
+                    # Preserve refs/remotes/origin/* from the disk clone by only updating
+                    # the URL in-place. remove_remote would delete those refs, and without
+                    # a subsequent fetch they'd be gone — but merge_commits needs them.
+                    self._git("remote set-url origin {}", remote_url)
                 if repo is not None and branches:
                     local_branch_names = [
                         branch.split("/")[-1] for branch in repo.branches.local
@@ -814,6 +821,8 @@ class GitRepository:
                     for branch in branches:
                         if branch in local_branch_names:
                             self.set_upstream(str(branch))
+            else:
+                self.remove_remote("origin")
 
     # TODO test this
     def clone_or_pull(
