@@ -831,6 +831,9 @@ class GitRepository:
             else:
                 self.remove_remote("origin")
 
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
+
     # TODO test this
     def clone_or_pull(
         self,
