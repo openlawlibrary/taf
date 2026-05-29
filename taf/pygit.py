@@ -1,7 +1,6 @@
 from typing import Dict
 import pygit2
 from collections import defaultdict
-from taf.log import taf_logger
 from taf.exceptions import GitError
 import os.path
 

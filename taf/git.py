@@ -46,6 +46,10 @@ except ImportError:
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
+# Per-process cache for default branch detection.
+# A repository's default branch never changes during a single run.
+_default_branch_cache: Dict[str, Optional[str]] = {}
+
 
 class GitRepository:
     def __init__(
@@ -1883,10 +1887,16 @@ class GitRepository:
 
     def _determine_default_branch(self) -> Optional[str]:
         """Determine the default branch of the repository"""
+        cache_key = str(self.path)
+        if cache_key in _default_branch_cache:
+            return _default_branch_cache[cache_key]
+
         # try to get the default branch from the local repository
         errors = []
         try:
-            return self.get_default_branch()
+            result = self.get_default_branch()
+            _default_branch_cache[cache_key] = result
+            return result
         except GitError as e:
             errors.append(e)
             pass
@@ -1895,7 +1905,9 @@ class GitRepository:
         if self.urls:
             for url in self.urls:
                 try:
-                    return self.get_default_branch(url)
+                    result = self.get_default_branch(url)
+                    _default_branch_cache[cache_key] = result
+                    return result
                 except GitError as e:
                     errors.append(e)
                     pass
@@ -1903,7 +1915,19 @@ class GitRepository:
         self._log_debug(
             f"Cannot determine default branch with git -C at {self.path}: {errors}"
         )
+        _default_branch_cache[cache_key] = None
         return None
+
+    def clone_bare_from_local(self, local_path: Path) -> None:
+        """Seed a bare repo from a local path using pygit2 (no network)."""
+        if not PYGIT2_AVAILABLE:
+            raise PygitError("pygit2 is not installed")
+        self.path.mkdir(parents=True, exist_ok=True)
+        pygit2.clone_repository(str(local_path), str(self.path), bare=True)
+        # The repo now exists — clear any cached None and re-detect default_branch.
+        _default_branch_cache.pop(str(self.path), None)
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
 
     def top_commit_of_remote_branch(
         self, branch, remote="origin"
