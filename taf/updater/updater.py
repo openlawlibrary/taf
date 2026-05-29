@@ -476,17 +476,16 @@ def _process_repo_update(
     if commits_data.after_pull is not None and not update_config.no_deps:
 
         if update_status != Event.FAILED:
-            # for now, just take the newest commit and do not worry about updated definitions
-            # latest_commit = commits[-1::]
+            latest_commit = commits[-1:]
             repositoriesdb.load_dependencies(
                 auth_repo,
                 library_dir=update_config.library_dir,
-                commits=commits,
+                commits=latest_commit,
             )
 
             # load the repositories from dependencies.json and update these repositories
             child_auth_repos = repositoriesdb.get_deduplicated_auth_repositories(
-                auth_repo, commits
+                auth_repo, latest_commit
             ).values()
             outputs, errors = _update_dependencies(update_config, child_auth_repos)
             if len(errors):
