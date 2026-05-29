@@ -803,17 +803,20 @@ class GitRepository:
 
         if not keep_remote:
             if remote_url is not None:
+                self.remove_remote("origin")
+                self.add_remote("origin", remote_url)
                 if fetch_remote:
-                    # Remove origin (which deletes refs/remotes/origin/*) then re-add and
-                    # fetch from the real remote to get up-to-date remote tracking refs.
-                    self.remove_remote("origin")
-                    self.add_remote("origin", remote_url)
                     self.fetch()
                 else:
-                    # Preserve refs/remotes/origin/* from the disk clone by only updating
-                    # the URL in-place. remove_remote would delete those refs, and without
-                    # a subsequent fetch they'd be gone — but merge_commits needs them.
-                    self._git("remote set-url origin {}", remote_url)
+                    # Populate refs/remotes/origin/* from the validated local clone instead
+                    # of re-fetching from the network. Bare sources expose all branches as
+                    # refs/heads/*; non-bare sources expose them as refs/remotes/origin/*.
+                    source_is_bare = pygit2.Repository(str(local_path)).is_bare
+                    if source_is_bare:
+                        refspec = "+refs/heads/*:refs/remotes/origin/*"
+                    else:
+                        refspec = "+refs/remotes/origin/*:refs/remotes/origin/*"
+                    self._git("fetch {} {}", str(local_path), refspec)
                 if repo is not None and branches:
                     local_branch_names = [
                         branch.split("/")[-1] for branch in repo.branches.local
