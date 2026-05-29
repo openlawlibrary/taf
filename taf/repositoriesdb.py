@@ -732,13 +732,6 @@ def _get_deduplicated_target_or_auth_repositories(
             # will overwrite older repo with newer
             repositories[name] = repo
 
-    # Drop repos absent from the latest commit so stale historical entries
-    # don't survive after a dependency is removed or moved.
-    latest_repos = set(all_repositories.get(commits[-1], {}).keys())
-    repositories = {
-        name: repo for name, repo in repositories.items() if name in latest_repos
-    }
-
     taf_logger.debug(
         "Auth repo {}: deduplicated list of {} repositories {}",
         auth_repo.path,
