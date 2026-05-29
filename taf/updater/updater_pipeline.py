@@ -1945,7 +1945,7 @@ but commit not on branch {current_branch}"
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
-            for repository_name in self.state.repos_not_on_disk:
+            def _materialize_not_on_disk(repository_name):
                 branches = [
                     branch
                     for branch in self.state.validated_commits_per_target_repos_branches[
@@ -1961,8 +1961,10 @@ but commit not on branch {current_branch}"
                     temp_target_repo.get_remote_url(),
                     is_bare=self.bare,
                     branches=branches,
+                    fetch_remote=False,
                 )
-            for repository_name in self.state.repos_on_disk:
+
+            def _materialize_on_disk(repository_name):
                 users_target_repo = self.state.users_target_repositories[
                     repository_name
                 ]
@@ -1973,6 +1975,17 @@ but commit not on branch {current_branch}"
                 for branch in branches:
                     temp_target_repo.update_local_branch(branch=branch)
                 users_target_repo.fetch_from_disk(temp_target_repo.path, branches)
+
+            with ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(_materialize_not_on_disk, name)
+                    for name in self.state.repos_not_on_disk
+                ] + [
+                    executor.submit(_materialize_on_disk, name)
+                    for name in self.state.repos_on_disk
+                ]
+                for future in as_completed(futures):
+                    future.result()
 
             return self.state.update_status
         except Exception as e:

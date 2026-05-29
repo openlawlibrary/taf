@@ -789,6 +789,7 @@ class GitRepository:
         is_bare: bool = False,
         keep_remote=False,
         branches=None,
+        fetch_remote: bool = True,
     ) -> None:
         if not PYGIT2_AVAILABLE:
             raise PygitError("pygit2 is not installed")
@@ -804,7 +805,8 @@ class GitRepository:
             self.remove_remote("origin")
             if remote_url is not None:
                 self.add_remote("origin", remote_url)
-                self.fetch()
+                if fetch_remote:
+                    self.fetch()
                 if repo is not None and branches:
                     local_branch_names = [
                         branch.split("/")[-1] for branch in repo.branches.local
