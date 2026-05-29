@@ -1915,7 +1915,9 @@ class GitRepository:
         self._log_debug(
             f"Cannot determine default branch with git -C at {self.path}: {errors}"
         )
-        _default_branch_cache[cache_key] = None
+        # Do not cache None — the repo may not exist yet (e.g. temp path at
+        # instantiation time). The next call after the repo is created will
+        # detect the branch correctly instead of returning a stale None.
         return None
 
     def clone_bare_from_local(self, local_path: Path) -> None:
