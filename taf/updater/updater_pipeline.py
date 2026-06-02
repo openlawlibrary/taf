@@ -905,22 +905,29 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 # The refspec +refs/heads/*:refs/heads/* force-updates local heads so
                 # the validation pipeline sees the current remote commits, not the
                 # user's stale ones.
-                remote_url = self.state.users_auth_repo.get_remote_url()
+                remote_url = (
+                    self.urls[0]
+                    if self.urls
+                    else self.state.users_auth_repo.get_remote_url()
+                )
+                if not remote_url:
+                    raise UpdateFailedError(
+                        "URL cannot be determined. Please specify it"
+                    )
                 self.state.validation_auth_repo.clone_bare_from_local(
                     self.state.users_auth_repo.path
                 )
-                if remote_url:
-                    self.state.validation_auth_repo._git(
-                        "remote set-url origin {}",
-                        remote_url,
-                        log_error=True,
-                        reraise_error=True,
-                    )
-                    self.state.validation_auth_repo._git(
-                        "fetch origin +refs/heads/*:refs/heads/*",
-                        log_error=True,
-                        reraise_error=True,
-                    )
+                self.state.validation_auth_repo._git(
+                    "remote set-url origin {}",
+                    remote_url,
+                    log_error=True,
+                    reraise_error=True,
+                )
+                self.state.validation_auth_repo._git(
+                    "fetch origin +refs/heads/*:refs/heads/*",
+                    log_error=True,
+                    reraise_error=True,
+                )
                 # Detect default_branch now that origin points at the real remote.
                 # clone_bare_from_local intentionally leaves default_branch=None to
                 # avoid caching a bogus "(HEAD detached at ...)" value from the source.
