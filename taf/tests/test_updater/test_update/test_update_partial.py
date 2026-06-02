@@ -9,6 +9,7 @@ from taf.tests.test_updater.conftest import (
     add_unauthenticated_commit_to_target_repo,
     add_valid_target_commits,
     set_head_commit,
+    update_expiration_dates,
     update_target_repo_without_committing,
 )
 from taf.tests.test_updater.update_utils import (
@@ -61,6 +62,40 @@ def test_update_partial_with_invalid_commits(origin_auth_repo, client_dir):
         client_dir,
         force=True,
     )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_ignores_commit_sha_stored_as_exclude_filter(origin_auth_repo, client_dir):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    lvc_data = client_auth_repo.last_validated_data
+    lvc_data["exclude_filter"] = client_auth_repo.head_commit().value
+    client_auth_repo.set_last_validated_data(lvc_data, set_last_validated_commit=False)
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    assert "exclude_filter" not in client_auth_repo.last_validated_data
 
 
 @pytest.mark.parametrize(
