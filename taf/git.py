@@ -1924,15 +1924,20 @@ class GitRepository:
         return None
 
     def clone_bare_from_local(self, local_path: Path) -> None:
-        """Seed a bare repo from a local path using pygit2 (no network)."""
+        """Seed a bare repo from a local path using pygit2 (no network).
+
+        Does NOT detect default_branch — the caller must do that after updating
+        origin to the real remote URL, otherwise remote show origin contacts
+        local_path which may be in detached HEAD and returns a bogus branch name
+        that then gets cached and blocks the correct subsequent detection.
+        """
         if not PYGIT2_AVAILABLE:
             raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(str(local_path), str(self.path), bare=True)
-        # The repo now exists — clear any cached None and re-detect default_branch.
+        # Clear cache and reset so the caller's post-setup detection runs cleanly.
         _default_branch_cache.pop(str(self.path), None)
-        if self.default_branch is None:
-            self.default_branch = self._determine_default_branch()
+        self.default_branch = None
 
     def top_commit_of_remote_branch(
         self, branch, remote="origin"

@@ -921,6 +921,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         log_error=True,
                         reraise_error=True,
                     )
+                # Detect default_branch now that origin points at the real remote.
+                # clone_bare_from_local intentionally leaves default_branch=None to
+                # avoid caching a bogus "(HEAD detached at ...)" value from the source.
+                self.state.validation_auth_repo.default_branch = (
+                    self.state.validation_auth_repo._determine_default_branch()
+                )
             else:
                 self.state.validation_auth_repo.clone(bare=True)
                 self.state.validation_auth_repo.fetch(fetch_all=True)
@@ -1281,11 +1287,19 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if self.state.users_auth_repo.urls
                     else None
                 )
+                # Pass the default branch so clone_from_disk calls set_upstream,
+                # restoring the tracking relationship that remove_remote destroys.
+                # Without it, synced_with_remote() returns False immediately.
+                default_branch = self.state.validation_auth_repo.default_branch
+                branches = (
+                    [default_branch] if default_branch and not self.bare else None
+                )
                 self.state.users_auth_repo.clone_from_disk(
                     temp_path,
                     remote_url,
                     is_bare=self.bare,
                     fetch_remote=False,
+                    branches=branches,
                 )
         except Exception as e:
             self.state.errors.append(e)
