@@ -927,6 +927,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.validation_auth_repo.default_branch = (
                     self.state.validation_auth_repo._determine_default_branch()
                 )
+                if self.state.validation_auth_repo.default_branch:
+                    self.state.validation_auth_repo._git(
+                        "symbolic-ref HEAD refs/heads/{}",
+                        self.state.validation_auth_repo.default_branch,
+                        log_error=True,
+                        reraise_error=True,
+                    )
             else:
                 self.state.validation_auth_repo.clone(bare=True)
                 self.state.validation_auth_repo.fetch(fetch_all=True)
