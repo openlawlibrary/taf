@@ -32,6 +32,7 @@ from tuf.ngclient.updater import Updater
 from taf.log import taf_logger
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
+GIT_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 class UpdateStatus(Enum):
@@ -1373,9 +1374,18 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 last_validated_data = self.state.users_auth_repo.last_validated_data
                 # exclude filter can be specified if running local validation
                 if not self.exclude_filter:
-                    self.exclude_filter = (
-                        last_validated_data.get("exclude_filter") or None
-                    )
+                    stored_exclude_filter = last_validated_data.get("exclude_filter")
+                    if stored_exclude_filter and GIT_COMMIT_SHA_RE.match(
+                        stored_exclude_filter
+                    ):
+                        taf_logger.warning(
+                            "{}: Ignoring invalid stored exclude_filter that looks like a commit SHA",
+                            self.state.users_auth_repo.name,
+                        )
+                        last_validated_data.pop("exclude_filter", None)
+                        self.state.last_validated_data.pop("exclude_filter", None)
+                        stored_exclude_filter = None
+                    self.exclude_filter = stored_exclude_filter or None
 
             if self.exclude_filter:
                 excluded_repo_names = repositoriesdb.get_repository_names_by_expression(
