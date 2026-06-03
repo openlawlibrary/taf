@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Raise clear error when default branch not found in local repo [(742)]
 - Fix false out-of-band authentication failures on update and clone ([740])
 
+[742]: https://github.com/openlawlibrary/taf/pull/742
 [740]: https://github.com/openlawlibrary/taf/pull/740
 
 

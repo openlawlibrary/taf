@@ -608,6 +608,16 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 )
                 return UpdateStatus.SUCCESS
 
+            if auth_repo.default_branch and not auth_repo.branch_exists(
+                auth_repo.default_branch, include_remotes=False
+            ):
+                raise UpdateFailedError(
+                    f"Could not find branch '{auth_repo.default_branch}' in local repository "
+                    f"{auth_repo.name}. "
+                    "This can happen if the repository's default branch was changed after cloning. "
+                    "Please re-clone the repository using 'taf repo clone'."
+                )
+
             if auth_repo.something_to_commit():
                 if self.force:
                     taf_logger.info(

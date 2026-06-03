@@ -83,6 +83,7 @@ INVALID_AUTH_COMMIT_RESET_ERROR = "An error occured during auth repo commit chec
 UNCOMMITTED_CHANGES_RESET_PATTERN = r"There are uncommited changes in ([A-Za-z0-9_\-\[\]]+/[A-Za-z0-9_\-\[\]]+)\. Please commit/stash changes or run reset with force flag."
 DETACHED_HEAD_RESET_PATTERN = r"(\w+\/\w+) is in detached head state. Fix the state manually or run reset with force flag."
 OLD_LVC_FORMAT_ERROR_PATTERN = r"Failure to set excluded targets for repo (\w+\/\w+) - last_validated_commit file is in old format which is not supported anymore. Please delete the file and re-run the command."
+DEFAULT_BRANCH_NOT_FOUND_PATTERN = r"Update of ([\w/]+) failed due to error: Could not find branch '[\w-]+' in local repository ([\w/]+)\. This can happen if the repository's default branch was changed after cloning\. Please re-clone the repository using 'taf repo clone'\."
 
 
 # Disable console logging for all tests
