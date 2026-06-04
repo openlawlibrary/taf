@@ -194,9 +194,7 @@ def test_update_uses_configured_remote_over_local_origin(
         is_bare=True,
     )
 
-    client_auth_repo = AuthenticationRepository(
-        path=client_dir / origin_auth_repo.name
-    )
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
     client_auth_repo.set_remote_url(str(stale_origin.path))
 
     setup_manager = SetupManager(origin_auth_repo)

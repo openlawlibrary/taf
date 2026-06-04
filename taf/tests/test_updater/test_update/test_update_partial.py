@@ -73,7 +73,9 @@ def test_update_partial_with_invalid_commits(origin_auth_repo, client_dir):
     ],
     indirect=True,
 )
-def test_update_ignores_commit_sha_stored_as_exclude_filter(origin_auth_repo, client_dir):
+def test_update_ignores_commit_sha_stored_as_exclude_filter(
+    origin_auth_repo, client_dir
+):
     clone_repositories(
         origin_auth_repo,
         client_dir,
