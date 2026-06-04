@@ -1006,6 +1006,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 users_head_commit = self.state.users_auth_repo.top_commit_of_branch(
                     default_branch
                 )
+                if users_head_commit is None:
+                    raise UpdateFailedError(
+                        f"Could not find branch '{default_branch}' in local repository "
+                        f"{self.state.users_auth_repo.name}. "
+                        "This can happen if the repository's default branch was changed after cloning. "
+                        "Please re-clone the repository using 'taf repo clone'."
+                    )
                 if not _check_if_commit_on_branch(
                     self.state.validation_auth_repo, users_head_commit, default_branch
                 ):
