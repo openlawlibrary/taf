@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Reduce `taf repo clone` and `taf repo update` execution time by eliminating redundant network fetches ([743])
+
 ### Fixed
 
 
@@ -30,6 +32,7 @@ and this project adheres to [Semantic Versioning][semver].
 [744]: https://github.com/openlawlibrary/taf/pull/744
 [742]: https://github.com/openlawlibrary/taf/pull/742
 [740]: https://github.com/openlawlibrary/taf/pull/740
+[743]: https://github.com/openlawlibrary/taf/pull/743
 
 
 ## [0.38.3]
