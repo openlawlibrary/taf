@@ -30,9 +30,9 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix false out-of-band authentication failures on update and clone ([740])
 
 [744]: https://github.com/openlawlibrary/taf/pull/744
+[743]: https://github.com/openlawlibrary/taf/pull/743
 [742]: https://github.com/openlawlibrary/taf/pull/742
 [740]: https://github.com/openlawlibrary/taf/pull/740
-[743]: https://github.com/openlawlibrary/taf/pull/743
 
 
 ## [0.38.3]
