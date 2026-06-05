@@ -25,6 +25,7 @@ def test_commits_on_branch_and_not_other_when_base_branch_exists_only_on_remote(
 ):
     # Push a feature branch (created from main) to origin
     default_branch = repository.default_branch
+    assert default_branch
     repository.add_remote("origin", str(origin_repo.path))
     feature_branch = "feature"
     repository.create_and_checkout_branch(feature_branch)
