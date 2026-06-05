@@ -1,3 +1,5 @@
+import pytest
+from taf.exceptions import GitError
 from taf.git import GitRepository
 
 
@@ -49,3 +51,13 @@ def test_commits_on_branch_and_not_other_when_base_branch_exists_only_on_remote(
     )
     assert len(commits) == 2
     assert set(commits) == {commit1, commit2}
+
+
+def test_commits_on_branch_and_not_other_raises_when_branch_does_not_exist(
+    repository: GitRepository,
+):
+    branch_name = "new-branch"
+    repository.create_and_checkout_branch(branch_name)
+    repository.commit_empty("test commit1")
+    with pytest.raises(GitError, match="does not exist"):
+        repository.commits_on_branch_and_not_other(branch_name, "nonexistent-branch")

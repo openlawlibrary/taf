@@ -299,7 +299,6 @@ def test_commit_exists(repository: GitRepository):
     assert not repository.commit_exists(Commitish.from_hash("123456"))
 
 
-
 def test_commit_before_commit(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     commit2 = repository.commit_empty("test commit2")
