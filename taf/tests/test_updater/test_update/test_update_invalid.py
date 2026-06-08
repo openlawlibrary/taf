@@ -2,6 +2,7 @@ from taf.models.types import Commitish
 import pytest
 from taf.auth_repo import AuthenticationRepository
 from taf.tests.test_updater.conftest import (
+    DEFAULT_BRANCH_NOT_FOUND_PATTERN,
     INVALID_KEYS_PATTERN,
     LVC_NOT_IN_REMOTE_PATTERN,
     TARGET_MISSMATCH_PATTERN,
@@ -22,6 +23,8 @@ from taf.tests.test_updater.update_utils import (
     update_invalid_repos_and_check_if_repos_exist,
 )
 from taf.updater.types.update import OperationType
+
+from taf.git import GitRepository
 
 
 @pytest.mark.parametrize(
@@ -177,5 +180,34 @@ def test_update_when_old_last_validated_commit(origin_auth_repo, client_dir):
         origin_auth_repo,
         client_dir,
         OLD_LVC_FORMAT_ERROR_PATTERN,
+        True,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_fails_when_default_branch_not_in_local_repo(
+    origin_auth_repo, client_dir, monkeypatch
+):
+    clone_repositories(origin_auth_repo, client_dir)
+
+    monkeypatch.setattr(
+        GitRepository,
+        "get_default_branch",
+        lambda self, url=None: "non-existent-branch",
+    )
+
+    update_invalid_repos_and_check_if_repos_exist(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+        DEFAULT_BRANCH_NOT_FOUND_PATTERN,
         True,
     )
