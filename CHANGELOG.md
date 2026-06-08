@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Fix commits on branch and not other when there is no local merge branch ([744])
 - Fix false out-of-band authentication failures on update and clone ([740])
 
+[744]: https://github.com/openlawlibrary/taf/pull/744
 [740]: https://github.com/openlawlibrary/taf/pull/740
 
 
