@@ -1020,15 +1020,8 @@ class GitRepository:
         a commit from another branch. For example, to find only commits
         on a speculative branch and not on the main branch.
         """
-        if not self.branch_exists(branch2, include_remotes=False):
-            remote_tracking = self.find_remote_tracking_branch(branch2)
-            if remote_tracking is not None:
-                branch2 = remote_tracking
-            else:
-                raise GitError(
-                    self,
-                    message=f"Branch {branch2} does not exist locally or on any remote",
-                )
+        branch1 = self.get_branch_reference(branch1)
+        branch2 = self.get_branch_reference(branch2)
 
         merge_base = self.get_merge_base(branch1, branch2)
         commits = self.all_commits_since_commit(merge_base, branch1, reverse=False)
@@ -1322,6 +1315,20 @@ class GitRepository:
         if full_name:
             return branch.name
         return branch.shorthand
+
+    def get_branch_reference(self, branch_name: str) -> str:
+        """Return a local branch name or matching remote-tracking branch reference."""
+        if self.branch_exists(branch_name, include_remotes=False):
+            return branch_name
+
+        remote_tracking = self.find_remote_tracking_branch(branch_name)
+        if remote_tracking is not None:
+            return remote_tracking
+
+        raise GitError(
+            self,
+            message=f"Branch {branch_name} does not exist locally or on any remote",
+        )
 
     def get_last_remote_commit(
         self, url: Optional[str] = None, branch: Optional[str] = None

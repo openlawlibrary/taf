@@ -54,6 +54,36 @@ def test_commits_on_branch_and_not_other_when_base_branch_exists_only_on_remote(
     assert set(commits) == {commit1, commit2}
 
 
+def test_commits_on_branch_and_not_other_when_source_branch_exists_only_on_remote(
+    origin_repo: GitRepository,
+    clone_repository: GitRepository,
+    repository: GitRepository,
+):
+    default_branch = repository.default_branch
+    assert default_branch
+    repository.add_remote("origin", str(origin_repo.path))
+    feature_branch = "feature"
+    repository.create_and_checkout_branch(feature_branch)
+    commit1 = repository.commit_empty("feature commit1")
+    commit2 = repository.commit_empty("feature commit2")
+    repository.push(branch=feature_branch, set_upstream=True)
+
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    clone_repository.fetch(branch=feature_branch)
+    clone_repository.checkout_branch(default_branch)
+    clone_repository.delete_branch(feature_branch)
+
+    assert not clone_repository.branch_exists(feature_branch, include_remotes=False)
+    assert clone_repository.branch_exists(feature_branch)
+
+    commits = clone_repository.commits_on_branch_and_not_other(
+        feature_branch, default_branch
+    )
+    assert len(commits) == 2
+    assert set(commits) == {commit1, commit2}
+
+
 def test_commits_on_branch_and_not_other_raises_when_branch_does_not_exist(
     repository: GitRepository,
 ):
