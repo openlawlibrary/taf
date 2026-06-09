@@ -5,8 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
-
 ## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+
+## [0.38.4]
 
 ### Added
 
@@ -1833,7 +1841,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.3...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.4...HEAD
+[0.38.4]: https://github.com/openlawlibrary/taf/compare/v0.38.3...v0.38.4
 [0.38.3]: https://github.com/openlawlibrary/taf/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/openlawlibrary/taf/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/openlawlibrary/taf/compare/v0.38.0...v0.38.1
