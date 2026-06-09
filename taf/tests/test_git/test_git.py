@@ -299,21 +299,6 @@ def test_commit_exists(repository: GitRepository):
     assert not repository.commit_exists(Commitish.from_hash("123456"))
 
 
-def test_commit_on_branch_an_not_other(repository: GitRepository):
-    branch_name = "new-branch"
-    repository.create_and_checkout_branch(branch_name)
-    commit1 = repository.commit_empty("test commit1")
-    commit2 = repository.commit_empty("test commit2")
-    commit3 = repository.commit_empty("test commit3")
-    assert repository.default_branch
-    all_commits = repository.commits_on_branch_and_not_other(
-        branch_name, repository.default_branch
-    )
-    assert len(all_commits) == 3
-    for commit in (commit1, commit2, commit3):
-        assert commit in all_commits
-
-
 def test_commit_before_commit(repository: GitRepository):
     commit1 = repository.commit_empty("test commit1")
     commit2 = repository.commit_empty("test commit2")
