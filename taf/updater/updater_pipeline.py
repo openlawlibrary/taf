@@ -929,11 +929,15 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     log_error=True,
                     reraise_error=True,
                 )
-                # Detect default_branch now that origin points at the real remote.
-                # clone_bare_from_local intentionally leaves default_branch=None to
-                # avoid caching a bogus "(HEAD detached at ...)" value from the source.
+                # Determine default_branch from the real remote, not from the
+                # seeded local repo. clone_bare_from_local leaves HEAD pointing at
+                # the user's checked-out branch (often a speculative/publication
+                # branch after a build), and _determine_default_branch() prefers
+                # local detection, which would fall back to that stale HEAD and
+                # make validation walk the wrong lineage. The remote's HEAD is the
+                # authoritative default branch (matches the clean-clone path).
                 self.state.validation_auth_repo.default_branch = (
-                    self.state.validation_auth_repo._determine_default_branch()
+                    self.state.validation_auth_repo.get_default_branch(remote_url)
                 )
                 if self.state.validation_auth_repo.default_branch:
                     self.state.validation_auth_repo._git(
