@@ -2122,8 +2122,10 @@ but commit not on branch {current_branch}"
                 return self.state.update_status
             if self.state.update_status == UpdateStatus.FAILED:
                 return self.state.update_status
-            for repository in self.state.users_target_repositories.values():
+
+            def _merge_repository_commits(repository):
                 # this will only include branches that were, at least partially, validated (up until a certain point)
+                events = []
                 last_branch = self.state.last_validated_data_per_repositories[
                     repository.name
                 ]["branch"]
@@ -2136,10 +2138,22 @@ but commit not on branch {current_branch}"
                     is_last_branch = branch == last_branch
                     last_validated_commit = validated_commits[-1]
                     commit_to_merge = last_validated_commit
-                    update_status = self._merge_commit(
-                        repository, branch, commit_to_merge, is_last_branch
+                    events.append(
+                        self._merge_commit(
+                            repository, branch, commit_to_merge, is_last_branch
+                        )
                     )
-                    events_list.append(update_status)
+                return events
+
+            # repositories are independent of each other, so they can be
+            # merged in parallel (branches within a repository stay sequential)
+            with ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(_merge_repository_commits, repository)
+                    for repository in self.state.users_target_repositories.values()
+                ]
+                for future in as_completed(futures):
+                    events_list.extend(future.result())
 
             if self.state.event == Event.UNCHANGED and Event.CHANGED in events_list:
                 # the auth repository was not updated, but one of the target repositories was
@@ -2196,6 +2210,33 @@ but commit not on branch {current_branch}"
             self.state.event = Event.FAILED
             return UpdateStatus.FAILED
 
+    def _is_already_merged(
+        self,
+        repository: AuthenticationRepository,
+        branch: str,
+        commit_to_merge: Commitish,
+        is_last_branch: bool,
+    ) -> bool:
+        """Check, before any worktree-touching work, if the branch already
+        points to the commit that would be merged and is checked out if it
+        needs to be - skipping the checkout in that case is a substantial
+        saving on Windows, where materializing a working tree is slow."""
+        try:
+            return (
+                repository.branch_exists(branch, include_remotes=False)
+                and repository.top_commit_of_branch(branch) == commit_to_merge
+                and (
+                    not is_last_branch
+                    or (
+                        not repository.is_detached_head
+                        and repository.get_current_branch() == branch
+                    )
+                )
+            )
+        except KeyError:
+            # an error will be raised if the repo is empty
+            return False
+
     def _merge_commit(
         self,
         repository: AuthenticationRepository,
@@ -2209,6 +2250,11 @@ but commit not on branch {current_branch}"
         if repository.is_bare_repository:
             repository.update_ref_for_bare_repository(branch, commit_to_merge)
             return
+
+        if not self.force and self._is_already_merged(
+            repository, branch, commit_to_merge, is_last_branch
+        ):
+            return Event.UNCHANGED
 
         # if the repo is in a deteched head state or if the updated branch exists,
         # but is not checked out, update the repo without automatically checking
