@@ -1,8 +1,9 @@
 import os
 import shutil
-import tempfile
 from functools import wraps
 from pathlib import Path
+from typing import Dict
+from urllib import parse
 
 from taf.models.types import Commitish
 from tuf.ngclient._internal import trusted_metadata_set
@@ -16,7 +17,7 @@ from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
 from taf.tuf.key_cache import enable_public_key_cache
 
 from tuf.ngclient.fetcher import FetcherInterface
-from tuf.api.exceptions import DownloadHTTPError
+from tuf.api.exceptions import DownloadHTTPError, DownloadLengthMismatchError
 
 enable_public_key_cache()
 
@@ -53,7 +54,8 @@ class GitUpdater(FetcherInterface):
 
     Attributes:
         - repository_directory: the client's local repository's location
-        - metadata_dir_path: path of the metadata directory needed by the updater.
+        - metadata_store: in-memory store of the current metadata files needed
+        by the updater (replaces TUF's local metadata directory).
         - validation_auth_repo: a fresh clone of the metadata repository. It is
         a bare git repository. An instance of the `BareGitRepo` class.
         - commits: a list of commits, starting with the most recent commit in the
@@ -74,7 +76,9 @@ class GitUpdater(FetcherInterface):
 
     @property
     def metadata_dir(self) -> str:
-        return str(self.metadata_dir_path)
+        # the updater keeps metadata in memory (see metadata_store); this only
+        # satisfies the TUF Updater constructor, which stores but never uses it
+        return ""
 
     @property
     def targets_dir(self) -> str:
@@ -101,11 +105,9 @@ class GitUpdater(FetcherInterface):
 
         self.repository_directory = str(repository_directory)
 
-        tmp_dir = tempfile.mkdtemp()
-        metadata_path = Path(tmp_dir, "metadata")
-        metadata_path.mkdir(parents=True, exist_ok=True)
-
-        self.metadata_dir_path = metadata_path
+        # in-memory equivalent of the TUF updater's local metadata directory,
+        # keyed the same way as metadata file names (quoted rolename, no .json)
+        self.metadata_store: Dict[str, bytes] = {}
 
         try:
             self._init_metadata()
@@ -127,6 +129,18 @@ class GitUpdater(FetcherInterface):
                 f"Retrieval of data at current revision {self.current_commit} failed with error - {str(e)}"
             )
             raise e
+
+    def download_bytes(self, url: str, max_length: int) -> bytes:
+        # the default FetcherInterface implementation round-trips the data
+        # through a temporary file; the data is already in memory here, so
+        # only the max_length check is kept
+        data = b"".join(self.fetch(url))
+        if len(data) > max_length:
+            raise DownloadLengthMismatchError(
+                f"Downloaded {len(data)} bytes exceeding the maximum allowed "
+                f"length of {max_length}"
+            )
+        return data
 
     def _init_commits(self):
         """
@@ -152,24 +166,31 @@ class GitUpdater(FetcherInterface):
         self.commits = commits_since
         self.current_commit_index = 0
 
+    @staticmethod
+    def _metadata_store_key(filename: str) -> str:
+        """Key under which a metadata file is stored in metadata_store.
+        Mirrors how the TUF updater maps role names to local metadata file
+        names (quoted rolename without the .json extension)."""
+        rolename = filename[: -len(".json")] if filename.endswith(".json") else filename
+        return parse.quote(rolename, "")
+
     def _init_metadata(self):
         """
-        TUF updater expects the existence of a client
-        metadata directory. This directory stores
-        the current metadata files (which will get deleted after the update).
-        Directory must exist and contain at least root.json. Otherwise, update will
-        fail. We actually want to validate the remote authentication repository,
-        but will create a Temp directory in order to avoid modifying the updater.
+        TUF updater expects a client metadata store containing the current
+        metadata files - at least root.json, otherwise the update will fail.
+        We actually want to validate the remote authentication repository,
+        so the store is populated with the metadata at the current revision.
+        It is kept in memory (metadata_store) instead of on disk to avoid
+        per-revision file I/O (see InMemoryUpdater).
         """
         metadata_files = self.validation_auth_repo.list_files_at_revision(
             self.current_commit, "metadata"
         )
         for filename in metadata_files:
             metadata = self.validation_auth_repo.get_file(
-                self.current_commit, "metadata/" + filename
+                self.current_commit, "metadata/" + filename, raw=True
             )
-            current_filename = self.metadata_dir_path / filename
-            current_filename.write_text(metadata)
+            self.metadata_store[self._metadata_store_key(filename)] = metadata
 
     def _patch_tuf_metadata_set(self, cls):
         """
@@ -201,12 +222,10 @@ class GitUpdater(FetcherInterface):
 
     def cleanup(self):
         """
-        Removes the bare authentication repository and metadata
-        directory. This should be called after the update is finished,
-        either successfully or unsuccessfully.
+        Removes the bare authentication repository. This should be called
+        after the update is finished, either successfully or unsuccessfully.
         """
-        if self.metadata_dir_path.is_dir():
-            shutil.rmtree(self.metadata_dir_path)
+        self.metadata_store.clear()
         self.validation_auth_repo.cleanup()
         temp_dir = Path(self.validation_auth_repo.path, os.pardir).parent
         if temp_dir.is_dir():

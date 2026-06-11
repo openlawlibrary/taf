@@ -28,7 +28,7 @@ from taf.updater.handlers import GitUpdater
 from taf.updater.lifecycle_handlers import Event
 from taf.updater.types.update import OperationType, UpdateType
 from taf.utils import TempPartition, on_rm_error, ensure_pre_push_hook
-from tuf.ngclient.updater import Updater
+from taf.updater.in_memory_updater import InMemoryUpdater
 from taf.log import taf_logger
 
 EXPIRED_METADATA_ERROR = "ExpiredMetadataError"
@@ -2465,7 +2465,8 @@ def _run_tuf_updater(git_fetcher, auth_repo_name):
 
     def _init_updater():
         try:
-            return Updater(
+            return InMemoryUpdater(
+                git_fetcher.metadata_store,
                 git_fetcher.metadata_dir,
                 "metadata/",
                 git_fetcher.targets_dir,
@@ -2572,8 +2573,10 @@ def _validate_metadata_on_disk(git_fetcher):
         if re.search(consistent_snaphost_pattern, metadata_file_name):
             continue
 
-        current_tuf_metadata_file = Path(git_fetcher.metadata_dir, metadata_file_name)
-        if not current_tuf_metadata_file.is_file():
+        tuf_metadata_content = git_fetcher.metadata_store.get(
+            git_fetcher._metadata_store_key(metadata_file_name)
+        )
+        if tuf_metadata_content is None:
             # this validation causes an issue with one of the first
             # commits of our production repositories and it should
             # not be enabled until we specify a later commit of those
@@ -2584,8 +2587,9 @@ def _validate_metadata_on_disk(git_fetcher):
             #     f"Invalid metadata file {metadata_file_name}"
             # )
             continue
-        metadata_content = git_fetcher.get_current_metadata_data(metadata_file_name)
-        tuf_metadata_content = current_tuf_metadata_file.read_text()
+        metadata_content = git_fetcher.get_current_metadata_data(
+            metadata_file_name, raw=True
+        )
         if metadata_content != tuf_metadata_content:
             raise UpdateFailedError(f"Invalid metadata file {metadata_file_name}")
 
