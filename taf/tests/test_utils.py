@@ -1,5 +1,13 @@
 import json
-from taf.utils import normalize_line_endings, safely_save_json_to_disk, safely_move_file
+from pathlib import Path
+
+from taf.utils import (
+    TempPartition,
+    _background_cleanup_threads,
+    normalize_line_endings,
+    safely_save_json_to_disk,
+    safely_move_file,
+)
 
 
 def test_normalize_line_ending_extra_lines():
@@ -40,6 +48,36 @@ def test_safely_save_json_to_disk_existing_file(output_path):
     saved_json = json.loads(saved_text)
     assert len(saved_json)
     assert saved_json == data
+
+
+def test_temp_partition_cleanup_async(output_path):
+    temp_partition = TempPartition(Path(output_path))
+    temp_dir = Path(temp_partition.temp_dir)
+    for index in range(3):
+        subdir = temp_dir / f"repo{index}" / "nested"
+        subdir.mkdir(parents=True)
+        (subdir / "file.txt").write_text("data")
+
+    temp_partition.cleanup_async()
+
+    # the temp dir is renamed away immediately, so a new TempPartition in the
+    # same location would not collide with it
+    assert not temp_dir.exists()
+    for thread in _background_cleanup_threads:
+        thread.join(timeout=30)
+    assert not list(temp_dir.parent.glob(f"*{TempPartition.TRASH_SUFFIX}"))
+
+
+def test_temp_partition_sweeps_stale_trash(output_path):
+    first = TempPartition(Path(output_path))
+    stale_trash = Path(f"{first.temp_dir}stale{TempPartition.TRASH_SUFFIX}")
+    (stale_trash / "leftover").mkdir(parents=True)
+
+    second = TempPartition(Path(output_path))
+
+    assert not stale_trash.exists()
+    first.cleanup()
+    second.cleanup()
 
 
 def test_safely_move_file_same_filesystem(output_path):

@@ -2097,10 +2097,12 @@ but commit not on branch {current_branch}"
         if not self.state.temp_root:
             return self.state.update_status
         try:
+            # close all repositories first - open pygit2 handles would prevent
+            # renaming/removing the temp directory on Windows
             for repo in self.state.temp_target_repositories.values():
                 repo.cleanup()
-            self.state.temp_root.cleanup()
             self.state.update_handler.cleanup()
+            self.state.temp_root.cleanup_async()
         except Exception:
             taf_logger.warning(
                 f"WARNING: Could not remove clean up temp folder: {self.state.temp_root}. Please remove it manually."
