@@ -1672,7 +1672,7 @@ class GitRepository:
                         else error_msg
                     ),
                 )
-        raise error_cls(self)
+        raise error_cls(self, operation=operation)
 
     def remove_remote(self, remote_name: str) -> None:
         try:
