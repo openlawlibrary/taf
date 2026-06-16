@@ -179,6 +179,8 @@ class GitRepository:
 
     _is_bare_repo = None
 
+    _is_git_repository = None
+
     @property
     def remotes(self) -> List[str]:
         if self._remotes is None:
@@ -195,26 +197,45 @@ class GitRepository:
 
     @property
     def is_git_repository(self) -> bool:
-        """Check if the given path is the root of a Git repository."""
+        """Check if the given path is inside a Git repository (work tree or bare)."""
         # This is used when instantiating a PyGitRepository repo, so do not use
-        # it here
+        # self.pygit / self.pygit_repo here (would recurse via the pygit property).
+        if self._is_git_repository is not None:
+            return self._is_git_repository
+        # pygit2.discover_repository is a module-level function that searches
+        # upward for a repository, matching the semantics of the subprocess
+        # `rev-parse --is-inside-work-tree` / `--is-bare-repository` checks but
+        # without spawning a process (~150-400ms each on Windows).
+        if PYGIT2_AVAILABLE and not self.allow_unsafe:
+            try:
+                self._is_git_repository = (
+                    pygit2.discover_repository(str(self.path)) is not None
+                )
+                return self._is_git_repository
+            except Exception:
+                # fall back to the subprocess check (e.g. ownership errors)
+                pass
+        # subprocess fallback: pygit2 unavailable, or allow_unsafe is set
+        # (libgit2 does not honor the `-c safe.directory` override the
+        # subprocess path uses)
         try:
             result = self._git("rev-parse --is-inside-work-tree", reraise_error=True)
             if result == "true":
+                self._is_git_repository = True
                 return True
             result = self._git("rev-parse --is-bare-repository", reraise_error=True)
             if result == "true":
+                self._is_git_repository = True
                 return True
-
         except GitError:
+            self._is_git_repository = False
             return False
+        self._is_git_repository = False
         return False
 
     @property
     def is_git_repository_root(self) -> bool:
         try:
-            if not self.is_git_repository:
-                return False
             repo = self.pygit_repo
             if repo is None:
                 return False
@@ -225,7 +246,7 @@ class GitRepository:
                 return Path(repo.path).resolve() == git_path.resolve() and (
                     git_path.is_dir() or git_path.is_file()
                 )
-        except PygitError:
+        except (PygitError, GitError):
             return False
 
     @property
@@ -321,7 +342,16 @@ class GitRepository:
         In those cases, get the default branch from `git remote show origin`.
 
         If the repository does not have a remote set, use `symbolic-ref` HEAD
+
+        The cheap symbolic-ref reads (steps 1 and 3) are done in-process via
+        pygit2 when possible to avoid spawning subprocesses (~150-400ms each on
+        Windows); each falls back to the subprocess equivalent on any failure,
+        so behavior is a strict superset of the previous implementation.
         """
+        # step 1: refs/remotes/origin/HEAD
+        branch = self._symbolic_ref_branch_via_pygit("refs/remotes/origin/HEAD")
+        if branch is not None:
+            return branch
         try:
             branch = self._git(
                 "symbolic-ref refs/remotes/origin/HEAD --short", reraise_error=True
@@ -330,6 +360,7 @@ class GitRepository:
         except GitError as e:
             self._log_debug(f"Could not get remote HEAD at {self.path}: {e}")
             pass
+        # step 2: git remote show origin (may contact the network; subprocess only)
         try:
             result = self._git("remote show origin", reraise_error=True)
             match = re.search(r"HEAD branch:(.*)", result)
@@ -340,6 +371,10 @@ class GitRepository:
                 f"Could not get HEAD branch with git remote show origin at {self.path}: {e}"
             )
             pass
+        # step 3: HEAD
+        branch = self._symbolic_ref_branch_via_pygit("HEAD")
+        if branch is not None:
+            return branch
         try:
             return self._git("symbolic-ref HEAD --short", reraise_error=True)
         except GitError as e:
@@ -349,6 +384,24 @@ class GitRepository:
             self,
             message="Could not determine default branch from local repository",
         )
+
+    def _symbolic_ref_branch_via_pygit(self, ref_name: str) -> Optional[str]:
+        """Return the short branch name a symbolic ref points to, read in-process
+        via pygit2, or None on any failure (so the caller falls back to the
+        subprocess equivalent). Only symbolic refs yield a branch name."""
+        if not PYGIT2_AVAILABLE:
+            return None
+        try:
+            ref = self.pygit_repo.references.get(ref_name)
+            if ref is None or ref.type != pygit2.GIT_REF_SYMBOLIC:
+                return None
+            target = ref.target  # e.g. "refs/remotes/origin/main" or "refs/heads/main"
+            for prefix in ("refs/remotes/origin/", "refs/heads/"):
+                if target.startswith(prefix):
+                    return target[len(prefix) :]
+            return target
+        except Exception:
+            return None
 
     def _get_default_branch_from_remote(self, url: str) -> str:
         if not self.is_git_repository:
@@ -783,6 +836,10 @@ class GitRepository:
         if not cloned:
             self.raise_git_access_error(CloneRepoException)
 
+        # the path is now a repository; drop any cached negative result from
+        # before the clone
+        self._is_git_repository = None
+
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 
@@ -799,6 +856,9 @@ class GitRepository:
             raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(local_path, self.path, bare=is_bare)
+        # the path is now a repository; drop any cached negative result from
+        # before the clone
+        self._is_git_repository = None
         if not self.is_git_repository:
             raise GitError(
                 self, message=f"Could not clone repository from local path {local_path}"
@@ -1808,10 +1868,22 @@ class GitRepository:
         if self.is_bare_repository:
             # For bare repositories, use `git diff` to check for uncommitted changes
             uncommitted_changes = self._git("diff --name-only --cached")
-        else:
-            # For non-bare repositories, use `git status`
-            uncommitted_changes = self._git("status --porcelain")
-        return bool(uncommitted_changes)
+            return bool(uncommitted_changes)
+        # For non-bare repositories, check status in-process via pygit2 first.
+        # The common case is a clean repo, which we can confirm without spawning
+        # a subprocess. If pygit2 reports any change, fall back to
+        # `git status --porcelain` as the source of truth (avoids libgit2
+        # stat-cache / CRLF false positives).
+        # pygit2's status() includes untracked and modified files by default
+        # (same set `git status --porcelain` reports), so an empty result means
+        # the working tree is clean.
+        if PYGIT2_AVAILABLE:
+            try:
+                if not self.pygit_repo.status():
+                    return False
+            except Exception:
+                pass
+        return bool(self._git("status --porcelain"))
 
     def synced_with_remote(
         self,
@@ -1935,6 +2007,9 @@ class GitRepository:
             raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
         pygit2.clone_repository(str(local_path), str(self.path), bare=True)
+        # the path is now a repository; drop any cached negative result from
+        # before the clone
+        self._is_git_repository = None
         # Clear cache and reset so the caller's post-setup detection runs cleanly.
         _default_branch_cache.pop(str(self.path), None)
         self.default_branch = None
