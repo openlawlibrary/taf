@@ -96,17 +96,44 @@ def _call_updater(config, format_output, result_file):
 
 def start_profiling():
     import cProfile
+    import pstats
     import atexit
+    import threading
 
     print("Profiling...")
-    pr = cProfile.Profile()
-    pr.enable()
+    main_pr = cProfile.Profile()
+    thread_profiles = []
+    lock = threading.Lock()
+
+    def _profile_thread(frame, event, arg):
+        # threading.setprofile only affects threads started AFTER this call,
+        # which is fine: profiling starts before the updater pipeline spawns
+        # any worker threads. cProfile is not safe to share across threads, so
+        # each worker gets its own Profile.
+        pr = cProfile.Profile()
+        with lock:
+            thread_profiles.append(pr)
+        pr.enable()
+
+    threading.setprofile(_profile_thread)
+    main_pr.enable()
 
     def exit_profiler():
-        pr.disable()
+        main_pr.disable()
+        threading.setprofile(None)
         print("Profiling completed")
+        stats = pstats.Stats(main_pr)
+        with lock:
+            for pr in thread_profiles:
+                try:
+                    # workers from context-managed executors are already joined;
+                    # skip the still-running daemon (background cleanup) threads
+                    pr.create_stats()
+                    stats.add(pr)
+                except Exception:
+                    pass
         filename = "updater.prof"  # You can change the filename if needed
-        pr.dump_stats(filename)
+        stats.dump_stats(filename)
 
     atexit.register(exit_profiler)
 
