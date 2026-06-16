@@ -1,4 +1,6 @@
 import json
+import os
+import pytest
 from pathlib import Path
 
 from taf.utils import (
@@ -76,6 +78,30 @@ def test_temp_partition_sweeps_stale_trash(output_path):
     second = TempPartition(Path(output_path))
 
     assert not stale_trash.exists()
+    first.cleanup()
+    second.cleanup()
+
+
+def test_temp_partition_sweep_skips_foreign_owned_trash(output_path, monkeypatch):
+    # the sweep must not delete trash dirs owned by a different user (shared
+    # /tmp on POSIX); simulate by making os.getuid return a uid that differs
+    # from the trash dir's owner
+    if not hasattr(os, "getuid"):
+        pytest.skip("ownership check is POSIX-only")
+
+    first = TempPartition(Path(output_path))
+    foreign_trash = Path(f"{first.temp_dir}foreign{TempPartition.TRASH_SUFFIX}")
+    (foreign_trash / "leftover").mkdir(parents=True)
+
+    real_uid = os.stat(foreign_trash).st_uid
+    monkeypatch.setattr(os, "getuid", lambda: real_uid + 1)
+
+    second = TempPartition(Path(output_path))
+
+    assert foreign_trash.exists()  # not ours -> left untouched
+    import shutil as _shutil
+
+    _shutil.rmtree(foreign_trash)
     first.cleanup()
     second.cleanup()
 

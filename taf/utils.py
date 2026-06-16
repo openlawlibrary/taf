@@ -569,10 +569,25 @@ class TempPartition:
         self._sweep_stale_trash()
 
     def _sweep_stale_trash(self):
-        # remove leftovers of cleanups that did not finish (crash, timeout)
+        # Remove leftovers of cleanups that did not finish (crash, timeout).
+        # In the same-partition case the parent is the shared system temp dir
+        # (e.g. /tmp on POSIX), where another user could have created a
+        # directory matching the trash pattern - so only delete trash we own
+        # and never follow symlinks.
+        try:
+            own_uid = os.getuid()  # POSIX only; per-user temp dirs on Windows
+        except AttributeError:
+            own_uid = None
         try:
             for trash in Path(self.temp_dir).parent.glob(f"*{self.TRASH_SUFFIX}"):
-                shutil.rmtree(trash, onerror=on_rm_error)
+                try:
+                    if trash.is_symlink():
+                        continue
+                    if own_uid is not None and os.lstat(trash).st_uid != own_uid:
+                        continue
+                    shutil.rmtree(trash, onerror=on_rm_error)
+                except Exception:
+                    pass
         except Exception:
             pass
 
