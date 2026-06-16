@@ -904,6 +904,13 @@ class GitRepository:
             else:
                 self.remove_remote("origin")
 
+        # seed the default-branch cache for this path from the source repo's
+        # entry to avoid re-detecting (a subprocess) the same logical repo at a
+        # new path during materialization
+        cached = _default_branch_cache.get(str(local_path))
+        if cached is not None:
+            _default_branch_cache.setdefault(str(self.path), cached)
+
         if self.default_branch is None:
             self.default_branch = self._determine_default_branch()
 

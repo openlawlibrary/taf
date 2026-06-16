@@ -12,6 +12,7 @@ from attr import attrs, define, field
 from taf.api.repository import reset_repository
 from taf.git import GitError
 from taf.git import GitRepository
+from taf.git import _default_branch_cache
 from taf.constants import INFO_JSON_PATH
 
 from taf.models.types import Commitish
@@ -939,6 +940,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 self.state.validation_auth_repo.default_branch = (
                     self.state.validation_auth_repo.get_default_branch(remote_url)
                 )
+                # seed the cache with the authoritative remote value so later
+                # detections for this path don't shell out (clone_bare_from_local
+                # cleared it on purpose; this re-populates it correctly)
+                if self.state.validation_auth_repo.default_branch:
+                    _default_branch_cache[str(self.state.validation_auth_repo.path)] = (
+                        self.state.validation_auth_repo.default_branch
+                    )
                 if self.state.validation_auth_repo.default_branch:
                     self.state.validation_auth_repo._git(
                         "symbolic-ref HEAD refs/heads/{}",
