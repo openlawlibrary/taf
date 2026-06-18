@@ -1,3 +1,4 @@
+import atexit
 import platform
 import click
 import errno
@@ -9,8 +10,11 @@ import stat
 import subprocess
 import tempfile
 import shutil
+import threading
 import uuid
 import sys
+
+from concurrent.futures import ThreadPoolExecutor
 
 from io import BytesIO
 from getpass import getpass
@@ -520,7 +524,38 @@ class timed_run:
         return wrapper_func
 
 
+_background_cleanup_threads: List[threading.Thread] = []
+
+
+def _join_background_cleanup_threads():
+    for thread in _background_cleanup_threads:
+        thread.join(timeout=10)
+
+
+atexit.register(_join_background_cleanup_threads)
+
+
+def _remove_trash_dir(trash_dir):
+    # deletion on Windows is latency-bound, so removing the immediate
+    # subdirectories in parallel gives a substantial speedup
+    trash_dir = Path(trash_dir)
+    try:
+        subdirs = [path for path in trash_dir.iterdir() if path.is_dir()]
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            for _ in executor.map(
+                lambda path: shutil.rmtree(path, onerror=on_rm_error), subdirs
+            ):
+                pass
+        shutil.rmtree(trash_dir, onerror=on_rm_error)
+    except Exception as e:
+        taf_logger.warning(
+            f"Could not remove temp folder {trash_dir}: {e}. Please remove it manually."
+        )
+
+
 class TempPartition:
+    TRASH_SUFFIX = ".taf-trash"
+
     def __init__(self, ref_path):
         self.ref_partition = self.get_partition_root(ref_path)
         temp_dir_partition = self.get_partition_root(Path(tempfile.gettempdir()))
@@ -531,6 +566,30 @@ class TempPartition:
             taf_dir = self.ref_partition / ".taf"
             taf_dir.mkdir(exist_ok=True)
             self.temp_dir = tempfile.mkdtemp(dir=str(taf_dir))
+        self._sweep_stale_trash()
+
+    def _sweep_stale_trash(self):
+        # Remove leftovers of cleanups that did not finish (crash, timeout).
+        # In the same-partition case the parent is the shared system temp dir
+        # (e.g. /tmp on POSIX), where another user could have created a
+        # directory matching the trash pattern - so only delete trash we own
+        # and never follow symlinks.
+        try:
+            own_uid = os.getuid()  # POSIX only; per-user temp dirs on Windows
+        except AttributeError:
+            own_uid = None
+        try:
+            for trash in Path(self.temp_dir).parent.glob(f"*{self.TRASH_SUFFIX}"):
+                try:
+                    if trash.is_symlink():
+                        continue
+                    if own_uid is not None and os.lstat(trash).st_uid != own_uid:
+                        continue
+                    shutil.rmtree(trash, onerror=on_rm_error)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def get_partition_root(self, path):
         # Get the root directory of the partition containing the specified path
@@ -542,6 +601,27 @@ class TempPartition:
         # Remove the temporary directory and the ".taf" directory
         if Path(self.temp_dir).is_dir():
             shutil.rmtree(self.temp_dir, onerror=on_rm_error)
+
+    def cleanup_async(self):
+        """Move the temporary directory out of the way immediately and delete
+        it in the background, keeping the deletion (which can take tens of
+        seconds on Windows) off the update's critical path. All repositories
+        inside the temp directory must be closed before calling this."""
+        if not Path(self.temp_dir).is_dir():
+            return
+        trash_path = f"{self.temp_dir}{uuid.uuid4().hex[:8]}{self.TRASH_SUFFIX}"
+        try:
+            os.rename(self.temp_dir, trash_path)
+        except OSError:
+            # something still holds the temp dir (e.g. open repo handles) -
+            # fall back to synchronous removal
+            self.cleanup()
+            return
+        thread = threading.Thread(
+            target=_remove_trash_dir, args=(trash_path,), daemon=True
+        )
+        _background_cleanup_threads.append(thread)
+        thread.start()
 
     def __enter__(self):
         return self.temp_dir, self.partition
