@@ -1364,6 +1364,19 @@ class GitRepository:
 
         repo.remotes.delete(temp_remote_name)
 
+    def mirror_local_heads_to_remote_tracking(self) -> None:
+        """Populate ``refs/remotes/origin/*`` from this repository's own
+        ``refs/heads/*`` via a local self-fetch (no network).
+
+        A freshly ``clone(bare=True)``-d repository has only local heads,
+        whereas ``clone_from_disk`` produces remote-tracking refs as well.
+        Mirroring the heads here makes both flavors of temp repository expose
+        the same ``refs/remotes/origin/*`` namespace, so downstream code that
+        reads remote-tracking refs behaves identically regardless of how the
+        temp repository was created.
+        """
+        self._git("fetch . +refs/heads/*:refs/remotes/origin/*")
+
     def find_first_branch_matching_pattern(
         self,
         traverse_branch_name: str,

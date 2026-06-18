@@ -1515,7 +1515,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     temp_repo.clone(bare=True)
                     # mirror the ref namespace clone_from_disk produces so both
                     # temp-repo flavors expose refs/remotes/origin/*
-                    temp_repo._git("fetch . +refs/heads/*:refs/remotes/origin/*")
+                    temp_repo.mirror_local_heads_to_remote_tracking()
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
 
             with ThreadPoolExecutor() as executor:
