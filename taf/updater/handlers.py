@@ -13,9 +13,12 @@ from taf.auth_repo import AuthenticationRepository
 from taf.exceptions import UpdateFailedError
 from taf.utils import on_rm_error
 from taf.updater.git_trusted_metadata_set import GitTrustedMetadataSet
+from taf.tuf.key_cache import enable_public_key_cache
 
 from tuf.ngclient.fetcher import FetcherInterface
 from tuf.api.exceptions import DownloadHTTPError
+
+enable_public_key_cache()
 
 
 class GitUpdater(FetcherInterface):
