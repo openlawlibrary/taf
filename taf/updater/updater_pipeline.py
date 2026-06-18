@@ -1502,7 +1502,12 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     )
                     self.state.repos_on_disk[users_repo.name] = users_repo
                 else:
-                    temp_repo.clone(bare=self.bare)
+                    # validation never needs a working tree in temp; a bare clone
+                    # avoids materializing (and later deleting) thousands of files
+                    temp_repo.clone(bare=True)
+                    # mirror the ref namespace clone_from_disk produces so both
+                    # temp-repo flavors expose refs/remotes/origin/*
+                    temp_repo._git("fetch . +refs/heads/*:refs/remotes/origin/*")
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
 
             with ThreadPoolExecutor() as executor:
