@@ -899,8 +899,55 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.validation_auth_repo = AuthenticationRepository(
                 path=path, urls=self.urls, alias="Validation repository"
             )
-            self.state.validation_auth_repo.clone(bare=True)
-            self.state.validation_auth_repo.fetch(fetch_all=True)
+            if self.state.existing_repo and self.state.users_auth_repo:
+                # Seed the temp validation repo from the user's on-disk copy (fast,
+                # no network), then fetch only the delta from the real remote.
+                # The refspec +refs/heads/*:refs/heads/* force-updates local heads so
+                # the validation pipeline sees the current remote commits, not the
+                # user's stale ones.
+                remote_url = (
+                    self.urls[0]
+                    if self.urls
+                    else self.state.users_auth_repo.get_remote_url()
+                )
+                if not remote_url:
+                    raise UpdateFailedError(
+                        "URL cannot be determined. Please specify it"
+                    )
+                self.state.validation_auth_repo.clone_bare_from_local(
+                    self.state.users_auth_repo.path
+                )
+                self.state.validation_auth_repo._git(
+                    "remote set-url origin {}",
+                    remote_url,
+                    log_error=True,
+                    reraise_error=True,
+                )
+                self.state.validation_auth_repo._git(
+                    "fetch origin +refs/heads/*:refs/heads/*",
+                    log_error=True,
+                    reraise_error=True,
+                )
+                # Determine default_branch from the real remote, not from the
+                # seeded local repo. clone_bare_from_local leaves HEAD pointing at
+                # the user's checked-out branch (often a speculative/publication
+                # branch after a build), and _determine_default_branch() prefers
+                # local detection, which would fall back to that stale HEAD and
+                # make validation walk the wrong lineage. The remote's HEAD is the
+                # authoritative default branch (matches the clean-clone path).
+                self.state.validation_auth_repo.default_branch = (
+                    self.state.validation_auth_repo.get_default_branch(remote_url)
+                )
+                if self.state.validation_auth_repo.default_branch:
+                    self.state.validation_auth_repo._git(
+                        "symbolic-ref HEAD refs/heads/{}",
+                        self.state.validation_auth_repo.default_branch,
+                        log_error=True,
+                        reraise_error=True,
+                    )
+            else:
+                self.state.validation_auth_repo.clone(bare=True)
+                self.state.validation_auth_repo.fetch(fetch_all=True)
 
             settings.validation_repo_path[self.state.validation_auth_repo.name] = (
                 self.state.validation_auth_repo.path
@@ -962,6 +1009,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                 users_head_commit = self.state.users_auth_repo.top_commit_of_branch(
                     default_branch
                 )
+                if users_head_commit is None:
+                    raise UpdateFailedError(
+                        f"Could not find branch '{default_branch}' in local repository "
+                        f"{self.state.users_auth_repo.name}. "
+                        "This can happen if the repository's default branch was changed after cloning. "
+                        "Please re-clone the repository using 'taf repo clone'."
+                    )
                 if not _check_if_commit_on_branch(
                     self.state.validation_auth_repo, users_head_commit, default_branch
                 ):
@@ -1240,10 +1294,38 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             f"{self.state.auth_repo_name}: Cloning or updating user's authentication repository..."
         )
         try:
+            temp_path = self.state.validation_auth_repo.path
             if self.state.existing_repo:
-                self.state.users_auth_repo.fetch(fetch_all=True)
+                # Fetch new commits from the already-fetched temp validation repo
+                # (local, no network) instead of re-fetching from the real remote.
+                self.state.users_auth_repo._git(
+                    "fetch {} +refs/heads/*:refs/remotes/origin/*",
+                    str(temp_path),
+                    log_error=True,
+                    reraise_error=True,
+                )
             else:
-                self.state.users_auth_repo.clone(bare=self.bare)
+                # Materialize the user's auth repo from the validated temp rather
+                # than cloning from the network a second time.
+                remote_url = (
+                    self.state.users_auth_repo.urls[0]
+                    if self.state.users_auth_repo.urls
+                    else None
+                )
+                # Pass the default branch so clone_from_disk calls set_upstream,
+                # restoring the tracking relationship that remove_remote destroys.
+                # Without it, synced_with_remote() returns False immediately.
+                default_branch = self.state.validation_auth_repo.default_branch
+                branches = (
+                    [default_branch] if default_branch and not self.bare else None
+                )
+                self.state.users_auth_repo.clone_from_disk(
+                    temp_path,
+                    remote_url,
+                    is_bare=self.bare,
+                    fetch_remote=False,
+                    branches=branches,
+                )
         except Exception as e:
             self.state.errors.append(e)
             self.state.event = Event.FAILED
@@ -1619,8 +1701,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
                         taf_logger.error(msg)
                         raise UpdateFailedError(msg)
-                else:
-                    repository.fetch(branch=branch)
+                # else: clone_target_repositories_to_temp already fetched from
+                # origin, so refs/remotes/origin/* are current — skip re-fetch.
 
             if old_head is not None:
                 if not self.only_validate:
@@ -1945,7 +2027,8 @@ but commit not on branch {current_branch}"
         if self.state.update_status == UpdateStatus.FAILED:
             return self.state.update_status
         try:
-            for repository_name in self.state.repos_not_on_disk:
+
+            def _materialize_not_on_disk(repository_name):
                 branches = [
                     branch
                     for branch in self.state.validated_commits_per_target_repos_branches[
@@ -1961,8 +2044,10 @@ but commit not on branch {current_branch}"
                     temp_target_repo.get_remote_url(),
                     is_bare=self.bare,
                     branches=branches,
+                    fetch_remote=False,
                 )
-            for repository_name in self.state.repos_on_disk:
+
+            def _materialize_on_disk(repository_name):
                 users_target_repo = self.state.users_target_repositories[
                     repository_name
                 ]
@@ -1973,6 +2058,17 @@ but commit not on branch {current_branch}"
                 for branch in branches:
                     temp_target_repo.update_local_branch(branch=branch)
                 users_target_repo.fetch_from_disk(temp_target_repo.path, branches)
+
+            with ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(_materialize_not_on_disk, name)
+                    for name in self.state.repos_not_on_disk
+                ] + [
+                    executor.submit(_materialize_on_disk, name)
+                    for name in self.state.repos_on_disk
+                ]
+                for future in as_completed(futures):
+                    future.result()
 
             return self.state.update_status
         except Exception as e:

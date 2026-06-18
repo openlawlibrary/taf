@@ -46,6 +46,10 @@ except ImportError:
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
+# Per-process cache for default branch detection.
+# A repository's default branch never changes during a single run.
+_default_branch_cache: Dict[str, Optional[str]] = {}
+
 
 class GitRepository:
     def __init__(
@@ -789,6 +793,7 @@ class GitRepository:
         is_bare: bool = False,
         keep_remote=False,
         branches=None,
+        fetch_remote: bool = True,
     ) -> None:
         if not PYGIT2_AVAILABLE:
             raise PygitError("pygit2 is not installed")
@@ -801,10 +806,21 @@ class GitRepository:
         repo = self.pygit_repo
 
         if not keep_remote:
-            self.remove_remote("origin")
             if remote_url is not None:
+                self.remove_remote("origin")
                 self.add_remote("origin", remote_url)
-                self.fetch()
+                if fetch_remote:
+                    self.fetch()
+                else:
+                    # Populate refs/remotes/origin/* from the validated local clone instead
+                    # of re-fetching from the network. Bare sources expose all branches as
+                    # refs/heads/*; non-bare sources expose them as refs/remotes/origin/*.
+                    source_is_bare = pygit2.Repository(str(local_path)).is_bare
+                    if source_is_bare:
+                        refspec = "+refs/heads/*:refs/remotes/origin/*"
+                    else:
+                        refspec = "+refs/remotes/origin/*:refs/remotes/origin/*"
+                    self._git("fetch {} {}", str(local_path), refspec)
                 if repo is not None and branches:
                     local_branch_names = [
                         branch.split("/")[-1] for branch in repo.branches.local
@@ -812,6 +828,11 @@ class GitRepository:
                     for branch in branches:
                         if branch in local_branch_names:
                             self.set_upstream(str(branch))
+            else:
+                self.remove_remote("origin")
+
+        if self.default_branch is None:
+            self.default_branch = self._determine_default_branch()
 
     # TODO test this
     def clone_or_pull(
@@ -1869,10 +1890,16 @@ class GitRepository:
 
     def _determine_default_branch(self) -> Optional[str]:
         """Determine the default branch of the repository"""
+        cache_key = str(self.path)
+        if cache_key in _default_branch_cache:
+            return _default_branch_cache[cache_key]
+
         # try to get the default branch from the local repository
         errors = []
         try:
-            return self.get_default_branch()
+            result = self.get_default_branch()
+            _default_branch_cache[cache_key] = result
+            return result
         except GitError as e:
             errors.append(e)
             pass
@@ -1881,7 +1908,9 @@ class GitRepository:
         if self.urls:
             for url in self.urls:
                 try:
-                    return self.get_default_branch(url)
+                    result = self.get_default_branch(url)
+                    _default_branch_cache[cache_key] = result
+                    return result
                 except GitError as e:
                     errors.append(e)
                     pass
@@ -1889,7 +1918,26 @@ class GitRepository:
         self._log_debug(
             f"Cannot determine default branch with git -C at {self.path}: {errors}"
         )
+        # Do not cache None — the repo may not exist yet (e.g. temp path at
+        # instantiation time). The next call after the repo is created will
+        # detect the branch correctly instead of returning a stale None.
         return None
+
+    def clone_bare_from_local(self, local_path: Path) -> None:
+        """Seed a bare repo from a local path using pygit2 (no network).
+
+        Does NOT detect default_branch — the caller must do that after updating
+        origin to the real remote URL, otherwise remote show origin contacts
+        local_path which may be in detached HEAD and returns a bogus branch name
+        that then gets cached and blocks the correct subsequent detection.
+        """
+        if not PYGIT2_AVAILABLE:
+            raise PygitError("pygit2 is not installed")
+        self.path.mkdir(parents=True, exist_ok=True)
+        pygit2.clone_repository(str(local_path), str(self.path), bare=True)
+        # Clear cache and reset so the caller's post-setup detection runs cleanly.
+        _default_branch_cache.pop(str(self.path), None)
+        self.default_branch = None
 
     def top_commit_of_remote_branch(
         self, branch, remote="origin"
