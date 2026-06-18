@@ -882,7 +882,16 @@ class GitRepository:
         if not PYGIT2_AVAILABLE:
             raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
-        pygit2.clone_repository(local_path, self.path, bare=is_bare)
+        # `git clone --local` hardlinks objects when source and destination share
+        # a volume (TempPartition guarantees this), which is far cheaper than the
+        # file-by-file object copy pygit2 performs. git silently falls back to
+        # copying when hardlinks are not possible, so this is never slower.
+        bare_flag = "--bare " if is_bare else ""
+        self._git(
+            f"clone --local {bare_flag}{local_path} .",
+            error_if_not_exists=False,
+            reraise_error=True,
+        )
         # the path is now a repository; drop any cached negative result from
         # before the clone
         self._is_git_repository = None
@@ -891,6 +900,10 @@ class GitRepository:
                 self, message=f"Could not clone repository from local path {local_path}"
             )
         repo = self.pygit_repo
+        if is_bare:
+            # `git clone --bare` creates no origin remote (pygit2 did); add it for
+            # parity so the remote handling below behaves identically
+            self.add_remote("origin", str(local_path))
 
         if not keep_remote:
             if remote_url is not None:
@@ -2024,20 +2037,26 @@ class GitRepository:
         return None
 
     def clone_bare_from_local(self, local_path: Path) -> None:
-        """Seed a bare repo from a local path using pygit2 (no network).
+        """Seed a bare repo from a local path (no network).
 
-        Does NOT detect default_branch — the caller must do that after updating
-        origin to the real remote URL, otherwise remote show origin contacts
-        local_path which may be in detached HEAD and returns a bogus branch name
-        that then gets cached and blocks the correct subsequent detection.
+        Uses `git clone --local`, which hardlinks objects on the same volume
+        instead of copying them. Does NOT detect default_branch — the caller
+        must do that after updating origin to the real remote URL, otherwise
+        remote show origin contacts local_path which may be in detached HEAD and
+        returns a bogus branch name that then gets cached and blocks the correct
+        subsequent detection.
         """
-        if not PYGIT2_AVAILABLE:
-            raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
-        pygit2.clone_repository(str(local_path), str(self.path), bare=True)
-        # the path is now a repository; drop any cached negative result from
-        # before the clone
+        self._git(
+            "clone --local --bare {} .",
+            str(local_path),
+            error_if_not_exists=False,
+            reraise_error=True,
+        )
         self._is_git_repository = None
+        # `git clone --bare` creates no origin remote (pygit2 did); add it for
+        # parity so the caller's `remote set-url origin` succeeds
+        self.add_remote("origin", str(local_path))
         # Clear cache and reset so the caller's post-setup detection runs cleanly.
         _default_branch_cache.pop(str(self.path), None)
         self.default_branch = None
