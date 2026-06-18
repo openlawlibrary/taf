@@ -165,6 +165,22 @@ def test_is_git_repository_root_non_bare(repository: GitRepository):
     assert repository.is_git_repository_root
 
 
+def test_is_git_repository_not_cached_negative(tmp_path):
+    """is_git_repository must not permanently cache a negative result: an
+    instance created for a path before the repository exists (e.g. before the
+    updater or an external process materializes it) has to report True once a
+    valid repository appears on disk."""
+    repo_path = Path(tmp_path) / "repo"
+    repo = GitRepository(path=repo_path)
+    # path does not exist yet
+    assert repo.is_git_repository is False
+    # an external actor creates the repository at that path
+    repo_path.mkdir(parents=True, exist_ok=True)
+    GitRepository(path=repo_path).init_repo(bare=False)
+    # the original instance must now detect it instead of returning a stale False
+    assert repo.is_git_repository is True
+
+
 def test_all_commits_since_commit_when_repo_empty(empty_repository: GitRepository):
     all_commits_empty = empty_repository.all_commits_since_commit()
     assert isinstance(all_commits_empty, list)
@@ -663,3 +679,38 @@ def test_is_remote_branch(origin_repo: GitRepository, clone_repository: GitRepos
     assert not clone_repository.is_remote_branch(
         f"origin2/{clone_repository.default_branch}"
     )
+
+
+# --- pygit2-backed read-only checks ---
+
+
+def test_is_git_repository_in_subdirectory(repository: GitRepository):
+    # parity with `rev-parse --is-inside-work-tree`: a path inside a work tree
+    # is reported as a git repository (discover_repository searches upward)
+    subdir = repository.path / "nested"
+    subdir.mkdir()
+    repo = GitRepository(path=subdir, default_branch=repository.default_branch)
+    assert repo.is_git_repository
+
+
+def test_is_git_repository_non_repo():
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = GitRepository(path=tmp)
+        assert not repo.is_git_repository
+        assert not repo.is_git_repository_root
+
+
+def test_default_branch_from_origin_head(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    # cloned repos have refs/remotes/origin/HEAD; detection reads it in-process
+    assert (
+        clone_repository._get_default_branch_from_local() == origin_repo.default_branch
+    )
+
+
+def test_default_branch_from_head_no_remote(repository: GitRepository):
+    # no origin remote: falls back to local HEAD shorthand
+    assert repository._get_default_branch_from_local() == repository.default_branch
