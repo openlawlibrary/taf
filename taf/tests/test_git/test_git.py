@@ -183,6 +183,27 @@ def test_is_git_repository_not_cached_negative(tmp_path):
     assert repo.is_git_repository is True
 
 
+def test_set_head_to_branch(repository: GitRepository):
+    branch_name = "feature"
+    repository.create_branch(branch_name)
+    repository.set_head_to_branch(branch_name)
+    assert repository.get_current_branch() == branch_name
+
+
+def test_fetch_heads_to_remote_tracking(repository: GitRepository):
+    default_branch = repository.default_branch
+    assert default_branch is not None
+    # no remote-tracking ref before mirroring
+    assert not repository.branch_exists(
+        f"origin/{default_branch}", include_remotes=True
+    )
+    repository.fetch_heads_to_remote_tracking()
+    # refs/heads/* are now mirrored into refs/remotes/origin/*
+    assert repository.top_commit_of_remote_branch(default_branch) == (
+        repository.top_commit_of_branch(default_branch)
+    )
+
+
 def test_all_commits_since_commit_when_repo_empty(empty_repository: GitRepository):
     all_commits_empty = empty_repository.all_commits_since_commit()
     assert isinstance(all_commits_empty, list)

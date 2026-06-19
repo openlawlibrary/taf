@@ -131,9 +131,17 @@ class GitUpdater(FetcherInterface):
             raise e
 
     def download_bytes(self, url: str, max_length: int) -> bytes:
-        # the default FetcherInterface implementation round-trips the data
-        # through a temporary file; the data is already in memory here, so
-        # only the max_length check is kept
+        """Return the metadata/target bytes for the current commit.
+
+        The only thing TUF's default implementation does beyond returning the
+        bytes is bound the size to ``max_length`` while streaming into a
+        temporary file. ``fetch`` already returns the bytes from git in memory,
+        so we drop the temp-file round-trip but keep the ``max_length`` guard.
+        That guard is the size bound TUF applies *before* the role's
+        signatures, hashes, version and expiry are verified later in
+        ``refresh()``; for roles whose trusted length isn't known yet (root,
+        timestamp) it is the only bound, so it must stay.
+        """
         data = b"".join(self.fetch(url))
         if len(data) > max_length:
             raise DownloadLengthMismatchError(

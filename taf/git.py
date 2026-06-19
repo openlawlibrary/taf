@@ -201,13 +201,8 @@ class GitRepository:
         # This is used when instantiating a PyGitRepository repo, so do not use
         # self.pygit / self.pygit_repo here (would recurse via the pygit property).
         #
-        # Only a positive result is cached. A path that is not (yet) a repository
-        # can become one later - e.g. a GitRepository instance is created for a
-        # path before init_repo()/clone() runs, or before the updater (a
-        # different instance, or an external process) materializes it on disk.
-        # Caching the negative result would make this instance permanently report
-        # the path as a non-repository even after a valid .git appears, so we
-        # recompute until the answer is True.
+        # Only a positive result is cached: a path that is not (yet) a
+        # repository can become one later.
         if self._is_git_repository:
             return True
         # pygit2.discover_repository is a module-level function that searches
@@ -879,6 +874,15 @@ class GitRepository:
         branches=None,
         fetch_remote: bool = True,
     ) -> None:
+        """Clone this repository from a local path (hardlinking objects).
+
+        ``branches`` are the local branches whose upstream tracking should be
+        restored via ``set_upstream`` after the clone - ``remove_remote`` drops
+        the tracking relationship, so without this ``synced_with_remote()``
+        would report ``False``. ``fetch_remote=False`` populates
+        ``refs/remotes/origin/*`` from the local source instead of fetching the
+        network remote.
+        """
         if not PYGIT2_AVAILABLE:
             raise PygitError("pygit2 is not installed")
         self.path.mkdir(parents=True, exist_ok=True)
@@ -1364,18 +1368,34 @@ class GitRepository:
 
         repo.remotes.delete(temp_remote_name)
 
-    def mirror_local_heads_to_remote_tracking(self) -> None:
-        """Populate ``refs/remotes/origin/*`` from this repository's own
-        ``refs/heads/*`` via a local self-fetch (no network).
+    def fetch_heads_to_remote_tracking(self, source: str = ".") -> None:
+        """Populate this repo's ``refs/remotes/origin/*`` from the
+        ``refs/heads/*`` of ``source`` via a local fetch (no network);
+        ``source`` defaults to this repository itself.
 
-        A freshly ``clone(bare=True)``-d repository has only local heads,
-        whereas ``clone_from_disk`` produces remote-tracking refs as well.
-        Mirroring the heads here makes both flavors of temp repository expose
-        the same ``refs/remotes/origin/*`` namespace, so downstream code that
-        reads remote-tracking refs behaves identically regardless of how the
-        temp repository was created.
+        A freshly ``clone(bare=True)``-d repository exposes only local heads,
+        whereas ``clone_from_disk`` also produces remote-tracking refs, so
+        mirroring from ``.`` makes both temp-repo flavors expose the same
+        remote-tracking namespace. Passing another local repository as
+        ``source`` (e.g. the already-validated temp repo) brings its new
+        commits into this repo's remote-tracking refs without a second network
+        fetch.
         """
-        self._git("fetch . +refs/heads/*:refs/remotes/origin/*")
+        self._git("fetch {} +refs/heads/*:refs/remotes/origin/*", source)
+
+    def fetch_heads_from_remote(self, remote: str = "origin") -> None:
+        """Force-update local ``refs/heads/*`` from ``remote`` (network fetch).
+
+        Used after seeding a bare repo from a local copy: the seed carries the
+        user's possibly-stale heads, so this overwrites them with the remote's
+        current heads.
+        """
+        self._git(
+            "fetch {} +refs/heads/*:refs/heads/*",
+            remote,
+            log_error=True,
+            reraise_error=True,
+        )
 
     def find_first_branch_matching_pattern(
         self,
@@ -1914,6 +1934,15 @@ class GitRepository:
 
     def set_remote_url(self, new_url: str, remote: Optional[str] = "origin") -> None:
         self._git(f"remote set-url {remote} {new_url}")
+
+    def set_head_to_branch(self, branch_name: str) -> None:
+        """Point HEAD at the given local branch without checking it out."""
+        self._git(
+            "symbolic-ref HEAD refs/heads/{}",
+            branch_name,
+            log_error=True,
+            reraise_error=True,
+        )
 
     def set_upstream(self, branch_name: str) -> None:
         repo = self.pygit_repo

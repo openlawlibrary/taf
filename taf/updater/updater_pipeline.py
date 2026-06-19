@@ -901,62 +901,11 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
             self.state.validation_auth_repo = AuthenticationRepository(
                 path=path, urls=self.urls, alias="Validation repository"
             )
-            if self.state.existing_repo and self.state.users_auth_repo:
-                # Seed the temp validation repo from the user's on-disk copy (fast,
-                # no network), then fetch only the delta from the real remote.
-                # The refspec +refs/heads/*:refs/heads/* force-updates local heads so
-                # the validation pipeline sees the current remote commits, not the
-                # user's stale ones.
-                remote_url = (
-                    self.urls[0]
-                    if self.urls
-                    else self.state.users_auth_repo.get_remote_url()
-                )
-                if not remote_url:
-                    raise UpdateFailedError(
-                        "URL cannot be determined. Please specify it"
-                    )
-                self.state.validation_auth_repo.clone_bare_from_local(
-                    self.state.users_auth_repo.path
-                )
-                self.state.validation_auth_repo._git(
-                    "remote set-url origin {}",
-                    remote_url,
-                    log_error=True,
-                    reraise_error=True,
-                )
-                self.state.validation_auth_repo._git(
-                    "fetch origin +refs/heads/*:refs/heads/*",
-                    log_error=True,
-                    reraise_error=True,
-                )
-                # Determine default_branch from the real remote, not from the
-                # seeded local repo. clone_bare_from_local leaves HEAD pointing at
-                # the user's checked-out branch (often a speculative/publication
-                # branch after a build), and _determine_default_branch() prefers
-                # local detection, which would fall back to that stale HEAD and
-                # make validation walk the wrong lineage. The remote's HEAD is the
-                # authoritative default branch (matches the clean-clone path).
-                self.state.validation_auth_repo.default_branch = (
-                    self.state.validation_auth_repo.get_default_branch(remote_url)
-                )
-                # seed the cache with the authoritative remote value so later
-                # detections for this path don't shell out (clone_bare_from_local
-                # cleared it on purpose; this re-populates it correctly)
-                if self.state.validation_auth_repo.default_branch:
-                    _default_branch_cache[str(self.state.validation_auth_repo.path)] = (
-                        self.state.validation_auth_repo.default_branch
-                    )
-                if self.state.validation_auth_repo.default_branch:
-                    self.state.validation_auth_repo._git(
-                        "symbolic-ref HEAD refs/heads/{}",
-                        self.state.validation_auth_repo.default_branch,
-                        log_error=True,
-                        reraise_error=True,
-                    )
-            else:
-                self.state.validation_auth_repo.clone(bare=True)
-                self.state.validation_auth_repo.fetch(fetch_all=True)
+            _populate_validation_auth_repo(
+                self.state.validation_auth_repo,
+                self.state.users_auth_repo if self.state.existing_repo else None,
+                self.urls,
+            )
 
             settings.validation_repo_path[self.state.validation_auth_repo.name] = (
                 self.state.validation_auth_repo.path
@@ -1305,13 +1254,8 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
         try:
             temp_path = self.state.validation_auth_repo.path
             if self.state.existing_repo:
-                # Fetch new commits from the already-fetched temp validation repo
-                # (local, no network) instead of re-fetching from the real remote.
-                self.state.users_auth_repo._git(
-                    "fetch {} +refs/heads/*:refs/remotes/origin/*",
-                    str(temp_path),
-                    log_error=True,
-                    reraise_error=True,
+                self.state.users_auth_repo.fetch_heads_to_remote_tracking(
+                    str(temp_path)
                 )
             else:
                 # Materialize the user's auth repo from the validated temp rather
@@ -1321,9 +1265,6 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     if self.state.users_auth_repo.urls
                     else None
                 )
-                # Pass the default branch so clone_from_disk calls set_upstream,
-                # restoring the tracking relationship that remove_remote destroys.
-                # Without it, synced_with_remote() returns False immediately.
                 default_branch = self.state.validation_auth_repo.default_branch
                 branches = (
                     [default_branch] if default_branch and not self.bare else None
@@ -1513,9 +1454,7 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                     # validation never needs a working tree in temp; a bare clone
                     # avoids materializing (and later deleting) thousands of files
                     temp_repo.clone(bare=True)
-                    # mirror the ref namespace clone_from_disk produces so both
-                    # temp-repo flavors expose refs/remotes/origin/*
-                    temp_repo.mirror_local_heads_to_remote_tracking()
+                    temp_repo.fetch_heads_to_remote_tracking()
                     self.state.repos_not_on_disk[users_repo.name] = users_repo
 
             with ThreadPoolExecutor() as executor:
@@ -2503,6 +2442,43 @@ def _get_repository_name_from_info_json(auth_repo, commit_sha):
         raise MissingInfoJsonError(
             "Error during info.json parse. If the authentication repository's path is not specified, info.json metadata is expected to be in targets/protected"
         )
+
+
+def _populate_validation_auth_repo(validation_auth_repo, users_auth_repo, urls):
+    """Fill the temp validation auth repo with the commits to validate.
+
+    When the user already has a local auth repo, seed the validation repo from
+    it (``git clone --local`` hardlinks objects, no network), then point origin
+    at the real remote and force-update heads from it so validation sees the
+    current remote commits rather than the user's possibly-stale ones.
+    Otherwise clone the remote directly.
+
+    The default branch is resolved from the remote: ``clone_bare_from_local``
+    leaves HEAD on whatever branch the user had checked out (often a
+    speculative branch after a build), so the remote's HEAD is the
+    authoritative default branch (matches the clean-clone path). It is cached
+    and HEAD is repointed to it.
+    """
+    if users_auth_repo is None:
+        validation_auth_repo.clone(bare=True)
+        validation_auth_repo.fetch(fetch_all=True)
+        return
+
+    remote_url = urls[0] if urls else users_auth_repo.get_remote_url()
+    if not remote_url:
+        raise UpdateFailedError("URL cannot be determined. Please specify it")
+
+    validation_auth_repo.clone_bare_from_local(users_auth_repo.path)
+    validation_auth_repo.set_remote_url(remote_url)
+    validation_auth_repo.fetch_heads_from_remote()
+    validation_auth_repo.default_branch = validation_auth_repo.get_default_branch(
+        remote_url
+    )
+    if validation_auth_repo.default_branch:
+        _default_branch_cache[str(validation_auth_repo.path)] = (
+            validation_auth_repo.default_branch
+        )
+        validation_auth_repo.set_head_to_branch(validation_auth_repo.default_branch)
 
 
 def _is_unauthenticated_allowed(repository):
