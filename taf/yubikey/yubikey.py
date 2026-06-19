@@ -470,7 +470,8 @@ def _read_and_check_single_yubikey(
             pin = get_pin_for(key_name, pin_confirm, pin_repeat)
             taf_logger.debug("Attempting to load key pin from environment variables")
 
-        taf_dir = find_taf_directory(taf_repo.path)
+        lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
+        taf_dir = find_taf_directory(lookup_path)
         pin = get_pin_from_env(public_key, serial_num, taf_dir)
 
         if pin is None:
@@ -537,7 +538,8 @@ def _read_and_check_yubikeys(
     invalid_keys = []
     all_loaded = True
 
-    taf_dir = find_taf_directory(taf_repo.path)
+    lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
+    taf_dir = find_taf_directory(lookup_path)
 
     for index, serial_num in enumerate(serials):
         if not taf_repo.yubikey_store.is_loaded_for_role(serial_num, role):
