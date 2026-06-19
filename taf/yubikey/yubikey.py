@@ -466,15 +466,19 @@ def _read_and_check_single_yubikey(
 
     pin = None
     if pin_manager.get_pin(serial_num) is None:
-        if creating_new_key:
-            pin = get_pin_for(key_name, pin_confirm, pin_repeat)
-            taf_logger.debug("Attempting to load key pin from environment variables")
-
+        taf_logger.debug("Attempting to load key pin from environment variables")
         lookup_path = taf_repo.path if taf_repo is not None else Path.cwd()
         taf_dir = find_taf_directory(lookup_path)
         pin = get_pin_from_env(public_key, serial_num, taf_dir)
 
-        if pin is None:
+        if creating_new_key:
+            # A new key is being provisioned: the entered PIN becomes the new
+            # PIN written to the freshly reset YubiKey. It must not be validated
+            # against the card's current PIN, since doing so would fail on every
+            # attempt and eventually lock the key.
+            if pin is None:
+                pin = get_pin_for(key_name, pin_confirm, pin_repeat)
+        elif pin is None:
             pin = get_and_validate_pin(
                 key_name,
                 pin_confirm,
