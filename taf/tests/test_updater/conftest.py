@@ -643,6 +643,26 @@ def create_new_target_repo_branch(
             break
 
 
+def switch_target_branch_and_sign(
+    auth_repo: AuthenticationRepository,
+    pin_manager: PinManager,
+    target_repos: list,
+    target_name: str,
+    branch_name: str,
+):
+    """Create a new branch from the current HEAD of the named target repo,
+    add a commit, and re-sign all target repos so the auth repo records
+    the new branch and commit."""
+    for repo in target_repos:
+        if target_name in repo.name:
+            repo.checkout_branch(branch_name, create=True)
+            update_target_repository(repo, "Switch to new branch")
+            break
+    sign_target_repositories(
+        TEST_DATA_ORIGIN_PATH, auth_repo.name, KEYSTORE_PATH, pin_manager
+    )
+
+
 def create_index_lock(auth_repo: AuthenticationRepository, client_dir: Path):
     # Create an `index.lock` file, indicating that an incomplete git operation took place
     # index.lock is created by git when a git operation is interrupted.
