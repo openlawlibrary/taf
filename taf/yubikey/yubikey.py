@@ -35,7 +35,7 @@ from yubikit.piv import (
 
 from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import InvalidPINError, YubikeyError
+from taf.exceptions import InvalidConfigError, InvalidPINError, YubikeyError
 from taf.utils import get_pin_for
 from taf.log import taf_logger
 
@@ -315,6 +315,9 @@ def get_pin_from_env(
         taf_logger.debug(f"Config loaded: {cfg}")
     except FileNotFoundError as e:
         taf_logger.debug(f"No config file found, skipping PIN from env. {str(e)}")
+        return None
+    except InvalidConfigError as e:
+        taf_logger.warning(f"Invalid config.toml, skipping PIN from env. {str(e)}")
         return None
 
     if public_key is None:

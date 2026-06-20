@@ -83,6 +83,10 @@ class InvalidPINError(TAFError):
     pass
 
 
+class InvalidConfigError(TAFError):
+    pass
+
+
 class PushFailedError(GitError):
     pass
 
