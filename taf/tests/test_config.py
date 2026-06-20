@@ -47,8 +47,29 @@ def test_real_world_root_shape_is_fully_modelled():
     assert cfg.root.hash is None
 
 
-def test_unknown_keys_are_rejected():
+def test_unknown_keys_in_root_are_rejected():
+    # `root` is the one object taf depends on, so typos/extra keys there fail
+    # loudly rather than being silently ignored.
     with pytest.raises(InvalidConfigError):
         TafConfig.from_mapping({"root": {"name": "r", "org": "o", "bogus": 1}})
-    with pytest.raises(InvalidConfigError):
-        TafConfig.from_mapping({"surprise": True})
+
+
+def test_unknown_top_level_keys_are_tolerated():
+    # The top level is co-owned by stelae, which writes tables taf does not
+    # consume (e.g. [headers]). Unknown top-level keys must not break taf.
+    cfg = TafConfig.from_mapping(
+        {
+            "root": {"name": "r", "org": "o"},
+            "headers": {"current_documents_guard": "secret"},
+            "some_future_table": {"anything": 1},
+        }
+    )
+    assert cfg.root.name == "r"
+
+
+def test_headers_contents_are_not_validated():
+    # taf has nothing to say about the shape of [headers]; any contents load.
+    cfg = TafConfig.from_mapping(
+        {"root": {"name": "r", "org": "o"}, "headers": {"wholly": ["un", "modelled"]}}
+    )
+    assert cfg.root.org == "o"

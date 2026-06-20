@@ -17,6 +17,7 @@ from __future__ import annotations
 import attrs
 import cattrs
 import tomli as toml  # type: ignore[import-untyped]
+from cattrs.gen import make_dict_structure_fn
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -91,10 +92,21 @@ class TafConfig:
         return data
 
 
-# Strict on purpose: an incomplete schema that silently drops unknown keys is
-# worse than no schema, so an unmodelled key fails loudly at this single load
-# point rather than vanishing.
-_converter = cattrs.Converter(forbid_extra_keys=True)
+# Leniency is per-object on purpose:
+#   * Top level is permissive. It is co-owned with stelae, which writes tables
+#     taf does not consume (e.g. [headers]); unknown top-level keys are ignored
+#     so an evolving stelae schema never breaks taf.
+#   * `[root]` is strict. It is the one object taf actually depends on, so an
+#     extra/typo'd key there fails loudly rather than silently dropping.
+#   * [headers] (and any other table taf doesn't model) is opaque: taf has
+#     nothing to say about its shape, and the lenient top level ignores it.
+_converter = cattrs.Converter(forbid_extra_keys=False)
+_converter.register_structure_hook(
+    RootConfig,
+    make_dict_structure_fn(
+        RootConfig, _converter, _cattrs_forbid_extra_keys=True
+    ),
+)
 
 
 def _iter_error_messages(exc: BaseException) -> list[str]:
