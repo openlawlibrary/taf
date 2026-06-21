@@ -2464,9 +2464,9 @@ def _populate_validation_auth_repo(validation_auth_repo, users_auth_repo, urls):
         validation_auth_repo.fetch(fetch_all=True)
         return
 
+    # the remote URL is already validated by clone_repository/update_repository
+    # before the pipeline runs
     remote_url = urls[0] if urls else users_auth_repo.get_remote_url()
-    if not remote_url:
-        raise UpdateFailedError("URL cannot be determined. Please specify it")
 
     validation_auth_repo.clone_bare_from_local(users_auth_repo.path)
     validation_auth_repo.set_remote_url(remote_url)
