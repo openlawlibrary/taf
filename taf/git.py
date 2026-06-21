@@ -205,11 +205,10 @@ class GitRepository:
         # repository can become one later.
         if self._is_git_repository:
             return True
-        # pygit2.discover_repository is a module-level function that searches
-        # upward for a repository, matching the semantics of the subprocess
-        # `rev-parse --is-inside-work-tree` / `--is-bare-repository` checks but
-        # without spawning a process (~150-400ms each on Windows).
-        if PYGIT2_AVAILABLE and not self.allow_unsafe:
+        # pygit2.discover_repository searches upward for a repository, matching
+        # the semantics of the `rev-parse --is-inside-work-tree` /
+        # `--is-bare-repository` checks without spawning a subprocess.
+        if not self.allow_unsafe:
             try:
                 if pygit2.discover_repository(str(self.path)) is not None:
                     self._is_git_repository = True
@@ -218,9 +217,8 @@ class GitRepository:
             except Exception:
                 # fall back to the subprocess check (e.g. ownership errors)
                 pass
-        # subprocess fallback: pygit2 unavailable, or allow_unsafe is set
-        # (libgit2 does not honor the `-c safe.directory` override the
-        # subprocess path uses)
+        # subprocess fallback for allow_unsafe: libgit2 does not honor the
+        # `-c safe.directory` override the subprocess path uses
         try:
             result = self._git("rev-parse --is-inside-work-tree", reraise_error=True)
             if result == "true":
@@ -344,10 +342,10 @@ class GitRepository:
 
         If the repository does not have a remote set, use `symbolic-ref` HEAD
 
-        The cheap symbolic-ref reads (steps 1 and 3) are done in-process via
-        pygit2 when possible to avoid spawning subprocesses (~150-400ms each on
-        Windows); each falls back to the subprocess equivalent on any failure,
-        so behavior is a strict superset of the previous implementation.
+        The symbolic-ref reads (steps 1 and 3) are done in-process via pygit2
+        when possible, each falling back to the subprocess equivalent on any
+        failure, so behavior is a strict superset of the previous
+        implementation.
         """
         # step 1: refs/remotes/origin/HEAD
         branch = self._symbolic_ref_branch_via_pygit("refs/remotes/origin/HEAD")
@@ -1967,12 +1965,11 @@ class GitRepository:
         # pygit2's status() includes untracked and modified files by default
         # (same set `git status --porcelain` reports), so an empty result means
         # the working tree is clean.
-        if PYGIT2_AVAILABLE:
-            try:
-                if not self.pygit_repo.status():
-                    return False
-            except Exception:
-                pass
+        try:
+            if not self.pygit_repo.status():
+                return False
+        except Exception:
+            pass
         return bool(self._git("status --porcelain"))
 
     def synced_with_remote(
@@ -2085,11 +2082,17 @@ class GitRepository:
         # detect the branch correctly instead of returning a stale None.
         return None
 
+    def clear_default_branch(self) -> None:
+        """Forget the detected default branch, both the attribute and the
+        path-keyed cache, so the next detection runs from scratch."""
+        _default_branch_cache.pop(str(self.path), None)
+        self.default_branch = None
+
     def clone_bare_from_local(self, local_path: Path) -> None:
         """Seed a bare repo from a local path (no network).
 
         Uses `git clone --local`, which hardlinks objects on the same volume
-        instead of copying them. Does NOT detect default_branch — the caller
+        instead of copying them. Does not detect default_branch — the caller
         must do that after updating origin to the real remote URL, otherwise
         remote show origin contacts local_path which may be in detached HEAD and
         returns a bogus branch name that then gets cached and blocks the correct
@@ -2106,9 +2109,8 @@ class GitRepository:
         # `git clone --bare` creates no origin remote (pygit2 did); add it for
         # parity so the caller's `remote set-url origin` succeeds
         self.add_remote("origin", str(local_path))
-        # Clear cache and reset so the caller's post-setup detection runs cleanly.
-        _default_branch_cache.pop(str(self.path), None)
-        self.default_branch = None
+        # reset so the caller's post-setup detection runs cleanly
+        self.clear_default_branch()
 
     def top_commit_of_remote_branch(
         self, branch, remote="origin"

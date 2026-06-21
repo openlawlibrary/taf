@@ -27,10 +27,11 @@ def _cached_crypto_key(self):
 
 
 def enable_public_key_cache() -> None:
+    # Called once, at import time, so the warning below cannot be repeated.
     if hasattr(SSlibKey, "_crypto_key"):
         SSlibKey._crypto_key = _cached_crypto_key  # type: ignore
     else:
-        taf_logger.debug(
+        taf_logger.warning(
             "securesystemslib internals changed: SSlibKey._crypto_key not found, "
             "skipping public key cache"
         )

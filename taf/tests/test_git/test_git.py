@@ -704,9 +704,6 @@ def test_is_remote_branch(origin_repo: GitRepository, clone_repository: GitRepos
     )
 
 
-# --- pygit2-backed read-only checks ---
-
-
 def test_is_git_repository_in_subdirectory(repository: GitRepository):
     # parity with `rev-parse --is-inside-work-tree`: a path inside a work tree
     # is reported as a git repository (discover_repository searches upward)
@@ -737,9 +734,6 @@ def test_default_branch_from_origin_head(
 def test_default_branch_from_head_no_remote(repository: GitRepository):
     # no origin remote: falls back to local HEAD shorthand
     assert repository._get_default_branch_from_local() == repository.default_branch
-
-
-# --- git clone --local (hardlinked objects) ---
 
 
 def test_is_git_repository_cached_until_clone(repository, tmp_path):

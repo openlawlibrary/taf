@@ -1,6 +1,8 @@
 from taf.tests.conftest import TEST_DATA_PATH
 
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from tuf.ngclient._internal import trusted_metadata_set
 from pytest import fixture
 
@@ -60,3 +62,17 @@ def update_handlers_invalid_inputs():
         input_path
         for input_path in UPDATE_HANDLERS_DATA_INVALID_INPUT_IDR.glob("*.json")
     ]
+
+
+@fixture
+def rsa_key_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_pem = (
+        private_key.public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("utf-8")
+    )
+    return private_key, public_pem

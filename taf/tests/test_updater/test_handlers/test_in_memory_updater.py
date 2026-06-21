@@ -1,8 +1,8 @@
 import inspect
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
 from securesystemslib.exceptions import UnverifiedSignatureError
 from securesystemslib.signer import SSlibKey, Signature
 from tuf.api.exceptions import DownloadLengthMismatchError
@@ -70,20 +70,6 @@ def test_download_bytes_enforces_max_length():
     fetcher = _FetcherStub(b"x" * 101)
     with pytest.raises(DownloadLengthMismatchError):
         fetcher.download_bytes("metadata/root.json", 100)
-
-
-@pytest.fixture
-def rsa_key_pair():
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public_pem = (
-        private_key.public_key()
-        .public_bytes(
-            serialization.Encoding.PEM,
-            serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        .decode("utf-8")
-    )
-    return private_key, public_pem
 
 
 def test_cached_key_verifies_and_rejects_signatures(rsa_key_pair):
