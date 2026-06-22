@@ -1,5 +1,7 @@
 import datetime
 import json
+import os
+from pathlib import Path
 from pygit2 import AlreadyExistsError
 from taf.models.types import Commitish
 import pytest
@@ -163,6 +165,43 @@ def test_is_git_repository_root_non_bare(repository: GitRepository):
     repository.init_repo(bare=False)
     assert repository.is_git_repository
     assert repository.is_git_repository_root
+
+
+def test_is_git_repository_not_cached_negative(tmp_path):
+    """is_git_repository must not permanently cache a negative result: an
+    instance created for a path before the repository exists (e.g. before the
+    updater or an external process materializes it) has to report True once a
+    valid repository appears on disk."""
+    repo_path = Path(tmp_path) / "repo"
+    repo = GitRepository(path=repo_path)
+    # path does not exist yet
+    assert repo.is_git_repository is False
+    # an external actor creates the repository at that path
+    repo_path.mkdir(parents=True, exist_ok=True)
+    GitRepository(path=repo_path).init_repo(bare=False)
+    # the original instance must now detect it instead of returning a stale False
+    assert repo.is_git_repository is True
+
+
+def test_set_head_to_branch(repository: GitRepository):
+    branch_name = "feature"
+    repository.create_branch(branch_name)
+    repository.set_head_to_branch(branch_name)
+    assert repository.get_current_branch() == branch_name
+
+
+def test_fetch_heads_to_remote_tracking(repository: GitRepository):
+    default_branch = repository.default_branch
+    assert default_branch is not None
+    # no remote-tracking ref before mirroring
+    assert not repository.branch_exists(
+        f"origin/{default_branch}", include_remotes=True
+    )
+    repository.fetch_heads_to_remote_tracking()
+    # refs/heads/* are now mirrored into refs/remotes/origin/*
+    assert repository.top_commit_of_remote_branch(default_branch) == (
+        repository.top_commit_of_branch(default_branch)
+    )
 
 
 def test_all_commits_since_commit_when_repo_empty(empty_repository: GitRepository):
@@ -663,3 +702,98 @@ def test_is_remote_branch(origin_repo: GitRepository, clone_repository: GitRepos
     assert not clone_repository.is_remote_branch(
         f"origin2/{clone_repository.default_branch}"
     )
+
+
+def test_is_git_repository_in_subdirectory(repository: GitRepository):
+    # parity with `rev-parse --is-inside-work-tree`: a path inside a work tree
+    # is reported as a git repository (discover_repository searches upward)
+    subdir = repository.path / "nested"
+    subdir.mkdir()
+    repo = GitRepository(path=subdir, default_branch=repository.default_branch)
+    assert repo.is_git_repository
+
+
+def test_is_git_repository_non_repo():
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = GitRepository(path=tmp)
+        assert not repo.is_git_repository
+        assert not repo.is_git_repository_root
+
+
+def test_default_branch_from_origin_head(
+    origin_repo: GitRepository, clone_repository: GitRepository
+):
+    clone_repository.urls = [str(origin_repo.path)]
+    clone_repository.clone()
+    # cloned repos have refs/remotes/origin/HEAD; detection reads it in-process
+    assert (
+        clone_repository._get_default_branch_from_local() == origin_repo.default_branch
+    )
+
+
+def test_default_branch_from_head_no_remote(repository: GitRepository):
+    # no origin remote: falls back to local HEAD shorthand
+    assert repository._get_default_branch_from_local() == repository.default_branch
+
+
+def test_is_git_repository_cached_until_clone(repository, tmp_path):
+    # before cloning the path is not a repo; the negative result must not be
+    # cached past the clone (cloning makes it a repo). tmp_path is outside any
+    # git checkout so the pre-clone state is genuinely "not a repository".
+    dest = GitRepository(path=tmp_path / "dest")
+    dest.path.mkdir()
+    assert not dest.is_git_repository
+    dest.clone_from_disk(repository.path)
+    assert dest.is_git_repository
+
+
+def test_clone_from_disk_bare_has_origin(repository: GitRepository, tmp_path):
+    # `git clone --bare` creates no origin; clone_from_disk must add it for parity
+    bare = GitRepository(path=tmp_path / "bare")
+    bare.clone_from_disk(
+        repository.path, "https://example.com/x.git", is_bare=True, fetch_remote=False
+    )
+    assert bare.is_bare_repository
+    assert bare.get_remote_url() == "https://example.com/x.git"
+
+
+def test_clone_from_disk_bare_source_populates_origin_refs(
+    origin_repo: GitRepository, tmp_path
+):
+    # materialization hot path: bare source, fetch_remote=False must populate
+    # refs/remotes/origin/* from the source's refs/heads/*
+    origin_repo.pygit_repo  # ensure instantiated
+    user = GitRepository(path=tmp_path / "user")
+    user.clone_from_disk(
+        origin_repo.path,
+        "https://example.com/x.git",
+        is_bare=False,
+        fetch_remote=False,
+    )
+    assert not user.is_bare_repository
+    default_branch = origin_repo.default_branch
+    assert default_branch
+    origin_refs = [
+        str(r) for r in user.pygit_repo.references if "refs/remotes/origin/" in str(r)
+    ]
+    assert any(default_branch in ref for ref in origin_refs), origin_refs
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "getuid"), reason="hardlink nlink check is POSIX-only"
+)
+def test_clone_from_disk_hardlinks_objects(repository: GitRepository, tmp_path):
+    # git clone --local hardlinks objects on the same volume
+    dest = GitRepository(path=tmp_path / "linked")
+    dest.clone_from_disk(repository.path, keep_remote=True)
+
+    def loose_objects(base):
+        objects = Path(base) / ".git" / "objects"
+        if not objects.exists():
+            objects = Path(base) / "objects"
+        return [f for d in objects.glob("??") for f in d.iterdir() if f.is_file()]
+
+    dest_objs = loose_objects(dest.path)
+    assert dest_objs, "expected loose objects in the clone"
+    # at least one object is hardlinked (st_nlink > 1) to the source copy
+    assert any(os.stat(obj).st_nlink > 1 for obj in dest_objs)

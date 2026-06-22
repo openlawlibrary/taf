@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Changed
 
+- Reduce `taf repo clone` and `taf repo update` execution time by eliminating redundant network fetches ([743])
+- Improve TAF performance by roughly two thirds for both `clone` and `update` ([743])
+
 ### Fixed
 
 
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning][semver].
 - Fix false out-of-band authentication failures on update and clone ([740])
 
 [744]: https://github.com/openlawlibrary/taf/pull/744
+[743]: https://github.com/openlawlibrary/taf/pull/743
 [742]: https://github.com/openlawlibrary/taf/pull/742
 [740]: https://github.com/openlawlibrary/taf/pull/740
 

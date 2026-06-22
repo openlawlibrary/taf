@@ -1,6 +1,7 @@
 from pathlib import Path
 import pytest
 from taf.auth_repo import AuthenticationRepository
+from taf.git import GitRepository
 from taf.tests.test_updater.conftest import (
     SetupManager,
     add_unauthenticated_commits_to_all_target_repos,
@@ -157,6 +158,44 @@ def test_update_valid_when_expiration_dates_updated(origin_auth_repo, client_dir
         origin_auth_repo,
         client_dir,
     )
+
+    setup_manager = SetupManager(origin_auth_repo)
+    setup_manager.add_task(update_expiration_dates)
+    setup_manager.execute_tasks()
+
+    update_and_check_commit_shas(
+        OperationType.UPDATE,
+        origin_auth_repo,
+        client_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "origin_auth_repo",
+    [
+        {
+            "targets_config": [{"name": "target1"}, {"name": "target2"}],
+        },
+    ],
+    indirect=True,
+)
+def test_update_uses_configured_remote_over_local_origin(
+    origin_auth_repo, client_dir, tmp_path
+):
+    clone_repositories(
+        origin_auth_repo,
+        client_dir,
+    )
+
+    stale_origin = GitRepository(path=tmp_path / "stale-origin-auth")
+    stale_origin.clone_from_disk(
+        origin_auth_repo.path,
+        str(origin_auth_repo.path),
+        is_bare=True,
+    )
+
+    client_auth_repo = AuthenticationRepository(path=client_dir / origin_auth_repo.name)
+    client_auth_repo.set_remote_url(str(stale_origin.path))
 
     setup_manager = SetupManager(origin_auth_repo)
     setup_manager.add_task(update_expiration_dates)
