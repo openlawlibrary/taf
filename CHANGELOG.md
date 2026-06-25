@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog][keepachangelog],
 and this project adheres to [Semantic Versioning][semver].
 
+
 ## [Unreleased]
+
+### Added
+
+### Changed
+
+- Reduce `taf repo clone` and `taf repo update` execution time by eliminating redundant network fetches ([743])
+- Improve TAF performance by roughly two thirds for both `clone` and `update` ([743])
+
+### Fixed
+
+
+## [0.39.0]
 
 ### Added
 
@@ -1845,7 +1858,8 @@ and this project adheres to [Semantic Versioning][semver].
 
 [keepachangelog]: https://keepachangelog.com/en/1.0.0/
 [semver]: https://semver.org/spec/v2.0.0.html
-[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.38.4...HEAD
+[unreleased]: https://github.com/openlawlibrary/taf/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/openlawlibrary/taf/compare/v0.38.4...v0.39.0
 [0.38.4]: https://github.com/openlawlibrary/taf/compare/v0.38.3...v0.38.4
 [0.38.3]: https://github.com/openlawlibrary/taf/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/openlawlibrary/taf/compare/v0.38.1...v0.38.2
