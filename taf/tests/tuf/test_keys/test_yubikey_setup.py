@@ -6,17 +6,9 @@ which is how the standalone setup command calls into the prompt: there is no
 authentication repository involved when provisioning a fresh key.
 """
 
-import pytest
-
 import taf.yubikey.yubikey as yk
 from taf.yubikey.yubikey import yubikey_prompt
 from taf.yubikey.yubikey_manager import PinManager
-
-
-@pytest.fixture
-def fake_single_yubikey(monkeypatch):
-    """Pretend exactly one YubiKey (serial ``1234``) is inserted."""
-    monkeypatch.setattr(yk, "get_serial_nums", lambda: ["1234"])
 
 
 def test_setup_new_yubikey_without_taf_repo_does_not_crash(
