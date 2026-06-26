@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Raise clear error when a target repository is missing a branch referenced by the authentication repository's target metadata ([751])
+
+[751]: https://github.com/openlawlibrary/taf/pull/751
+
 
 ## [0.38.4]
 
