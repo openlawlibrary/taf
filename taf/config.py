@@ -77,9 +77,7 @@ class TafConfig:
             return _converter.structure(data, cls)
         except cattrs.BaseValidationError as e:
             messages = "; ".join(_iter_error_messages(e))
-            raise InvalidConfigError(
-                f"Invalid config.toml: {messages}"
-            ) from e
+            raise InvalidConfigError(f"Invalid config.toml: {messages}") from e
 
     def to_mapping(self) -> dict[str, Any]:
         """Round-trip back to a JSON-serialisable mapping."""
@@ -103,9 +101,7 @@ class TafConfig:
 _converter = cattrs.Converter(forbid_extra_keys=False)
 _converter.register_structure_hook(
     RootConfig,
-    make_dict_structure_fn(
-        RootConfig, _converter, _cattrs_forbid_extra_keys=True
-    ),
+    make_dict_structure_fn(RootConfig, _converter, _cattrs_forbid_extra_keys=True),
 )
 
 
