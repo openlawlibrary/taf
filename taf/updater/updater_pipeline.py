@@ -1663,6 +1663,13 @@ class AuthenticationRepositoryUpdatePipeline(Pipeline):
                         msg = f"{repository.name} does not contain a branch named {branch} and cannot be validated. Please update the repositories."
                         taf_logger.error(msg)
                         raise UpdateFailedError(msg)
+                elif not branch_exists:
+                    raise UpdateFailedError(
+                        f"Target repository '{repository.name}' does not contain branch '{branch}', "
+                        f"which is referenced by authentication repository '{self.state.auth_repo_name}'. "
+                        "All branches referenced by the authentication repository's target metadata "
+                        "must be present in the target repositories."
+                    )
                 # else: clone_target_repositories_to_temp already fetched from
                 # origin, so refs/remotes/origin/* are current — skip re-fetch.
 
