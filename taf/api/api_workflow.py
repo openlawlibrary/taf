@@ -11,7 +11,7 @@ from taf.api.utils._conf import (
 from taf.auth_repo import AuthenticationRepository
 from taf.config import load_config
 from taf.constants import DEFAULT_RSA_SIGNATURE_SCHEME
-from taf.exceptions import PushFailedError, TAFError
+from taf.exceptions import InvalidConfigError, PushFailedError, TAFError
 from taf.keys import load_signers
 from taf.messages import git_commit_message
 from taf.constants import METADATA_DIRECTORY_NAME
@@ -105,6 +105,9 @@ def read_keys_name_mapping_from_auth(auth_repo: AuthenticationRepository) -> Dic
         if cfg.root is None:
             raise FileNotFoundError("No root authentication repository found.")
     except FileNotFoundError:
+        return {}
+    except InvalidConfigError as e:
+        taf_logger.warning(f"Invalid config.toml, skipping keys name mapping. {str(e)}")
         return {}
 
     root_auth_repo_name = cfg.root.name

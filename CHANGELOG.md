@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning][semver].
 
 ### Fixed
 
+- Don't crash `taf yubikey setup-signing-key` when no authentication repository is involved (`taf_repo` is `None`) ([748])
+- Don't validate a new YubiKey's PIN against the card during setup, which could lock the key ([748])
+- Validate `config.toml` against a complete schema (strict `[root]`, lenient top level) and raise a clear error on invalid input ([748])
+
+[748]: https://github.com/openlawlibrary/taf/pull/748
+
 
 ## [0.38.4]
 

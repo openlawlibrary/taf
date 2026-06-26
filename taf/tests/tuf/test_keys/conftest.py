@@ -7,6 +7,17 @@ from taf.models.types import RolesKeysData
 from taf.tuf.repository import MetadataRepository
 
 
+@pytest.fixture
+def fake_single_yubikey(monkeypatch):
+    """Pretend exactly one YubiKey (serial ``1234``) is inserted."""
+    # Imported lazily: taf.yubikey.yubikey pulls in the optional `ykman`
+    # dependency, which need not be installed to collect the rest of this
+    # directory's tests.
+    import taf.yubikey.yubikey as yk
+
+    monkeypatch.setattr(yk, "get_serial_nums", lambda: ["1234"])
+
+
 @pytest.fixture(autouse=False)
 def tuf_repo(
     tuf_repo_path, signers_with_delegations, with_delegations_no_yubikeys_input
