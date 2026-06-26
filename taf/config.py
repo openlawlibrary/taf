@@ -34,8 +34,8 @@ class RootConfig:
     `name` and `org` are required.
 
     `url` and `hash` are optional records: the archive tooling writes `url`
-    (the root stele clone URL) but nothing reads it back, and `hash` is not
-    written by any current producer. They are modelled so the schema stays
+    (the root repository's clone URL) but nothing reads it back, and `hash` is
+    not written by any current producer. They are modelled so the schema stays
     complete rather than silently dropping keys that exist on disk.
     """
 
@@ -93,9 +93,9 @@ class TafConfig:
 
 
 # Leniency is per-object on purpose:
-#   * Top level is permissive. It is co-owned with stelae, which writes tables
-#     taf does not consume (e.g. [headers]); unknown top-level keys are ignored
-#     so an evolving stelae schema never breaks taf.
+#   * Top level is permissive. It is co-owned with the archive tooling, which
+#     writes tables taf does not consume (e.g. [headers]); unknown top-level
+#     keys are ignored so an evolving archive schema never breaks taf.
 #   * `[root]` is strict. It is the one object taf actually depends on, so an
 #     extra/typo'd key there fails loudly rather than silently dropping.
 #   * [headers] (and any other table taf doesn't model) is opaque: taf has
